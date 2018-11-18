@@ -2,8 +2,6 @@ import pytest
 
 from juno import utils
 
-import env
-
 
 @pytest.mark.parametrize('input,expected_output', [
     ([(0, 1), (1, 2), (3, 4), (4, 5)], [(0, 2), (3, 5)])

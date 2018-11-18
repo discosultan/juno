@@ -1,5 +1,5 @@
 from . import Sma
-from math import sqrt
+
 
 # Commodity Channel Index
 class Cci:

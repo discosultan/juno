@@ -29,11 +29,11 @@ class DI:
             self.atr += _calc_truerange(self.prev_close, high, low)
 
         if self.t == self.t2:
-            plus_di  = 100.0 * plus_dm / self.atr
+            plus_di = 100.0 * plus_dm / self.atr
             minus_di = 100.0 * minus_dm / self.atr
         elif self.t == self.t3:
             self.atr = self.atr * self.per + _calc_truerange(self.prev_close, high, low)
-            plus_di  = 100.0 * plus_dm / self.atr
+            plus_di = 100.0 * plus_dm / self.atr
             minus_di = 100.0 * minus_dm / self.atr
 
         self.prev_close = close

@@ -1,8 +1,6 @@
 import pytest
 
-from juno.indicators import *
-
-import env
+from juno.indicators import Sma, Ema, Dema, Cci, DM, DI, DX, Adx, Adxr, Macd, Stoch, Rsi
 
 
 def test_adx():
@@ -222,13 +220,13 @@ def test_dx():
 
 
 def test_ema():
-    inputs  = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
+    inputs = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
     outputs = [[25.000, 24.958, 24.899, 24.797, 24.698, 24.674, 24.856, 25.654]]
     _assert(Ema(5), inputs, outputs, 3)
 
 
 def test_sma():
-    inputs  = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
+    inputs = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
     outputs = [[24.750, 24.675, 24.744, 25.238]]
     _assert(Sma(5), inputs, outputs, 3)
 
