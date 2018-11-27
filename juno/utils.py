@@ -26,3 +26,58 @@ def generate_missing_spans(start, end, existing_spans):
 
     if missing_start < missing_end:
         yield missing_start, missing_end
+
+
+def page(start, end, interval, limit):
+    total_size = (end - start) / interval
+    max_count = limit * interval
+    page_size = ceil(total_size / limit)
+    for i in range(0, page_size):
+        page_start = start + i * max_count
+        page_end = min(page_start + max_count, end)
+        yield page_start, page_end
+
+
+# Implements a leaky bucket algorithm. Useful for rate limiting API calls.
+# Implementation taken from: https://stackoverflow.com/a/45502319/1466456
+class LeakyBucket:
+    """A leaky bucket rate limiter.
+
+    Allows up to rate / period acquisitions before blocking.
+
+    Period is measured in seconds.
+    """
+    def __init__(self, rate: float, period: float):
+        self._max_level = rate
+        self._rate_per_sec = rate / period
+        self._level = 0.0
+        self._last_check = 0.0
+
+    def _leak(self):
+        """Drip out capacity from the bucket."""
+        now = asyncio.get_running_loop().time()
+        if self._level:
+            # Drip out enough level for the elapsed time since we last checked.
+            elapsed = now - self._last_check
+            decrement = elapsed * self._rate_per_sec
+            self._level = max(self._level - decrement, 0.0)
+        self._last_check = now
+
+    def has_capacity(self, amount: float = 1.0) -> bool:
+        """Check if there is enough space remaining in the bucket."""
+        self._leak()
+        return self._level + amount <= self._max_level
+
+    async def acquire(self, amount: float = 1.0):
+        """Acquire space in the bucket.
+
+        If the bucket is full, block until there is space.
+        """
+        if amount > self._max_level:
+            raise ValueError("Can't acquire more than the bucket capacity")
+
+        while not self.has_capacity(amount):
+            # Wait for the next drip to have left the bucket.
+            await asyncio.sleep(1.0 / self._rate_per_sec)
+
+        self._level += amount
