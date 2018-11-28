@@ -1,3 +1,6 @@
+from contextlib import asynccontextmanager
+import logging
+
 import aiohttp
 
 
@@ -10,6 +13,8 @@ class ClientSession:
     logger = logging.getLogger('aiohttp.client')
 
     def __init__(self, *args, **kwargs):
+        self._raise_for_status = kwargs.get('raise_for_status')
+        kwargs.pop('raise_for_status')
         self._session = aiohttp.ClientSession(*args, **kwargs)
 
     async def __aenter__(self):
@@ -27,7 +32,8 @@ class ClientSession:
             self.logger.info(f'{res.status} {res.reason}')
             if res.status >= 400:
                 self.logger.error(await res.text())
-                res.raise_for_status()
+                if self._raise_for_status:
+                    res.raise_for_status()
             else:
                 self.logger.debug(await res.text())
             yield res

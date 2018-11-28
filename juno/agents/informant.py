@@ -1,6 +1,6 @@
 class Informant:
 
-    def __init__(services):
+    def __init__(self, services):
         self._exchange = services['exchange']
         self._symbol_info = {}
 

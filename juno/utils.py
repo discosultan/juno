@@ -1,3 +1,7 @@
+import asyncio
+import math
+
+
 def merge_adjacent_spans(spans):
     merged_start, merged_end = None, None
 
@@ -31,7 +35,7 @@ def generate_missing_spans(start, end, existing_spans):
 def page(start, end, interval, limit):
     total_size = (end - start) / interval
     max_count = limit * interval
-    page_size = ceil(total_size / limit)
+    page_size = math.ceil(total_size / limit)
     for i in range(0, page_size):
         page_start = start + i * max_count
         page_end = min(page_start + max_count, end)
