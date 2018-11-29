@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from juno import AccountInfo, Candle, Fees, SymbolInfo
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import time_ms
@@ -32,7 +33,7 @@ class Coinbase:
         res = await self._public_request('https://api.pro.coinbase.com/products')
         product = (x for x in res if x['id'] == _product(symbol)).__next__()
 
-        return AssetPairInfo(
+        return SymbolInfo(
             time_ms(),
             symbol,
             1_000_000_000,
@@ -77,7 +78,7 @@ class Coinbase:
 
     async def _public_request(self, url):
         await self._pub_limiter.acquire()
-        async with self._session.get(url) as res:
+        async with self._session.request('GET', url) as res:
             return await res.json()
 
 

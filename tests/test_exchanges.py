@@ -1,9 +1,11 @@
+from datetime import datetime
 import os
 
+import aiohttp
 import pytest
 
 from juno.exchanges import Binance, Coinbase
-from juno.time import time_ms
+from juno.time import datetime_timestamp_ms, HOUR_MS
 
 
 # We use a session-scoped loop for shared rate-limiting.
@@ -35,10 +37,17 @@ exchange_names = [exchange.__class__.__name__ for exchange in exchanges]
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
                          indirect=True)
-async def test_get_filled_orders(exchange):
+async def test_stream_candles(loop, request, exchange):
     if request.config.option.markexpr != 'manual':
         pytest.skip("Specify 'manual' marker to run! These are run manually "
                     "as they integrate with external exchanges")
 
-    h1_ago = time_ms() - 1000 * 60 * 1
-    # await exchange.get_filled_orders(limit=1, since=h1_ago)
+    start = datetime_timestamp_ms(datetime(2018, 1, 1))
+    stream = exchange.stream_candles(
+        symbol='eth-btc',
+        interval=HOUR_MS,
+        start=start,
+        end=start + HOUR_MS)
+    await stream.__anext__()
+    with pytest.raises(StopAsyncIteration):
+            await stream.__anext__()

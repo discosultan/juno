@@ -8,10 +8,11 @@ import json
 import aiohttp
 import backoff
 
+from juno import AccountInfo, BidAsk, Candle, Depth, Fees, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.utils import LeakyBucket, page
-from juno.time import MS_HOUR, time_ms
+from juno.time import HOUR_MS, time_ms
 
 
 _BASE_URL = 'https://api.binance.com'
@@ -56,11 +57,11 @@ class Binance:
         price_filter = (x for x in filters if x['filterType'] == 'PRICE_FILTER').__next__()
         lot_size_filter = (x for x in filters if x['filterType'] == 'LOT_SIZE').__next__()
 
-        return AssetPairInfo(time_ms(), symbol, symbol_info['baseAssetPrecision'],
-                             symbol_info['quotePrecision'], float(price_filter['minPrice']),
-                             float(price_filter['maxPrice']), float(price_filter['tickSize']),
-                             float(lot_size_filter['minQty']), float(lot_size_filter['maxQty']),
-                             float(lot_size_filter['stepSize']))
+        return SymbolInfo(time_ms(), symbol, symbol_info['baseAssetPrecision'],
+                          symbol_info['quotePrecision'], float(price_filter['minPrice']),
+                          float(price_filter['maxPrice']), float(price_filter['tickSize']),
+                          float(lot_size_filter['minQty']), float(lot_size_filter['maxQty']),
+                          float(lot_size_filter['stepSize']))
 
     async def get_account_info(self, symbol):
         base, quote = (asset.upper() for asset in symbol.split('-'))
@@ -133,7 +134,7 @@ class Binance:
         # we miss out on the very last update to a candle.
 
         url = f'wss://stream.binance.com:9443/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}'
-        MS_12HOURS = MS_HOUR * 12
+        MS_12HOURS = HOUR_MS * 12
         last_candle = None
         while True:
             stream_start = time_ms()
