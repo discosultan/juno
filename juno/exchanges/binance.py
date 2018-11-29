@@ -27,9 +27,6 @@ class Binance:
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
 
-        self.default_fees = Fees(0.0001, 0.0001)
-        self.name = self.__class__.__name__
-
         # Rate limiters.
         self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)           # 1200 per min.
         self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)            # 10 per sec.

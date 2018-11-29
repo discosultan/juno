@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from juno import AccountInfo, Candle, Fees, SymbolInfo
+from juno import AccountInfo, Candle, SymbolInfo
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import time_ms
@@ -13,9 +13,6 @@ class Coinbase:
         self._session = None
         self._api_key = api_key
         self._secret_key = secret_key
-
-        self.default_fees = Fees(0.0, 0.0025)
-        self.name = self.__class__.__name__
 
         # Rate limiter.
         self._pub_limiter = LeakyBucket(rate=1, period=1)   # They advertise 3 per sec.

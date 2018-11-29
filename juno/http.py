@@ -10,7 +10,7 @@ import aiohttp
 # https://github.com/aio-libs/aiohttp/issues/3185
 class ClientSession:
 
-    logger = logging.getLogger('aiohttp.client')
+    _log = logging.getLogger('aiohttp.client')
 
     def __init__(self, *args, **kwargs):
         self._raise_for_status = kwargs.get('raise_for_status')
@@ -26,14 +26,14 @@ class ClientSession:
 
     @asynccontextmanager
     async def request(self, method, url, **kwargs):
-        self.logger.info(f'{method} {url}')
-        self.logger.debug(kwargs)
+        self._log.info(f'{method} {url}')
+        self._log.debug(kwargs)
         async with self._session.request(method, url, **kwargs) as res:
-            self.logger.info(f'{res.status} {res.reason}')
+            self._log.info(f'{res.status} {res.reason}')
             if res.status >= 400:
-                self.logger.error(await res.text())
+                self._log.error(await res.text())
                 if self._raise_for_status:
                     res.raise_for_status()
             else:
-                self.logger.debug(await res.text())
+                self._log.debug(await res.text())
             yield res

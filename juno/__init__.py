@@ -15,16 +15,26 @@ SymbolInfo = namedtuple('SymbolInfo', ['time', 'name', 'base_precision', 'quote_
 Trade = namedtuple('Trade', ['price', 'qty', 'commission', 'commission_asset', 'is_buyer'])
 
 
+# We have a choice between dataclasses and namedtuples. Namedtuples are chosen as they support
+# iterating over values of an instance (i.e `*mytuple`) which is convenient for decomposing
+# values for SQLIte insertion. Dataclasses miss that functionality but offer comparisons, etc.
+# out of the box.
 class Candle(namedtuple('Candle', ['time', 'open', 'high', 'low', 'close', 'volume'])):
-    __slots__ = ()
+    time: int
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
 
     def __repr__(self):
         return (f'{self.__class__.__name__}(time={datetime_fromtimestamp_ms(self.time)}, '
                 f'open={self.open}, high={self.high}, low={self.low}, close={self.close})')
 
 
-class CandleRange(namedtuple('CandleRange', ['start', 'end'])):
-    __slots__ = ()
+class Span(namedtuple('Span', ['start', 'end'])):
+    start: int
+    end: int
 
     def __repr__(self):
         return (f'{self.__class__.__name__}(start={datetime_fromtimestamp_ms(self.start)}, '

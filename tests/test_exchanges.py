@@ -28,7 +28,7 @@ for exchange_type in [Binance, Coinbase]:
     keys = exchange_type.__init__.__annotations__.keys()  # type: ignore
     kwargs = {key: os.getenv(f'JUNO_{name}_{key.upper()}') for key in keys}
     if all(kwargs.values()):
-        exchanges.append(exchange_type(**kwargs))
+        exchanges.append(exchange_type(**kwargs))  # type: ignore
 
 # Used for pretty parametrized tests output.
 exchange_names = [exchange.__class__.__name__ for exchange in exchanges]

@@ -2,6 +2,10 @@ import asyncio
 import math
 
 
+async def list_async(async_iter):
+    return [item async for item in async_iter]
+
+
 def merge_adjacent_spans(spans):
     merged_start, merged_end = None, None
 
