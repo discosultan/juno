@@ -21,10 +21,10 @@ class Memory(SQLite):
         await asyncio.gather(*(db.__aexit__(exc_type, exc, tb) for db in self._dbs.values()))
 
     @asynccontextmanager
-    async def _get_db(self, name: str) -> Any:
-        db = self._dbs.get(name)
+    async def _connect(self, key: str) -> Any:
+        db = self._dbs.get(key)
         if not db:
             db = aiosqlite.connect(':memory:')
             await db.__aenter__()
-            self._dbs[name] = db
+            self._dbs[key] = db
         yield db

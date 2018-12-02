@@ -21,14 +21,12 @@ async def test_memory_store_candles(loop):
         span = Span(start=0, end=2)
 
         await storage.store_candles_and_span(
-            exchange='exchange',
-            symbol='eth-btc',
-            interval=1,
+            key=('exchange', 'eth-btc', 1),
             candles=candles,
             span=span)
         spans, candles = await asyncio.gather(
-            list_async(storage.stream_candle_spans('exchange', 'eth-btc', 0, 2)),
-            list_async(storage.stream_candles('exchange', 'eth-btc', 0, 2)))
+            list_async(storage.stream_candle_spans(('exchange', 'eth-btc', 1), 0, 2)),
+            list_async(storage.stream_candles(('exchange', 'eth-btc', 1), 0, 2)))
 
         assert spans == [span]
         assert candles == candles
