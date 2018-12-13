@@ -1,12 +1,16 @@
 import asyncio
 import math
+from typing import AsyncIterable, Iterable, List, Tuple, TypeVar
 
 
-async def list_async(async_iter):
+T = TypeVar('T')
+
+
+async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
     return [item async for item in async_iter]
 
 
-def merge_adjacent_spans(spans):
+def merge_adjacent_spans(spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
     merged_start, merged_end = None, None
 
     for start, end in spans:
@@ -19,10 +23,11 @@ def merge_adjacent_spans(spans):
             merged_start, merged_end = start, end
 
     if merged_start is not None:
-        yield merged_start, merged_end
+        yield merged_start, merged_end  # type: ignore
 
 
-def generate_missing_spans(start, end, existing_spans):
+def generate_missing_spans(start: int, end: int, existing_spans: Iterable[Tuple[int, int]]
+                           ) -> Iterable[Tuple[int, int]]:
     # Initially assume entire span missing.
     missing_start, missing_end = start, end
 
@@ -36,7 +41,7 @@ def generate_missing_spans(start, end, existing_spans):
         yield missing_start, missing_end
 
 
-def page(start, end, interval, limit):
+def page(start: int, end: int, interval: int, limit: int) -> Iterable[Tuple[int, int]]:
     total_size = (end - start) / interval
     max_count = limit * interval
     page_size = math.ceil(total_size / limit)

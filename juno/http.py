@@ -13,8 +13,7 @@ class ClientSession:
     _log = logging.getLogger('aiohttp.client')
 
     def __init__(self, *args, **kwargs):
-        self._raise_for_status = kwargs.get('raise_for_status')
-        kwargs.pop('raise_for_status')
+        self._raise_for_status = kwargs.pop('raise_for_status', None)
         self._session = aiohttp.ClientSession(*args, **kwargs)
 
     async def __aenter__(self):

@@ -12,7 +12,7 @@ YEAR_MS = 31_556_952_000
 
 
 def time_ms() -> int:
-    """Returns current time since EPOCH in milliseconds"""
+    """Returns current time since EPOCH in milliseconds."""
     return int(round(time() * 1000.0))
 
 
