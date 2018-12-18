@@ -8,6 +8,7 @@ from typing import Any, List
 import aiosqlite
 
 from juno import Candle, Span
+from juno.time import datetime_fromtimestamp_ms
 # from juno.time import time_ms
 
 
@@ -35,8 +36,9 @@ class SQLite:
             await self._ensure_table(db, Span)
             query = f'SELECT * FROM {Span.__name__} WHERE start < ? AND end > ? ORDER BY start'
             async with db.execute(query, [end, start]) as cursor:
-                async for row in cursor:
-                    yield Span(*row)
+                async for span_start, span_end in cursor:
+                    yield max(span_start, start), min(span_end, end)
+
 
     async def stream_candles(self, key: Any, start: int, end: int) -> Any:
         _log.info(f'streaming candle(s) from {self.__class__.__name__}')
@@ -47,12 +49,13 @@ class SQLite:
                 async for row in cursor:
                     yield Candle(*row)
 
-    async def store_candles_and_span(self, key: Any, candles: List[Candle], span: Span) -> Any:
-        if span.start > candles[0].time or span.end <= candles[-1].time:
+    async def store_candles_and_span(self, key: Any, candles: List[Candle], start: int, end: int
+                                     ) -> Any:
+        if start > candles[0].time or end <= candles[-1].time:
             raise ValueError('invalid input')
 
-        _log.info(f'storing {len(candles)} candle(s) for span ({span}) to '
-                  f'{self.__class__.__name__}')
+        _log.info(f'storing {len(candles)} candle(s) for span '
+                  f'{map(datetime_fromtimestamp_ms, (start, end))} to {self.__class__.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             try:
@@ -64,7 +67,7 @@ class SQLite:
                 _log.error(f'{err} {key}')
                 raise
             await self._ensure_table(db, Span)
-            await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [*span])
+            await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
     # async def store(self, key: tuple, item):

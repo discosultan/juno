@@ -1,1 +1,1 @@
-from .informat import Informant  # noqa
+from .informant import Informant  # noqa

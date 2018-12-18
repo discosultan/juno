@@ -1,6 +1,6 @@
 import asyncio
 
-from juno import Candle, Span
+from juno import Candle
 from juno.storages import Memory
 from juno.utils import list_async
 
@@ -18,15 +18,16 @@ def _new_candle(time=0):
 async def test_memory_store_candles(loop):
     async with Memory() as storage:
         candles = [_new_candle(time=0), _new_candle(time=1)]
-        span = Span(start=0, end=2)
+        start, end = 0, 2
 
         await storage.store_candles_and_span(
             key=('exchange', 'eth-btc', 1),
             candles=candles,
-            span=span)
+            start=start,
+            end=end)
         spans, candles = await asyncio.gather(
             list_async(storage.stream_candle_spans(('exchange', 'eth-btc', 1), 0, 2)),
             list_async(storage.stream_candles(('exchange', 'eth-btc', 1), 0, 2)))
 
-        assert spans == [span]
+        assert spans == [(start, end)]
         assert candles == candles
