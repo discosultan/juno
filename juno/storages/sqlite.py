@@ -39,7 +39,6 @@ class SQLite:
                 async for span_start, span_end in cursor:
                     yield max(span_start, start), min(span_end, end)
 
-
     async def stream_candles(self, key: Any, start: int, end: int) -> Any:
         _log.info(f'streaming candle(s) from {self.__class__.__name__}')
         async with self._connect(key) as db:

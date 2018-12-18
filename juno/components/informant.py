@@ -42,7 +42,8 @@ class Informant:
             if exist_locally:
                 _log.info('local candles exist between '
                           f'{map(datetime_fromtimestamp_ms, (span_start, span_end))}')
-                async for candle in self._storage.stream_candles(storage_key, span_start, span_end):
+                async for candle in self._storage.stream_candles(
+                        storage_key, span_start, span_end):
                     yield candle, True
             else:
                 _log.info('missing candles between '
