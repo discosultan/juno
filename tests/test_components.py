@@ -49,7 +49,7 @@ async def test_stream_candles(loop, informant, exchange):
     # -> 1
     # -> 2 missing
     candles = await list_async(informant.stream_candles('fake', 'eth-btc', 1, 0, 3))
-    assert candles == exchange.candles[0:2]
+    assert candles == exchange.candles[:2]
 
     # -> 2 missing
     candles = await list_async(informant.stream_candles('fake', 'eth-btc', 1, 2, 3))
@@ -58,4 +58,4 @@ async def test_stream_candles(loop, informant, exchange):
     # -> 2 missing
     # -> 3
     candles = await list_async(informant.stream_candles('fake', 'eth-btc', 1, 3, 4))
-    assert candles == [exchange.candles[-1]]
+    assert candles == exchange.candles[-1:]
