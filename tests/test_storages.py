@@ -1,8 +1,48 @@
 import asyncio
 
+import pytest
+
 from juno import Candle
 from juno.storages import Memory
 from juno.utils import list_async
+
+
+@pytest.fixture
+async def memory(request):
+    async with Memory() as storage:
+        yield storage
+
+
+async def test_memory_store_candles(loop, memory):
+    candles = [_new_candle(time=0), _new_candle(time=1)]
+    start, end = 0, 2
+
+    await memory.store_candles_and_span(
+        key=('exchange', 'eth-btc', 1),
+        candles=candles,
+        start=start,
+        end=end)
+    spans, candles = await asyncio.gather(
+        list_async(memory.stream_candle_spans(('exchange', 'eth-btc', 1), 0, 2)),
+        list_async(memory.stream_candles(('exchange', 'eth-btc', 1), 0, 2)))
+
+    assert spans == [(start, end)]
+    assert candles == candles
+
+
+async def test_memory_store_get(loop, memory):
+    candle = _new_candle(time=1)
+
+    await memory.store(key='key', item=candle)
+    stored_candle, _ = await memory.get(key='key', item_cls=Candle)
+
+    assert stored_candle == candle
+
+
+async def test_memory_get_missing(loop, memory):
+    item, _ = await memory.get(key='key', item_cls=Candle)
+
+    assert item is None
 
 
 def _new_candle(time=0):
@@ -13,21 +53,3 @@ def _new_candle(time=0):
         low=0.0,
         close=0.0,
         volume=0.0)
-
-
-async def test_memory_store_candles(loop):
-    async with Memory() as storage:
-        candles = [_new_candle(time=0), _new_candle(time=1)]
-        start, end = 0, 2
-
-        await storage.store_candles_and_span(
-            key=('exchange', 'eth-btc', 1),
-            candles=candles,
-            start=start,
-            end=end)
-        spans, candles = await asyncio.gather(
-            list_async(storage.stream_candle_spans(('exchange', 'eth-btc', 1), 0, 2)),
-            list_async(storage.stream_candles(('exchange', 'eth-btc', 1), 0, 2)))
-
-        assert spans == [(start, end)]
-        assert candles == candles

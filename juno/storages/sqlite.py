@@ -1,15 +1,14 @@
 from contextlib import asynccontextmanager
-# import json
+import json
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, List
+from typing import Any, List, Tuple
 
 import aiosqlite
 
 from juno import Candle, Span
-from juno.time import datetime_fromtimestamp_ms
-# from juno.time import time_ms
+from juno.time import datetime_fromtimestamp_ms, time_ms
 
 
 _log = logging.getLogger(__package__)
@@ -69,13 +68,27 @@ class SQLite:
             await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
-    # async def store(self, key: tuple, item):
-    #      _log.info(f'storing {item.__class__.__name__} to {self.__class__.__name__}')
-    #     async with self._connect(key) as db:
-    #         table = await self._ensure_table(db, item.__class__)
-    #         await db.execute(
-    #           f'INSERT INTO {table} VALUES (?, ?)', [time_ms(), json.dumps(val)])
-    #         await db.commit()
+    async def get(self, key: Any, item_cls: type) -> Tuple[Any, int]:
+        cls_name = item_cls.__name__
+        _log.info(f'getting {cls_name} from {self.__class__.__name__}')
+        async with self._connect(key) as db:
+            await self._ensure_table(db, Bag)
+            cursor = await db.execute(f'SELECT * FROM {Bag.__name__} WHERE key=?', [cls_name])
+            row = await cursor.fetchone()
+            await cursor.close()
+            if row:
+                return item_cls(*json.loads(row[1])), row[2]
+            else:
+                return None, None
+
+    async def store(self, key: Any, item: Any):
+        cls_name = item.__class__.__name__
+        _log.info(f'storing {cls_name} to {self.__class__.__name__}')
+        async with self._connect(key) as db:
+            await self._ensure_table(db, Bag)
+            await db.execute(f'INSERT INTO {Bag.__name__} VALUES (?, ?, ?)',
+                             [cls_name, json.dumps(item), time_ms()])
+            await db.commit()
 
     @asynccontextmanager
     async def _connect(self, key: Any) -> Any:
@@ -122,8 +135,15 @@ def _type_to_sql_type(type: type) -> str:
         return 'INTEGER'
     if type == float:
         return 'REAL'
+    if type == str:
+        return 'TEXT'
     raise NotImplementedError()
 
+
+class Bag:
+    key: str
+    value: str
+    time: int
 
 # async def _ensure_tables_exist(self):
 #     async with aiosqlite.connect(self._db_name) as db:
