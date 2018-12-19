@@ -44,21 +44,20 @@ class Binance:
     async def __aexit__(self, exc_type, exc, tb):
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def get_symbol_info(self, symbol):
+    async def map_symbol_infos(self):
         res = await self._request('GET', '/api/v1/exchangeInfo', 1)
-
-        symbol_infos = res['symbols']
-        symbol_info = (x for x in symbol_infos if x['symbol'] == _http_symbol(symbol)).__next__()
-
-        filters = symbol_info['filters']
-        price_filter = (x for x in filters if x['filterType'] == 'PRICE_FILTER').__next__()
-        lot_size_filter = (x for x in filters if x['filterType'] == 'LOT_SIZE').__next__()
-
-        return SymbolInfo(time_ms(), symbol, symbol_info['baseAssetPrecision'],
-                          symbol_info['quotePrecision'], float(price_filter['minPrice']),
-                          float(price_filter['maxPrice']), float(price_filter['tickSize']),
-                          float(lot_size_filter['minQty']), float(lot_size_filter['maxQty']),
-                          float(lot_size_filter['stepSize']))
+        result = {}
+        for symbol in res['symbols']:
+            size = next((f for f in symbol['filters'] if f['filterType'] == 'LOT_SIZE'))
+            price = next((f for f in symbol['filters'] if f['filterType'] == 'PRICE_FILTER'))
+            result[f"{symbol['baseAsset']}-{symbol['quoteAsset']}"] = SymbolInfo(
+                min_size=float(size['minQty']),
+                max_size=float(size['maxQty']),
+                size_step=float(size['stepSize']),
+                min_price=float(price['minPrice']),
+                max_price=float(price['maxPrice']),
+                price_step=float(price['tickSize']))
+        return result
 
     async def get_account_info(self, symbol):
         base, quote = (asset.upper() for asset in symbol.split('-'))
@@ -131,16 +130,17 @@ class Binance:
         # we miss out on the very last update to a candle.
 
         url = f'wss://stream.binance.com:9443/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}'
-        MS_12HOURS = HOUR_MS * 12
         last_candle = None
         while True:
             stream_start = time_ms()
             if stream_start >= end:
                 break
 
+            valid_until = stream_start + HOUR_MS * 12
+
             async with self._ws_connect(url) as ws:
                 async for msg in ws:
-                    _log.trace(msg)
+                    _log.debug(msg)
 
                     if msg.type is aiohttp.WSMsgType.CLOSED:
                         _log.error(f'binance ws connection closed unexpectedly ({msg})')
@@ -161,9 +161,9 @@ class Binance:
                         yield c, False
 
                     last_candle = c
-                    if c.time >= end - self.interval:
+                    if c.time >= end - interval:
                         return
-                    if time_ms() - stream_start > MS_12HOURS:
+                    if time_ms() > valid_until:
                         break
 
     @backoff.on_exception(backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=5)

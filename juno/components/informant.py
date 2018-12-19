@@ -1,3 +1,5 @@
+import asyncio
+from collections import defaultdict
 import logging
 
 from juno.math import floor_multiple
@@ -15,13 +17,19 @@ class Informant:
                            if s.__class__.__name__.lower() in config['exchanges']}
         _log.info(self._exchanges)
         self._storage = services[config['storage']]
+        self._exchange_symbols = defaultdict(dict)
 
     async def __aenter__(self):
-        # self._symbol_info = await self._exchange.get_symbol_info()
+        s_infos = await asyncio.gather(*(e.map_symbol_infos() for e in self._exchanges.values()))
+        for exchange, symbol_infos in zip(self._exchanges.keys(), s_infos):
+            self._exchange_symbols[exchange] = symbol_infos
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
         pass
+
+    def get_symbol_info(self, exchange, symbol):
+        return self._exchange_symbols[exchange][symbol]
 
     async def stream_candles(self, exchange, symbol, interval, start, end):
         """Tries to stream candles for the specified range from local storage. If candles don't

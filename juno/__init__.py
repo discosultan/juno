@@ -9,9 +9,8 @@ BidAsk = namedtuple('BidAsk', ['price', 'qty'])
 Depth = namedtuple('Depth', ['bids', 'asks'])
 Fees = namedtuple('Fees', ['maker', 'taker'])
 OrderResult = namedtuple('OrderResult', ['price', 'executed_qty'])
-SymbolInfo = namedtuple('SymbolInfo', ['time', 'name', 'base_precision', 'quote_precision',
-                                       'min_price', 'max_price', 'price_step_size',
-                                       'min_qty', 'max_qty', 'qty_step_size'])
+SymbolInfo = namedtuple('SymbolInfo', ['min_size', 'max_size', 'size_step', 'min_price',
+                                       'max_price', 'price_step'])
 Trade = namedtuple('Trade', ['price', 'qty', 'commission', 'commission_asset', 'is_buyer'])
 
 

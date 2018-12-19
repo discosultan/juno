@@ -38,10 +38,7 @@ exchange_names = [exchange.__class__.__name__ for exchange in exchanges]
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
                          indirect=True)
 async def test_stream_candles(loop, request, exchange):
-    if request.config.option.markexpr != 'manual':
-        pytest.skip("Specify 'manual' marker to run! These are run manually "
-                    "as they integrate with external exchanges")
-
+    skip_non_manual(request)
     start = datetime_timestamp_ms(datetime(2018, 1, 1))
     stream = exchange.stream_candles(
         symbol='eth-btc',
@@ -51,3 +48,18 @@ async def test_stream_candles(loop, request, exchange):
     await stream.__anext__()
     with pytest.raises(StopAsyncIteration):
             await stream.__anext__()
+
+
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
+                         indirect=True)
+async def test_map_symbol_infos(loop, request, exchange):
+    skip_non_manual(request)
+    res = await exchange.map_symbol_infos()
+    assert len(res) > 0
+
+
+def skip_non_manual(request):
+    if request.config.option.markexpr != 'manual':
+        pytest.skip("Specify 'manual' marker to run! These are run manually "
+                    "as they integrate with external exchanges")

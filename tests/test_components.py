@@ -1,6 +1,6 @@
 import pytest
 
-from juno import Candle
+from juno import Candle, SymbolInfo
 from juno.components import Informant
 from juno.storages import Memory
 from juno.utils import list_async
@@ -15,6 +15,15 @@ class Fake:
         (Candle(3, 1.0, 1.0, 1.0, 1.0, 1.0), True)
     ]
 
+    async def map_symbol_infos(self):
+        return {'eth-btc': SymbolInfo(
+            min_size=1.0,
+            max_size=1.0,
+            size_step=1.0,
+            min_price=1.0,
+            max_price=1.0,
+            price_step=1.0)}
+
     async def stream_candles(self, _symbol, _interval, start, end):
         for c, p in ((c, p) for c, p in self.candles if c.time >= start and c.time < end):
             yield c, p
@@ -26,8 +35,9 @@ def exchange():
 
 
 @pytest.fixture
-def memory():
-    return Memory()
+async def memory():
+    async with Memory() as storage:
+        yield storage
 
 
 @pytest.fixture
@@ -59,3 +69,8 @@ async def test_stream_candles(loop, informant, exchange):
     # -> 3
     candles = await list_async(informant.stream_candles('fake', 'eth-btc', 1, 3, 4))
     assert candles == exchange.candles[-1:]
+
+
+async def test_get_symbol_info(loop, informant):
+    symbol_info = informant.get_symbol_info('fake', 'eth-btc')
+    assert symbol_info

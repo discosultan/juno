@@ -36,3 +36,10 @@ class ClientSession:
             else:
                 self._log.debug(await res.text())
             yield res
+
+    @asynccontextmanager
+    async def ws_connect(self, url, **kwargs):
+        self._log.info(f'WS {url}')
+        self._log.debug(kwargs)
+        async with self._session.ws_connect(url, **kwargs) as ws:
+            yield ws

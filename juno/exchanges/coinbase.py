@@ -26,21 +26,18 @@ class Coinbase:
     async def __aexit__(self, exc_type, exc, tb):
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def get_symbol_info(self, symbol):
+    async def map_symbol_infos(self):
         res = await self._public_request('https://api.pro.coinbase.com/products')
-        product = (x for x in res if x['id'] == _product(symbol)).__next__()
-
-        return SymbolInfo(
-            time_ms(),
-            symbol,
-            1_000_000_000,
-            1_000_000_000,
-            float(product['quote_increment']),
-            1_000_000_000.0,
-            float(product['quote_increment']),
-            float(product['base_min_size']),
-            float(product['base_max_size']),
-            float(product['base_min_size']))
+        result = {}
+        for product in res:
+            result[product['id'].lower()] = SymbolInfo(
+                min_size=float(product['base_min_size']),
+                max_size=float(product['base_max_size']),
+                size_step=float(product['base_min_size']),
+                min_price=float(product['min_market_funds']),
+                max_price=float(product['max_market_funds']),
+                price_step=float(product['quote_increment']))
+        return result
 
     async def get_account_info(self):
         return AccountInfo(time_ms(), 100.0, 0.0, self.default_fees)
