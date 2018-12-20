@@ -2,9 +2,9 @@ import asyncio
 from collections import defaultdict
 import logging
 
-from juno import SymbolInfo
+from juno import Span, SymbolInfo
 from juno.math import floor_multiple
-from juno.time import datetime_fromtimestamp_ms, DAY_MS, time_ms
+from juno.time import DAY_MS, time_ms
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
 
@@ -16,7 +16,6 @@ class Informant:
     def __init__(self, services, config):
         self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
                            if s.__class__.__name__.lower() in config['exchanges']}
-        _log.info(self._exchanges)
         self._storage = services[config['storage']]
         self._exchange_symbols = defaultdict(dict)
 
@@ -68,14 +67,12 @@ class Informant:
 
         for span_start, span_end, exist_locally in spans:
             if exist_locally:
-                _log.info('local candles exist between '
-                          f'{map(datetime_fromtimestamp_ms, (span_start, span_end))}')
+                _log.info(f'local candles exist between {Span(span_start, span_end)}')
                 async for candle in self._storage.stream_candles(
                         storage_key, span_start, span_end):
                     yield candle, True
             else:
-                _log.info('missing candles between '
-                          f'{map(datetime_fromtimestamp_ms, (span_start, span_end))}')
+                _log.info(f'missing candles between {Span(span_start, span_end)}')
                 async for candle, primary in self._stream_and_store_exchange_candles(
                         exchange, symbol, interval, span_start, span_end):
                     yield candle, primary

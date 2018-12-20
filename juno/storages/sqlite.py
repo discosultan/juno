@@ -8,7 +8,7 @@ from typing import Any, List, Tuple
 import aiosqlite
 
 from juno import Candle, Span
-from juno.time import datetime_fromtimestamp_ms, time_ms
+from juno.time import time_ms
 
 
 _log = logging.getLogger(__package__)
@@ -52,8 +52,8 @@ class SQLite:
         if start > candles[0].time or end <= candles[-1].time:
             raise ValueError('invalid input')
 
-        _log.info(f'storing {len(candles)} candle(s) for span '
-                  f'{map(datetime_fromtimestamp_ms, (start, end))} to {self.__class__.__name__}')
+        _log.info(f'storing {len(candles)} candle(s) for {Span(start, end)} to '
+                  f'{self.__class__.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             try:
