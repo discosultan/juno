@@ -45,6 +45,17 @@ async def test_memory_get_missing(loop, memory):
     assert item is None
 
 
+async def test_memory_store_twice_get(loop, memory):
+    candle1 = _new_candle(time=1)
+    candle2 = _new_candle(time=2)
+
+    await memory.store(key='key', item=candle1)
+    await memory.store(key='key', item=candle2)
+    stored_candle, _ = await memory.get(key='key', item_cls=Candle)
+
+    assert stored_candle == candle2
+
+
 def _new_candle(time=0):
     return Candle(
         time=time,

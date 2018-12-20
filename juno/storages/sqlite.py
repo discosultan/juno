@@ -86,7 +86,7 @@ class SQLite:
         _log.info(f'storing {cls_name} to {self.__class__.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
-            await db.execute(f'INSERT INTO {Bag.__name__} VALUES (?, ?, ?)',
+            await db.execute(f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
                              [cls_name, json.dumps(item), time_ms()])
             await db.commit()
 
