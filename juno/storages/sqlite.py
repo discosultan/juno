@@ -3,7 +3,7 @@ import json
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, List, Tuple
+from typing import Any, List, Optional, Tuple
 
 import aiosqlite
 
@@ -68,7 +68,7 @@ class SQLite:
             await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
-    async def get(self, key: Any, item_cls: type) -> Tuple[Any, int]:
+    async def get(self, key: Any, item_cls: type) -> Tuple[Optional[Any], Optional[int]]:
         cls_name = item_cls.__name__
         _log.info(f'getting {cls_name} from {self.__class__.__name__}')
         async with self._connect(key) as db:
@@ -110,7 +110,7 @@ class SQLite:
             tables = set()
             self._tables[db] = tables
         if type not in tables:
-            await db.execute(_type_to_create_query(type))
+            await _create_table(db, type)
             await db.commit()
             tables.add(type)
 
@@ -121,13 +121,27 @@ def _get_home():
     return path
 
 
-def _type_to_create_query(type: type) -> str:
+async def _create_table(db: Any, type: type):
+    col_names = list(type.__annotations__.keys())
+    col_types = [_type_to_sql_type(t) for t in type.__annotations__.values()]
     cols = []
-    for i, (col_name, col_type) in enumerate(type.__annotations__.items()):
-        col_sql_type = _type_to_sql_type(col_type)
+    for i in range(0, len(col_names)):
         col_constrain = 'PRIMARY KEY' if i == 0 else 'NOT NULL'
-        cols.append(f'{col_name} {col_sql_type} {col_constrain}')
-    return f'CREATE TABLE IF NOT EXISTS {type.__name__} ({", ".join(cols)})'
+        cols.append(f'{col_names[i]} {col_types[i]} {col_constrain}')
+    await db.execute(f'CREATE TABLE IF NOT EXISTS {type.__name__} ({", ".join(cols)})')
+
+    VIEW_COL_NAMES = ['time', 'start', 'end']
+    if any((n for n in col_names if n in VIEW_COL_NAMES)):
+        view_cols = []
+        for col in col_names:
+            if col in VIEW_COL_NAMES:
+                view_cols.append(
+                    f"strftime('%Y-%m-%d %H:%M:%S', {col} / 1000, 'unixepoch') AS {col}")
+            else:
+                view_cols.append(col)
+
+        await db.execute(f'CREATE VIEW IF NOT EXISTS {type.__name__}View AS '
+                         f'SELECT {", ".join(view_cols)} FROM {type.__name__}')
 
 
 def _type_to_sql_type(type: type) -> str:
