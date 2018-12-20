@@ -2,8 +2,9 @@ import asyncio
 from collections import defaultdict
 import logging
 
+from juno import SymbolInfo
 from juno.math import floor_multiple
-from juno.time import datetime_fromtimestamp_ms, time_ms
+from juno.time import datetime_fromtimestamp_ms, DAY_MS, time_ms
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
 
@@ -20,13 +21,32 @@ class Informant:
         self._exchange_symbols = defaultdict(dict)
 
     async def __aenter__(self):
-        s_infos = await asyncio.gather(*(e.map_symbol_infos() for e in self._exchanges.values()))
-        for exchange, symbol_infos in zip(self._exchanges.keys(), s_infos):
-            self._exchange_symbols[exchange] = symbol_infos
+        await self._sync_all_symbol_infos()
+        self._sync_task = asyncio.get_running_loop().create_task(self._period_sync())
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        self._sync_task.cancel()
         pass
+
+    async def _period_sync(self):
+        try:
+            while True:
+                await asyncio.sleep(DAY_MS / 1000.0)
+                await self._sync_all_symbol_infos()
+        except asyncio.CancelledError:
+            _log.info('periodic symbol info sync task cancelled')
+
+    async def _sync_all_symbol_infos(self):
+        return await asyncio.gather(*(self._sync_symbol_infos(e) for e in self._exchanges.keys()))
+
+    async def _sync_symbol_infos(self, exchange):
+        now = time_ms()
+        infos, updated = await self._storage.get(exchange, SymbolInfo)
+        if not updated or now >= updated + DAY_MS:
+            infos = await self._exchanges[exchange].map_symbol_infos()
+            await self._storage.store(exchange, infos)
+        self._exchange_symbols[exchange] = infos
 
     def get_symbol_info(self, exchange, symbol):
         return self._exchange_symbols[exchange][symbol]
