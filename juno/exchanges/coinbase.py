@@ -1,10 +1,17 @@
+import base64
 from datetime import datetime
+import hmac
+import hashlib
+from time import time
 
-from juno import AccountInfo, Candle, SymbolInfo
+from juno import Balance, Candle, SymbolInfo
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import time_ms
 from juno.utils import LeakyBucket, page
+
+
+_BASE_URL = 'https://api.pro.coinbase.com'
 
 
 class Coinbase:
@@ -12,7 +19,7 @@ class Coinbase:
     def __init__(self, api_key: str, secret_key: str):
         self._session = None
         self._api_key = api_key
-        self._secret_key = secret_key
+        self._secret_key_bytes = base64.b64decode(secret_key)
 
         # Rate limiter.
         self._pub_limiter = LeakyBucket(rate=1, period=1)   # They advertise 3 per sec.
@@ -27,7 +34,7 @@ class Coinbase:
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_symbol_infos(self):
-        res = await self._public_request('https://api.pro.coinbase.com/products')
+        res = await self._public_request('GET', '/products')
         result = {}
         for product in res:
             result[product['id'].lower()] = SymbolInfo(
@@ -39,8 +46,14 @@ class Coinbase:
                 price_step=float(product['quote_increment']))
         return result
 
-    async def get_account_info(self):
-        return AccountInfo(time_ms(), 100.0, 0.0, self.default_fees)
+    async def map_balances(self):
+        res = await self._private_request('GET', '/accounts')
+        result = {}
+        for balance in res:
+            result[balance['currency'].lower()] = Balance(
+                available=float(balance['available']),
+                hold=float(balance['hold']))
+        return result
 
     async def stream_candles(self, symbol, interval, start, end):
         current = floor_multiple(time_ms(), interval)
@@ -55,11 +68,11 @@ class Coinbase:
     async def _stream_historical_candles(self, symbol, interval, start, end):
         MAX_CANDLES_PER_REQUEST = 300  # They advertise 350.
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            url = (f'https://api.pro.coinbase.com/products/{_product(symbol)}/candles'
+            url = (f'/products/{_product(symbol)}/candles'
                    f'?start={_datetime(page_start)}'
                    f'&end={_datetime(page_end)}'
                    f'&granularity={_granularity(interval)}')
-            res = await self._public_request(url)
+            res = await self._public_request('GET', url)
             for c in reversed(res):
                 # This seems to be an issue on Coinbase side. I didn't find any documentation for
                 # this behavior but occasionally they send null values inside candle rows for
@@ -70,9 +83,25 @@ class Coinbase:
                 yield (Candle(c[0] * 1000, float(c[3]), float(c[2]), float(c[1]), float(c[4]),
                        float(c[5])), True)
 
-    async def _public_request(self, url):
+    async def _public_request(self, method, url):
         await self._pub_limiter.acquire()
-        async with self._session.request('GET', url) as res:
+        url = _BASE_URL + url
+        async with self._session.request(method, url) as res:
+            return await res.json()
+
+    async def _private_request(self, method, url, body=''):
+        await self._priv_limiter.acquire()
+        url = _BASE_URL + url
+        timestamp = str(time())
+        message = ''.join([timestamp, method, url, body]).encode('ascii')
+        signature_hash = hmac.new(self._secret_key_bytes, message, hashlib.sha256).digest()
+        signature = base64.b64encode(signature_hash.decode('utf-8'))
+        headers = {
+            'CB-ACCESS-SIGN': signature,
+            'CB-ACCESS-TIMESTAMP': timestamp,
+            'CB-ACCESS-KEY': self._api_key,
+            'CB-ACCESS-PASSPHRASE': passphrase}
+        async with self._session.request('GET', url, headers=headers, data=body) as res:
             return await res.json()
 
 

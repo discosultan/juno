@@ -5,6 +5,7 @@ from juno.time import datetime_fromtimestamp_ms
 
 
 AccountInfo = namedtuple('AccountInfo', ['time', 'base_balance', 'quote_balance', 'fees'])
+Balance = namedtuple('Balance', ['available', 'hold'])
 BidAsk = namedtuple('BidAsk', ['price', 'qty'])
 Depth = namedtuple('Depth', ['bids', 'asks'])
 Fees = namedtuple('Fees', ['maker', 'taker'])

@@ -8,7 +8,7 @@ import json
 import aiohttp
 import backoff
 
-from juno import AccountInfo, BidAsk, Candle, Depth, Fees, OrderResult, SymbolInfo, Trade
+from juno import Balance, BidAsk, Candle, Depth, Fees, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.utils import LeakyBucket, page
@@ -59,19 +59,15 @@ class Binance:
                 price_step=float(price['tickSize']))
         return result
 
-    async def get_account_info(self, symbol):
-        base, quote = (asset.upper() for asset in symbol.split('-'))
-
+    async def map_balances(self):
         url = '/api/v3/account?'
         res = await self._order('GET', url, 5)
-        balances = res['balances']
-
-        base_balance = float(next(b for b in balances if b['asset'] == base)['free'])
-        quote_balance = float(next(b for b in balances if b['asset'] == quote)['free'])
-
-        return AccountInfo(time_ms(), base_balance, quote_balance,
-                           Fees(res['makerCommission'] / 10000.0,
-                           res['takerCommission'] / 10000.0))
+        result = {}
+        for balance in res['balances']:
+            result[balance['asset'].lower()] = Balance(
+                available=float(balance['free']),
+                hold=float(balance['locked']))
+        return result
 
     async def place_order(self, symbol, side, type_, qty, price, time_in_force, test=False):
         url = (f'/api/v3/order{"/test" if test else ""}'

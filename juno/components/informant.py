@@ -21,7 +21,7 @@ class Informant:
 
     async def __aenter__(self):
         await self._sync_all_symbol_infos()
-        self._sync_task = asyncio.get_running_loop().create_task(self._period_sync())
+        self._sync_task = asyncio.get_running_loop().create_task(self._periodic_sync())
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -80,7 +80,7 @@ class Informant:
             await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
                                                        batch_start, batch_end)
 
-    async def _period_sync(self):
+    async def _periodic_sync(self):
         try:
             while True:
                 await asyncio.sleep(DAY_MS / 1000.0)
