@@ -8,7 +8,7 @@ import json
 import aiohttp
 import backoff
 
-from juno import Balance, BidAsk, Candle, Depth, Fees, OrderResult, SymbolInfo, Trade
+from juno import Balance, BidAsk, Candle, Depth, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.utils import LeakyBucket, page

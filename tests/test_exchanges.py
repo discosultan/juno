@@ -59,6 +59,14 @@ async def test_map_symbol_infos(loop, request, exchange):
     assert len(res) > 0
 
 
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
+                         indirect=True)
+async def test_map_balances(loop, request, exchange):
+    skip_non_manual(request)
+    await exchange.map_balances()
+
+
 def skip_non_manual(request):
     if request.config.option.markexpr != 'manual':
         pytest.skip("Specify 'manual' marker to run! These are run manually "

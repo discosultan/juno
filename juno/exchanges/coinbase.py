@@ -1,7 +1,7 @@
 import base64
 from datetime import datetime
-import hmac
 import hashlib
+import hmac
 from time import time
 
 from juno import Balance, Candle, SymbolInfo
@@ -16,10 +16,11 @@ _BASE_URL = 'https://api.pro.coinbase.com'
 
 class Coinbase:
 
-    def __init__(self, api_key: str, secret_key: str):
+    def __init__(self, api_key: str, secret_key: str, passphrase: str):
         self._session = None
         self._api_key = api_key
         self._secret_key_bytes = base64.b64decode(secret_key)
+        self._passphrase = passphrase
 
         # Rate limiter.
         self._pub_limiter = LeakyBucket(rate=1, period=1)   # They advertise 3 per sec.
@@ -91,16 +92,16 @@ class Coinbase:
 
     async def _private_request(self, method, url, body=''):
         await self._priv_limiter.acquire()
-        url = _BASE_URL + url
         timestamp = str(time())
-        message = ''.join([timestamp, method, url, body]).encode('ascii')
+        message = (timestamp + method + url + body).encode('ascii')
         signature_hash = hmac.new(self._secret_key_bytes, message, hashlib.sha256).digest()
-        signature = base64.b64encode(signature_hash.decode('utf-8'))
+        signature = base64.b64encode(signature_hash).decode('ascii')
         headers = {
             'CB-ACCESS-SIGN': signature,
             'CB-ACCESS-TIMESTAMP': timestamp,
             'CB-ACCESS-KEY': self._api_key,
-            'CB-ACCESS-PASSPHRASE': passphrase}
+            'CB-ACCESS-PASSPHRASE': self._passphrase}
+        url = _BASE_URL + url
         async with self._session.request('GET', url, headers=headers, data=body) as res:
             return await res.json()
 

@@ -1,7 +1,7 @@
 import pytest
 
-from juno import Candle, SymbolInfo
-from juno.components import Informant
+from juno import Balance, Candle, SymbolInfo
+from juno.components import Informant, Wallet
 from juno.storages import Memory
 from juno.utils import list_async
 
@@ -22,7 +22,14 @@ class Fake:
             size_step=1.0,
             min_price=1.0,
             max_price=1.0,
-            price_step=1.0)}
+            price_step=1.0)
+        }
+
+    async def map_balances(self):
+        return {'btc': Balance(
+            available=1.0,
+            hold=0.0)
+        }
 
     async def stream_candles(self, _symbol, _interval, start, end):
         for c, p in ((c, p) for c, p in self.candles if c.time >= start and c.time < end):
@@ -41,17 +48,31 @@ async def memory():
 
 
 @pytest.fixture
-async def informant(exchange, memory):
-    services = {
+def services(exchange, memory):
+    return {
         'fake': exchange,
         'memory': memory
     }
-    config = {
+
+
+@pytest.fixture
+def config():
+    return {
         'exchanges': ['fake'],
         'storage': 'memory'
     }
+
+
+@pytest.fixture
+async def informant(services, config):
     async with Informant(services=services, config=config) as informant:
         yield informant
+
+
+@pytest.fixture
+async def wallet(services, config):
+    async with Wallet(services=services, config=config) as wallet:
+        yield wallet
 
 
 async def test_stream_candles(loop, informant, exchange):
@@ -74,3 +95,8 @@ async def test_stream_candles(loop, informant, exchange):
 async def test_get_symbol_info(loop, informant):
     symbol_info = informant.get_symbol_info('fake', 'eth-btc')
     assert symbol_info
+
+
+async def test_get_balance(loop, wallet):
+    balance = wallet.get_balance('fake', 'btc')
+    assert balance
