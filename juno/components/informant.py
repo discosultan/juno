@@ -28,25 +28,6 @@ class Informant:
         self._sync_task.cancel()
         pass
 
-    async def _period_sync(self):
-        try:
-            while True:
-                await asyncio.sleep(DAY_MS / 1000.0)
-                await self._sync_all_symbol_infos()
-        except asyncio.CancelledError:
-            _log.info('periodic symbol info sync task cancelled')
-
-    async def _sync_all_symbol_infos(self):
-        return await asyncio.gather(*(self._sync_symbol_infos(e) for e in self._exchanges.keys()))
-
-    async def _sync_symbol_infos(self, exchange):
-        now = time_ms()
-        infos, updated = await self._storage.get(exchange, SymbolInfo)
-        if not updated or now >= updated + DAY_MS:
-            infos = await self._exchanges[exchange].map_symbol_infos()
-            await self._storage.store(exchange, infos)
-        self._exchange_symbols[exchange] = infos
-
     def get_symbol_info(self, exchange, symbol):
         return self._exchange_symbols[exchange][symbol]
 
@@ -98,3 +79,22 @@ class Informant:
             batch_end = min(end, floor_multiple(time_ms(), interval))
             await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
                                                        batch_start, batch_end)
+
+    async def _period_sync(self):
+        try:
+            while True:
+                await asyncio.sleep(DAY_MS / 1000.0)
+                await self._sync_all_symbol_infos()
+        except asyncio.CancelledError:
+            _log.info('periodic symbol info sync task cancelled')
+
+    async def _sync_all_symbol_infos(self):
+        return await asyncio.gather(*(self._sync_symbol_infos(e) for e in self._exchanges.keys()))
+
+    async def _sync_symbol_infos(self, exchange):
+        now = time_ms()
+        infos, updated = await self._storage.get(exchange, SymbolInfo)
+        if not updated or now >= updated + DAY_MS:
+            infos = await self._exchanges[exchange].map_symbol_infos()
+            await self._storage.store(exchange, infos)
+        self._exchange_symbols[exchange] = infos
