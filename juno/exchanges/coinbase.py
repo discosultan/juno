@@ -47,14 +47,16 @@ class Coinbase:
                 price_step=float(product['quote_increment']))
         return result
 
-    async def map_balances(self):
+    async def stream_balances(self):
         res = await self._private_request('GET', '/accounts')
         result = {}
         for balance in res:
             result[balance['currency'].lower()] = Balance(
                 available=float(balance['available']),
                 hold=float(balance['hold']))
-        return result
+        yield result
+
+        # TODO: Add support for future balance changes.
 
     async def stream_candles(self, symbol, interval, start, end):
         current = floor_multiple(time_ms(), interval)

@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import logging
 import json
+from typing import List
 
 import aiohttp
 import backoff
@@ -12,10 +13,17 @@ from juno import Balance, BidAsk, Candle, Depth, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.utils import LeakyBucket, page
-from juno.time import HOUR_MS, time_ms
+from juno.time import HOUR_MS, MIN_MS, time_ms
 
 
-_BASE_URL = 'https://api.binance.com'
+_BASE_REST_URL = 'https://api.binance.com'
+_BASE_WS_URL = 'wss://stream.binance.com:9443'
+
+_SEC_NONE = 0  # Endpoint can be accessed freely.
+_SEC_TRADE = 1  # Endpoint requires sending a valid API-Key and signature.
+_SEC_USER_DATA = 2  # Endpoint requires sending a valid API-Key and signature.
+_SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
+_SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
 _log = logging.getLogger(__package__)
 
@@ -34,18 +42,30 @@ class Binance:
 
         # Clock synchronization.
         self._time_diff = 0
-        self._sync_clock = None
+        self._sync_clock_task = None
+
+        # Listen keys.
+        self._listen_keys: List[str] = []
 
     async def __aenter__(self):
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()
+        self._refresh_task = asyncio.get_running_loop().create_task(
+            self._periodic_listen_key_refresh())
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        self._refresh_task.cancel()
+        await asyncio.gather(*(self._request(
+            'DELETE',
+            '/api/v1/userDataStream',
+            weight=1,
+            data={'listenKey': k},
+            security=_SEC_USER_STREAM) for k in self._listen_keys))
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_symbol_infos(self):
-        res = await self._request('GET', '/api/v1/exchangeInfo', 1)
+        res = await self._request('GET', '/api/v1/exchangeInfo', weight=1)
         result = {}
         for symbol in res['symbols']:
             size = next((f for f in symbol['filters'] if f['filterType'] == 'LOT_SIZE'))
@@ -59,15 +79,48 @@ class Binance:
                 price_step=float(price['tickSize']))
         return result
 
-    async def map_balances(self):
-        url = '/api/v3/account?'
-        res = await self._order('GET', url, 5)
+    async def stream_balances(self):
+        # Get initial status from REST API.
+        res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
         result = {}
         for balance in res['balances']:
             result[balance['asset'].lower()] = Balance(
                 available=float(balance['free']),
                 hold=float(balance['locked']))
-        return result
+        yield result
+
+        # Stream future updates over WS.
+        last_update = 0
+        while True:
+            stream_start = time_ms()
+            valid_until = stream_start + HOUR_MS * 12
+
+            listen_key = (await self._request(
+                'POST',
+                '/api/v1/userDataStream',
+                weight=1,
+                security=_SEC_USER_STREAM))['listenKey']
+            self._listen_keys.append(listen_key)
+            async with self._ws_connect('/ws/' + listen_key) as ws:
+                async for msg in ws:
+                    if msg.type is aiohttp.WSMsgType.CLOSED:
+                        _log.error(f'binance ws connection closed unexpectedly ({msg})')
+                        self._listen_keys.remove(listen_key)
+                        break
+
+                    # The data can come out of sync. Make sure to discard old updates.
+                    if msg.data['e'] == 'outboundAccountInfo' and msg.data['E'] >= last_update:
+                        last_update = msg.data['E']
+
+                        result = {}
+                        for balance in msg.data['B']:
+                            result[balance['a'].lower()] = Balance(
+                                available=float(balance['f']),
+                                hold=float(balance['l']))
+                        yield result
+
+                    if time_ms() > valid_until:
+                        break
 
     async def place_order(self, symbol, side, type_, qty, price, time_in_force, test=False):
         url = (f'/api/v3/order{"/test" if test else ""}'
@@ -83,15 +136,18 @@ class Binance:
         return OrderResult(res['price'], res['executedQty'])
 
     async def get_depth(self, symbol):
-        url = f'/api/v1/depth?limit=100&symbol={_http_symbol(symbol)}'
-        result = await self._request('GET', url, 1)
+        params = {
+            'limit': 100,
+            'symbol': _http_symbol(symbol)
+        }
+        result = await self._request('GET', '/api/v1/depth', 1, params)
         return Depth(
             [BidAsk(float(x[0]), float(x[1])) for x in result['bids']],
             [BidAsk(float(x[0]), float(x[1])) for x in result['asks']])
 
     async def get_trades(self, symbol):
         url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'
-        result = await self._order('GET', url, 5)
+        result = await self._request('GET', url, 5)
         return [Trade(x['price'], x['qty'], x['commission'], x['commissionAsset'], x['isBuyer'])
                 for x in result]
 
@@ -109,12 +165,12 @@ class Binance:
     async def _stream_historical_candles(self, symbol, interval, start, end):
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            url = (f'/api/v1/klines'
-                   f'?symbol={_http_symbol(symbol)}'
-                   f'&interval={_interval(interval)}'
-                   f'&startTime={page_start}'
-                   f'&endTime={page_end - 1}')
-            res = await self._request('GET', url, 1)
+            res = await self._request('GET', '/api/v1/klines', weight=1, data={
+                'symbol': _http_symbol(symbol),
+                'interval': _interval(interval),
+                'startTime': page_start,
+                'endTime': page_end - 1
+            })
             for c in res:
                 yield (Candle(c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]),
                        float(c[5])), True)
@@ -125,19 +181,17 @@ class Binance:
         # This can be used to switch from one stream to another and avoiding the edge case where
         # we miss out on the very last update to a candle.
 
-        url = f'wss://stream.binance.com:9443/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}'
+        url = f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}'
         last_candle = None
         while True:
             stream_start = time_ms()
+            valid_until = stream_start + HOUR_MS * 12
+
             if stream_start >= end:
                 break
 
-            valid_until = stream_start + HOUR_MS * 12
-
             async with self._ws_connect(url) as ws:
                 async for msg in ws:
-                    _log.debug(msg)
-
                     if msg.type is aiohttp.WSMsgType.CLOSED:
                         _log.error(f'binance ws connection closed unexpectedly ({msg})')
                         break
@@ -162,53 +216,73 @@ class Binance:
                     if time_ms() > valid_until:
                         break
 
-    @backoff.on_exception(backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=5)
-    async def _request(self, method, url, cost):
-        await self._reqs_per_min_limiter.acquire(cost)
-        async with self._session.request(method, _BASE_URL + url) as res:
-            return await res.json()
+    async def _periodic_listen_key_refresh(self):
+        try:
+            while True:
+                await asyncio.sleep(MIN_MS * 30)
+                await asyncio.gather(*(self._request(
+                    'PUT',
+                    '/api/v1/userDataStream',
+                    weight=1,
+                    data={'listenKey': k},
+                    security=_SEC_USER_STREAM) for k in self._listen_keys))
+        except asyncio.CancelledError:
+            _log.info('periodic listen key refresh task cancelled')
 
     @backoff.on_exception(backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=3)
-    async def _order(self, method, url, cost):
-        # Synchronize clock. Note that we may want to do this periodically instead of only
-        # initially.
-        if self._sync_clock is None:
-            self._sync_clock = asyncio.get_running_loop().create_task(self._ensure_clock_synced())
-        await self._sync_clock
+    async def _request(self, method, url, weight, data={}, security=_SEC_NONE):
+        if method == '/api/v3/order':
+            await asyncio.gather(
+                self._reqs_per_min_limiter.acquire(weight),
+                self._orders_per_day_limiter.acquire(),
+                self._orders_per_sec_limiter.acquire())
+        else:
+            await self._reqs_per_min_limiter.acquire(weight)
 
-        await asyncio.gather(
-            self._orders_per_day_limiter.acquire(cost),
-            self._orders_per_sec_limiter.acquire(cost))
+        kwargs = {}
 
-        # Add timestamp.
-        url += f'&timestamp={time_ms() + self._time_diff}'
-        # Add signature query param.
-        query_str = url[url.find('?') + 1:].encode('utf-8')
-        m = hmac.new(self._secret_key_bytes, query_str, hashlib.sha256)
-        url += f'&signature={m.hexdigest()}'
-        # Add API key header.
-        headers = {'X-MBX-APIKEY': self._api_key}
-        async with self._session.request(method, _BASE_URL + url, headers=headers) as res:
+        if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_USER_STREAM, _SEC_MARKET_DATA]:
+            kwargs['headers'] = {'X-MBX-APIKEY': self._api_key}
+
+        if security in [_SEC_TRADE, _SEC_USER_DATA]:
+            # Synchronize clock. Note that we may want to do this periodically instead of only
+            # initially.
+            if not self._sync_clock_task:
+                self._sync_clock_task = asyncio.get_running_loop().create_task(self._sync_clock())
+            await self._sync_clock_task
+
+            data['timestamp'] = time_ms() + self._time_diff
+            query_str_bytes = _query_string(data).encode('utf-8')
+            signature = hmac.new(self._secret_key_bytes, query_str_bytes, hashlib.sha256)
+            data['signature'] = signature.hexdigest()
+
+        if data:
+            kwargs['params' if method == 'GET' else 'json'] = data
+
+        async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as res:
             return await res.json()
 
     @asynccontextmanager
     @backoff.on_exception(backoff.expo, aiohttp.WSServerHandshakeError, max_tries=5)
     async def _ws_connect(self, url, **kwargs):
-        async with self._session.ws_connect(url, **kwargs) as ws:
+        async with self._session.ws_connect(_BASE_WS_URL + url, **kwargs) as ws:
             yield ws
 
-    async def _ensure_clock_synced(self):
-        before = time_ms()
-        server_time = (await self._request('GET', '/api/v1/time', 1))['serverTime']
-        after = time_ms()
-        # Assume response time is same as request time.
-        delay = (after - before) // 2
-        self._time_diff = server_time - after - delay
-        # TODO: If we want to sync periodically, we should schedule a task on the event loop
-        # to set self.sync_clock to None after a period of time. This will force re-sync.
-        # We can schedule a task using loop.create_task. Note that we must also cancel the
-        # task if the event loop ends before the task is finished. Otherwise, we will get a
-        # warning.
+    async def _sync_clock(self):
+        try:
+            before = time_ms()
+            server_time = (await self._request('GET', '/api/v1/time', weight=1))['serverTime']
+            after = time_ms()
+            # Assume response time is same as request time.
+            delay = (after - before) // 2
+            self._time_diff = server_time - after - delay
+            # TODO: If we want to sync periodically, we should schedule a task on the event loop
+            # to set self.sync_clock to None after a period of time. This will force re-sync.
+            # We can schedule a task using loop.create_task. Note that we must also cancel the
+            # task if the event loop ends before the task is finished. Otherwise, we will get a
+            # warning.
+        except asyncio.CancelledError:
+            _log.info('binance sync clock task cancelled')
 
 
 def _http_symbol(symbol):
@@ -238,3 +312,7 @@ def _interval(interval):
         604_800_000: '1w',
         2_629_746_000: '1M',
     }[interval]
+
+
+def _query_string(data):
+    return '&'.join((f'{key}={value}' for key, value in data.items()))

@@ -18,15 +18,15 @@ class Informant:
                            if s.__class__.__name__.lower() in config['exchanges']}
         self._storage = services[config['storage']]
         self._exchange_symbols = defaultdict(dict)
+        self._initial_symbol_infos_fetched = asyncio.Event()
 
     async def __aenter__(self):
-        await self._sync_all_symbol_infos()
-        self._sync_task = asyncio.get_running_loop().create_task(self._periodic_sync())
+        self._sync_task = asyncio.get_running_loop().create_task(self._sync_all_symbol_infos())
+        await self._initial_symbol_infos_fetched.wait()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
         self._sync_task.cancel()
-        pass
 
     def get_symbol_info(self, exchange, symbol):
         return self._exchange_symbols[exchange][symbol]
@@ -80,16 +80,15 @@ class Informant:
             await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
                                                        batch_start, batch_end)
 
-    async def _periodic_sync(self):
+    async def _sync_all_symbol_infos(self):
         try:
             while True:
+                await asyncio.gather(*(self._sync_symbol_infos(e) for e in self._exchanges.keys()))
+                if not self._initial_symbol_infos_fetched.is_set():
+                    self._initial_symbol_infos_fetched.set()
                 await asyncio.sleep(DAY_MS / 1000.0)
-                await self._sync_all_symbol_infos()
         except asyncio.CancelledError:
-            _log.info('periodic symbol info sync task cancelled')
-
-    async def _sync_all_symbol_infos(self):
-        return await asyncio.gather(*(self._sync_symbol_infos(e) for e in self._exchanges.keys()))
+            _log.info(f'{type(self).__name__} symbol info sync task cancelled')
 
     async def _sync_symbol_infos(self, exchange):
         now = time_ms()

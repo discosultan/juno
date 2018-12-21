@@ -25,11 +25,11 @@ class Fake:
             price_step=1.0)
         }
 
-    async def map_balances(self):
-        return {'btc': Balance(
+    async def stream_balances(self):
+        yield {'btc': Balance(
             available=1.0,
-            hold=0.0)
-        }
+            hold=0.0
+        )}
 
     async def stream_candles(self, _symbol, _interval, start, end):
         for c, p in ((c, p) for c, p in self.candles if c.time >= start and c.time < end):

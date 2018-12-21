@@ -62,9 +62,10 @@ async def test_map_symbol_infos(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
                          indirect=True)
-async def test_map_balances(loop, request, exchange):
+async def test_stream_balances(loop, request, exchange):
     skip_non_manual(request)
-    await exchange.map_balances()
+    stream = exchange.stream_balances()
+    await stream.__anext__()
 
 
 def skip_non_manual(request):

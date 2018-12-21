@@ -4,13 +4,14 @@ import logging
 import aiohttp
 
 
+_aiohttp_log = logging.getLogger('aiohttp.client')
+
+
 # Adds logging to aiohttp client session.
 # https://stackoverflow.com/a/45590516/1466456
 # Note that aiohttp client session is not meant to be extended.
 # https://github.com/aio-libs/aiohttp/issues/3185
 class ClientSession:
-
-    _log = logging.getLogger('aiohttp.client')
 
     def __init__(self, *args, **kwargs):
         self._raise_for_status = kwargs.pop('raise_for_status', None)
@@ -25,21 +26,35 @@ class ClientSession:
 
     @asynccontextmanager
     async def request(self, method, url, **kwargs):
-        self._log.info(f'{method} {url}')
-        self._log.debug(kwargs)
+        _aiohttp_log.info(f'{method} {url}')
+        _aiohttp_log.debug(kwargs)
         async with self._session.request(method, url, **kwargs) as res:
-            self._log.info(f'{res.status} {res.reason}')
+            _aiohttp_log.info(f'{res.status} {res.reason}')
             if res.status >= 400:
-                self._log.error(await res.text())
+                _aiohttp_log.error(await res.text())
                 if self._raise_for_status:
                     res.raise_for_status()
             else:
-                self._log.debug(await res.text())
+                _aiohttp_log.debug(await res.text())
             yield res
 
     @asynccontextmanager
     async def ws_connect(self, url, **kwargs):
-        self._log.info(f'WS {url}')
-        self._log.debug(kwargs)
+        _aiohttp_log.info(f'WS {url}')
+        _aiohttp_log.debug(kwargs)
         async with self._session.ws_connect(url, **kwargs) as ws:
-            yield ws
+            yield _ClientWebSocketResponseWrapper(ws)
+
+
+class _ClientWebSocketResponseWrapper:
+
+    def __init__(self, client_ws_response):
+        self._client_ws_response = client_ws_response
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        msg = await self._client_ws_response.__anext__()
+        _aiohttp_log.debug(msg)
+        return msg
