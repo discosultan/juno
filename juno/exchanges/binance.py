@@ -4,7 +4,6 @@ import hashlib
 import hmac
 import logging
 import json
-from typing import List
 
 import aiohttp
 import backoff
@@ -25,7 +24,7 @@ _SEC_USER_DATA = 2  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
-_log = logging.getLogger(__package__)
+_log = logging.getLogger(__file__)
 
 
 class Binance:
@@ -44,24 +43,23 @@ class Binance:
         self._time_diff = 0
         self._sync_clock_task = None
 
-        # Listen keys.
-        self._listen_keys: List[str] = []
+        # User data stream.
+        self._listen_key_refresh_task = None
+        self._stream_user_data_task = None
+        self._balance_event = asyncio.Event()
+        self._balance_msg = None
+        self._order_event = asyncio.Event()
+        self._order_msg = None
 
     async def __aenter__(self):
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()
-        self._refresh_task = asyncio.get_running_loop().create_task(
-            self._periodic_listen_key_refresh())
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        self._refresh_task.cancel()
-        await asyncio.gather(*(self._request(
-            'DELETE',
-            '/api/v1/userDataStream',
-            weight=1,
-            data={'listenKey': k},
-            security=_SEC_USER_STREAM) for k in self._listen_keys))
+        if self._listen_key_refresh_task:
+            self._stream_user_data_task.cancel()
+            self._listen_key_refresh_task.cancel()
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_symbol_infos(self):
@@ -90,37 +88,72 @@ class Binance:
         yield result
 
         # Stream future updates over WS.
-        last_update = 0
+        await self._ensure_user_data_stream()
         while True:
-            stream_start = time_ms()
-            valid_until = stream_start + HOUR_MS * 12
+            await self._balance_event.wait()
+            self._balance_event.clear()
+            result = {}
+            for balance in self._balance_msg.data['B']:
+                result[balance['a'].lower()] = Balance(
+                    available=float(balance['f']),
+                    hold=float(balance['l']))
+            yield result
 
-            listen_key = (await self._request(
-                'POST',
-                '/api/v1/userDataStream',
-                weight=1,
-                security=_SEC_USER_STREAM))['listenKey']
-            self._listen_keys.append(listen_key)
-            async with self._ws_connect('/ws/' + listen_key) as ws:
-                async for msg in ws:
-                    if msg.type is aiohttp.WSMsgType.CLOSED:
-                        _log.error(f'binance ws connection closed unexpectedly ({msg})')
-                        self._listen_keys.remove(listen_key)
-                        break
+    async def stream_orders(self):
+        await self._ensure_user_data_stream()
+        while True:
+            await self._order_event.wait()
+            self._order_event.clear()
+            yield True
+            # result = {}
+            # for balance in self._order_msg.data['B']:
+            #     result[balance['a'].lower()] = Balance(
+            #         available=float(balance['f']),
+            #         hold=float(balance['l']))
+            # yield result
 
-                    # The data can come out of sync. Make sure to discard old updates.
-                    if msg.data['e'] == 'outboundAccountInfo' and msg.data['E'] >= last_update:
-                        last_update = msg.data['E']
+    async def _ensure_user_data_stream(self):
+        if self._listen_key_refresh_task:
+            return
 
-                        result = {}
-                        for balance in msg.data['B']:
-                            result[balance['a'].lower()] = Balance(
-                                available=float(balance['f']),
-                                hold=float(balance['l']))
-                        yield result
+        listen_key = (await self._request(
+            'POST',
+            '/api/v1/userDataStream',
+            weight=1,
+            security=_SEC_USER_STREAM))['listenKey']
+        self._listen_key_refresh_task = asyncio.get_running_loop().create_task(
+            self._periodic_listen_key_refresh(listen_key))
+        self._stream_user_data_task = asyncio.get_running_loop().create_task(
+            self._stream_user_data(listen_key))
 
-                    if time_ms() > valid_until:
-                        break
+    async def _stream_user_data(self, listen_key):
+        try:
+            bal_time, order_time = 0, 0
+            while True:
+                KEEP_ALIVE_HOURS = 12
+                valid_until = time_ms() + KEEP_ALIVE_HOURS * HOUR_MS
+
+                async with self._ws_connect('/ws/' + listen_key) as ws:
+                    async for msg in ws:
+                        if msg.type is aiohttp.WSMsgType.CLOSED:
+                            _log.error(f'user data ws connection closed unexpectedly ({msg})')
+
+                        # The data can come out of sync. Make sure to discard old updates.
+                        if msg.data['e'] == 'outboundAccountInfo' and msg.data['E'] >= bal_time:
+                            bal_time = msg.data['E']
+                            self._balance_msg = msg.data
+                            self._balance_event.set()
+                        elif msg.data['e'] == 'executionReport' and msg.data['E'] >= order_time:
+                            order_time = msg.data['E']
+                            self._order_msg = msg.data
+                            self._order_event.set()
+
+                        if time_ms() > valid_until:
+                            _log.info('restarting user data ws connection after '
+                                      f'{KEEP_ALIVE_HOURS}h')
+                            break
+        except asyncio.CancelledError:
+            _log.info('user data streaming task cancelled')
 
     async def place_order(self, symbol, side, type_, qty, price, time_in_force, test=False):
         url = (f'/api/v3/order{"/test" if test else ""}'
@@ -193,7 +226,7 @@ class Binance:
             async with self._ws_connect(url) as ws:
                 async for msg in ws:
                     if msg.type is aiohttp.WSMsgType.CLOSED:
-                        _log.error(f'binance ws connection closed unexpectedly ({msg})')
+                        _log.error(f'candles ws connection closed unexpectedly ({msg})')
                         break
 
                     c = json.loads(msg.data)['k']
@@ -216,18 +249,25 @@ class Binance:
                     if time_ms() > valid_until:
                         break
 
-    async def _periodic_listen_key_refresh(self):
+    async def _periodic_listen_key_refresh(self, listen_key):
         try:
             while True:
                 await asyncio.sleep(MIN_MS * 30)
-                await asyncio.gather(*(self._request(
+                self._request(
                     'PUT',
                     '/api/v1/userDataStream',
                     weight=1,
-                    data={'listenKey': k},
-                    security=_SEC_USER_STREAM) for k in self._listen_keys))
+                    data={'listenKey': listen_key},
+                    security=_SEC_USER_STREAM)
         except asyncio.CancelledError:
             _log.info('periodic listen key refresh task cancelled')
+        finally:
+            self._request(
+                'DELETE',
+                '/api/v1/userDataStream',
+                weight=1,
+                data={'listenKey': listen_key},
+                security=_SEC_USER_STREAM)
 
     @backoff.on_exception(backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=3)
     async def _request(self, method, url, weight, data={}, security=_SEC_NONE):
@@ -282,7 +322,7 @@ class Binance:
             # task if the event loop ends before the task is finished. Otherwise, we will get a
             # warning.
         except asyncio.CancelledError:
-            _log.info('binance sync clock task cancelled')
+            _log.info('sync clock task cancelled')
 
 
 def _http_symbol(symbol):
