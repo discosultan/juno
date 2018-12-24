@@ -94,3 +94,21 @@ class LeakyBucket:
             await asyncio.sleep(1.0 / self._rate_per_sec)
 
         self._level += amount
+
+
+class Barrier:
+
+    def __init__(self, count: int):
+        self._remaining_count = count
+        self._event = asyncio.Event()
+
+    def wait(self):
+        return self._event.wait()
+
+    def locked(self):
+        return self._remaining_count > 0
+
+    def release(self):
+        self._remaining_count = max(self._remaining_count - 1, 0)
+        if not self.locked():
+            self._event.set()

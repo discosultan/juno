@@ -58,3 +58,7 @@ class _ClientWebSocketResponseWrapper:
         msg = await self._client_ws_response.__anext__()
         _aiohttp_log.debug(msg)
         return msg
+
+    def send_json(self, data):
+        _aiohttp_log.debug(data)
+        return self._client_ws_response.send_json(data)

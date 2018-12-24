@@ -1,7 +1,9 @@
+import asyncio
+
 import pytest
 
 from juno import Balance, Candle, SymbolInfo
-from juno.components import Informant, Wallet
+from juno.components import Informant, Orderbook, Wallet
 from juno.storages import Memory
 from juno.utils import list_async
 
@@ -35,6 +37,12 @@ class Fake:
         for c, p in ((c, p) for c, p in self.candles if c.time >= start and c.time < end):
             yield c, p
 
+    async def stream_depth(self, _symbol):
+        yield ([(1.0, 1.0), (2.0, 1.0)],
+               [(1.0, 1.0)])
+        yield ([(1.0, 1.0)],
+               [(1.0, 0.0)])
+
 
 @pytest.fixture
 def exchange():
@@ -59,7 +67,8 @@ def services(exchange, memory):
 def config():
     return {
         'exchanges': ['fake'],
-        'storage': 'memory'
+        'storage': 'memory',
+        'symbols': ['eth-btc']
     }
 
 
@@ -67,6 +76,12 @@ def config():
 async def informant(services, config):
     async with Informant(services=services, config=config) as informant:
         yield informant
+
+
+@pytest.fixture
+async def orderbook(services, config):
+    async with Orderbook(services=services, config=config) as orderbook:
+        yield orderbook
 
 
 @pytest.fixture
@@ -100,3 +115,7 @@ async def test_get_symbol_info(loop, informant):
 async def test_get_balance(loop, wallet):
     balance = wallet.get_balance('fake', 'btc')
     assert balance
+
+
+async def test_todo_depth(loop, orderbook):
+    await asyncio.sleep(0)

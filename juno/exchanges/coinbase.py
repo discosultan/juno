@@ -2,6 +2,7 @@ import base64
 from datetime import datetime
 import hashlib
 import hmac
+import json
 from time import time
 
 from juno import Balance, Candle, SymbolInfo
@@ -11,7 +12,8 @@ from juno.time import time_ms
 from juno.utils import LeakyBucket, page
 
 
-_BASE_URL = 'https://api.pro.coinbase.com'
+_BASE_REST_URL = 'https://api.pro.coinbase.com'
+_BASE_WS_URL = 'wss://ws-feed.pro.coinbase.com'
 
 
 class Coinbase:
@@ -86,9 +88,27 @@ class Coinbase:
                 yield (Candle(c[0] * 1000, float(c[3]), float(c[2]), float(c[1]), float(c[4]),
                        float(c[5])), True)
 
+    async def stream_depth(self, symbol):
+        async with self._session.ws_connect(_BASE_WS_URL) as ws:
+            await ws.send_json({
+                'type': 'subscribe',
+                'product_ids': [_product(symbol)],
+                'channels': ['level2']
+            })
+            async for msg in ws:
+                data = json.loads(msg.data)
+                if data['type'] == 'snapshot':
+                    yield ([(float(p), float(s)) for p, s in data['bids']],
+                           [(float(p), float(s)) for p, s in data['asks']])
+                elif data['type'] == 'l2update':
+                    bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
+                    asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
+                    yield ([(float(p), float(s)) for p, s in bids],
+                           [(float(p), float(s)) for p, s in asks])
+
     async def _public_request(self, method, url):
         await self._pub_limiter.acquire()
-        url = _BASE_URL + url
+        url = _BASE_REST_URL + url
         async with self._session.request(method, url) as res:
             return await res.json()
 
@@ -103,8 +123,8 @@ class Coinbase:
             'CB-ACCESS-TIMESTAMP': timestamp,
             'CB-ACCESS-KEY': self._api_key,
             'CB-ACCESS-PASSPHRASE': self._passphrase}
-        url = _BASE_URL + url
-        async with self._session.request('GET', url, headers=headers, data=body) as res:
+        url = _BASE_REST_URL + url
+        async with self._session.request(method, url, headers=headers, data=body) as res:
             return await res.json()
 
 

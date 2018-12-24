@@ -68,6 +68,17 @@ async def test_stream_balances(loop, request, exchange):
     await stream.__anext__()
 
 
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
+                         indirect=True)
+async def test_stream_depth(loop, request, exchange):
+    # TODO: Fix pending task error.
+    skip_non_manual(request)
+    stream = exchange.stream_depth('eth-btc')
+    res = await stream.__anext__()
+    assert res
+
+
 def skip_non_manual(request):
     if request.config.option.markexpr != 'manual':
         pytest.skip("Specify 'manual' marker to run! These are run manually "

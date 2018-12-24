@@ -8,7 +8,7 @@ import json
 import aiohttp
 import backoff
 
-from juno import Balance, BidAsk, Candle, Depth, OrderResult, SymbolInfo, Trade
+from juno import Balance, Candle, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.utils import LeakyBucket, page
@@ -24,7 +24,7 @@ _SEC_USER_DATA = 2  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
-_log = logging.getLogger(__file__)
+_log = logging.getLogger(__name__)
 
 
 class Binance:
@@ -155,12 +155,12 @@ class Binance:
         except asyncio.CancelledError:
             _log.info('user data streaming task cancelled')
 
-    async def place_order(self, symbol, side, type_, qty, price, time_in_force, test=False):
+    async def place_order(self, symbol, side, type_, size, price, time_in_force, test=False):
         url = (f'/api/v3/order{"/test" if test else ""}'
                f'?symbol={_http_symbol(symbol)}'
                f'&side={side.name}'
                f'&type={type_.name}'
-               f'&quantity={qty}')
+               f'&quantity={size}')
         if price is not None:
             url += f'&price={price}'
         if time_in_force is not None:
@@ -168,15 +168,29 @@ class Binance:
         res = await self._order('POST', url, 1)
         return OrderResult(res['price'], res['executedQty'])
 
-    async def get_depth(self, symbol):
-        params = {
-            'limit': 100,
-            'symbol': _http_symbol(symbol)
-        }
-        result = await self._request('GET', '/api/v1/depth', 1, params)
-        return Depth(
-            [BidAsk(float(x[0]), float(x[1])) for x in result['bids']],
-            [BidAsk(float(x[0]), float(x[1])) for x in result['asks']])
+    async def stream_depth(self, symbol):
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
+        async with self._ws_connect(f'/ws/{_ws_symbol(symbol)}@depth') as ws:
+            # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
+            result = await self._request('GET', '/api/v1/depth', weight=1, data={
+                'limit': 100,
+                'symbol': _http_symbol(symbol)
+            })
+            yield ([(float(x[0]), float(x[1])) for x in result['bids']],
+                   [(float(x[0]), float(x[1])) for x in result['asks']])
+
+            last_update_id = result['lastUpdateId']
+            async for msg in ws:
+                if msg['u'] <= last_update_id:
+                    continue
+
+                assert msg['U'] <= last_update_id + 1 and msg['u'] >= last_update_id + 1
+                assert msg['u'] == last_update_id + 1
+
+                yield ([(float(m[0]), float(m[1])) for m in msg['b']],
+                       [(float(m[0]), float(m[1])) for m in msg['a']])
+
+                last_update_id = msg['u']
 
     async def get_trades(self, symbol):
         url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'
@@ -303,7 +317,7 @@ class Binance:
             return await res.json()
 
     @asynccontextmanager
-    @backoff.on_exception(backoff.expo, aiohttp.WSServerHandshakeError, max_tries=5)
+    @backoff.on_exception(backoff.expo, aiohttp.WSServerHandshakeError, max_tries=3)
     async def _ws_connect(self, url, **kwargs):
         async with self._session.ws_connect(_BASE_WS_URL + url, **kwargs) as ws:
             yield ws

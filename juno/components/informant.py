@@ -8,7 +8,7 @@ from juno.time import DAY_MS, time_ms
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
 
-_log = logging.getLogger(__package__)
+_log = logging.getLogger(__name__)
 
 
 class Informant:
@@ -88,7 +88,7 @@ class Informant:
                     self._initial_symbol_infos_fetched.set()
                 await asyncio.sleep(DAY_MS / 1000.0)
         except asyncio.CancelledError:
-            _log.info(f'{type(self).__name__} symbol info sync task cancelled')
+            _log.info('symbol info sync task cancelled')
 
     async def _sync_symbol_infos(self, exchange):
         now = time_ms()

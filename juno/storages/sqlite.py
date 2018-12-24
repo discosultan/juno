@@ -11,7 +11,7 @@ from juno import Candle, Span
 from juno.time import time_ms
 
 
-_log = logging.getLogger(__package__)
+_log = logging.getLogger(__name__)
 
 
 # Version should be incremented every time a storage schema changes.

@@ -6,13 +6,13 @@ from juno.time import datetime_fromtimestamp_ms
 
 AccountInfo = namedtuple('AccountInfo', ['time', 'base_balance', 'quote_balance', 'fees'])
 Balance = namedtuple('Balance', ['available', 'hold'])
-BidAsk = namedtuple('BidAsk', ['price', 'qty'])
-Depth = namedtuple('Depth', ['bids', 'asks'])
+# BidAsk = namedtuple('BidAsk', ['price', 'size'])
+# Depth = namedtuple('Depth', ['bids', 'asks'])
 Fees = namedtuple('Fees', ['maker', 'taker'])
-OrderResult = namedtuple('OrderResult', ['price', 'executed_qty'])
+OrderResult = namedtuple('OrderResult', ['price', 'executed_size'])
 SymbolInfo = namedtuple('SymbolInfo', ['min_size', 'max_size', 'size_step', 'min_price',
                                        'max_price', 'price_step'])
-Trade = namedtuple('Trade', ['price', 'qty', 'commission', 'commission_asset', 'is_buyer'])
+Trade = namedtuple('Trade', ['price', 'size', 'commission', 'commission_asset', 'is_buyer'])
 
 
 # We have a choice between dataclasses and namedtuples. Namedtuples are chosen as they support

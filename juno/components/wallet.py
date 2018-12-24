@@ -3,7 +3,7 @@ from collections import defaultdict
 import logging
 
 
-_log = logging.getLogger(__package__)
+_log = logging.getLogger(__name__)
 
 
 class Wallet:
@@ -30,7 +30,7 @@ class Wallet:
         try:
             await asyncio.gather(*(self._sync_balances(e) for e in self._exchanges.keys()))
         except asyncio.CancelledError:
-            _log.info(f'{type(self)} balance sync task cancelled')
+            _log.info('balance sync task cancelled')
 
     async def _sync_balances(self, exchange):
         async for balances in self._exchanges[exchange].stream_balances():
