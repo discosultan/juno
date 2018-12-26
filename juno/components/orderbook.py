@@ -21,7 +21,7 @@ class Orderbook:
         self._orderbooks = defaultdict(lambda: defaultdict(dict))
 
     async def __aenter__(self):
-        self._sync_task = asyncio.get_running_loop().create_task(self._sync_orderbooks())
+        self._sync_task = asyncio.create_task(self._sync_orderbooks())
         await self._initial_orderbook_fetched.wait()
         return self
 
@@ -45,6 +45,7 @@ class Orderbook:
                 self._orderbooks[exchange][symbol] = orderbook
                 self._initial_orderbook_fetched.release()
             elif val['type'] == 'update':
+                # TODO: assert that snapshot was indeed received first
                 _update_orderbook_side(orderbook['bids'], val['bids'])
                 _update_orderbook_side(orderbook['asks'], val['asks'])
             else:

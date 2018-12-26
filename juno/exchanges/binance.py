@@ -30,10 +30,10 @@ _log = logging.getLogger(__name__)
 class Binance:
 
     def __init__(self, api_key: str, secret_key: str):
-        self._session = None
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
 
+    async def __aenter__(self):
         # Rate limiters.
         self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)           # 1200 per min.
         self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)            # 10 per sec.
@@ -51,9 +51,9 @@ class Binance:
         self._order_event = asyncio.Event()
         self._order_msg = None
 
-    async def __aenter__(self):
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()
+
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
@@ -104,7 +104,7 @@ class Binance:
         async with self._ws_connect(f'/ws/{_ws_symbol(symbol)}@depth') as ws:
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
             result = await self._request('GET', '/api/v1/depth', weight=1, data={
-                'limit': 100,
+                'limit': 100,  # TODO: We might wanna increase that and accept higher weight.
                 'symbol': _http_symbol(symbol)
             })
             yield {
@@ -149,9 +149,9 @@ class Binance:
             '/api/v1/userDataStream',
             weight=1,
             security=_SEC_USER_STREAM))['listenKey']
-        self._listen_key_refresh_task = asyncio.get_running_loop().create_task(
+        self._listen_key_refresh_task = asyncio.create_task(
             self._periodic_listen_key_refresh(listen_key))
-        self._stream_user_data_task = asyncio.get_running_loop().create_task(
+        self._stream_user_data_task = asyncio.create_task(
             self._stream_user_data(listen_key))
 
     async def _stream_user_data(self, listen_key):
@@ -306,7 +306,7 @@ class Binance:
             # Synchronize clock. Note that we may want to do this periodically instead of only
             # initially.
             if not self._sync_clock_task:
-                self._sync_clock_task = asyncio.get_running_loop().create_task(self._sync_clock())
+                self._sync_clock_task = asyncio.create_task(self._sync_clock())
             await self._sync_clock_task
 
             data['timestamp'] = time_ms() + self._time_diff

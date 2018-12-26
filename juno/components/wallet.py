@@ -15,7 +15,7 @@ class Wallet:
         self._initial_balances_fetched = asyncio.Event()
 
     async def __aenter__(self):
-        self._sync_balances_task = asyncio.get_running_loop().create_task(
+        self._sync_balances_task = asyncio.create_task(
             self._sync_all_balances())
         await self._initial_balances_fetched.wait()
         return self

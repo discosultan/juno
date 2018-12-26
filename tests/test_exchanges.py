@@ -35,8 +35,7 @@ exchange_names = [exchange.__class__.__name__ for exchange in exchanges]
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
-                         indirect=True)
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names, indirect=True)
 async def test_stream_candles(loop, request, exchange):
     skip_non_manual(request)
     start = datetime_timestamp_ms(datetime(2018, 1, 1))
@@ -47,12 +46,11 @@ async def test_stream_candles(loop, request, exchange):
         end=start + HOUR_MS)
     await stream.__anext__()
     with pytest.raises(StopAsyncIteration):
-            await stream.__anext__()
+        await stream.__anext__()
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
-                         indirect=True)
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names, indirect=True)
 async def test_map_symbol_infos(loop, request, exchange):
     skip_non_manual(request)
     res = await exchange.map_symbol_infos()
@@ -60,8 +58,7 @@ async def test_map_symbol_infos(loop, request, exchange):
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
-                         indirect=True)
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names, indirect=True)
 async def test_stream_balances(loop, request, exchange):
     skip_non_manual(request)
     stream = exchange.stream_balances()
@@ -69,10 +66,8 @@ async def test_stream_balances(loop, request, exchange):
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names,
-                         indirect=True)
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names, indirect=True)
 async def test_stream_depth(loop, request, exchange):
-    # TODO: Fix pending task error.
     skip_non_manual(request)
     stream = exchange.stream_depth('eth-btc')
     res = await stream.__anext__()

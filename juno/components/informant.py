@@ -21,7 +21,7 @@ class Informant:
         self._initial_symbol_infos_fetched = asyncio.Event()
 
     async def __aenter__(self):
-        self._sync_task = asyncio.get_running_loop().create_task(self._sync_all_symbol_infos())
+        self._sync_task = asyncio.create_task(self._sync_all_symbol_infos())
         await self._initial_symbol_infos_fetched.wait()
         return self
 

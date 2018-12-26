@@ -1,8 +1,10 @@
+import asyncio
 import base64
 from datetime import datetime
 import hashlib
 import hmac
 import json
+import logging
 from time import time
 
 from juno import Balance, Candle, SymbolInfo
@@ -15,25 +17,38 @@ from juno.utils import LeakyBucket, page
 _BASE_REST_URL = 'https://api.pro.coinbase.com'
 _BASE_WS_URL = 'wss://ws-feed.pro.coinbase.com'
 
+_log = logging.getLogger(__name__)
+
 
 class Coinbase:
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str):
-        self._session = None
         self._api_key = api_key
         self._secret_key_bytes = base64.b64decode(secret_key)
         self._passphrase = passphrase
 
+    async def __aenter__(self):
         # Rate limiter.
         self._pub_limiter = LeakyBucket(rate=1, period=1)   # They advertise 3 per sec.
         self._priv_limiter = LeakyBucket(rate=5, period=1)  # They advertise 5 per sec.
 
-    async def __aenter__(self):
+        # Stream.
+        self._stream_task = None
+        self._stream_subscription_queue = asyncio.Queue()
+        self._stream_depth_queue = asyncio.Queue()
+        self._stream_consumer_queues = {
+            'snapshot': self._stream_depth_queue,
+            'l2update': self._stream_depth_queue
+        }
+
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()
+
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        if self._stream_task:
+            self._stream_task.cancel()
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_symbol_infos(self):
@@ -89,29 +104,45 @@ class Coinbase:
                        float(c[5])), True)
 
     async def stream_depth(self, symbol):
-        async with self._session.ws_connect(_BASE_WS_URL) as ws:
-            await ws.send_json({
-                'type': 'subscribe',
-                'product_ids': [_product(symbol)],
-                'channels': ['level2']
-            })
-            async for msg in ws:
-                data = json.loads(msg.data)
-                if data['type'] == 'snapshot':
-                    yield {
-                        'type': 'snapshot',
-                        'bids': [(float(p), float(s)) for p, s in data['bids']],
-                        'asks': [(float(p), float(s)) for p, s in data['asks']]
-                    }
-                elif data['type'] == 'l2update':
-                    bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
-                    asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
-                    yield {
-                        'type': 'update',
-                        'bids': [(float(p), float(s)) for p, s in bids],
-                        'asks': [(float(p), float(s)) for p, s in asks]
-                    }
+        self._ensure_stream_open()
+        self._stream_subscription_queue.put_nowait({
+            'type': 'subscribe',
+            'product_ids': [_product(symbol)],
+            'channels': ['level2']
+        })
+        while True:
+            data = await self._stream_depth_queue.get()
+            if data['type'] == 'snapshot':
+                yield {
+                    'type': 'snapshot',
+                    'bids': [(float(p), float(s)) for p, s in data['bids']],
+                    'asks': [(float(p), float(s)) for p, s in data['asks']]
+                }
+            elif data['type'] == 'l2update':
+                bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
+                asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
+                yield {
+                    'type': 'update',
+                    'bids': [(float(p), float(s)) for p, s in bids],
+                    'asks': [(float(p), float(s)) for p, s in asks]
+                }
 
+    def _ensure_stream_open(self):
+        if not self._stream_task:
+            self._stream_task = asyncio.create_task(self._stream())
+
+    async def _stream(self):
+        try:
+            async with self._session.ws_connect(_BASE_WS_URL) as ws:
+                for _ in range(0, self._stream_subscription_queue.qsize()):
+                    await ws.send_json(self._stream_subscription_queue.get_nowait())
+                async for msg in ws:
+                    data = json.loads(msg.data)
+                    self._stream_consumer_queues[data['type']].put_nowait(data)
+        except asyncio.CancelledError:
+            _log.info('streaming task cancelled')
+
+    # TODO: retry with backoff
     async def _public_request(self, method, url):
         await self._pub_limiter.acquire()
         url = _BASE_REST_URL + url
