@@ -11,7 +11,7 @@ import backoff
 from juno import Balance, Candle, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
-from juno.utils import LeakyBucket, page
+from juno.utils import LeakyBucket, page, Event
 from juno.time import HOUR_MS, MIN_MS, time_ms
 
 
@@ -46,10 +46,8 @@ class Binance:
         # User data stream.
         self._listen_key_refresh_task = None
         self._stream_user_data_task = None
-        self._balance_event = asyncio.Event()
-        self._balance_msg = None
-        self._order_event = asyncio.Event()
-        self._order_msg = None
+        self._balance_event = Event()
+        self._order_event = Event()
 
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()
@@ -90,10 +88,10 @@ class Binance:
         # Stream future updates over WS.
         await self._ensure_user_data_stream()
         while True:
-            await self._balance_event.wait()
+            data = await self._balance_event.wait()
             self._balance_event.clear()
             result = {}
-            for balance in self._balance_msg.data['B']:
+            for balance in data['B']:
                 result[balance['a'].lower()] = Balance(
                     available=float(balance['f']),
                     hold=float(balance['l']))
@@ -130,11 +128,11 @@ class Binance:
     async def stream_orders(self):
         await self._ensure_user_data_stream()
         while True:
-            await self._order_event.wait()
-            self._order_event.clear()
             yield True
+            # _data = await self._order_event.wait()
+            # self._order_event.clear()
             # result = {}
-            # for balance in self._order_msg.data['B']:
+            # for balance in data['B']:
             #     result[balance['a'].lower()] = Balance(
             #         available=float(balance['f']),
             #         hold=float(balance['l']))
@@ -169,12 +167,10 @@ class Binance:
                         # The data can come out of sync. Make sure to discard old updates.
                         if msg.data['e'] == 'outboundAccountInfo' and msg.data['E'] >= bal_time:
                             bal_time = msg.data['E']
-                            self._balance_msg = msg.data
-                            self._balance_event.set()
+                            self._balance_event.set(msg.data)
                         elif msg.data['e'] == 'executionReport' and msg.data['E'] >= order_time:
                             order_time = msg.data['E']
-                            self._order_msg = msg.data
-                            self._order_event.set()
+                            self._order_event.set(msg.data)
 
                         if time_ms() > valid_until:
                             _log.info('restarting user data ws connection after '
@@ -184,16 +180,18 @@ class Binance:
             _log.info('user data streaming task cancelled')
 
     async def place_order(self, symbol, side, type_, size, price, time_in_force, test=False):
-        url = (f'/api/v3/order{"/test" if test else ""}'
-               f'?symbol={_http_symbol(symbol)}'
-               f'&side={side.name}'
-               f'&type={type_.name}'
-               f'&quantity={size}')
+        data = {
+            'symbol': _http_symbol(symbol),
+            'side': side.name,
+            'type': type_.name,
+            'quantity': str(size)
+        }
         if price is not None:
-            url += f'&price={price}'
+            data['price'] = str(price)
         if time_in_force is not None:
-            url += f'&timeInForce={time_in_force.name}'
-        res = await self._order('POST', url, 1)
+            data['timeInForce'] = time_in_force.name
+        url = f'/api/v3/order{"/test" if test else ""}'
+        res = await self._request('POST', url, weight=1, data=data)
         return OrderResult(res['price'], res['executedQty'])
 
     async def get_trades(self, symbol):

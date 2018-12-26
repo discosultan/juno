@@ -36,8 +36,10 @@ class Orderbook:
             _log.info('orderbook sync task cancelled')
 
     async def _sync_orderbook(self, exchange, symbol):
+        snapshot_received = False
         async for val in self._exchanges[exchange].stream_depth(symbol):
             if val['type'] == 'snapshot':
+                snapshot_received = True
                 orderbook = {
                     'bids': {k: v for k, v in val['bids']},
                     'asks': {k: v for k, v in val['asks']}
@@ -45,7 +47,7 @@ class Orderbook:
                 self._orderbooks[exchange][symbol] = orderbook
                 self._initial_orderbook_fetched.release()
             elif val['type'] == 'update':
-                # TODO: assert that snapshot was indeed received first
+                assert snapshot_received
                 _update_orderbook_side(orderbook['bids'], val['bids'])
                 _update_orderbook_side(orderbook['asks'], val['asks'])
             else:

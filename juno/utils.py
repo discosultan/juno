@@ -112,3 +112,24 @@ class Barrier:
         self._remaining_count = max(self._remaining_count - 1, 0)
         if not self.locked():
             self._event.set()
+
+
+class Event:
+
+    def __init__(self):
+        self._event = asyncio.Event()
+        self._event_data = None
+
+    async def wait(self):
+        await self._event.wait()
+        return self._event_data
+
+    def set(self, data):
+        self._event_data = data
+        self._event.set()
+
+    def clear(self):
+        self._event.clear()
+
+    def is_set(self):
+        return self._event.is_set()

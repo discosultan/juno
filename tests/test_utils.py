@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 
-from juno.utils import generate_missing_spans, merge_adjacent_spans, Barrier
+from juno.utils import generate_missing_spans, merge_adjacent_spans, Barrier, Event
 
 
 @pytest.mark.parametrize('input,expected_output', [
@@ -40,3 +40,17 @@ async def test_barrier(loop):
     assert event.is_set()
 
     assert _process_event_task.done()
+
+
+async def test_event(loop):
+    event = Event()
+
+    t1 = event.wait()
+    t2 = event.wait()
+
+    event.set('value')
+
+    r1, r2 = await asyncio.gather(t1, t2)
+
+    assert r1 == 'value'
+    assert r2 == 'value'
