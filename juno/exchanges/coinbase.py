@@ -98,13 +98,19 @@ class Coinbase:
             async for msg in ws:
                 data = json.loads(msg.data)
                 if data['type'] == 'snapshot':
-                    yield ([(float(p), float(s)) for p, s in data['bids']],
-                           [(float(p), float(s)) for p, s in data['asks']])
+                    yield {
+                        'type': 'snapshot',
+                        'bids': [(float(p), float(s)) for p, s in data['bids']],
+                        'asks': [(float(p), float(s)) for p, s in data['asks']]
+                    }
                 elif data['type'] == 'l2update':
                     bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
                     asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
-                    yield ([(float(p), float(s)) for p, s in bids],
-                           [(float(p), float(s)) for p, s in asks])
+                    yield {
+                        'type': 'update',
+                        'bids': [(float(p), float(s)) for p, s in bids],
+                        'asks': [(float(p), float(s)) for p, s in asks]
+                    }
 
     async def _public_request(self, method, url):
         await self._pub_limiter.acquire()

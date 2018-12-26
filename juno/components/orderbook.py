@@ -36,18 +36,19 @@ class Orderbook:
             _log.info('orderbook sync task cancelled')
 
     async def _sync_orderbook(self, exchange, symbol):
-        stream = self._exchanges[exchange].stream_depth(symbol)
-        bids, asks = await stream.__anext__()
-        orderbook = {
-            'bids': {k: v for k, v in bids},
-            'asks': {k: v for k, v in asks}
-        }
-        self._orderbooks[exchange][symbol] = orderbook
-        self._initial_orderbook_fetched.release()
-
-        async for bids, asks in stream:
-            _update_orderbook_side(orderbook['bids'], bids)
-            _update_orderbook_side(orderbook['asks'], asks)
+        async for val in self._exchanges[exchange].stream_depth(symbol):
+            if val['type'] == 'snapshot':
+                orderbook = {
+                    'bids': {k: v for k, v in val['bids']},
+                    'asks': {k: v for k, v in val['asks']}
+                }
+                self._orderbooks[exchange][symbol] = orderbook
+                self._initial_orderbook_fetched.release()
+            elif val['type'] == 'update':
+                _update_orderbook_side(orderbook['bids'], val['bids'])
+                _update_orderbook_side(orderbook['asks'], val['asks'])
+            else:
+                raise NotImplementedError()
 
 
 def _update_orderbook_side(orderbook_side, values):

@@ -38,10 +38,16 @@ class Fake:
             yield c, p
 
     async def stream_depth(self, _symbol):
-        yield ([(1.0, 1.0), (2.0, 1.0)],
-               [(1.0, 1.0)])
-        yield ([(1.0, 1.0)],
-               [(1.0, 0.0)])
+        yield {
+            'type': 'snapshot',
+            'bids': [(1.0, 1.0), (2.0, 1.0)],
+            'asks': [(1.0, 1.0)]
+        }
+        yield {
+            'type': 'snapshot',
+            'bids': [(1.0, 1.0)],
+            'asks': [(1.0, 0.0)]
+        }
 
 
 @pytest.fixture

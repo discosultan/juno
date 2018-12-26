@@ -99,6 +99,34 @@ class Binance:
                     hold=float(balance['l']))
             yield result
 
+    async def stream_depth(self, symbol):
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
+        async with self._ws_connect(f'/ws/{_ws_symbol(symbol)}@depth') as ws:
+            # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
+            result = await self._request('GET', '/api/v1/depth', weight=1, data={
+                'limit': 100,
+                'symbol': _http_symbol(symbol)
+            })
+            yield {
+                'type': 'snapshot',
+                'bids': [(float(x[0]), float(x[1])) for x in result['bids']],
+                'asks': [(float(x[0]), float(x[1])) for x in result['asks']]
+            }
+            last_update_id = result['lastUpdateId']
+            async for msg in ws:
+                if msg['u'] <= last_update_id:
+                    continue
+
+                assert msg['U'] <= last_update_id + 1 and msg['u'] >= last_update_id + 1
+                assert msg['u'] == last_update_id + 1
+
+                yield {
+                    'type': 'update',
+                    'bids': [(float(m[0]), float(m[1])) for m in msg['b']],
+                    'asks': [(float(m[0]), float(m[1])) for m in msg['a']]
+                }
+                last_update_id = msg['u']
+
     async def stream_orders(self):
         await self._ensure_user_data_stream()
         while True:
@@ -167,30 +195,6 @@ class Binance:
             url += f'&timeInForce={time_in_force.name}'
         res = await self._order('POST', url, 1)
         return OrderResult(res['price'], res['executedQty'])
-
-    async def stream_depth(self, symbol):
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
-        async with self._ws_connect(f'/ws/{_ws_symbol(symbol)}@depth') as ws:
-            # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-            result = await self._request('GET', '/api/v1/depth', weight=1, data={
-                'limit': 100,
-                'symbol': _http_symbol(symbol)
-            })
-            yield ([(float(x[0]), float(x[1])) for x in result['bids']],
-                   [(float(x[0]), float(x[1])) for x in result['asks']])
-
-            last_update_id = result['lastUpdateId']
-            async for msg in ws:
-                if msg['u'] <= last_update_id:
-                    continue
-
-                assert msg['U'] <= last_update_id + 1 and msg['u'] >= last_update_id + 1
-                assert msg['u'] == last_update_id + 1
-
-                yield ([(float(m[0]), float(m[1])) for m in msg['b']],
-                       [(float(m[0]), float(m[1])) for m in msg['a']])
-
-                last_update_id = msg['u']
 
     async def get_trades(self, symbol):
         url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'
