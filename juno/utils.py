@@ -102,10 +102,10 @@ class Barrier:
         self._remaining_count = count
         self._event = asyncio.Event()
 
-    def wait(self):
-        return self._event.wait()
+    async def wait(self):
+        await self._event.wait()
 
-    def locked(self):
+    def locked(self) -> bool:
         return self._remaining_count > 0
 
     def release(self):
@@ -120,16 +120,16 @@ class Event:
         self._event = asyncio.Event()
         self._event_data = None
 
-    async def wait(self):
+    async def wait(self) -> T:
         await self._event.wait()
         return self._event_data
 
-    def set(self, data):
+    def set(self, data: T):
         self._event_data = data
         self._event.set()
 
     def clear(self):
         self._event.clear()
 
-    def is_set(self):
+    def is_set(self) -> bool:
         return self._event.is_set()

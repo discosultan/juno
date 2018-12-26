@@ -3,6 +3,7 @@ from collections import defaultdict
 from itertools import product
 import logging
 
+from juno.math import floor_multiple
 from juno.utils import Barrier
 
 
@@ -27,6 +28,37 @@ class Orderbook:
 
     async def __aexit__(self, exc_type, exc, tb):
         self._sync_task.cancel()
+
+    def find_market_order_buy_size(self, exchange, symbol, quote_balance, size_step):
+        orderbook = self._orderbooks[exchange][symbol]
+        total_size = 0
+        available_quote = quote_balance
+        for price, size in orderbook['asks'].items():
+            cost = price * size
+            if cost > available_quote:
+                fill = floor_multiple(available_quote / price, size_step)
+                available_quote -= fill * price
+                total_size += fill
+                break
+            else:
+                total_size += size
+                available_quote -= cost
+        # total_size = adjust_qty(size * percent, ap_info)
+        return total_size
+
+    def find_market_order_sell_size(self, exchange, symbol, base_balance, size_step):
+        orderbook = self._orderbooks[exchange][symbol]
+        available_base = base_balance
+        for _price, size in orderbook['bids'].items():
+            if size > available_base:
+                fill = floor_multiple(available_base, size_step)
+                available_base -= fill
+                break
+            else:
+                available_base -= size
+        total_size = base_balance - available_base
+        # total_size = adjust_qty(size * percent, ap_info)
+        return total_size
 
     async def _sync_orderbooks(self):
         try:
@@ -60,3 +92,10 @@ def _update_orderbook_side(orderbook_side, values):
             del orderbook_side[price]
         else:
             orderbook_side[price] = size
+
+
+# def adjust_size(size, min_size, max_size, size_step):
+#     # Clamp within min and max.
+#     size = max(min(size, max_size), min_size)
+#     # Make sure to follow step size.
+#     return round(size / size_step) * size_step

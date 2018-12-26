@@ -76,5 +76,5 @@ async def test_stream_depth(loop, request, exchange):
 
 def skip_non_manual(request):
     if request.config.option.markexpr != 'manual':
-        pytest.skip("Specify 'manual' marker to run! These are run manually "
-                    "as they integrate with external exchanges")
+        pytest.skip("Specify 'manual' marker to run! These are run manually as they integrate "
+                    "with external exchanges.")

@@ -1,5 +1,3 @@
-import asyncio
-
 import pytest
 
 from juno import Balance, Candle, SymbolInfo
@@ -44,7 +42,7 @@ class Fake:
             'asks': [(1.0, 1.0)]
         }
         yield {
-            'type': 'snapshot',
+            'type': 'update',
             'bids': [(1.0, 1.0)],
             'asks': [(1.0, 0.0)]
         }
@@ -123,5 +121,19 @@ async def test_get_balance(loop, wallet):
     assert balance
 
 
-async def test_todo_depth(loop, orderbook):
-    await asyncio.sleep(0)
+async def test_find_market_order_buy_size(loop, orderbook):
+    size = orderbook.find_market_order_buy_size(
+        exchange='fake',
+        symbol='eth-btc',
+        quote_balance=0.5,
+        size_step=0.1)
+    assert size == 0.0
+
+
+async def test_find_market_order_sell_size(loop, orderbook):
+    size = orderbook.find_market_order_sell_size(
+        exchange='fake',
+        symbol='eth-btc',
+        base_balance=2.5,
+        size_step=0.1)
+    assert size == 2.0
