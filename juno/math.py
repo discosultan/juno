@@ -1,9 +1,14 @@
+from decimal import Decimal
 import math
+from typing import TypeVar
 
 
-def ceil_multiple(value: int, multiple: int) -> int:
+TNum = TypeVar('TNum', int, Decimal)
+
+
+def ceil_multiple(value: TNum, multiple: TNum) -> TNum:
     return int(math.ceil(value / multiple)) * multiple
 
 
-def floor_multiple(value: int, multiple: int) -> int:
+def floor_multiple(value: TNum, multiple: TNum) -> TNum:
     return value - (value % multiple)

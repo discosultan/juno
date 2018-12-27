@@ -1,4 +1,5 @@
 import asyncio
+from decimal import Decimal
 
 import pytest
 
@@ -59,8 +60,8 @@ async def test_memory_store_twice_get(loop, memory):
 def _new_candle(time=0):
     return Candle(
         time=time,
-        open=0.0,
-        high=0.0,
-        low=0.0,
-        close=0.0,
-        volume=0.0)
+        open=Decimal(0),
+        high=Decimal(0),
+        low=Decimal(0),
+        close=Decimal(0),
+        volume=Decimal(0))

@@ -1,12 +1,13 @@
 import asyncio
 from contextlib import asynccontextmanager
+from decimal import Decimal
 import hashlib
 import hmac
 import logging
-import json
 
 import aiohttp
 import backoff
+import simplejson as json
 
 from juno import Balance, Candle, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
@@ -67,12 +68,12 @@ class Binance:
             size = next((f for f in symbol['filters'] if f['filterType'] == 'LOT_SIZE'))
             price = next((f for f in symbol['filters'] if f['filterType'] == 'PRICE_FILTER'))
             result[f"{symbol['baseAsset']}-{symbol['quoteAsset']}"] = SymbolInfo(
-                min_size=float(size['minQty']),
-                max_size=float(size['maxQty']),
-                size_step=float(size['stepSize']),
-                min_price=float(price['minPrice']),
-                max_price=float(price['maxPrice']),
-                price_step=float(price['tickSize']))
+                min_size=Decimal(size['minQty']),
+                max_size=Decimal(size['maxQty']),
+                size_step=Decimal(size['stepSize']),
+                min_price=Decimal(price['minPrice']),
+                max_price=Decimal(price['maxPrice']),
+                price_step=Decimal(price['tickSize']))
         return result
 
     async def stream_balances(self):
@@ -81,8 +82,8 @@ class Binance:
         result = {}
         for balance in res['balances']:
             result[balance['asset'].lower()] = Balance(
-                available=float(balance['free']),
-                hold=float(balance['locked']))
+                available=Decimal(balance['free']),
+                hold=Decimal(balance['locked']))
         yield result
 
         # Stream future updates over WS.
@@ -93,8 +94,8 @@ class Binance:
             result = {}
             for balance in data['B']:
                 result[balance['a'].lower()] = Balance(
-                    available=float(balance['f']),
-                    hold=float(balance['l']))
+                    available=Decimal(balance['f']),
+                    hold=Decimal(balance['l']))
             yield result
 
     async def stream_depth(self, symbol):
@@ -107,8 +108,8 @@ class Binance:
             })
             yield {
                 'type': 'snapshot',
-                'bids': [(float(x[0]), float(x[1])) for x in result['bids']],
-                'asks': [(float(x[0]), float(x[1])) for x in result['asks']]
+                'bids': [(Decimal(x[0]), Decimal(x[1])) for x in result['bids']],
+                'asks': [(Decimal(x[0]), Decimal(x[1])) for x in result['asks']]
             }
             last_update_id = result['lastUpdateId']
             async for msg in ws:
@@ -120,8 +121,8 @@ class Binance:
 
                 yield {
                     'type': 'update',
-                    'bids': [(float(m[0]), float(m[1])) for m in msg['b']],
-                    'asks': [(float(m[0]), float(m[1])) for m in msg['a']]
+                    'bids': [(Decimal(m[0]), Decimal(m[1])) for m in msg['b']],
+                    'asks': [(Decimal(m[0]), Decimal(m[1])) for m in msg['a']]
                 }
                 last_update_id = msg['u']
 
@@ -134,8 +135,8 @@ class Binance:
             # result = {}
             # for balance in data['B']:
             #     result[balance['a'].lower()] = Balance(
-            #         available=float(balance['f']),
-            #         hold=float(balance['l']))
+            #         available=Decimal(balance['f']),
+            #         hold=Decimal(balance['l']))
             # yield result
 
     async def _ensure_user_data_stream(self):
@@ -221,8 +222,8 @@ class Binance:
                 'endTime': page_end - 1
             })
             for c in res:
-                yield (Candle(c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]),
-                       float(c[5])), True)
+                yield (Candle(c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
+                       Decimal(c[5])), True)
 
     async def _stream_future_candles(self, symbol, interval, end):
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
@@ -246,8 +247,8 @@ class Binance:
                         break
 
                     c = json.loads(msg.data)['k']
-                    c = Candle(c['t'], float(c['o']), float(c['h']), float(c['l']), float(c['c']),
-                               float(c['v']))
+                    c = Candle(c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']),
+                               Decimal(c['c']), Decimal(c['v']))
 
                     # Since updates are given every second, we are only interested in the last
                     # update for any particular candle. We keep track of two consecutive candles to

@@ -1,11 +1,13 @@
 import asyncio
 import base64
 from datetime import datetime
+from decimal import Decimal
 import hashlib
 import hmac
-import json
 import logging
 from time import time
+
+import simplejson as json
 
 from juno import Balance, Candle, SymbolInfo
 from juno.http import ClientSession
@@ -56,12 +58,12 @@ class Coinbase:
         result = {}
         for product in res:
             result[product['id'].lower()] = SymbolInfo(
-                min_size=float(product['base_min_size']),
-                max_size=float(product['base_max_size']),
-                size_step=float(product['base_min_size']),
-                min_price=float(product['min_market_funds']),
-                max_price=float(product['max_market_funds']),
-                price_step=float(product['quote_increment']))
+                min_size=Decimal(product['base_min_size']),
+                max_size=Decimal(product['base_max_size']),
+                size_step=Decimal(product['base_min_size']),
+                min_price=Decimal(product['min_market_funds']),
+                max_price=Decimal(product['max_market_funds']),
+                price_step=Decimal(product['quote_increment']))
         return result
 
     async def stream_balances(self):
@@ -69,8 +71,8 @@ class Coinbase:
         result = {}
         for balance in res:
             result[balance['currency'].lower()] = Balance(
-                available=float(balance['available']),
-                hold=float(balance['hold']))
+                available=Decimal(balance['available']),
+                hold=Decimal(balance['hold']))
         yield result
 
         # TODO: Add support for future balance changes.
@@ -100,8 +102,8 @@ class Coinbase:
                 # currently use Coinbase for paper or live trading, we simply throw an exception.
                 if None in c:
                     raise Exception(f'missing data for candle {c}; please re-run the command')
-                yield (Candle(c[0] * 1000, float(c[3]), float(c[2]), float(c[1]), float(c[4]),
-                       float(c[5])), True)
+                yield (Candle(c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]),
+                       Decimal(c[4]), Decimal(c[5])), True)
 
     async def stream_depth(self, symbol):
         self._ensure_stream_open()
@@ -115,16 +117,16 @@ class Coinbase:
             if data['type'] == 'snapshot':
                 yield {
                     'type': 'snapshot',
-                    'bids': [(float(p), float(s)) for p, s in data['bids']],
-                    'asks': [(float(p), float(s)) for p, s in data['asks']]
+                    'bids': [(Decimal(p), Decimal(s)) for p, s in data['bids']],
+                    'asks': [(Decimal(p), Decimal(s)) for p, s in data['asks']]
                 }
             elif data['type'] == 'l2update':
                 bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
                 asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
                 yield {
                     'type': 'update',
-                    'bids': [(float(p), float(s)) for p, s in bids],
-                    'asks': [(float(p), float(s)) for p, s in asks]
+                    'bids': [(Decimal(p), Decimal(s)) for p, s in bids],
+                    'asks': [(Decimal(p), Decimal(s)) for p, s in asks]
                 }
 
     def _ensure_stream_open(self):

@@ -88,7 +88,7 @@ class Orderbook:
 
 def _update_orderbook_side(orderbook_side, values):
     for price, size in values:
-        if size == 0.0 and price in orderbook_side:
+        if size == 0 and price in orderbook_side:
             del orderbook_side[price]
         else:
             orderbook_side[price] = size

@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
-import json
+from decimal import Decimal
 import logging
 from pathlib import Path
 import sqlite3
 from typing import Any, List, Optional, Tuple
 
 import aiosqlite
+import simplejson as json
 
 from juno import Candle, Span
 from juno.time import time_ms
@@ -16,6 +17,18 @@ _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
 _VERSION = 1
+
+
+def _serialize_decimal(d: Decimal) -> bytes:
+    return str(d).encode('ascii')
+
+
+def _deserialize_decimal(s: bytes) -> Decimal:
+    return Decimal(s.decode('ascii'))
+
+
+sqlite3.register_adapter(Decimal, _serialize_decimal)
+sqlite3.register_converter('DECIMAL', _deserialize_decimal)
 
 
 class SQLite:
@@ -77,7 +90,7 @@ class SQLite:
             row = await cursor.fetchone()
             await cursor.close()
             if row:
-                return item_cls(*json.loads(row[1])), row[2]
+                return item_cls(**json.loads(row[1])), row[2]
             else:
                 return None, None
 
@@ -101,7 +114,7 @@ class SQLite:
             raise NotImplementedError()
 
         name = str(_get_home().joinpath(f'v{_VERSION}_{name}.db'))
-        async with aiosqlite.connect(name) as db:
+        async with aiosqlite.connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 
     async def _ensure_table(self, db: Any, type: type) -> None:
@@ -145,11 +158,13 @@ async def _create_table(db: Any, type: type):
 
 
 def _type_to_sql_type(type: type) -> str:
-    if type == int:
+    if type is int:
         return 'INTEGER'
-    if type == float:
+    if type is float:
         return 'REAL'
-    if type == str:
+    if type is Decimal:
+        return 'DECIMAL'
+    if type is str:
         return 'TEXT'
     raise NotImplementedError()
 
@@ -158,51 +173,3 @@ class Bag:
     key: str
     value: str
     time: int
-
-# async def _ensure_tables_exist(self):
-#     async with aiosqlite.connect(self._db_name) as db:
-#         await asyncio.gather(
-#             db.execute('''
-#                 CREATE TABLE IF NOT EXISTS Candle (
-#                     time INTEGER PRIMARY KEY,
-#                     open REAL NOT NULL,
-#                     high REAL NOT NULL,
-#                     low REAL NOT NULL,
-#                     close REAL NOT NULL,
-#                     volume REAL NOT NULL
-#                 )'''),
-#             db.execute('''
-#                 CREATE TABLE IF NOT EXISTS Span (
-#                     start INTEGER PRIMARY KEY,
-#                     end INTEGER NOT NULL
-#                 )'''),
-#             db.execute('''
-#                 CREATE TABLE IF NOT EXISTS AssetPairInfo (
-#                     time INTEGER PRIMARY KEY,
-#                     value TEXT NOT NULL
-#                 )'''),
-#             db.execute('''
-#                 CREATE TABLE IF NOT EXISTS AccountInfo (
-#                     time INTEGER PRIMARY KEY,
-#                     value TEXT NOT NULL
-#                 )'''))
-#         # Simplify debugging through these views.
-#         await asyncio.gather(
-#             db.execute('''
-#                 CREATE VIEW IF NOT EXISTS CandleView AS SELECT
-#                     strftime('%Y-%m-%d %H:%M:%S', time / 1000, 'unixepoch') AS time_str,
-#                     time,
-#                     open,
-#                     high,
-#                     low,
-#                     close,
-#                     volume
-#                 FROM Candle'''),
-#             db.execute('''
-#                 CREATE VIEW IF NOT EXISTS CandleRangeView AS SELECT
-#                     strftime('%Y-%m-%d %H:%M:%S', start / 1000, 'unixepoch') AS start_str,
-#                     start,
-#                     strftime('%Y-%m-%d %H:%M:%S', end / 1000, 'unixepoch') AS end_str,
-#                     end
-#                 FROM Span'''))
-#         await db.commit()

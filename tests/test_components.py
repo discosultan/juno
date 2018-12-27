@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from juno import Balance, Candle, SymbolInfo
@@ -9,26 +11,26 @@ from juno.utils import list_async
 class Fake:
 
     candles = [
-        (Candle(0, 1.0, 1.0, 1.0, 1.0, 1.0), True),
-        (Candle(1, 1.0, 1.0, 1.0, 1.0, 1.0), True),
+        (Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(1), Decimal(1)), True),
+        (Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(1), Decimal(1)), True),
         # Deliberately skipped candle.
-        (Candle(3, 1.0, 1.0, 1.0, 1.0, 1.0), True)
+        (Candle(3, Decimal(1), Decimal(1), Decimal(1), Decimal(1), Decimal(1)), True)
     ]
 
     async def map_symbol_infos(self):
         return {'eth-btc': SymbolInfo(
-            min_size=1.0,
-            max_size=1.0,
-            size_step=1.0,
-            min_price=1.0,
-            max_price=1.0,
-            price_step=1.0)
+            min_size=Decimal(1),
+            max_size=Decimal(1),
+            size_step=Decimal(1),
+            min_price=Decimal(1),
+            max_price=Decimal(1),
+            price_step=Decimal(1))
         }
 
     async def stream_balances(self):
         yield {'btc': Balance(
-            available=1.0,
-            hold=0.0
+            available=Decimal(1),
+            hold=Decimal(0)
         )}
 
     async def stream_candles(self, _symbol, _interval, start, end):
@@ -38,13 +40,13 @@ class Fake:
     async def stream_depth(self, _symbol):
         yield {
             'type': 'snapshot',
-            'bids': [(1.0, 1.0), (2.0, 1.0)],
-            'asks': [(1.0, 1.0)]
+            'bids': [(Decimal(1), Decimal(1)), (Decimal(2), Decimal(1))],
+            'asks': [(Decimal(1), Decimal(1))]
         }
         yield {
             'type': 'update',
-            'bids': [(1.0, 1.0)],
-            'asks': [(1.0, 0.0)]
+            'bids': [(Decimal(1), Decimal(1))],
+            'asks': [(Decimal(1), Decimal(0))]
         }
 
 
@@ -125,15 +127,15 @@ async def test_find_market_order_buy_size(loop, orderbook):
     size = orderbook.find_market_order_buy_size(
         exchange='fake',
         symbol='eth-btc',
-        quote_balance=0.5,
-        size_step=0.1)
-    assert size == 0.0
+        quote_balance=Decimal('0.5'),
+        size_step=Decimal('0.1'))
+    assert size == 0
 
 
 async def test_find_market_order_sell_size(loop, orderbook):
     size = orderbook.find_market_order_sell_size(
         exchange='fake',
         symbol='eth-btc',
-        base_balance=2.5,
-        size_step=0.1)
-    assert size == 2.0
+        base_balance=Decimal('2.5'),
+        size_step=Decimal('0.1'))
+    assert size == 2

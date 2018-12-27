@@ -1,5 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
+import sqlite3
 from typing import Any
 
 import aiosqlite
@@ -24,7 +25,7 @@ class Memory(SQLite):
     async def _connect(self, key: str) -> Any:
         db = self._dbs.get(key)
         if not db:
-            db = aiosqlite.connect(':memory:')
+            db = aiosqlite.connect(':memory:', detect_types=sqlite3.PARSE_DECLTYPES)
             await db.__aenter__()
             self._dbs[key] = db
         yield db

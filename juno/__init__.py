@@ -1,4 +1,5 @@
 from collections import namedtuple
+from decimal import Decimal
 from enum import Enum
 
 from juno.time import datetime_fromtimestamp_ms
@@ -21,11 +22,11 @@ Trade = namedtuple('Trade', ['price', 'size', 'commission', 'commission_asset', 
 # out of the box.
 class Candle(namedtuple('Candle', ['time', 'open', 'high', 'low', 'close', 'volume'])):
     time: int
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float
+    open: Decimal
+    high: Decimal
+    low: Decimal
+    close: Decimal
+    volume: Decimal
 
     def __repr__(self):
         return (f'{self.__class__.__name__}(time={datetime_fromtimestamp_ms(self.time)}, '

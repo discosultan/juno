@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 
 from juno.indicators import Sma, Ema, Dema, Cci, DM, DI, DX, Adx, Adxr, Macd, Stoch, Rsi
@@ -313,9 +315,10 @@ def _assert(indicator, inputs, outputs, precision):
     input_len, output_len = len(inputs[0]), len(outputs[0])
     offset = input_len - output_len
     for i in range(0, input_len):
-        result = indicator.update(*(input[i] for input in inputs))
+        result = indicator.update(*(Decimal(input[i]) for input in inputs))
         if i >= offset:
             if not isinstance(result, tuple):
                 result = result,
             for j in range(0, len(result)):
-                assert pytest.approx(result[j], abs=10**-precision) == outputs[j][i - offset]
+                assert pytest.approx(
+                    float(result[j]), abs=10**-precision) == outputs[j][i - offset]
