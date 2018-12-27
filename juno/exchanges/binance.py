@@ -62,7 +62,7 @@ class Binance:
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_symbol_infos(self):
-        res = await self._request('GET', '/api/v1/exchangeInfo', weight=1)
+        res = await self._request('GET', '/api/v1/exchangeInfo')
         result = {}
         for symbol in res['symbols']:
             size = next((f for f in symbol['filters'] if f['filterType'] == 'LOT_SIZE'))
@@ -102,7 +102,7 @@ class Binance:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         async with self._ws_connect(f'/ws/{_ws_symbol(symbol)}@depth') as ws:
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-            result = await self._request('GET', '/api/v1/depth', weight=1, data={
+            result = await self._request('GET', '/api/v1/depth', data={
                 'limit': 100,  # TODO: We might wanna increase that and accept higher weight.
                 'symbol': _http_symbol(symbol)
             })
@@ -146,7 +146,6 @@ class Binance:
         listen_key = (await self._request(
             'POST',
             '/api/v1/userDataStream',
-            weight=1,
             security=_SEC_USER_STREAM))['listenKey']
         self._listen_key_refresh_task = asyncio.create_task(
             self._periodic_listen_key_refresh(listen_key))
@@ -192,7 +191,7 @@ class Binance:
         if time_in_force is not None:
             data['timeInForce'] = time_in_force.name
         url = f'/api/v3/order{"/test" if test else ""}'
-        res = await self._request('POST', url, weight=1, data=data)
+        res = await self._request('POST', url, data=data)
         return OrderResult(res['price'], res['executedQty'])
 
     async def get_trades(self, symbol):
@@ -215,7 +214,7 @@ class Binance:
     async def _stream_historical_candles(self, symbol, interval, start, end):
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            res = await self._request('GET', '/api/v1/klines', weight=1, data={
+            res = await self._request('GET', '/api/v1/klines', data={
                 'symbol': _http_symbol(symbol),
                 'interval': _interval(interval),
                 'startTime': page_start,
@@ -273,7 +272,6 @@ class Binance:
                 self._request(
                     'PUT',
                     '/api/v1/userDataStream',
-                    weight=1,
                     data={'listenKey': listen_key},
                     security=_SEC_USER_STREAM)
         except asyncio.CancelledError:
@@ -282,12 +280,11 @@ class Binance:
             self._request(
                 'DELETE',
                 '/api/v1/userDataStream',
-                weight=1,
                 data={'listenKey': listen_key},
                 security=_SEC_USER_STREAM)
 
     @backoff.on_exception(backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=3)
-    async def _request(self, method, url, weight, data={}, security=_SEC_NONE):
+    async def _request(self, method, url, weight=1, data={}, security=_SEC_NONE):
         if method == '/api/v3/order':
             await asyncio.gather(
                 self._reqs_per_min_limiter.acquire(weight),
@@ -328,7 +325,7 @@ class Binance:
     async def _sync_clock(self):
         try:
             before = time_ms()
-            server_time = (await self._request('GET', '/api/v1/time', weight=1))['serverTime']
+            server_time = (await self._request('GET', '/api/v1/time'))['serverTime']
             after = time_ms()
             # Assume response time is same as request time.
             delay = (after - before) // 2
