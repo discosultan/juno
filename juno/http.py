@@ -24,19 +24,13 @@ class ClientSession:
     async def __aexit__(self, exc_type, exc, tb):
         await self._session.__aexit__(exc_type, exc, tb)
 
-    @asynccontextmanager
-    async def request(self, method, url, **kwargs):
-        _aiohttp_log.info(f'{method} {url}')
-        _aiohttp_log.debug(kwargs)
-        async with self._session.request(method, url, **kwargs) as res:
-            _aiohttp_log.info(f'{res.status} {res.reason}')
-            if res.status >= 400:
-                _aiohttp_log.error(await res.text())
-                if self._raise_for_status:
-                    res.raise_for_status()
-            else:
-                _aiohttp_log.debug(await res.text())
-            yield res
+    def request(self, method, url, **kwargs):
+        return _RequestContextManagerWrapper(
+            self._session.request(method, url, **kwargs),
+            self._raise_for_status,
+            method,
+            url,
+            kwargs)
 
     @asynccontextmanager
     async def ws_connect(self, url, **kwargs):
@@ -44,6 +38,32 @@ class ClientSession:
         _aiohttp_log.debug(kwargs)
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield _ClientWebSocketResponseWrapper(ws)
+
+
+class _RequestContextManagerWrapper:
+
+    def __init__(self, rcm, raise_for_status, method, url, kwargs):
+        self._rcm = rcm
+        self._raise_for_status = raise_for_status
+        self._method = method
+        self._url = url
+        self._kwargs = kwargs
+
+    async def __aenter__(self):
+        _aiohttp_log.info(f'{self._method} {self._url}')
+        _aiohttp_log.debug(self._kwargs)
+        res = await self._rcm.__aenter__()
+        _aiohttp_log.info(f'{res.status} {res.reason}')
+        if res.status >= 400:
+            _aiohttp_log.error(await res.text())
+            if self._raise_for_status:
+                res.raise_for_status()
+        else:
+            _aiohttp_log.debug(await res.text())
+        return res
+
+    async def __aexit__(self, exc_type, exc, tb):
+        await self._rcm.__aexit__(exc_type, exc, tb)
 
 
 class _ClientWebSocketResponseWrapper:

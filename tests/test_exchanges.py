@@ -44,9 +44,10 @@ async def test_stream_candles(loop, request, exchange):
         interval=HOUR_MS,
         start=start,
         end=start + HOUR_MS)
-    await stream.__anext__()
+    await stream.asend(None)
     with pytest.raises(StopAsyncIteration):
-        await stream.__anext__()
+        await stream.asend(None)
+    await stream.aclose()
 
 
 @pytest.mark.manual
@@ -62,7 +63,8 @@ async def test_map_symbol_infos(loop, request, exchange):
 async def test_stream_balances(loop, request, exchange):
     skip_non_manual(request)
     stream = exchange.stream_balances()
-    await stream.__anext__()
+    await stream.asend(None)
+    await stream.aclose()
 
 
 @pytest.mark.manual
@@ -70,7 +72,8 @@ async def test_stream_balances(loop, request, exchange):
 async def test_stream_depth(loop, request, exchange):
     skip_non_manual(request)
     stream = exchange.stream_depth('eth-btc')
-    res = await stream.__anext__()
+    res = await stream.asend(None)
+    await stream.aclose()
     assert res
 
 

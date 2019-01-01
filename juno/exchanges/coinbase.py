@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 import hashlib
@@ -12,8 +13,8 @@ import simplejson as json
 from juno import Balance, Candle, SymbolInfo
 from juno.http import ClientSession
 from juno.math import floor_multiple
-from juno.time import time_ms
-from juno.utils import LeakyBucket, page
+from juno.time import datetime_timestamp_ms, time_ms
+from juno.utils import Event, LeakyBucket, page
 
 
 _BASE_REST_URL = 'https://api.pro.coinbase.com'
@@ -36,11 +37,16 @@ class Coinbase:
 
         # Stream.
         self._stream_task = None
+        self._stream_subscriptions = {}
         self._stream_subscription_queue = asyncio.Queue()
-        self._stream_depth_queue = asyncio.Queue()
-        self._stream_consumer_queues = {
-            'snapshot': self._stream_depth_queue,
-            'l2update': self._stream_depth_queue
+        self._stream_heartbeat_event = Event()
+        self._stream_depth_event = Event()
+        self._stream_match_event = Event()
+        self._stream_consumer_events = {
+            'heartbeat': self._stream_heartbeat_event,
+            'snapshot': self._stream_depth_event,
+            'l2update': self._stream_depth_event,
+            'match': self._stream_match_event
         }
 
         self._session = ClientSession(raise_for_status=True)
@@ -79,22 +85,23 @@ class Coinbase:
 
     async def stream_candles(self, symbol, interval, start, end):
         current = floor_multiple(time_ms(), interval)
-
         if start < current:
             async for candle, primary in self._stream_historical_candles(symbol, interval, start,
                                                                          min(end, current)):
                 yield candle, primary
-
-        # TODO: Add support for future candles.
+        if end > current:
+            async for candle, primary in self._stream_future_candles(symbol, interval, end):
+                yield candle, primary
 
     async def _stream_historical_candles(self, symbol, interval, start, end):
         MAX_CANDLES_PER_REQUEST = 300  # They advertise 350.
+        url = f'/products/{_product(symbol)}/candles'
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            url = (f'/products/{_product(symbol)}/candles'
-                   f'?start={_datetime(page_start)}'
-                   f'&end={_datetime(page_end)}'
-                   f'&granularity={_granularity(interval)}')
-            res = await self._public_request('GET', url)
+            res = await self._public_request('GET', url, {
+                'start': _datetime(page_start),
+                'end': _datetime(page_end),
+                'granularity': _granularity(interval)
+            })
             for c in reversed(res):
                 # This seems to be an issue on Coinbase side. I didn't find any documentation for
                 # this behavior but occasionally they send null values inside candle rows for
@@ -105,15 +112,66 @@ class Coinbase:
                 yield (Candle(c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]),
                        Decimal(c[4]), Decimal(c[5])), True)
 
+    # TODO: First candle can be partial.
+    async def _stream_future_candles(self, symbol, interval, end):
+        self._ensure_stream_open()
+        if symbol not in self._stream_subscriptions.get('matches', []):
+            self._stream_subscription_queue.put_nowait({
+                'type': 'subscribe',
+                'product_ids': [_product(symbol)],
+                'channels': ['heartbeat', 'matches']
+            })
+
+        start = floor_multiple(time_ms(), interval)
+        trades_since_start = []
+        # TODO: pagination
+        latest_trades = await self._public_request('GET', f'/products/{_product(symbol)}/trades')
+        for trade in latest_trades:
+            trade['time'] = _from_datetime(trade['time'])
+            if trade['time'] < start:
+                break
+            trades_since_start.append(trade)
+
+        candles = defaultdict(dict)
+        last_candle_map = {}
+        while True:
+            data = await self._stream_match_event.wait()
+            if 'price' not in data or 'size' not in data:
+                continue
+            product_id = data['product_id']
+            price, size = Decimal(data['price']), Decimal(data['size'])
+            time = floor_multiple(_from_datetime(data['time']), interval)
+            current_candle = candles[product_id].get(time)
+            if not current_candle:
+                last_candle = last_candle_map.get[product_id]
+                if last_candle:
+                    del candles[product_id][last_candle.time]
+                    yield last_candle, True
+                candles[product_id][time] = Candle(
+                    time=time,
+                    open=price,
+                    high=price,
+                    low=price,
+                    close=price,
+                    volume=size
+                )
+            else:
+                current_candle.high = max(price, current_candle.high)
+                current_candle.low = min(price, current_candle.low)
+                current_candle.close = price
+                current_candle.volume = current_candle.volume + size
+                last_candle_map[product_id] = current_candle
+
     async def stream_depth(self, symbol):
         self._ensure_stream_open()
-        self._stream_subscription_queue.put_nowait({
-            'type': 'subscribe',
-            'product_ids': [_product(symbol)],
-            'channels': ['level2']
-        })
+        if symbol not in self._stream_subscriptions.get('level2', []):
+            self._stream_subscription_queue.put_nowait({
+                'type': 'subscribe',
+                'product_ids': [_product(symbol)],
+                'channels': ['level2']
+            })
         while True:
-            data = await self._stream_depth_queue.get()
+            data = await self._stream_depth_event.wait()
             if data['type'] == 'snapshot':
                 yield {
                     'type': 'snapshot',
@@ -140,17 +198,36 @@ class Coinbase:
                     await ws.send_json(self._stream_subscription_queue.get_nowait())
                 async for msg in ws:
                     data = json.loads(msg.data)
-                    self._stream_consumer_queues[data['type']].put_nowait(data)
+                    if data['type'] == 'subscriptions':
+                        self._stream_subscriptions = {
+                            c['name']: [s.lower() for s in c['product_ids']]
+                            for c in data['channels']}
+                    else:
+                        self._stream_consumer_events[data['type']].set(data)
         except asyncio.CancelledError:
             _log.info('streaming task cancelled')
 
-    # TODO: retry with backoff
-    async def _public_request(self, method, url):
-        await self._pub_limiter.acquire()
+    async def _paginated_public_request(self, method, url, data={}):
         url = _BASE_REST_URL + url
-        async with self._session.request(method, url) as res:
-            return await res.json()
+        page_after = None
+        while True:
+            # TODO: retry with backoff
+            await self._pub_limiter.acquire()
+            if page_after is not None:
+                data['after'] = page_after
+            async with self._session.request(method, url, params=data) as res:
+                yield await res.json()
+                page_after = res.headers.get('CB-AFTER')
+                if page_after is None:
+                    break
 
+    async def _public_request(self, method, url, data={}):
+        gen = self._paginated_public_request(method, url, data)
+        val = await gen.asend(None)
+        await gen.aclose()
+        return val
+
+    # TODO: retry with backoff
     async def _private_request(self, method, url, body=''):
         await self._priv_limiter.acquire()
         timestamp = str(time())
@@ -177,3 +254,7 @@ def _granularity(interval):
 
 def _datetime(timestamp):
     return datetime.utcfromtimestamp(timestamp / 1000.0).isoformat()
+
+
+def _from_datetime(dt):
+    return datetime_timestamp_ms(datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%fZ'))
