@@ -222,9 +222,9 @@ class Coinbase:
                     break
 
     async def _public_request(self, method, url, data={}):
-        gen = self._paginated_public_request(method, url, data)
-        val = await gen.asend(None)
-        await gen.aclose()
+        # TODO: raises RuntimeError due to https://bugs.python.org/issue33786
+        stream = self._paginated_public_request(method, url, data)
+        val = await stream.__anext__()
         return val
 
     # TODO: retry with backoff
