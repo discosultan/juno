@@ -17,11 +17,11 @@ class Orderbook:
                            if s.__class__.__name__.lower() in config['exchanges']}
         self._symbols = config['symbols']
         self._orderbooks_product = list(product(self._exchanges.keys(), self._symbols))
-        self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
 
         self._orderbooks = defaultdict(lambda: defaultdict(dict))
 
     async def __aenter__(self):
+        self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
         self._sync_task = asyncio.create_task(self._sync_orderbooks())
         await self._initial_orderbook_fetched.wait()
         return self

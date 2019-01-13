@@ -283,8 +283,8 @@ class Binance:
                 data={'listenKey': listen_key},
                 security=_SEC_USER_STREAM)
 
-    @backoff.on_exception(backoff.expo, (aiohttp.ClientError, asyncio.TimeoutError), max_tries=3)
-    async def _request(self, method, url, weight=1, data={}, security=_SEC_NONE):
+    @backoff.on_exception(backoff.expo, aiohttp.ClientConnectionError, max_tries=3)
+    async def _request(self, method, url, weight=1, data=None, security=_SEC_NONE):
         if method == '/api/v3/order':
             await asyncio.gather(
                 self._reqs_per_min_limiter.acquire(weight),
@@ -305,6 +305,7 @@ class Binance:
                 self._sync_clock_task = asyncio.create_task(self._sync_clock())
             await self._sync_clock_task
 
+            data = data or {}
             data['timestamp'] = time_ms() + self._time_diff
             query_str_bytes = _query_string(data).encode('utf-8')
             signature = hmac.new(self._secret_key_bytes, query_str_bytes, hashlib.sha256)

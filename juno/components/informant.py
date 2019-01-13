@@ -18,9 +18,9 @@ class Informant:
                            if s.__class__.__name__.lower() in config['exchanges']}
         self._storage = services[config['storage']]
         self._exchange_symbols = defaultdict(dict)
-        self._initial_symbol_infos_fetched = asyncio.Event()
 
     async def __aenter__(self):
+        self._initial_symbol_infos_fetched = asyncio.Event()
         self._sync_task = asyncio.create_task(self._sync_all_symbol_infos())
         await self._initial_symbol_infos_fetched.wait()
         return self

@@ -26,10 +26,12 @@ class ClientSession:
 
     @asynccontextmanager
     async def request(self, method, url, **kwargs):
-        _aiohttp_log.info(f'{method} {url}')
+        req = self._session.request(method, url, **kwargs)
+        req_id = id(req)
+        _aiohttp_log.info(f'Req {req_id} {method} {url}')
         _aiohttp_log.debug(kwargs)
-        async with self._session.request(method, url, **kwargs) as res:
-            _aiohttp_log.info(f'{res.status} {res.reason}')
+        async with req as res:
+            _aiohttp_log.info(f'Res {req_id} {res.status} {res.reason}')
             if res.status >= 400:
                 _aiohttp_log.error(await res.text())
                 if self._raise_for_status:

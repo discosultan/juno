@@ -12,9 +12,9 @@ class Wallet:
         self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
                            if s.__class__.__name__.lower() in config['exchanges']}
         self._exchange_balances = defaultdict(dict)
-        self._initial_balances_fetched = asyncio.Event()
 
     async def __aenter__(self):
+        self._initial_balances_fetched = asyncio.Event()
         self._sync_balances_task = asyncio.create_task(
             self._sync_all_balances())
         await self._initial_balances_fetched.wait()

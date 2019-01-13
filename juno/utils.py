@@ -133,3 +133,34 @@ class Event:
 
     def is_set(self) -> bool:
         return self._event.is_set()
+
+
+class Trend:
+
+    def __init__(self, persistence: int):
+        self.age = 0
+        self.persistence = persistence
+        self.last_dir = 0
+        self.last_advice = 0
+        self.initial_trend = True
+
+    def update(self, direction: int) -> int:
+        advice = 0
+        if direction == 0:
+            self.initial_trend = False
+        else:
+            if direction != self.last_dir:
+                self.age = 0
+                if self.last_dir != 0:
+                    self.initial_trend = False
+                self.last_dir = direction
+
+            if not self.initial_trend and self.age == self.persistence:
+                advice = 1 if direction == 1 else -1
+                if advice is self.last_advice:
+                    advice = 0
+                else:
+                    self.last_advice = advice
+
+            self.age += 1
+        return advice

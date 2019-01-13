@@ -1,7 +1,7 @@
 import asyncio
 import pytest
 
-from juno.utils import generate_missing_spans, merge_adjacent_spans, Barrier, Event
+from juno.utils import Barrier, Event, generate_missing_spans, merge_adjacent_spans, Trend
 
 
 @pytest.mark.parametrize('input,expected_output', [
@@ -54,3 +54,64 @@ async def test_event(loop):
 
     assert r1 == 'value'
     assert r2 == 'value'
+
+
+def test_trend_without_age_threshold():
+    trend = Trend(0)
+    # Ensure advice skipped when starting in the middle of a trend.
+    assert trend.update(1) == 0
+    assert trend.update(1) == 0
+    # Ensure advice signaled on trend change.
+    assert trend.update(-1) == -1
+    assert trend.update(1) == 1
+    # Ensure advice not signaled twice for a trend.
+    assert trend.update(1) == 0
+    # Ensure when getting no trend direction and then receiving old
+    # direction again, advice is not signaled again.
+    assert trend.update(0) == 0
+    assert trend.update(1) == 0
+    # Ensure starting with no trend does not skip the initial trend.
+    trend = Trend(0)
+    assert trend.update(0) == 0
+    assert trend.update(1) == 1
+
+
+def test_trend_with_age_threshold():
+    # Ensure advice is skipped when starting in the middle of a trend.
+    trend = Trend(1)
+    assert trend.update(1) == 0
+    assert trend.update(1) == 0
+    # Ensure advice signaled after age threshold.
+    assert trend.update(-1) == 0
+    assert trend.update(-1) == -1
+    # Ensure moving out of trend and back to it does not re-signal the advice.
+    assert trend.update(0) == 0
+    assert trend.update(-1) == 0
+    assert trend.update(-1) == 0
+    # Ensure starting with a trend that hasn't passed age threshold does not skip the initial trend
+    # for opposite dir.
+    trend = Trend(1)
+    assert trend.update(1) == 0
+    assert trend.update(-1) == 0
+    assert trend.update(-1) == -1
+    # Ensure starting with no trend does not skip the initial trend.
+    trend = Trend(1)
+    assert trend.update(0) == 0
+    assert trend.update(1) == 0
+    assert trend.update(1) == 1
+    # Ensure that even if trend dir changes, if it has not passed the age threshold, going back to
+    # previous dir does not re-signal the advice.
+    assert trend.update(-1) == 0
+    assert trend.update(1) == 0
+    assert trend.update(1) == 0
+    # Ensure that even if trend is updated without dir, the age is still incremented for previous
+    # trend.
+    assert trend.update(-1) == 0
+    assert trend.update(0) == 0
+    assert trend.update(-1) == -1
+    # Ensure that even if trend is updated without dir and the age is incremented for previous
+    # trend above its threshold, going back to the dir signals advice.
+    assert trend.update(1) == 0
+    assert trend.update(0) == 0
+    assert trend.update(0) == 0
+    assert trend.update(1) == 1
