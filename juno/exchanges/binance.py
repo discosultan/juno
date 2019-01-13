@@ -59,6 +59,7 @@ class Binance:
         if self._listen_key_refresh_task:
             self._stream_user_data_task.cancel()
             self._listen_key_refresh_task.cancel()
+            await asyncio.gather(self._stream_user_data_task, self._listen_key_refresh_task)
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_symbol_infos(self):
@@ -269,7 +270,7 @@ class Binance:
         try:
             while True:
                 await asyncio.sleep(MIN_MS * 30)
-                self._request(
+                await self._request(
                     'PUT',
                     '/api/v1/userDataStream',
                     data={'listenKey': listen_key},
@@ -277,7 +278,7 @@ class Binance:
         except asyncio.CancelledError:
             _log.info('periodic listen key refresh task cancelled')
         finally:
-            self._request(
+            await self._request(
                 'DELETE',
                 '/api/v1/userDataStream',
                 data={'listenKey': listen_key},
@@ -312,7 +313,7 @@ class Binance:
             data['signature'] = signature.hexdigest()
 
         if data:
-            kwargs['params' if method == 'GET' else 'json'] = data
+            kwargs['params' if method == 'GET' else 'data'] = data
 
         async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as res:
             return await res.json()
