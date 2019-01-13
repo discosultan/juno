@@ -28,6 +28,7 @@ class Orderbook:
 
     async def __aexit__(self, exc_type, exc, tb):
         self._sync_task.cancel()
+        await self._sync_task
 
     def find_market_order_buy_size(self, exchange, symbol, quote_balance, size_step):
         orderbook = self._orderbooks[exchange][symbol]

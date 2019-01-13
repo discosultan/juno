@@ -27,6 +27,7 @@ class Informant:
 
     async def __aexit__(self, exc_type, exc, tb):
         self._sync_task.cancel()
+        await self._sync_task
 
     def get_symbol_info(self, exchange, symbol):
         return self._exchange_symbols[exchange][symbol]

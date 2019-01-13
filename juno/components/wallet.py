@@ -15,13 +15,13 @@ class Wallet:
 
     async def __aenter__(self):
         self._initial_balances_fetched = asyncio.Event()
-        self._sync_balances_task = asyncio.create_task(
-            self._sync_all_balances())
+        self._sync_all_balances_task = asyncio.create_task(self._sync_all_balances())
         await self._initial_balances_fetched.wait()
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
-        self._sync_balances_task.cancel()
+        self._sync_all_balances_task.cancel()
+        await self._sync_all_balances_task
 
     def get_balance(self, exchange, asset):
         return self._exchange_balances[exchange][asset]

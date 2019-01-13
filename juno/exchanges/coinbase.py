@@ -57,6 +57,7 @@ class Coinbase:
     async def __aexit__(self, exc_type, exc, tb):
         if self._stream_task:
             self._stream_task.cancel()
+            await self._stream_task
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_symbol_infos(self):

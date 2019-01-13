@@ -10,8 +10,10 @@ _log = logging.getLogger(__name__)
 class BacktestEngine(Engine):
 
     async def run(self):
-        _log.info('go fuck yourself')
+        _log.info('running backtest')
 
 
-engine = BacktestEngine()
-asyncio.run(engine.main())
+try:
+    asyncio.run(BacktestEngine().main())
+except KeyboardInterrupt:
+    _log.info('program interrupted by keyboard')

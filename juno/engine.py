@@ -58,8 +58,6 @@ class Engine:
                 await self.run()
             except asyncio.CancelledError:
                 _log.info('main task cancelled')
-            except KeyboardInterrupt:
-                _log.info('main task cancelled through keyboard interupt')
             except Exception as e:
                 _log.error(f'unhandled exception: {e}')
                 raise
