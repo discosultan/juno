@@ -326,17 +326,16 @@ class Binance:
 
     async def _sync_clock(self):
         try:
+            _log.info('syncing clock with Binance')
             before = time_ms()
             server_time = (await self._request('GET', '/api/v1/time'))['serverTime']
             after = time_ms()
             # Assume response time is same as request time.
             delay = (after - before) // 2
             self._time_diff = server_time - after - delay
+            _log.info(f'found {self._time_diff}ms time difference')
             # TODO: If we want to sync periodically, we should schedule a task on the event loop
             # to set self.sync_clock to None after a period of time. This will force re-sync.
-            # We can schedule a task using loop.create_task. Note that we must also cancel the
-            # task if the event loop ends before the task is finished. Otherwise, we will get a
-            # warning.
         except asyncio.CancelledError:
             _log.info('sync clock task cancelled')
 

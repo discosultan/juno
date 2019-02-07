@@ -28,8 +28,6 @@ class Engine:
 
         self.services = {}
 
-        print(inspect.getmembers(juno.exchanges, inspect.isclass))
-
         for name, exchange_type in inspect.getmembers(juno.exchanges, inspect.isclass):
             keys = exchange_type.__init__.__annotations__.keys()  # type: ignore
             kwargs = {key: os.getenv(f'JUNO_{name.upper()}_{key.upper()}') for key in keys}
