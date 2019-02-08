@@ -5,6 +5,7 @@ import logging
 import os
 import sys
 
+from juno.agents import new_agent
 import juno.components
 import juno.exchanges
 import juno.storages
@@ -13,52 +14,52 @@ import juno.storages
 _log = logging.getLogger(__name__)
 
 
-class Engine:
+async def run(self):
+    logging.basicConfig(
+        handlers=[logging.StreamHandler(stream=sys.stdout)],
+        level=logging.getLevelName(os.getenv('JUNO_LOGGING_LEVEL', default='DEBUG')))
 
-    def __init__(self):
-        logging.basicConfig(
-            handlers=[logging.StreamHandler(stream=sys.stdout)],
-            level=logging.getLevelName(os.getenv('JUNO_LOGGING_LEVEL', default='DEBUG')))
+    config = {
+        'exchanges': ['binance'],
+        'storage': 'sqlite',
+        'symbols': ['eth-btc']
+    }
 
-        self.config = {
-            'exchanges': ['binance'],
-            'storage': 'sqlite',
-            'symbols': ['eth-btc']
-        }
+    services = {}
 
-        self.services = {}
+    for name, exchange_type in inspect.getmembers(juno.exchanges, inspect.isclass):
+        keys = exchange_type.__init__.__annotations__.keys()  # type: ignore
+        kwargs = {key: os.getenv(f'JUNO_{name.upper()}_{key.upper()}') for key in keys}
+        if all(kwargs.values()):
+            services[name.lower()] = exchange_type(**kwargs)  # type: ignore
 
-        for name, exchange_type in inspect.getmembers(juno.exchanges, inspect.isclass):
-            keys = exchange_type.__init__.__annotations__.keys()  # type: ignore
-            kwargs = {key: os.getenv(f'JUNO_{name.upper()}_{key.upper()}') for key in keys}
-            if all(kwargs.values()):
-                self.services[name.lower()] = exchange_type(**kwargs)  # type: ignore
+    for name, storage_type in inspect.getmembers(juno.storages, inspect.isclass):
+        services[name.lower()] = storage_type()
 
-        for name, storage_type in inspect.getmembers(juno.storages, inspect.isclass):
-            self.services[name.lower()] = storage_type()
+    components = {}
 
-        self.components = {}
+    for name, component_type in inspect.getmembers(juno.components, inspect.isclass):
+        components[name.lower()] = component_type(services=services,
+                                                        config=config)
 
-        for name, component_type in inspect.getmembers(juno.components, inspect.isclass):
-            self.components[name.lower()] = component_type(services=self.services,
-                                                           config=self.config)
+    agents = []
+    for agent_config in config['agents']
+        agents.push(new_agent(agent))
 
-    async def main(self):
-        async with AsyncExitStack() as stack:
-            try:
-                # Init services.
-                await asyncio.gather(
-                    *(stack.enter_async_context(s) for s in self.services.values()))
-                # Init components.
-                await asyncio.gather(
-                    *(stack.enter_async_context(c) for c in self.components.values()))
-                # Run engine.
-                await self.run()
-            except asyncio.CancelledError:
-                _log.info('main task cancelled')
-            except Exception as e:
-                _log.error(f'unhandled exception: {e}')
-                raise
-
-    async def run(self):
-        pass
+    async with AsyncExitStack() as stack:
+        try:
+            # Init services.
+            await asyncio.gather(
+                *(stack.enter_async_context(s) for s in services.values()))
+            # Init components.
+            await asyncio.gather(
+                *(stack.enter_async_context(c) for c in components.values()))
+            # Run engine.
+            await asyncio.gather(
+                *(new_agent(settings['name'])(components, settings) for settings
+                  in config['agents']))
+        except asyncio.CancelledError:
+            _log.info('main task cancelled')
+        except Exception as e:
+            _log.error(f'unhandled exception: {e}')
+            raise
