@@ -60,13 +60,13 @@ class LeakyBucket:
 
     Period is measured in seconds.
     """
-    def __init__(self, rate: float, period: float):
+    def __init__(self, rate: float, period: float) -> None:
         self._max_level = rate
         self._rate_per_sec = rate / period
         self._level = 0.0
         self._last_check = 0.0
 
-    def _leak(self):
+    def _leak(self) -> None:
         """Drip out capacity from the bucket."""
         now = asyncio.get_running_loop().time()
         if self._level:
@@ -81,7 +81,7 @@ class LeakyBucket:
         self._leak()
         return self._level + amount <= self._max_level
 
-    async def acquire(self, amount: float = 1.0):
+    async def acquire(self, amount: float = 1.0) -> None:
         """Acquire space in the bucket.
 
         If the bucket is full, block until there is space.
@@ -98,17 +98,17 @@ class LeakyBucket:
 
 class Barrier:
 
-    def __init__(self, count: int):
+    def __init__(self, count: int) -> None:
         self._remaining_count = count
         self._event = asyncio.Event()
 
-    async def wait(self):
+    async def wait(self) -> None:
         await self._event.wait()
 
     def locked(self) -> bool:
         return self._remaining_count > 0
 
-    def release(self):
+    def release(self) -> None:
         self._remaining_count = max(self._remaining_count - 1, 0)
         if not self.locked():
             self._event.set()
@@ -116,7 +116,7 @@ class Barrier:
 
 class Event:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._event = asyncio.Event()
         self._event_data = None
 
@@ -128,7 +128,7 @@ class Event:
         self._event_data = data
         self._event.set()
 
-    def clear(self):
+    def clear(self) -> None:
         self._event.clear()
 
     def is_set(self) -> bool:
@@ -137,7 +137,7 @@ class Event:
 
 class Trend:
 
-    def __init__(self, persistence: int):
+    def __init__(self, persistence: int) -> None:
         self.age = 0
         self.persistence = persistence
         self.last_dir = 0

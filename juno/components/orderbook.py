@@ -1,5 +1,6 @@
 import asyncio
 from collections import defaultdict
+from decimal import Decimal
 from itertools import product
 import logging
 
@@ -12,7 +13,7 @@ _log = logging.getLogger(__name__)
 
 class Orderbook:
 
-    def __init__(self, services, config):
+    def __init__(self, services: dict, config: dict) -> None:
         self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
                            if s.__class__.__name__.lower() in config['exchanges']}
         self._symbols = config['symbols']
@@ -30,9 +31,10 @@ class Orderbook:
         self._sync_task.cancel()
         await self._sync_task
 
-    def find_market_order_buy_size(self, exchange, symbol, quote_balance, size_step):
+    def find_market_order_buy_size(self, exchange: str, symbol: str, quote_balance: Decimal,
+                                   size_step: Decimal) -> Decimal:
         orderbook = self._orderbooks[exchange][symbol]
-        total_size = 0
+        total_size = Decimal(0)
         available_quote = quote_balance
         for price, size in orderbook['asks'].items():
             cost = price * size
@@ -47,7 +49,8 @@ class Orderbook:
         # total_size = adjust_qty(size * percent, ap_info)
         return total_size
 
-    def find_market_order_sell_size(self, exchange, symbol, base_balance, size_step):
+    def find_market_order_sell_size(self, exchange: str, symbol: str, base_balance: Decimal,
+                                    size_step: Decimal) -> Decimal:
         orderbook = self._orderbooks[exchange][symbol]
         available_base = base_balance
         for _price, size in orderbook['bids'].items():
@@ -61,14 +64,14 @@ class Orderbook:
         # total_size = adjust_qty(size * percent, ap_info)
         return total_size
 
-    async def _sync_orderbooks(self):
+    async def _sync_orderbooks(self) -> None:
         try:
             await asyncio.gather(
                 *(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
         except asyncio.CancelledError:
             _log.info('orderbook sync task cancelled')
 
-    async def _sync_orderbook(self, exchange, symbol):
+    async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         snapshot_received = False
         async for val in self._exchanges[exchange].stream_depth(symbol):
             if val['type'] == 'snapshot':
@@ -87,7 +90,7 @@ class Orderbook:
                 raise NotImplementedError()
 
 
-def _update_orderbook_side(orderbook_side, values):
+def _update_orderbook_side(orderbook_side: str, values: list) -> None:
     for price, size in values:
         if size == 0 and price in orderbook_side:
             del orderbook_side[price]
@@ -95,7 +98,8 @@ def _update_orderbook_side(orderbook_side, values):
             orderbook_side[price] = size
 
 
-# def adjust_size(size, min_size, max_size, size_step):
+# def adjust_size(size: Decimal, min_size: Decimal, max_size: Decimal, size_step: Decimal
+#                 ) -> Decimal:
 #     # Clamp within min and max.
 #     size = max(min(size, max_size), min_size)
 #     # Make sure to follow step size.

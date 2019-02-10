@@ -8,8 +8,9 @@ _strategies = {name.lower(): cls for name, cls in sys.modules[__name__].__dict__
             if isinstance(cls, type)}
 
 
-def new_strategy(name: str, **kwargs: dict) -> Any:
+def new_strategy(config: dict) -> Any:
+    name = config.pop('name')
     strategy_cls = _strategies.get(name)
     if strategy_cls is None:
         raise ValueError(f'strategy {name} not found')
-    return strategy_cls(**kwargs)
+    return strategy_cls(**config)

@@ -1,6 +1,7 @@
 import asyncio
 from collections import defaultdict
 import logging
+from typing import Any, AsyncIterable
 
 from juno import Span, SymbolInfo
 from juno.math import floor_multiple
@@ -13,7 +14,7 @@ _log = logging.getLogger(__name__)
 
 class Informant:
 
-    def __init__(self, services, config):
+    def __init__(self, services: dict, config: dict) -> None:
         self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
                            if s.__class__.__name__.lower() in config['exchanges']}
         self._storage = services[config['storage']]
@@ -29,10 +30,11 @@ class Informant:
         self._sync_task.cancel()
         await self._sync_task
 
-    def get_symbol_info(self, exchange, symbol):
+    def get_symbol_info(self, exchange: str, symbol: str) -> Any:
         return self._exchange_symbols[exchange][symbol]
 
-    async def stream_candles(self, exchange, symbol, interval, start, end):
+    async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
+                             ) -> AsyncIterable[Any]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
         storage_key = (exchange, symbol, interval)
@@ -59,7 +61,8 @@ class Informant:
                         exchange, symbol, interval, span_start, span_end):
                     yield candle, primary
 
-    async def _stream_and_store_exchange_candles(self, exchange, symbol, interval, start, end):
+    async def _stream_and_store_exchange_candles(self, exchange: str, symbol: str, interval: int,
+                                                 start: int, end: int) -> AsyncIterable[Any]:
         BATCH_SIZE = 500
         batch = []
         batch_start = start
@@ -81,7 +84,7 @@ class Informant:
             await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
                                                        batch_start, batch_end)
 
-    async def _sync_all_symbol_infos(self):
+    async def _sync_all_symbol_infos(self) -> None:
         try:
             while True:
                 await asyncio.gather(*(self._sync_symbol_infos(e) for e in self._exchanges.keys()))
@@ -91,7 +94,7 @@ class Informant:
         except asyncio.CancelledError:
             _log.info('symbol info sync task cancelled')
 
-    async def _sync_symbol_infos(self, exchange):
+    async def _sync_symbol_infos(self, exchange: str) -> None:
         now = time_ms()
         infos, updated = await self._storage.get(exchange, SymbolInfo)
         if not updated or now >= updated + DAY_MS:

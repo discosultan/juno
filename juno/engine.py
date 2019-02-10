@@ -14,7 +14,7 @@ import juno.storages
 _log = logging.getLogger(__name__)
 
 
-async def run(self):
+async def engine():
     logging.basicConfig(
         handlers=[logging.StreamHandler(stream=sys.stdout)],
         level=logging.getLevelName(os.getenv('JUNO_LOGGING_LEVEL', default='DEBUG')))
@@ -39,12 +39,7 @@ async def run(self):
     components = {}
 
     for name, component_type in inspect.getmembers(juno.components, inspect.isclass):
-        components[name.lower()] = component_type(services=services,
-                                                        config=config)
-
-    agents = []
-    for agent_config in config['agents']
-        agents.push(new_agent(agent))
+        components[name.lower()] = component_type(services=services, config=config)
 
     async with AsyncExitStack() as stack:
         try:
@@ -54,12 +49,17 @@ async def run(self):
             # Init components.
             await asyncio.gather(
                 *(stack.enter_async_context(c) for c in components.values()))
-            # Run engine.
+            # Run agents.
             await asyncio.gather(
-                *(new_agent(settings['name'])(components, settings) for settings
-                  in config['agents']))
+                *(new_agent(components, settings) for settings in config['agents']))
         except asyncio.CancelledError:
             _log.info('main task cancelled')
         except Exception as e:
             _log.error(f'unhandled exception: {e}')
             raise
+
+
+try:
+    asyncio.run(engine())
+except KeyboardInterrupt:
+    _log.info('program interrupted by keyboard')
