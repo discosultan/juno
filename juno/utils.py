@@ -122,10 +122,10 @@ class Event:
 
     async def wait(self) -> T:
         await self._event.wait()
-        return self._event_data
+        return self._event_data  # type: ignore
 
     def set(self, data: T):
-        self._event_data = data
+        self._event_data = data  # type: ignore
         self._event.set()
 
     def clear(self) -> None:

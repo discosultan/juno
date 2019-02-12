@@ -1,16 +1,23 @@
+import inspect
+import itertools
 import sys
-from typing import Any
+from typing import Any, Dict, Iterable, Set
 
 from .backtest import backtest  # noqa
 
 
-_agents = {name.lower(): obj for name, obj in sys.modules[__name__].__dict__.items()
-           if callable(obj)}
+_agents = {name.lower(): type_ for name, type_
+           in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
 
 
-def new_agent(components: dict, config: dict) -> Any:
+def run_agent(components: Dict[str, Any], config: Dict[str, Any]) -> Any:
     name = config.pop('name')
-    agent = _agents.get(name)
-    if not agent:
+    agent_type = _agents.get(name)
+    if not agent_type:
         raise ValueError(f'agent {name} not found')
-    return agent(components, **config)
+    return agent_type(components).run(**config)
+
+
+def map_required_component_names(agent_names: Iterable[str]) -> Set[str]:
+    return set(itertools.chain.from_iterable(
+        (type_.required_components for name, type_ in _agents.items() if name in agent_names)))

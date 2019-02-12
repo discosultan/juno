@@ -3,6 +3,7 @@ from collections import defaultdict
 from decimal import Decimal
 from itertools import product
 import logging
+from typing import Any, Dict
 
 from juno.math import floor_multiple
 from juno.utils import Barrier
@@ -19,7 +20,7 @@ class Orderbook:
         self._symbols = config['symbols']
         self._orderbooks_product = list(product(self._exchanges.keys(), self._symbols))
 
-        self._orderbooks = defaultdict(lambda: defaultdict(dict))
+        self._orderbooks: Dict[str, Any] = defaultdict(lambda: defaultdict(dict))
 
     async def __aenter__(self):
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
@@ -90,7 +91,7 @@ class Orderbook:
                 raise NotImplementedError()
 
 
-def _update_orderbook_side(orderbook_side: str, values: list) -> None:
+def _update_orderbook_side(orderbook_side: Dict[str, Any], values: list) -> None:
     for price, size in values:
         if size == 0 and price in orderbook_side:
             del orderbook_side[price]

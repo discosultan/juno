@@ -25,7 +25,7 @@ _log = logging.getLogger(__name__)
 
 class Coinbase:
 
-    def __init__(self, api_key: str, secret_key: str, passphrase: str):
+    def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
         self._secret_key_bytes = base64.b64decode(secret_key)
         self._passphrase = passphrase

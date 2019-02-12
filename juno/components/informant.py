@@ -1,7 +1,7 @@
 import asyncio
 from collections import defaultdict
 import logging
-from typing import Any, AsyncIterable
+from typing import Any, AsyncIterable, Dict
 
 from juno import Span, SymbolInfo
 from juno.math import floor_multiple
@@ -18,7 +18,7 @@ class Informant:
         self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
                            if s.__class__.__name__.lower() in config['exchanges']}
         self._storage = services[config['storage']]
-        self._exchange_symbols = defaultdict(dict)
+        self._exchange_symbols: Dict[str, Dict[str, Any]] = defaultdict(dict)
 
     async def __aenter__(self):
         self._initial_symbol_infos_fetched = asyncio.Event()

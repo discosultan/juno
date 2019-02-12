@@ -2,6 +2,7 @@ import asyncio
 from collections import defaultdict
 from decimal import Decimal
 import logging
+from typing import Any, Dict
 
 
 _log = logging.getLogger(__name__)
@@ -12,7 +13,7 @@ class Wallet:
     def __init__(self, services: dict, config: dict) -> None:
         self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
                            if s.__class__.__name__.lower() in config['exchanges']}
-        self._exchange_balances = defaultdict(dict)
+        self._exchange_balances: Dict[str, Any] = defaultdict(dict)
 
     async def __aenter__(self):
         self._initial_balances_fetched = asyncio.Event()

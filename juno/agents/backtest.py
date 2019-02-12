@@ -12,62 +12,72 @@ from juno.strategies import new_strategy
 _log = logging.getLogger(__name__)
 
 
-async def backtest(components: dict, exchange: str, symbol: str, start: int, end: int,
-                   interval: int, strategy_config: dict):
-    _log.info('running backtest')
+class Backtest:
 
-    informant = components['informant']
-    symbol_info = informant.get_symbol_info(exchange, symbol)
-    summary = TradingSummary()
-    open_position = None
-    last_candle = None
+    required_components = ['informant']
 
-    async def trade():
-        nonlocal start, last_candle
+    def __init__(self, components: dict) -> None:
+        self.informant = components['informant']
 
-        strategy = new_strategy(strategy_config)
-        # Adjust start to accommodate for the required history before a strategy becomes
-        # effective.
-        start -= strategy.req_history
+    async def run(self, exchange: str, symbol: str, start: int, end: int, interval: int,
+                  strategy_config: dict):
+        _log.info('running backtest')
 
-        async for candle, primary in informant.stream_candles(
-                exchange=exchange,
-                symbol=symbol,
-                interval=interval,
-                start=start,
-                end=end):
-            if not primary:
-                continue
+        symbol_info = self.informant.get_symbol_info(exchange, symbol)
+        summary = TradingSummary()
+        open_position = None
+        last_candle = None
 
-            summary.append_candle(candle)
+        async def trade():
+            nonlocal start, last_candle
+            restart = False
 
-            # If we have missed a candle, reset and start over.
-            if candle.time - last_candle.time >= interval * 2:
-                _log.error(f'missed candle(s); last candle {last_candle}; current candle '
-                           f'{candle}; resetting strategy')
-                start = candle.time
+            strategy = new_strategy(strategy_config)
+            # Adjust start to accommodate for the required history before a strategy becomes
+            # effective.
+            start -= strategy.req_history
+
+            async for candle, primary in self.informant.stream_candles(
+                    exchange=exchange,
+                    symbol=symbol,
+                    interval=interval,
+                    start=start,
+                    end=end):
+                if not primary:
+                    continue
+
+                summary.append_candle(candle)
+
+                # If we have missed a candle, reset and start over.
+                if candle.time - last_candle.time >= interval * 2:
+                    _log.error(f'missed candle(s); last candle {last_candle}; current candle '
+                            f'{candle}; resetting strategy')
+                    start = candle.time
+                    restart = True
+
+                advice = strategy.update(candle)
+
+                if open_position is None and advice == 1:
+                    open_position = Position(candle.time, )
+
                 last_candle = candle
-                return True
+                if restart:
+                    return True
+        
+            return False
 
-            advice = strategy.update(candle)
+        while True:
+            restart = await trade()
+            if restart:
+                continue
+            else:
+                break
 
-            if open_position is None and advice == 1:
-                open_position = Position(candle.time, )
+        if last_candle is not None:
+            await broker.advice(last_candle.time, final_advice)
+            await ee.emit('summary', summary)
 
-            last_candle = candle
-
-    while True:
-        restart = await trade()
-        if restart:
-            continue
-        else:
-            break
-
-    if last_candle is not None:
-        await broker.advice(last_candle.time, final_advice)
-        await ee.emit('summary', summary)
-
-    _log.info('backtest finished')
+        _log.info('backtest finished')
 
 
 # TODO: Add support for external token fees (i.e BNB)
@@ -183,7 +193,7 @@ class TradingSummary:
         return 0 if self.first_candle is None else self.first_candle.time
 
     @property
-    def end(self) - int:
+    def end(self) -> int:
         # TODO: Do we want to add interval?
         return 0 if self.last_candle is None else self.last_candle.time
 

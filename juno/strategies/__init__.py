@@ -5,7 +5,7 @@ from .ema_ema_cx import EmaEmaCX  # noqa
 
 
 _strategies = {name.lower(): cls for name, cls in sys.modules[__name__].__dict__.items()
-            if isinstance(cls, type)}
+               if isinstance(cls, type)}
 
 
 def new_strategy(config: dict) -> Any:

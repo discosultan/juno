@@ -26,6 +26,7 @@ exchanges = []
 for exchange_type in [Binance, Coinbase]:
     name = exchange_type.__name__.upper()
     keys = exchange_type.__init__.__annotations__.keys()  # type: ignore
+    keys = (k for k in keys if k != 'return')
     kwargs = {key: os.getenv(f'JUNO_{name}_{key.upper()}') for key in keys}
     if all(kwargs.values()):
         exchanges.append(exchange_type(**kwargs))  # type: ignore

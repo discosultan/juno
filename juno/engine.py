@@ -1,14 +1,13 @@
 import asyncio
 from contextlib import AsyncExitStack
-import inspect
 import logging
 import os
 import sys
 
-from juno.agents import new_agent
-import juno.components
-import juno.exchanges
-import juno.storages
+from juno.agents import map_required_component_names, run_agent
+from juno.components import map_components
+from juno.exchanges import map_exchanges
+from juno.storages import map_storages
 
 
 _log = logging.getLogger(__name__)
@@ -25,21 +24,14 @@ async def engine():
         'symbols': ['eth-btc']
     }
 
+    # Create all services.
     services = {}
+    services.update(map_exchanges())
+    services.update(map_storages())
 
-    for name, exchange_type in inspect.getmembers(juno.exchanges, inspect.isclass):
-        keys = exchange_type.__init__.__annotations__.keys()  # type: ignore
-        kwargs = {key: os.getenv(f'JUNO_{name.upper()}_{key.upper()}') for key in keys}
-        if all(kwargs.values()):
-            services[name.lower()] = exchange_type(**kwargs)  # type: ignore
-
-    for name, storage_type in inspect.getmembers(juno.storages, inspect.isclass):
-        services[name.lower()] = storage_type()
-
-    components = {}
-
-    for name, component_type in inspect.getmembers(juno.components, inspect.isclass):
-        components[name.lower()] = component_type(services=services, config=config)
+    # Create components used by configured agents.
+    required_component_names = map_required_component_names((a['name'] for a in config['agents']))
+    components = map_components(required_component_names, services, config)
 
     async with AsyncExitStack() as stack:
         try:
@@ -49,9 +41,8 @@ async def engine():
             # Init components.
             await asyncio.gather(
                 *(stack.enter_async_context(c) for c in components.values()))
-            # Run agents.
-            await asyncio.gather(
-                *(new_agent(components, settings) for settings in config['agents']))
+            # Run configured agents.
+            await asyncio.gather(*(run_agent(components, c) for c in config['agents']))
         except asyncio.CancelledError:
             _log.info('main task cancelled')
         except Exception as e:
