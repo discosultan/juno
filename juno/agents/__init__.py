@@ -3,7 +3,7 @@ import itertools
 import sys
 from typing import Any, Dict, Iterable, Set
 
-from .backtest import backtest  # noqa
+from .backtest import Backtest  # noqa
 
 
 _agents = {name.lower(): type_ for name, type_

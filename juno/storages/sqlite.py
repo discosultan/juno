@@ -1,11 +1,12 @@
+from __future__ import annotations
 from contextlib import asynccontextmanager
 from decimal import Decimal
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, List, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple
 
-import aiosqlite
+from aiosqlite import connect, Connection
 import simplejson as json
 
 from juno import Candle, Span
@@ -33,13 +34,13 @@ sqlite3.register_converter('DECIMAL', _deserialize_decimal)
 
 class SQLite:
 
-    def __init__(self):
-        self._tables = {}
+    def __init__(self) -> None:
+        self._tables: Dict[Any, Set[type]] = {}
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> SQLite:
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type, exc, tb) -> None:
         pass
 
     async def stream_candle_spans(self, key: Any, start: int, end: int) -> Any:
@@ -94,7 +95,7 @@ class SQLite:
             else:
                 return None, None
 
-    async def store(self, key: Any, item: Any):
+    async def store(self, key: Any, item: Any) -> None:
         cls_name = item.__class__.__name__
         _log.info(f'storing {cls_name} to {self.__class__.__name__}')
         async with self._connect(key) as db:
@@ -104,7 +105,7 @@ class SQLite:
             await db.commit()
 
     @asynccontextmanager
-    async def _connect(self, key: Any) -> Any:
+    async def _connect(self, key: Any) -> AsyncIterator[Connection]:
         key_type = type(key)
         if key_type is str:
             name = key
@@ -114,7 +115,7 @@ class SQLite:
             raise NotImplementedError()
 
         name = str(_get_home().joinpath(f'v{_VERSION}_{name}.db'))
-        async with aiosqlite.connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
+        async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 
     async def _ensure_table(self, db: Any, type: type) -> None:

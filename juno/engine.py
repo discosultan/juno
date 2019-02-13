@@ -3,6 +3,7 @@ from contextlib import AsyncExitStack
 import logging
 import os
 import sys
+from typing import Any, Dict
 
 from juno.agents import map_required_component_names, run_agent
 from juno.components import map_components
@@ -13,12 +14,12 @@ from juno.storages import map_storages
 _log = logging.getLogger(__name__)
 
 
-async def engine():
+async def engine() -> None:
     logging.basicConfig(
         handlers=[logging.StreamHandler(stream=sys.stdout)],
         level=logging.getLevelName(os.getenv('JUNO_LOGGING_LEVEL', default='DEBUG')))
 
-    config = {
+    config: Dict[str, Any] = {
         'exchanges': ['binance'],
         'storage': 'sqlite',
         'symbols': ['eth-btc']

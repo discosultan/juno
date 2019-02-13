@@ -124,7 +124,7 @@ class Event:
         await self._event.wait()
         return self._event_data  # type: ignore
 
-    def set(self, data: T):
+    def set(self, data: T) -> None:
         self._event_data = data  # type: ignore
         self._event.set()
 

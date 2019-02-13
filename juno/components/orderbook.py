@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from decimal import Decimal
@@ -22,13 +23,13 @@ class Orderbook:
 
         self._orderbooks: Dict[str, Any] = defaultdict(lambda: defaultdict(dict))
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
         self._sync_task = asyncio.create_task(self._sync_orderbooks())
         await self._initial_orderbook_fetched.wait()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type, exc, tb) -> None:
         self._sync_task.cancel()
         await self._sync_task
 

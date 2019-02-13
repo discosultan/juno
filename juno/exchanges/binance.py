@@ -1,9 +1,11 @@
+from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 from decimal import Decimal
 import hashlib
 import hmac
 import logging
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 import backoff
@@ -34,7 +36,7 @@ class Binance:
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Binance:
         # Rate limiters.
         self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)           # 1200 per min.
         self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)            # 10 per sec.
@@ -45,8 +47,8 @@ class Binance:
         self._sync_clock_task = None
 
         # User data stream.
-        self._listen_key_refresh_task = None
-        self._stream_user_data_task = None
+        self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
+        self._stream_user_data_task: Optional[asyncio.Task[None]] = None
         self._balance_event = Event()
         self._order_event = Event()
 
@@ -55,14 +57,14 @@ class Binance:
 
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
-        if self._listen_key_refresh_task:
-            self._stream_user_data_task.cancel()
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        if self._listen_key_refresh_task and self._stream_user_data_task:
             self._listen_key_refresh_task.cancel()
+            self._stream_user_data_task.cancel()
             await asyncio.gather(self._stream_user_data_task, self._listen_key_refresh_task)
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def map_symbol_infos(self):
+    async def map_symbol_infos(self) -> Dict[str, SymbolInfo]:
         res = await self._request('GET', '/api/v1/exchangeInfo')
         result = {}
         for symbol in res['symbols']:
@@ -140,7 +142,7 @@ class Binance:
             #         hold=Decimal(balance['l']))
             # yield result
 
-    async def _ensure_user_data_stream(self):
+    async def _ensure_user_data_stream(self) -> None:
         if self._listen_key_refresh_task:
             return
 
@@ -153,7 +155,7 @@ class Binance:
         self._stream_user_data_task = asyncio.create_task(
             self._stream_user_data(listen_key))
 
-    async def _stream_user_data(self, listen_key):
+    async def _stream_user_data(self, listen_key: str) -> None:
         try:
             bal_time, order_time = 0, 0
             while True:
@@ -195,7 +197,7 @@ class Binance:
         res = await self._request('POST', url, data=data)
         return OrderResult(res['price'], res['executedQty'])
 
-    async def get_trades(self, symbol):
+    async def get_trades(self, symbol: str) -> List[Trade]:
         url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'
         result = await self._request('GET', url, 5)
         return [Trade(x['price'], x['qty'], x['commission'], x['commissionAsset'], x['isBuyer'])
@@ -266,7 +268,7 @@ class Binance:
                     if time_ms() > valid_until:
                         break
 
-    async def _periodic_listen_key_refresh(self, listen_key):
+    async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
         try:
             while True:
                 await asyncio.sleep(MIN_MS * 30)
@@ -324,7 +326,7 @@ class Binance:
         async with self._session.ws_connect(_BASE_WS_URL + url, **kwargs) as ws:
             yield ws
 
-    async def _sync_clock(self):
+    async def _sync_clock(self) -> None:
         try:
             _log.info('syncing clock with Binance')
             before = time_ms()
@@ -340,15 +342,15 @@ class Binance:
             _log.info('sync clock task cancelled')
 
 
-def _http_symbol(symbol):
+def _http_symbol(symbol: str) -> str:
     return symbol.replace('-', '').upper()
 
 
-def _ws_symbol(symbol):
+def _ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '')
 
 
-def _interval(interval):
+def _interval(interval: int) -> str:
     return {
         1000: '1s',
         60_000: '1m',
@@ -369,5 +371,5 @@ def _interval(interval):
     }[interval]
 
 
-def _query_string(data):
+def _query_string(data: Dict[str, Any]) -> str:
     return '&'.join((f'{key}={value}' for key, value in data.items()))

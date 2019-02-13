@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 from collections import defaultdict
 import logging
@@ -14,19 +15,19 @@ _log = logging.getLogger(__name__)
 
 class Informant:
 
-    def __init__(self, services: dict, config: dict) -> None:
+    def __init__(self, services: Dict[str, Any], config: Dict[str, Any]) -> None:
         self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
                            if s.__class__.__name__.lower() in config['exchanges']}
         self._storage = services[config['storage']]
         self._exchange_symbols: Dict[str, Dict[str, Any]] = defaultdict(dict)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Informant:
         self._initial_symbol_infos_fetched = asyncio.Event()
         self._sync_task = asyncio.create_task(self._sync_all_symbol_infos())
         await self._initial_symbol_infos_fetched.wait()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type, exc, tb) -> None:
         self._sync_task.cancel()
         await self._sync_task
 

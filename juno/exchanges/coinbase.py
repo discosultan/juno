@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 import base64
 from collections import defaultdict
@@ -7,6 +8,7 @@ import hashlib
 import hmac
 import logging
 from time import time
+from typing import Any, AsyncIterable, Dict, List
 
 import simplejson as json
 
@@ -30,15 +32,15 @@ class Coinbase:
         self._secret_key_bytes = base64.b64decode(secret_key)
         self._passphrase = passphrase
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Coinbase:
         # Rate limiter.
         self._pub_limiter = LeakyBucket(rate=1, period=1)   # They advertise 3 per sec.
         self._priv_limiter = LeakyBucket(rate=5, period=1)  # They advertise 5 per sec.
 
         # Stream.
         self._stream_task = None
-        self._stream_subscriptions = {}
-        self._stream_subscription_queue = asyncio.Queue()
+        self._stream_subscriptions: Dict[str, List[str]] = {}
+        self._stream_subscription_queue: asyncio.Queue[Any] = asyncio.Queue()
         self._stream_heartbeat_event = Event()
         self._stream_depth_event = Event()
         self._stream_match_event = Event()
@@ -54,13 +56,13 @@ class Coinbase:
 
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type, exc, tb) -> None:
         if self._stream_task:
             self._stream_task.cancel()
             await self._stream_task
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def map_symbol_infos(self):
+    async def map_symbol_infos(self) -> Dict[str, SymbolInfo]:
         res = await self._public_request('GET', '/products')
         result = {}
         for product in res:
@@ -73,7 +75,7 @@ class Coinbase:
                 price_step=Decimal(product['quote_increment']))
         return result
 
-    async def stream_balances(self):
+    async def stream_balances(self) -> AsyncIterable[Dict[str, Balance]]:
         res = await self._private_request('GET', '/accounts')
         result = {}
         for balance in res:
@@ -245,17 +247,17 @@ class Coinbase:
             return await res.json()
 
 
-def _product(symbol):
+def _product(symbol: str) -> str:
     return symbol.upper()
 
 
-def _granularity(interval):
+def _granularity(interval: int) -> int:
     return interval // 1000
 
 
-def _datetime(timestamp):
+def _datetime(timestamp: int) -> str:
     return datetime.utcfromtimestamp(timestamp / 1000.0).isoformat()
 
 
-def _from_datetime(dt):
+def _from_datetime(dt: str) -> int:
     return datetime_timestamp_ms(datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%fZ'))

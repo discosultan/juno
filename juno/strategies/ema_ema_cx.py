@@ -6,7 +6,7 @@ from juno.utils import Trend
 class EmaEmaCX:
 
     def __init__(self, short_period: int, long_period: int, neg_threshold: float,
-                 pos_threshold: float, persistence: int):
+                 pos_threshold: float, persistence: int) -> None:
         if neg_threshold > 0.0 or pos_threshold < 0.0:
             raise ValueError(f'neg threshold ({neg_threshold}) must be negative; pos threshold '
                              f'({pos_threshold}) positive')

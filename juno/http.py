@@ -1,3 +1,4 @@
+from __future__ import annotations
 from contextlib import asynccontextmanager
 import logging
 
@@ -13,15 +14,15 @@ _aiohttp_log = logging.getLogger('aiohttp.client')
 # https://github.com/aio-libs/aiohttp/issues/3185
 class ClientSession:
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs) -> None:
         self._raise_for_status = kwargs.pop('raise_for_status', None)
-        self._session = aiohttp.ClientSession(*args, **kwargs)
+        self._session = aiohttp.ClientSession(**kwargs)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> ClientSession:
         await self._session.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type, exc, tb) -> None:
         await self._session.__aexit__(exc_type, exc, tb)
 
     @asynccontextmanager
@@ -50,10 +51,10 @@ class ClientSession:
 
 class _ClientWebSocketResponseWrapper:
 
-    def __init__(self, client_ws_response):
+    def __init__(self, client_ws_response) -> None:
         self._client_ws_response = client_ws_response
 
-    def __aiter__(self):
+    def __aiter__(self) -> _ClientWebSocketResponseWrapper:
         return self
 
     async def __anext__(self):

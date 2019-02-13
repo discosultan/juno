@@ -14,6 +14,9 @@ setup(
     ],
     extras_require={
         'dev': [
-            'pytest'
+            'flake8',
+            'mypy',
+            'pytest',
+            'pytest-aiohttp'
         ]
     })

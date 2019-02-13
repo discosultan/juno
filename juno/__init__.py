@@ -28,7 +28,7 @@ class Candle(namedtuple('Candle', ['time', 'open', 'high', 'low', 'close', 'volu
     close: Decimal
     volume: Decimal
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f'{self.__class__.__name__}(time={datetime_fromtimestamp_ms(self.time)}, '
                 f'open={self.open}, high={self.high}, low={self.low}, close={self.close})')
 
@@ -37,7 +37,7 @@ class Span(namedtuple('Span', ['start', 'end'])):
     start: int
     end: int
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return (f'{self.__class__.__name__}(start={datetime_fromtimestamp_ms(self.start)}, '
                 f'end={datetime_fromtimestamp_ms(self.end)})')
 

@@ -11,7 +11,8 @@ _components = {name.lower(): obj for name, obj
                in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
 
 
-def map_components(names: Set[str], services: dict, config: dict) -> Dict[str, Any]:
+def map_components(names: Set[str], services: Dict[str, Any], config: Dict[str, Any]
+                   ) -> Dict[str, Any]:
     components = {}
     for name, type_ in _components.items():
         if name in names:
