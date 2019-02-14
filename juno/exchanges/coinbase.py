@@ -8,7 +8,7 @@ import hashlib
 import hmac
 import logging
 from time import time
-from typing import Any, AsyncIterable, Dict, List
+from typing import Any, AsyncIterable, Dict, List, Tuple
 
 import simplejson as json
 
@@ -86,7 +86,8 @@ class Coinbase:
 
         # TODO: Add support for future balance changes.
 
-    async def stream_candles(self, symbol, interval, start, end):
+    async def stream_candles(self, symbol: str, interval: int, start: int, end: int
+                             ) -> AsyncIterable[Tuple[Candle, bool]]:
         current = floor_multiple(time_ms(), interval)
         if start < current:
             async for candle, primary in self._stream_historical_candles(symbol, interval, start,

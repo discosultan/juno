@@ -1,7 +1,5 @@
 {
-    "exchanges": ["binance"],
     "storage": "sqlite",
-    "symbols": ["eth-btc"],
     "agents": [
         {
             "name": "backtest",
@@ -14,8 +12,8 @@
                 "name": "emaemacx",
                 "short_period": 18,
                 "long_period": 29,
-                "neg_threshold": -0.25,
-                "pos_threshold": 0.25,
+                "neg_threshold": "-0.25",
+                "pos_threshold": "0.25",
                 "persistence": 4
             }
         }

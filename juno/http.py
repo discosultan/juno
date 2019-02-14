@@ -1,6 +1,7 @@
 from __future__ import annotations
 from contextlib import asynccontextmanager
 import logging
+from typing import Any, AsyncIterator
 
 import aiohttp
 
@@ -26,7 +27,8 @@ class ClientSession:
         await self._session.__aexit__(exc_type, exc, tb)
 
     @asynccontextmanager
-    async def request(self, method, url, **kwargs):
+    async def request(self, method: str, url: str, **kwargs
+                      ) -> AsyncIterator[aiohttp.ClientResponse]:
         req = self._session.request(method, url, **kwargs)
         req_id = id(req)
         _aiohttp_log.info(f'Req {req_id} {method} {url}')
@@ -42,7 +44,8 @@ class ClientSession:
             yield res
 
     @asynccontextmanager
-    async def ws_connect(self, url, **kwargs):
+    async def ws_connect(self, url: str, **kwargs
+                         ) -> AsyncIterator[_ClientWebSocketResponseWrapper]:
         _aiohttp_log.info(f'WS {url}')
         _aiohttp_log.debug(kwargs)
         async with self._session.ws_connect(url, **kwargs) as ws:
@@ -51,17 +54,17 @@ class ClientSession:
 
 class _ClientWebSocketResponseWrapper:
 
-    def __init__(self, client_ws_response) -> None:
+    def __init__(self, client_ws_response: aiohttp.ClientWebSocketResponse) -> None:
         self._client_ws_response = client_ws_response
 
     def __aiter__(self) -> _ClientWebSocketResponseWrapper:
         return self
 
-    async def __anext__(self):
+    async def __anext__(self) -> aiohttp.WSMessage:
         msg = await self._client_ws_response.__anext__()
         _aiohttp_log.debug(msg)
         return msg
 
-    def send_json(self, data):
+    async def send_json(self, data: Any) -> None:
         _aiohttp_log.debug(data)
-        return self._client_ws_response.send_json(data)
+        await self._client_ws_response.send_json(data)

@@ -1,14 +1,14 @@
 import asyncio
 import pytest
 
-from juno.utils import Barrier, Event, generate_missing_spans, merge_adjacent_spans, Trend
+from juno import utils
 
 
 @pytest.mark.parametrize('input,expected_output', [
     ([(0, 1), (1, 2), (3, 4), (4, 5)], [(0, 2), (3, 5)])
 ])
 def test_merge_adjacent_spans(input, expected_output):
-    output = list(merge_adjacent_spans(input))
+    output = list(utils.merge_adjacent_spans(input))
     assert output == expected_output
 
 
@@ -17,12 +17,12 @@ def test_merge_adjacent_spans(input, expected_output):
     (2, 5, [(1, 3), (4, 6)], [(3, 4)])
 ])
 def test_generate_missing_spans(start, end, spans, expected_output):
-    output = list(generate_missing_spans(start, end, spans))
+    output = list(utils.generate_missing_spans(start, end, spans))
     assert output == expected_output
 
 
 async def test_barrier(loop):
-    barrier = Barrier(2)
+    barrier = utils.Barrier(2)
     event = asyncio.Event()
 
     async def process_event():
@@ -43,7 +43,7 @@ async def test_barrier(loop):
 
 
 async def test_event(loop):
-    event = Event()
+    event = utils.Event()
 
     t1 = event.wait()
     t2 = event.wait()
@@ -57,7 +57,7 @@ async def test_event(loop):
 
 
 def test_trend_without_age_threshold():
-    trend = Trend(0)
+    trend = utils.Trend(0)
     # Ensure advice skipped when starting in the middle of a trend.
     assert trend.update(1) == 0
     assert trend.update(1) == 0
@@ -71,14 +71,14 @@ def test_trend_without_age_threshold():
     assert trend.update(0) == 0
     assert trend.update(1) == 0
     # Ensure starting with no trend does not skip the initial trend.
-    trend = Trend(0)
+    trend = utils.Trend(0)
     assert trend.update(0) == 0
     assert trend.update(1) == 1
 
 
 def test_trend_with_age_threshold():
     # Ensure advice is skipped when starting in the middle of a trend.
-    trend = Trend(1)
+    trend = utils.Trend(1)
     assert trend.update(1) == 0
     assert trend.update(1) == 0
     # Ensure advice signaled after age threshold.
@@ -90,12 +90,12 @@ def test_trend_with_age_threshold():
     assert trend.update(-1) == 0
     # Ensure starting with a trend that hasn't passed age threshold does not skip the initial trend
     # for opposite dir.
-    trend = Trend(1)
+    trend = utils.Trend(1)
     assert trend.update(1) == 0
     assert trend.update(-1) == 0
     assert trend.update(-1) == -1
     # Ensure starting with no trend does not skip the initial trend.
-    trend = Trend(1)
+    trend = utils.Trend(1)
     assert trend.update(0) == 0
     assert trend.update(1) == 0
     assert trend.update(1) == 1

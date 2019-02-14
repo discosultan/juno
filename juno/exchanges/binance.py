@@ -5,7 +5,7 @@ from decimal import Decimal
 import hashlib
 import hmac
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 import aiohttp
 import backoff
@@ -204,7 +204,8 @@ class Binance:
                 for x in result]
 
     # TODO: Make sure we don't miss a candle when switching from historical to future.
-    async def stream_candles(self, symbol, interval, start, end):
+    async def stream_candles(self, symbol: str, interval: int, start: int, end: int
+                             ) -> AsyncIterable[Tuple[Candle, bool]]:
         current = floor_multiple(time_ms(), interval)
         if start < current:
             async for candle, primary in self._stream_historical_candles(symbol, interval, start,

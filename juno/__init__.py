@@ -2,7 +2,7 @@ from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
 
-from juno.time import datetime_fromtimestamp_ms
+from juno.time import datetime_utcfromtimestamp_ms
 
 
 AccountInfo = namedtuple('AccountInfo', ['time', 'base_balance', 'quote_balance', 'fees'])
@@ -29,7 +29,7 @@ class Candle(namedtuple('Candle', ['time', 'open', 'high', 'low', 'close', 'volu
     volume: Decimal
 
     def __repr__(self) -> str:
-        return (f'{self.__class__.__name__}(time={datetime_fromtimestamp_ms(self.time)}, '
+        return (f'{self.__class__.__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
                 f'open={self.open}, high={self.high}, low={self.low}, close={self.close})')
 
 
@@ -38,8 +38,8 @@ class Span(namedtuple('Span', ['start', 'end'])):
     end: int
 
     def __repr__(self) -> str:
-        return (f'{self.__class__.__name__}(start={datetime_fromtimestamp_ms(self.start)}, '
-                f'end={datetime_fromtimestamp_ms(self.end)})')
+        return (f'{self.__class__.__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
+                f'end={datetime_utcfromtimestamp_ms(self.end)})')
 
 
 class Advice(Enum):

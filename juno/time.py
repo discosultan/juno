@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from time import time
 
 
@@ -20,5 +20,33 @@ def datetime_timestamp_ms(dt: datetime) -> int:
     return int(round(dt.timestamp() * 1000.0))
 
 
-def datetime_fromtimestamp_ms(ms: int) -> datetime:
-    return datetime.fromtimestamp(ms / 1000.0)
+def datetime_utcfromtimestamp_ms(ms: int) -> datetime:
+    return datetime.utcfromtimestamp(ms / 1000.0).replace(tzinfo=timezone.utc)
+
+
+# Is assumed to be ordered by values descending.
+_INTERVAL_FACTORS = {
+    'y': YEAR_MS,
+    'M': MONTH_MS,
+    'w': WEEK_MS,
+    'd': DAY_MS,
+    'h': HOUR_MS,
+    'm': MIN_MS,
+    's': SEC_MS
+}
+
+
+def strfinterval(interval: int) -> str:
+    result = ''
+    remainder = interval
+    for letter, factor in _INTERVAL_FACTORS.items():
+        quotient, remainder = divmod(remainder, factor)
+        if quotient > 0:
+            result += f'{quotient}{letter}'
+        if remainder == 0:
+            break
+    return result
+
+
+def strpinterval(interval: str) -> int:
+    return int(interval[:-1]) * _INTERVAL_FACTORS[interval[-1]]
