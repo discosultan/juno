@@ -12,14 +12,14 @@ from juno.time import strpinterval, datetime_timestamp_ms
 def load_from_env() -> Dict[str, Any]:
     # TODO: Support lists.
     result: Dict[str, Any] = {}
-    entries = ((k.split('__')[1:], v) for k, v in os.environ if k.startswith('JUNO__'))
+    entries = ((k.split('__')[1:], v) for k, v in os.environ.items() if k.startswith('JUNO__'))
     for keys, value in entries:
         k1 = keys[0]
         if len(keys) == 1:
             result[k1] = value
         elif len(keys) == 2:
             k2 = keys[1]
-            result[k1] = result[k1] or {}
+            result[k1] = result.get(k1) or {}
             result[k1][k2] = value
         else:
             raise NotImplementedError()

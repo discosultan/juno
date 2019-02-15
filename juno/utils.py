@@ -1,6 +1,6 @@
 import asyncio
 import math
-from typing import AsyncIterable, Iterable, List, Tuple, TypeVar
+from typing import Any, AsyncIterable, Dict, Iterable, List, Tuple, TypeVar
 
 
 T = TypeVar('T')
@@ -49,6 +49,29 @@ def page(start: int, end: int, interval: int, limit: int) -> Iterable[Tuple[int,
         page_start = start + i * max_count
         page_end = min(page_start + max_count, end)
         yield page_start, page_end
+
+
+# Ref: https://stackoverflow.com/a/38397347/1466456
+def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple[Any, ...], Any]]:
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            yield from recursive_iter(v, keys + (k,))
+    elif any(isinstance(obj, t) for t in (list, tuple)):
+        for idx, item in enumerate(obj):
+            yield from recursive_iter(item, keys + (idx,))
+    else:
+        yield keys, obj
+
+
+# def flatten_dict_items(root: Dict[str, Any]) -> Iterable[Tuple[str, str]]:
+#     dicts: List[Tuple[List[str], Dict[str, Any]]] = [([], root)]
+#     for path, d in dicts:
+#         for k, v in d.items():
+#             new_path = path + [k]
+#             if hasattr(v, 'items'):
+#                 dicts.append((new_path, v))
+#             else:
+#                 yield k, v
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.

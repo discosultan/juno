@@ -21,6 +21,25 @@ def test_generate_missing_spans(start, end, spans, expected_output):
     assert output == expected_output
 
 
+def test_recursive_iter():
+    input = {
+        'aa': 'ab',
+        'ba': {
+            'ca': 'cb'
+        },
+        'da': [
+            {'ea': 'eb'}
+        ]
+    }
+    expected_output = [
+        (('aa',), 'ab'),
+        (('ba', 'ca'), 'cb'),
+        (('da', 0, 'ea'), 'eb')
+    ]
+    output = list(utils.recursive_iter(input))
+    assert output == expected_output
+
+
 async def test_barrier(loop):
     barrier = utils.Barrier(2)
     event = asyncio.Event()

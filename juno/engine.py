@@ -3,11 +3,11 @@ from contextlib import AsyncExitStack
 import logging
 import sys
 
-from juno.config import load_from_env, load_from_json_file
-from juno.agents import map_required_component_names, run_agent
+from juno.agents import list_required_component_names, run_agent
 from juno.components import map_components
-from juno.exchanges import map_exchanges
-from juno.storages import map_storages
+from juno.config import load_from_env, load_from_json_file
+from juno.exchanges import list_required_exchange_names, map_exchanges
+from juno.storages import list_required_storage_names, map_storages
 
 
 _log = logging.getLogger(__name__)
@@ -22,16 +22,15 @@ async def engine() -> None:
     # Configure logging.
     logging.basicConfig(
         handlers=[logging.StreamHandler(stream=sys.stdout)],
-        level=logging.getLevelName(config.get('log_level') or 'INFO').upper())
+        level=logging.getLevelName((config.get('log_level') or 'INFO').upper()))
 
     # Create configured services.
     services = {}
-    services.update(map_exchanges(config))
-    services.update(map_storages(config))
+    services.update(map_exchanges(list_required_exchange_names(config), config))
+    services.update(map_storages(list_required_storage_names(config), config))
 
     # Create components used by configured agents.
-    required_component_names = map_required_component_names((a['name'] for a in config['agents']))
-    components = map_components(required_component_names, services, config)
+    components = map_components(list_required_component_names(config), services, config)
 
     async with AsyncExitStack() as stack:
         try:

@@ -1,7 +1,7 @@
 import inspect
 import itertools
 import sys
-from typing import Any, Dict, Iterable, Set
+from typing import Any, Dict, Set
 
 from .backtest import Backtest  # noqa
 
@@ -18,6 +18,7 @@ def run_agent(components: Dict[str, Any], config: Dict[str, Any]) -> Any:
     return agent_type(components).run(**config)
 
 
-def map_required_component_names(agent_names: Iterable[str]) -> Set[str]:
+def list_required_component_names(config: Dict[str, Any]) -> Set[str]:
+    agent_names = (a['name'] for a in config['agents'])
     return set(itertools.chain.from_iterable(
         (type_.required_components for name, type_ in _agents.items() if name in agent_names)))

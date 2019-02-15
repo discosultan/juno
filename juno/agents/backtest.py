@@ -63,7 +63,7 @@ class Backtest:
                 last_candle = candle
                 if restart:
                     return True
-        
+
             return False
 
         while True:
