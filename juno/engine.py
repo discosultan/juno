@@ -1,10 +1,9 @@
 import asyncio
 from contextlib import AsyncExitStack
 import logging
-import os
 import sys
-from typing import Any, Dict
 
+from juno.config import load_from_env, load_from_json_file
 from juno.agents import map_required_component_names, run_agent
 from juno.components import map_components
 from juno.exchanges import map_exchanges
@@ -15,20 +14,20 @@ _log = logging.getLogger(__name__)
 
 
 async def engine() -> None:
+    # Load config.
+    config = {}
+    config.update(load_from_json_file('config.json'))
+    config.update(load_from_env())
+
+    # Configure logging.
     logging.basicConfig(
         handlers=[logging.StreamHandler(stream=sys.stdout)],
-        level=logging.getLevelName(os.getenv('JUNO_LOGGING_LEVEL', default='DEBUG')))
+        level=logging.getLevelName(config.get('log_level') or 'INFO').upper())
 
-    config: Dict[str, Any] = {
-        'exchanges': ['binance'],
-        'storage': 'sqlite',
-        'symbols': ['eth-btc']
-    }
-
-    # Create all services.
+    # Create configured services.
     services = {}
-    services.update(map_exchanges())
-    services.update(map_storages())
+    services.update(map_exchanges(config))
+    services.update(map_storages(config))
 
     # Create components used by configured agents.
     required_component_names = map_required_component_names((a['name'] for a in config['agents']))

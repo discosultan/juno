@@ -1,4 +1,9 @@
 {
+    "log_level": "debug",
+    "binance": {
+        "api_key": "abc",
+        "secret_key": "abc"
+    },
     "storage": "sqlite",
     "agents": [
         {
