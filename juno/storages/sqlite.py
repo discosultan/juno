@@ -4,7 +4,7 @@ from decimal import Decimal
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, AsyncIterator, Dict, List, Optional, Set, Tuple
+from typing import Any, AsyncIterator, Dict, get_type_hints, List, Optional, Set, Tuple
 
 from aiosqlite import connect, Connection
 import simplejson as json
@@ -129,15 +129,16 @@ class SQLite:
             tables.add(type)
 
 
-def _get_home():
+def _get_home() -> Path:
     path = Path(Path.home(), '.juno')
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-async def _create_table(db: Any, type: type):
-    col_names = list(type.__annotations__.keys())
-    col_types = [_type_to_sql_type(t) for t in type.__annotations__.values()]
+async def _create_table(db: Any, type: type) -> None:
+    annotations = get_type_hints(type)
+    col_names = list(annotations.keys())
+    col_types = [_type_to_sql_type(t) for t in annotations.values()]
     cols = []
     for i in range(0, len(col_names)):
         col_constrain = 'PRIMARY KEY' if i == 0 else 'NOT NULL'
@@ -167,7 +168,7 @@ def _type_to_sql_type(type: type) -> str:
         return 'DECIMAL'
     if type is str:
         return 'TEXT'
-    raise NotImplementedError()
+    raise NotImplementedError(f'Missing conversion for type {type}')
 
 
 class Bag:

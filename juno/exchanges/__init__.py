@@ -1,6 +1,6 @@
 import inspect
 import sys
-from typing import Any, Dict, Set
+from typing import Any, Dict, get_type_hints, Set
 
 from .binance import Binance  # noqa
 from .coinbase import Coinbase  # noqa
@@ -16,7 +16,7 @@ def map_exchanges(names: Set[str], config: Dict[str, Any]) -> Dict[str, Any]:
     for name, type_ in _exchanges.items():
         if name in names:
             exchange_config = config[name]
-            keys = type_.__init__.__annotations__.keys()  # type: ignore
+            keys = get_type_hints(type_.__init__).keys()  # type: ignore
             keys = (k for k in keys if k != 'return')
             kwargs = {key: exchange_config.get(key) for key in keys}
             if not all(kwargs.values()):

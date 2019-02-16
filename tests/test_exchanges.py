@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+from typing import get_type_hints
 
 import aiohttp
 import pytest
@@ -25,11 +26,11 @@ async def exchange(request):
 exchanges = []
 for exchange_type in [Binance, Coinbase]:
     name = exchange_type.__name__.upper()
-    keys = exchange_type.__init__.__annotations__.keys()  # type: ignore
-    keys = (k for k in keys if k != 'return')
-    kwargs = {key: os.getenv(f'JUNO_{name}_{key.upper()}') for key in keys}
+    keys = get_type_hints(exchange_type.__init__).keys()  # type: ignore
+    param_keys = (k for k in keys if k != 'return')
+    kwargs = {key: os.getenv(f'JUNO__{name}__{key.upper()}') for key in param_keys}
     if all(kwargs.values()):
-        exchanges.append(exchange_type(**kwargs))  # type: ignore
+        exchanges.append(exchange_type(**kwargs))
 
 # Used for pretty parametrized tests output.
 exchange_names = [exchange.__class__.__name__ for exchange in exchanges]
