@@ -1,11 +1,12 @@
 from datetime import datetime
-import os
-from typing import get_type_hints
+# import os
+# from typing import get_type_hints
 
 import aiohttp
 import pytest
 
-from juno.exchanges import Binance, Coinbase
+from juno import config
+from juno.exchanges import map_exchanges
 from juno.time import datetime_timestamp_ms, HOUR_MS
 
 
@@ -23,21 +24,24 @@ async def exchange(request):
 
 
 # We only test exchanges for which all envs are setup.
-exchanges = []
-for exchange_type in [Binance, Coinbase]:
-    name = exchange_type.__name__.upper()
-    keys = get_type_hints(exchange_type.__init__).keys()  # type: ignore
-    param_keys = (k for k in keys if k != 'return')
-    kwargs = {key: os.getenv(f'JUNO__{name}__{key.upper()}') for key in param_keys}
-    if all(kwargs.values()):
-        exchanges.append(exchange_type(**kwargs))
+exchanges = map_exchanges(config.load_from_env())
+exchange_names = list(exchanges.keys())
+exchange_instances = list(exchanges.values())
+# exchanges = []
+# for exchange_type in [Binance, Coinbase]:
+#     name = exchange_type.__name__.upper()
+#     keys = get_type_hints(exchange_type.__init__).keys()  # type: ignore
+#     param_keys = (k for k in keys if k != 'return')
+#     kwargs = {key: os.getenv(f'JUNO__{name}__{key.upper()}') for key in param_keys}
+#     if all(kwargs.values()):
+#         exchanges.append(exchange_type(**kwargs))
 
 # Used for pretty parametrized tests output.
-exchange_names = [exchange.__class__.__name__ for exchange in exchanges]
+# exchange_names = [exchange.__class__.__name__ for exchange in exchanges]
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names, indirect=True)
+@pytest.mark.parametrize('exchange', exchange_instances, ids=exchange_names, indirect=True)
 async def test_stream_candles(loop, request, exchange):
     skip_non_manual(request)
     start = datetime_timestamp_ms(datetime(2018, 1, 1))
@@ -52,7 +56,7 @@ async def test_stream_candles(loop, request, exchange):
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names, indirect=True)
+@pytest.mark.parametrize('exchange', exchange_instances, ids=exchange_names, indirect=True)
 async def test_map_symbol_infos(loop, request, exchange):
     skip_non_manual(request)
     res = await exchange.map_symbol_infos()
@@ -60,7 +64,7 @@ async def test_map_symbol_infos(loop, request, exchange):
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names, indirect=True)
+@pytest.mark.parametrize('exchange', exchange_instances, ids=exchange_names, indirect=True)
 async def test_stream_balances(loop, request, exchange):
     skip_non_manual(request)
     stream = exchange.stream_balances()
@@ -68,7 +72,7 @@ async def test_stream_balances(loop, request, exchange):
 
 
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_names, indirect=True)
+@pytest.mark.parametrize('exchange', exchange_instances, ids=exchange_names, indirect=True)
 async def test_stream_depth(loop, request, exchange):
     skip_non_manual(request)
     stream = exchange.stream_depth('eth-btc')

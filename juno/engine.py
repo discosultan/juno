@@ -26,11 +26,11 @@ async def engine() -> None:
 
     # Create configured services.
     services = {}
-    services.update(map_exchanges(list_required_exchange_names(config), config))
-    services.update(map_storages(list_required_storage_names(config), config))
+    services.update(map_exchanges(config, list_required_exchange_names(config)))
+    services.update(map_storages(config, list_required_storage_names(config)))
 
     # Create components used by configured agents.
-    components = map_components(list_required_component_names(config), services, config)
+    components = map_components(services, config, list_required_component_names(config))
 
     async with AsyncExitStack() as stack:
         try:

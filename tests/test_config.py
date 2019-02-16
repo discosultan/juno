@@ -22,3 +22,18 @@ def test_transform():
     }
     output = config.transform(input)
     assert output == expected_output
+
+
+def test_load_from_env():
+    input = {
+        'JUNO__FOO__BAR': 'a',
+        'JUNO__FOO__BAZ': 'b'
+    }
+    expected_output = {
+        'foo': {
+            'bar': 'a',
+            'baz': 'b'
+        }
+    }
+    output = config.load_from_env(input)
+    assert output == expected_output

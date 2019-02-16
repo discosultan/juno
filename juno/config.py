@@ -2,23 +2,23 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import os
 import re
-from typing import Any, Dict
+from typing import Any, Dict, Mapping
 
 import simplejson as json
 
 from juno.time import strpinterval, datetime_timestamp_ms
 
 
-def load_from_env() -> Dict[str, Any]:
+def load_from_env(env: Mapping[str, str] = os.environ) -> Dict[str, Any]:
     # TODO: Support lists.
     result: Dict[str, Any] = {}
-    entries = ((k.split('__')[1:], v) for k, v in os.environ.items() if k.startswith('JUNO__'))
+    entries = ((k.split('__')[1:], v) for k, v in env.items() if k.startswith('JUNO__'))
     for keys, value in entries:
-        k1 = keys[0]
+        k1 = keys[0].lower()
         if len(keys) == 1:
             result[k1] = value
         elif len(keys) == 2:
-            k2 = keys[1]
+            k2 = keys[1].lower()
             result[k1] = result.get(k1) or {}
             result[k1][k2] = value
         else:
