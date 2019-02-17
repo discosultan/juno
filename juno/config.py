@@ -23,7 +23,7 @@ def load_from_env(env: Mapping[str, str] = os.environ) -> Dict[str, Any]:
             result[k1][k2] = value
         else:
             raise NotImplementedError()
-    return result
+    return transform(result)
 
 
 def load_from_json_file(file: str) -> Dict[str, Any]:

@@ -2,6 +2,7 @@ import asyncio
 from decimal import Decimal
 import logging
 import statistics
+from typing import Any, Dict
 
 import numpy as np
 
@@ -16,11 +17,11 @@ class Backtest:
 
     required_components = ['informant']
 
-    def __init__(self, components: dict) -> None:
+    def __init__(self, components: Dict[str, Any]) -> None:
         self.informant = components['informant']
 
     async def run(self, exchange: str, symbol: str, start: int, end: int, interval: int,
-                  strategy_config: dict):
+                  strategy_config: Dict[str, Any]):
         _log.info('running backtest')
 
         symbol_info = self.informant.get_symbol_info(exchange, symbol)
@@ -28,8 +29,7 @@ class Backtest:
         open_position = None
         last_candle = None
 
-        async def trade():
-            nonlocal start, last_candle
+        while True:
             restart = False
 
             strategy = new_strategy(strategy_config)
@@ -49,28 +49,20 @@ class Backtest:
                 summary.append_candle(candle)
 
                 # If we have missed a candle, reset and start over.
-                if candle.time - last_candle.time >= interval * 2:
+                if last_candle and candle.time - last_candle.time >= interval * 2:
                     _log.error(f'missed candle(s); last candle {last_candle}; current candle '
-                            f'{candle}; resetting strategy')
+                               f'{candle}; resetting strategy')
                     start = candle.time
                     restart = True
-
-                advice = strategy.update(candle)
-
-                if open_position is None and advice == 1:
-                    open_position = Position(candle.time, )
+                    break
 
                 last_candle = candle
-                if restart:
-                    return True
+                advice = strategy.update(candle)
 
-            return False
+                if not open_position and advice == 1:
+                    open_position = Position(candle.time, )
 
-        while True:
-            restart = await trade()
-            if restart:
-                continue
-            else:
+            if not restart:
                 break
 
         if last_candle is not None:
