@@ -2,9 +2,9 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 import logging
-from typing import Any, AsyncIterable, Dict
+from typing import Any, AsyncIterable, Dict, Tuple
 
-from juno import Span, SymbolInfo
+from juno import Candle, Span, SymbolInfo
 from juno.math import floor_multiple
 from juno.time import DAY_MS, time_ms
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
@@ -17,7 +17,7 @@ class Informant:
 
     def __init__(self, services: Dict[str, Any], config: Dict[str, Any]) -> None:
         self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
-                           if s.__class__.__name__.lower() in config['exchanges']}
+                           if s.__class__.__name__.lower() in config['exchanges']}  # TODO: fix
         self._storage = services[config['storage']]
         self._exchange_symbols: Dict[str, Dict[str, Any]] = defaultdict(dict)
 
@@ -31,11 +31,11 @@ class Informant:
         self._sync_task.cancel()
         await self._sync_task
 
-    def get_symbol_info(self, exchange: str, symbol: str) -> Any:
+    def get_symbol_info(self, exchange: str, symbol: str) -> SymbolInfo:
         return self._exchange_symbols[exchange][symbol]
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
-                             ) -> AsyncIterable[Any]:
+                             ) -> AsyncIterable[Tuple[Candle, bool]]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
         storage_key = (exchange, symbol, interval)
@@ -63,7 +63,8 @@ class Informant:
                     yield candle, primary
 
     async def _stream_and_store_exchange_candles(self, exchange: str, symbol: str, interval: int,
-                                                 start: int, end: int) -> AsyncIterable[Any]:
+                                                 start: int, end: int
+                                                 ) -> AsyncIterable[Tuple[Candle, bool]]:
         BATCH_SIZE = 500
         batch = []
         batch_start = start

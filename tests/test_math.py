@@ -29,3 +29,13 @@ def test_ceil_multiple(value, multiple, expected_output):
 def test_floor_multiple(value, multiple, expected_output):
     output = math.floor_multiple(value, multiple)
     assert output == expected_output
+
+
+@pytest.mark.parametrize('size,min_size,max_size,size_step,expected_output', [
+    (Decimal('0.1'), Decimal('0.2'), Decimal('0.3'), Decimal('0.1'), Decimal('0.0')),  # min
+    (Decimal('0.4'), Decimal('0.2'), Decimal('0.3'), Decimal('0.1'), Decimal('0.3')),  # max
+    (Decimal('0.25'), Decimal('0.2'), Decimal('0.3'), Decimal('0.1'), Decimal('0.2'))  # step
+])
+def test_adjust_size(size, min_size, max_size, size_step, expected_output):
+    output = math.adjust_size(size, min_size, max_size, size_step)
+    assert output == expected_output

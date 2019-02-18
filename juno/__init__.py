@@ -1,6 +1,7 @@
 from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
+from typing import NamedTuple
 
 from juno.time import datetime_utcfromtimestamp_ms
 
@@ -11,8 +12,6 @@ Balance = namedtuple('Balance', ['available', 'hold'])
 # Depth = namedtuple('Depth', ['bids', 'asks'])
 Fees = namedtuple('Fees', ['maker', 'taker'])
 OrderResult = namedtuple('OrderResult', ['price', 'executed_size'])
-SymbolInfo = namedtuple('SymbolInfo', ['min_size', 'max_size', 'size_step', 'min_price',
-                                       'max_price', 'price_step'])
 Trade = namedtuple('Trade', ['price', 'size', 'commission', 'commission_asset', 'is_buyer'])
 
 
@@ -20,7 +19,7 @@ Trade = namedtuple('Trade', ['price', 'size', 'commission', 'commission_asset', 
 # iterating over values of an instance (i.e `*mytuple`) which is convenient for decomposing
 # values for SQLIte insertion. Dataclasses miss that functionality but offer comparisons, etc.
 # out of the box.
-class Candle(namedtuple('Candle', ['time', 'open', 'high', 'low', 'close', 'volume'])):
+class Candle(NamedTuple):
     time: int
     open: Decimal
     high: Decimal
@@ -29,17 +28,26 @@ class Candle(namedtuple('Candle', ['time', 'open', 'high', 'low', 'close', 'volu
     volume: Decimal
 
     def __repr__(self) -> str:
-        return (f'{self.__class__.__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
+        return (f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
                 f'open={self.open}, high={self.high}, low={self.low}, close={self.close})')
 
 
-class Span(namedtuple('Span', ['start', 'end'])):
+class Span(NamedTuple):
     start: int
     end: int
 
     def __repr__(self) -> str:
-        return (f'{self.__class__.__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
+        return (f'{type(self).__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
                 f'end={datetime_utcfromtimestamp_ms(self.end)})')
+
+
+class SymbolInfo(NamedTuple):
+    min_size: Decimal
+    max_size: Decimal
+    size_step: Decimal
+    min_price: Decimal
+    max_price: Decimal
+    price_step: Decimal
 
 
 class Advice(Enum):

@@ -6,6 +6,7 @@ from typing import Any, Dict
 
 import numpy as np
 
+from juno.components import Informant
 from juno.math import ceil_multiple
 from juno.strategies import new_strategy
 
@@ -18,10 +19,10 @@ class Backtest:
     required_components = ['informant']
 
     def __init__(self, components: Dict[str, Any]) -> None:
-        self.informant = components['informant']
+        self.informant: Informant = components['informant']
 
     async def run(self, exchange: str, symbol: str, start: int, end: int, interval: int,
-                  strategy_config: Dict[str, Any]):
+                  base_balance: Decimal, strategy_config: Dict[str, Any]):
         _log.info('running backtest')
 
         symbol_info = self.informant.get_symbol_info(exchange, symbol)
@@ -60,6 +61,7 @@ class Backtest:
                 advice = strategy.update(candle)
 
                 if not open_position and advice == 1:
+                    # symbol_info.
                     open_position = Position(candle.time, )
 
             if not restart:

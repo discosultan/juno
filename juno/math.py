@@ -12,3 +12,11 @@ def ceil_multiple(value: TNum, multiple: TNum) -> TNum:
 
 def floor_multiple(value: TNum, multiple: TNum) -> TNum:
     return value - (value % multiple)
+
+
+def adjust_size(size: Decimal, min_size: Decimal, max_size: Decimal, size_step: Decimal
+                ) -> Decimal:
+    if size < min_size:
+        return Decimal(0)
+    size = min(size, max_size)
+    return size.quantize(size_step)

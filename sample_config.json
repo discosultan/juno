@@ -13,6 +13,7 @@
             "start": "2019-01-01",
             "end": "2019-01-02",
             "interval": "1h",
+            "base_balance": "100.0",
             "strategy": {
                 "name": "emaemacx",
                 "short_period": 18,
