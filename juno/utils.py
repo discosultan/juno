@@ -1,6 +1,6 @@
 import asyncio
 import math
-from typing import Any, AsyncIterable, Iterable, List, Tuple, TypeVar
+from typing import Any, AsyncIterable, Generic, Iterable, List, Tuple, TypeVar
 
 
 T = TypeVar('T')
@@ -122,8 +122,13 @@ class LeakyBucket:
 class Barrier:
 
     def __init__(self, count: int) -> None:
+        if count < 0:
+            raise ValueError('Count cannot be negative')
+
         self._remaining_count = count
         self._event = asyncio.Event()
+        if count == 0:
+            self._event.set()
 
     async def wait(self) -> None:
         await self._event.wait()
@@ -137,7 +142,7 @@ class Barrier:
             self._event.set()
 
 
-class Event:
+class Event(Generic[T]):
 
     def __init__(self) -> None:
         self._event = asyncio.Event()

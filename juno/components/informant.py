@@ -5,7 +5,9 @@ import logging
 from typing import Any, AsyncIterable, Dict, Tuple
 
 from juno import Candle, Span, SymbolInfo
+from juno.exchanges import Exchange
 from juno.math import floor_multiple
+from juno.storages import SQLite
 from juno.time import DAY_MS, time_ms
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
@@ -16,10 +18,10 @@ _log = logging.getLogger(__name__)
 class Informant:
 
     def __init__(self, services: Dict[str, Any], config: Dict[str, Any]) -> None:
-        self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
-                           if s.__class__.__name__.lower() in config['exchanges']}  # TODO: fix
-        self._storage = services[config['storage']]
-        self._exchange_symbols: Dict[str, Dict[str, Any]] = defaultdict(dict)
+        self._exchanges: Dict[str, Exchange] = {
+            k: v for k, v in services.items() if isinstance(v, Exchange)}
+        self._storage: SQLite = services[config['storage']]
+        self._exchange_symbols: Dict[str, Dict[str, SymbolInfo]] = defaultdict(dict)
 
     async def __aenter__(self) -> Informant:
         self._initial_symbol_infos_fetched = asyncio.Event()
@@ -99,7 +101,7 @@ class Informant:
     async def _sync_symbol_infos(self, exchange: str) -> None:
         now = time_ms()
         infos, updated = await self._storage.get(exchange, SymbolInfo)
-        if not updated or now >= updated + DAY_MS:
+        if not infos or not updated or now >= updated + DAY_MS:
             infos = await self._exchanges[exchange].map_symbol_infos()
             await self._storage.store(exchange, infos)
         self._exchange_symbols[exchange] = infos

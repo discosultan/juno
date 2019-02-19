@@ -5,9 +5,9 @@ import sys
 
 from juno.agents import list_required_component_names, run_agent
 from juno.components import map_components
-from juno.config import load_from_env, load_from_json_file
-from juno.exchanges import list_required_exchange_names, map_exchanges
-from juno.storages import list_required_storage_names, map_storages
+from juno.config import list_required_names, load_from_env, load_from_json_file
+from juno.exchanges import map_exchanges
+from juno.storages import map_storages
 
 
 _log = logging.getLogger(__name__)
@@ -26,8 +26,8 @@ async def engine() -> None:
 
     # Create configured services.
     services = {}
-    services.update(map_exchanges(config, list_required_exchange_names(config)))
-    services.update(map_storages(config, list_required_storage_names(config)))
+    services.update(map_exchanges(config, list_required_names(config, 'exchange')))
+    services.update(map_storages(config, list_required_names(config, 'storage')))
     _log.info(f'services created: {", ".join(services.keys())}')
 
     # Create components used by configured agents.

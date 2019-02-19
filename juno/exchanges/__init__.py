@@ -4,11 +4,11 @@ from typing import Any, Dict, get_type_hints, Optional, Set
 
 from .binance import Binance  # noqa
 from .coinbase import Coinbase  # noqa
-from juno.utils import recursive_iter
+from .exchange import Exchange  # noqa
 
 
-_exchanges = {name.lower(): obj for name, obj
-              in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
+_exchanges = {name.lower(): obj for name, obj in inspect.getmembers(
+    sys.modules[__name__], lambda m: inspect.isclass(m) and m is not Exchange)}
 
 
 def map_exchanges(config: Dict[str, Any], names: Optional[Set[str]] = None) -> Dict[str, Any]:
@@ -23,13 +23,3 @@ def map_exchanges(config: Dict[str, Any], names: Optional[Set[str]] = None) -> D
                 raise ValueError(f'Exchange {name} not properly configured: {kwargs}')
             services[name] = type_(**kwargs)
     return services
-
-
-def list_required_exchange_names(config: Dict[str, Any]) -> Set[str]:
-    result = set()
-    for keys, v in recursive_iter(config):
-        if keys[-1] == 'exchange':
-            result.add(v)
-        elif keys[-1] == 'exchanges':
-            result.update(v)
-    return result

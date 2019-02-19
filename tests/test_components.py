@@ -4,11 +4,12 @@ import pytest
 
 from juno import Balance, Candle, SymbolInfo
 from juno.components import Informant, Orderbook, Wallet
+from juno.exchanges import Exchange
 from juno.storages import Memory
 from juno.utils import list_async
 
 
-class Fake:
+class Fake(Exchange):
 
     candles = [
         (Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(1), Decimal(1)), True),
@@ -72,9 +73,24 @@ def services(exchange, memory):
 @pytest.fixture
 def config():
     return {
-        'exchanges': ['fake'],
         'storage': 'memory',
-        'symbols': ['eth-btc']
+        'agents': [{
+            'name': 'backtest',
+            'exchange': 'fake',
+            'symbol': 'eth-btc',
+            'start': '2019-01-01',
+            'end': '2019-01-02',
+            'interval': '1h',
+            'base_balance': '100.0',
+            'strategy': {
+                'name': 'emaemacx',
+                'short_period': 18,
+                'long_period': 29,
+                'neg_threshold': '-0.25',
+                'pos_threshold': '0.25',
+                'persistence': 4
+            }
+        }]
     }
 
 

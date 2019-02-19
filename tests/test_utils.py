@@ -61,6 +61,11 @@ async def test_barrier(loop):
     assert _process_event_task.done()
 
 
+async def test_empty_barrier(loop):
+    barrier = utils.Barrier(0)
+    await asyncio.wait_for(barrier.wait(), timeout=0.001)
+
+
 async def test_event(loop):
     event = utils.Event()
 

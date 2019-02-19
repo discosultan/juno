@@ -1,11 +1,12 @@
+import inspect
 import sys
 from typing import Any, Dict
 
 from .ema_ema_cx import EmaEmaCX  # noqa
 
 
-_strategies = {name.lower(): cls for name, cls in sys.modules[__name__].__dict__.items()
-               if isinstance(cls, type)}
+_strategies = {name.lower(): obj for name, obj
+               in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
 
 
 def new_strategy(config: Dict[str, Any]) -> Any:

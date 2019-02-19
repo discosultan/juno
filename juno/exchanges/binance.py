@@ -12,6 +12,7 @@ import aiohttp
 import backoff
 import simplejson as json
 
+from .exchange import Exchange
 from juno import Balance, Candle, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
@@ -31,7 +32,7 @@ _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 _log = logging.getLogger(__name__)
 
 
-class Binance:
+class Binance(Exchange):
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -50,8 +51,8 @@ class Binance:
         # User data stream.
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
-        self._balance_event = Event()
-        self._order_event = Event()
+        self._balance_event: Event[Dict[str, Balance]] = Event()
+        self._order_event: Event[Any] = Event()
 
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()
@@ -80,7 +81,7 @@ class Binance:
                 price_step=Decimal(price['tickSize']))
         return result
 
-    async def stream_balances(self):
+    async def stream_balances(self) -> AsyncIterable[Dict[str, Balance]]:
         # Get initial status from REST API.
         res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
         result = {}
@@ -102,7 +103,7 @@ class Binance:
                     hold=Decimal(balance['l']))
             yield result
 
-    async def stream_depth(self, symbol):
+    async def stream_depth(self, symbol: str) -> AsyncIterable[Any]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         async with self._ws_connect(f'/ws/{_ws_symbol(symbol)}@depth') as ws:
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints

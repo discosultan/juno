@@ -6,6 +6,8 @@ from itertools import product
 import logging
 from typing import Any, Dict
 
+from juno.config import list_required_names
+from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.utils import Barrier
 
@@ -15,13 +17,13 @@ _log = logging.getLogger(__name__)
 
 class Orderbook:
 
-    def __init__(self, services: dict, config: dict) -> None:
-        self._exchanges = {s.__class__.__name__.lower(): s for s in services.values()
-                           if s.__class__.__name__.lower() in config['exchanges']}
-        self._symbols = config['symbols']
+    def __init__(self, services: Dict[str, Any], config: Dict[str, Any]) -> None:
+        self._exchanges: Dict[str, Exchange] = {
+            k: v for k, v in services.items() if isinstance(v, Exchange)}
+        self._symbols = list_required_names(config, 'symbol')
         self._orderbooks_product = list(product(self._exchanges.keys(), self._symbols))
 
-        self._orderbooks: Dict[str, Any] = defaultdict(lambda: defaultdict(dict))
+        self._orderbooks: Dict[str, Dict[str, Any]] = defaultdict(lambda: defaultdict(dict))
 
     async def __aenter__(self) -> Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
@@ -98,11 +100,3 @@ def _update_orderbook_side(orderbook_side: Dict[str, Any], values: list) -> None
             del orderbook_side[price]
         else:
             orderbook_side[price] = size
-
-
-# def adjust_size(size: Decimal, min_size: Decimal, max_size: Decimal, size_step: Decimal
-#                 ) -> Decimal:
-#     # Clamp within min and max.
-#     size = max(min(size, max_size), min_size)
-#     # Make sure to follow step size.
-#     return round(size / size_step) * size_step

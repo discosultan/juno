@@ -2,11 +2,12 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import os
 import re
-from typing import Any, Dict, Mapping
+from typing import Any, Dict, Mapping, Set
 
 import simplejson as json
 
 from juno.time import strpinterval, datetime_timestamp_ms
+from juno.utils import recursive_iter
 
 
 def load_from_env(env: Mapping[str, str] = os.environ) -> Dict[str, Any]:
@@ -47,3 +48,13 @@ def transform(value: Any) -> Any:
             return datetime_timestamp_ms(datetime.strptime(value, '%Y-%m-%d')
                                                  .replace(tzinfo=timezone.utc))
     return value
+
+
+def list_required_names(config: Dict[str, Any], name: str) -> Set[str]:
+    result = set()
+    for keys, v in recursive_iter(config):
+        if keys[-1] == name:
+            result.add(v)
+        elif keys[-1] == name + 's':
+            result.update(v)
+    return result

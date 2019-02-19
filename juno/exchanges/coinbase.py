@@ -12,6 +12,7 @@ from typing import Any, AsyncIterable, Dict, List, Tuple
 
 import simplejson as json
 
+from .exchange import Exchange
 from juno import Balance, Candle, SymbolInfo
 from juno.http import ClientSession
 from juno.math import floor_multiple
@@ -25,7 +26,7 @@ _BASE_WS_URL = 'wss://ws-feed.pro.coinbase.com'
 _log = logging.getLogger(__name__)
 
 
-class Coinbase:
+class Coinbase(Exchange):
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
@@ -41,9 +42,9 @@ class Coinbase:
         self._stream_task = None
         self._stream_subscriptions: Dict[str, List[str]] = {}
         self._stream_subscription_queue: asyncio.Queue[Any] = asyncio.Queue()
-        self._stream_heartbeat_event = Event()
-        self._stream_depth_event = Event()
-        self._stream_match_event = Event()
+        self._stream_heartbeat_event: Event[Any] = Event()
+        self._stream_depth_event: Event[Any] = Event()
+        self._stream_match_event: Event[Any] = Event()
         self._stream_consumer_events = {
             'heartbeat': self._stream_heartbeat_event,
             'snapshot': self._stream_depth_event,
