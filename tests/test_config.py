@@ -37,3 +37,19 @@ def test_load_from_env():
     }
     output = config.load_from_env(input)
     assert output == expected_output
+
+
+def test_list_required_names():
+    input = {
+        'foo': {
+            'bar': 'a'
+        },
+        'bars': ['b', 'c'],
+        'baz': 'd',
+        'qux': [
+            {'bar': 'e'}
+        ]
+    }
+    expected_output = set(('a', 'b', 'c', 'e'))
+    output = config.list_required_names(input, 'bar')
+    assert output == expected_output

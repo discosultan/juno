@@ -52,9 +52,8 @@ def transform(value: Any) -> Any:
 
 def list_required_names(config: Dict[str, Any], name: str) -> Set[str]:
     result = set()
+    name_plural = name + 's'
     for keys, v in recursive_iter(config):
-        if keys[-1] == name:
+        if (keys[-1] == name) or (len(keys) >= 2 and keys[-2] == name_plural):
             result.add(v)
-        elif keys[-1] == name + 's':
-            result.update(v)
     return result
