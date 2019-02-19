@@ -22,7 +22,7 @@ class Backtest:
         self.informant: Informant = components['informant']
 
     async def run(self, exchange: str, symbol: str, start: int, end: int, interval: int,
-                  base_balance: Decimal, strategy_config: Dict[str, Any]):
+                  base_balance: Decimal, strategy_config: Dict[str, Any]) -> None:
         _log.info('running backtest')
 
         symbol_info = self.informant.get_symbol_info(exchange, symbol)
