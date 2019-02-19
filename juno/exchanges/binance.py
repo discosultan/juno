@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import logging
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+import urllib.parse
 
 import aiohttp
 import backoff
@@ -311,7 +312,7 @@ class Binance:
 
             data = data or {}
             data['timestamp'] = time_ms() + self._time_diff
-            query_str_bytes = _query_string(data).encode('utf-8')
+            query_str_bytes = urllib.parse.urlencode(data).encode('utf-8')
             signature = hmac.new(self._secret_key_bytes, query_str_bytes, hashlib.sha256)
             data['signature'] = signature.hexdigest()
 
@@ -370,7 +371,3 @@ def _interval(interval: int) -> str:
         604_800_000: '1w',
         2_629_746_000: '1M',
     }[interval]
-
-
-def _query_string(data: Dict[str, Any]) -> str:
-    return '&'.join((f'{key}={value}' for key, value in data.items()))
