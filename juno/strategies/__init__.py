@@ -10,8 +10,8 @@ _strategies = {name.lower(): obj for name, obj
 
 
 def new_strategy(config: Dict[str, Any]) -> Any:
-    name = config.pop('name')
+    name = config['name']
     strategy_cls = _strategies.get(name)
     if strategy_cls is None:
         raise ValueError(f'strategy {name} not found')
-    return strategy_cls(**config)
+    return strategy_cls(**{k: v for k, v in config.items() if k != 'name'})

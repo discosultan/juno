@@ -1,5 +1,23 @@
 {
+    "log_level": "debug",
     "storage": "sqlite",
     "agents": [
+        {
+            "name": "backtest",
+            "exchange": "binance",
+            "symbol": "eth-btc",
+            "start": "2018-01-01",
+            "end": "2019-01-01",
+            "interval": "1h",
+            "balance": "100.0",
+            "strategy_config": {
+                "name": "emaemacx",
+                "short_period": 18,
+                "long_period": 29,
+                "neg_threshold": "-0.25",
+                "pos_threshold": "0.25",
+                "persistence": 4
+            }
+        }
     ]
 }

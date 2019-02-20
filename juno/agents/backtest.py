@@ -1,13 +1,11 @@
-import asyncio
 from decimal import Decimal
 import logging
 import statistics
 from typing import Any, Dict
 
-import numpy as np
+# import numpy as np
 
 from juno.components import Informant
-from juno.math import ceil_multiple
 from juno.strategies import new_strategy
 
 
@@ -21,11 +19,15 @@ class Backtest:
     def __init__(self, components: Dict[str, Any]) -> None:
         self.informant: Informant = components['informant']
 
+    # TODO: allow configuring whether to reset on missed candle
     async def run(self, exchange: str, symbol: str, start: int, end: int, interval: int,
-                  base_balance: Decimal, strategy_config: Dict[str, Any]) -> None:
+                  balance: Decimal, strategy_config: Dict[str, Any]) -> None:
         _log.info('running backtest')
 
-        symbol_info = self.informant.get_symbol_info(exchange, symbol)
+        assert end > start
+        assert balance > 0
+
+        # symbol_info = self.informant.get_symbol_info(exchange, symbol)
         summary = TradingSummary()
         open_position = None
         last_candle = None
@@ -61,17 +63,25 @@ class Backtest:
                 advice = strategy.update(candle)
 
                 if not open_position and advice == 1:
-                    # symbol_info.
-                    open_position = Position(candle.time, )
+                    size = balance / candle.close
+                    open_position = Position(candle.time, size, candle.close, Decimal(0))
+                elif open_position and advice == -1:
+                    size = open_position.size
+                    open_position.close(candle.time, size, candle.close, Decimal(0))
+                    summary.append_position(open_position)
+                    open_position = None
 
             if not restart:
                 break
 
-        if last_candle is not None:
-            await broker.advice(last_candle.time, final_advice)
-            await ee.emit('summary', summary)
+        if last_candle is not None and open_position:
+            size = open_position.size
+            open_position.close(last_candle.time, size, last_candle.close, Decimal(0))
+            summary.append_position(open_position)
+            open_position = None
 
         _log.info('backtest finished')
+        _log.info(summary)
 
 
 # TODO: Add support for external token fees (i.e BNB)
@@ -142,7 +152,7 @@ class TradingSummary:
 
     @property
     def total_profit(self) -> Decimal:
-        return sum((p.profit for p in self.positions))
+        return sum((p.profit for p in self.positions))  # type: ignore
 
     # @property
     # def total_hodl_profit(self):
