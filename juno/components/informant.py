@@ -52,6 +52,8 @@ class Informant:
                  [(a, b, False) for a, b in missing_spans])
         spans.sort(key=lambda s: s[0])
 
+        _log.critical(spans)
+        raise NotImplementedError()
         for span_start, span_end, exist_locally in spans:
             if exist_locally:
                 _log.info(f'local candles exist between {Span(span_start, span_end)}')

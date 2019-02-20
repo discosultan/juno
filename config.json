@@ -1,13 +1,13 @@
 {
     "log_level": "debug",
-    "storage": "sqlite",
+    "storage": "memory",
     "agents": [
         {
             "name": "backtest",
             "exchange": "binance",
             "symbol": "eth-btc",
             "start": "2018-01-01",
-            "end": "2019-01-01",
+            "end": "2018-02-01",
             "interval": "1h",
             "balance": "100.0",
             "strategy_config": {

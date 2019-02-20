@@ -4,7 +4,8 @@ from decimal import Decimal
 import logging
 from pathlib import Path
 import sqlite3
-from typing import Any, AsyncIterator, Dict, get_type_hints, List, Optional, Set, Tuple
+from typing import (Any, AsyncIterable, AsyncIterator, Dict, get_type_hints, List, Optional, Set,
+                    Tuple)
 
 from aiosqlite import connect, Connection
 import simplejson as json
@@ -43,16 +44,16 @@ class SQLite:
     async def __aexit__(self, exc_type, exc, tb) -> None:
         pass
 
-    async def stream_candle_spans(self, key: Any, start: int, end: int) -> Any:
+    async def stream_candle_spans(self, key: Any, start: int, end: int) -> AsyncIterable[Span]:
         _log.info(f'streaming candle span(s) from {self.__class__.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Span)
             query = f'SELECT * FROM {Span.__name__} WHERE start < ? AND end > ? ORDER BY start'
             async with db.execute(query, [end, start]) as cursor:
                 async for span_start, span_end in cursor:
-                    yield max(span_start, start), min(span_end, end)
+                    yield Span(max(span_start, start), min(span_end, end))
 
-    async def stream_candles(self, key: Any, start: int, end: int) -> Any:
+    async def stream_candles(self, key: Any, start: int, end: int) -> AsyncIterable[Candle]:
         _log.info(f'streaming candle(s) from {self.__class__.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
