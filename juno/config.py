@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import os
 import re
-from typing import Any, Dict, Mapping, Set
+from typing import Any, Dict, List, Mapping, Optional, Set
 
 import simplejson as json
 
@@ -16,38 +16,19 @@ def load_from_env(env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', sep
     entries = ((k.split(separator)[1:], v) for k, v in env.items()
                if k.startswith(prefix + separator))
     for keys, value in entries:
-        target = result
-        for i in range(len(keys)):
-            key = keys[i].lower()
-            is_last = i == len(keys) - 1
-            is_digit = str.isdigit(key)
-            if is_last:
-                if is_digit:
-                    if not isinstance(target, list):
-                        target
-                else
-                    if key not in target:
-                        target[key] = {}
-                # if str.isdigit(key):
-                #     target[int(key)] = value
-                # else:
-                        target[key] = value
+        typed_keys = [int(k) if str.isdigit(k) else k.lower() for k in keys]
+        target: Dict[Any, Any] = result
+        for i in range(len(typed_keys)):
+            k1 = typed_keys[i]
+            k2 = typed_keys[i + 1] if i < len(typed_keys) - 1 else None
+            if k2 is None:
+                target[k1] = value
             else:
-                if str.isdigit(key):
-                    pass
+                if isinstance(k2, int):
+                    target[k1] = _ensure_list(target.get(k1), k2 + 1)
                 else:
-                    if key not in target:
-                        target[key] = {}
-                    target = target[key]
-        k1 = keys[0].lower()
-        if len(keys) == 1:
-            result[k1] = value
-        elif len(keys) == 2:
-            k2 = keys[1].lower()
-            result[k1] = result.get(k1) or {}
-            result[k1][k2] = value
-        else:
-            raise NotImplementedError()
+                    target[k1] = _ensure_dict(target.get(k1))
+                target = target[k1]
     return transform(result)
 
 
@@ -81,3 +62,17 @@ def list_required_names(config: Dict[str, Any], name: str) -> Set[str]:
         if (keys[-1] == name) or (len(keys) >= 2 and keys[-2] == name_plural):
             result.add(v)
     return result
+
+
+def _ensure_list(existing: Optional[List[Any]], length: int) -> List[Any]:
+    if existing is None:
+        return [None] * length
+    if len(existing) < length:
+        return existing + [None] * (length - len(existing))
+    return existing
+
+
+def _ensure_dict(existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    if existing is None:
+        return {}
+    return existing

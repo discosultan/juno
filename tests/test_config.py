@@ -28,15 +28,15 @@ def test_load_from_env():
     input = {
         'JUNO__FOO__BAR': 'a',
         'JUNO__FOO__BAZ': 'b',
-        'JUNO__QUX__0:': 'c',
-        'JUNO__QUX__1:': 'd'
+        'JUNO__QUX__0': 'c',
+        'JUNO__QUX__1': 'd'
     }
     expected_output = {
         'foo': {
             'bar': 'a',
             'baz': 'b',
-            'qux': ['c', 'd']
-        }
+        },
+        'qux': ['c', 'd']
     }
     output = config.load_from_env(input)
     assert output == expected_output
