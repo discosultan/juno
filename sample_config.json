@@ -14,6 +14,7 @@
             "end": "2019-01-02",
             "interval": "1h",
             "balance": "100.0",
+            "restart_on_missed_candle": true,
             "strategy_config": {
                 "name": "emaemacx",
                 "short_period": 18,

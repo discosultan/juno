@@ -10,11 +10,35 @@ from juno.time import strpinterval, datetime_timestamp_ms
 from juno.utils import recursive_iter
 
 
-def load_from_env(env: Mapping[str, str] = os.environ) -> Dict[str, Any]:
-    # TODO: Support lists.
+def load_from_env(env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
+                  ) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
-    entries = ((k.split('__')[1:], v) for k, v in env.items() if k.startswith('JUNO__'))
+    entries = ((k.split(separator)[1:], v) for k, v in env.items()
+               if k.startswith(prefix + separator))
     for keys, value in entries:
+        target = result
+        for i in range(len(keys)):
+            key = keys[i].lower()
+            is_last = i == len(keys) - 1
+            is_digit = str.isdigit(key)
+            if is_last:
+                if is_digit:
+                    if not isinstance(target, list):
+                        target
+                else
+                    if key not in target:
+                        target[key] = {}
+                # if str.isdigit(key):
+                #     target[int(key)] = value
+                # else:
+                        target[key] = value
+            else:
+                if str.isdigit(key):
+                    pass
+                else:
+                    if key not in target:
+                        target[key] = {}
+                    target = target[key]
         k1 = keys[0].lower()
         if len(keys) == 1:
             result[k1] = value
