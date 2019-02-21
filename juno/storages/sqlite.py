@@ -16,7 +16,6 @@ from juno.time import time_ms
 
 _log = logging.getLogger(__name__)
 
-
 # Version should be incremented every time a storage schema changes.
 _VERSION = 1
 
@@ -45,7 +44,7 @@ class SQLite:
         pass
 
     async def stream_candle_spans(self, key: Any, start: int, end: int) -> AsyncIterable[Span]:
-        _log.info(f'streaming candle span(s) from {self.__class__.__name__}')
+        _log.info(f'streaming candle span(s) between {Span(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Span)
             query = f'SELECT * FROM {Span.__name__} WHERE start < ? AND end > ? ORDER BY start'
@@ -54,7 +53,7 @@ class SQLite:
                     yield Span(max(span_start, start), min(span_end, end))
 
     async def stream_candles(self, key: Any, start: int, end: int) -> AsyncIterable[Candle]:
-        _log.info(f'streaming candle(s) from {self.__class__.__name__}')
+        _log.info(f'streaming candle(s) between {Span(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             query = f'SELECT * FROM {Candle.__name__} WHERE time >= ? AND time < ? ORDER BY time'
@@ -63,12 +62,11 @@ class SQLite:
                     yield Candle(*row)
 
     async def store_candles_and_span(self, key: Any, candles: List[Candle], start: int, end: int
-                                     ) -> Any:
+                                     ) -> None:
         if start > candles[0].time or end <= candles[-1].time:
             raise ValueError('invalid input')
 
-        _log.info(f'storing {len(candles)} candle(s) for {Span(start, end)} to '
-                  f'{self.__class__.__name__}')
+        _log.info(f'storing {len(candles)} candle(s) between {Span(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             try:
@@ -83,38 +81,35 @@ class SQLite:
             await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
-    async def get(self, key: Any, item_cls: type) -> Tuple[Optional[Any], Optional[int]]:
+    async def get_map(self, key: Any, item_cls: type
+                      ) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
         cls_name = item_cls.__name__
-        _log.info(f'getting {cls_name} from {self.__class__.__name__}')
+        _log.info(f'getting map of {cls_name}s')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
-            cursor = await db.execute(f'SELECT * FROM {Bag.__name__} WHERE key=?', [cls_name])
+            cursor = await db.execute(f'SELECT * FROM {Bag.__name__} WHERE key=?',
+                                      ['map_' + cls_name])
             row = await cursor.fetchone()
             await cursor.close()
             if row:
-                return item_cls(**json.loads(row[1])), row[2]
+                return {k: item_cls(**v) for k, v in json.loads(row[1]).items()}, row[2]
             else:
                 return None, None
 
-    async def store(self, key: Any, item: Any) -> None:
-        cls_name = item.__class__.__name__
-        _log.info(f'storing {cls_name} to {self.__class__.__name__}')
+    async def set_map(self, key: Any, items: Dict[str, Any]) -> None:
+        assert items
+        cls_name = type(next(iter(items.values()))).__name__
+        _log.info(f'setting map of {len(items)} {cls_name}s')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             await db.execute(f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                             [cls_name, json.dumps(item), time_ms()])
+                             ['map_' + cls_name, json.dumps(items), time_ms()])
             await db.commit()
 
     @asynccontextmanager
     async def _connect(self, key: Any) -> AsyncIterator[Connection]:
-        key_type = type(key)
-        if key_type is str:
-            name = key
-        elif key_type is tuple:
-            name = '_'.join(map(str, key))
-        else:
-            raise NotImplementedError()
-
+        name = _normalize_key(key)
+        _log.info(f'connecting to {key}')
         name = str(_get_home().joinpath(f'v{_VERSION}_{name}.db'))
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
@@ -128,6 +123,16 @@ class SQLite:
             await _create_table(db, type)
             await db.commit()
             tables.add(type)
+
+
+def _normalize_key(key: Any) -> str:
+    key_type = type(key)
+    if key_type is str:
+        return key
+    elif key_type is tuple:
+        return '_'.join(map(str, key))
+    else:
+        raise NotImplementedError()
 
 
 def _get_home() -> Path:

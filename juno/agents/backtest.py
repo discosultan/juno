@@ -21,7 +21,8 @@ class Backtest:
 
     # TODO: allow configuring whether to reset on missed candle
     async def run(self, exchange: str, symbol: str, start: int, end: int, interval: int,
-                  balance: Decimal, strategy_config: Dict[str, Any]) -> None:
+                  balance: Decimal, strategy_config: Dict[str, Any],
+                  restart_on_missed_candle: bool = True) -> None:
         _log.info('running backtest')
 
         assert end > start
@@ -30,15 +31,21 @@ class Backtest:
         # symbol_info = self.informant.get_symbol_info(exchange, symbol)
         summary = TradingSummary()
         open_position = None
-        last_candle = None
+        restart_count = 0
 
         while True:
+            last_candle = None
             restart = False
 
             strategy = new_strategy(strategy_config)
-            # Adjust start to accommodate for the required history before a strategy becomes
-            # effective.
-            start -= strategy.req_history
+
+            if restart_count == 0:
+                # Adjust start to accommodate for the required history before a strategy becomes
+                # effective. Only do it on first run because subsequent runs mean missed candles
+                # and we don't want to fetch passed a missed candle.
+                _log.info(f'fetching {strategy.req_history} candles before start time to warm-up '
+                          'strategy')
+                start -= strategy.req_history * interval
 
             async for candle, primary in self.informant.stream_candles(
                     exchange=exchange,
@@ -51,13 +58,16 @@ class Backtest:
 
                 summary.append_candle(candle)
 
-                # If we have missed a candle, reset and start over.
+                # Check if we have missed a candle.
                 if last_candle and candle.time - last_candle.time >= interval * 2:
-                    _log.error(f'missed candle(s); last candle {last_candle}; current candle '
-                               f'{candle}; resetting strategy')
-                    start = candle.time
-                    restart = True
-                    break
+                    _log.warning(f'missed candle(s); last candle {last_candle}; current candle '
+                                 f'{candle}')
+                    if restart_on_missed_candle:
+                        _log.info('restarting strategy')
+                        start = candle.time
+                        restart = True
+                        restart_count += 1
+                        break
 
                 last_candle = candle
                 advice = strategy.update(candle)
@@ -82,6 +92,7 @@ class Backtest:
 
         _log.info('backtest finished')
         _log.info(summary)
+        _log.info(summary.profit)
 
 
 # TODO: Add support for external token fees (i.e BNB)
@@ -148,10 +159,10 @@ class TradingSummary:
         self.positions.append(pos)
 
     def __repr__(self):
-        return f'{self.__class__.__name__} {self.__dict__}'
+        return f'{type(self).__name__} {self.__dict__}'
 
     @property
-    def total_profit(self) -> Decimal:
+    def profit(self) -> Decimal:
         return sum((p.profit for p in self.positions))  # type: ignore
 
     # @property
@@ -163,7 +174,7 @@ class TradingSummary:
     #     return quote_hodl - self.acc_info.quote_balance
 
     @property
-    def total_duration(self) -> int:
+    def duration(self) -> int:
         # TODO: Do we want to add interval?
         return self.last_candle.time - self.first_candle.time
 

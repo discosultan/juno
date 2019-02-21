@@ -45,15 +45,13 @@ class Informant:
         _log.info('checking for existing candles in local storage')
         existing_spans = await list_async(
             self._storage.stream_candle_spans(storage_key, start, end))
-        existing_spans = list(merge_adjacent_spans(existing_spans))
+        existing_spans = list(merge_adjacent_spans(existing_spans))  # type: ignore
         missing_spans = generate_missing_spans(start, end, existing_spans)
 
         spans = ([(a, b, True) for a, b in existing_spans] +
                  [(a, b, False) for a, b in missing_spans])
         spans.sort(key=lambda s: s[0])
 
-        _log.critical(spans)
-        raise NotImplementedError()
         for span_start, span_end, exist_locally in spans:
             if exist_locally:
                 _log.info(f'local candles exist between {Span(span_start, span_end)}')
@@ -102,8 +100,8 @@ class Informant:
 
     async def _sync_symbol_infos(self, exchange: str) -> None:
         now = time_ms()
-        infos, updated = await self._storage.get(exchange, SymbolInfo)
+        infos, updated = await self._storage.get_map(exchange, SymbolInfo)
         if not infos or not updated or now >= updated + DAY_MS:
             infos = await self._exchanges[exchange].map_symbol_infos()
-            await self._storage.store(exchange, infos)
+            await self._storage.set_map(exchange, infos)
         self._exchange_symbols[exchange] = infos

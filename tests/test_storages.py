@@ -31,28 +31,28 @@ async def test_memory_store_candles(loop, memory):
     assert candles == candles
 
 
-async def test_memory_store_get(loop, memory):
-    candle = _new_candle(time=1)
+async def test_memory_store_get_map(loop, memory):
+    candle = {'foo': _new_candle(time=1)}
 
-    await memory.store(key='key', item=candle)
-    stored_candle, _ = await memory.get(key='key', item_cls=Candle)
+    await memory.set_map(key='key', items=candle)
+    stored_candle, _ = await memory.get_map(key='key', item_cls=Candle)
 
     assert stored_candle == candle
 
 
-async def test_memory_get_missing(loop, memory):
-    item, _ = await memory.get(key='key', item_cls=Candle)
+async def test_memory_get_map_missing(loop, memory):
+    item, _ = await memory.get_map(key='key', item_cls=Candle)
 
     assert item is None
 
 
-async def test_memory_store_twice_get(loop, memory):
-    candle1 = _new_candle(time=1)
-    candle2 = _new_candle(time=2)
+async def test_memory_set_map_twice_get_map(loop, memory):
+    candle1 = {'foo': _new_candle(time=1)}
+    candle2 = {'foo': _new_candle(time=2)}
 
-    await memory.store(key='key', item=candle1)
-    await memory.store(key='key', item=candle2)
-    stored_candle, _ = await memory.get(key='key', item_cls=Candle)
+    await memory.set_map(key='key', items=candle1)
+    await memory.set_map(key='key', items=candle2)
+    stored_candle, _ = await memory.get_map(key='key', item_cls=Candle)
 
     assert stored_candle == candle2
 
