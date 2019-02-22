@@ -25,9 +25,9 @@ def load_from_env(env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', sep
                 target[k1] = value
             else:
                 if isinstance(k2, int):
-                    target[k1] = _ensure_list(target.get(k1), k2 + 1)
+                    target[k1] = _ensure_list(_get(target, k1), k2 + 1)
                 else:
-                    target[k1] = _ensure_dict(target.get(k1))
+                    target[k1] = _ensure_dict(_get(target, k1))
                 target = target[k1]
     return transform(result)
 
@@ -76,3 +76,10 @@ def _ensure_dict(existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
     if existing is None:
         return {}
     return existing
+
+
+def _get(collection: Any, key: Any) -> Optional[Any]:
+    if isinstance(collection, list):
+        return collection[key]
+    else:
+        return collection.get(key)
