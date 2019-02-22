@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 from juno.components import Informant
 from juno.strategies import new_strategy
+from juno.time import datetime_utcfromtimestamp_ms, strfinterval
 
 
 _log = logging.getLogger(__name__)
@@ -91,8 +92,9 @@ class Backtest:
             open_position = None
 
         _log.info('backtest finished')
+        for pos in summary.positions:
+            _log.debug(pos)
         _log.info(summary)
-        _log.info(summary.profit)
 
 
 # TODO: Add support for external token fees (i.e BNB)
@@ -103,6 +105,13 @@ class Position:
         self.size = size
         self.price = price
         self.fee = fee
+
+    def __str__(self):
+        return (f'Profit: {self.profit}\n'
+                f'ROI: {self.roi}\n'
+                f'Duration: {strfinterval(self.duration)}\n'
+                f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
+                f'{datetime_utcfromtimestamp_ms(self.end)}')
 
     def close(self, time: int, size: Decimal, price: Decimal, fee: Decimal) -> None:
         self.closing_time = time
@@ -138,6 +147,15 @@ class Position:
         self._ensure_closed()
         return self.size - self.closing_size
 
+    @property
+    def start(self) -> int:
+        return self.time
+
+    @property
+    def end(self) -> int:
+        self._ensure_closed()
+        return self.closing_time
+
     def _ensure_closed(self) -> None:
         if not self.closing_price:
             raise ValueError('position not closed')
@@ -145,7 +163,13 @@ class Position:
 
 class TradingSummary:
 
-    def __init__(self):
+    def __init__(self, exchange, symbol, interval, start, end):
+        self.exchange = exchange
+        self.symbol = symbol
+        self.interval = interval
+        self.start = start
+        self.end = end
+
         self.positions = []
         self.first_candle = None
         self.last_candle = None
@@ -157,6 +181,15 @@ class TradingSummary:
 
     def append_position(self, pos):
         self.positions.append(pos)
+
+    def __str__(self):
+        return (f'Positions taken: {len(self.positions)}\n'
+                f'Total profit: {self.profit}\n'
+                f'Total duration: {strfinterval(self.duration)}\n'
+                f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
+                f'{datetime_utcfromtimestamp_ms(self.end)}\n'
+                f'Mean profit per position: {self.mean_position_profit}\n'
+                f'Mean duration per position: {strfinterval(self.mean_position_duration)}')
 
     def __repr__(self):
         return f'{type(self).__name__} {self.__dict__}'
@@ -203,14 +236,14 @@ class TradingSummary:
             return 0
         return int(statistics.mean([x.duration for x in self.positions]))
 
-    @property
-    def start(self) -> int:
-        return 0 if self.first_candle is None else self.first_candle.time
+    # @property
+    # def start(self) -> int:
+    #     return 0 if self.first_candle is None else self.first_candle.time
 
-    @property
-    def end(self) -> int:
-        # TODO: Do we want to add interval?
-        return 0 if self.last_candle is None else self.last_candle.time
+    # @property
+    # def end(self) -> int:
+    #     # TODO: Do we want to add interval?
+    #     return 0 if self.last_candle is None else self.last_candle.time
 
     # @property
     # def _drawdowns(self):
