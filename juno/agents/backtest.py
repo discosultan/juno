@@ -21,7 +21,7 @@ class Backtest:
         self.informant: Informant = components['informant']
 
     # TODO: allow configuring whether to reset on missed candle
-    async def run(self, exchange: str, symbol: str, start: int, end: int, interval: int,
+    async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   balance: Decimal, strategy_config: Dict[str, Any],
                   restart_on_missed_candle: bool = True) -> None:
         _log.info('running backtest')
@@ -30,7 +30,7 @@ class Backtest:
         assert balance > 0
 
         # symbol_info = self.informant.get_symbol_info(exchange, symbol)
-        summary = TradingSummary()
+        summary = TradingSummary(exchange, symbol, interval, start, end)
         open_position = None
         restart_count = 0
 
@@ -183,7 +183,10 @@ class TradingSummary:
         self.positions.append(pos)
 
     def __str__(self):
-        return (f'Positions taken: {len(self.positions)}\n'
+        return (f'{self.exchange} {self.symbol} {strfinterval(self.interval)} '
+                f'{datetime_utcfromtimestamp_ms(self.start)} - '
+                f'{datetime_utcfromtimestamp_ms(self.end)}\n'
+                f'Positions taken: {len(self.positions)}\n'
                 f'Total profit: {self.profit}\n'
                 f'Total duration: {strfinterval(self.duration)}\n'
                 f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
