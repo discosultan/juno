@@ -1,11 +1,13 @@
 from decimal import Decimal
 import logging
 import statistics
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 # import numpy as np
 
+from juno import SymbolInfo
 from juno.components import Informant
+from juno.math import adjust_size
 from juno.strategies import new_strategy
 from juno.time import datetime_utcfromtimestamp_ms, strfinterval
 
@@ -22,14 +24,15 @@ class Backtest:
 
     # TODO: allow configuring whether to reset on missed candle
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
-                  balance: Decimal, strategy_config: Dict[str, Any],
+                  quote: Decimal, strategy_config: Dict[str, Any],
                   restart_on_missed_candle: bool = True) -> None:
         _log.info('running backtest')
 
         assert end > start
-        assert balance > 0
+        assert quote > 0
 
-        # symbol_info = self.informant.get_symbol_info(exchange, symbol)
+        symbol_info = self.informant.get_symbol_info(exchange, symbol)
+        fees = self.informant.get_fees(exchange)
         summary = TradingSummary(exchange, symbol, interval, start, end)
         open_position = None
         restart_count = 0
@@ -74,11 +77,14 @@ class Backtest:
                 advice = strategy.update(candle)
 
                 if not open_position and advice == 1:
-                    size = balance / candle.close
-                    open_position = Position(candle.time, size, candle.close, Decimal(0))
+                    size, fee, quote = _calc_buy_base_fee_quote(quote, candle.close, fees.taker,
+                                                                symbol_info)
+                    open_position = Position(candle.time, size, candle.close, fee)
                 elif open_position and advice == -1:
-                    size = open_position.size
-                    open_position.close(candle.time, size, candle.close, Decimal(0))
+                    size, fee, quote = _calc_sell_base_fee_quote(
+                        open_position.size - open_position.fee, candle.close, fees.taker,
+                        symbol_info)
+                    open_position.close(candle.time, size, candle.close, fee)
                     summary.append_position(open_position)
                     open_position = None
 
@@ -86,8 +92,9 @@ class Backtest:
                 break
 
         if last_candle is not None and open_position:
-            size = open_position.size
-            open_position.close(last_candle.time, size, last_candle.close, Decimal(0))
+            size, fee, quote = _calc_sell_base_fee_quote(
+                open_position.size - open_position.fee, candle.close, fees.taker, symbol_info)
+            open_position.close(last_candle.time, size, last_candle.close, fee)
             summary.append_position(open_position)
             open_position = None
 
@@ -95,6 +102,22 @@ class Backtest:
         for pos in summary.positions:
             _log.debug(pos)
         _log.info(summary)
+
+
+def _calc_buy_base_fee_quote(quote: Decimal, price: Decimal, fee: Decimal,
+                             symbol_info: SymbolInfo) -> Tuple[Decimal, Decimal, Decimal]:
+    size = quote / price
+    size = adjust_size(size, symbol_info.min_size, symbol_info.max_size,
+                       symbol_info.size_step)
+    fee_size = size * fee
+    return size, fee_size, quote - size * price
+
+
+def _calc_sell_base_fee_quote(base: Decimal, price: Decimal, fee: Decimal,
+                              symbol_info: SymbolInfo) -> Tuple[Decimal, Decimal, Decimal]:
+    size = adjust_size(base, symbol_info.min_size, symbol_info.max_size, symbol_info.size_step)
+    fee_size = size * fee
+    return size, fee_size, (size - fee_size) * price
 
 
 # TODO: Add support for external token fees (i.e BNB)

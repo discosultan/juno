@@ -92,7 +92,8 @@ class SQLite:
             row = await cursor.fetchone()
             await cursor.close()
             if row:
-                return {k: item_cls(**v) for k, v in json.loads(row[1]).items()}, row[2]
+                return {k: item_cls(**v) for k, v
+                        in json.loads(row[1], use_decimal=True).items()}, row[2]
             else:
                 return None, None
 
@@ -103,7 +104,7 @@ class SQLite:
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             await db.execute(f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                             ['map_' + cls_name, json.dumps(items), time_ms()])
+                             ['map_' + cls_name, json.dumps(items, use_decimal=True), time_ms()])
             await db.commit()
 
     @asynccontextmanager

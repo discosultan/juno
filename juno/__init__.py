@@ -9,7 +9,6 @@ from juno.time import datetime_utcfromtimestamp_ms
 AccountInfo = namedtuple('AccountInfo', ['time', 'base_balance', 'quote_balance', 'fees'])
 # BidAsk = namedtuple('BidAsk', ['price', 'size'])
 # Depth = namedtuple('Depth', ['bids', 'asks'])
-Fees = namedtuple('Fees', ['maker', 'taker'])
 OrderResult = namedtuple('OrderResult', ['price', 'executed_size'])
 Trade = namedtuple('Trade', ['price', 'size', 'commission', 'commission_asset', 'is_buyer'])
 
@@ -34,6 +33,11 @@ class Candle(NamedTuple):
     def __repr__(self) -> str:
         return (f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
                 f'open={self.open}, high={self.high}, low={self.low}, close={self.close})')
+
+
+class Fees(NamedTuple):
+    maker: Decimal
+    taker: Decimal
 
 
 class Span(NamedTuple):

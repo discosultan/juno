@@ -72,7 +72,7 @@ class Binance(Exchange):
         for symbol in res['symbols']:
             size = next((f for f in symbol['filters'] if f['filterType'] == 'LOT_SIZE'))
             price = next((f for f in symbol['filters'] if f['filterType'] == 'PRICE_FILTER'))
-            result[f"{symbol['baseAsset']}-{symbol['quoteAsset']}"] = SymbolInfo(
+            result[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = SymbolInfo(
                 min_size=Decimal(size['minQty']),
                 max_size=Decimal(size['maxQty']),
                 size_step=Decimal(size['stepSize']),

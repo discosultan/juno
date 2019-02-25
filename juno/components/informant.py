@@ -1,10 +1,11 @@
 from __future__ import annotations
 import asyncio
 from collections import defaultdict
+from decimal import Decimal
 import logging
 from typing import Any, AsyncIterable, Dict, Tuple
 
-from juno import Candle, Span, SymbolInfo
+from juno import Candle, Fees, Span, SymbolInfo
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.storages import SQLite
@@ -13,6 +14,13 @@ from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
 
 _log = logging.getLogger(__name__)
+
+
+# TODO: Get from exchange.
+_FEES = {
+    'binance': Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
+    'coinbase': Fees(maker=Decimal('0.000'), taker=Decimal('0.003'))
+}
 
 
 class Informant:
@@ -35,6 +43,9 @@ class Informant:
 
     def get_symbol_info(self, exchange: str, symbol: str) -> SymbolInfo:
         return self._exchange_symbols[exchange][symbol]
+
+    def get_fees(self, exchange: str) -> Fees:
+        return _FEES[exchange]
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
                              ) -> AsyncIterable[Tuple[Candle, bool]]:

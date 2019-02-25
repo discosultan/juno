@@ -15,7 +15,7 @@ async def memory(request):
 
 
 async def test_memory_store_candles(loop, memory):
-    candles = [_new_candle(time=0), _new_candle(time=1)]
+    candles = [_new_candle(time=0, close=Decimal('1.1')), _new_candle(time=1)]
     start, end = 0, 2
 
     await memory.store_candles_and_span(
@@ -32,7 +32,7 @@ async def test_memory_store_candles(loop, memory):
 
 
 async def test_memory_store_get_map(loop, memory):
-    candle = {'foo': _new_candle(time=1)}
+    candle = {'foo': _new_candle(time=1, close=Decimal('1.1'))}
 
     await memory.set_map(key='key', items=candle)
     stored_candle, _ = await memory.get_map(key='key', item_cls=Candle)
@@ -57,11 +57,11 @@ async def test_memory_set_map_twice_get_map(loop, memory):
     assert stored_candle == candle2
 
 
-def _new_candle(time=0):
+def _new_candle(time=0, close=Decimal(0)):
     return Candle(
         time=time,
         open=Decimal(0),
         high=Decimal(0),
         low=Decimal(0),
-        close=Decimal(0),
+        close=close,
         volume=Decimal(0))
