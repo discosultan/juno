@@ -8,6 +8,9 @@ from juno.storages import Memory
 from juno.utils import list_async
 
 
+DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal('0.1234567890123456789012345678901234567890123456789')
+
+
 @pytest.fixture
 async def memory(request):
     async with Memory() as storage:
@@ -15,7 +18,7 @@ async def memory(request):
 
 
 async def test_memory_store_candles(loop, memory):
-    candles = [_new_candle(time=0, close=Decimal('1.1')), _new_candle(time=1)]
+    candles = [_new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT), _new_candle(time=1)]
     start, end = 0, 2
 
     await memory.store_candles_and_span(
@@ -32,7 +35,7 @@ async def test_memory_store_candles(loop, memory):
 
 
 async def test_memory_store_get_map(loop, memory):
-    candle = {'foo': _new_candle(time=1, close=Decimal('1.1'))}
+    candle = {'foo': _new_candle(time=1, close=DECIMAL_TOO_PRECISE_FOR_FLOAT)}
 
     await memory.set_map(key='key', items=candle)
     stored_candle, _ = await memory.get_map(key='key', item_cls=Candle)
