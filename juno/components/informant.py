@@ -41,11 +41,11 @@ class Informant:
         self._sync_task.cancel()
         await self._sync_task
 
-    def get_symbol_info(self, exchange: str, symbol: str) -> SymbolInfo:
-        return self._exchange_symbols[exchange][symbol]
-
     def get_fees(self, exchange: str) -> Fees:
         return _FEES[exchange]
+
+    def get_symbol_info(self, exchange: str, symbol: str) -> SymbolInfo:
+        return self._exchange_symbols[exchange][symbol]
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
                              ) -> AsyncIterable[Tuple[Candle, bool]]:

@@ -79,6 +79,9 @@ class Backtest:
                 if not open_position and advice == 1:
                     size, fee, quote = _calc_buy_base_fee_quote(quote, candle.close, fees.taker,
                                                                 symbol_info)
+                    if size == 0:
+                        _log.warning(f'quote balance too low to open a position; stopping')
+                        break
                     open_position = Position(candle.time, size, candle.close, fee)
                 elif open_position and advice == -1:
                     size, fee, quote = _calc_sell_base_fee_quote(
