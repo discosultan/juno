@@ -9,7 +9,6 @@ setup(
         'aiohttp',
         'aiosqlite',
         'backoff',
-        'numpy',
         'simplejson'
     ],
     extras_require={

@@ -46,6 +46,15 @@ async def test_backtest(loop, informant):
         'persistence': 0
     }
 
-    # TODO: Validate output
-    await agent.run(exchange='dummy', symbol='eth-btc', interval=1, start=0, end=6,
-                    quote=Decimal(100), strategy_config=strategy_config)
+    res = await agent.run(exchange='dummy', symbol='eth-btc', interval=1, start=0, end=6,
+                          quote=Decimal(100), strategy_config=strategy_config)
+    assert res.profit == -50
+    assert res.potential_hodl_profit == 100
+    assert res.duration == 6
+    assert res.yearly_roi == -2629746000
+    assert res.max_drawdown == Decimal('0.75')
+    assert res.mean_drawdown == Decimal('0.25')
+    assert res.mean_position_profit == -25
+    assert res.mean_position_duration == 1
+    assert res.start == 0
+    assert res.end == 6
