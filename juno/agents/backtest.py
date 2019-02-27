@@ -1,15 +1,14 @@
-from decimal import Decimal
 import itertools
 import logging
 import statistics
+from decimal import Decimal
 from typing import Any, Dict, List, Optional, Tuple
 
 from juno import Candle, Fees, SymbolInfo
 from juno.components import Informant
 from juno.math import adjust_size
 from juno.strategies import new_strategy
-from juno.time import datetime_utcfromtimestamp_ms, YEAR_MS, strfinterval
-
+from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
 
 _log = logging.getLogger(__name__)
 

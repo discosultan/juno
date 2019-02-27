@@ -5,7 +5,6 @@ from typing import Any, Dict, Set
 
 from .backtest import Backtest  # noqa
 
-
 _agents = {name.lower(): type_ for name, type_
            in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
 

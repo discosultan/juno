@@ -6,7 +6,6 @@ from .informant import Informant  # noqa
 from .orderbook import Orderbook  # noqa
 from .wallet import Wallet  # noqa
 
-
 _components = {name.lower(): obj for name, obj
                in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
 

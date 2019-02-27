@@ -5,7 +5,7 @@ import pytest
 
 from juno import config
 from juno.exchanges import map_exchanges
-from juno.time import datetime_timestamp_ms, HOUR_MS
+from juno.time import HOUR_MS, datetime_timestamp_ms
 
 
 # We use a session-scoped loop for shared rate-limiting.

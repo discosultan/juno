@@ -1,12 +1,12 @@
-from datetime import datetime, timezone
-from decimal import Decimal
 import os
 import re
+from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Set
 
 import simplejson as json
 
-from juno.time import strpinterval, datetime_timestamp_ms
+from juno.time import datetime_timestamp_ms, strpinterval
 from juno.utils import recursive_iter
 
 

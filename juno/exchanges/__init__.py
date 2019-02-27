@@ -1,11 +1,10 @@
 import inspect
 import sys
-from typing import Any, Dict, get_type_hints, Optional, Set
+from typing import Any, Dict, Optional, Set, get_type_hints
 
 from .binance import Binance  # noqa
 from .coinbase import Coinbase  # noqa
 from .exchange import Exchange  # noqa
-
 
 _exchanges = {name.lower(): obj for name, obj in inspect.getmembers(
     sys.modules[__name__], lambda m: inspect.isclass(m) and m is not Exchange)}

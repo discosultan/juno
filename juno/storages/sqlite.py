@@ -1,18 +1,18 @@
 from __future__ import annotations
+
+import logging
+import sqlite3
 from contextlib import asynccontextmanager
 from decimal import Decimal
-import logging
 from pathlib import Path
-import sqlite3
-from typing import (Any, AsyncIterable, AsyncIterator, Dict, get_type_hints, List, Optional, Set,
-                    Tuple)
+from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional,
+                    Set, Tuple, get_type_hints)
 
-from aiosqlite import connect, Connection
 import simplejson as json
+from aiosqlite import Connection, connect
 
 from juno import Candle, Span
 from juno.time import time_ms
-
 
 _log = logging.getLogger(__name__)
 

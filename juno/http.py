@@ -1,10 +1,10 @@
 from __future__ import annotations
-from contextlib import asynccontextmanager
+
 import logging
+from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
 import aiohttp
-
 
 _aiohttp_log = logging.getLogger('aiohttp.client')
 

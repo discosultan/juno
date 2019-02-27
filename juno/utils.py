@@ -2,7 +2,6 @@ import asyncio
 import math
 from typing import Any, AsyncIterable, Generic, Iterable, List, Tuple, TypeVar
 
-
 T = TypeVar('T')
 
 

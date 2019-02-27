@@ -1,24 +1,25 @@
 from __future__ import annotations
+
 import asyncio
-from contextlib import asynccontextmanager
-from decimal import Decimal
 import hashlib
 import hmac
 import logging
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 import urllib.parse
+from contextlib import asynccontextmanager
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 import aiohttp
 import backoff
 import simplejson as json
 
-from .exchange import Exchange
 from juno import Balance, Candle, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
-from juno.utils import LeakyBucket, page, Event
 from juno.time import HOUR_MS, MIN_MS, time_ms
+from juno.utils import Event, LeakyBucket, page
 
+from .exchange import Exchange
 
 _BASE_REST_URL = 'https://api.binance.com'
 _BASE_WS_URL = 'wss://stream.binance.com:9443'

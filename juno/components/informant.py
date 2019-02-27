@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import asyncio
+import logging
 from collections import defaultdict
 from decimal import Decimal
-import logging
 from typing import Any, AsyncIterable, Dict, Tuple
 
 from juno import Candle, Fees, Span, SymbolInfo
@@ -11,7 +12,6 @@ from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, time_ms
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
-
 
 _log = logging.getLogger(__name__)
 

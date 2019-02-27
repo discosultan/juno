@@ -1,16 +1,16 @@
 from __future__ import annotations
+
 import asyncio
+import logging
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-import logging
 from typing import Any, Dict
 
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.utils import Barrier
-
 
 _log = logging.getLogger(__name__)
 

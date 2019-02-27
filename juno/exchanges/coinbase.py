@@ -1,24 +1,25 @@
 from __future__ import annotations
+
 import asyncio
 import base64
-from collections import defaultdict
-from datetime import datetime
-from decimal import Decimal
 import hashlib
 import hmac
 import logging
+from collections import defaultdict
+from datetime import datetime
+from decimal import Decimal
 from time import time
 from typing import Any, AsyncIterable, Dict, List, Tuple
 
 import simplejson as json
 
-from .exchange import Exchange
 from juno import Balance, Candle, SymbolInfo
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms
 from juno.utils import Event, LeakyBucket, page
 
+from .exchange import Exchange
 
 _BASE_REST_URL = 'https://api.pro.coinbase.com'
 _BASE_WS_URL = 'wss://ws-feed.pro.coinbase.com'

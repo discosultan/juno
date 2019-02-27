@@ -2,7 +2,8 @@ from decimal import Decimal
 
 import pytest
 
-from juno.indicators import Sma, Ema, Dema, Cci, DM, DI, DX, Adx, Adxr, Macd, Stoch, Rsi
+from juno.indicators import (DI, DM, DX, Adx, Adxr, Cci, Dema, Ema, Macd, Rsi,
+                             Sma, Stoch)
 
 
 def test_adx():

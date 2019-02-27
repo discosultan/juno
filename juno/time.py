@@ -1,7 +1,6 @@
 from datetime import datetime, timezone
 from time import time
 
-
 SEC_MS = 1000
 MIN_MS = 60_000
 HOUR_MS = 3_600_000

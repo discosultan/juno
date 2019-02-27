@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import asyncio
-from contextlib import asynccontextmanager
 import sqlite3
+from contextlib import asynccontextmanager
 from typing import Dict
 
-from aiosqlite import connect, Connection
+from aiosqlite import Connection, connect
 
 from .sqlite import SQLite
 

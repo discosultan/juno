@@ -1,7 +1,6 @@
-from decimal import Decimal
 import math
+from decimal import Decimal
 from typing import TypeVar
-
 
 TNum = TypeVar('TNum', int, Decimal)
 

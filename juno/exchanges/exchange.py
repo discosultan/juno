@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, AsyncIterable, Tuple
+from typing import Any, AsyncIterable, Dict, Tuple
 
 from juno import Balance, Candle, SymbolInfo
 

@@ -5,7 +5,6 @@ from typing import Any, Dict, Optional, Set
 from .memory import Memory  # noqa
 from .sqlite import SQLite  # noqa
 
-
 _storages = {name.lower(): obj for name, obj
              in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
 

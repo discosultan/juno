@@ -1,7 +1,7 @@
 import asyncio
-from contextlib import AsyncExitStack
 import logging
 import sys
+from contextlib import AsyncExitStack
 from typing import Any, Dict
 
 from juno.agents import list_required_component_names, run_agent
@@ -9,7 +9,6 @@ from juno.components import map_components
 from juno.config import list_required_names, load_from_env, load_from_json_file
 from juno.exchanges import map_exchanges
 from juno.storages import map_storages
-
 
 _log = logging.getLogger(__name__)
 

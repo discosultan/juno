@@ -1,12 +1,12 @@
 from __future__ import annotations
+
 import asyncio
-from collections import defaultdict
 import logging
+from collections import defaultdict
 from typing import Any, Dict
 
 from juno import Balance
 from juno.exchanges import Exchange
-
 
 _log = logging.getLogger(__name__)
 

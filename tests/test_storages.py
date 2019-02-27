@@ -7,7 +7,6 @@ from juno import Candle
 from juno.storages import Memory
 from juno.utils import list_async
 
-
 DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal('0.1234567890123456789012345678901234567890123456789')
 
 

@@ -5,7 +5,6 @@ from typing import NamedTuple
 
 from juno.time import datetime_utcfromtimestamp_ms
 
-
 AccountInfo = namedtuple('AccountInfo', ['time', 'base_balance', 'quote_balance', 'fees'])
 # BidAsk = namedtuple('BidAsk', ['price', 'size'])
 # Depth = namedtuple('Depth', ['bids', 'asks'])
