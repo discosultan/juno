@@ -108,6 +108,7 @@ class TradingSummary:
                 f'{datetime_utcfromtimestamp_ms(self.end)}\n'
                 f'Positions taken: {len(self.positions)}\n'
                 f'Total profit: {self.profit}\n'
+                f'Potential hodl profit: {self.potential_hodl_profit}\n'
                 f'Total duration: {strfinterval(self.duration)}\n'
                 f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
                 f'{datetime_utcfromtimestamp_ms(self.end)}\n'
@@ -133,9 +134,10 @@ class TradingSummary:
 
     @property
     def duration(self) -> int:
-        if not self.first_candle or not self.last_candle:
-            return 0
-        return self.last_candle.time - self.first_candle.time + self.interval
+        # if not self.first_candle or not self.last_candle:
+        #     return 0
+        # return self.last_candle.time - self.first_candle.time + self.interval
+        return self.end - self.start
 
     @property
     def yearly_roi(self):

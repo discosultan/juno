@@ -1,7 +1,5 @@
 from decimal import Decimal
 
-import pytest
-
 from juno import Candle, Fees, SymbolInfo
 from juno.agents import Backtest
 
@@ -29,13 +27,8 @@ class FakeInformant:
         # Short.
 
 
-@pytest.fixture
-def informant():
-    return FakeInformant()
-
-
-async def test_backtest(loop, informant):
-    agent = Backtest(components={'informant': informant})
+async def test_backtest(loop):
+    agent = Backtest(components={'informant': FakeInformant()})
 
     strategy_config = {
         'name': 'emaemacx',
