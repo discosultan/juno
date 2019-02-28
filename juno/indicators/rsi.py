@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from . import Smma
+from .smma import Smma
 
 
 # Relative Strength Index

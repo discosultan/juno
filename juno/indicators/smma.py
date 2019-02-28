@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from . import Sma
+from .sma import Sma
 
 
 # Smoothed Moving Average

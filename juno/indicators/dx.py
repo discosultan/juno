@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from . import DI
+from .di import DI
 
 
 # Directional Movement Index

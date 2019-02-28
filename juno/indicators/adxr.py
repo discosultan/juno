@@ -2,7 +2,7 @@ from collections import deque
 from decimal import Decimal
 from typing import Deque
 
-from . import Adx
+from .adx import Adx
 
 
 # Average Directional Movement Index Rating

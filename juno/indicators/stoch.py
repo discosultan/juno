@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Tuple
 
-from . import Sma
+from .sma import Sma
 
 
 # Full Stochastic Oscillator

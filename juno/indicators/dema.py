@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from . import Ema
+from .ema import Ema
 
 
 # Double Exponential Moving Average

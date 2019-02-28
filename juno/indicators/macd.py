@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Tuple
 
-from . import Ema
+from .ema import Ema
 
 
 # Moving Average Convergence Divergence

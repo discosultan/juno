@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Tuple
 
-from . import DM
+from .dm import DM
 
 
 # Directional Indicator

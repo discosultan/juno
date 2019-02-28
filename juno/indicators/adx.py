@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from . import DX, Smma
+from .dx import DX
+from .smma import Smma
 
 
 # Average Directional Index
