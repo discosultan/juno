@@ -7,7 +7,7 @@ from .ema import Ema
 # Moving Average Convergence Divergence
 class Macd:
 
-    def __init__(self, short_period: int, long_period: int, signal_period: int):
+    def __init__(self, short_period: int, long_period: int, signal_period: int) -> None:
         if short_period < 1 or long_period < 2 or signal_period < 1:
             raise ValueError(f'invalid period(s) ({short_period}, {long_period}, {signal_period})')
         if long_period < short_period:

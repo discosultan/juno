@@ -6,7 +6,7 @@ from .sma import Sma
 # Commodity Channel Index
 class Cci:
 
-    def __init__(self, period: int):
+    def __init__(self, period: int) -> None:
         self.sma = Sma(period)
         self.scale = Decimal(1) / period
         self.typical_prices = [Decimal(0)] * period

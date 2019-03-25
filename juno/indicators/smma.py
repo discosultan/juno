@@ -6,7 +6,7 @@ from .sma import Sma
 # Smoothed Moving Average
 class Smma:
 
-    def __init__(self, period: int):
+    def __init__(self, period: int) -> None:
         self.result = Decimal(0)
         self.sma = Sma(period)
         self.weight = period

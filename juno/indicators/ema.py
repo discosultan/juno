@@ -6,7 +6,7 @@ from decimal import Decimal
 # Exponential Moving Average
 class Ema:
 
-    def __init__(self, period: int):
+    def __init__(self, period: int) -> None:
         if period < 1:
             raise ValueError(f'invalid period ({period})')
 

@@ -6,7 +6,7 @@ from .ema import Ema
 # Double Exponential Moving Average
 class Dema:
 
-    def __init__(self, period: int):
+    def __init__(self, period: int) -> None:
         self.ema1 = Ema(period)
         self.ema2 = Ema(period)
         self.t = 0

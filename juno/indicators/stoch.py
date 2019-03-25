@@ -7,7 +7,7 @@ from .sma import Sma
 # Full Stochastic Oscillator
 class Stoch:
 
-    def __init__(self, k_period: int, k_sma_period: int, d_sma_period: int):
+    def __init__(self, k_period: int, k_sma_period: int, d_sma_period: int) -> None:
         if k_period < 1:
             raise ValueError(f'invalid period ({k_period})')
 
@@ -28,7 +28,6 @@ class Stoch:
         return self.t3
 
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
-
         self.k_high_window[self.i] = high
         self.k_low_window[self.i] = low
         self.i = (self.i + 1) % len(self.k_high_window)

@@ -4,7 +4,7 @@ from decimal import Decimal
 # Simple Moving Average
 class Sma:
 
-    def __init__(self, period: int):
+    def __init__(self, period: int) -> None:
         if period < 1:
             raise ValueError(f'invalid period ({period})')
 

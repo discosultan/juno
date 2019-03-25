@@ -7,7 +7,7 @@ from .dm import DM
 # Directional Indicator
 class DI:
 
-    def __init__(self, period: int):
+    def __init__(self, period: int) -> None:
         self.dm = DM(period)
         self.atr = Decimal(0)
         self.per = (period - 1) / Decimal(period)

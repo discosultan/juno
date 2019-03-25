@@ -6,7 +6,7 @@ from .smma import Smma
 # Relative Strength Index
 class Rsi:
 
-    def __init__(self, period: int):
+    def __init__(self, period: int) -> None:
         self.mean_down = Smma(period)
         self.mean_up = Smma(period)
         self.last_input = Decimal(0)

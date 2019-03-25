@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from juno.indicators import (DI, DM, DX, Adx, Adxr, Cci, Dema, Ema, Macd, Rsi,
-                             Sma, Stoch)
+                             Sma, Stoch, StochRsi)
 
 
 def test_adx():
@@ -310,6 +310,17 @@ def test_stoch():
         ]
     ]
     _assert(Stoch(5, 3, 3), inputs, outputs, 4)
+
+
+def test_stoch_rsi():
+    inputs = [[
+        37.8750, 39.5000, 38.7500, 39.8125, 40.0000, 39.8750, 40.1875, 41.2500, 41.1250, 41.6250,
+        41.2500, 40.1875, 39.9375, 39.9375, 40.5000, 41.9375, 42.2500, 42.2500, 41.8750, 41.8750
+    ]]
+    outputs = [[
+        0.9613, 0.0000, 0.0000, 0.0000, 0.0000, 0.4600, 1.0000, 1.0000, 1.0000, 0.3751, 0.0000
+    ]]
+    _assert(StochRsi(5), inputs, outputs, 4)
 
 
 def _assert(indicator, inputs, outputs, precision):
