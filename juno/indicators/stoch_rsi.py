@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from decimal import Decimal
+from typing import Iterator
 
 from .rsi import Rsi
 
@@ -29,8 +32,8 @@ class StochRsi:
             self.rsi_values.qpush(result)
 
         if self.t == self.t2:
-            self.min = min(self.rsi_values.vals)
-            self.max = max(self.rsi_values.vals)
+            self.min = min(self.rsi_values)
+            self.max = max(self.rsi_values)
             diff = self.max - self.min
             if diff == Decimal(0):
                 result = Decimal(0)
@@ -56,16 +59,17 @@ class _Buffer:
     def __len__(self) -> int:
         return len(self.vals)
 
+    def __iter__(self) -> Iterator[Decimal]:
+        return iter(self.vals)
+
     def push(self, val: Decimal) -> None:
-        if self.pushes >= len(self.vals):
+        if self.pushes == len(self.vals):
             self.sum -= self.vals[self.index]
 
         self.sum += val
         self.vals[self.index] = val
-        self.pushes += 1
-        self.index += 1
-        if self.index >= len(self.vals):
-            self.index = 0
+        self.pushes = min(self.pushes + 1, len(self.vals))
+        self.index = (self.index + 1) % len(self.vals)
 
     def qpush(self, val: Decimal) -> None:
         self.vals[self.index] = val
