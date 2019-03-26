@@ -16,6 +16,7 @@ setup(
             'isort',
             'mypy',
             'pytest',
-            'pytest-aiohttp'
+            'pytest-aiohttp',
+            'yapf'
         ]
     })
