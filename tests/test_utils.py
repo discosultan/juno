@@ -1,4 +1,5 @@
 import asyncio
+from statistics import mean
 
 import pytest
 
@@ -140,3 +141,24 @@ def test_trend_with_age_threshold():
     assert trend.update(0) == 0
     assert trend.update(0) == 0
     assert trend.update(1) == 1
+
+
+def test_circular_buffer():
+    buffer = utils.CircularBuffer(size=2, default=0)
+
+    buffer.push(2)
+    buffer.push(4)
+
+    assert len(buffer) == 2
+    assert sum(buffer) == 6
+    assert mean(buffer) == 3
+    assert min(buffer) == 2
+    assert max(buffer) == 4
+
+    buffer.push(6)
+
+    assert len(buffer) == 2
+    assert sum(buffer) == 10
+    assert mean(buffer) == 5
+    assert min(buffer) == 4
+    assert max(buffer) == 6

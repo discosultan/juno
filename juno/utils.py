@@ -1,6 +1,6 @@
 import asyncio
 import math
-from typing import Any, AsyncIterable, Generic, Iterable, List, Tuple, TypeVar
+from typing import Any, AsyncIterable, Generic, Iterable, Iterator, List, Tuple, TypeVar
 
 T = TypeVar('T')
 
@@ -60,17 +60,6 @@ def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple
             yield from recursive_iter(item, keys + (idx,))
     else:
         yield keys, obj
-
-
-# def flatten_dict_items(root: Dict[str, Any]) -> Iterable[Tuple[str, str]]:
-#     dicts: List[Tuple[List[str], Dict[str, Any]]] = [([], root)]
-#     for path, d in dicts:
-#         for k, v in d.items():
-#             new_path = path + [k]
-#             if hasattr(v, 'items'):
-#                 dicts.append((new_path, v))
-#             else:
-#                 yield k, v
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.
@@ -191,3 +180,23 @@ class Trend:
 
             self.age += 1
         return advice
+
+
+class CircularBuffer(Generic[T]):
+
+    def __init__(self, size: int, default: T) -> None:
+        if size < 0:
+            raise ValueError('Size must be positive')
+
+        self.vals = [default] * size
+        self.index = 0
+
+    def __len__(self) -> int:
+        return len(self.vals)
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.vals)
+
+    def push(self, val: T) -> None:
+        self.vals[self.index] = val
+        self.index = (self.index + 1) % len(self.vals)

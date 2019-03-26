@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Iterator
 
 from .rsi import Rsi
+from juno.utils import CircularBuffer
 
 
 # Stochastic Relative Strength Index
@@ -19,7 +19,7 @@ class StochRsi:
         self.t2 = period * 2 - 1
         self.min = Decimal(0)
         self.max = Decimal(0)
-        self.rsi_values = _Buffer(period)
+        self.rsi_values = CircularBuffer(period, Decimal(0))
 
     @property
     def req_history(self) -> int:
@@ -29,7 +29,7 @@ class StochRsi:
         result = self.rsi.update(price)
 
         if self.t >= self.t1:
-            self.rsi_values.qpush(result)
+            self.rsi_values.push(result)
 
         if self.t == self.t2:
             self.min = min(self.rsi_values)
@@ -39,40 +39,9 @@ class StochRsi:
                 result = Decimal(0)
             else:
                 result = (result - self.min) / diff
-            print(result)
         else:
             result = Decimal(0)
 
         self.last_input = price
         self.t = min(self.t + 1, self.t2)
         return result
-
-
-class _Buffer:
-
-    def __init__(self, size: int) -> None:
-        self.vals = [Decimal(0)] * size
-        self.pushes = 0
-        self.index = 0
-        self.sum = Decimal(0)
-
-    def __len__(self) -> int:
-        return len(self.vals)
-
-    def __iter__(self) -> Iterator[Decimal]:
-        return iter(self.vals)
-
-    def push(self, val: Decimal) -> None:
-        if self.pushes == len(self.vals):
-            self.sum -= self.vals[self.index]
-
-        self.sum += val
-        self.vals[self.index] = val
-        self.pushes = min(self.pushes + 1, len(self.vals))
-        self.index = (self.index + 1) % len(self.vals)
-
-    def qpush(self, val: Decimal) -> None:
-        self.vals[self.index] = val
-        self.index += 1
-        if self.index >= len(self.vals):
-            self.index = 0

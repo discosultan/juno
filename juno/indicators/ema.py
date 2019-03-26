@@ -1,4 +1,4 @@
-from __future__ import annotations  # Required for 'self' annotation
+from __future__ import annotations
 
 from decimal import Decimal
 
