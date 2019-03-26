@@ -12,6 +12,7 @@ from .sma import Sma  # noqa
 from .smma import Smma  # noqa
 from .stoch import Stoch  # noqa
 from .stoch_rsi import StochRsi  # noqa
+from .tsi import Tsi  # noqa
 
 # Indicators are adapted and verified using the Tulip Indicators C library:
 # https://github.com/TulipCharts/tulipindicators
