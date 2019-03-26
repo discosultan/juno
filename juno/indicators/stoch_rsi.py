@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from .rsi import Rsi
 from juno.utils import CircularBuffer
+
+from .rsi import Rsi
 
 
 # Stochastic Relative Strength Index

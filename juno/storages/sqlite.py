@@ -5,8 +5,8 @@ import sqlite3
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from pathlib import Path
-from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional,
-                    Set, Tuple, get_type_hints)
+from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple,
+                    get_type_hints)
 
 import simplejson as json
 from aiosqlite import Connection, connect
