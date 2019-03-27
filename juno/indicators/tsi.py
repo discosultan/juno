@@ -1,20 +1,21 @@
 from decimal import Decimal
 
-from .ema_2 import Ema2 as Ema
+from .ema2 import Ema2 as Ema
 
 
 class Tsi:
 
-    def __init__(self) -> None:
-        self.pc_ema_1 = Ema(25)
-        self.pc_ema_2 = Ema(13)
-        self.abs_pc_ema_1 = Ema(25)
-        self.abs_pc_ema_2 = Ema(13)
+    # Common long: 25, short: 13
+    def __init__(self, long_period: int, short_period: int) -> None:
+        self.pc_ema_1 = Ema(long_period)
+        self.pc_ema_2 = Ema(short_period)
+        self.abs_pc_ema_1 = Ema(long_period)
+        self.abs_pc_ema_2 = Ema(short_period)
         self.last_price = Decimal(0)
         self.t = 0
         self.t1 = 1
-        self.t2 = self.t1 + 25
-        self.t3 = self.t2 + 13
+        self.t2 = self.t1 + long_period - 1
+        self.t3 = self.t2 + short_period - 1
 
     @property
     def req_history(self) -> int:

@@ -106,17 +106,27 @@ class TradingSummary:
         return (f'{self.exchange} {self.symbol} {strfinterval(self.interval)} '
                 f'{datetime_utcfromtimestamp_ms(self.start)} - '
                 f'{datetime_utcfromtimestamp_ms(self.end)}\n'
-                f'Positions taken: {len(self.positions)}\n'
+                f'Start balance: {self.start_balance}\n'
+                f'End balance: {self.end_balance}\n'
                 f'Total profit: {self.profit}\n'
                 f'Potential hodl profit: {self.potential_hodl_profit}\n'
                 f'Total duration: {strfinterval(self.duration)}\n'
                 f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
                 f'{datetime_utcfromtimestamp_ms(self.end)}\n'
+                f'Positions taken: {len(self.positions)}\n'
                 f'Mean profit per position: {self.mean_position_profit}\n'
                 f'Mean duration per position: {strfinterval(self.mean_position_duration)}')
 
     def __repr__(self) -> str:
         return f'{type(self).__name__} {self.__dict__}'
+
+    @property
+    def start_balance(self) -> Decimal:
+        return self.quote
+
+    @property
+    def end_balance(self) -> Decimal:
+        return self.quote + self.profit
 
     @property
     def profit(self) -> Decimal:
@@ -280,8 +290,7 @@ class Backtest:
 def _calc_buy_base_fee_quote(quote: Decimal, price: Decimal, fee: Decimal,
                              symbol_info: SymbolInfo) -> Tuple[Decimal, Decimal, Decimal]:
     size = quote / price
-    size = adjust_size(size, symbol_info.min_size, symbol_info.max_size,
-                       symbol_info.size_step)
+    size = adjust_size(size, symbol_info.min_size, symbol_info.max_size, symbol_info.size_step)
     fee_size = size * fee
     return size, fee_size, quote - size * price
 

@@ -6,12 +6,13 @@ from .di import DI  # noqa
 from .dm import DM  # noqa
 from .dx import DX  # noqa
 from .ema import Ema  # noqa
+from .ema2 import Ema2  # noqa
 from .macd import Macd  # noqa
 from .rsi import Rsi  # noqa
 from .sma import Sma  # noqa
 from .smma import Smma  # noqa
 from .stoch import Stoch  # noqa
-from .stoch_rsi import StochRsi  # noqa
+from .stochrsi import StochRsi  # noqa
 from .tsi import Tsi  # noqa
 
 # Indicators are adapted and verified using the Tulip Indicators C library:

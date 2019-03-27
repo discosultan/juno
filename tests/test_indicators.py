@@ -424,7 +424,7 @@ def test_tsi():
         +18.06, +19.43, +20.84, +21.77, +22.53, +23.33, +24.97, +26.61, +28.00, +28.29, +28.57,
         +26.60, +25.99, +25.35, +24.59, +24.09
     ]]
-    _assert(Tsi(), inputs, outputs, 1)  # Precision should be 2 but it's drifting off.
+    _assert(Tsi(25, 13), inputs, outputs, 1)  # Precision should be 2 but it's drifting off.
 
 
 def _assert(indicator, inputs, outputs, precision):
