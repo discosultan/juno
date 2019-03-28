@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from .sma import Sma
 
+from juno.utils import CircularBuffer
+
 
 # Commodity Channel Index
 class Cci:
@@ -10,8 +12,7 @@ class Cci:
         self.value = Decimal(0)
         self._sma = Sma(period)
         self._scale = Decimal(1) / period
-        self._typical_prices = [Decimal(0)] * period
-        self._i = 0
+        self._typical_prices = CircularBuffer(period, Decimal(0))
         self._t = 0
         self._t1 = (period - 1) * 2
 
@@ -21,11 +22,8 @@ class Cci:
 
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
         typical_price = (high + low + close) / 3
-
+        self._typical_prices.push(typical_price)
         self._sma.update(typical_price)
-
-        self._typical_prices[self._i] = typical_price
-        self._i = (self._i + 1) % len(self._typical_prices)
 
         if self._t == self._t1:
             acc = sum((abs(self._sma.value - tp) for tp in self._typical_prices))
