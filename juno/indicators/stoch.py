@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Tuple
 
 from .sma import Sma
 
@@ -11,37 +10,42 @@ class Stoch:
         if k_period < 1:
             raise ValueError(f'invalid period ({k_period})')
 
-        self.i = 0
-        self.k_high_window = [Decimal(0)] * k_period
-        self.k_low_window = [Decimal(0)] * k_period
+        self.k = Decimal(0)
+        self.d = Decimal(0)
 
-        self.k_sma = Sma(k_sma_period)
-        self.d_sma = Sma(d_sma_period)
+        self._i = 0
+        self._k_high_window = [Decimal(0)] * k_period
+        self._k_low_window = [Decimal(0)] * k_period
 
-        self.t = 0
-        self.t1 = k_period - 1
-        self.t2 = self.t1 + k_sma_period - 1
-        self.t3 = self.t2 + d_sma_period - 1
+        self._k_sma = Sma(k_sma_period)
+        self._d_sma = Sma(d_sma_period)
+
+        self._t = 0
+        self._t1 = k_period - 1
+        self._t2 = self._t1 + k_sma_period - 1
+        self._t3 = self._t2 + d_sma_period - 1
 
     @property
     def req_history(self) -> int:
-        return self.t3
+        return self._t3
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
-        self.k_high_window[self.i] = high
-        self.k_low_window[self.i] = low
-        self.i = (self.i + 1) % len(self.k_high_window)
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+        self._k_high_window[self._i] = high
+        self._k_low_window[self._i] = low
+        self._i = (self._i + 1) % len(self._k_high_window)
 
-        full_k, full_d = Decimal(0), Decimal(0)
-        if self.t >= self.t1:
-            max_high = max(self.k_high_window)
-            min_low = min(self.k_low_window)
+        if self._t >= self._t1:
+            max_high = max(self._k_high_window)
+            min_low = min(self._k_low_window)
             fast_k = 100 * (close - min_low) / (max_high - min_low)
 
-            full_k = self.k_sma.update(fast_k)
-            full_d = self.d_sma.update(full_k) if self.t >= self.t2 else Decimal(0)
-            full_k, full_d = (full_k, full_d) if self.t == self.t3 else (Decimal(0), Decimal(0))
+            self._k_sma.update(fast_k)
 
-        self.t = min(self.t + 1, self.t3)
+            if self._t >= self._t2:
+                self._d_sma.update(self._k_sma.value)
 
-        return full_k, full_d
+            if self._t == self._t3:
+                self.k = self._k_sma.value
+                self.d = self._d_sma.value
+
+        self._t = min(self._t + 1, self._t3)

@@ -9,27 +9,23 @@ from .adx import Adx
 class Adxr:
 
     def __init__(self, period: int) -> None:
-        self.adx = Adx(period)
-        self.historical_adx: Deque[Decimal] = deque(maxlen=period)
-        self.i = 0
-        self.t = 0
-        self.t1 = self.adx.req_history
-        self.t2 = self.t1 + period - 1
+        self.value = Decimal(0)
+        self._adx = Adx(period)
+        self._historical_adx: Deque[Decimal] = deque(maxlen=period)
+        self._t = 0
+        self._t1 = self._adx.req_history
+        self._t2 = self._t1 + period - 1
 
     @property
     def req_history(self) -> int:
-        return self.t2
+        return self._t2
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Decimal:
-        adx = self.adx.update(high, low, close)
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+        self._adx.update(high, low, close)
 
-        result = Decimal(0)
+        if self._t >= self._t1:
+            self._historical_adx.append(self._adx.value)
+        if self._t == self._t2:
+            self.value = (self._adx.value + self._historical_adx.popleft()) / 2
 
-        if self.t >= self.t1:
-            self.historical_adx.append(adx)
-        if self.t == self.t2:
-            result = (adx + self.historical_adx.popleft()) / 2
-
-        self.t = min(self.t + 1, self.t2)
-
-        return result
+        self._t = min(self._t + 1, self._t2)

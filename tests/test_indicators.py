@@ -314,7 +314,7 @@ def test_stoch():
     _assert(Stoch(5, 3, 3), inputs, outputs, 4)
 
 
-def test_stoch_rsi():
+def test_stochrsi():
     inputs = [[
         37.8750, 39.5000, 38.7500, 39.8125, 40.0000, 39.8750, 40.1875, 41.2500, 41.1250, 41.6250,
         41.2500, 40.1875, 39.9375, 39.9375, 40.5000, 41.9375, 42.2500, 42.2500, 41.8750, 41.8750
@@ -431,10 +431,10 @@ def _assert(indicator, inputs, outputs, precision):
     input_len, output_len = len(inputs[0]), len(outputs[0])
     offset = input_len - output_len
     for i in range(0, input_len):
-        result = indicator.update(*(Decimal(input[i]) for input in inputs))
+        indicator.update(*(Decimal(input[i]) for input in inputs))
+        # Assert public values of an indicator.
+        values = [v for k, v in vars(indicator).items() if not k.startswith('_')]
         if i >= offset:
-            if not isinstance(result, tuple):
-                result = result,
-            for j in range(0, len(result)):
+            for j in range(0, len(values)):
                 assert pytest.approx(
-                    float(result[j]), abs=10**-precision) == outputs[j][i - offset]
+                    float(values[j]), abs=10**-precision) == outputs[j][i - offset]

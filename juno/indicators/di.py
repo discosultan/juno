@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Tuple
 
 from .dm import DM
 
@@ -8,41 +7,40 @@ from .dm import DM
 class DI:
 
     def __init__(self, period: int) -> None:
-        self.dm = DM(period)
-        self.atr = Decimal(0)
-        self.per = (period - 1) / Decimal(period)
+        self.plus_value = Decimal(0)
+        self.minus_value = Decimal(0)
 
-        self.prev_close = Decimal(0)
+        self._dm = DM(period)
+        self._atr = Decimal(0)
+        self._per = (period - 1) / Decimal(period)
 
-        self.t = 0
-        self.t1 = 1
-        self.t2 = period - 1
-        self.t3 = period
+        self._prev_close = Decimal(0)
+
+        self._t = 0
+        self._t1 = 1
+        self._t2 = period - 1
+        self._t3 = period
 
     @property
     def req_history(self) -> int:
-        return self.t1
+        return self._t1
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
-        plus_dm, minus_dm = self.dm.update(high, low)
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+        self._dm.update(high, low)
 
-        plus_di, minus_di = Decimal(0), Decimal(0)
+        if self._t >= self._t1 and self._t < self._t3:
+            self._atr += _calc_truerange(self._prev_close, high, low)
 
-        if self.t >= self.t1 and self.t < self.t3:
-            self.atr += _calc_truerange(self.prev_close, high, low)
+        if self._t == self._t2:
+            self.plus_value = 100 * self._dm.plus_value / self._atr
+            self.minus_value = 100 * self._dm.minus_value / self._atr
+        elif self._t == self._t3:
+            self._atr = self._atr * self._per + _calc_truerange(self._prev_close, high, low)
+            self.plus_value = 100 * self._dm.plus_value / self._atr
+            self.minus_value = 100 * self._dm.minus_value / self._atr
 
-        if self.t == self.t2:
-            plus_di = 100 * plus_dm / self.atr
-            minus_di = 100 * minus_dm / self.atr
-        elif self.t == self.t3:
-            self.atr = self.atr * self.per + _calc_truerange(self.prev_close, high, low)
-            plus_di = 100 * plus_dm / self.atr
-            minus_di = 100 * minus_dm / self.atr
-
-        self.prev_close = close
-        self.t = min(self.t + 1, self.t3)
-
-        return plus_di, minus_di
+        self._prev_close = close
+        self._t = min(self._t + 1, self._t3)
 
 
 def _calc_truerange(prev_close: Decimal, high: Decimal, low: Decimal) -> Decimal:

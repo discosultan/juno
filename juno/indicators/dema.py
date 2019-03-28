@@ -7,27 +7,26 @@ from .ema import Ema
 class Dema:
 
     def __init__(self, period: int) -> None:
-        self.ema1 = Ema(period)
-        self.ema2 = Ema(period)
-        self.t = 0
-        self.t1 = period - 1
-        self.t2 = self.t1 * 2
+        self.value = Decimal(0)
+        self._ema1 = Ema(period)
+        self._ema2 = Ema(period)
+        self._t = 0
+        self._t1 = period - 1
+        self._t2 = self._t1 * 2
 
     @property
     def req_history(self) -> int:
-        return self.t2
+        return self._t2
 
-    def update(self, price: Decimal) -> Decimal:
-        result = Decimal(0)
-        ema1_result = self.ema1.update(price)
+    def update(self, price: Decimal) -> None:
+        self._ema1.update(price)
 
-        if self.t <= self.t1:
-            self.ema2.update(price)
+        if self._t <= self._t1:
+            self._ema2.update(price)
 
-        if self.t >= self.t1:
-            ema2_result = self.ema2.update(ema1_result)
-            if self.t == self.t2:
-                result = ema1_result * Decimal(2) - ema2_result
+        if self._t >= self._t1:
+            self._ema2.update(self._ema1.value)
+            if self._t == self._t2:
+                self.value = self._ema1.value * Decimal(2) - self._ema2.value
 
-        self.t = min(self.t + 1, self.t2)
-        return result
+        self._t = min(self._t + 1, self._t2)

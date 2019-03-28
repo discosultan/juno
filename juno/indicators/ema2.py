@@ -12,35 +12,31 @@ class Ema2:
         if period < 1:
             raise ValueError(f'invalid period ({period})')
 
-        self.sma = Sma(period)
-
-        self.a = Decimal(2) / (period + 1)  # Smoothing factor.
-        self.result = Decimal(0)
-        self.t = 0
-        self.t1 = period - 1
-        self.flag = False
+        self.value = Decimal(0)
+        self._sma = Sma(period)
+        self._a = Decimal(2) / (period + 1)  # Smoothing factor.
+        self._t = 0
+        self._t1 = period - 1
+        self._t2 = period
 
     @property
     def req_history(self) -> int:
-        return self.t1
+        return self._t1
 
-    def update(self, price: Decimal) -> Decimal:
-        if self.t < self.t1:
-            self.sma.update(price)
+    def update(self, price: Decimal) -> None:
+        if self._t <= self._t1:
+            self._sma.update(price)
 
-        if self.t == self.t1:
-            if not self.flag:
-                self.result = self.sma.update(price)
-                self.flag = True
-            else:
-                self.result = (price - self.result) * self.a + self.result
+        if self._t == self._t1:
+            self.value = self._sma.value
+        elif self._t == self._t2:
+            self.value = (price - self.value) * self._a + self.value
 
-        self.t = min(self.t + 1, self.t1)
-        return self.result
+        self._t = min(self._t + 1, self._t2)
 
     @staticmethod
     def with_smoothing(a: Decimal) -> Ema2:  # noqa
         dummy_period = 1
         ema = Ema2(dummy_period)
-        ema.a = a
+        ema._a = a
         return ema

@@ -11,14 +11,19 @@ class Adx:
         if period < 2:
             raise ValueError(f'invalid period ({period})')
 
-        self.dx = DX(period)
-        self.smma = Smma(period)
-        self.t1 = (period - 1) * 2
+        self.value = Decimal(0)
+        self._dx = DX(period)
+        self._smma = Smma(period)
+        self._t1 = (period - 1) * 2
 
     @property
     def req_history(self) -> int:
-        return self.t1
+        return self._t1
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Decimal:
-        dx = self.dx.update(high, low, close)
-        return Decimal(0) if dx == 0 else self.smma.update(dx)
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+        self._dx.update(high, low, close)
+        if self._dx.value == 0:
+            self.value = Decimal(0)
+        else:
+            self._smma.update(self._dx.value)
+            self.value = self._smma.value

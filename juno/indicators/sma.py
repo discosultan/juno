@@ -11,17 +11,17 @@ class Sma:
         if period < 1:
             raise ValueError(f'invalid period ({period})')
 
-        self.buffer = CircularBuffer(period, Decimal(0))
-        self.t = 0
-        self.t1 = period - 1
+        self.value = Decimal(0)
+        self._buffer = CircularBuffer(period, Decimal(0))
+        self._t = 0
+        self._t1 = period - 1
 
     @property
     def req_history(self) -> int:
-        return self.t1
+        return self._t1
 
-    def update(self, price: Decimal) -> Decimal:
-        self.buffer.push(price)
-        result = mean(self.buffer) if self.t == self.t1 else Decimal(0)
-
-        self.t = min(self.t + 1, self.t1)
-        return result
+    def update(self, price: Decimal) -> None:
+        self._buffer.push(price)
+        if self._t == self._t1:
+            self.value = mean(self._buffer)
+        self._t = min(self._t + 1, self._t1)

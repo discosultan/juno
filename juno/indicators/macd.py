@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Tuple
 
 from .ema import Ema
 
@@ -14,34 +13,35 @@ class Macd:
             raise ValueError(f'long period ({long_period}) must be larger '
                              f'than or equal to short period ({short_period})')
 
+        self.value = Decimal(0)
+        self.signal = Decimal(0)
+        self.divergence = Decimal(0)
+
         # A bit hacky but is what is usually expected.
         if short_period == 12 and long_period == 26:
-            self.short_ema = Ema.with_smoothing(Decimal('0.15'))
-            self.long_ema = Ema.with_smoothing(Decimal('0.075'))
+            self._short_ema = Ema.with_smoothing(Decimal('0.15'))
+            self._long_ema = Ema.with_smoothing(Decimal('0.075'))
         else:
-            self.short_ema = Ema(short_period)
-            self.long_ema = Ema(long_period)
+            self._short_ema = Ema(short_period)
+            self._long_ema = Ema(long_period)
 
-        self.signal_ema = Ema(signal_period)
+        self._signal_ema = Ema(signal_period)
 
-        self.t = 0
-        self.t1 = long_period - 1
+        self._t = 0
+        self._t1 = long_period - 1
 
     @property
     def req_history(self) -> int:
-        return self.t1
+        return self._t1
 
-    def update(self, price: Decimal) -> Tuple[Decimal, Decimal, Decimal]:
-        short_ema_result = self.short_ema.update(price)
-        long_ema_result = self.long_ema.update(price)
+    def update(self, price: Decimal) -> None:
+        self._short_ema.update(price)
+        self._long_ema.update(price)
 
-        macd, signal, divergence = Decimal(0), Decimal(0), Decimal(0)
+        if self._t == self._t1:
+            self.value = self._short_ema.value - self._long_ema.value
+            self._signal_ema.update(self.value)
+            self.signal = self._signal_ema.value
+            self.divergence = self.value - self.signal
 
-        if self.t == self.t1:
-            macd = short_ema_result - long_ema_result
-            signal = self.signal_ema.update(macd)
-            divergence = macd - signal
-
-        self.t = min(self.t + 1, self.t1)
-
-        return macd, signal, divergence
+        self._t = min(self._t + 1, self._t1)

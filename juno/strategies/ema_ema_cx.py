@@ -14,31 +14,31 @@ class EmaEmaCX:
             raise ValueError(f'long period ({long_period}) must be bigger than short period '
                              f'({short_period})')
 
-        self.ema_short = Ema(short_period)
-        self.ema_long = Ema(long_period)
-        self.neg_threshold = neg_threshold
-        self.pos_threshold = pos_threshold
-        self.trend = Trend(persistence)
-        self.t = 0
-        self.t1 = long_period - 1
+        self._ema_short = Ema(short_period)
+        self._ema_long = Ema(long_period)
+        self._neg_threshold = neg_threshold
+        self._pos_threshold = pos_threshold
+        self._trend = Trend(persistence)
+        self._t = 0
+        self._t1 = long_period - 1
 
     @property
     def req_history(self) -> int:
-        return self.t1
+        return self._t1
 
     def update(self, candle: Candle) -> int:
-        short_ema_result = self.ema_short.update(candle.close)
-        long_ema_result = self.ema_long.update(candle.close)
+        self._ema_short.update(candle.close)
+        self._ema_long.update(candle.close)
 
         trend_dir = 0
-        if self.t == self.t1:
-            diff = 100 * (short_ema_result - long_ema_result) / ((
-                short_ema_result + long_ema_result) / 2)
+        if self._t == self._t1:
+            diff = 100 * (self._ema_short.value - self._ema_long.value) / ((
+                self._ema_short.value + self._ema_long.value) / 2)
 
-            if diff > self.pos_threshold:
+            if diff > self._pos_threshold:
                 trend_dir = 1
-            elif diff < self.neg_threshold:
+            elif diff < self._neg_threshold:
                 trend_dir = -1
 
-        self.t = min(self.t + 1, self.t1)
-        return self.trend.update(trend_dir)
+        self._t = min(self._t + 1, self._t1)
+        return self._trend.update(trend_dir)
