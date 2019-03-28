@@ -1,8 +1,8 @@
 from decimal import Decimal
 
-from .sma import Sma
-
 from juno.utils import CircularBuffer
+
+from .sma import Sma
 
 
 # Commodity Channel Index
