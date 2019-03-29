@@ -3,3 +3,4 @@
 .mypy_cache
 .pytest_cache
 .vscode
+temp-plot.html
