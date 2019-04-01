@@ -1,6 +1,6 @@
 import asyncio
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 
@@ -9,8 +9,8 @@ import plotly.graph_objs as go
 
 from juno.components import Informant
 from juno.exchanges import Binance, Coinbase
-from juno.storages import SQLite
-from juno.time import datetime_timestamp_ms, datetime_utcfromtimestamp_ms, DAY_MS
+from juno.storages import Memory, SQLite
+from juno.time import datetime_timestamp_ms, datetime_utcfromtimestamp_ms, HOUR_MS, DAY_MS
 from juno.utils import list_async
 
 
@@ -19,9 +19,9 @@ async def main():
         blah = await list_async(informant.stream_candles(
             'binance',
             'eth-btc',
-            DAY_MS,
-            datetime_timestamp_ms(datetime(2017, 1, 1)),
-            datetime_timestamp_ms(datetime(2018, 1, 1))))
+            HOUR_MS,
+            datetime_timestamp_ms(datetime(2017, 1, 20, tzinfo=timezone.utc)),
+            datetime_timestamp_ms(datetime(2017, 9, 10, tzinfo=timezone.utc))))
 
     candles = [c for c, p in blah]
     trace = go.Ohlc(
@@ -42,16 +42,18 @@ async def new_informat():
                             os.environ['JUNO__COINBASE__SECRET_KEY'],
                             os.environ['JUNO__COINBASE__PASSPHRASE']) as coinbase:
             async with SQLite() as sqlite:
-                services = {
-                    'sqlite': sqlite,
-                    'binance': binance,
-                    'coinbase': coinbase
-                }
-                config = {
-                    'storage': 'sqlite'
-                }
-                async with Informant(services, config) as informant:
-                    yield informant
+                async with Memory() as memory:
+                    services = {
+                        'memory': memory,
+                        'sqlite': sqlite,
+                        'binance': binance,
+                        'coinbase': coinbase
+                    }
+                    config = {
+                        'storage': 'sqlite'
+                    }
+                    async with Informant(services, config) as informant:
+                        yield informant
 
 logging.basicConfig(level='INFO')
 asyncio.run(main())

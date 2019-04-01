@@ -19,6 +19,7 @@ _log = logging.getLogger(__name__)
 # TODO: Get from exchange.
 _FEES = {
     'binance': Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
+    # TODO: Update Coinbase fees.
     'coinbase': Fees(maker=Decimal('0.000'), taker=Decimal('0.003'))
 }
 
@@ -59,10 +60,10 @@ class Informant:
         _log.info('checking for existing candles in local storage')
         existing_spans = await list_async(
             self._storage.stream_candle_spans(storage_key, start, end))
-        existing_spans = list(merge_adjacent_spans(existing_spans))  # type: ignore
-        missing_spans = generate_missing_spans(start, end, existing_spans)
+        merged_existing_spans = list(merge_adjacent_spans(existing_spans))
+        missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
 
-        spans = ([(a, b, True) for a, b in existing_spans] +
+        spans = ([(a, b, True) for a, b in merged_existing_spans] +
                  [(a, b, False) for a, b in missing_spans])
         spans.sort(key=lambda s: s[0])
 
@@ -81,7 +82,7 @@ class Informant:
     async def _stream_and_store_exchange_candles(self, exchange: str, symbol: str, interval: int,
                                                  start: int, end: int
                                                  ) -> AsyncIterable[Tuple[Candle, bool]]:
-        BATCH_SIZE = 500
+        BATCH_SIZE = 1000
         batch = []
         batch_start = start
 

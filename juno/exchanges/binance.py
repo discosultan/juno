@@ -225,7 +225,8 @@ class Binance(Exchange):
                 'symbol': _http_symbol(symbol),
                 'interval': _interval(interval),
                 'startTime': page_start,
-                'endTime': page_end - 1
+                'endTime': page_end - 1,
+                'limit': MAX_CANDLES_PER_REQUEST
             })
             for c in res:
                 yield (Candle(c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),

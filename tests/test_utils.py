@@ -23,6 +23,17 @@ def test_generate_missing_spans(start, end, spans, expected_output):
     assert output == expected_output
 
 
+def test_page():
+    pages = list(utils.page(start=0, end=5, interval=1, limit=2))
+    assert len(pages) == 3
+    assert pages[0][0] == 0
+    assert pages[0][1] == 2
+    assert pages[1][0] == 2
+    assert pages[1][1] == 4
+    assert pages[2][0] == 4
+    assert pages[2][1] == 5
+
+
 def test_recursive_iter():
     input = {
         'aa': 'ab',

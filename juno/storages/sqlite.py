@@ -17,7 +17,7 @@ from juno.time import time_ms
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 2
+_VERSION = 7
 
 
 def _serialize_decimal(d: Decimal) -> bytes:
