@@ -56,7 +56,8 @@ class Position:
 
     @property
     def gain(self) -> Decimal:
-        return (self.closing_size - self.closing_size * self.closing_fee) * self.closing_price
+        return (self.closing_size - self.closing_fee) * self.closing_price
+        # return (self.closing_size - self.closing_size * self.closing_fee) * self.closing_price
 
     @property
     def dust(self) -> Decimal:
@@ -283,6 +284,8 @@ class Backtest:
         _log.info('backtest finished')
         for pos in summary.positions:
             _log.debug(pos)
+        print(len(summary.positions))
+        print([(x.start, x.end) for x in summary.positions])
         _log.info(summary)
         return summary
 
