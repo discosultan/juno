@@ -8,6 +8,7 @@ from typing import Dict
 from aiosqlite import Connection, connect
 
 from .sqlite import SQLite
+from juno.typing import ExcType, ExcValue, Traceback
 
 
 class Memory(SQLite):
@@ -20,7 +21,7 @@ class Memory(SQLite):
     async def __aenter__(self) -> Memory:
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await asyncio.gather(*(db.__aexit__(exc_type, exc, tb) for db in self._dbs.values()))
 
     @asynccontextmanager

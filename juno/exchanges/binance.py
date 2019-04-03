@@ -17,6 +17,7 @@ from juno import Balance, Candle, OrderResult, SymbolInfo, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import HOUR_MS, MIN_MS, time_ms
+from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import Event, LeakyBucket, page
 
 from .exchange import Exchange
@@ -60,7 +61,7 @@ class Binance(Exchange):
 
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         if self._listen_key_refresh_task and self._stream_user_data_task:
             self._listen_key_refresh_task.cancel()
             self._stream_user_data_task.cancel()

@@ -15,7 +15,7 @@ def map_exchanges(config: Dict[str, Any], names: Optional[Set[str]] = None) -> D
     for name, type_ in _exchanges.items():
         if names is None or name in names:
             exchange_config = config[name]
-            keys = get_type_hints(type_.__init__).keys()  # type: ignore
+            keys = get_type_hints(type_.__init__).keys()
             param_keys = (k for k in keys if k != 'return')
             kwargs = {key: exchange_config.get(key) for key in param_keys}
             if not all(kwargs.values()):

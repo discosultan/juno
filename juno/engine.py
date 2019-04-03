@@ -43,7 +43,8 @@ async def engine() -> None:
             await asyncio.gather(
                 *(stack.enter_async_context(c) for c in components.values()))
             # Run configured agents.
-            await asyncio.gather(*(handle_agent(components, c) for c in config['agents']))
+            await asyncio.gather(
+                *(handle_agent(components, c) for c in config['agents']))
         except asyncio.CancelledError:
             _log.info('main task cancelled')
         except Exception as e:
@@ -53,7 +54,8 @@ async def engine() -> None:
 
 async def handle_agent(components: Dict[str, Any], agent_config: Dict[str, Any]) -> None:
     _log.info(f'running {agent_config["name"]}: {agent_config}')
-    await run_agent(components, agent_config)
+    result = await run_agent(components, agent_config)
+    _log.info(result)
 
 
 try:

@@ -21,4 +21,4 @@ class Exchange(ABC):
 
     @abstractmethod
     async def stream_depth(self, symbol: str) -> AsyncIterable[Any]:
-        yield  # type: ignore
+        yield

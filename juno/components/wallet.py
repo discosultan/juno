@@ -7,6 +7,7 @@ from typing import Any, Dict
 
 from juno import Balance
 from juno.exchanges import Exchange
+from juno.typing import ExcType, ExcValue, Traceback
 
 _log = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class Wallet:
         await self._initial_balances_fetched.wait()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         self._sync_all_balances_task.cancel()
         await self._sync_all_balances_task
 

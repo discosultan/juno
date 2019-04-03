@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from juno import Candle, Fees, SymbolInfo
 from juno.agents import Backtest
-from juno.agents.backtest import Position
+from juno.agents.summary import Position
 
 
 class FakeInformant:

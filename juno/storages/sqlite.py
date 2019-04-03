@@ -13,6 +13,7 @@ from aiosqlite import Connection, connect
 
 from juno import Candle, Span
 from juno.time import time_ms
+from juno.typing import ExcType, ExcValue, Traceback
 
 _log = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class SQLite:
     async def __aenter__(self) -> SQLite:
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
     async def stream_candle_spans(self, key: Any, start: int, end: int) -> AsyncIterable[Span]:
@@ -129,7 +130,8 @@ class SQLite:
 def _normalize_key(key: Any) -> str:
     key_type = type(key)
     if key_type is str:
-        return key
+        # The type is already known to be str but this is to please mypy.
+        return str(key)
     elif key_type is tuple:
         return '_'.join(map(str, key))
     else:

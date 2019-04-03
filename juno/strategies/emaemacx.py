@@ -1,9 +1,10 @@
+from .strategy import Strategy
 from juno import Candle
 from juno.indicators import Ema
 from juno.utils import Trend
 
 
-class EmaEmaCX:
+class EmaEmaCX(Strategy):
 
     def __init__(self, short_period: int, long_period: int, neg_threshold: float,
                  pos_threshold: float, persistence: int) -> None:

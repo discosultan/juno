@@ -11,6 +11,7 @@ from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, time_ms
+from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
 _log = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class Informant:
         await self._initial_symbol_infos_fetched.wait()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         self._sync_task.cancel()
         await self._sync_task
 

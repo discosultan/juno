@@ -5,11 +5,12 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import Any, Dict
+from typing import Any, Dict, List, Tuple
 
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
+from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import Barrier
 
 _log = logging.getLogger(__name__)
@@ -23,7 +24,19 @@ class Orderbook:
         self._symbols = list_required_names(config, 'symbol')
         self._orderbooks_product = list(product(self._exchanges.keys(), self._symbols))
 
-        self._orderbooks: Dict[str, Dict[str, Any]] = defaultdict(lambda: defaultdict(dict))
+        # {
+        #   "binance": {
+        #     "eth-btc": {
+        #       "asks": {
+        #         Decimal(1): Decimal(2)
+        #       },
+        #       "bids": {
+        #       }
+        #     }
+        #   }
+        # }
+        self._orderbooks: Dict[str, Dict[str, Dict[str, Dict[Decimal, Decimal]]]] = (
+            defaultdict(lambda: defaultdict(dict)))
 
     async def __aenter__(self) -> Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
@@ -31,7 +44,7 @@ class Orderbook:
         await self._initial_orderbook_fetched.wait()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         self._sync_task.cancel()
         await self._sync_task
 
@@ -94,7 +107,8 @@ class Orderbook:
                 raise NotImplementedError()
 
 
-def _update_orderbook_side(orderbook_side: Dict[str, Any], values: list) -> None:
+def _update_orderbook_side(orderbook_side: Dict[Decimal, Decimal],
+                           values: List[Tuple[Decimal, Decimal]]) -> None:
     for price, size in values:
         if size == 0 and price in orderbook_side:
             del orderbook_side[price]

@@ -6,7 +6,9 @@ from typing import Any, Dict, Set
 from .backtest import Backtest  # noqa
 
 _agents = {name.lower(): type_ for name, type_
-           in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
+           in inspect.getmembers(sys.modules[__name__], inspect.isclass)
+           # if callable(getattr(type_, 'run', None))
+           }
 
 
 def run_agent(components: Dict[str, Any], config: Dict[str, Any]) -> Any:

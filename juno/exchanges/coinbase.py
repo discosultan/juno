@@ -17,6 +17,7 @@ from juno import Balance, Candle, SymbolInfo
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms
+from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import Event, LeakyBucket, page
 
 from .exchange import Exchange
@@ -58,7 +59,7 @@ class Coinbase(Exchange):
 
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         if self._stream_task:
             self._stream_task.cancel()
             await self._stream_task

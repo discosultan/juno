@@ -2,7 +2,7 @@ import os
 import re
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, Dict, List, Mapping, Optional, Set
+from typing import Any, cast, Dict, List, Mapping, Optional, Set
 
 import simplejson as json
 
@@ -29,12 +29,12 @@ def load_from_env(env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', sep
                 else:
                     target[k1] = _ensure_dict(_get(target, k1))
                 target = target[k1]
-    return transform(result)
+    return cast(Dict[str, Any], transform(result))
 
 
 def load_from_json_file(file: str) -> Dict[str, Any]:
     with open(file, 'r') as f:
-        return transform(json.load(f))
+        return cast(Dict[str, Any], transform(json.load(f)))
 
 
 def transform(value: Any) -> Any:

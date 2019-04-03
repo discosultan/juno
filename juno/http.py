@@ -6,6 +6,8 @@ from typing import Any, AsyncIterator
 
 import aiohttp
 
+from .typing import ExcType, ExcValue, Traceback
+
 _aiohttp_log = logging.getLogger('aiohttp.client')
 
 
@@ -15,7 +17,7 @@ _aiohttp_log = logging.getLogger('aiohttp.client')
 # https://github.com/aio-libs/aiohttp/issues/3185
 class ClientSession:
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         self._raise_for_status = kwargs.pop('raise_for_status', None)
         self._session = aiohttp.ClientSession(**kwargs)
 
@@ -23,11 +25,11 @@ class ClientSession:
         await self._session.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc, tb) -> None:
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await self._session.__aexit__(exc_type, exc, tb)
 
     @asynccontextmanager
-    async def request(self, method: str, url: str, **kwargs
+    async def request(self, method: str, url: str, **kwargs: Any
                       ) -> AsyncIterator[aiohttp.ClientResponse]:
         req = self._session.request(method, url, **kwargs)
         req_id = id(req)
@@ -44,7 +46,7 @@ class ClientSession:
             yield res
 
     @asynccontextmanager
-    async def ws_connect(self, url: str, **kwargs
+    async def ws_connect(self, url: str, **kwargs: Any
                          ) -> AsyncIterator[_ClientWebSocketResponseWrapper]:
         _aiohttp_log.info(f'WS {url}')
         _aiohttp_log.debug(kwargs)
