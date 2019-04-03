@@ -16,7 +16,6 @@ from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
 _log = logging.getLogger(__name__)
 
-
 # TODO: Get from exchange.
 _FEES = {
     'binance': Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
