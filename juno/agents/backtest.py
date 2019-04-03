@@ -16,11 +16,12 @@ _log = logging.getLogger(__name__)
 # TODO: Add support for external token fees (i.e BNB)
 class Position:
 
-    def __init__(self, time: int, size: Decimal, price: Decimal, fee: Decimal) -> None:
+    def __init__(self, time: int, base_size: Decimal, quote_price: Decimal, base_fee: Decimal
+                 ) -> None:
         self.time = time
-        self.size = size
-        self.price = price
-        self.fee = fee
+        self.base_size = base_size
+        self.quote_price = quote_price
+        self.base_fee = base_fee
 
     def __str__(self):
         return (f'Profit: {self.profit}\n'
@@ -29,11 +30,14 @@ class Position:
                 f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
                 f'{datetime_utcfromtimestamp_ms(self.end)}')
 
-    def close(self, time: int, size: Decimal, price: Decimal, fee: Decimal) -> None:
+    def close(self, time: int, base_size: Decimal, quote_price: Decimal, quote_fee: Decimal
+              ) -> None:
+        assert base_size <= self.base_size - self.base_fee
+
         self.closing_time = time
-        self.closing_size = size
-        self.closing_price = price
-        self.closing_fee = fee
+        self.closing_base_size = base_size
+        self.closing_quote_price = quote_price
+        self.closing_quote_fee = quote_fee
 
     @property
     def duration(self) -> int:
@@ -52,17 +56,16 @@ class Position:
 
     @property
     def cost(self) -> Decimal:
-        return self.size * self.price
+        return self.base_size * self.quote_price
 
     @property
     def gain(self) -> Decimal:
-        return (self.closing_size - self.closing_fee) * self.closing_price
-        # return (self.closing_size - self.closing_size * self.closing_fee) * self.closing_price
+        return self.closing_base_size * self.closing_quote_price - self.closing_quote_fee
 
     @property
     def dust(self) -> Decimal:
         self._ensure_closed()
-        return self.size - self.closing_size
+        return self.base_size - self.base_fee - self.closing_base_size
 
     @property
     def start(self) -> int:
@@ -74,7 +77,7 @@ class Position:
         return self.closing_time
 
     def _ensure_closed(self) -> None:
-        if not self.closing_price:
+        if not self.closing_quote_price:
             raise ValueError('position not closed')
 
 
@@ -265,7 +268,7 @@ class Backtest:
                     open_position = Position(candle.time, size, candle.close, fee)
                 elif open_position and advice == -1:
                     size, fee, quote = _calc_sell_base_fee_quote(
-                        open_position.size - open_position.fee, candle.close, fees.taker,
+                        open_position.base_size - open_position.base_fee, candle.close, fees.taker,
                         symbol_info)
                     open_position.close(candle.time, size, candle.close, fee)
                     summary.append_position(open_position)
@@ -276,7 +279,8 @@ class Backtest:
 
         if last_candle is not None and open_position:
             size, fee, quote = _calc_sell_base_fee_quote(
-                open_position.size - open_position.fee, candle.close, fees.taker, symbol_info)
+                open_position.base_size - open_position.base_fee, candle.close, fees.taker,
+                symbol_info)
             open_position.close(last_candle.time, size, last_candle.close, fee)
             summary.append_position(open_position)
             open_position = None

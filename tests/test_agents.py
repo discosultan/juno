@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from juno import Candle, Fees, SymbolInfo
 from juno.agents import Backtest
+from juno.agents.backtest import Position
 
 
 class FakeInformant:
@@ -51,3 +52,17 @@ async def test_backtest(loop):
     assert res.mean_position_duration == 1
     assert res.start == 0
     assert res.end == 6
+
+
+def test_position():
+    pos = Position(0, Decimal(6), Decimal(2), Decimal(2))
+    pos.close(1, Decimal(2), Decimal(2), Decimal(1))
+
+    assert pos.cost == Decimal(12)  # 6 * 2
+    assert pos.gain == Decimal(3)  # 2 * 2 - 1
+    assert pos.dust == Decimal(2)  # 6 - 2 - 2
+    assert pos.profit == Decimal(-9)
+    assert pos.duration == 1
+    assert pos.start == 0
+    assert pos.end == 1
+    # TODO: assert roi and yearly roi
