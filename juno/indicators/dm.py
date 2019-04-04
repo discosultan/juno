@@ -8,7 +8,7 @@ class DM:
 
     def __init__(self, period: int) -> None:
         if period < 1:
-            raise ValueError(f'invalid period ({period})')
+            raise ValueError(f'Invalid period ({period})')
 
         self.plus_value = Decimal(0)
         self.minus_value = Decimal(0)

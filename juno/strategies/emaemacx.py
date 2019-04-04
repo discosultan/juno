@@ -9,10 +9,10 @@ class EmaEmaCX(Strategy):
     def __init__(self, short_period: int, long_period: int, neg_threshold: float,
                  pos_threshold: float, persistence: int) -> None:
         if neg_threshold > 0.0 or pos_threshold < 0.0:
-            raise ValueError(f'neg threshold ({neg_threshold}) must be negative; pos threshold '
+            raise ValueError(f'Neg threshold ({neg_threshold}) must be negative; pos threshold '
                              f'({pos_threshold}) positive')
         if long_period <= short_period:
-            raise ValueError(f'long period ({long_period}) must be bigger than short period '
+            raise ValueError(f'Long period ({long_period}) must be bigger than short period '
                              f'({short_period})')
 
         self._ema_short = Ema(short_period)

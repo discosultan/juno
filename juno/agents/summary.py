@@ -73,7 +73,7 @@ class Position:
 
     def _ensure_closed(self) -> None:
         if not self.closing_quote_price:
-            raise ValueError('position not closed')
+            raise ValueError('Position not closed')
 
 
 class TradingSummary:

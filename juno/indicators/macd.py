@@ -8,9 +8,9 @@ class Macd:
 
     def __init__(self, short_period: int, long_period: int, signal_period: int) -> None:
         if short_period < 1 or long_period < 2 or signal_period < 1:
-            raise ValueError(f'invalid period(s) ({short_period}, {long_period}, {signal_period})')
+            raise ValueError(f'Invalid period(s) ({short_period}, {long_period}, {signal_period})')
         if long_period < short_period:
-            raise ValueError(f'long period ({long_period}) must be larger '
+            raise ValueError(f'Long period ({long_period}) must be larger '
                              f'than or equal to short period ({short_period})')
 
         self.value = Decimal(0)

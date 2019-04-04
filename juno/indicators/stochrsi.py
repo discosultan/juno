@@ -12,7 +12,7 @@ class StochRsi:
 
     def __init__(self, period: int) -> None:
         if period < 2:
-            raise ValueError(f'invalid period ({period})')
+            raise ValueError(f'Invalid period ({period})')
 
         self.value = Decimal(0)
         self._rsi = Rsi(period)

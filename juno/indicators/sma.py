@@ -9,7 +9,7 @@ class Sma:
 
     def __init__(self, period: int) -> None:
         if period < 1:
-            raise ValueError(f'invalid period ({period})')
+            raise ValueError(f'Invalid period ({period})')
 
         self.value = Decimal(0)
         self._buffer = CircularBuffer(period, Decimal(0))

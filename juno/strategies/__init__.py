@@ -1,6 +1,6 @@
 import inspect
 import sys
-from typing import Any, Dict
+from typing import Any, cast, Dict
 
 from .emaemacx import EmaEmaCX  # noqa
 from .strategy import Strategy
@@ -13,5 +13,5 @@ def new_strategy(config: Dict[str, Any]) -> Strategy:
     name = config['name']
     strategy_cls = _strategies.get(name)
     if strategy_cls is None:
-        raise ValueError(f'strategy {name} not found')
-    return strategy_cls(**{k: v for k, v in config.items() if k != 'name'})
+        raise ValueError(f'Strategy {name} not found')
+    return cast(Strategy, strategy_cls(**{k: v for k, v in config.items() if k != 'name'}))

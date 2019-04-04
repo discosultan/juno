@@ -198,5 +198,8 @@ class CircularBuffer(Generic[T]):
         return iter(self.vals)
 
     def push(self, val: T) -> None:
+        if len(self.vals) == 0:
+            raise ValueError('Unable to push to buffer of size 0')
+
         self.vals[self.index] = val
         self.index = (self.index + 1) % len(self.vals)

@@ -65,7 +65,7 @@ class SQLite:
     async def store_candles_and_span(self, key: Any, candles: List[Candle], start: int, end: int
                                      ) -> None:
         if start > candles[0].time or end <= candles[-1].time:
-            raise ValueError('invalid input')
+            raise ValueError('Invalid input')
 
         _log.info(f'storing {len(candles)} candle(s) between {Span(start, end)}')
         async with self._connect(key) as db:

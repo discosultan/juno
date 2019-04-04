@@ -39,7 +39,7 @@ def load_from_json_file(file: str) -> Dict[str, Any]:
 
 def transform(value: Any) -> Any:
     if isinstance(value, float):
-        raise ValueError('Decimals should be specified as strings to keep accuracy!')
+        raise ValueError('Decimals should be specified as strings to keep accuracy')
     elif isinstance(value, dict):
         return {k: transform(v) for k, v in value.items()}
     elif isinstance(value, list):

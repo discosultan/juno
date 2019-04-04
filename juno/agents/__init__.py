@@ -15,7 +15,7 @@ def run_agent(components: Dict[str, Any], config: Dict[str, Any]) -> Any:
     name = config['name']
     agent_type = _agents.get(name)
     if not agent_type:
-        raise ValueError(f'agent {name} not found')
+        raise ValueError(f'Agent {name} not found')
     return agent_type(components).run(**{k: v for k, v in config.items() if k != 'name'})
 
 
