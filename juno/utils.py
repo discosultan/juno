@@ -1,6 +1,8 @@
 import asyncio
+from collections import defaultdict
 import math
-from typing import Any, AsyncIterable, Generic, Iterable, Iterator, List, Tuple, TypeVar
+from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
+                    List, Optional, Tuple, TypeVar)
 
 T = TypeVar('T')
 
@@ -134,14 +136,15 @@ class Event(Generic[T]):
 
     def __init__(self) -> None:
         self._event = asyncio.Event()
-        self._event_data = None
+        self._event_data: Optional[T] = None
 
     async def wait(self) -> T:
         await self._event.wait()
-        return self._event_data  # type: ignore
+        assert self._event_data
+        return self._event_data
 
     def set(self, data: T) -> None:
-        self._event_data = data  # type: ignore
+        self._event_data = data
         self._event.set()
 
     def clear(self) -> None:
@@ -203,3 +206,17 @@ class CircularBuffer(Generic[T]):
 
         self.vals[self.index] = val
         self.index = (self.index + 1) % len(self.vals)
+
+
+class EventEmitter:
+
+    def __init__(self) -> None:
+        self._handlers: Dict[str, List[Callable[..., Awaitable[None]]]] = defaultdict(list)
+
+    def on(self, event: str) -> Callable[[str], Callable[..., Awaitable[None]]]:
+        def _on(func):
+            self._handlers[event].append(func)
+        return _on
+
+    async def emit(self, event: str, *args: Any) -> None:
+        await asyncio.gather(*(x(*args) for x in self._handlers[event]))

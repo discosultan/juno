@@ -6,6 +6,7 @@ from juno import SymbolInfo
 from juno.components import Informant
 from juno.math import adjust_size
 from juno.strategies import new_strategy
+from juno.utils import EventEmitter
 
 from .summary import Position, TradingSummary
 
@@ -17,7 +18,8 @@ class Backtest:
     required_components = ['informant']
 
     def __init__(self, components: Dict[str, Any]) -> None:
-        self.informant: Informant = components['informant']
+        self._informant: Informant = components['informant']
+        self.event = EventEmitter()
 
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   quote: Decimal, strategy_config: Dict[str, Any],
@@ -27,8 +29,8 @@ class Backtest:
         assert end > start
         assert quote > 0
 
-        fees = self.informant.get_fees(exchange)
-        symbol_info = self.informant.get_symbol_info(exchange, symbol)
+        fees = self._informant.get_fees(exchange)
+        symbol_info = self._informant.get_symbol_info(exchange, symbol)
         summary = TradingSummary(exchange, symbol, interval, start, end, quote, fees, symbol_info)
         open_position = None
         restart_count = 0
@@ -47,7 +49,7 @@ class Backtest:
                           'strategy')
                 start -= strategy.req_history * interval
 
-            async for candle, primary in self.informant.stream_candles(
+            async for candle, primary in self._informant.stream_candles(
                     exchange=exchange,
                     symbol=symbol,
                     interval=interval,

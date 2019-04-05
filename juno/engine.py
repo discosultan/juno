@@ -42,6 +42,8 @@ async def engine() -> None:
             # Init components.
             await asyncio.gather(
                 *(stack.enter_async_context(c) for c in components.values()))
+            # Init agents.
+            # Init plugins.
             # Run configured agents.
             await asyncio.gather(
                 *(handle_agent(components, c) for c in config['agents']))

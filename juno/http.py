@@ -47,19 +47,19 @@ class ClientSession:
 
     @asynccontextmanager
     async def ws_connect(self, url: str, **kwargs: Any
-                         ) -> AsyncIterator[_ClientWebSocketResponseWrapper]:
+                         ) -> AsyncIterator[ClientWebSocketResponse]:
         _aiohttp_log.info(f'WS {url}')
         _aiohttp_log.debug(kwargs)
         async with self._session.ws_connect(url, **kwargs) as ws:
-            yield _ClientWebSocketResponseWrapper(ws)
+            yield ClientWebSocketResponse(ws)
 
 
-class _ClientWebSocketResponseWrapper:
+class ClientWebSocketResponse:
 
     def __init__(self, client_ws_response: aiohttp.ClientWebSocketResponse) -> None:
         self._client_ws_response = client_ws_response
 
-    def __aiter__(self) -> _ClientWebSocketResponseWrapper:
+    def __aiter__(self) -> ClientWebSocketResponse:
         return self
 
     async def __anext__(self) -> aiohttp.WSMessage:

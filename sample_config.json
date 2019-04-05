@@ -24,5 +24,10 @@
                 "persistence": 4
             }
         }
+    ],
+    "plugins": [
+        {
+            "name": "discord"
+        }
     ]
 }
