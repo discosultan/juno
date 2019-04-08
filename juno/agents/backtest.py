@@ -6,26 +6,23 @@ from juno import SymbolInfo
 from juno.components import Informant
 from juno.math import adjust_size
 from juno.strategies import new_strategy
-from juno.utils import EventEmitter
 
+from .agent import Agent
 from .summary import Position, TradingSummary
 
 _log = logging.getLogger(__name__)
 
 
-class Backtest:
+class Backtest(Agent):
 
     required_components = ['informant']
 
     def __init__(self, components: Dict[str, Any]) -> None:
         self._informant: Informant = components['informant']
-        self.event = EventEmitter()
 
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   quote: Decimal, strategy_config: Dict[str, Any],
                   restart_on_missed_candle: bool = True) -> TradingSummary:
-        _log.info('running backtest')
-
         assert end > start
         assert quote > 0
 
@@ -100,7 +97,6 @@ class Backtest:
             summary.append_position(open_position)
             open_position = None
 
-        _log.info('backtest finished')
         return summary
 
 

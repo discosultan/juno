@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from contextlib import asynccontextmanager
 import logging
@@ -7,6 +9,8 @@ import aiohttp
 import backoff
 import simplejson as json
 
+from juno.agents import Agent
+from juno.agents.summary import Position, TradingSummary
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.utils import LeakyBucket
 from juno.typing import ExcType, ExcValue, Traceback
@@ -24,57 +28,45 @@ class Discord:
     attach_to = ['backtest']
 
     @staticmethod
-    def activate(agent: Any, config: Dict[str, Any]) -> None:
+    @asynccontextmanager
+    async def activate(agent: Agent, config: Dict[str, Any]) -> AsyncIterator[None]:
+        ee = agent.ee
+
         async with Discord(config) as client:
 
             @ee.on('pos_opened')
-            async def on_position_opened(pos):
-
-                async def send(pos_summary):
-                    # Ensure bot authorized.
-                    await client.last_sequence
-                    await client.post_msg(f'Opened a position:\n```\n{pos_summary}\n```')
-
-                asyncio.get_running_loop().create_task(send(fmt_position(pos)))
+            async def on_position_opened(pos: Position) -> None:
+                asyncio.get_running_loop().create_task(
+                    client.post_msg(f'Opened a position:\n```\n{pos}\n```'))
 
             @ee.on('pos_closed')
-            async def on_position_closed(pos):
-
-                async def send(pos_summary):
-                    await client.last_sequence
-                    await client.post_msg(f'Closed a position:\n```\n{pos_summary}\n```')
-
-                asyncio.get_running_loop().create_task(send(fmt_position(pos)))
+            async def on_position_closed(pos: Position) -> None:
+                asyncio.get_running_loop().create_task(
+                    client.post_msg(f'Closed a position:\n```\n{pos}\n```'))
 
             @ee.on('summary')
-            async def on_summary(summary):
-
-                async def send(ctx_summary):
-                    await client.last_sequence
-                    await client.post_msg(f'Trading summary:\n```\n{ctx_summary}\n```')
-
-                asyncio.get_running_loop().create_task(send(fmt_trading_summaries([summary])))
+            async def on_summary(summary: TradingSummary) -> None:
+                asyncio.get_running_loop().create_task(
+                    client.post_msg(f'Trading summary:\n```\n{summary}\n```'))
 
             # @ee.on('img_saved')
-            # async def on_image_saved(path):
-
-            #     async def send(path):
-            #         await client.last_sequence
-            #         await client.post_img(path)
-
-            #     asyncio.get_running_loop().create_task(send(path))
+            # async def on_image_saved(path: str) -> None:
+            #     asyncio.get_running_loop().create_task(
+            #         client.post_img(path))
 
             asyncio.create_task(client.run())
+            yield
 
     def __init__(self, config: Dict[str, Any]) -> None:
         self._token = config['token']
         self._channel_id = config['channel_id']
 
-    async def __aenter__(self) -> None:
+    async def __aenter__(self) -> Discord:
         self._last_sequence: Optional[asyncio.Future] = None
         self._session = ClientSession(headers={'Authorization': f'Bot {self._token}'})
         self._limiter = LeakyBucket(rate=5, period=5)  # 5 per 5 seconds.
         await self._session.__aenter__()
+        return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await self._session.__aexit__(exc_type, exc, tb)
@@ -151,6 +143,8 @@ class Discord:
     @backoff.on_exception(backoff.expo, aiohttp.ClientConnectionError, max_tries=3)
     async def _request(self, method: str, url: str, **kwargs: Any) -> Any:
         await self._limiter.acquire(1)
+        assert self._last_sequence
+        await self._last_sequence
         async with self._session.request(method, _BASE_URL + url, **kwargs) as res:
             return await res.json()
 
