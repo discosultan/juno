@@ -7,6 +7,7 @@ from juno.agents import Agent, list_agents, list_required_component_names
 from juno.components import map_components
 from juno.config import list_required_names, load_from_env, load_from_json_file
 from juno.exchanges import map_exchanges
+from juno.plugins import attach_plugins
 from juno.storages import map_storages
 from juno.utils import gen_random_names
 
@@ -37,6 +38,8 @@ async def engine() -> None:
     # Create configured agents.
     agents = list_agents(components, config)
 
+    # Load plugins.
+
     async with AsyncExitStack() as stack:
         try:
             # Init services.
@@ -46,6 +49,7 @@ async def engine() -> None:
             # Init agents.
             await asyncio.gather(*(stack.enter_async_context(a) for a in agents))
             # Init plugins.
+            # await asyncio.gather(*(stack.enter_async_context(p) for p in 
             # Run configured agents.
             await asyncio.gather(*(run_agent(a, n) for a, n in zip(agents, gen_random_names())))
         except asyncio.CancelledError:
