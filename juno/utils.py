@@ -1,8 +1,10 @@
 import asyncio
 from collections import defaultdict
 import math
-from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
-                    List, Optional, Tuple, TypeVar)
+from typing import (Any, AsyncIterable, Awaitable, Callable, cast, Dict, Generic, Iterable,
+                    Iterator, List, Optional, Tuple, Type, TypeVar)
+
+import backoff
 
 T = TypeVar('T')
 
@@ -62,6 +64,13 @@ def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple
             yield from recursive_iter(item, keys + (idx,))
     else:
         yield keys, obj
+
+
+def retry_on(exception: Type[Exception], max_tries: Optional[int] = None
+             ) -> Callable[[Callable[..., Any]], Any]:
+    return cast(
+        Callable[[Callable[..., Any]], Any],
+        backoff.on_exception(backoff.expo, exception, max_tries=max_tries))
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.
@@ -213,8 +222,9 @@ class EventEmitter:
     def __init__(self) -> None:
         self._handlers: Dict[str, List[Callable[..., Awaitable[None]]]] = defaultdict(list)
 
-    def on(self, event: str) -> Callable[[str], Callable[..., Awaitable[None]]]:
-        def _on(func):
+    # def on(self, event: str) -> Callable[[str], Callable[..., Awaitable[None]]]:
+    def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
+        def _on(func: Callable[..., Awaitable[None]]) -> None:
             self._handlers[event].append(func)
         return _on
 

@@ -3,16 +3,15 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 import logging
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any, AsyncIterator, Dict
 
 import aiohttp
-import backoff
 import simplejson as json
 
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
 from juno.http import ClientSession, ClientWebSocketResponse
-from juno.utils import LeakyBucket
+from juno.utils import retry_on, LeakyBucket
 from juno.typing import ExcType, ExcValue, Traceback
 
 # Information about Discord lifetime op codes:
@@ -62,7 +61,7 @@ class Discord:
         self._channel_id = config['channel_id']
 
     async def __aenter__(self) -> Discord:
-        self._last_sequence: Optional[asyncio.Future] = None
+        self._last_sequence: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         self._session = ClientSession(headers={'Authorization': f'Bot {self._token}'})
         self._limiter = LeakyBucket(rate=5, period=5)  # 5 per 5 seconds.
         await self._session.__aenter__()
@@ -74,7 +73,6 @@ class Discord:
     async def run(self) -> None:
         try:
             _log.info('starting')
-            self.last_sequence = asyncio.get_running_loop().create_future()
             url = (await self._request('GET', '/gateway'))['url']
 
             while True:
@@ -89,9 +87,9 @@ class Discord:
                         if data['op'] == 0:  # Dispatch.
                             if data['t'] == 'READY':
                                 _log.info('ready')
-                            if self.last_sequence.done():
-                                self.last_sequence = asyncio.get_running_loop().create_future()
-                            self.last_sequence.set_result(data['d'])
+                            if self._last_sequence.done():
+                                self._last_sequence = asyncio.get_running_loop().create_future()
+                            self._last_sequence.set_result(data['d'])
                         elif data['op'] == 10:  # Hello.
                             _log.info('hello from discord')
                             asyncio.get_running_loop().create_task(
@@ -127,7 +125,6 @@ class Discord:
     async def _heartbeat(self, ws: ClientWebSocketResponse, interval: int) -> None:
         try:
             while True:
-                assert self._last_sequence
                 await asyncio.sleep(interval / 1000)
                 await ws.send_json({
                     'op': 1,  # Heartbeat.
@@ -140,16 +137,15 @@ class Discord:
         except Exception as e:
             _log.error(f'unhandled error in heartbeat ({e})')
 
-    @backoff.on_exception(backoff.expo, aiohttp.ClientConnectionError, max_tries=3)
+    @retry_on(aiohttp.ClientConnectionError, max_tries=3)
     async def _request(self, method: str, url: str, **kwargs: Any) -> Any:
         await self._limiter.acquire(1)
-        assert self._last_sequence
         await self._last_sequence
         async with self._session.request(method, _BASE_URL + url, **kwargs) as res:
             return await res.json()
 
     @asynccontextmanager
-    @backoff.on_exception(backoff.expo, aiohttp.WSServerHandshakeError, max_tries=3)
+    @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
     async def _ws_connect(self, url: str, **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield ws
