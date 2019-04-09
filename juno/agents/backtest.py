@@ -17,17 +17,16 @@ class Backtest(Agent):
 
     required_components = ['informant']
 
-    def __init__(self, components: Dict[str, Any]) -> None:
-        self._informant: Informant = components['informant']
-
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   quote: Decimal, strategy_config: Dict[str, Any],
                   restart_on_missed_candle: bool = True) -> TradingSummary:
         assert end > start
         assert quote > 0
 
-        fees = self._informant.get_fees(exchange)
-        symbol_info = self._informant.get_symbol_info(exchange, symbol)
+        informant: Informant = self.components['informant']
+
+        fees = informant.get_fees(exchange)
+        symbol_info = informant.get_symbol_info(exchange, symbol)
         summary = TradingSummary(exchange, symbol, interval, start, end, quote, fees, symbol_info)
         open_position = None
         restart_count = 0
@@ -46,7 +45,7 @@ class Backtest(Agent):
                           'strategy')
                 start -= strategy.req_history * interval
 
-            async for candle, primary in self._informant.stream_candles(
+            async for candle, primary in informant.stream_candles(
                     exchange=exchange,
                     symbol=symbol,
                     interval=interval,

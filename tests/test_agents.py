@@ -1,13 +1,13 @@
 from decimal import Decimal
 
 from juno import Candle, Fees, SymbolInfo
-from juno.agents import Backtest
+from juno.agents import Agent, Backtest, list_required_component_names
 from juno.agents.summary import Position
 
 
 class FakeInformant:
 
-    def get_fees(self, exchanges: str):
+    def get_fees(self, exchanges):
         return Fees(Decimal(0), Decimal(0))
 
     def get_symbol_info(self, exchange, symbol):
@@ -29,19 +29,24 @@ class FakeInformant:
 
 
 async def test_backtest(loop):
-    agent = Backtest(components={'informant': FakeInformant()})
+    agent = Backtest(components={'informant': FakeInformant()}, config={
+        'exchange': 'dummy',
+        'symbol': 'eth-btc',
+        'interval': 1,
+        'start': 0,
+        'end': 6,
+        'quote': Decimal(100),
+        'strategy_config': {
+            'name': 'emaemacx',
+            'short_period': 1,
+            'long_period': 2,
+            'neg_threshold': Decimal(-1),
+            'pos_threshold': Decimal(1),
+            'persistence': 0
+        }
+    })
+    res = await agent.start()
 
-    strategy_config = {
-        'name': 'emaemacx',
-        'short_period': 1,
-        'long_period': 2,
-        'neg_threshold': Decimal(-1),
-        'pos_threshold': Decimal(1),
-        'persistence': 0
-    }
-
-    res = await agent.run(exchange='dummy', symbol='eth-btc', interval=1, start=0, end=6,
-                          quote=Decimal(100), strategy_config=strategy_config)
     assert res.profit == -50
     assert res.potential_hodl_profit == 100
     assert res.duration == 6
@@ -66,3 +71,25 @@ def test_position():
     assert pos.start == 0
     assert pos.end == 1
     # TODO: assert roi and yearly roi
+
+
+def test_list_required_component_names():
+
+    class Foo(Agent):
+        required_components = ['a']
+
+    class Bar(Agent):
+        required_components = ['b', 'c']
+
+    result = list_required_component_names(
+        config={
+            'agents': [
+                {'name': 'foo'},
+                {'name': 'bar'}
+            ]},
+        agents={
+            'foo': Foo,
+            'bar': Bar
+        })
+
+    assert result == set(('a', 'b', 'c'))

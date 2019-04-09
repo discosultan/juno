@@ -1,5 +1,6 @@
 import asyncio
 import math
+import random
 from collections import defaultdict
 from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
                     List, Optional, Tuple, Type, TypeVar, cast)
@@ -29,8 +30,8 @@ def merge_adjacent_spans(spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int
         yield merged_start, merged_end  # type: ignore
 
 
-def generate_missing_spans(start: int, end: int, existing_spans: Iterable[Tuple[int, int]]
-                           ) -> Iterable[Tuple[int, int]]:
+def generate_missing_spans(start: int, end: int,
+                           existing_spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
     # Initially assume entire span missing.
     missing_start, missing_end = start, end
 
@@ -66,11 +67,31 @@ def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple
         yield keys, obj
 
 
-def retry_on(exception: Type[Exception], max_tries: Optional[int] = None
-             ) -> Callable[[Callable[..., Any]], Any]:
-    return cast(
-        Callable[[Callable[..., Any]], Any],
-        backoff.on_exception(backoff.expo, exception, max_tries=max_tries))
+def retry_on(exception: Type[Exception],
+             max_tries: Optional[int] = None) -> Callable[[Callable[..., Any]], Any]:
+    return cast(Callable[[Callable[..., Any]], Any],
+                backoff.on_exception(backoff.expo, exception, max_tries=max_tries))
+
+
+def gen_random_names() -> Iterable[str]:
+    random_words = [
+        'custumal', 'nummary', 'bamboozlement', 'bider', 'ellipticity', 'unscribbled', 'dampishly',
+        'insincerity', 'vaticide', 'qualifiedness', 'tolerableness', 'dolph', 'olethreutid',
+        'tensileness', 'besetment', 'suspiciousness', 'santander', 'stately', 'albategnius',
+        'repositories', 'delaine', 'surfaceless', 'prelusorily', 'loins', 'unneutralised',
+        'dropsy', 'poet', 'remodeling', 'intracellularly', 'strengtheningly', 'organography',
+        'romanticistic', 'exchangee', 'brawn', 'defilade', 'cowpox', 'serpent', 'arginine',
+        'unbroached', 'phdre', 'trustbuster', 'souter', 'deiced', 'multifistulous', 'ruffian',
+        'krupp', 'kerbaya', 'biddable', 'marcel', 'creneling', 'rev', 'untransposed', 'cordelle',
+        'encopresis', 'glykopexic', 'superabsurd', 'sanaa', 'deign', 'sternwheeler', 'katrine',
+        'afrasian', 'jeannette', 'seora', 'disrate', 'airdrie', 'regrow', 'endoperidium',
+        'strophoid', 'direst', 'justificative', 'iyyar', 'puss', 'stipulation', 'subsonic',
+        'hyman', 'unsour', 'popish', 'carrara', 'mtb', 'flashing', 'retotaled', 'remediably',
+        'telophasic', 'safford', 'suboxide', 'matchbox', 'preextinguish', 'uncobbled', 'stalinsk',
+        'bogarde', 'jerrid', 'recategorized', 'intercarotid', 'eurypterid', 'fluidics', 'charity',
+        'underwork', 'skill', 'actionable', 'judith'
+    ]
+    return sorted(iter(random_words), key=lambda _: random.random())
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.
@@ -82,6 +103,7 @@ class LeakyBucket:
 
     Period is measured in seconds.
     """
+
     def __init__(self, rate: float, period: float) -> None:
         self._max_level = rate
         self._rate_per_sec = rate / period
@@ -222,10 +244,11 @@ class EventEmitter:
     def __init__(self) -> None:
         self._handlers: Dict[str, List[Callable[..., Awaitable[None]]]] = defaultdict(list)
 
-    # def on(self, event: str) -> Callable[[str], Callable[..., Awaitable[None]]]:
     def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
+
         def _on(func: Callable[..., Awaitable[None]]) -> None:
             self._handlers[event].append(func)
+
         return _on
 
     async def emit(self, event: str, *args: Any) -> None:
