@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from contextlib import asynccontextmanager
 import logging
+from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict
 
 import aiohttp
@@ -11,8 +11,8 @@ import simplejson as json
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
 from juno.http import ClientSession, ClientWebSocketResponse
-from juno.utils import retry_on, LeakyBucket
 from juno.typing import ExcType, ExcValue, Traceback
+from juno.utils import LeakyBucket, retry_on
 
 # Information about Discord lifetime op codes:
 # https://discordapp.com/developers/docs/topics/opcodes-and-status-codes

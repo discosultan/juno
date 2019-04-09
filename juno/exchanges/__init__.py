@@ -1,6 +1,6 @@
 import inspect
 import sys
-from typing import Any, Dict, Optional, Set, get_type_hints
+from typing import Any, Dict, Optional, Set, Type, get_type_hints
 
 from .binance import Binance  # noqa
 from .coinbase import Coinbase  # noqa
@@ -14,11 +14,18 @@ def map_exchanges(config: Dict[str, Any], names: Optional[Set[str]] = None) -> D
     services = {}
     for name, type_ in _exchanges.items():
         if names is None or name in names:
-            exchange_config = config[name]
-            keys = get_type_hints(type_.__init__).keys()
-            param_keys = (k for k in keys if k != 'return')
-            kwargs = {key: exchange_config.get(key) for key in param_keys}
-            if not all(kwargs.values()):
-                raise ValueError(f'Exchange {name} not properly configured: {kwargs}')
-            services[name] = type_(**kwargs)
+            services[name] = create_exchange(type_, config)
     return services
+
+
+def create_exchange(type_: Type[Exchange], config: Dict[str, Any]) -> Optional[Exchange]:
+    name = type_.__name__.lower()
+    exchange_config = config.get(name)
+    if not exchange_config:
+        raise ValueError(f'Missing config for {name}')
+    keys = get_type_hints(type_.__init__).keys()
+    param_keys = (k for k in keys if k != 'return')
+    kwargs = {key: exchange_config.get(key) for key in param_keys}
+    if not all(kwargs.values()):
+        raise ValueError(f'Misconfiguration of {name}: {exchange_config}')
+    return type_(**kwargs)  # type: ignore

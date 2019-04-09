@@ -7,8 +7,9 @@ from typing import Dict
 
 from aiosqlite import Connection, connect
 
-from .sqlite import SQLite
 from juno.typing import ExcType, ExcValue, Traceback
+
+from .sqlite import SQLite
 
 
 class Memory(SQLite):

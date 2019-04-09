@@ -1,7 +1,8 @@
-from .strategy import Strategy
 from juno import Candle
 from juno.indicators import Ema
 from juno.utils import Trend
+
+from .strategy import Strategy
 
 
 class EmaEmaCX(Strategy):

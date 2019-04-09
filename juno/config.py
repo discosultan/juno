@@ -2,7 +2,7 @@ import os
 import re
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Any, cast, Dict, List, Mapping, Optional, Set
+from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
 import simplejson as json
 

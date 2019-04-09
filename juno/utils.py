@@ -1,8 +1,8 @@
 import asyncio
-from collections import defaultdict
 import math
-from typing import (Any, AsyncIterable, Awaitable, Callable, cast, Dict, Generic, Iterable,
-                    Iterator, List, Optional, Tuple, Type, TypeVar)
+from collections import defaultdict
+from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
+                    List, Optional, Tuple, Type, TypeVar, cast)
 
 import backoff
 

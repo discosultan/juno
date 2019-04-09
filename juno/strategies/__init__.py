@@ -1,6 +1,6 @@
 import inspect
 import sys
-from typing import Any, cast, Dict
+from typing import Any, Dict, cast
 
 from .emaemacx import EmaEmaCX  # noqa
 from .strategy import Strategy

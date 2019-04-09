@@ -17,6 +17,7 @@ setup(
             'mypy',
             'pytest',
             'pytest-aiohttp',
+            'pytest-lazy-fixture',
             'yapf'
         ]
     })

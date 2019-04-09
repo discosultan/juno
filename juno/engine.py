@@ -4,7 +4,7 @@ import sys
 from contextlib import AsyncExitStack
 from typing import Any, Dict
 
-from juno.agents import Agent, list_required_component_names, list_agents
+from juno.agents import Agent, list_agents, list_required_component_names
 from juno.components import map_components
 from juno.config import list_required_names, load_from_env, load_from_json_file
 from juno.exchanges import map_exchanges
