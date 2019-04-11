@@ -4,11 +4,9 @@ from datetime import datetime
 import aiohttp
 import pytest
 
-from juno.config import load_from_env
 from juno.exchanges import Binance, Coinbase, create_exchange
 from juno.time import HOUR_MS, datetime_timestamp_ms
 
-config = load_from_env()
 exchange_types = [Binance, Coinbase]
 exchanges = [pytest.lazy_fixture(e.__name__.lower()) for e in exchange_types]
 exchange_ids = [e.__name__ for e in exchange_types]
@@ -22,14 +20,14 @@ def loop():
 
 
 @pytest.fixture(scope='session')
-async def binance(loop):
-    async with try_init_exchange(Binance) as exchange:
+async def binance(loop, config):
+    async with try_init_exchange(Binance, config) as exchange:
         yield exchange
 
 
 @pytest.fixture(scope='session')
-async def coinbase(loop):
-    async with try_init_exchange(Coinbase) as exchange:
+async def coinbase(loop, config):
+    async with try_init_exchange(Coinbase, config) as exchange:
         yield exchange
 
 
@@ -82,7 +80,7 @@ def skip_non_configured(request, exchange):
 
 
 @asynccontextmanager
-async def try_init_exchange(type_):
+async def try_init_exchange(type_, config):
     try:
         async with create_exchange(type_, config) as exchange:
             yield exchange
