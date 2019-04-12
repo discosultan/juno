@@ -1,8 +1,8 @@
 from decimal import Decimal
-from os import path
 
 import pytest
 
+from .utils import full_path
 from juno import Candle, Fees, SymbolInfo
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
@@ -50,7 +50,3 @@ def skip_non_configured(request, config):
     discord_config = config.get('discord', {})
     if 'token' not in discord_config or 'dummy' not in discord_config.get('channel_id', {}):
         pytest.skip("Discord params not configured")
-
-
-def full_path(rel_path):
-    return path.join(path.dirname(__file__), *filter(None, rel_path.split('/')))

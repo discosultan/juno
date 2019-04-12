@@ -103,11 +103,13 @@ class TradingSummary:
         self.fees = fees
         self.symbol_info = symbol_info
 
+        self.candles: List[Candle] = []
         self.positions: List[Position] = []
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
 
     def append_candle(self, candle: Candle) -> None:
+        self.candles.append(candle)
         if self.first_candle is None:
             self.first_candle = candle
         self.last_candle = candle
@@ -192,7 +194,7 @@ class TradingSummary:
         quote = self.quote
 
         # TODO: Probably not needed? We currently assume start end ending with empty base balance
-        # TODO: (excluding dust).
+        #       (excluding dust).
         # if self.acc_info.base_balance > self.ap_info.min_qty:
         #     base_to_quote = self.acc_info.base_balance
         #     base_to_quote -= base_to_quote % self.ap_info.qty_step_size

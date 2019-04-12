@@ -26,7 +26,11 @@ class Backtest(Agent):
         informant: Informant = self.components['informant']
 
         fees = informant.get_fees(exchange)
+        _log.info(f'Fees: {fees}')
+
         symbol_info = informant.get_symbol_info(exchange, symbol)
+        _log.info(f'Symbol info: {symbol_info}')
+
         summary = TradingSummary(exchange, symbol, interval, start, end, quote, fees, symbol_info)
         open_position = None
         restart_count = 0
@@ -81,7 +85,13 @@ class Backtest(Agent):
                     size, fee, quote = _calc_sell_base_fee_quote(
                         open_position.base_size - open_position.base_fee, candle.close, fees.taker,
                         symbol_info)
-                    open_position.close(candle.time, size, candle.close, fee)
+                    try:
+                        open_position.close(candle.time, size, candle.close, fee)
+                    except Exception:
+                        import simplejson as json
+                        print(json.dumps(summary.candles, use_decimal=True))
+                        print(type(summary.candles[0].close))
+                        raise
                     summary.append_position(open_position)
                     open_position = None
 
