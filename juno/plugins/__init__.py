@@ -7,7 +7,7 @@ from juno.agents import Agent
 # TODO: only supports loading a type of plugin once (not the same plugin with different configs)
 def list_plugins(config: Dict[str, Any]) -> List[Callable[[Agent], AsyncContextManager[None]]]:
     plugins = []
-    for plugin_config in config['plugins']:
+    for plugin_config in config.get('plugins', []):
         name = plugin_config['name']
         plugin_module = importlib.import_module(name)
         if not plugin_module:
