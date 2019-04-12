@@ -4,10 +4,9 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
+import juno.time as time
 import plotly.graph_objs as go
 import plotly.offline as py
-
-import juno.time as time
 from juno.components import Informant
 from juno.exchanges import Binance, Coinbase
 from juno.storages import Memory, SQLite

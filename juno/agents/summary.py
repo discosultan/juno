@@ -16,16 +16,26 @@ class Position:
         self.base_size = base_size
         self.quote_price = quote_price
         self.base_fee = base_fee
+        self.closing_time = 0
+        self.closing_base_size = Decimal(0)
+        self.closing_quote_price = Decimal(0)
+        self.closing_quote_fee = Decimal(0)
 
     def __str__(self) -> str:
-        return (f'Profit: {self.profit}\n'
-                f'ROI: {self.roi}\n'
-                f'Duration: {strfinterval(self.duration)}\n'
-                f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
-                f'{datetime_utcfromtimestamp_ms(self.end)}')
+        res = f'{self.time} {self.base_size} {self.quote_price} {self.base_fee}'
+        if self._closed:
+            res += (f'\n{self.closing_time} {self.closing_base_size} {self.closing_quote_price} '
+                    f'{self.closing_quote_fee}'
+                    f'\nProfit: {self.profit}'
+                    f'\nROI: {self.roi}'
+                    f'\nDuration: {strfinterval(self.duration)}'
+                    f'\nBetween: {datetime_utcfromtimestamp_ms(self.start)} - '
+                    f'{datetime_utcfromtimestamp_ms(self.end)}')
+        return res
 
     def close(self, time: int, base_size: Decimal, quote_price: Decimal, quote_fee: Decimal
               ) -> None:
+        # TODO: fixomus maximus
         print(base_size, self.base_size, self.base_fee)
         assert base_size <= self.base_size - self.base_fee
 
@@ -71,8 +81,12 @@ class Position:
         self._ensure_closed()
         return self.closing_time
 
+    @property
+    def _closed(self) -> bool:
+        return bool(self.closing_quote_price)
+
     def _ensure_closed(self) -> None:
-        if not self.closing_quote_price:
+        if not self._closed:
             raise ValueError('Position not closed')
 
 

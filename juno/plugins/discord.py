@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict
+from typing import Any, AsyncIterator, Dict, Optional
 
 import aiohttp
 import simplejson as json
@@ -23,32 +23,28 @@ _log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def activate(agent: Agent, config: Dict[str, Any]) -> AsyncIterator[None]:
+async def activate(agent: Agent, agent_config: Dict[str, Any]) -> AsyncIterator[None]:
     ee = agent.ee
 
     async with Discord(
-            token=config['token'],
-            channel_id=config['channel_id'][type(agent).__name__.lower()]) as client:
+            token=agent_config['token'],
+            channel_id=agent_config['channel_id'][type(agent).__name__.lower()]) as client:
 
-        @ee.on('pos_opened')
+        @ee.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
-            asyncio.get_running_loop().create_task(
-                client.post_msg(f'Opened a position:\n```\n{pos}\n```'))
+            await client.post_msg(f'Opened a position:\n```\n{pos}\n```')
 
-        @ee.on('pos_closed')
+        @ee.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
-            asyncio.get_running_loop().create_task(
-                client.post_msg(f'Closed a position:\n```\n{pos}\n```'))
+            await client.post_msg(f'Closed a position:\n```\n{pos}\n```')
 
         @ee.on('summary')
         async def on_summary(summary: TradingSummary) -> None:
-            asyncio.get_running_loop().create_task(
-                client.post_msg(f'Trading summary:\n```\n{summary}\n```'))
+            await client.post_msg(f'Trading summary:\n```\n{summary}\n```')
 
-        # @ee.on('img_saved')
-        # async def on_image_saved(path: str) -> None:
-        #     asyncio.get_running_loop().create_task(
-        #         client.post_img(path))
+        @ee.on('img_saved')
+        async def on_image_saved(path: str) -> None:
+            await client.post_img(path)
 
         yield
 
@@ -64,19 +60,30 @@ class Discord:
         self._session = ClientSession(headers={'Authorization': f'Bot {self._token}'})
         self._limiter = LeakyBucket(rate=5, period=5)  # 5 per 5 seconds.
         await self._session.__aenter__()
-        asyncio.create_task(self._run())
+        self._run_task = asyncio.create_task(self._run())
+        self._heartbeat_task: Optional[asyncio.Task[None]] = None
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        self._run_task.cancel()
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+
+        await self._run_task
+        if self._heartbeat_task:
+            await self._heartbeat_task
+
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def post_msg(self, msg: Any) -> None:
         # TODO: wtf? # await self.ee.emit('discord_msg', msg)
         # Careful! Request is patched above. Make sure not to accidentally use post method.
+        await asyncio.wait_for(self._last_sequence, timeout=5.0)
         await self._request(
             'POST', f'/channels/{self._channel_id}/messages', json={'content': msg})
 
     async def post_img(self, path: str) -> None:
+        await asyncio.wait_for(self._last_sequence, timeout=5.0)
         data = {'file': open(path, 'rb')}
         await self._request('POST', f'/channels/{self._channel_id}/messages', data=data)
 
@@ -102,7 +109,7 @@ class Discord:
                             self._last_sequence.set_result(data['d'])
                         elif data['op'] == 10:  # Hello.
                             _log.info('hello from discord')
-                            asyncio.get_running_loop().create_task(
+                            self._heartbeat_task = asyncio.create_task(
                                 self._heartbeat(ws, data['d']['heartbeat_interval']))
                             await ws.send_json({
                                 'op': 2,  # Identify.
@@ -119,8 +126,8 @@ class Discord:
                             _log.error(f'gateway closed ({data})')
         except asyncio.CancelledError:
             _log.info('main task cancelled')
-        except Exception as e:
-            _log.error(f'unhandled error in main ({e})')
+        except Exception:
+            _log.exception('unhandled error in main')
 
     async def _heartbeat(self, ws: ClientWebSocketResponse, interval: int) -> None:
         try:
@@ -134,13 +141,12 @@ class Discord:
             _log.info('heartbeat task cancelled')
         except ConnectionResetError:
             _log.warning('heartbeat connection lost')
-        except Exception as e:
-            _log.error(f'unhandled error in heartbeat ({e})')
+        except Exception:
+            _log.exception('unhandled error in heartbeat')
 
     @retry_on(aiohttp.ClientConnectionError, max_tries=3)
     async def _request(self, method: str, url: str, **kwargs: Any) -> Any:
         await self._limiter.acquire(1)
-        await self._last_sequence
         async with self._session.request(method, _BASE_URL + url, **kwargs) as res:
             return await res.json()
 

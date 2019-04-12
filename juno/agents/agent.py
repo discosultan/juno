@@ -11,9 +11,9 @@ class Agent:
     required_components: List[str] = []
     run: Callable[..., Awaitable[Any]]
 
-    def __init__(self, components: Dict[str, Any], config: Dict[str, Any]) -> None:
+    def __init__(self, components: Dict[str, Any], agent_config: Dict[str, Any]) -> None:
         self.components = components
-        self.config = config
+        self.config = agent_config
 
     async def __aenter__(self) -> Agent:
         self.ee = EventEmitter()

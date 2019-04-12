@@ -29,7 +29,7 @@ class FakeInformant:
 
 
 async def test_backtest(loop):
-    agent = Backtest(components={'informant': FakeInformant()}, config={
+    agent = Backtest(components={'informant': FakeInformant()}, agent_config={
         'exchange': 'dummy',
         'symbol': 'eth-btc',
         'interval': 1,
