@@ -154,6 +154,7 @@ async def _create_table(db: Any, type: type) -> None:
         cols.append(f'{col_names[i]} {col_types[i]} {col_constrain}')
     await db.execute(f'CREATE TABLE IF NOT EXISTS {type.__name__} ({", ".join(cols)})')
 
+    # TODO: Use typing instead based on NewType()
     VIEW_COL_NAMES = ['time', 'start', 'end']
     if any((n for n in col_names if n in VIEW_COL_NAMES)):
         view_cols = []
@@ -168,16 +169,16 @@ async def _create_table(db: Any, type: type) -> None:
                          f'SELECT {", ".join(view_cols)} FROM {type.__name__}')
 
 
-def _type_to_sql_type(type: type) -> str:
-    if type is int:
+def _type_to_sql_type(type_: type) -> str:
+    if type_ is int:
         return 'INTEGER'
-    if type is float:
+    if type_ is float:
         return 'REAL'
-    if type is Decimal:
+    if type_ is Decimal:
         return 'DECIMAL'
-    if type is str:
+    if type_ is str:
         return 'TEXT'
-    raise NotImplementedError(f'Missing conversion for type {type}')
+    raise NotImplementedError(f'Missing conversion for type {type_}')
 
 
 class Bag:

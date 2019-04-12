@@ -49,7 +49,3 @@ def strfinterval(interval: int) -> str:
 
 def strpinterval(interval: str) -> int:
     return int(interval[:-1]) * _INTERVAL_FACTORS[interval[-1]]
-
-
-print(datetime_timestamp_ms(datetime(2017, 1, 1)))
-print(datetime_timestamp_ms(datetime(2018, 1, 1)))
