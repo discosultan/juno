@@ -1,7 +1,9 @@
 import asyncio
 import logging
+import signal
 import sys
 from contextlib import AsyncExitStack
+from types import FrameType
 
 from juno.agents import Agent, list_agents, list_required_component_names
 from juno.components import map_components
@@ -24,6 +26,9 @@ async def engine() -> None:
     logging.basicConfig(
         handlers=[logging.StreamHandler(stream=sys.stdout)],
         level=logging.getLevelName((config.get('log_level') or 'INFO').upper()))
+
+    # Configure signals.
+    signal.signal(signal.SIGTERM, handle_sigterm)
 
     # Create configured services.
     services = {}
@@ -59,6 +64,11 @@ async def engine() -> None:
         except Exception as e:
             _log.error(f'unhandled exception: {e}')
             raise
+
+
+def handle_sigterm(signalnum: int, frame: FrameType) -> None:
+    _log.info(f'SIGTERM terminating the process')
+    sys.exit()
 
 
 async def run_agent(agent: Agent, name: str) -> None:
