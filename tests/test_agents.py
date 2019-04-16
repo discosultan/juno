@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import pytest
+
 from .utils import load_json_file
 from juno import Candle, Fees, SymbolInfo
 from juno.agents import Agent, Backtest, list_required_component_names
@@ -74,7 +76,10 @@ async def test_backtest(loop):
         assert res.end == 6
 
 
-async def test_failing_backtest(loop):
+# Was failing as quote was incorrectly calculated after closing a position.
+@pytest.mark.parametrize('scenario_nr', [1, 2])
+async def test_backtest_scenarios(loop, scenario_nr):
+    path = f'/data/backtest_scenario{scenario_nr}_candles.json'
     informant = FakeInformant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
         symbol_info=SymbolInfo(
@@ -84,8 +89,7 @@ async def test_failing_backtest(loop):
             min_price=Decimal('0E-8'),
             max_price=Decimal('0E-8'),
             price_step=Decimal('0.00000100')),
-        candles=list(map(
-            lambda c: Candle(**c), load_json_file('/data/failing_backtest_candles.json')))
+        candles=list(map(lambda c: Candle(**c), load_json_file(path)))
     )
     agent_config = {
         'name': 'backtest',

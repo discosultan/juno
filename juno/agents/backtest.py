@@ -1,8 +1,8 @@
 import logging
 from decimal import Decimal
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional
 
-from juno import SymbolInfo
+from juno import Candle
 from juno.components import Informant
 from juno.math import adjust_size
 from juno.strategies import new_strategy
@@ -16,6 +16,7 @@ _log = logging.getLogger(__name__)
 class Backtest(Agent):
 
     required_components = ['informant']
+    open_position: Optional[Position]
 
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   quote: Decimal, strategy_config: Dict[str, Any],
@@ -23,16 +24,19 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
+        self.quote = quote
+
         informant: Informant = self.components['informant']
 
-        fees = informant.get_fees(exchange)
-        _log.info(f'Fees: {fees}')
+        self.fees = informant.get_fees(exchange)
+        _log.info(f'Fees: {self.fees}')
 
-        symbol_info = informant.get_symbol_info(exchange, symbol)
-        _log.info(f'Symbol info: {symbol_info}')
+        self.symbol_info = informant.get_symbol_info(exchange, symbol)
+        _log.info(f'Symbol info: {self.symbol_info}')
 
-        summary = TradingSummary(exchange, symbol, interval, start, end, quote, fees, symbol_info)
-        open_position = None
+        self.summary = TradingSummary(exchange, symbol, interval, start, end, quote, self.fees,
+                                      self.symbol_info)
+        self.open_position = None
         restart_count = 0
 
         while True:
@@ -58,7 +62,7 @@ class Backtest(Agent):
                 if not primary:
                     continue
 
-                summary.append_candle(candle)
+                self.summary.append_candle(candle)
 
                 # Check if we have missed a candle.
                 if last_candle and candle.time - last_candle.time >= interval * 2:
@@ -74,50 +78,44 @@ class Backtest(Agent):
                 last_candle = candle
                 advice = strategy.update(candle)
 
-                if not open_position and advice == 1:
-                    size, fee, quote = _calc_buy_base_fee_quote(quote, candle.close, fees.taker,
-                                                                symbol_info)
-                    if size == 0:
+                if not self.open_position and advice == 1:
+                    if not self._try_open_position(candle):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
-                    open_position = Position(candle.time, size, candle.close, fee)
-                elif open_position and advice == -1:
-                    size, fee, quote = _calc_sell_base_fee_quote(
-                        open_position.base_size - open_position.base_fee, candle.close, fees.taker,
-                        symbol_info)
-                    try:
-                        open_position.close(candle.time, size, candle.close, fee)
-                    except Exception:
-                        import simplejson as json
-                        print(json.dumps(summary.candles, use_decimal=True))
-                        print(type(summary.candles[0].close))
-                        raise
-                    summary.append_position(open_position)
-                    open_position = None
+                elif self.open_position and advice == -1:
+                    self._close_position(candle)
 
             if not restart:
                 break
 
-        if last_candle is not None and open_position:
-            size, fee, quote = _calc_sell_base_fee_quote(
-                open_position.base_size - open_position.base_fee, candle.close, fees.taker,
-                symbol_info)
-            open_position.close(last_candle.time, size, last_candle.close, fee)
-            summary.append_position(open_position)
-            open_position = None
+        if last_candle is not None and self.open_position:
+            self._close_position(last_candle)
 
-        return summary
+        return self.summary
 
+    def _try_open_position(self, candle: Candle) -> bool:
+        size = self.quote / candle.close
+        size = adjust_size(size, self.symbol_info.min_size, self.symbol_info.max_size,
+                           self.symbol_info.size_step)
 
-def _calc_buy_base_fee_quote(quote: Decimal, price: Decimal, fee_rate: Decimal,
-                             sinfo: SymbolInfo) -> Tuple[Decimal, Decimal, Decimal]:
-    size = quote / price
-    size = adjust_size(size, sinfo.min_size, sinfo.max_size, sinfo.size_step)
-    return size, size * fee_rate, quote - size * price
+        if size == 0:
+            return False
 
+        self.open_position = Position(candle.time, size, candle.close, size * self.fees.taker)
+        self.quote -= size * candle.close
 
-def _calc_sell_base_fee_quote(base: Decimal, price: Decimal, fee_rate: Decimal,
-                              sinfo: SymbolInfo) -> Tuple[Decimal, Decimal, Decimal]:
-    size = adjust_size(base, sinfo.min_size, sinfo.max_size, sinfo.size_step)
-    quote = size * price
-    return size, quote * fee_rate, quote
+        return True
+
+    def _close_position(self, candle: Candle) -> None:
+        assert self.open_position
+
+        base = self.open_position.base_size - self.open_position.base_fee
+        size = adjust_size(base, self.symbol_info.min_size, self.symbol_info.max_size,
+                           self.symbol_info.size_step)
+        quote = size * candle.close
+        fees = quote * self.fees.taker
+
+        self.open_position.close(candle.time, size, candle.close, fees)
+        self.summary.append_position(self.open_position)
+        self.open_position = None
+        self.quote = quote - fees

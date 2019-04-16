@@ -14,6 +14,7 @@ class Agent:
     def __init__(self, components: Dict[str, Any], agent_config: Dict[str, Any]) -> None:
         self.components = components
         self.config = agent_config
+        self.state = 'stopped'
 
     async def __aenter__(self) -> Agent:
         self.ee = EventEmitter()
@@ -23,4 +24,8 @@ class Agent:
         pass
 
     async def start(self) -> Any:
-        return await self.run(**{k: v for k, v in self.config.items() if k != 'name'})
+        assert self.state != 'running'
+        self.state = 'running'
+        result = await self.run(**{k: v for k, v in self.config.items() if k != 'name'})
+        self.state = 'stopped'
+        return result

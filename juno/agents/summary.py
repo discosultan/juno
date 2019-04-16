@@ -35,8 +35,6 @@ class Position:
 
     def close(self, time: int, base_size: Decimal, quote_price: Decimal, quote_fee: Decimal
               ) -> None:
-        # TODO: fixomus maximus
-        print(base_size, self.base_size, self.base_fee)
         assert base_size <= self.base_size - self.base_fee
 
         self.closing_time = time
@@ -90,6 +88,7 @@ class Position:
             raise ValueError('Position not closed')
 
 
+# TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
 
     def __init__(self, exchange: str, symbol: str, interval: int, start: int, end: int,
