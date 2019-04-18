@@ -1,5 +1,5 @@
 import math
-from decimal import Decimal
+from decimal import ROUND_DOWN, Decimal
 from typing import TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
@@ -18,4 +18,4 @@ def adjust_size(size: Decimal, min_size: Decimal, max_size: Decimal, size_step: 
     if size < min_size:
         return Decimal(0)
     size = min(size, max_size)
-    return size.quantize(size_step)
+    return size.quantize(size_step, rounding=ROUND_DOWN)

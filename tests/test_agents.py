@@ -2,11 +2,12 @@ from decimal import Decimal
 
 import pytest
 
-from .utils import load_json_file
 from juno import Candle, Fees, SymbolInfo
 from juno.agents import Agent, Backtest, list_required_component_names
 from juno.agents.summary import Position
 from juno.time import HOUR_MS
+
+from .utils import load_json_file
 
 
 class FakeInformant:

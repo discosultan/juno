@@ -2,12 +2,13 @@ from decimal import Decimal
 
 import pytest
 
-from .utils import full_path
 from juno import Candle, Fees, SymbolInfo
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
 from juno.plugins import discord
 from juno.time import HOUR_MS
+
+from .utils import full_path
 
 
 def get_dummy_trading_summary(ee):
