@@ -119,21 +119,27 @@ class Binance(Exchange):
                 'asks': [(Decimal(x[0]), Decimal(x[1])) for x in result['asks']]
             }
             last_update_id = result['lastUpdateId']
+            first_ws_msg_processed = False
             async for msg in ws:
-                if msg['u'] <= last_update_id:
+                data = json.loads(msg.data)
+
+                if data['u'] <= last_update_id:
                     continue
 
-                assert msg['U'] <= last_update_id + 1 and msg['u'] >= last_update_id + 1
-                assert msg['u'] == last_update_id + 1
+                if first_ws_msg_processed:
+                    assert data['U'] == last_update_id + 1
+                else:
+                    assert data['U'] <= last_update_id + 1 and data['u'] >= last_update_id + 1
+                    first_ws_msg_processed = True
 
                 yield {
                     'type': 'update',
-                    'bids': [(Decimal(m[0]), Decimal(m[1])) for m in msg['b']],
-                    'asks': [(Decimal(m[0]), Decimal(m[1])) for m in msg['a']]
+                    'bids': [(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
+                    'asks': [(Decimal(m[0]), Decimal(m[1])) for m in data['a']]
                 }
-                last_update_id = msg['u']
+                last_update_id = data['u']
 
-    async def stream_orders(self):
+    async def stream_orders(self) -> AsyncIterable[Any]:
         await self._ensure_user_data_stream()
         while True:
             yield True
@@ -171,13 +177,15 @@ class Binance(Exchange):
                         if msg.type is aiohttp.WSMsgType.CLOSED:
                             _log.error(f'user data ws connection closed unexpectedly ({msg})')
 
+                        data = json.loads(msg.data)
+
                         # The data can come out of sync. Make sure to discard old updates.
-                        if msg.data['e'] == 'outboundAccountInfo' and msg.data['E'] >= bal_time:
-                            bal_time = msg.data['E']
-                            self._balance_event.set(msg.data)
-                        elif msg.data['e'] == 'executionReport' and msg.data['E'] >= order_time:
-                            order_time = msg.data['E']
-                            self._order_event.set(msg.data)
+                        if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
+                            bal_time = data['E']
+                            self._balance_event.set(data)
+                        elif data['e'] == 'executionReport' and data['E'] >= order_time:
+                            order_time = data['E']
+                            self._order_event.set(data)
 
                         if time_ms() > valid_until:
                             _log.info('restarting user data ws connection after '
@@ -219,7 +227,8 @@ class Binance(Exchange):
             async for candle, primary in self._stream_future_candles(symbol, interval, end):
                 yield candle, primary
 
-    async def _stream_historical_candles(self, symbol, interval, start, end):
+    async def _stream_historical_candles(self, symbol: str, interval: int, start: int, end: int
+                                         ) -> AsyncIterable[Tuple[Candle, bool]]:
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             res = await self._request('GET', '/api/v1/klines', data={
@@ -233,7 +242,8 @@ class Binance(Exchange):
                 yield (Candle(c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
                        Decimal(c[5])), True)
 
-    async def _stream_future_candles(self, symbol, interval, end):
+    async def _stream_future_candles(self, symbol: str, interval: int, end: int
+                                     ) -> AsyncIterable[Tuple[Candle, bool]]:
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where
@@ -254,7 +264,9 @@ class Binance(Exchange):
                         _log.error(f'candles ws connection closed unexpectedly ({msg})')
                         break
 
-                    c = json.loads(msg.data)['k']
+                    data = json.loads(msg.data)
+
+                    c = data['k']
                     c = Candle(c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']),
                                Decimal(c['c']), Decimal(c['v']))
 
@@ -293,7 +305,8 @@ class Binance(Exchange):
                 security=_SEC_USER_STREAM)
 
     @backoff.on_exception(backoff.expo, aiohttp.ClientConnectionError, max_tries=3)
-    async def _request(self, method, url, weight=1, data=None, security=_SEC_NONE):
+    async def _request(self, method: str, url: str, weight: int = 1, data: Optional[Any] = None,
+                       security: int = _SEC_NONE) -> Any:
         if method == '/api/v3/order':
             await asyncio.gather(
                 self._reqs_per_min_limiter.acquire(weight),
@@ -328,7 +341,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     @backoff.on_exception(backoff.expo, aiohttp.WSServerHandshakeError, max_tries=3)
-    async def _ws_connect(self, url, **kwargs):
+    async def _ws_connect(self, url: str, **kwargs: Any) -> AsyncIterable[Any]:
         async with self._session.ws_connect(_BASE_WS_URL + url, **kwargs) as ws:
             yield ws
 

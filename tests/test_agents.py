@@ -58,6 +58,17 @@ class FakeOrderbook(Orderbook):
                     break
 
 
+def FakeTime():
+    time = -1
+
+    def get_time():
+        nonlocal time
+        time += 1
+        return time
+
+    return get_time
+
+
 async def test_backtest(loop):
     informant = FakeInformant(
         fees=Fees(Decimal(0), Decimal(0)),
@@ -179,8 +190,7 @@ async def test_paper(loop):
         'exchange': 'dummy',
         'symbol': 'eth-btc',
         'interval': 1,
-        'start': 0,
-        'end': 6,
+        'end': 4,
         'quote': Decimal(100),
         'strategy_config': {
             'name': 'emaemacx',
@@ -189,7 +199,8 @@ async def test_paper(loop):
             'neg_threshold': Decimal(-1),
             'pos_threshold': Decimal(1),
             'persistence': 0
-        }
+        },
+        'get_time': FakeTime()
     }
 
     async with Paper(components={'informant': informant, 'orderbook': orderbook},

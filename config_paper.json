@@ -1,0 +1,23 @@
+{
+    "log_level": "info",
+    "storage": "sqlite",
+    "agents": [
+        {
+            "name": "paper",
+            "exchange": "binance",
+            "symbol": "eth-btc",
+            "end": "2020-01-01",
+            "interval": "1h",
+            "quote": "100.0",
+            "restart_on_missed_candle": false,
+            "strategy_config": {
+                "name": "emaemacx",
+                "short_period": 18,
+                "long_period": 29,
+                "neg_threshold": "-0.25",
+                "pos_threshold": "0.25",
+                "persistence": 4
+            }
+        }
+    ]
+}

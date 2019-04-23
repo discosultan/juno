@@ -18,8 +18,11 @@ _log = logging.getLogger(__name__)
 
 async def engine() -> None:
     # Load config.
+    config_path = 'config.json'
+    if len(sys.argv) > 1:
+        config_path = sys.argv[1]
     config = {}
-    config.update(load_from_json_file('config.json'))
+    config.update(load_from_json_file(config_path))
     config.update(load_from_env())
 
     # Configure logging.

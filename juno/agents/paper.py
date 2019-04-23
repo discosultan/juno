@@ -1,11 +1,12 @@
 import logging
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 from juno import Candle
 from juno.components import Informant, Orderbook
-from juno.math import adjust_size
+from juno.math import floor_multiple
 from juno.strategies import new_strategy
+from juno.time import time_ms
 
 from .agent import Agent
 from .summary import Position, TradingSummary
@@ -18,10 +19,14 @@ class Paper(Agent):
     required_components = ['informant', 'orderbook']
     open_position: Optional[Position]
 
-    async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
-                  quote: Decimal, strategy_config: Dict[str, Any],
-                  restart_on_missed_candle: bool = True) -> TradingSummary:
-        assert end > start
+    async def run(self, exchange: str, symbol: str, interval: int, end: int, quote: Decimal,
+                  strategy_config: Dict[str, Any], restart_on_missed_candle: bool = True,
+                  get_time: Optional[Callable[[], int]] = None) -> TradingSummary:
+        if not get_time:
+            get_time = time_ms
+
+        now = floor_multiple(get_time(), interval)
+        assert end > now
         assert quote > 0
 
         self.exchange = exchange
@@ -37,7 +42,7 @@ class Paper(Agent):
         self.symbol_info = informant.get_symbol_info(exchange, symbol)
         _log.info(f'Symbol info: {self.symbol_info}')
 
-        self.summary = TradingSummary(exchange, symbol, interval, start, end, quote, self.fees,
+        self.summary = TradingSummary(exchange, symbol, interval, now, end, quote, self.fees,
                                       self.symbol_info)
         self.open_position = None
         restart_count = 0
@@ -54,7 +59,7 @@ class Paper(Agent):
                 # and we don't want to fetch passed a missed candle.
                 _log.info(f'fetching {strategy.req_history} candles before start time to warm-up '
                           'strategy')
-                start -= strategy.req_history * interval
+                start = now - strategy.req_history * interval
 
             async for candle, primary in informant.stream_candles(
                     exchange=exchange,
