@@ -50,10 +50,10 @@ class Orderbook:
 
     def find_market_order_buy_size(self, exchange: str, symbol: str, quote_balance: Decimal,
                                    size_step: Decimal) -> Decimal:
-        orderbook = self._orderbooks[exchange][symbol]
+        asks = self._orderbooks[exchange][symbol]['asks']
         total_size = Decimal(0)
         available_quote = quote_balance
-        for price, size in orderbook['asks'].items():
+        for price, size in sorted(asks.items()):
             cost = price * size
             if cost > available_quote:
                 fill = floor_multiple(available_quote / price, size_step)
@@ -68,9 +68,9 @@ class Orderbook:
 
     def find_market_order_sell_size(self, exchange: str, symbol: str, base_balance: Decimal,
                                     size_step: Decimal) -> Decimal:
-        orderbook = self._orderbooks[exchange][symbol]
+        bids = self._orderbooks[exchange][symbol]['bids']
         available_base = base_balance
-        for _price, size in orderbook['bids'].items():
+        for _price, size in sorted(bids.items(), reverse=True):
             if size > available_base:
                 fill = floor_multiple(available_base, size_step)
                 available_base -= fill

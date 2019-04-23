@@ -25,7 +25,7 @@ async def engine() -> None:
     # Configure logging.
     logging.basicConfig(
         handlers=[logging.StreamHandler(stream=sys.stdout)],
-        level=logging.getLevelName((config.get('log_level') or 'INFO').upper()))
+        level=logging.getLevelName(config.get('log_level', 'INFO').upper()))
 
     # Configure signals.
     signal.signal(signal.SIGTERM, handle_sigterm)

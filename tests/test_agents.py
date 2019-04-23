@@ -31,10 +31,31 @@ class FakeInformant:
 
 class FakeOrderbook(Orderbook):
 
-    def __init__(self, orderbooks):
+    def __init__(self, orderbooks, update_on_find=False):
         self._orderbooks = orderbooks
+        self._update_on_find = update_on_find
 
-    # Uses size / price calculation from original orderbook impl.
+    def find_market_order_buy_size(self, exchange, symbol, quote_balance, size_step):
+        size = super().find_market_order_buy_size(exchange, symbol, quote_balance, size_step)
+        self._remove_from_size(self._orderbooks[exchange][symbol]['asks'], size, reverse=False)
+        return size
+
+    def find_market_order_sell_size(self, exchange, symbol, base_balance, size_step):
+        size = super().find_market_order_sell_size(exchange, symbol, base_balance, size_step)
+        self._remove_from_size(self._orderbooks[exchange][symbol]['bids'], size, reverse=True)
+        return size
+
+    def _remove_from_size(self, side, size, reverse):
+        if self._update_on_find:
+            for k, v in sorted(side.items(), reverse=reverse):
+                if v > size:
+                    side[k] = v - size
+                    break
+                else:
+                    del side[k]
+                    size -= v
+                if size == Decimal(0):
+                    break
 
 
 async def test_backtest(loop):
@@ -134,25 +155,26 @@ async def test_paper(loop):
         candles=[
             Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
             Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
-            # Long. Size 10.
+            # 1. Long. Size 5 + 1.
             Candle(2, Decimal(1), Decimal(1), Decimal(1), Decimal(30), Decimal(1)),
             Candle(3, Decimal(1), Decimal(1), Decimal(1), Decimal(20), Decimal(1)),
-            # Short.
-            Candle(4, Decimal(1), Decimal(1), Decimal(1), Decimal(40), Decimal(1)),
-            # Long. Size 5.
-            Candle(5, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1))
+            # 2. Short. Size 4 + 2.
         ])
+    orderbook_data = {
+        'asks': {
+            Decimal(10): Decimal(5),  # 1.
+            Decimal(50): Decimal(1),  # 1.
+        },
+        'bids': {
+            Decimal(20): Decimal(4),  # 2.
+            Decimal(10): Decimal(2),  # 2.
+        }
+    }
     orderbook = FakeOrderbook({
         'dummy': {
-            'eth-btc': {
-                'asks': {
-                    Decimal(1): Decimal(2)
-                },
-                'bids': {
-                }
-            }
+            'eth-btc': orderbook_data
         }
-    })
+    }, update_on_find=True)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -175,6 +197,8 @@ async def test_paper(loop):
         res = await agent.start()
 
     assert res
+    assert len(orderbook_data['asks']) == 0
+    assert len(orderbook_data['bids']) == 0
 
 
 def test_position():
