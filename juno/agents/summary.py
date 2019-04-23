@@ -1,91 +1,103 @@
 import itertools
 import statistics
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from juno import Candle, Fees, SymbolInfo
 from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
+
+Trades = List[Tuple[Decimal, Decimal]]
+
+
+def _total_size(trades: Trades) -> Decimal:
+    return sum((s for s, _ in trades), Decimal(0))
+
+
+def _total_quote(trades: Trades) -> Decimal:
+    return sum((s * p for s, p in trades), Decimal(0))
 
 
 # TODO: Add support for external token fees (i.e BNB)
 class Position:
 
-    def __init__(self, time: int, base_size: Decimal, quote_price: Decimal, base_fee: Decimal
-                 ) -> None:
+    def __init__(self, time: int, trades: Trades, base_fee: Decimal) -> None:
         self.time = time
-        self.base_size = base_size
-        self.quote_price = quote_price
+        self.trades = trades
         self.base_fee = base_fee
         self.closing_time = 0
-        self.closing_base_size = Decimal(0)
-        self.closing_quote_price = Decimal(0)
+        self.closing_trades: Optional[Trades] = None
         self.closing_quote_fee = Decimal(0)
 
     def __str__(self) -> str:
-        res = f'{self.time} {self.base_size} {self.quote_price} {self.base_fee}'
-        if self._closed:
-            res += (f'\n{self.closing_time} {self.closing_base_size} {self.closing_quote_price} '
-                    f'{self.closing_quote_fee}'
+        res = (
+               f'Start: {datetime_utcfromtimestamp_ms(self.start)}'
+               f'\nCost: {self.cost}'
+               f'\nBase fee: {self.base_fee}'
+               '\n')
+        for i, trade in enumerate(self.trades, 1):
+            res += f'\nTrade {i}: (size: {trade[0]}, price: {trade[1]})'
+        if self.closing_trades:
+            res += (
+                    f'\nGain: {self.gain}'
                     f'\nProfit: {self.profit}'
                     f'\nROI: {self.roi}'
+                    f'\nDust: {self.dust}'
+                    f'\nQuote fee: {self.closing_quote_fee}'
+                    f'\nEnd: {datetime_utcfromtimestamp_ms(self.end)}'
                     f'\nDuration: {strfinterval(self.duration)}'
-                    f'\nBetween: {datetime_utcfromtimestamp_ms(self.start)} - '
-                    f'{datetime_utcfromtimestamp_ms(self.end)}')
+                    '\n')
+            for i, trade in enumerate(self.closing_trades, 1):
+                res += f'\nTrade {i}: (size: {trade[0]}, price: {trade[1]})'
         return res
 
-    def close(self, time: int, base_size: Decimal, quote_price: Decimal, quote_fee: Decimal
-              ) -> None:
-        assert base_size <= self.base_size - self.base_fee
+    def close(self, time: int, trades: Trades, quote_fee: Decimal) -> None:
+        assert _total_size(trades) <= self.total_size - self.base_fee
 
         self.closing_time = time
-        self.closing_base_size = base_size
-        self.closing_quote_price = quote_price
+        self.closing_trades = trades
         self.closing_quote_fee = quote_fee
 
     @property
-    def duration(self) -> int:
-        self._ensure_closed()
-        return self.closing_time - self.time
-
-    @property
-    def profit(self) -> Decimal:
-        self._ensure_closed()
-        return self.gain - self.cost
-
-    @property
-    def roi(self) -> Decimal:
-        self._ensure_closed()
-        return self.profit / self.cost
-
-    @property
-    def cost(self) -> Decimal:
-        return self.base_size * self.quote_price
-
-    @property
-    def gain(self) -> Decimal:
-        return self.closing_base_size * self.closing_quote_price - self.closing_quote_fee
-
-    @property
-    def dust(self) -> Decimal:
-        self._ensure_closed()
-        return self.base_size - self.base_fee - self.closing_base_size
+    def total_size(self) -> Decimal:
+        return _total_size(self.trades)
 
     @property
     def start(self) -> int:
         return self.time
 
     @property
+    def cost(self) -> Decimal:
+        return _total_quote(self.trades)
+
+    @property
+    def profit(self) -> Decimal:
+        assert self.closing_trades
+        return self.gain - self.cost
+
+    @property
+    def roi(self) -> Decimal:
+        assert self.closing_trades
+        return self.profit / self.cost
+
+    @property
+    def gain(self) -> Decimal:
+        assert self.closing_trades
+        return _total_quote(self.closing_trades) - self.closing_quote_fee
+
+    @property
+    def dust(self) -> Decimal:
+        assert self.closing_trades
+        return _total_size(self.trades) - self.base_fee - _total_size(self.closing_trades)
+
+    @property
     def end(self) -> int:
-        self._ensure_closed()
+        assert self.closing_trades
         return self.closing_time
 
     @property
-    def _closed(self) -> bool:
-        return bool(self.closing_quote_price)
-
-    def _ensure_closed(self) -> None:
-        if not self._closed:
-            raise ValueError('Position not closed')
+    def duration(self) -> int:
+        assert self.closing_trades
+        return self.closing_time - self.time
 
 
 # TODO: both positions and candles could theoretically grow infinitely

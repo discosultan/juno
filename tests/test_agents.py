@@ -213,8 +213,8 @@ async def test_paper(loop):
 
 
 def test_position():
-    pos = Position(0, Decimal(6), Decimal(2), Decimal(2))
-    pos.close(1, Decimal(2), Decimal(2), Decimal(1))
+    pos = Position(0, [(Decimal(6), Decimal(2))], Decimal(2))
+    pos.close(1, [(Decimal(2), Decimal(2))], Decimal(1))
 
     assert pos.cost == Decimal(12)  # 6 * 2
     assert pos.gain == Decimal(3)  # 2 * 2 - 1

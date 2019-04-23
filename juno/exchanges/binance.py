@@ -48,7 +48,7 @@ class Binance(Exchange):
 
         # Clock synchronization.
         self._time_diff = 0
-        self._sync_clock_task = None
+        self._sync_clock_task: Optional[asyncio.Task[None]] = None
 
         # User data stream.
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None

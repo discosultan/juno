@@ -112,7 +112,8 @@ class Paper(Agent):
         if size == 0:
             return False
 
-        self.open_position = Position(candle.time, size, candle.close, size * self.fees.taker)
+        # TODO: FIX!!!! TRADES
+        self.open_position = Position(candle.time, [(size, candle.close)], size * self.fees.taker)
         self.quote -= size * candle.close
 
         return True
@@ -120,13 +121,14 @@ class Paper(Agent):
     def _close_position(self, candle: Candle) -> None:
         assert self.open_position
 
-        base = self.open_position.base_size - self.open_position.base_fee
+        base = self.open_position.total_size - self.open_position.base_fee
         size = self.orderbook.find_market_order_sell_size(self.exchange, self.symbol, base,
                                                           self.symbol_info.size_step)
         quote = size * candle.close
         fees = quote * self.fees.taker
 
-        self.open_position.close(candle.time, size, candle.close, fees)
+        # TODO: FIX!!! TRADES
+        self.open_position.close(candle.time, [(size, candle.close)], fees)
         self.summary.append_position(self.open_position)
         self.open_position = None
         self.quote = quote - fees
