@@ -118,5 +118,5 @@ class Informant:
         infos, updated = await self._storage.get_map(exchange, SymbolInfo)
         if not infos or not updated or now >= updated + DAY_MS:
             infos = await self._exchanges[exchange].map_symbol_infos()
-            await self._storage.set_map(exchange, infos)
+            await self._storage.set_map(exchange, SymbolInfo, infos)
         self._exchange_symbols[exchange] = infos

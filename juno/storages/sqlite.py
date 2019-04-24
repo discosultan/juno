@@ -98,9 +98,9 @@ class SQLite:
             else:
                 return None, None
 
-    async def set_map(self, key: Any, items: Dict[str, Any]) -> None:
-        assert items
-        cls_name = type(next(iter(items.values()))).__name__
+    # TODO: Generic type
+    async def set_map(self, key: Any, item_cls: type, items: Dict[str, Any]) -> None:
+        cls_name = item_cls.__name__
         _log.info(f'setting map of {len(items)} {cls_name}s')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)

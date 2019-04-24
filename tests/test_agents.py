@@ -35,27 +35,23 @@ class FakeOrderbook(Orderbook):
         self._orderbooks = orderbooks
         self._update_on_find = update_on_find
 
-    def find_market_order_buy_size(self, exchange, symbol, quote_balance, size_step):
-        size = super().find_market_order_buy_size(exchange, symbol, quote_balance, size_step)
-        self._remove_from_size(self._orderbooks[exchange][symbol]['asks'], size, reverse=False)
-        return size
-
-    def find_market_order_sell_size(self, exchange, symbol, base_balance, size_step):
-        size = super().find_market_order_sell_size(exchange, symbol, base_balance, size_step)
-        self._remove_from_size(self._orderbooks[exchange][symbol]['bids'], size, reverse=True)
-        return size
-
-    def _remove_from_size(self, side, size, reverse):
+    def find_market_order_asks(self, exchange, symbol, quote_balance, size_step):
+        asks = super().find_market_order_asks(exchange, symbol, quote_balance, size_step)
         if self._update_on_find:
-            for k, v in sorted(side.items(), reverse=reverse):
-                if v > size:
-                    side[k] = v - size
-                    break
-                else:
-                    del side[k]
-                    size -= v
-                if size == Decimal(0):
-                    break
+            self._remove_from_side(self._orderbooks[exchange][symbol]['asks'], asks)
+        return asks
+
+    def find_market_order_bids(self, exchange, symbol, base_balance, size_step):
+        bids = super().find_market_order_bids(exchange, symbol, base_balance, size_step)
+        if self._update_on_find:
+            self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
+        return bids
+
+    def _remove_from_side(self, side, trades):
+        for price, size in trades:
+            side[price] -= size
+            if side[price] == Decimal(0):
+                del side[price]
 
 
 def FakeTime():

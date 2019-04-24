@@ -7,13 +7,16 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
+from juno import SymbolInfo
 from juno.config import list_required_names
 from juno.exchanges import Exchange
-from juno.math import floor_multiple
+from juno.math import adjust_size
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import Barrier
 
 _log = logging.getLogger(__name__)
+
+Trades = List[Tuple[Decimal, Decimal]]
 
 
 class Orderbook:
@@ -48,38 +51,65 @@ class Orderbook:
         self._sync_task.cancel()
         await self._sync_task
 
-    def find_market_order_buy_size(self, exchange: str, symbol: str, quote_balance: Decimal,
-                                   size_step: Decimal) -> Decimal:
+    def find_market_order_asks(self, exchange: str, symbol: str, quote: Decimal,
+                               symbol_info: SymbolInfo) -> Trades:
+        result: Trades = []
         asks = self._orderbooks[exchange][symbol]['asks']
-        total_size = Decimal(0)
-        available_quote = quote_balance
-        for price, size in sorted(asks.items()):
-            cost = price * size
-            if cost > available_quote:
-                fill = floor_multiple(available_quote / price, size_step)
-                available_quote -= fill * price
-                total_size += fill
+        for aprice, asize in sorted(asks.items()):
+            aquote = aprice * asize
+            if aquote >= quote:
+                size = adjust_size(quote / aprice, symbol_info.min_size, symbol_info.max_size,
+                                   symbol_info.size_step)
+                result.append((aprice, size))
                 break
             else:
-                total_size += size
-                available_quote -= cost
-        # total_size = adjust_qty(size * percent, ap_info)
-        return total_size
+                result.append((aprice, asize))
+                quote -= aquote
+        return result
 
-    def find_market_order_sell_size(self, exchange: str, symbol: str, base_balance: Decimal,
-                                    size_step: Decimal) -> Decimal:
-        bids = self._orderbooks[exchange][symbol]['bids']
-        available_base = base_balance
-        for _price, size in sorted(bids.items(), reverse=True):
-            if size > available_base:
-                fill = floor_multiple(available_base, size_step)
-                available_base -= fill
+        # total_size = Decimal(0)
+        # available_quote = quote_balance
+        # for price, size in sorted(asks.items()):
+        #     cost = price * size
+        #     if cost > available_quote:
+        #         fill = floor_multiple(available_quote / price, size_step)
+        #         available_quote -= fill * price
+        #         total_size += fill
+        #         break
+        #     else:
+        #         total_size += size
+        #         available_quote -= cost
+        # total_size = adjust_qty(size * percent, ap_info)
+        # return total_size
+
+    def find_market_order_bids(self, exchange: str, symbol: str, base: Decimal,
+                               symbol_info: SymbolInfo) -> Trades:
+        result: Trades = []
+        asks = self._orderbooks[exchange][symbol]['bids']
+        for bprice, bsize in sorted(asks.items(), reverse=True):
+            if bsize >= base:
+                size = adjust_size(base, symbol_info.min_size, symbol_info.max_size,
+                                   symbol_info.size_step)
+                result.append((bprice, size))
                 break
             else:
-                available_base -= size
-        total_size = base_balance - available_base
-        # total_size = adjust_qty(size * percent, ap_info)
-        return total_size
+                result.append((bprice, bsize))
+                base -= bsize
+        return result
+
+        # result = []
+        # bids = self._orderbooks[exchange][symbol]['bids']
+        # available_base = base_balance
+        # for _price, size in sorted(bids.items(), reverse=True):
+        #     if size > available_base:
+        #         fill = floor_multiple(available_base, size_step)
+        #         available_base -= fill
+        #         break
+        #     else:
+        #         available_base -= size
+        # total_size = base_balance - available_base
+        # # total_size = adjust_qty(size * percent, ap_info)
+        # return total_size
 
     async def _sync_orderbooks(self) -> None:
         try:

@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from juno import Candle
 from juno.components import Informant, Orderbook
@@ -12,6 +12,9 @@ from .agent import Agent
 from .summary import Position, TradingSummary
 
 _log = logging.getLogger(__name__)
+
+# TODO: remove duplicate
+Trades = List[Tuple[Decimal, Decimal]]
 
 
 class Paper(Agent):
@@ -102,8 +105,9 @@ class Paper(Agent):
         return self.summary
 
     def _try_open_position(self, candle: Candle) -> bool:
-        size = self.orderbook.find_market_order_buy_size(self.exchange, self.symbol, self.quote,
-                                                         self.symbol_info.size_step)
+        asks = self.orderbook.find_market_order_asks(self.exchange, self.symbol, self.quote,
+                                                     self.symbol_info)
+        size = _total_size(asks)
 
         # size = self.quote / candle.close
         # size = adjust_size(size, self.symbol_info.min_size, self.symbol_info.max_size,
@@ -122,8 +126,10 @@ class Paper(Agent):
         assert self.open_position
 
         base = self.open_position.total_size - self.open_position.base_fee
-        size = self.orderbook.find_market_order_sell_size(self.exchange, self.symbol, base,
-                                                          self.symbol_info.size_step)
+        bids = self.orderbook.find_market_order_bids(self.exchange, self.symbol, base,
+                                                     self.symbol_info)
+        size = _total_size(bids)
+
         quote = size * candle.close
         fees = quote * self.fees.taker
 
@@ -132,3 +138,7 @@ class Paper(Agent):
         self.summary.append_position(self.open_position)
         self.open_position = None
         self.quote = quote - fees
+
+
+def _total_size(trades: Trades) -> Decimal:
+    return sum((s for s, _ in trades), Decimal(0))
