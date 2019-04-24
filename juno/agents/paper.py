@@ -1,8 +1,8 @@
 import logging
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional
 
-from juno import Candle
+from juno import Candle, Trades
 from juno.components import Informant, Orderbook
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
@@ -12,9 +12,6 @@ from .agent import Agent
 from .summary import Position, TradingSummary
 
 _log = logging.getLogger(__name__)
-
-# TODO: remove duplicate
-Trades = List[Tuple[Decimal, Decimal]]
 
 
 class Paper(Agent):
@@ -107,18 +104,12 @@ class Paper(Agent):
     def _try_open_position(self, candle: Candle) -> bool:
         asks = self.orderbook.find_market_order_asks(self.exchange, self.symbol, self.quote,
                                                      self.symbol_info)
-        size = _total_size(asks)
-
-        # size = self.quote / candle.close
-        # size = adjust_size(size, self.symbol_info.min_size, self.symbol_info.max_size,
-        #                    self.symbol_info.size_step)
-
-        if size == 0:
+        if asks.total_size == 0:
             return False
 
-        # TODO: FIX!!!! TRADES
-        self.open_position = Position(candle.time, [(size, candle.close)], size * self.fees.taker)
-        self.quote -= size * candle.close
+        self.open_position = Position(candle.time, Trades([(asks.total_size, candle.close)]),
+                                      asks.total_size * self.fees.taker)
+        self.quote -= asks.total_quote
 
         return True
 
@@ -128,17 +119,11 @@ class Paper(Agent):
         base = self.open_position.total_size - self.open_position.base_fee
         bids = self.orderbook.find_market_order_bids(self.exchange, self.symbol, base,
                                                      self.symbol_info)
-        size = _total_size(bids)
 
-        quote = size * candle.close
-        fees = quote * self.fees.taker
+        fees = bids.total_quote * self.fees.taker
 
         # TODO: FIX!!! TRADES
-        self.open_position.close(candle.time, [(size, candle.close)], fees)
+        self.open_position.close(candle.time, Trades([(bids.total_size, candle.close)]), fees)
         self.summary.append_position(self.open_position)
         self.open_position = None
-        self.quote = quote - fees
-
-
-def _total_size(trades: Trades) -> Decimal:
-    return sum((s for s, _ in trades), Decimal(0))
+        self.quote += bids.total_quote - fees

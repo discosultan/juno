@@ -7,7 +7,7 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import SymbolInfo
+from juno import SymbolInfo, Trades
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.math import adjust_size
@@ -15,8 +15,6 @@ from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import Barrier
 
 _log = logging.getLogger(__name__)
-
-Trades = List[Tuple[Decimal, Decimal]]
 
 
 class Orderbook:
@@ -53,63 +51,38 @@ class Orderbook:
 
     def find_market_order_asks(self, exchange: str, symbol: str, quote: Decimal,
                                symbol_info: SymbolInfo) -> Trades:
-        result: Trades = []
+        result = Trades()
         asks = self._orderbooks[exchange][symbol]['asks']
         for aprice, asize in sorted(asks.items()):
             aquote = aprice * asize
             if aquote >= quote:
                 size = adjust_size(quote / aprice, symbol_info.min_size, symbol_info.max_size,
                                    symbol_info.size_step)
-                result.append((aprice, size))
+                if size != Decimal(0):
+                    result.append((aprice, size))
                 break
             else:
+                assert asize != Decimal(0)
                 result.append((aprice, asize))
                 quote -= aquote
         return result
 
-        # total_size = Decimal(0)
-        # available_quote = quote_balance
-        # for price, size in sorted(asks.items()):
-        #     cost = price * size
-        #     if cost > available_quote:
-        #         fill = floor_multiple(available_quote / price, size_step)
-        #         available_quote -= fill * price
-        #         total_size += fill
-        #         break
-        #     else:
-        #         total_size += size
-        #         available_quote -= cost
-        # total_size = adjust_qty(size * percent, ap_info)
-        # return total_size
-
     def find_market_order_bids(self, exchange: str, symbol: str, base: Decimal,
                                symbol_info: SymbolInfo) -> Trades:
-        result: Trades = []
+        result = Trades()
         asks = self._orderbooks[exchange][symbol]['bids']
         for bprice, bsize in sorted(asks.items(), reverse=True):
             if bsize >= base:
                 size = adjust_size(base, symbol_info.min_size, symbol_info.max_size,
                                    symbol_info.size_step)
-                result.append((bprice, size))
+                if size != Decimal(0):
+                    result.append((bprice, size))
                 break
             else:
+                assert bsize != Decimal(0)
                 result.append((bprice, bsize))
                 base -= bsize
         return result
-
-        # result = []
-        # bids = self._orderbooks[exchange][symbol]['bids']
-        # available_base = base_balance
-        # for _price, size in sorted(bids.items(), reverse=True):
-        #     if size > available_base:
-        #         fill = floor_multiple(available_base, size_step)
-        #         available_base -= fill
-        #         break
-        #     else:
-        #         available_base -= size
-        # total_size = base_balance - available_base
-        # # total_size = adjust_qty(size * percent, ap_info)
-        # return total_size
 
     async def _sync_orderbooks(self) -> None:
         try:

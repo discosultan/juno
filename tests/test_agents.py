@@ -2,67 +2,13 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, SymbolInfo
+from juno import Candle, Fees, SymbolInfo, Trades
 from juno.agents import Agent, Backtest, Paper, list_required_component_names
 from juno.agents.summary import Position
 from juno.components import Orderbook
 from juno.time import HOUR_MS
 
 from .utils import load_json_file
-
-
-class FakeInformant:
-
-    def __init__(self, fees, symbol_info, candles):
-        self.fees = fees
-        self.symbol_info = symbol_info
-        self.candles = candles
-
-    def get_fees(self, exchanges):
-        return self.fees
-
-    def get_symbol_info(self, exchange, symbol):
-        return self.symbol_info
-
-    async def stream_candles(self, exchange, symbol, interval, start, end):
-        for candle in self.candles:
-            yield candle, True
-
-
-class FakeOrderbook(Orderbook):
-
-    def __init__(self, orderbooks, update_on_find=False):
-        self._orderbooks = orderbooks
-        self._update_on_find = update_on_find
-
-    def find_market_order_asks(self, exchange, symbol, quote_balance, size_step):
-        asks = super().find_market_order_asks(exchange, symbol, quote_balance, size_step)
-        if self._update_on_find:
-            self._remove_from_side(self._orderbooks[exchange][symbol]['asks'], asks)
-        return asks
-
-    def find_market_order_bids(self, exchange, symbol, base_balance, size_step):
-        bids = super().find_market_order_bids(exchange, symbol, base_balance, size_step)
-        if self._update_on_find:
-            self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
-        return bids
-
-    def _remove_from_side(self, side, trades):
-        for price, size in trades:
-            side[price] -= size
-            if side[price] == Decimal(0):
-                del side[price]
-
-
-def FakeTime():
-    time = -1
-
-    def get_time():
-        nonlocal time
-        time += 1
-        return time
-
-    return get_time
 
 
 async def test_backtest(loop):
@@ -209,8 +155,8 @@ async def test_paper(loop):
 
 
 def test_position():
-    pos = Position(0, [(Decimal(6), Decimal(2))], Decimal(2))
-    pos.close(1, [(Decimal(2), Decimal(2))], Decimal(1))
+    pos = Position(0, Trades([(Decimal(6), Decimal(2))]), Decimal(2))
+    pos.close(1, Trades([(Decimal(2), Decimal(2))]), Decimal(1))
 
     assert pos.cost == Decimal(12)  # 6 * 2
     assert pos.gain == Decimal(3)  # 2 * 2 - 1
@@ -242,3 +188,57 @@ def test_list_required_component_names():
         })
 
     assert result == set(('a', 'b', 'c'))
+
+
+class FakeInformant:
+
+    def __init__(self, fees, symbol_info, candles):
+        self.fees = fees
+        self.symbol_info = symbol_info
+        self.candles = candles
+
+    def get_fees(self, exchanges):
+        return self.fees
+
+    def get_symbol_info(self, exchange, symbol):
+        return self.symbol_info
+
+    async def stream_candles(self, exchange, symbol, interval, start, end):
+        for candle in self.candles:
+            yield candle, True
+
+
+class FakeOrderbook(Orderbook):
+
+    def __init__(self, orderbooks, update_on_find=False):
+        self._orderbooks = orderbooks
+        self._update_on_find = update_on_find
+
+    def find_market_order_asks(self, exchange, symbol, quote_balance, size_step):
+        asks = super().find_market_order_asks(exchange, symbol, quote_balance, size_step)
+        if self._update_on_find:
+            self._remove_from_side(self._orderbooks[exchange][symbol]['asks'], asks)
+        return asks
+
+    def find_market_order_bids(self, exchange, symbol, base_balance, size_step):
+        bids = super().find_market_order_bids(exchange, symbol, base_balance, size_step)
+        if self._update_on_find:
+            self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
+        return bids
+
+    def _remove_from_side(self, side, trades):
+        for price, size in trades:
+            side[price] -= size
+            if side[price] == Decimal(0):
+                del side[price]
+
+
+def FakeTime():
+    time = -1
+
+    def get_time():
+        nonlocal time
+        time += 1
+        return time
+
+    return get_time

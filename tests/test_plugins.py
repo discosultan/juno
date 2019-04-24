@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, SymbolInfo
+from juno import Candle, Fees, SymbolInfo, Trades
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
 from juno.plugins import discord
@@ -35,10 +35,10 @@ async def test_discord(loop, request, config, agent: Agent):
     async with discord.activate(agent, config['discord']):
         summary = get_dummy_trading_summary(ee)
         candle = Candle(0, Decimal(0), Decimal(0), Decimal(0), Decimal(0.1), Decimal(10))
-        pos = Position(candle.time, [(Decimal(10), Decimal(-1))], Decimal(0))
+        pos = Position(candle.time, Trades([(Decimal(10), Decimal(-1))]), Decimal(0))
         await ee.emit('position_opened', pos)
         candle = Candle(HOUR_MS, Decimal(0), Decimal(0), Decimal(0), Decimal(0.2), Decimal(10))
-        pos.close(candle.time, [(Decimal(10), Decimal(-1))], Decimal(0))
+        pos.close(candle.time, Trades([(Decimal(10), Decimal(-1))]), Decimal(0))
         await ee.emit('position_closed', pos)
         await ee.emit('summary', summary)
         await ee.emit('img_saved', full_path('/data/dummy_img.png'))

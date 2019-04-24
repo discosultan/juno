@@ -1,20 +1,10 @@
 import itertools
 import statistics
 from decimal import Decimal
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
-from juno import Candle, Fees, SymbolInfo
+from juno import Candle, Fees, SymbolInfo, Trades
 from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
-
-Trades = List[Tuple[Decimal, Decimal]]
-
-
-def _total_size(trades: Trades) -> Decimal:
-    return sum((s for s, _ in trades), Decimal(0))
-
-
-def _total_quote(trades: Trades) -> Decimal:
-    return sum((s * p for s, p in trades), Decimal(0))
 
 
 # TODO: Add support for external token fees (i.e BNB)
@@ -51,7 +41,7 @@ class Position:
         return res
 
     def close(self, time: int, trades: Trades, quote_fee: Decimal) -> None:
-        assert _total_size(trades) <= self.total_size - self.base_fee
+        assert trades.total_size <= self.total_size - self.base_fee
 
         self.closing_time = time
         self.closing_trades = trades
@@ -59,7 +49,7 @@ class Position:
 
     @property
     def total_size(self) -> Decimal:
-        return _total_size(self.trades)
+        return self.trades.total_size
 
     @property
     def start(self) -> int:
@@ -67,7 +57,7 @@ class Position:
 
     @property
     def cost(self) -> Decimal:
-        return _total_quote(self.trades)
+        return self.trades.total_quote
 
     @property
     def profit(self) -> Decimal:
@@ -82,12 +72,12 @@ class Position:
     @property
     def gain(self) -> Decimal:
         assert self.closing_trades
-        return _total_quote(self.closing_trades) - self.closing_quote_fee
+        return self.closing_trades.total_quote - self.closing_quote_fee
 
     @property
     def dust(self) -> Decimal:
         assert self.closing_trades
-        return _total_size(self.trades) - self.base_fee - _total_size(self.closing_trades)
+        return self.trades.total_size - self.base_fee - self.closing_trades.total_size
 
     @property
     def end(self) -> int:

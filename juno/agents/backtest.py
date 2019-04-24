@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from juno import Candle
+from juno import Candle, Trades
 from juno.components import Informant
 from juno.math import adjust_size
 from juno.strategies import new_strategy
@@ -101,7 +101,8 @@ class Backtest(Agent):
         if size == 0:
             return False
 
-        self.open_position = Position(candle.time, [(size, candle.close)], size * self.fees.taker)
+        self.open_position = Position(candle.time, Trades([(size, candle.close)]),
+                                      size * self.fees.taker)
         self.quote -= size * candle.close
 
         return True
@@ -115,7 +116,7 @@ class Backtest(Agent):
         quote = size * candle.close
         fees = quote * self.fees.taker
 
-        self.open_position.close(candle.time, [(size, candle.close)], fees)
+        self.open_position.close(candle.time, Trades([(size, candle.close)]), fees)
         self.summary.append_position(self.open_position)
         self.open_position = None
         self.quote = quote - fees

@@ -1,7 +1,7 @@
 from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
-from typing import NamedTuple
+from typing import List, NamedTuple, Tuple
 
 from juno.time import datetime_utcfromtimestamp_ms
 
@@ -87,3 +87,14 @@ class TimeInForce(Enum):
     # If the entire Fill-or-Kill order does not execute as soon as it becomes available, the entire
     # order is canceled.
     FOK = 2
+
+
+class Trades(List[Tuple[Decimal, Decimal]]):
+
+    @property
+    def total_size(self) -> Decimal:
+        return sum((s for s, _ in self), Decimal(0))
+
+    @property
+    def total_quote(self) -> Decimal:
+        return sum((s * p for s, p in self), Decimal(0))
