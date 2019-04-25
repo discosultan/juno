@@ -1,4 +1,4 @@
-FROM python:3.7.3-slim
+FROM python:3.7.3-alpine
 RUN pip install --upgrade pip && python --version && pip --version
 
 WORKDIR /juno
