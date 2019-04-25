@@ -7,7 +7,7 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import SymbolInfo, Fees, Fill, Fills
+from juno import SymbolInfo, Fees, Fill, Fills, OrderType, Side
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.math import adjust_size
@@ -89,6 +89,15 @@ class Orderbook:
                 result.append(Fill(price=bprice, size=bsize, fee=fee, fee_asset=quote_asset))
                 base -= bsize
         return result
+
+    async def place_order(self, exchange: str, symbol: str, side: Side, size: Decimal,
+                          test: bool = True) -> Any:
+        return await self._exchanges[exchange].place_order(
+            symbol=symbol,
+            side=side,
+            type_=OrderType.MARKET,
+            size=size,
+            test=True)
 
     async def _sync_orderbooks(self) -> None:
         try:

@@ -9,11 +9,11 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 from time import time
-from typing import Any, AsyncIterable, Dict, List, Tuple
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 import simplejson as json
 
-from juno import Balance, Candle, SymbolInfo
+from juno import Balance, Candle, OrderType, Side, SymbolInfo, TimeInForce
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms
@@ -193,6 +193,17 @@ class Coinbase(Exchange):
                     'bids': [(Decimal(p), Decimal(s)) for p, s in bids],
                     'asks': [(Decimal(p), Decimal(s)) for p, s in asks]
                 }
+
+    async def place_order(
+            self,
+            symbol: str,
+            side: Side,
+            type_: OrderType,
+            size: Decimal,
+            price: Optional[Decimal] = None,
+            time_in_force: Optional[TimeInForce] = None,
+            test: bool = True) -> Any:
+        raise NotImplementedError()
 
     def _ensure_stream_open(self):
         if not self._stream_task:

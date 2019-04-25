@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
-from juno import Candle
+from juno import Candle, Side
 from juno.components import Informant, Orderbook
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
@@ -87,37 +87,51 @@ class Paper(Agent):
                 advice = strategy.update(candle)
 
                 if not self.open_position and advice == 1:
-                    if not self._try_open_position(candle):
+                    if not await self._try_open_position(candle):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
                 elif self.open_position and advice == -1:
-                    self._close_position(candle)
+                    await self._close_position(candle)
 
             if not restart:
                 break
 
         if last_candle is not None and self.open_position:
-            self._close_position(last_candle)
+            await self._close_position(last_candle)
 
         return self.summary
 
-    def _try_open_position(self, candle: Candle) -> bool:
+    async def _try_open_position(self, candle: Candle) -> bool:
         asks = self.orderbook.find_market_order_asks(self.exchange, self.symbol, self.quote,
                                                      self.symbol_info, self.fees)
         if asks.total_size == 0:
             return False
+
+        await self.orderbook.place_order(
+            exchange=self.exchange,
+            symbol=self.symbol,
+            side=Side.BUY,
+            size=asks.total_size,
+            test=True)
 
         self.open_position = Position(candle.time, asks)
         self.quote -= asks.total_quote
 
         return True
 
-    def _close_position(self, candle: Candle) -> None:
+    async def _close_position(self, candle: Candle) -> None:
         assert self.open_position
 
         base = self.open_position.total_size - self.open_position.fills.total_fee
         bids = self.orderbook.find_market_order_bids(self.exchange, self.symbol, base,
                                                      self.symbol_info, self.fees)
+
+        await self.orderbook.place_order(
+            exchange=self.exchange,
+            symbol=self.symbol,
+            side=Side.SELL,
+            size=bids.total_size,
+            test=True)
 
         self.open_position.close(candle.time, bids)
         self.summary.append_position(self.open_position)

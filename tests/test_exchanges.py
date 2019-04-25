@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
+from decimal import Decimal
 
 import aiohttp
 import pytest
 
+from juno import OrderType, Side
 from juno.exchanges import Binance, Coinbase, create_exchange
 from juno.time import HOUR_MS, datetime_timestamp_ms
 
@@ -69,6 +71,20 @@ async def test_stream_depth(loop, request, exchange):
     stream = exchange.stream_depth('eth-btc')
     res = await stream.__anext__()
     assert res
+
+
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_place_order(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    if type(exchange) is Coinbase:
+        pytest.skip('not implemented')
+    await exchange.place_order(
+        symbol='eth-btc',
+        side=Side.BUY,
+        type_=OrderType.MARKET,
+        size=Decimal(1),
+        test=True)
 
 
 def skip_non_configured(request, exchange):

@@ -150,6 +150,9 @@ class Fake(Exchange):
         for depth in self.depths:
             yield depth
 
+    async def place_order(self, *args, **kwargs):
+        pass
+
 
 @asynccontextmanager
 async def init_component(type_, exchange):

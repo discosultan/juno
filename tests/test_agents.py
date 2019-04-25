@@ -234,6 +234,9 @@ class FakeOrderbook(Orderbook):
             self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
         return bids
 
+    async def place_order(self, *args, **kwargs):
+        pass
+
     def _remove_from_side(self, side, fills):
         for fill in fills:
             side[fill.price] -= fill.size

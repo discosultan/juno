@@ -13,7 +13,7 @@ import aiohttp
 import backoff
 import simplejson as json
 
-from juno import Balance, Candle, OrderResult, SymbolInfo, Trade
+from juno import Balance, Candle, OrderType, Side, SymbolInfo, TimeInForce, Trade
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import HOUR_MS, MIN_MS, time_ms
@@ -194,7 +194,15 @@ class Binance(Exchange):
         except asyncio.CancelledError:
             _log.info('user data streaming task cancelled')
 
-    async def place_order(self, symbol, side, type_, size, price, time_in_force, test=False):
+    async def place_order(
+            self,
+            symbol: str,
+            side: Side,
+            type_: OrderType,
+            size: Decimal,
+            price: Optional[Decimal] = None,
+            time_in_force: Optional[TimeInForce] = None,
+            test: bool = True) -> Any:
         data = {
             'symbol': _http_symbol(symbol),
             'side': side.name,
@@ -206,8 +214,9 @@ class Binance(Exchange):
         if time_in_force is not None:
             data['timeInForce'] = time_in_force.name
         url = f'/api/v3/order{"/test" if test else ""}'
-        res = await self._request('POST', url, data=data)
-        return OrderResult(res['price'], res['executedQty'])
+        res = await self._request('POST', url, data=data, security=_SEC_TRADE)
+        return res
+        # return OrderResult(res['price'], res['executedQty'])
 
     async def get_trades(self, symbol: str) -> List[Trade]:
         url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'

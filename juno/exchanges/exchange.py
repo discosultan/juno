@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterable, Dict, Tuple
+from decimal import Decimal
+from typing import Any, AsyncIterable, Dict, Optional, Tuple
 
-from juno import Balance, Candle, SymbolInfo
+from juno import Balance, Candle, OrderType, Side, SymbolInfo, TimeInForce
 
 
 class Exchange(ABC):
@@ -22,3 +23,15 @@ class Exchange(ABC):
     @abstractmethod
     async def stream_depth(self, symbol: str) -> AsyncIterable[Any]:
         yield
+
+    @abstractmethod
+    async def place_order(
+            self,
+            symbol: str,
+            side: Side,
+            type_: OrderType,
+            size: Decimal,
+            price: Optional[Decimal] = None,
+            time_in_force: Optional[TimeInForce] = None,
+            test: bool = True) -> Any:
+        pass
