@@ -1,0 +1,13 @@
+# Ignore everything ignored by .gitignore.
+**/__pycache__
+*.egg-info
+.mypy_cache
+.pytest_cache
+.vscode
+temp-plot.html
+
+# And additionally everything not required by runtime.
+.git
+tests
+README.md
+setup.cfg
