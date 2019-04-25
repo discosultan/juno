@@ -53,6 +53,10 @@ def test_recursive_iter():
     assert output == expected_output
 
 
+def test_unpack_symbol():
+    assert utils.unpack_symbol('eth-btc') == ('eth', 'btc')
+
+
 async def test_barrier(loop):
     barrier = utils.Barrier(2)
     event = asyncio.Event()

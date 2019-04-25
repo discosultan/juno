@@ -4,7 +4,7 @@ from functools import partial
 
 import pytest
 
-from juno import Balance, Candle, SymbolInfo
+from juno import Balance, Candle, Fees, SymbolInfo
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Exchange
 from juno.storages import Memory
@@ -80,8 +80,8 @@ async def test_find_market_order_asks(loop, quote, snapshot_asks, update_asks, e
             max_price=Decimal(10),
             price_step=Decimal('0.1'))
         output = orderbook.find_market_order_asks(exchange='fake', symbol='eth-btc', quote=quote,
-                                                  symbol_info=sinfo)
-        assert output == expected_output
+                                                  symbol_info=sinfo, fees=Fees.zero())
+        _assert_fills(output, expected_output)
 
 
 @pytest.mark.parametrize('base,snapshot_bids,update_bids,expected_output', [
@@ -117,8 +117,8 @@ async def test_find_market_order_bids(loop, base, snapshot_bids, update_bids, ex
             max_price=Decimal(10),
             price_step=Decimal('0.1'))
         output = orderbook.find_market_order_bids(exchange='fake', symbol='eth-btc', base=base,
-                                                  symbol_info=sinfo)
-        assert output == expected_output
+                                                  symbol_info=sinfo, fees=Fees.zero())
+        _assert_fills(output, expected_output)
 
 
 async def test_get_balance(loop):
@@ -171,3 +171,10 @@ async def init_component(type_, exchange):
 init_informant = partial(init_component, Informant)
 init_orderbook = partial(init_component, Orderbook)
 init_wallet = partial(init_component, Wallet)
+
+
+def _assert_fills(output, expected_output):
+    for o, eo in zip(output, expected_output):
+        eoprice, eosize = eo
+        assert o.price == eoprice
+        assert o.size == eosize

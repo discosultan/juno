@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
-from typing import List, NamedTuple, Tuple
+from typing import List, NamedTuple
 
 from juno.time import datetime_utcfromtimestamp_ms
 
@@ -37,6 +39,10 @@ class Candle(NamedTuple):
 class Fees(NamedTuple):
     maker: Decimal
     taker: Decimal
+
+    @staticmethod
+    def zero() -> Fees:
+        return Fees(maker=Decimal(0), taker=Decimal(0))
 
 
 class Span(NamedTuple):
@@ -89,12 +95,28 @@ class TimeInForce(Enum):
     FOK = 2
 
 
-class Trades(List[Tuple[Decimal, Decimal]]):
+class Fill(NamedTuple):
+    price: Decimal
+    size: Decimal
+    fee: Decimal
+    fee_asset: str
+
+
+class Fills(List[Fill]):
 
     @property
     def total_size(self) -> Decimal:
-        return sum((s for s, _ in self), Decimal(0))
+        return sum((f.size for f in self), Decimal(0))
 
     @property
     def total_quote(self) -> Decimal:
-        return sum((s * p for s, p in self), Decimal(0))
+        return sum((f.size * f.price for f in self), Decimal(0))
+
+    @property
+    def total_fee(self) -> Decimal:
+        # Note that we may easily have different fee assets per order when utility tokens such as
+        # BNB are used.
+        if len(set((f.fee_asset for f in self))) > 1:
+            raise NotImplementedError('implement support for different fee assets')
+
+        return sum((f.fee for f in self), Decimal(0))

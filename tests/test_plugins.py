@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, SymbolInfo, Trades
+from juno import Candle, Fees, SymbolInfo, Fill, Fills
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
 from juno.plugins import discord
@@ -34,11 +34,19 @@ async def test_discord(loop, request, config, agent: Agent):
     ee = agent.ee
     async with discord.activate(agent, config['discord']):
         summary = get_dummy_trading_summary(ee)
-        candle = Candle(0, Decimal(0), Decimal(0), Decimal(0), Decimal(0.1), Decimal(10))
-        pos = Position(candle.time, Trades([(Decimal(10), Decimal(-1))]), Decimal(0))
+        candle = Candle(0, Decimal(0), Decimal(0), Decimal(0), Decimal(1), Decimal(10))
+        pos = Position(
+            time=candle.time,
+            fills=Fills([
+                Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='btc')
+            ]))
         await ee.emit('position_opened', pos)
-        candle = Candle(HOUR_MS, Decimal(0), Decimal(0), Decimal(0), Decimal(0.2), Decimal(10))
-        pos.close(candle.time, Trades([(Decimal(10), Decimal(-1))]), Decimal(0))
+        candle = Candle(HOUR_MS, Decimal(0), Decimal(0), Decimal(0), Decimal(2), Decimal(10))
+        pos.close(
+            time=candle.time,
+            fills=Fills([
+                Fill(price=Decimal(2), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
+            ]))
         await ee.emit('position_closed', pos)
         await ee.emit('summary', summary)
         await ee.emit('img_saved', full_path('/data/dummy_img.png'))

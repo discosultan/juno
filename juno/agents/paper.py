@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
-from juno import Candle, Trades
+from juno import Candle
 from juno.components import Informant, Orderbook
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
@@ -103,12 +103,11 @@ class Paper(Agent):
 
     def _try_open_position(self, candle: Candle) -> bool:
         asks = self.orderbook.find_market_order_asks(self.exchange, self.symbol, self.quote,
-                                                     self.symbol_info)
+                                                     self.symbol_info, self.fees)
         if asks.total_size == 0:
             return False
 
-        self.open_position = Position(candle.time, Trades([(asks.total_size, candle.close)]),
-                                      asks.total_size * self.fees.taker)
+        self.open_position = Position(candle.time, asks)
         self.quote -= asks.total_quote
 
         return True
@@ -116,14 +115,11 @@ class Paper(Agent):
     def _close_position(self, candle: Candle) -> None:
         assert self.open_position
 
-        base = self.open_position.total_size - self.open_position.base_fee
+        base = self.open_position.total_size - self.open_position.fills.total_fee
         bids = self.orderbook.find_market_order_bids(self.exchange, self.symbol, base,
-                                                     self.symbol_info)
+                                                     self.symbol_info, self.fees)
 
-        fees = bids.total_quote * self.fees.taker
-
-        # TODO: FIX!!! TRADES
-        self.open_position.close(candle.time, Trades([(bids.total_size, candle.close)]), fees)
+        self.open_position.close(candle.time, bids)
         self.summary.append_position(self.open_position)
         self.open_position = None
-        self.quote += bids.total_quote - fees
+        self.quote += bids.total_quote - bids.total_fee

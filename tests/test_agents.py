@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, SymbolInfo, Trades
+from juno import Candle, Fees, SymbolInfo, Fill, Fills
 from juno.agents import Agent, Backtest, Paper, list_required_component_names
 from juno.agents.summary import Position
 from juno.components import Orderbook
@@ -155,8 +155,16 @@ async def test_paper(loop):
 
 
 def test_position():
-    pos = Position(0, Trades([(Decimal(6), Decimal(2))]), Decimal(2))
-    pos.close(1, Trades([(Decimal(2), Decimal(2))]), Decimal(1))
+    pos = Position(
+        time=0,
+        fills=Fills([
+            Fill(price=Decimal(2), size=Decimal(6), fee=Decimal(2), fee_asset='btc')
+        ]))
+    pos.close(
+        time=1,
+        fills=Fills([
+            Fill(price=Decimal(2), size=Decimal(2), fee=Decimal(1), fee_asset='eth')
+        ]))
 
     assert pos.cost == Decimal(12)  # 6 * 2
     assert pos.gain == Decimal(3)  # 2 * 2 - 1
@@ -214,23 +222,23 @@ class FakeOrderbook(Orderbook):
         self._orderbooks = orderbooks
         self._update_on_find = update_on_find
 
-    def find_market_order_asks(self, exchange, symbol, quote_balance, size_step):
-        asks = super().find_market_order_asks(exchange, symbol, quote_balance, size_step)
+    def find_market_order_asks(self, exchange, symbol, quote_balance, symbol_info, fees):
+        asks = super().find_market_order_asks(exchange, symbol, quote_balance, symbol_info, fees)
         if self._update_on_find:
             self._remove_from_side(self._orderbooks[exchange][symbol]['asks'], asks)
         return asks
 
-    def find_market_order_bids(self, exchange, symbol, base_balance, size_step):
-        bids = super().find_market_order_bids(exchange, symbol, base_balance, size_step)
+    def find_market_order_bids(self, exchange, symbol, base_balance, symbol_info, fees):
+        bids = super().find_market_order_bids(exchange, symbol, base_balance, symbol_info, fees)
         if self._update_on_find:
             self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
         return bids
 
-    def _remove_from_side(self, side, trades):
-        for price, size in trades:
-            side[price] -= size
-            if side[price] == Decimal(0):
-                del side[price]
+    def _remove_from_side(self, side, fills):
+        for fill in fills:
+            side[fill.price] -= fill.size
+            if side[fill.price] == Decimal(0):
+                del side[fill.price]
 
 
 def FakeTime():

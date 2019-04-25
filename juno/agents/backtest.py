@@ -2,10 +2,11 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from juno import Candle, Trades
+from juno import Candle, Fills, Fill
 from juno.components import Informant
 from juno.math import adjust_size
 from juno.strategies import new_strategy
+from juno.utils import unpack_symbol
 
 from .agent import Agent
 from .summary import Position, TradingSummary
@@ -24,6 +25,7 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
+        self.base_asset, self.quote_asset = unpack_symbol(symbol)
         self.quote = quote
 
         informant: Informant = self.components['informant']
@@ -94,29 +96,42 @@ class Backtest(Agent):
         return self.summary
 
     def _try_open_position(self, candle: Candle) -> bool:
-        size = self.quote / candle.close
+        price = candle.close
+
+        size = self.quote / price
         size = adjust_size(size, self.symbol_info.min_size, self.symbol_info.max_size,
                            self.symbol_info.size_step)
-
         if size == 0:
             return False
 
-        self.open_position = Position(candle.time, Trades([(size, candle.close)]),
-                                      size * self.fees.taker)
-        self.quote -= size * candle.close
+        fee = size * self.fees.taker
+
+        self.open_position = Position(
+            time=candle.time,
+            fills=Fills([
+                Fill(price=price, size=size, fee=fee, fee_asset=self.base_asset)]))
+
+        self.quote -= size * price
 
         return True
 
     def _close_position(self, candle: Candle) -> None:
         assert self.open_position
 
-        base = self.open_position.total_size - self.open_position.base_fee
-        size = adjust_size(base, self.symbol_info.min_size, self.symbol_info.max_size,
-                           self.symbol_info.size_step)
-        quote = size * candle.close
-        fees = quote * self.fees.taker
+        price = candle.close
 
-        self.open_position.close(candle.time, Trades([(size, candle.close)]), fees)
+        size = self.open_position.total_size - self.open_position.fills.total_fee
+        size = adjust_size(size, self.symbol_info.min_size, self.symbol_info.max_size,
+                           self.symbol_info.size_step)
+
+        quote = size * price
+        fee = quote * self.fees.taker
+
+        self.open_position.close(
+            time=candle.time,
+            fills=Fills([
+                Fill(price=price, size=size, fee=fee, fee_asset=self.quote_asset)]))
         self.summary.append_position(self.open_position)
         self.open_position = None
-        self.quote = quote - fees
+
+        self.quote = quote - fee

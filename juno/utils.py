@@ -94,6 +94,11 @@ def gen_random_names() -> Iterable[str]:
     return sorted(iter(random_words), key=lambda _: random.random())
 
 
+def unpack_symbol(symbol: str) -> Tuple[str, str]:
+    index_of_separator = symbol.find('-')
+    return symbol[:index_of_separator], symbol[index_of_separator + 1:]
+
+
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.
 # Implementation taken from: https://stackoverflow.com/a/45502319/1466456
 class LeakyBucket:

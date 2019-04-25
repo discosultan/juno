@@ -3,53 +3,50 @@ import statistics
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Candle, Fees, SymbolInfo, Trades
+from juno import Candle, Fees, SymbolInfo, Fills
 from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
 
 
 # TODO: Add support for external token fees (i.e BNB)
 class Position:
 
-    def __init__(self, time: int, trades: Trades, base_fee: Decimal) -> None:
+    def __init__(self, time: int, fills: Fills) -> None:
         self.time = time
-        self.trades = trades
-        self.base_fee = base_fee
+        self.fills = fills
         self.closing_time = 0
-        self.closing_trades: Optional[Trades] = None
-        self.closing_quote_fee = Decimal(0)
+        self.closing_fills: Optional[Fills] = None
 
     def __str__(self) -> str:
         res = (
                f'Start: {datetime_utcfromtimestamp_ms(self.start)}'
                f'\nCost: {self.cost}'
-               f'\nBase fee: {self.base_fee}'
+               f'\nBase fee: {self.fills.total_fee}'
                '\n')
-        for i, trade in enumerate(self.trades, 1):
-            res += f'\nTrade {i}: (size: {trade[0]}, price: {trade[1]})'
-        if self.closing_trades:
+        for i, fill in enumerate(self.fills, 1):
+            res += f'\nTrade {i}: (price: {fill.price}, size: {fill.size})'
+        if self.closing_fills:
             res += (
                     f'\nGain: {self.gain}'
                     f'\nProfit: {self.profit}'
                     f'\nROI: {self.roi}'
                     f'\nDust: {self.dust}'
-                    f'\nQuote fee: {self.closing_quote_fee}'
+                    f'\nQuote fee: {self.closing_fills.total_fee}'
                     f'\nEnd: {datetime_utcfromtimestamp_ms(self.end)}'
                     f'\nDuration: {strfinterval(self.duration)}'
                     '\n')
-            for i, trade in enumerate(self.closing_trades, 1):
-                res += f'\nTrade {i}: (size: {trade[0]}, price: {trade[1]})'
+            for i, fill in enumerate(self.closing_fills, 1):
+                res += f'\nTrade {i}: (price: {fill.price}, size: {fill.size})'
         return res
 
-    def close(self, time: int, trades: Trades, quote_fee: Decimal) -> None:
-        assert trades.total_size <= self.total_size - self.base_fee
+    def close(self, time: int, fills: Fills) -> None:
+        assert fills.total_size <= self.fills.total_size - self.fills.total_fee
 
         self.closing_time = time
-        self.closing_trades = trades
-        self.closing_quote_fee = quote_fee
+        self.closing_fills = fills
 
     @property
     def total_size(self) -> Decimal:
-        return self.trades.total_size
+        return self.fills.total_size
 
     @property
     def start(self) -> int:
@@ -57,36 +54,36 @@ class Position:
 
     @property
     def cost(self) -> Decimal:
-        return self.trades.total_quote
+        return self.fills.total_quote
 
     @property
     def profit(self) -> Decimal:
-        assert self.closing_trades
+        assert self.closing_fills
         return self.gain - self.cost
 
     @property
     def roi(self) -> Decimal:
-        assert self.closing_trades
+        assert self.closing_fills
         return self.profit / self.cost
 
     @property
     def gain(self) -> Decimal:
-        assert self.closing_trades
-        return self.closing_trades.total_quote - self.closing_quote_fee
+        assert self.closing_fills
+        return self.closing_fills.total_quote - self.closing_fills.total_fee
 
     @property
     def dust(self) -> Decimal:
-        assert self.closing_trades
-        return self.trades.total_size - self.base_fee - self.closing_trades.total_size
+        assert self.closing_fills
+        return self.fills.total_size - self.fills.total_fee - self.closing_fills.total_size
 
     @property
     def end(self) -> int:
-        assert self.closing_trades
+        assert self.closing_fills
         return self.closing_time
 
     @property
     def duration(self) -> int:
-        assert self.closing_trades
+        assert self.closing_fills
         return self.closing_time - self.time
 
 

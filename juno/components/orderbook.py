@@ -7,12 +7,12 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import SymbolInfo, Trades
+from juno import SymbolInfo, Fees, Fill, Fills
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.math import adjust_size
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import Barrier
+from juno.utils import Barrier, unpack_symbol
 
 _log = logging.getLogger(__name__)
 
@@ -50,37 +50,43 @@ class Orderbook:
         await self._sync_task
 
     def find_market_order_asks(self, exchange: str, symbol: str, quote: Decimal,
-                               symbol_info: SymbolInfo) -> Trades:
-        result = Trades()
+                               symbol_info: SymbolInfo, fees: Fees) -> Fills:
+        result = Fills()
         asks = self._orderbooks[exchange][symbol]['asks']
         for aprice, asize in sorted(asks.items()):
             aquote = aprice * asize
+            base_asset, quote_asset = unpack_symbol(symbol)
             if aquote >= quote:
                 size = adjust_size(quote / aprice, symbol_info.min_size, symbol_info.max_size,
                                    symbol_info.size_step)
                 if size != Decimal(0):
-                    result.append((aprice, size))
+                    fee = aprice * size * fees.taker
+                    result.append(Fill(price=aprice, size=size, fee=fee, fee_asset=base_asset))
                 break
             else:
                 assert asize != Decimal(0)
-                result.append((aprice, asize))
+                fee = aprice * asize * fees.taker
+                result.append(Fill(price=aprice, size=asize, fee=fee, fee_asset=base_asset))
                 quote -= aquote
         return result
 
     def find_market_order_bids(self, exchange: str, symbol: str, base: Decimal,
-                               symbol_info: SymbolInfo) -> Trades:
-        result = Trades()
+                               symbol_info: SymbolInfo, fees: Fees) -> Fills:
+        result = Fills()
         asks = self._orderbooks[exchange][symbol]['bids']
         for bprice, bsize in sorted(asks.items(), reverse=True):
+            base_asset, quote_asset = unpack_symbol(symbol)
             if bsize >= base:
                 size = adjust_size(base, symbol_info.min_size, symbol_info.max_size,
                                    symbol_info.size_step)
                 if size != Decimal(0):
-                    result.append((bprice, size))
+                    fee = bprice * size * fees.taker
+                    result.append(Fill(price=bprice, size=size, fee=fee, fee_asset=quote_asset))
                 break
             else:
                 assert bsize != Decimal(0)
-                result.append((bprice, bsize))
+                fee = bprice * bsize * fees.taker
+                result.append(Fill(price=bprice, size=bsize, fee=fee, fee_asset=quote_asset))
                 base -= bsize
         return result
 
