@@ -9,6 +9,8 @@ WEEK_MS = 604_800_000
 MONTH_MS = 2_629_746_000
 YEAR_MS = 31_556_952_000
 
+MAX_TIME_MS = 3000000000000  # Year 2065.
+
 
 def time_ms() -> int:
     """Returns current time since EPOCH in milliseconds."""

@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from juno import Candle, Fills, Fill
+from juno import Candle, Fill, Fills
 from juno.components import Informant
 from juno.math import adjust_size
 from juno.strategies import new_strategy

@@ -3,7 +3,7 @@ import statistics
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Candle, Fees, SymbolInfo, Fills
+from juno import Candle, Fees, Fills, SymbolInfo
 from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
 
 

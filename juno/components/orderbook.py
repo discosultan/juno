@@ -7,7 +7,7 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import SymbolInfo, Fees, Fill, Fills, OrderType, Side
+from juno import Fees, Fill, Fills, OrderType, Side, SymbolInfo
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.math import adjust_size

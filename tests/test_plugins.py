@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, SymbolInfo, Fill, Fills
+from juno import Candle, Fees, Fill, Fills, SymbolInfo
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
 from juno.plugins import discord

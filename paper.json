@@ -6,7 +6,6 @@
             "name": "paper",
             "exchange": "binance",
             "symbol": "eth-btc",
-            "end": "2020-01-01",
             "interval": "1h",
             "quote": "100.0",
             "restart_on_missed_candle": false,

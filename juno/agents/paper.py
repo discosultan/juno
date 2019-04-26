@@ -6,7 +6,7 @@ from juno import Candle, Side
 from juno.components import Informant, Orderbook
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
-from juno.time import time_ms
+from juno.time import MAX_TIME_MS, time_ms
 
 from .agent import Agent
 from .summary import Position, TradingSummary
@@ -19,8 +19,9 @@ class Paper(Agent):
     required_components = ['informant', 'orderbook']
     open_position: Optional[Position]
 
-    async def run(self, exchange: str, symbol: str, interval: int, end: int, quote: Decimal,
-                  strategy_config: Dict[str, Any], restart_on_missed_candle: bool = True,
+    async def run(self, exchange: str, symbol: str, interval: int, quote: Decimal,
+                  strategy_config: Dict[str, Any], end: int = MAX_TIME_MS,
+                  restart_on_missed_candle: bool = True,
                   get_time: Optional[Callable[[], int]] = None) -> TradingSummary:
         if not get_time:
             get_time = time_ms
