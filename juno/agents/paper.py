@@ -118,6 +118,8 @@ class Paper(Agent):
         self.open_position = Position(candle.time, asks)
         self.quote -= asks.total_quote
 
+        await self.ee.emit('position_opened', self.open_position)
+
         return True
 
     async def _close_position(self, candle: Candle) -> None:
@@ -134,7 +136,11 @@ class Paper(Agent):
             size=bids.total_size,
             test=True)
 
-        self.open_position.close(candle.time, bids)
-        self.summary.append_position(self.open_position)
+        position = self.open_position
         self.open_position = None
+        position.close(candle.time, bids)
+        self.summary.append_position(position)
         self.quote += bids.total_quote - bids.total_fee
+
+        await self.ee.emit('position_closed', position)
+        await self.ee.emit('summary', self.summary)

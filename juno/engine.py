@@ -26,9 +26,11 @@ async def engine() -> None:
     config.update(load_from_env())
 
     # Configure logging.
+    log_level = config.get('log_level', 'INFO').upper()
     logging.basicConfig(
         handlers=[logging.StreamHandler(stream=sys.stdout)],
-        level=logging.getLevelName(config.get('log_level', 'INFO').upper()))
+        level=logging.getLevelName(log_level))
+    _log.info(f'log level set to: {log_level}')
 
     # Configure signals.
     signal.signal(signal.SIGTERM, handle_sigterm)
@@ -47,7 +49,7 @@ async def engine() -> None:
     agents = list_agents(components, config)
 
     # Load plugins.
-    plugin_activators = list_plugins(config)
+    plugins = list_plugins(agents, config)
 
     async with AsyncExitStack() as stack:
         try:
@@ -58,8 +60,7 @@ async def engine() -> None:
             # Init agents.
             await asyncio.gather(*(stack.enter_async_context(a) for a in agents))
             # Init plugins.
-            await asyncio.gather(
-                *(stack.enter_async_context(p(a)) for p in plugin_activators for a in agents))
+            await asyncio.gather(*(stack.enter_async_context(p) for p in plugins))
             # Run configured agents.
             await asyncio.gather(*(run_agent(a, n) for a, n in zip(agents, gen_random_names())))
         except asyncio.CancelledError:

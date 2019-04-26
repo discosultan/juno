@@ -22,12 +22,8 @@
                 "neg_threshold": "-0.25",
                 "pos_threshold": "0.25",
                 "persistence": 4
-            }
-        }
-    ],
-    "plugins": [
-        {
-            "name": "discord"
+            },
+            "plugins": ["discord"]
         }
     ]
 }

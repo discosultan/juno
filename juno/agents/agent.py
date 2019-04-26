@@ -5,6 +5,8 @@ from typing import Any, Awaitable, Callable, Dict, List
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import EventEmitter
 
+_EXCLUDE_FROM_CONFIG = ['name', 'plugins']
+
 
 class Agent:
 
@@ -26,6 +28,7 @@ class Agent:
     async def start(self) -> Any:
         assert self.state != 'running'
         self.state = 'running'
-        result = await self.run(**{k: v for k, v in self.config.items() if k != 'name'})
+        result = await self.run(
+            **{k: v for k, v in self.config.items() if k not in _EXCLUDE_FROM_CONFIG})
         self.state = 'stopped'
         return result

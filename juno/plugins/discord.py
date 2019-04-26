@@ -23,12 +23,12 @@ _log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def activate(agent: Agent, agent_config: Dict[str, Any]) -> AsyncIterator[None]:
+async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator[None]:
     ee = agent.ee
 
     async with Discord(
-            token=agent_config['token'],
-            channel_id=agent_config['channel_id'][type(agent).__name__.lower()]) as client:
+            token=plugin_config['token'],
+            channel_id=plugin_config['channel_id'][type(agent).__name__.lower()]) as client:
 
         @ee.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
@@ -151,7 +151,7 @@ class Discord:
             return await res.json()
 
     @asynccontextmanager
-    @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
+    # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
     async def _ws_connect(self, url: str, **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield ws
