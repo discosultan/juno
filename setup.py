@@ -8,6 +8,7 @@ setup(
         'aiohttp',
         'aiosqlite',
         'backoff',
+        'python-dateutil',
         'simplejson'
     ],
     extras_require={

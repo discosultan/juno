@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import aiohttp
@@ -37,7 +37,7 @@ async def coinbase(loop, config):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
-    start = datetime_timestamp_ms(datetime(2018, 1, 1))
+    start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=timezone.utc))
     stream = exchange.stream_candles(
         symbol='eth-btc',
         interval=HOUR_MS,

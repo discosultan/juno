@@ -1,9 +1,10 @@
 import os
 import re
-from datetime import datetime, timezone
+from datetime import timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
+import dateutil.parser
 import simplejson as json
 
 from juno.time import datetime_timestamp_ms, strpinterval
@@ -50,8 +51,7 @@ def transform(value: Any) -> Any:
         elif re.match(r'\d+(s|m|h)', value):  # Interval
             return strpinterval(value)
         elif re.match(r'\d+-\d+-\d+', value):  # Timestamp
-            return datetime_timestamp_ms(datetime.strptime(value, '%Y-%m-%d')
-                                                 .replace(tzinfo=timezone.utc))
+            return datetime_timestamp_ms(dateutil.parser.parse(value).replace(tzinfo=timezone.utc))
     return value
 
 
