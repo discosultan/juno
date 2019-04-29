@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Mapping, Optional, Set, cast
 import simplejson as json
 from dateutil.parser import isoparse  # type: ignore
 
-from juno.time import datetime_timestamp_ms, strpinterval, UTC
+from juno.time import UTC, datetime_timestamp_ms, strpinterval
 from juno.utils import recursive_iter
 
 

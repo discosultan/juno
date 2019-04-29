@@ -3,7 +3,7 @@ import logging
 import os
 
 from juno.exchanges import Binance
-from juno.time import MIN_MS, HOUR_MS, time_ms
+from juno.time import HOUR_MS, MIN_MS, time_ms
 
 
 async def main():
