@@ -277,11 +277,9 @@ class Binance(Exchange):
                     c = Candle(cd['t'], Decimal(cd['o']), Decimal(cd['h']), Decimal(cd['l']),
                                Decimal(cd['c']), Decimal(cd['v']))
 
-                    # Check whether candle is closed (last candle in a period).
-                    if cd['x']:
-                        yield c, True
-                    else:
-                        yield c, False
+                    # A closed candle is the last candle in a period.
+                    is_closed = cd['x']
+                    yield c, is_closed
 
                     if c.time >= end - interval:
                         return
