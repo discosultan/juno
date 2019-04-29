@@ -258,7 +258,6 @@ class Binance(Exchange):
         # we miss out on the very last update to a candle.
 
         url = f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}'
-        last_candle = None
         while True:
             stream_start = time_ms()
             valid_until = stream_start + HOUR_MS * 12
@@ -274,21 +273,16 @@ class Binance(Exchange):
 
                     data = json.loads(msg.data)
 
-                    c = data['k']
-                    c = Candle(c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']),
-                               Decimal(c['c']), Decimal(c['v']))
+                    cd = data['k']
+                    c = Candle(cd['t'], Decimal(cd['o']), Decimal(cd['h']), Decimal(cd['l']),
+                               Decimal(cd['c']), Decimal(cd['v']))
 
-                    # Since updates are given every second, we are only interested in the last
-                    # update for any particular candle. We keep track of two consecutive candles to
-                    # find the last one for a period. Note that:
-                    #  * we can receive more than one update within a second
-                    #  * event time can be later than candle close time
-                    if last_candle is not None and c.time > last_candle.time:
+                    # Check whether candle is closed (last candle in a period).
+                    if cd['x']:
                         yield c, True
                     else:
                         yield c, False
 
-                    last_candle = c
                     if c.time >= end - interval:
                         return
                     if time_ms() > valid_until:
