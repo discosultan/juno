@@ -6,7 +6,7 @@ from juno import config
 def test_transform():
     input = {
         'name': 'foo',
-        'timestamp': '2000-01-01',
+        'timestamp': '2000-01-01T00:00:00+00:00',
         'interval': '1h',
         'decimal': '1.5',
         'list': [],

@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 
 import aiohttp
@@ -7,7 +7,7 @@ import pytest
 
 from juno import OrderType, Side
 from juno.exchanges import Binance, Coinbase, create_exchange
-from juno.time import HOUR_MS, datetime_timestamp_ms
+from juno.time import HOUR_MS, UTC, datetime_timestamp_ms
 
 exchange_types = [Binance, Coinbase]
 exchanges = [pytest.lazy_fixture(e.__name__.lower()) for e in exchange_types]
@@ -37,7 +37,7 @@ async def coinbase(loop, config):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
-    start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=timezone.utc))
+    start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
     stream = exchange.stream_candles(
         symbol='eth-btc',
         interval=HOUR_MS,

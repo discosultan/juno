@@ -1,16 +1,16 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from juno import time
 
 
 def test_datetime_timestamp_ms():
-    output = time.datetime_timestamp_ms(datetime(2000, 1, 1, tzinfo=timezone.utc))
+    output = time.datetime_timestamp_ms(datetime(2000, 1, 1, tzinfo=time.UTC))
     assert output == 946_684_800_000
 
 
 def test_datetime_utcfromtimestamp_ms():
     output = time.datetime_utcfromtimestamp_ms(946_684_800_000)
-    assert output == datetime(2000, 1, 1, tzinfo=timezone.utc)
+    assert output == datetime(2000, 1, 1, tzinfo=time.UTC)
 
 
 def test_strfinterval():

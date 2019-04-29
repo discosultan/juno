@@ -6,6 +6,7 @@ from juno import Candle, Fill, Fills
 from juno.components import Informant
 from juno.math import adjust_size
 from juno.strategies import new_strategy
+from juno.time import time_ms
 from juno.utils import unpack_symbol
 
 from .agent import Agent
@@ -22,6 +23,7 @@ class Backtest(Agent):
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   quote: Decimal, strategy_config: Dict[str, Any],
                   restart_on_missed_candle: bool = True) -> TradingSummary:
+        assert end <= time_ms()
         assert end > start
         assert quote > 0
 

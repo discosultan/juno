@@ -1,13 +1,12 @@
 import os
 import re
-from datetime import timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
-import dateutil.parser
 import simplejson as json
+from dateutil.parser import isoparse  # type: ignore
 
-from juno.time import datetime_timestamp_ms, strpinterval
+from juno.time import datetime_timestamp_ms, strpinterval, UTC
 from juno.utils import recursive_iter
 
 
@@ -51,7 +50,13 @@ def transform(value: Any) -> Any:
         elif re.match(r'\d+(s|m|h)', value):  # Interval
             return strpinterval(value)
         elif re.match(r'\d+-\d+-\d+', value):  # Timestamp
-            return datetime_timestamp_ms(dateutil.parser.parse(value).replace(tzinfo=timezone.utc))
+            # Naive is handled as UTC.
+            dt = isoparse(value)
+            if dt.tzinfo:
+                dt = dt.astimezone(UTC)
+            else:
+                dt = dt.replace(tzinfo=UTC)
+            return datetime_timestamp_ms(dt)
     return value
 
 

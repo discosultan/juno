@@ -1,4 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime
+from time import time
+
+import dateutil.tz
 
 SEC_MS = 1000
 MIN_MS = 60_000
@@ -10,20 +13,23 @@ YEAR_MS = 31_556_952_000
 
 MAX_TIME_MS = 3000000000000  # Year 2065.
 
+UTC = dateutil.tz.UTC
+
 
 def time_ms() -> int:
     """Returns current time since EPOCH in milliseconds."""
-    seconds = datetime.now().replace(tzinfo=timezone.utc).timestamp()
-    return int(round(seconds * 1000.0))
+    return int(round(time() * 1000.0))
+    # seconds = datetime.timestamp().replace(tzinfo=timezone.utc).timestamp()
+    # return int(round(seconds * 1000.0))
 
 
 def datetime_timestamp_ms(dt: datetime) -> int:
-    assert dt.tzinfo == timezone.utc
+    assert dt.tzinfo == UTC
     return int(round(dt.timestamp() * 1000.0))
 
 
 def datetime_utcfromtimestamp_ms(ms: int) -> datetime:
-    return datetime.utcfromtimestamp(ms / 1000.0).replace(tzinfo=timezone.utc)
+    return datetime.utcfromtimestamp(ms / 1000.0).replace(tzinfo=UTC)
 
 
 # Is assumed to be ordered by values descending.

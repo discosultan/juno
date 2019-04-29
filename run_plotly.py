@@ -2,14 +2,14 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime
 
-import juno.time as time
 import plotly.graph_objs as go
 import plotly.offline as py
 from juno.components import Informant
 from juno.exchanges import Binance, Coinbase
 from juno.storages import Memory, SQLite
+from juno.time import HOUR_MS, UTC, datetime_timestamp_ms, datetime_utcfromtimestamp_ms
 from juno.utils import list_async
 
 
@@ -18,9 +18,9 @@ async def main():
         candles = await list_async(informant.stream_candles(
             'binance',
             'eth-btc',
-            time.HOUR_MS,
-            time.datetime_timestamp_ms(datetime(2017, 1, 1, tzinfo=timezone.utc)),
-            time.datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=timezone.utc))))
+            HOUR_MS,
+            datetime_timestamp_ms(datetime(2017, 1, 1, tzinfo=UTC)),
+            datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))))
 
         candles_map = {c.time: c for c, p in candles}
 
@@ -42,13 +42,13 @@ async def main():
 
     candles = [c for c, p in candles]
     trace1 = go.Ohlc(
-        x=[time.datetime_utcfromtimestamp_ms(c.time) for c in candles],
+        x=[datetime_utcfromtimestamp_ms(c.time) for c in candles],
         open=[c.open for c in candles],
         high=[c.high for c in candles],
         low=[c.low for c in candles],
         close=[c.close for c in candles])
     trace2 = {
-        'x': [time.datetime_utcfromtimestamp_ms(a) for a, b in positions],
+        'x': [datetime_utcfromtimestamp_ms(a) for a, b in positions],
         'y': [candles_map[a].close for a, b in positions],
         'marker': {
             'color': 'green',
@@ -58,7 +58,7 @@ async def main():
         "mode": "markers"
     }
     trace3 = {
-        'x': [time.datetime_utcfromtimestamp_ms(b) for a, b in positions],
+        'x': [datetime_utcfromtimestamp_ms(b) for a, b in positions],
         'y': [candles_map[b].close for a, b in positions],
         'marker': {
             'color': 'red',
