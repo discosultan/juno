@@ -7,7 +7,7 @@ import logging
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 
 import aiohttp
 import simplejson as json
@@ -83,7 +83,7 @@ class Binance(Exchange):
                 price_step=Decimal(price['tickSize']))
         return result
 
-    async def stream_balances(self) -> AsyncIterator[Dict[str, Balance]]:
+    async def stream_balances(self) -> AsyncIterable[Dict[str, Balance]]:
         # Get initial status from REST API.
         res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
         result = {}
@@ -105,7 +105,7 @@ class Binance(Exchange):
                     hold=Decimal(balance['l']))
             yield result
 
-    async def stream_depth(self, symbol: str) -> AsyncIterator[Any]:
+    async def stream_depth(self, symbol: str) -> AsyncIterable[Any]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         async with self._ws_connect(f'/ws/{_ws_symbol(symbol)}@depth') as ws:
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
@@ -139,7 +139,7 @@ class Binance(Exchange):
                 }
                 last_update_id = data['u']
 
-    async def stream_orders(self) -> AsyncIterator[Any]:
+    async def stream_orders(self) -> AsyncIterable[Any]:
         await self._ensure_user_data_stream()
         while True:
             yield True
@@ -236,7 +236,7 @@ class Binance(Exchange):
 
     # TODO: Make sure we don't miss a candle when switching from historical to future.
     async def stream_candles(self, symbol: str, interval: int, start: int, end: int
-                             ) -> AsyncIterator[Tuple[Candle, bool]]:
+                             ) -> AsyncIterable[Tuple[Candle, bool]]:
         current = floor_multiple(time_ms(), interval)
         if start < current:
             async for candle, primary in self._stream_historical_candles(symbol, interval, start,
@@ -247,7 +247,7 @@ class Binance(Exchange):
                 yield candle, primary
 
     async def _stream_historical_candles(self, symbol: str, interval: int, start: int, end: int
-                                         ) -> AsyncIterator[Tuple[Candle, bool]]:
+                                         ) -> AsyncIterable[Tuple[Candle, bool]]:
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             res = await self._request('GET', '/api/v1/klines', data={
@@ -262,7 +262,7 @@ class Binance(Exchange):
                        Decimal(c[5])), True)
 
     async def _stream_future_candles(self, symbol: str, interval: int, end: int
-                                     ) -> AsyncIterator[Tuple[Candle, bool]]:
+                                     ) -> AsyncIterable[Tuple[Candle, bool]]:
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where
