@@ -65,8 +65,8 @@ async def engine() -> None:
             await asyncio.gather(*(run_agent(a, n) for a, n in zip(agents, gen_random_names())))
         except asyncio.CancelledError:
             _log.info('main task cancelled')
-        except Exception as e:
-            _log.error(f'unhandled exception: {e}')
+        except Exception:
+            _log.exception('unhandled exception in main')
             raise
 
 

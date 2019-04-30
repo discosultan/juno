@@ -7,7 +7,7 @@ import logging
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Dict, List, Optional, Tuple
 
 import aiohttp
 import simplejson as json
@@ -62,10 +62,8 @@ class Binance(Exchange):
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        if self._listen_key_refresh_task and self._stream_user_data_task:
-            self._listen_key_refresh_task.cancel()
-            self._stream_user_data_task.cancel()
-            await asyncio.gather(self._stream_user_data_task, self._listen_key_refresh_task)
+        await asyncio.gather(*(_finalize_task(t) for t in (
+            self._sync_clock_task, self._listen_key_refresh_task, self._stream_user_data_task)))
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_symbol_infos(self) -> Dict[str, SymbolInfo]:
@@ -400,3 +398,12 @@ def _interval(interval: int) -> str:
         604_800_000: '1w',
         2_629_746_000: '1M',
     }[interval]
+
+
+def _finalize_task(task: Optional[asyncio.Task[None]]) -> Awaitable[None]:
+    if task:
+        task.cancel()
+        return task
+    res: asyncio.Future[None] = asyncio.Future()
+    res.set_result(None)
+    return res

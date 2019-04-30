@@ -37,6 +37,8 @@ class Wallet:
             await asyncio.gather(*(self._sync_balances(e) for e in self._exchanges.keys()))
         except asyncio.CancelledError:
             _log.info('balance sync task cancelled')
+        except Exception:
+            _log.exception('unhandled exception in balance sync task')
 
     async def _sync_balances(self, exchange: str) -> None:
         async for balances in self._exchanges[exchange].stream_balances():

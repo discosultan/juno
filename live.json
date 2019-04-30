@@ -1,15 +1,12 @@
 {
-    "log_level": "info",
-    "storage": "sqlite",
+    "log_level": "debug",
+    "storage": "memory",
     "agents": [
         {
-            "name": "backtest",
+            "name": "live",
             "exchange": "binance",
-            "symbol": "ada-btc",
-            "start": "2018-01-01",
-            "end": "2019-04-29T10:00",
+            "symbol": "eth-btc",
             "interval": "1h",
-            "quote": "10.0",
             "restart_on_missed_candle": false,
             "strategy_config": {
                 "name": "emaemacx",
@@ -18,7 +15,8 @@
                 "neg_threshold": "-0.25",
                 "pos_threshold": "0.25",
                 "persistence": 4
-            }
+            },
+            "plugins": ["discord"]
         }
     ]
 }

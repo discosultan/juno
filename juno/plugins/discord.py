@@ -127,7 +127,7 @@ class Discord:
         except asyncio.CancelledError:
             _log.info('main task cancelled')
         except Exception:
-            _log.exception('unhandled error in main')
+            _log.exception('unhandled exception in main')
 
     async def _heartbeat(self, ws: ClientWebSocketResponse, interval: int) -> None:
         try:
@@ -142,7 +142,7 @@ class Discord:
         except ConnectionResetError:
             _log.warning('heartbeat connection lost')
         except Exception:
-            _log.exception('unhandled error in heartbeat')
+            _log.exception('unhandled exception in heartbeat')
 
     @retry_on(aiohttp.ClientConnectionError, max_tries=3)
     async def _request(self, method: str, url: str, **kwargs: Any) -> Any:

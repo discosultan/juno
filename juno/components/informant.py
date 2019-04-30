@@ -48,7 +48,7 @@ class Informant:
     def get_symbol_info(self, exchange: str, symbol: str) -> SymbolInfo:
         symbol_info = self._exchange_symbols[exchange].get(symbol)
         if not symbol_info:
-            raise Exception(f"Exchange {exchange} does not support symbol {symbol}")
+            raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
         return symbol_info
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
@@ -112,6 +112,8 @@ class Informant:
                 await asyncio.sleep(DAY_MS / 1000.0)
         except asyncio.CancelledError:
             _log.info('symbol info sync task cancelled')
+        except Exception:
+            _log.exception('unhandled exception in symbol info sync task')
 
     async def _sync_symbol_infos(self, exchange: str) -> None:
         now = time_ms()
