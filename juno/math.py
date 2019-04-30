@@ -18,4 +18,4 @@ def adjust_size(size: Decimal, min_size: Decimal, max_size: Decimal, size_step: 
     if size < min_size:
         return Decimal(0)
     size = min(size, max_size)
-    return size.quantize(size_step, rounding=ROUND_DOWN)
+    return size.quantize(size_step.normalize(), rounding=ROUND_DOWN)
