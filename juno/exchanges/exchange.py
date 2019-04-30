@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, Optional, Tuple
 
-from juno import Balance, Candle, OrderType, Side, SymbolInfo, TimeInForce
+from juno import Balance, Candle, OrderResult, OrderType, Side, SymbolInfo, TimeInForce
 
 
 class Exchange(ABC):
@@ -33,5 +33,5 @@ class Exchange(ABC):
             size: Decimal,
             price: Optional[Decimal] = None,
             time_in_force: Optional[TimeInForce] = None,
-            test: bool = True) -> Any:
+            test: bool = True) -> OrderResult:
         pass
