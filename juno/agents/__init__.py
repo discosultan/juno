@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Set
 
 from .agent import Agent
 from .backtest import Backtest  # noqa
+from .live import Live  # noqa
 from .paper import Paper  # noqa
 
 _agents = {name.lower(): type_ for name, type_

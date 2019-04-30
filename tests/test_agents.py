@@ -2,8 +2,8 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, Fill, Fills, SymbolInfo
-from juno.agents import Agent, Backtest, Paper, list_required_component_names
+from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, SymbolInfo
+from juno.agents import Agent, Backtest, Live, Paper, list_required_component_names
 from juno.agents.summary import Position
 from juno.components import Orderbook
 from juno.time import HOUR_MS
@@ -123,11 +123,9 @@ async def test_paper(loop):
             Decimal(10): Decimal(2),  # 2.
         }
     }
-    orderbook = FakeOrderbook({
-        'dummy': {
-            'eth-btc': orderbook_data
-        }
-    }, update_on_find=True)
+    orderbook = FakeOrderbook(
+        orderbooks={'dummy': {'eth-btc': orderbook_data}},
+        update_on_find=True)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -147,6 +145,69 @@ async def test_paper(loop):
 
     async with Paper(components={'informant': informant, 'orderbook': orderbook},
                      agent_config=agent_config) as agent:
+        res = await agent.start()
+
+    assert res
+    assert len(orderbook_data['asks']) == 0
+    assert len(orderbook_data['bids']) == 0
+
+
+async def test_live(loop):
+    informant = FakeInformant(
+        fees=Fees(Decimal(0), Decimal(0)),
+        symbol_info=SymbolInfo(
+            min_size=Decimal(1), max_size=Decimal(10000), size_step=Decimal(1),
+            min_price=Decimal(1), max_price=Decimal(10000), price_step=Decimal(1)),
+        candles=[
+            Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
+            Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
+            # 1. Long. Size 5 + 1.
+            Candle(2, Decimal(1), Decimal(1), Decimal(1), Decimal(30), Decimal(1)),
+            Candle(3, Decimal(1), Decimal(1), Decimal(1), Decimal(20), Decimal(1)),
+            # 2. Short. Size 4 + 2.
+        ])
+    orderbook_data = {
+        'asks': {
+            Decimal(10): Decimal(5),  # 1.
+            Decimal(50): Decimal(1),  # 1.
+        },
+        'bids': {
+            Decimal(20): Decimal(4),  # 2.
+            Decimal(10): Decimal(2),  # 2.
+        }
+    }
+    orderbook = FakeOrderbook(
+        orderbooks={'dummy': {'eth-btc': orderbook_data}},
+        update_on_find=True,
+        place_order_results=[
+            OrderResult(Fills([
+                Fill(Decimal(20), Decimal(4), Decimal(0), 'eth'),
+                Fill(Decimal(10), Decimal(2), Decimal(0), 'eth'),
+            ])),
+            OrderResult(Fills([
+                Fill(Decimal(10), Decimal(5), Decimal(0), 'btc'),
+                Fill(Decimal(50), Decimal(1), Decimal(0), 'btc'),
+            ]))
+        ])
+    wallet = FakeWallet({'dummy': {'btc': Balance(available=Decimal(100), hold=Decimal(50))}})
+    agent_config = {
+        'exchange': 'dummy',
+        'symbol': 'eth-btc',
+        'interval': 1,
+        'end': 4,
+        'strategy_config': {
+            'name': 'emaemacx',
+            'short_period': 1,
+            'long_period': 2,
+            'neg_threshold': Decimal(-1),
+            'pos_threshold': Decimal(1),
+            'persistence': 0
+        },
+        'get_time': FakeTime()
+    }
+
+    async with Live(components={'informant': informant, 'orderbook': orderbook, 'wallet': wallet},
+                    agent_config=agent_config) as agent:
         res = await agent.start()
 
     assert res
@@ -218,9 +279,10 @@ class FakeInformant:
 
 class FakeOrderbook(Orderbook):
 
-    def __init__(self, orderbooks, update_on_find=False):
+    def __init__(self, orderbooks, update_on_find, place_order_results=None):
         self._orderbooks = orderbooks
         self._update_on_find = update_on_find
+        self._place_order_results = place_order_results
 
     def find_market_order_asks(self, exchange, symbol, quote_balance, symbol_info, fees):
         asks = super().find_market_order_asks(exchange, symbol, quote_balance, symbol_info, fees)
@@ -234,14 +296,25 @@ class FakeOrderbook(Orderbook):
             self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
         return bids
 
-    async def place_order(self, *args, **kwargs):
-        pass
+    async def place_order(self, exchange, symbol, side, size, test):
+        if self._place_order_results is not None:
+            return self._place_order_results.pop()
+        return OrderResult(Fills())
 
     def _remove_from_side(self, side, fills):
         for fill in fills:
             side[fill.price] -= fill.size
             if side[fill.price] == Decimal(0):
                 del side[fill.price]
+
+
+class FakeWallet:
+
+    def __init__(self, exchange_balances):
+        self._exchange_balances = exchange_balances
+
+    def get_balance(self, exchange, asset):
+        return self._exchange_balances[exchange][asset]
 
 
 def FakeTime():

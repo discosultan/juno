@@ -12,7 +12,8 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Tuple
 import aiohttp
 import simplejson as json
 
-from juno import Balance, Candle, OrderType, Side, SymbolInfo, TimeInForce, Trade
+from juno import (Balance, Candle, Fill, Fills, OrderResult, OrderType, Side, SymbolInfo,
+                  TimeInForce, Trade)
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import HOUR_MS, MIN_MS, time_ms
@@ -201,7 +202,7 @@ class Binance(Exchange):
             size: Decimal,
             price: Optional[Decimal] = None,
             time_in_force: Optional[TimeInForce] = None,
-            test: bool = True) -> Any:
+            test: bool = True) -> OrderResult:
         data = {
             'symbol': _http_symbol(symbol),
             'side': side.name,
@@ -214,8 +215,18 @@ class Binance(Exchange):
             data['timeInForce'] = time_in_force.name
         url = f'/api/v3/order{"/test" if test else ""}'
         res = await self._request('POST', url, data=data, security=_SEC_TRADE)
-        return res
-        # return OrderResult(res['price'], res['executedQty'])
+        if test:
+            return OrderResult(Fills())
+        return OrderResult(
+            fills=Fills([
+                Fill(
+                    price=Decimal(f['price']),
+                    size=Decimal(f['qty']),
+                    fee=Decimal(f['commission']),
+                    fee_asset=f['commissionAsset'].lower()
+                ) for f in res['fills']
+            ])
+        )
 
     async def get_trades(self, symbol: str) -> List[Trade]:
         url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'

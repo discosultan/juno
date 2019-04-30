@@ -10,7 +10,6 @@ from juno.time import datetime_utcfromtimestamp_ms
 AccountInfo = namedtuple('AccountInfo', ['time', 'base_balance', 'quote_balance', 'fees'])
 # BidAsk = namedtuple('BidAsk', ['price', 'size'])
 # Depth = namedtuple('Depth', ['bids', 'asks'])
-OrderResult = namedtuple('OrderResult', ['price', 'executed_size'])
 Trade = namedtuple('Trade', ['price', 'size', 'commission', 'commission_asset', 'is_buyer'])
 
 
@@ -120,3 +119,7 @@ class Fills(List[Fill]):
             raise NotImplementedError('implement support for different fee assets')
 
         return sum((f.fee for f in self), Decimal(0))
+
+
+class OrderResult(NamedTuple):
+    fills: Fills
