@@ -18,7 +18,7 @@ from juno.typing import ExcType, ExcValue, Traceback
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 7
+_VERSION = 8
 
 
 def _serialize_decimal(d: Decimal) -> bytes:
