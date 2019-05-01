@@ -1,10 +1,11 @@
 from decimal import Decimal
 
 import pytest
+import simplejson as json
 
 from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, SymbolInfo
 from juno.agents import Agent, Backtest, Live, Paper, list_required_component_names
-from juno.agents.summary import Position
+from juno.agents.summary import Position, TradingSummary
 from juno.components import Orderbook
 from juno.time import HOUR_MS
 
@@ -235,6 +236,24 @@ def test_position():
     assert pos.start == 0
     assert pos.end == 1
     # TODO: assert roi and yearly roi
+
+
+def test_summary():
+    summary = TradingSummary(
+        exchange='binance',
+        symbol='eth-btc',
+        interval=HOUR_MS,
+        start=0,
+        end=10,
+        quote=Decimal(100),
+        fees=Fees(*([Decimal(1)] * 2)),
+        symbol_info=SymbolInfo(*([Decimal(1)] * 6)))
+    summary.append_candle(Candle(0, *([Decimal(1)] * 5)))
+    summary.append_position(Position(
+        time=0,
+        fills=Fills([Fill(*([Decimal(1)] * 3), 'eth')])
+    ))
+    json.dumps(summary, default=lambda o: o.__dict__, use_decimal=True)
 
 
 def test_list_required_component_names():

@@ -102,6 +102,8 @@ class Live(Agent):
         if last_candle is not None and self.open_position:
             await self._close_position(last_candle)
 
+        await self.ee.emit('finished', self.summary)
+
         return self.summary
 
     async def _try_open_position(self, candle: Candle) -> bool:

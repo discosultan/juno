@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import math
 import random
 from collections import defaultdict
@@ -73,7 +74,7 @@ def retry_on(exception: Type[Exception],
                 backoff.on_exception(backoff.expo, exception, max_tries=max_tries))
 
 
-def gen_random_names() -> Iterable[str]:
+def gen_random_names() -> Iterator[str]:
     random_words = [
         'custumal', 'nummary', 'bamboozlement', 'bider', 'ellipticity', 'unscribbled', 'dampishly',
         'insincerity', 'vaticide', 'qualifiedness', 'tolerableness', 'dolph', 'olethreutid',
@@ -91,7 +92,7 @@ def gen_random_names() -> Iterable[str]:
         'bogarde', 'jerrid', 'recategorized', 'intercarotid', 'eurypterid', 'fluidics', 'charity',
         'underwork', 'skill', 'actionable', 'judith'
     ]
-    return sorted(iter(random_words), key=lambda _: random.random())
+    return itertools.cycle(sorted(iter(random_words), key=lambda _: random.random()))
 
 
 def unpack_symbol(symbol: str) -> Tuple[str, str]:

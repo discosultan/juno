@@ -73,24 +73,25 @@ async def main():
 
 @asynccontextmanager
 async def new_informat():
-    async with Binance(os.environ['JUNO__BINANCE__API_KEY'],
-                       os.environ['JUNO__BINANCE__SECRET_KEY']) as binance:
-        async with Coinbase(os.environ['JUNO__COINBASE__API_KEY'],
-                            os.environ['JUNO__COINBASE__SECRET_KEY'],
-                            os.environ['JUNO__COINBASE__PASSPHRASE']) as coinbase:
-            async with SQLite() as sqlite:
-                async with Memory() as memory:
-                    services = {
-                        'memory': memory,
-                        'sqlite': sqlite,
-                        'binance': binance,
-                        'coinbase': coinbase
-                    }
-                    config = {
-                        'storage': 'sqlite'
-                    }
-                    async with Informant(services, config) as informant:
-                        yield informant
+    binance = Binance(os.environ['JUNO__BINANCE__API_KEY'],
+                      os.environ['JUNO__BINANCE__SECRET_KEY'])
+    coinbase = Coinbase(os.environ['JUNO__COINBASE__API_KEY'],
+                        os.environ['JUNO__COINBASE__SECRET_KEY'],
+                        os.environ['JUNO__COINBASE__PASSPHRASE'])
+    sqlite = SQLite()
+    memory = Memory()
+    async with binance, coinbase, sqlite, memory:
+        services = {
+            'memory': memory,
+            'sqlite': sqlite,
+            'binance': binance,
+            'coinbase': coinbase
+        }
+        config = {
+            'storage': 'sqlite'
+        }
+        async with Informant(services, config) as informant:
+            yield informant
 
 logging.basicConfig(level='INFO')
 asyncio.run(main())
