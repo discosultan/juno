@@ -38,8 +38,14 @@ class Backtest(Agent):
         self.symbol_info = informant.get_symbol_info(exchange, symbol)
         _log.info(f'Symbol info: {self.symbol_info}')
 
-        self.result = TradingSummary(exchange, symbol, interval, start, end, quote, self.fees,
-                                     self.symbol_info)
+        self.result = TradingSummary(
+            exchange=exchange,
+            symbol=symbol,
+            interval=interval,
+            start=start,
+            quote=quote,
+            fees=self.fees,
+            symbol_info=self.symbol_info)
         self.open_position = None
         restart_count = 0
 

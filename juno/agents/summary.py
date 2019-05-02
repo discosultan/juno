@@ -90,25 +90,24 @@ class Position:
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
 
-    def __init__(self, exchange: str, symbol: str, interval: int, start: int, end: int,
-                 quote: Decimal, fees: Fees, symbol_info: SymbolInfo) -> None:
+    def __init__(self, exchange: str, symbol: str, interval: int, start: int, quote: Decimal,
+                 fees: Fees, symbol_info: SymbolInfo) -> None:
         self.exchange = exchange
         self.symbol = symbol
         self.interval = interval
         self.start = start
-        self.end = end
         self.quote = quote
         self.fees = fees
         self.symbol_info = symbol_info
 
-        self.candles: List[Candle] = []
+        # self.candles: List[Candle] = []
         self.positions: List[Position] = []
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
 
     def append_candle(self, candle: Candle) -> None:
-        self.candles.append(candle)
-        if self.first_candle is None:
+        # self.candles.append(candle)
+        if not self.first_candle:
             self.first_candle = candle
         self.last_candle = candle
 
@@ -134,6 +133,12 @@ class TradingSummary:
         return f'{type(self).__name__} {self.__dict__}'
 
     @property
+    def end(self) -> int:
+        if self.last_candle:
+            return self.last_candle.time + self.interval
+        return 0
+
+    @property
     def start_balance(self) -> Decimal:
         return self.quote
 
@@ -157,10 +162,7 @@ class TradingSummary:
 
     @property
     def duration(self) -> int:
-        # if not self.first_candle or not self.last_candle:
-        #     return 0
-        # return self.last_candle.time - self.first_candle.time + self.interval
-        return self.end - self.start
+        return self.end - self.start if self.end > 0 else 0
 
     @property
     def yearly_roi(self) -> Decimal:

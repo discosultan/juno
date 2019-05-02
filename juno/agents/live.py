@@ -1,6 +1,8 @@
 import logging
 from typing import Any, Callable, Dict, Optional
 
+import simplejson as json
+
 from juno import Candle, Side
 from juno.components import Informant, Orderbook, Wallet
 from juno.math import floor_multiple
@@ -45,8 +47,14 @@ class Live(Agent):
         self.quote = self.wallet.get_balance(exchange, self.quote_asset).available
         _log.info(f'Available balance: {self.quote} {self.quote_asset}')
 
-        self.result = TradingSummary(exchange, symbol, interval, now, end, self.quote, self.fees,
-                                     self.symbol_info)
+        self.result = TradingSummary(
+            exchange=exchange,
+            symbol=symbol,
+            interval=interval,
+            start=now,
+            quote=self.quote,
+            fees=self.fees,
+            symbol_info=self.symbol_info)
         self.open_position = None
         restart_count = 0
 
@@ -102,6 +110,7 @@ class Live(Agent):
     async def finalize(self) -> None:
         if self.last_candle and self.open_position:
             await self._close_position(self.last_candle)
+        _log.info(json.dumps(self.result, default=lambda o: o.__dict__, use_decimal=True))
 
     async def _try_open_position(self, candle: Candle) -> bool:
         asks = self.orderbook.find_market_order_asks(self.exchange, self.symbol, self.quote,

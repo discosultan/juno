@@ -12,9 +12,16 @@ from .utils import full_path
 
 
 def get_dummy_trading_summary():
-    ap_info = SymbolInfo(Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0), Decimal(0))
+    symbol_info = SymbolInfo(*([Decimal(0)] * 6))
     fees = Fees(Decimal(0), Decimal(0))
-    return TradingSummary('dummy_exchange', 'eth-btc', HOUR_MS, 0, 1, Decimal(1), fees, ap_info)
+    return TradingSummary(
+        exchange='dummy_exchange',
+        symbol='eth-btc',
+        interval=HOUR_MS,
+        start=0,
+        quote=Decimal(1),
+        fees=fees,
+        symbol_info=symbol_info)
 
 
 class Dummy(Agent):
@@ -40,15 +47,15 @@ async def test_discord(loop, request, config, agent: Agent):
             fills=Fills([
                 Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='btc')
             ]))
-        await ee.emit('position_opened', agent, pos)
+        await ee.emit('position_opened', pos)
         candle = Candle(HOUR_MS, Decimal(0), Decimal(0), Decimal(0), Decimal(2), Decimal(10))
         pos.close(
             time=candle.time,
             fills=Fills([
                 Fill(price=Decimal(2), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
             ]))
-        await ee.emit('position_closed', agent, pos)
-        await ee.emit('finished', agent)
+        await ee.emit('position_closed', pos)
+        await ee.emit('finished')
         await ee.emit('img_saved', full_path('/data/dummy_img.png'))
 
 

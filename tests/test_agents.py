@@ -244,7 +244,6 @@ def test_summary():
         symbol='eth-btc',
         interval=HOUR_MS,
         start=0,
-        end=10,
         quote=Decimal(100),
         fees=Fees(*([Decimal(1)] * 2)),
         symbol_info=SymbolInfo(*([Decimal(1)] * 6)))
