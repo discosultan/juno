@@ -6,7 +6,6 @@ from .di import DI  # noqa
 from .dm import DM  # noqa
 from .dx import DX  # noqa
 from .ema import Ema  # noqa
-from .ema2 import Ema2  # noqa
 from .macd import Macd  # noqa
 from .rsi import Rsi  # noqa
 from .sma import Sma  # noqa
