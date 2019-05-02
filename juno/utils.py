@@ -3,6 +3,7 @@ import itertools
 import math
 import random
 from collections import defaultdict
+from pathlib import Path
 from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
                     List, Optional, Tuple, Type, TypeVar, cast)
 
@@ -98,6 +99,12 @@ def gen_random_names() -> Iterator[str]:
 def unpack_symbol(symbol: str) -> Tuple[str, str]:
     index_of_separator = symbol.find('-')
     return symbol[:index_of_separator], symbol[index_of_separator + 1:]
+
+
+def home_path() -> Path:
+    path = Path(Path.home(), '.juno')
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.

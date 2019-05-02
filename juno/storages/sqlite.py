@@ -4,7 +4,6 @@ import logging
 import sqlite3
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from pathlib import Path
 from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple,
                     get_type_hints)
 
@@ -14,6 +13,7 @@ from aiosqlite import Connection, connect
 from juno import Candle, Span
 from juno.time import time_ms
 from juno.typing import ExcType, ExcValue, Traceback
+from juno.utils import home_path
 
 _log = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class SQLite:
     async def _connect(self, key: Any) -> AsyncIterator[Connection]:
         name = _normalize_key(key)
         _log.info(f'connecting to {key}')
-        name = str(_get_home().joinpath(f'v{_VERSION}_{name}.db'))
+        name = str(home_path().joinpath(f'v{_VERSION}_{name}.db'))
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 
@@ -136,12 +136,6 @@ def _normalize_key(key: Any) -> str:
         return '_'.join(map(str, key))
     else:
         raise NotImplementedError()
-
-
-def _get_home() -> Path:
-    path = Path(Path.home(), '.juno')
-    path.mkdir(parents=True, exist_ok=True)
-    return path
 
 
 async def _create_table(db: Any, type: type) -> None:
