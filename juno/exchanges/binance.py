@@ -226,6 +226,14 @@ class Binance(Exchange):
             ])
         )
 
+    async def cancel_order(self, symbol: str, id_: int) -> Any:
+        data = {
+            'symbol': _http_symbol(symbol),
+            'orderId': id_
+        }
+        res = await self._request('DELETE', '/api/v3/order', data=data, security=_SEC_TRADE)
+        return res
+
     async def get_trades(self, symbol: str) -> List[Trade]:
         url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'
         result = await self._request('GET', url, 5)

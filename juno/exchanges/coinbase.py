@@ -205,6 +205,9 @@ class Coinbase(Exchange):
             test: bool = True) -> Any:
         raise NotImplementedError()
 
+    async def cancel_order(self, symbol: str, id_: int) -> Any:
+        raise NotImplementedError()
+
     def _ensure_stream_open(self):
         if not self._stream_task:
             self._stream_task = asyncio.create_task(self._stream())

@@ -35,3 +35,7 @@ class Exchange(ABC):
             time_in_force: Optional[TimeInForce] = None,
             test: bool = True) -> OrderResult:
         pass
+
+    @abstractmethod
+    async def cancel_order(self, symbol: str, id_: int) -> Any:
+        pass
