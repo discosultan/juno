@@ -9,7 +9,7 @@ import aiohttp
 import simplejson as json
 
 from juno.agents import Agent
-from juno.agents.summary import Position, TradingSummary
+from juno.agents.summary import Position
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, retry_on
@@ -33,14 +33,16 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
         @ee.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
             await client.post_msg(f'Opened a position:\n```\n{pos}\n```')
+            await client.post_msg(f'Summary so far:\n```\n{agent.result}\n```')
 
         @ee.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
             await client.post_msg(f'Closed a position:\n```\n{pos}\n```')
+            await client.post_msg(f'Summary so far:\n```\n{agent.result}\n```')
 
-        @ee.on('summary')
-        async def on_summary(summary: TradingSummary) -> None:
-            await client.post_msg(f'Trading summary:\n```\n{summary}\n```')
+        @ee.on('finished')
+        async def on_finished() -> None:
+            await client.post_msg(f'Agent finished. Summary:\n```\n{agent.result}\n```')
 
         @ee.on('img_saved')
         async def on_image_saved(path: str) -> None:

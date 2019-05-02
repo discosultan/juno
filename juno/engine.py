@@ -5,13 +5,12 @@ import sys
 from contextlib import AsyncExitStack
 from types import FrameType
 
-from juno.agents import Agent, list_agents, list_required_component_names
+from juno.agents import list_agents, list_required_component_names
 from juno.components import map_components
 from juno.config import list_required_names, load_from_env, load_from_json_file
 from juno.exchanges import map_exchanges
 from juno.plugins import list_plugins
 from juno.storages import map_storages
-from juno.utils import gen_random_names
 
 _log = logging.getLogger(__name__)
 
@@ -62,24 +61,19 @@ async def engine() -> None:
             # Init plugins.
             await asyncio.gather(*(stack.enter_async_context(p) for p in plugins))
             # Run configured agents.
-            await asyncio.gather(*(run_agent(a, n) for a, n in zip(agents, gen_random_names())))
+            await asyncio.gather(*(a.start() for a in agents))
         except asyncio.CancelledError:
             _log.info('main task cancelled')
         except Exception:
             _log.exception('unhandled exception in main')
             raise
 
+    _log.info('main finished')
+
 
 def handle_sigterm(signalnum: int, frame: FrameType) -> None:
     _log.info(f'SIGTERM terminating the process')
     sys.exit()
-
-
-async def run_agent(agent: Agent, name: str) -> None:
-    type_name = type(agent).__name__.lower()
-    _log.info(f'running {name} ({type_name}): {agent.config}')
-    result = await agent.start()
-    _log.info(f'{name} ({type_name}) finished: {result}')
 
 
 try:

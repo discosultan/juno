@@ -22,7 +22,7 @@ class Backtest(Agent):
 
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   quote: Decimal, strategy_config: Dict[str, Any],
-                  restart_on_missed_candle: bool = True) -> TradingSummary:
+                  restart_on_missed_candle: bool = True) -> None:
         assert end <= time_ms()
         assert end > start
         assert quote > 0
@@ -38,13 +38,13 @@ class Backtest(Agent):
         self.symbol_info = informant.get_symbol_info(exchange, symbol)
         _log.info(f'Symbol info: {self.symbol_info}')
 
-        self.summary = TradingSummary(exchange, symbol, interval, start, end, quote, self.fees,
-                                      self.symbol_info)
+        self.result = TradingSummary(exchange, symbol, interval, start, end, quote, self.fees,
+                                     self.symbol_info)
         self.open_position = None
         restart_count = 0
 
         while True:
-            last_candle = None
+            self.last_candle = None
             restart = False
 
             strategy = new_strategy(strategy_config)
@@ -66,12 +66,12 @@ class Backtest(Agent):
                 if not primary:
                     continue
 
-                self.summary.append_candle(candle)
+                self.result.append_candle(candle)
 
                 # Check if we have missed a candle.
-                if last_candle and candle.time - last_candle.time >= interval * 2:
-                    _log.warning(f'missed candle(s); last candle {last_candle}; current candle '
-                                 f'{candle}')
+                if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
+                    _log.warning(f'missed candle(s); last candle {self.last_candle}; current '
+                                 f'candle {candle}')
                     if restart_on_missed_candle:
                         _log.info('restarting strategy')
                         start = candle.time
@@ -79,7 +79,7 @@ class Backtest(Agent):
                         restart_count += 1
                         break
 
-                last_candle = candle
+                self.last_candle = candle
                 advice = strategy.update(candle)
 
                 if not self.open_position and advice == 1:
@@ -92,10 +92,9 @@ class Backtest(Agent):
             if not restart:
                 break
 
-        if last_candle is not None and self.open_position:
-            self._close_position(last_candle)
-
-        return self.summary
+    async def finalize(self) -> None:
+        if self.last_candle and self.open_position:
+            self._close_position(self.last_candle)
 
     def _try_open_position(self, candle: Candle) -> bool:
         price = candle.close
@@ -133,7 +132,7 @@ class Backtest(Agent):
             time=candle.time,
             fills=Fills([
                 Fill(price=price, size=size, fee=fee, fee_asset=self.quote_asset)]))
-        self.summary.append_position(self.open_position)
+        self.result.append_position(self.open_position)
         self.open_position = None
 
         self.quote = quote - fee

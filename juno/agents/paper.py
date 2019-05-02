@@ -22,7 +22,7 @@ class Paper(Agent):
     async def run(self, exchange: str, symbol: str, interval: int, quote: Decimal,
                   strategy_config: Dict[str, Any], end: int = MAX_TIME_MS,
                   restart_on_missed_candle: bool = True,
-                  get_time: Optional[Callable[[], int]] = None) -> TradingSummary:
+                  get_time: Optional[Callable[[], int]] = None) -> None:
         if not get_time:
             get_time = time_ms
 
@@ -43,13 +43,13 @@ class Paper(Agent):
         self.symbol_info = informant.get_symbol_info(exchange, symbol)
         _log.info(f'Symbol info: {self.symbol_info}')
 
-        self.summary = TradingSummary(exchange, symbol, interval, now, end, quote, self.fees,
-                                      self.symbol_info)
+        self.result = TradingSummary(exchange, symbol, interval, now, end, quote, self.fees,
+                                     self.symbol_info)
         self.open_position = None
         restart_count = 0
 
         while True:
-            last_candle = None
+            self.last_candle = None
             restart = False
 
             strategy = new_strategy(strategy_config)
@@ -71,12 +71,12 @@ class Paper(Agent):
                 if not primary:
                     continue
 
-                self.summary.append_candle(candle)
+                self.result.append_candle(candle)
 
                 # Check if we have missed a candle.
-                if last_candle and candle.time - last_candle.time >= interval * 2:
-                    _log.warning(f'missed candle(s); last candle {last_candle}; current candle '
-                                 f'{candle}')
+                if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
+                    _log.warning(f'missed candle(s); last candle {self.last_candle}; current '
+                                 f'candle {candle}')
                     if restart_on_missed_candle:
                         _log.info('restarting strategy')
                         start = candle.time
@@ -84,7 +84,7 @@ class Paper(Agent):
                         restart_count += 1
                         break
 
-                last_candle = candle
+                self.last_candle = candle
                 advice = strategy.update(candle)
 
                 if not self.open_position and advice == 1:
@@ -97,10 +97,9 @@ class Paper(Agent):
             if not restart:
                 break
 
-        if last_candle is not None and self.open_position:
-            await self._close_position(last_candle)
-
-        return self.summary
+    async def finalize(self) -> None:
+        if self.last_candle and self.open_position:
+            await self._close_position(self.last_candle)
 
     async def _try_open_position(self, candle: Candle) -> bool:
         asks = self.orderbook.find_market_order_asks(self.exchange, self.symbol, self.quote,
@@ -139,8 +138,7 @@ class Paper(Agent):
         position = self.open_position
         self.open_position = None
         position.close(candle.time, bids)
-        self.summary.append_position(position)
+        self.result.append_position(position)
         self.quote += bids.total_quote - bids.total_fee
 
         await self.ee.emit('position_closed', position)
-        await self.ee.emit('summary', self.summary)

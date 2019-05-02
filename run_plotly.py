@@ -6,6 +6,7 @@ from datetime import datetime
 
 import plotly.graph_objs as go
 import plotly.offline as py
+
 from juno.components import Informant
 from juno.exchanges import Binance, Coinbase
 from juno.storages import Memory, SQLite
@@ -48,24 +49,24 @@ async def main():
         low=[c.low for c in candles],
         close=[c.close for c in candles])
     trace2 = {
-        'x': [datetime_utcfromtimestamp_ms(a) for a, b in positions],
-        'y': [candles_map[a].close for a, b in positions],
+        'x': [datetime_utcfromtimestamp_ms(a) for a, _ in positions],
+        'y': [candles_map[a].close for a, _ in positions],
         'marker': {
             'color': 'green',
             'size': 12
         },
-        "type": "scatter",
-        "mode": "markers"
+        'type': 'scatter',
+        'mode': 'markers'
     }
     trace3 = {
-        'x': [datetime_utcfromtimestamp_ms(b) for a, b in positions],
-        'y': [candles_map[b].close for a, b in positions],
+        'x': [datetime_utcfromtimestamp_ms(b) for _, b in positions],
+        'y': [candles_map[b].close for _, b in positions],
         'marker': {
             'color': 'red',
             'size': 12
         },
-        "mode": "markers",
-        "type": "scatter"
+        'mode': 'markers',
+        'type': 'scatter'
     }
     data = [trace1, trace2, trace3]
     py.plot(data)
