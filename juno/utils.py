@@ -5,7 +5,7 @@ import random
 from collections import defaultdict
 from pathlib import Path
 from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
-                    List, Optional, Tuple, Type, TypeVar, cast)
+                    List, Optional, Tuple, Type, TypeVar, Union, cast)
 
 import backoff
 
@@ -105,6 +105,16 @@ def home_path() -> Path:
     path = Path(Path.home(), '.juno')
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+# Ref: https://stackoverflow.com/a/10632356/1466456
+def flatten(items: List[Union[T, List[T]]]) -> Iterable[T]:
+    for item in items:
+        if isinstance(item, list):
+            for subitem in item:
+                yield subitem
+        else:
+            yield item
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from juno import Candle
 from juno.indicators import Ema
 from juno.utils import Trend
@@ -7,8 +9,8 @@ from .strategy import Strategy
 
 class EmaEmaCX(Strategy):
 
-    def __init__(self, short_period: int, long_period: int, neg_threshold: float,
-                 pos_threshold: float, persistence: int) -> None:
+    def __init__(self, short_period: int, long_period: int, neg_threshold: Decimal,
+                 pos_threshold: Decimal, persistence: int) -> None:
         if neg_threshold > 0.0 or pos_threshold < 0.0:
             raise ValueError(f'Neg threshold ({neg_threshold}) must be negative; pos threshold '
                              f'({pos_threshold}) positive')

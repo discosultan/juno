@@ -57,6 +57,12 @@ def test_unpack_symbol():
     assert utils.unpack_symbol('eth-btc') == ('eth', 'btc')
 
 
+def test_flatten():
+    expected_output = [35, 53, 525, 6743, 64, 63, 743, 754, 757]
+    output = list(utils.flatten([35, 53, [525, 6743], 64, 63, [743, 754, 757]]))
+    assert output == expected_output
+
+
 async def test_barrier(loop):
     barrier = utils.Barrier(2)
     event = asyncio.Event()

@@ -8,6 +8,7 @@ setup(
         'aiohttp',
         'aiosqlite',
         'backoff',
+        'deap',
         'python-dateutil',
         'simplejson'
     ],
