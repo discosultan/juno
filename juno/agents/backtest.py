@@ -32,7 +32,7 @@ class Backtest(Agent):
 
         informant: Informant = self.components['informant']
 
-        self.fees = informant.get_fees(exchange)
+        self.fees = informant.get_fees(exchange, symbol)
         _log.info(f'Fees: {self.fees}')
 
         self.symbol_info = informant.get_symbol_info(exchange, symbol)

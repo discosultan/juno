@@ -35,17 +35,11 @@ async def coinbase(loop, config):
 
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_stream_candles(loop, request, exchange):
+async def test_map_fees(loop, request, exchange):
     skip_non_configured(request, exchange)
-    start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
-    stream = exchange.stream_candles(
-        symbol='eth-btc',
-        interval=HOUR_MS,
-        start=start,
-        end=start + HOUR_MS)
-    await stream.__anext__()
-    with pytest.raises(StopAsyncIteration):
-        await stream.__anext__()
+    skip_exchange(exchange, Coinbase)
+    res = await exchange.map_fees()
+    assert res
 
 
 @pytest.mark.manual
@@ -66,6 +60,25 @@ async def test_stream_balances(loop, request, exchange):
 
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_stream_candles(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
+    stream = exchange.stream_candles(
+        symbol='eth-btc',
+        interval=HOUR_MS,
+        start=start,
+        end=start + HOUR_MS)
+    candle, _ = await stream.__anext__()
+
+    assert isinstance(candle.time, int)
+    assert isinstance(candle.close, Decimal)
+
+    with pytest.raises(StopAsyncIteration):
+        await stream.__anext__()
+
+
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_depth(loop, request, exchange):
     skip_non_configured(request, exchange)
     stream = exchange.stream_depth('eth-btc')
@@ -77,8 +90,7 @@ async def test_stream_depth(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_place_order(loop, request, exchange):
     skip_non_configured(request, exchange)
-    if type(exchange) is Coinbase:
-        pytest.skip('not implemented')
+    skip_exchange(exchange, Coinbase)
     await exchange.place_order(
         symbol='eth-btc',
         side=Side.BUY,
@@ -93,6 +105,12 @@ def skip_non_configured(request, exchange):
                     "with external exchanges")
     if not exchange:
         pytest.skip("Exchange params not configured")
+
+
+def skip_exchange(exchange, *skip_exchange_types):
+    type_ = type(exchange)
+    if type_ in skip_exchange_types:
+        pytest.skip(f'not implemented for {type_.__name__.lower()}')
 
 
 @asynccontextmanager

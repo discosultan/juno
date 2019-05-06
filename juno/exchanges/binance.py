@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import hmac
 import logging
+import math
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -12,7 +13,7 @@ from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Dict, List, Opt
 import aiohttp
 import simplejson as json
 
-from juno import (Balance, Candle, Fill, Fills, OrderResult, OrderType, Side, SymbolInfo,
+from juno import (Balance, Candle, Fees, Fill, Fills, OrderResult, OrderType, Side, SymbolInfo,
                   TimeInForce, Trade)
 from juno.http import ClientSession
 from juno.math import floor_multiple
@@ -65,6 +66,11 @@ class Binance(Exchange):
         await asyncio.gather(*(_finalize_task(t) for t in (
             self._sync_clock_task, self._listen_key_refresh_task, self._stream_user_data_task)))
         await self._session.__aexit__(exc_type, exc, tb)
+
+    async def map_fees(self) -> Dict[str, Fees]:
+        res = await self._request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA)
+        return {_from_symbol(fee['symbol']): Fees(maker=fee['maker'], taker=fee['taker'])
+                for fee in res['tradeFee']}
 
     async def map_symbol_infos(self) -> Dict[str, SymbolInfo]:
         res = await self._request('GET', '/api/v1/exchangeInfo')
@@ -354,7 +360,7 @@ class Binance(Exchange):
             kwargs['params' if method == 'GET' else 'data'] = data
 
         async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as res:
-            return await res.json()
+            return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
 
     @asynccontextmanager
     # TODO: Figure out how to backoff an asynccontextmanager.
@@ -385,6 +391,24 @@ def _http_symbol(symbol: str) -> str:
 
 def _ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '')
+
+
+def _from_symbol(symbol: str) -> str:
+    # TODO: May be incorrect! We can't systematically know which part is base and which is quote
+    # since there is no separator used. We simply map based on known base currencies.
+    known_base_assets = ['BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS']
+    for known_base_asset in known_base_assets:
+        if symbol.endswith(known_base_asset):
+            quote = symbol[:-len(known_base_asset)]
+            base = known_base_asset
+            break
+    else:
+        _log.warning(f'unknown base asset found: {symbol}')
+        # We round up because usually quote asset is the longer one (i.e IOTABTC).
+        split_index = math.ceil(len(symbol) / 2)
+        quote = symbol[:split_index]
+        base = symbol[split_index:]
+    return f'{quote.lower()}-{base.lower()}'
 
 
 def _interval(interval: int) -> str:

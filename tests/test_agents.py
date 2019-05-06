@@ -284,7 +284,7 @@ class FakeInformant:
         self.symbol_info = symbol_info
         self.candles = candles
 
-    def get_fees(self, exchanges):
+    def get_fees(self, exchange, symbol):
         return self.fees
 
     def get_symbol_info(self, exchange, symbol):

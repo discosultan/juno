@@ -2,10 +2,14 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, Optional, Tuple
 
-from juno import Balance, Candle, OrderResult, OrderType, Side, SymbolInfo, TimeInForce
+from juno import Balance, Candle, Fees, OrderResult, OrderType, Side, SymbolInfo, TimeInForce
 
 
 class Exchange(ABC):
+
+    @abstractmethod
+    async def map_fees(self) -> Dict[str, Fees]:
+        pass
 
     @abstractmethod
     async def map_symbol_infos(self) -> Dict[str, SymbolInfo]:

@@ -13,7 +13,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 import simplejson as json
 
-from juno import Balance, Candle, OrderType, Side, SymbolInfo, TimeInForce
+from juno import Balance, Candle, Fees, OrderType, Side, SymbolInfo, TimeInForce
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms
@@ -64,6 +64,11 @@ class Coinbase(Exchange):
             self._stream_task.cancel()
             await self._stream_task
         await self._session.__aexit__(exc_type, exc, tb)
+
+    async def map_fees(self) -> Dict[str, Fees]:
+        # TODO: Fetch from exchange API if possible? Also has a more complex structure.
+        # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
+        return {'__all__': Fees(maker=Decimal('0.0015'), taker=Decimal('0.0025'))}
 
     async def map_symbol_infos(self) -> Dict[str, SymbolInfo]:
         res = await self._public_request('GET', '/products')
@@ -116,8 +121,8 @@ class Coinbase(Exchange):
                 # currently use Coinbase for paper or live trading, we simply throw an exception.
                 if None in c:
                     raise Exception(f'missing data for candle {c}; please re-run the command')
-                yield (Candle(c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]),
-                       Decimal(c[4]), Decimal(c[5])), True)
+                yield (Candle(c[0] * 1000, c[3], c[2], c[1],
+                       c[4], c[5]), True)
 
     # TODO: First candle can be partial.
     async def _stream_future_candles(self, symbol, interval, end):
@@ -237,7 +242,7 @@ class Coinbase(Exchange):
             if page_after is not None:
                 data['after'] = page_after
             async with self._session.request(method, url, params=data) as res:
-                yield await res.json()
+                yield await res.json(loads=lambda x: json.loads(x, use_decimal=True))
                 page_after = res.headers.get('CB-AFTER')
                 if page_after is None:
                     break
@@ -262,7 +267,7 @@ class Coinbase(Exchange):
             'CB-ACCESS-PASSPHRASE': self._passphrase}
         url = _BASE_REST_URL + url
         async with self._session.request(method, url, headers=headers, data=body) as res:
-            return await res.json()
+            return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
 
 
 def _product(symbol: str) -> str:

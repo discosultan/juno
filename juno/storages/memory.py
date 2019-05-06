@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import asyncio
 import sqlite3
+from collections import defaultdict
 from contextlib import asynccontextmanager
-from typing import Dict
+from typing import Any, AsyncIterator, Dict, Optional
 
 from aiosqlite import Connection, connect
 
 from juno.typing import ExcType, ExcValue, Traceback
 
-from .sqlite import SQLite
+from .sqlite import SQLite, _normalize_key
 
 
 class Memory(SQLite):
@@ -17,19 +18,29 @@ class Memory(SQLite):
 
     def __init__(self) -> None:
         super().__init__()
-        self._dbs: Dict[str, Connection] = {}
+        self._db_ctxs: Dict[str, _DBContext] = defaultdict(_DBContext)
 
     async def __aenter__(self) -> Memory:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await asyncio.gather(*(db.__aexit__(exc_type, exc, tb) for db in self._dbs.values()))
+        await asyncio.gather(
+            *(ctx.connection.__aexit__(exc_type, exc, tb)
+              for ctx in self._db_ctxs.values() if ctx.connection))
 
     @asynccontextmanager
-    async def _connect(self, key: str) -> Connection:
-        db = self._dbs.get(key)
-        if not db:
-            db = connect(':memory:', detect_types=sqlite3.PARSE_DECLTYPES)
-            await db.__aenter__()
-            self._dbs[key] = db
-        yield db
+    async def _connect(self, key: Any) -> AsyncIterator[Connection]:
+        name = _normalize_key(key)
+        ctx = self._db_ctxs[name]
+        async with ctx.lock:
+            if not ctx.connection:
+                ctx.connection = connect(':memory:', detect_types=sqlite3.PARSE_DECLTYPES)
+                await ctx.connection.__aenter__()
+        yield ctx.connection
+
+
+class _DBContext:
+
+    def __init__(self) -> None:
+        self.connection: Optional[Connection] = None
+        self.lock = asyncio.Lock()

@@ -113,6 +113,7 @@ class Discord:
                             _log.info('hello from discord')
                             self._heartbeat_task = asyncio.create_task(
                                 self._heartbeat(ws, data['d']['heartbeat_interval']))
+                            await self._limiter.acquire(1)
                             await ws.send_json({
                                 'op': 2,  # Identify.
                                 'd': {
@@ -135,6 +136,7 @@ class Discord:
         try:
             while True:
                 await asyncio.sleep(interval / 1000)
+                await self._limiter.acquire(1)
                 await ws.send_json({
                     'op': 1,  # Heartbeat.
                     'd': self._last_sequence.result()
@@ -155,5 +157,6 @@ class Discord:
     @asynccontextmanager
     # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
     async def _ws_connect(self, url: str, **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
+        await self._limiter.acquire(1)
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield ws

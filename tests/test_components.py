@@ -35,6 +35,16 @@ async def test_stream_candles(loop):
         assert out_candles == candles[-1:]
 
 
+async def test_get_fees(loop):
+    fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
+    async with init_informant(Fake(fees={'__all__': fees})) as informant:
+        out_fees = informant.get_fees('fake', 'eth-btc')
+        assert out_fees == fees
+    async with init_informant(Fake(fees={'eth-btc': fees})) as informant:
+        out_fees = informant.get_fees('fake', 'eth-btc')
+        assert out_fees == fees
+
+
 async def test_get_symbol_info(loop):
     symbol_info = SymbolInfo(min_size=Decimal(1),
                              max_size=Decimal(1),
@@ -129,11 +139,15 @@ async def test_get_balance(loop):
 
 
 class Fake(Exchange):
-    def __init__(self, candles=[], symbol_infos={}, balances={}, depths={}):
+    def __init__(self, candles=[], fees={}, symbol_infos={}, balances={}, depths={}):
         self.candles = candles
+        self.fees = fees
         self.symbol_infos = symbol_infos
         self.balances = balances
         self.depths = depths
+
+    async def map_fees(self):
+        return self.fees
 
     async def map_symbol_infos(self):
         return self.symbol_infos
@@ -153,9 +167,13 @@ class Fake(Exchange):
     async def place_order(self, *args, **kwargs):
         pass
 
+    async def cancel_order(self, *args, **kwargs):
+        pass
+
 
 @asynccontextmanager
 async def init_component(type_, exchange):
+    from juno.storages import SQLite
     async with Memory() as memory:
         services = {
             'fake': exchange,

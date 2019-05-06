@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle
+from juno import Candle, Fees
 from juno.storages import Memory
 from juno.utils import list_async
 
@@ -37,9 +37,9 @@ async def test_memory_store_get_map(loop, memory):
     candle = {'foo': _new_candle(time=1, close=DECIMAL_TOO_PRECISE_FOR_FLOAT)}
 
     await memory.set_map(key='key', item_cls=Candle, items=candle)
-    stored_candle, _ = await memory.get_map(key='key', item_cls=Candle)
+    out_candle, _ = await memory.get_map(key='key', item_cls=Candle)
 
-    assert stored_candle == candle
+    assert out_candle == candle
 
 
 async def test_memory_get_map_missing(loop, memory):
@@ -54,9 +54,24 @@ async def test_memory_set_map_twice_get_map(loop, memory):
 
     await memory.set_map(key='key', item_cls=Candle, items=candle1)
     await memory.set_map(key='key', item_cls=Candle, items=candle2)
-    stored_candle, _ = await memory.get_map(key='key', item_cls=Candle)
+    out_candle, _ = await memory.get_map(key='key', item_cls=Candle)
 
-    assert stored_candle == candle2
+    assert out_candle == candle2
+
+
+async def test_memory_set_different_maps(loop, memory):
+    candle = {'foo': _new_candle(time=1)}
+    fees = {'foo': Fees.zero()}
+
+    await asyncio.gather(
+        memory.set_map(key='key', item_cls=Candle, items=candle),
+        memory.set_map(key='key', item_cls=Fees, items=fees))
+    (out_candle, _), (out_fees, _) = await asyncio.gather(
+        memory.get_map(key='key', item_cls=Candle),
+        memory.get_map(key='key', item_cls=Fees))
+
+    assert out_candle == candle
+    assert out_fees == fees
 
 
 def _new_candle(time=0, close=Decimal(0)):
