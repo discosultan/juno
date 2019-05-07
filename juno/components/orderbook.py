@@ -128,7 +128,12 @@ class Orderbook:
 def _update_orderbook_side(orderbook_side: Dict[Decimal, Decimal],
                            values: List[Tuple[Decimal, Decimal]]) -> None:
     for price, size in values:
-        if size == 0 and price in orderbook_side:
+        if size > 0:
+            orderbook_side[price] = size
+        elif price in orderbook_side:
             del orderbook_side[price]
         else:
-            orderbook_side[price] = size
+            # Receiving an event that removes a price level that is not in the local orderbook can
+            # happen and is normal for Binance, for example.
+            _log.info(f'request for price level {price} to be removed but does not exist in '
+                      'in local orderbook')

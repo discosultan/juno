@@ -123,18 +123,18 @@ class Binance(Exchange):
                 'asks': [(Decimal(x[0]), Decimal(x[1])) for x in result['asks']]
             }
             last_update_id = result['lastUpdateId']
-            first_ws_msg_processed = False
+            is_first_ws_message = True
             async for msg in ws:
                 data = json.loads(msg.data)
 
                 if data['u'] <= last_update_id:
                     continue
 
-                if first_ws_msg_processed:
-                    assert data['U'] == last_update_id + 1
-                else:
+                if is_first_ws_message:
                     assert data['U'] <= last_update_id + 1 and data['u'] >= last_update_id + 1
-                    first_ws_msg_processed = True
+                    is_first_ws_message = False
+                else:
+                    assert data['U'] == last_update_id + 1
 
                 yield {
                     'type': 'update',
