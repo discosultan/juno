@@ -171,11 +171,11 @@ class Fake(Exchange):
         for balance in self.balances:
             yield balance
 
-    async def stream_candles(self, _symbol, _interval, start, end):
+    async def stream_candles(self, symbol, interval, start, end):
         for c, p in ((c, p) for c, p in self.candles if c.time >= start and c.time < end):
             yield c, p
 
-    async def stream_depth(self, _symbol):
+    async def stream_depth(self, symbol):
         for depth in self.depths:
             yield depth
 
