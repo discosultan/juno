@@ -37,12 +37,16 @@ class ClientSession:
         _aiohttp_log.debug(kwargs)
         async with req as res:
             _aiohttp_log.info(f'Res {req_id} {res.status} {res.reason}')
+            content = {
+                'headers': res.headers,
+                'body': await res.text()
+            }
             if res.status >= 400:
-                _aiohttp_log.error(await res.text())
+                _aiohttp_log.error(content)
                 if self._raise_for_status:
                     res.raise_for_status()
             else:
-                _aiohttp_log.debug(await res.text())
+                _aiohttp_log.debug(content)
             yield res
 
     @asynccontextmanager

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple,
@@ -36,7 +37,7 @@ sqlite3.register_converter('DECIMAL', _deserialize_decimal)
 class SQLite:
 
     def __init__(self) -> None:
-        self._tables: Dict[Any, Set[type]] = {}
+        self._tables: Dict[Any, Set[type]] = defaultdict(set)
 
     async def __aenter__(self) -> SQLite:
         return self
@@ -110,45 +111,41 @@ class SQLite:
 
     @asynccontextmanager
     async def _connect(self, key: Any) -> AsyncIterator[Connection]:
-        name = _normalize_key(key)
+        name = self._normalize_key(key)
         _log.info(f'connecting to {key}')
         name = str(home_path().joinpath(f'v{_VERSION}_{name}.db'))
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 
-    async def _ensure_table(self, db: Any, type: type) -> None:
-        tables = self._tables.get(db)
-        if not tables:
-            tables = set()
-            self._tables[db] = tables
-        if type not in tables:
-            await _create_table(db, type)
+    async def _ensure_table(self, db: Any, type_: type) -> None:
+        tables = self._tables[db]
+        if type_ not in tables:
+            await _create_table(db, type_)
             await db.commit()
-            tables.add(type)
+            tables.add(type_)
+
+    def _normalize_key(self, key: Any) -> str:
+        key_type = type(key)
+        if key_type is str:
+            # The type is already known to be str but this is to please mypy.
+            return str(key)
+        elif key_type is tuple:
+            return '_'.join(map(str, key))
+        else:
+            raise NotImplementedError()
 
 
-def _normalize_key(key: Any) -> str:
-    key_type = type(key)
-    if key_type is str:
-        # The type is already known to be str but this is to please mypy.
-        return str(key)
-    elif key_type is tuple:
-        return '_'.join(map(str, key))
-    else:
-        raise NotImplementedError()
-
-
-async def _create_table(db: Any, type: type) -> None:
-    annotations = get_type_hints(type)
+async def _create_table(db: Any, type_: type) -> None:
+    annotations = get_type_hints(type_)
     col_names = list(annotations.keys())
     col_types = [_type_to_sql_type(t) for t in annotations.values()]
     cols = []
     for i in range(0, len(col_names)):
         col_constrain = 'PRIMARY KEY' if i == 0 else 'NOT NULL'
         cols.append(f'{col_names[i]} {col_types[i]} {col_constrain}')
-    await db.execute(f'CREATE TABLE IF NOT EXISTS {type.__name__} ({", ".join(cols)})')
+    await db.execute(f'CREATE TABLE IF NOT EXISTS {type_.__name__} ({", ".join(cols)})')
 
-    # TODO: Use typing instead based on NewType()
+    # TODO: Use typing instead based on NewType()?
     VIEW_COL_NAMES = ['time', 'start', 'end']
     if any((n for n in col_names if n in VIEW_COL_NAMES)):
         view_cols = []
@@ -159,8 +156,8 @@ async def _create_table(db: Any, type: type) -> None:
             else:
                 view_cols.append(col)
 
-        await db.execute(f'CREATE VIEW IF NOT EXISTS {type.__name__}View AS '
-                         f'SELECT {", ".join(view_cols)} FROM {type.__name__}')
+        await db.execute(f'CREATE VIEW IF NOT EXISTS {type_.__name__}View AS '
+                         f'SELECT {", ".join(view_cols)} FROM {type_.__name__}')
 
 
 def _type_to_sql_type(type_: type) -> str:

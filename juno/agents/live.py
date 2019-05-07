@@ -37,7 +37,7 @@ class Live(Agent):
         self.orderbook: Orderbook = self.components['orderbook']
         self.wallet: Wallet = self.components['wallet']
 
-        self.fees = informant.get_fees(exchange)
+        self.fees = informant.get_fees(exchange, symbol)
         _log.info(f'Fees: {self.fees}')
 
         self.symbol_info = informant.get_symbol_info(exchange, symbol)

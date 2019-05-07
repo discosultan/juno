@@ -33,6 +33,35 @@ async def coinbase(loop, config):
         yield exchange
 
 
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_map_fees(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    skip_exchange(exchange, Coinbase)
+    res = await exchange.map_fees()
+    assert res
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_map_symbol_infos(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    res = await exchange.map_symbol_infos()
+    assert len(res) > 0
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_stream_balances(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    stream = exchange.stream_balances()
+    await stream.__anext__()
+
+
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_candles(loop, request, exchange):
@@ -43,27 +72,16 @@ async def test_stream_candles(loop, request, exchange):
         interval=HOUR_MS,
         start=start,
         end=start + HOUR_MS)
-    await stream.__anext__()
+    candle, _ = await stream.__anext__()
+
+    assert isinstance(candle.time, int)
+    assert isinstance(candle.close, Decimal)
+
     with pytest.raises(StopAsyncIteration):
         await stream.__anext__()
 
 
-@pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_map_symbol_infos(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    res = await exchange.map_symbol_infos()
-    assert len(res) > 0
-
-
-@pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_stream_balances(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    stream = exchange.stream_balances()
-    await stream.__anext__()
-
-
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_depth(loop, request, exchange):
@@ -73,12 +91,12 @@ async def test_stream_depth(loop, request, exchange):
     assert res
 
 
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_place_order(loop, request, exchange):
     skip_non_configured(request, exchange)
-    if type(exchange) is Coinbase:
-        pytest.skip('not implemented')
+    skip_exchange(exchange, Coinbase)
     await exchange.place_order(
         symbol='eth-btc',
         side=Side.BUY,
@@ -88,11 +106,17 @@ async def test_place_order(loop, request, exchange):
 
 
 def skip_non_configured(request, exchange):
-    if request.config.option.markexpr != 'manual':
-        pytest.skip("Specify 'manual' marker to run! These are run manually as they integrate "
-                    "with external exchanges")
+    markers = ['exchange', 'manual']
+    if request.config.option.markexpr not in markers:
+        pytest.skip(f"Specify {' or '.join(markers)} marker to run!")
     if not exchange:
         pytest.skip("Exchange params not configured")
+
+
+def skip_exchange(exchange, *skip_exchange_types):
+    type_ = type(exchange)
+    if type_ in skip_exchange_types:
+        pytest.skip(f'not implemented for {type_.__name__.lower()}')
 
 
 @asynccontextmanager

@@ -29,7 +29,7 @@ async def main() -> None:
         orderbook = Orderbook(services, config)
         wallet = Wallet(services, config)
         async with informant, orderbook, wallet:
-            fees = informant.get_fees(exchange)
+            fees = informant.get_fees(exchange, SYMBOL)
             logging.info(fees)
 
             symbol_info = informant.get_symbol_info(exchange, SYMBOL)
