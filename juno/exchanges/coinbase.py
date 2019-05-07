@@ -198,6 +198,10 @@ class Coinbase(Exchange):
                     'asks': [(Decimal(p), Decimal(s)) for p, s in asks]
                 }
 
+    async def stream_orders(self) -> AsyncIterable[Any]:
+        raise NotImplementedError()
+        yield
+
     async def place_order(
             self,
             symbol: str,
@@ -206,6 +210,7 @@ class Coinbase(Exchange):
             size: Decimal,
             price: Optional[Decimal] = None,
             time_in_force: Optional[TimeInForce] = None,
+            client_id: Optional[str] = None,
             test: bool = True) -> Any:
         raise NotImplementedError()
 

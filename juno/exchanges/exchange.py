@@ -29,6 +29,10 @@ class Exchange(ABC):
         yield
 
     @abstractmethod
+    async def stream_orders(self) -> AsyncIterable[Any]:
+        yield
+
+    @abstractmethod
     async def place_order(
             self,
             symbol: str,
@@ -37,6 +41,7 @@ class Exchange(ABC):
             size: Decimal,
             price: Optional[Decimal] = None,
             time_in_force: Optional[TimeInForce] = None,
+            client_id: Optional[str] = None,
             test: bool = True) -> OrderResult:
         pass
 

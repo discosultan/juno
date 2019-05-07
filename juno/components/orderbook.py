@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import Fees, Fill, Fills, OrderResult, OrderType, Side, SymbolInfo
+from juno import Fees, Fill, Fills, OrderResult, OrderType, Side, SymbolInfo, TimeInForce
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.math import adjust_size
@@ -122,7 +123,42 @@ class Orderbook:
             res.fills = fills
         return res
 
-    # async def fill_limit_at_spread(self, exchange: str, symbol: str, side: Side,)
+    async def buy_limit_at_spread(self, exchange: str, symbol: str, quote: Decimal,
+                                  symbol_info: SymbolInfo) -> OrderResult:
+        asks = self.list_asks(exchange, symbol)
+        bids = self.list_bids(exchange, symbol)
+        if len(bids) == 0:
+            raise NotImplementedError('no existing bids in orderbook! what is optimal bid price?')
+        if len(asks) == 0:
+            price = bids[0][0] + symbol_info.price_step
+        else:
+            spread = asks[0][0] - bids[0][0]
+            if spread == symbol_info.price_step:
+                price = bids[0][0]
+            else:
+                price = bids[0][0] + symbol_info.price_step
+        size = adjust_size(quote / price, symbol_info.min_size, symbol_info.max_size,
+                           symbol_info.size_step)
+
+        if size == 0:
+            return OrderResult.not_placed()
+
+        client_id = str(uuid.uuid4())
+
+        res = await self._exchanges[exchange].place_order(
+            symbol=symbol,
+            side=Side.BUY,
+            type_=OrderType.LIMIT,
+            price=price,
+            size=size,
+            client_id=client_id,
+            test=False)
+
+        async for order in self._exchanges[exchange].stream_orders():
+            if order['client_id'] == client_id:
+                pass
+
+        return None
 
     async def _sync_orderbooks(self) -> None:
         try:

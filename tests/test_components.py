@@ -153,12 +153,13 @@ async def test_get_balance(loop):
 
 
 class Fake(Exchange):
-    def __init__(self, candles=[], fees={}, symbol_infos={}, balances={}, depths={}):
+    def __init__(self, candles=[], fees={}, symbol_infos={}, balances={}, depths={}, orders=[]):
         self.candles = candles
         self.fees = fees
         self.symbol_infos = symbol_infos
         self.balances = balances
         self.depths = depths
+        self.orders = orders
 
     async def map_fees(self):
         return self.fees
@@ -177,6 +178,10 @@ class Fake(Exchange):
     async def stream_depth(self, _symbol):
         for depth in self.depths:
             yield depth
+
+    async def stream_orders(self):
+        for order in self.orders:
+            yield order
 
     async def place_order(self, *args, **kwargs):
         pass

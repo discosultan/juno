@@ -149,7 +149,7 @@ class Binance(Exchange):
             data = await self._order_event.wait()
             self._order_event.clear()
             result = {
-                'id': data['c'],  # client order id
+                'client_id': data['c'],
                 'size': Decimal(data['q']),
                 'filled_size': Decimal(data['z'])
             }
@@ -205,6 +205,7 @@ class Binance(Exchange):
             size: Decimal,
             price: Optional[Decimal] = None,
             time_in_force: Optional[TimeInForce] = None,
+            client_id: Optional[str] = None,
             test: bool = True) -> OrderResult:
         data = {
             'symbol': _http_symbol(symbol),
@@ -216,6 +217,8 @@ class Binance(Exchange):
             data['price'] = str(price)
         if time_in_force is not None:
             data['timeInForce'] = time_in_force.name
+        if client_id is not None:
+            data['newClientOrderId'] = client_id
         url = f'/api/v3/order{"/test" if test else ""}'
         res = await self._request('POST', url, data=data, security=_SEC_TRADE)
         if test:
