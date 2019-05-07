@@ -13,8 +13,8 @@ from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Dict, List, Opt
 import aiohttp
 import simplejson as json
 
-from juno import (Balance, Candle, Fees, Fill, Fills, OrderResult, OrderType, Side, SymbolInfo,
-                  TimeInForce, Trade)
+from juno import (Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultStatus, OrderType,
+                  Side, SymbolInfo, TimeInForce, Trade)
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import HOUR_MS, MIN_MS, time_ms
@@ -146,15 +146,14 @@ class Binance(Exchange):
     async def stream_orders(self) -> AsyncIterable[Any]:
         await self._ensure_user_data_stream()
         while True:
-            yield True
-            # _data = await self._order_event.wait()
-            # self._order_event.clear()
-            # result = {}
-            # for balance in data['B']:
-            #     result[balance['a'].lower()] = Balance(
-            #         available=Decimal(balance['f']),
-            #         hold=Decimal(balance['l']))
-            # yield result
+            data = await self._order_event.wait()
+            self._order_event.clear()
+            result = {
+                'id': data['c'],  # client order id
+                'size': Decimal(data['q']),
+                'filled_size': Decimal(data['z'])
+            }
+            yield result
 
     async def _ensure_user_data_stream(self) -> None:
         if self._listen_key_refresh_task:
@@ -220,8 +219,9 @@ class Binance(Exchange):
         url = f'/api/v3/order{"/test" if test else ""}'
         res = await self._request('POST', url, data=data, security=_SEC_TRADE)
         if test:
-            return OrderResult(Fills())
+            return OrderResult.not_placed()
         return OrderResult(
+            status=OrderResultStatus.FILLED,
             fills=Fills([
                 Fill(
                     price=Decimal(f['price']),

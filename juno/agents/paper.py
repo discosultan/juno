@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional
 
 import simplejson as json
 
-from juno import Candle, Side
+from juno import Candle, OrderResultStatus
 from juno.components import Informant, Orderbook
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
@@ -111,20 +111,19 @@ class Paper(Agent):
         _log.info(json.dumps(self.result, default=lambda o: o.__dict__, use_decimal=True))
 
     async def _try_open_position(self, candle: Candle) -> bool:
-        asks = self.orderbook.find_market_order_asks(self.exchange, self.symbol, self.quote,
-                                                     self.symbol_info, self.fees)
-        if asks.total_size == 0:
-            return False
-
-        await self.orderbook.place_order(
+        res = await self.orderbook.buy_market(
             exchange=self.exchange,
             symbol=self.symbol,
-            side=Side.BUY,
-            size=asks.total_size,
+            quote=self.quote,
+            symbol_info=self.symbol_info,
+            fees=self.fees,
             test=True)
 
-        self.open_position = Position(candle.time, asks)
-        self.quote -= asks.total_quote
+        if res.status == OrderResultStatus.NOT_PLACED:
+            return False
+
+        self.open_position = Position(candle.time, res.fills)
+        self.quote -= res.fills.total_quote
 
         await self.ee.emit('position_opened', self.open_position)
 
@@ -133,21 +132,18 @@ class Paper(Agent):
     async def _close_position(self, candle: Candle) -> None:
         assert self.open_position
 
-        base = self.open_position.total_size - self.open_position.fills.total_fee
-        bids = self.orderbook.find_market_order_bids(self.exchange, self.symbol, base,
-                                                     self.symbol_info, self.fees)
-
-        await self.orderbook.place_order(
+        res = await self.orderbook.sell_market(
             exchange=self.exchange,
             symbol=self.symbol,
-            side=Side.SELL,
-            size=bids.total_size,
+            base=self.open_position.total_size - self.open_position.fills.total_fee,
+            symbol_info=self.symbol_info,
+            fees=self.fees,
             test=True)
 
         position = self.open_position
         self.open_position = None
-        position.close(candle.time, bids)
+        position.close(candle.time, res.fills)
         self.result.append_position(position)
-        self.quote += bids.total_quote - bids.total_fee
+        self.quote += res.fills.total_quote - res.fills.total_fee
 
         await self.ee.emit('position_closed', position)

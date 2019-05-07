@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 import simplejson as json
 
-from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, SymbolInfo
+from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultStatus, SymbolInfo
 from juno.agents import Agent, Backtest, Live, Paper, list_required_component_names
 from juno.agents.summary import Position, TradingSummary
 from juno.components import Orderbook
@@ -179,17 +179,7 @@ async def test_live(loop):
     }
     orderbook = FakeOrderbook(
         orderbooks={'dummy': {'eth-btc': orderbook_data}},
-        update_on_find=True,
-        place_order_results=[
-            OrderResult(Fills([
-                Fill(Decimal(20), Decimal(4), Decimal(0), 'eth'),
-                Fill(Decimal(10), Decimal(2), Decimal(0), 'eth'),
-            ])),
-            OrderResult(Fills([
-                Fill(Decimal(10), Decimal(5), Decimal(0), 'btc'),
-                Fill(Decimal(50), Decimal(1), Decimal(0), 'btc'),
-            ]))
-        ])
+        update_on_find=True)
     wallet = FakeWallet({'dummy': {'btc': Balance(available=Decimal(100), hold=Decimal(50))}})
     agent_config = {
         'exchange': 'dummy',
@@ -297,10 +287,9 @@ class FakeInformant:
 
 class FakeOrderbook(Orderbook):
 
-    def __init__(self, orderbooks, update_on_find, place_order_results=None):
+    def __init__(self, orderbooks, update_on_find):
         self._orderbooks = orderbooks
         self._update_on_find = update_on_find
-        self._place_order_results = place_order_results
 
     def find_market_order_asks(self, exchange, symbol, quote_balance, symbol_info, fees):
         asks = super().find_market_order_asks(exchange, symbol, quote_balance, symbol_info, fees)
@@ -314,10 +303,13 @@ class FakeOrderbook(Orderbook):
             self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
         return bids
 
-    async def place_order(self, exchange, symbol, side, size, test):
-        if self._place_order_results is not None:
-            return self._place_order_results.pop()
-        return OrderResult(Fills())
+    async def buy_market(self, exchange, symbol, quote, symbol_info, fees, test):
+        fills = self.find_market_order_asks(exchange, symbol, quote, symbol_info, fees)
+        return OrderResult(status=OrderResultStatus.FILLED, fills=fills)
+
+    async def sell_market(self, exchange, symbol, base, symbol_info, fees, test):
+        fills = self.find_market_order_bids(exchange, symbol, base, symbol_info, fees)
+        return OrderResult(status=OrderResultStatus.FILLED, fills=fills)
 
     def _remove_from_side(self, side, fills):
         for fill in fills:

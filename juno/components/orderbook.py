@@ -94,14 +94,35 @@ class Orderbook:
                 base -= bsize
         return result
 
-    async def place_order(self, exchange: str, symbol: str, side: Side, size: Decimal, test: bool
-                          ) -> OrderResult:
-        return await self._exchanges[exchange].place_order(
+    async def buy_market(self, exchange: str, symbol: str, quote: Decimal, symbol_info: SymbolInfo,
+                         fees: Fees, test: bool) -> OrderResult:
+        # TODO: Add dep to Informant and fetch symbol_info and fees from there?
+        # Simplifies Orderbook usage but makes testing more difficult.
+        fills = self.find_market_order_asks(exchange, symbol, quote, symbol_info, fees)
+        return await self._fill_market(exchange=exchange, symbol=symbol, side=Side.BUY,
+                                       fills=fills, test=test)
+
+    async def sell_market(self, exchange: str, symbol: str, base: Decimal, symbol_info: SymbolInfo,
+                          fees: Fees, test: bool) -> OrderResult:
+        fills = self.find_market_order_bids(exchange, symbol, base, symbol_info, fees)
+        return await self._fill_market(exchange=exchange, symbol=symbol, side=Side.SELL,
+                                       fills=fills, test=test)
+
+    async def _fill_market(self, exchange: str, symbol: str, side: Side, fills: Fills, test: bool
+                           ) -> OrderResult:
+        if fills.total_size == 0:
+            return OrderResult.not_placed()
+        res = await self._exchanges[exchange].place_order(
             symbol=symbol,
             side=side,
             type_=OrderType.MARKET,
-            size=size,
+            size=fills.total_size,
             test=test)
+        if test:
+            res.fills = fills
+        return res
+
+    # async def fill_limit_at_spread(self, exchange: str, symbol: str, side: Side,)
 
     async def _sync_orderbooks(self) -> None:
         try:

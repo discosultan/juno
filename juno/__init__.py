@@ -121,5 +121,21 @@ class Fills(List[Fill]):
         return sum((f.fee for f in self), Decimal(0))
 
 
-class OrderResult(NamedTuple):
+class OrderResult:
+    status: OrderResultStatus
     fills: Fills
+
+    def __init__(self, status: OrderResultStatus, fills: Fills) -> None:
+        self.status = status
+        self.fills = fills
+
+    @staticmethod
+    def not_placed() -> OrderResult:
+        return OrderResult(
+            status=OrderResultStatus.NOT_PLACED,
+            fills=Fills())
+
+
+class OrderResultStatus(Enum):
+    NOT_PLACED = 0
+    FILLED = 1
