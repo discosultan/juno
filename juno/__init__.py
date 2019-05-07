@@ -121,13 +121,9 @@ class Fills(List[Fill]):
         return sum((f.fee for f in self), Decimal(0))
 
 
-class OrderResult:
+class OrderResult(NamedTuple):
     status: OrderResultStatus
     fills: Fills
-
-    def __init__(self, status: OrderResultStatus, fills: Fills) -> None:
-        self.status = status
-        self.fills = fills
 
     @staticmethod
     def not_placed() -> OrderResult:

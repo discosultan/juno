@@ -235,10 +235,10 @@ class Binance(Exchange):
             ])
         )
 
-    async def cancel_order(self, symbol: str, id_: int) -> Any:
+    async def cancel_order(self, symbol: str, client_id: str) -> Any:
         data = {
             'symbol': _http_symbol(symbol),
-            'orderId': id_
+            'origClientOrderId': client_id
         }
         res = await self._request('DELETE', '/api/v3/order', data=data, security=_SEC_TRADE)
         return res

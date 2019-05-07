@@ -52,7 +52,7 @@ async def main() -> None:
                                symbol_info.size_step)
             logging.info(f'Adjusted size: {size}')
 
-            if size == Decimal(0):
+            if size == 0:
                 logging.error('Not enough balance! Quitting!')
                 return
 

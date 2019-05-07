@@ -41,3 +41,12 @@ def test_floor_multiple(value, multiple, expected_output):
 def test_adjust_size(size, min_size, max_size, size_step, expected_output):
     output = math.adjust_size(size, min_size, max_size, size_step)
     assert output == expected_output
+
+
+@pytest.mark.parametrize('price,min_price,max_price,price_step,expected_output', [
+    (Decimal('0.000005540'), Decimal('1E-8'), Decimal('100000.00000000'), Decimal('1E-8'),
+     Decimal('0.00000554'))
+])
+def test_adjust_price(price, min_price, max_price, price_step, expected_output):
+    output = math.adjust_price(price, min_price, max_price, price_step)
+    assert output == expected_output

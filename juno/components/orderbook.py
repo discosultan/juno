@@ -8,7 +8,8 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import Fees, Fill, Fills, OrderResult, OrderType, Side, SymbolInfo, TimeInForce
+from juno import (Fees, Fill, Fills, OrderResult, OrderResultStatus, OrderType, Side, SymbolInfo,
+                  TimeInForce)
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.math import adjust_size
@@ -120,7 +121,9 @@ class Orderbook:
             size=fills.total_size,
             test=test)
         if test:
-            res.fills = fills
+            res = OrderResult(
+                status=OrderResultStatus.NOT_PLACED,
+                fills=fills)
         return res
 
     async def buy_limit_at_spread(self, exchange: str, symbol: str, quote: Decimal,
@@ -137,6 +140,7 @@ class Orderbook:
                 price = bids[0][0]
             else:
                 price = bids[0][0] + symbol_info.price_step
+        # No need to adjust price as we take it from existing orders.
         size = adjust_size(quote / price, symbol_info.min_size, symbol_info.max_size,
                            symbol_info.size_step)
 
@@ -151,6 +155,7 @@ class Orderbook:
             type_=OrderType.LIMIT,
             price=price,
             size=size,
+            time_in_force=TimeInForce.GTC,
             client_id=client_id,
             test=False)
 

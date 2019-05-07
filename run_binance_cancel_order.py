@@ -5,7 +5,7 @@ import sys
 
 from juno.exchanges import Binance
 
-ORDER_ID = 0
+CLIENT_ID = 'foo'
 SYMBOL = 'ada-btc'
 
 
@@ -13,7 +13,7 @@ async def main() -> None:
     binance = Binance(os.environ['JUNO__BINANCE__API_KEY'],
                       os.environ['JUNO__BINANCE__SECRET_KEY'])
     async with binance:
-        res = await binance.cancel_order(symbol=SYMBOL, id_=ORDER_ID)
+        res = await binance.cancel_order(symbol=SYMBOL, client_id=CLIENT_ID)
         logging.info(res)
     logging.info('Done!')
 

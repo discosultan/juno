@@ -46,5 +46,5 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    async def cancel_order(self, symbol: str, id_: int) -> Any:
+    async def cancel_order(self, symbol: str, client_id: str) -> Any:
         pass
