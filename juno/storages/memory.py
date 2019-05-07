@@ -10,7 +10,7 @@ from aiosqlite import Connection, connect
 
 from juno.typing import ExcType, ExcValue, Traceback
 
-from .sqlite import SQLite, _normalize_key
+from .sqlite import SQLite
 
 
 class Memory(SQLite):
@@ -30,7 +30,7 @@ class Memory(SQLite):
 
     @asynccontextmanager
     async def _connect(self, key: Any) -> AsyncIterator[Connection]:
-        name = _normalize_key(key)
+        name = self._normalize_key(key)
         ctx = self._db_ctxs[name]
         async with ctx.lock:
             if not ctx.connection:

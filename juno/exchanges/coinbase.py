@@ -121,8 +121,7 @@ class Coinbase(Exchange):
                 # currently use Coinbase for paper or live trading, we simply throw an exception.
                 if None in c:
                     raise Exception(f'missing data for candle {c}; please re-run the command')
-                yield (Candle(c[0] * 1000, c[3], c[2], c[1],
-                       c[4], c[5]), True)
+                yield Candle(c[0] * 1000, c[3], c[2], c[1], c[4], c[5]), True
 
     # TODO: First candle can be partial.
     async def _stream_future_candles(self, symbol, interval, end):

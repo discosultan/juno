@@ -173,7 +173,6 @@ class Fake(Exchange):
 
 @asynccontextmanager
 async def init_component(type_, exchange):
-    from juno.storages import SQLite
     async with Memory() as memory:
         services = {
             'fake': exchange,

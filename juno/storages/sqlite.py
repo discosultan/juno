@@ -111,7 +111,7 @@ class SQLite:
 
     @asynccontextmanager
     async def _connect(self, key: Any) -> AsyncIterator[Connection]:
-        name = _normalize_key(key)
+        name = self._normalize_key(key)
         _log.info(f'connecting to {key}')
         name = str(home_path().joinpath(f'v{_VERSION}_{name}.db'))
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
@@ -124,16 +124,15 @@ class SQLite:
             await db.commit()
             tables.add(type_)
 
-
-def _normalize_key(key: Any) -> str:
-    key_type = type(key)
-    if key_type is str:
-        # The type is already known to be str but this is to please mypy.
-        return str(key)
-    elif key_type is tuple:
-        return '_'.join(map(str, key))
-    else:
-        raise NotImplementedError()
+    def _normalize_key(self, key: Any) -> str:
+        key_type = type(key)
+        if key_type is str:
+            # The type is already known to be str but this is to please mypy.
+            return str(key)
+        elif key_type is tuple:
+            return '_'.join(map(str, key))
+        else:
+            raise NotImplementedError()
 
 
 async def _create_table(db: Any, type_: type) -> None:
