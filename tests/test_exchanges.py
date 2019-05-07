@@ -33,6 +33,7 @@ async def coinbase(loop, config):
         yield exchange
 
 
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_map_fees(loop, request, exchange):
@@ -42,6 +43,7 @@ async def test_map_fees(loop, request, exchange):
     assert res
 
 
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_map_symbol_infos(loop, request, exchange):
@@ -50,6 +52,7 @@ async def test_map_symbol_infos(loop, request, exchange):
     assert len(res) > 0
 
 
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_balances(loop, request, exchange):
@@ -58,6 +61,7 @@ async def test_stream_balances(loop, request, exchange):
     await stream.__anext__()
 
 
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_candles(loop, request, exchange):
@@ -77,6 +81,7 @@ async def test_stream_candles(loop, request, exchange):
         await stream.__anext__()
 
 
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_depth(loop, request, exchange):
@@ -86,6 +91,7 @@ async def test_stream_depth(loop, request, exchange):
     assert res
 
 
+@pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_place_order(loop, request, exchange):
@@ -100,9 +106,9 @@ async def test_place_order(loop, request, exchange):
 
 
 def skip_non_configured(request, exchange):
-    if request.config.option.markexpr != 'manual':
-        pytest.skip("Specify 'manual' marker to run! These are run manually as they integrate "
-                    "with external exchanges")
+    markers = ['exchange', 'manual']
+    if request.config.option.markexpr not in markers:
+        pytest.skip(f"Specify {' or '.join(markers)} marker to run!")
     if not exchange:
         pytest.skip("Exchange params not configured")
 

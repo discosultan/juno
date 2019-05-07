@@ -60,7 +60,10 @@ class Discord:
     async def __aenter__(self) -> Discord:
         self._last_sequence: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         self._session = ClientSession(headers={'Authorization': f'Bot {self._token}'})
-        self._limiter = LeakyBucket(rate=5, period=5)  # 5 per 5 seconds.
+        # TODO: At the time of writing the limit was 5 reqs per 5 seconds. They refresh
+        # periodically though. The recommended approach is to limit based on headers returned.
+        # See https://discordapp.com/developers/docs/topics/rate-limits
+        self._limiter = LeakyBucket(rate=1, period=1)
         await self._session.__aenter__()
         self._run_task = asyncio.create_task(self._run())
         self._heartbeat_task: Optional[asyncio.Task[None]] = None
@@ -113,7 +116,6 @@ class Discord:
                             _log.info('hello from discord')
                             self._heartbeat_task = asyncio.create_task(
                                 self._heartbeat(ws, data['d']['heartbeat_interval']))
-                            await self._limiter.acquire(1)
                             await ws.send_json({
                                 'op': 2,  # Identify.
                                 'd': {
@@ -136,7 +138,6 @@ class Discord:
         try:
             while True:
                 await asyncio.sleep(interval / 1000)
-                await self._limiter.acquire(1)
                 await ws.send_json({
                     'op': 1,  # Heartbeat.
                     'd': self._last_sequence.result()
@@ -157,6 +158,5 @@ class Discord:
     @asynccontextmanager
     # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
     async def _ws_connect(self, url: str, **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
-        await self._limiter.acquire(1)
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield ws

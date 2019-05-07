@@ -35,6 +35,7 @@ async def agent(config):
 
 
 @pytest.mark.manual
+@pytest.mark.plugin
 async def test_discord(loop, request, config, agent: Agent):
     skip_non_configured(request, config)
 
@@ -60,9 +61,9 @@ async def test_discord(loop, request, config, agent: Agent):
 
 
 def skip_non_configured(request, config):
-    if request.config.option.markexpr != 'manual':
-        pytest.skip("Specify 'manual' marker to run! These are run manually as they integrate "
-                    "with external services")
+    markers = ['manual', 'plugin']
+    if request.config.option.markexpr not in markers:
+        pytest.skip(f"Specify {' or '.join(markers)} marker to run!")
     discord_config = config.get('discord', {})
     if 'token' not in discord_config or 'dummy' not in discord_config.get('channel_id', {}):
         pytest.skip("Discord params not configured")
