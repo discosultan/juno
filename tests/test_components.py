@@ -131,6 +131,20 @@ async def test_find_market_order_bids(loop, base, snapshot_bids, update_bids, ex
         _assert_fills(output, expected_output)
 
 
+async def test_list_asks_bids(loop):
+    depths = [{
+        'type': 'snapshot',
+        'asks': [(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
+        'bids': [(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
+    }]
+    async with init_orderbook(Fake(depths=depths)) as orderbook:
+        asks = orderbook.list_asks(exchange='fake', symbol='eth-btc')
+        bids = orderbook.list_bids(exchange='fake', symbol='eth-btc')
+
+    assert asks == [(Decimal(1), Decimal(1)), (Decimal(2), Decimal(1)), (Decimal(3), Decimal(1))]
+    assert bids == [(Decimal(3), Decimal(1)), (Decimal(2), Decimal(1)), (Decimal(1), Decimal(1))]
+
+
 async def test_get_balance(loop):
     balance = Balance(available=Decimal(1), hold=Decimal(0))
     async with init_wallet(Fake(balances=[{'btc': balance}])) as wallet:

@@ -49,11 +49,16 @@ class Orderbook:
         self._sync_task.cancel()
         await self._sync_task
 
+    def list_asks(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
+        return sorted(self._orderbooks[exchange][symbol]['asks'].items())
+
+    def list_bids(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
+        return sorted(self._orderbooks[exchange][symbol]['bids'].items(), reverse=True)
+
     def find_market_order_asks(self, exchange: str, symbol: str, quote: Decimal,
                                symbol_info: SymbolInfo, fees: Fees) -> Fills:
         result = Fills()
-        asks = self._orderbooks[exchange][symbol]['asks']
-        for aprice, asize in sorted(asks.items()):
+        for aprice, asize in self.list_asks(exchange, symbol):
             aquote = aprice * asize
             base_asset, quote_asset = unpack_symbol(symbol)
             if aquote >= quote:
@@ -73,8 +78,7 @@ class Orderbook:
     def find_market_order_bids(self, exchange: str, symbol: str, base: Decimal,
                                symbol_info: SymbolInfo, fees: Fees) -> Fills:
         result = Fills()
-        asks = self._orderbooks[exchange][symbol]['bids']
-        for bprice, bsize in sorted(asks.items(), reverse=True):
+        for bprice, bsize in self.list_bids(exchange, symbol):
             base_asset, quote_asset = unpack_symbol(symbol)
             if bsize >= base:
                 size = adjust_size(base, symbol_info.min_size, symbol_info.max_size,

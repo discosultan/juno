@@ -5,10 +5,11 @@ from typing import Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
-from .agent import Agent
 from juno.components import Informant
 from juno.strategies import Strategy
 from juno.utils import flatten
+
+from .agent import Agent
 
 _log = logging.getLogger(__name__)
 
