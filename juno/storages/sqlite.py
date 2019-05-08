@@ -5,8 +5,8 @@ import sqlite3
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple,
-                    get_type_hints)
+from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple, Union,
+                    cast, get_type_hints)
 
 import simplejson as json
 from aiosqlite import Connection, connect
@@ -20,6 +20,8 @@ _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
 _VERSION = 8
+
+Key = Union[str, tuple]
 
 
 def _serialize_decimal(d: Decimal) -> bytes:
@@ -45,7 +47,7 @@ class SQLite:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
-    async def stream_candle_spans(self, key: Any, start: int, end: int) -> AsyncIterable[Span]:
+    async def stream_candle_spans(self, key: Key, start: int, end: int) -> AsyncIterable[Span]:
         _log.info(f'streaming candle span(s) between {Span(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Span)
@@ -54,7 +56,7 @@ class SQLite:
                 async for span_start, span_end in cursor:
                     yield Span(max(span_start, start), min(span_end, end))
 
-    async def stream_candles(self, key: Any, start: int, end: int) -> AsyncIterable[Candle]:
+    async def stream_candles(self, key: Key, start: int, end: int) -> AsyncIterable[Candle]:
         _log.info(f'streaming candle(s) between {Span(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
@@ -63,7 +65,7 @@ class SQLite:
                 async for row in cursor:
                     yield Candle(*row)
 
-    async def store_candles_and_span(self, key: Any, candles: List[Candle], start: int, end: int
+    async def store_candles_and_span(self, key: Key, candles: List[Candle], start: int, end: int
                                      ) -> None:
         if start > candles[0].time or end <= candles[-1].time:
             raise ValueError('Invalid input')
@@ -83,10 +85,10 @@ class SQLite:
             await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
-    async def get_map(self, key: Any, item_cls: type
+    async def get_map(self, key: Key, item_cls: type
                       ) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
         cls_name = item_cls.__name__
-        _log.info(f'getting map of {cls_name}s')
+        _log.info(f'getting map of {cls_name}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             cursor = await db.execute(f'SELECT * FROM {Bag.__name__} WHERE key=?',
@@ -100,9 +102,9 @@ class SQLite:
                 return None, None
 
     # TODO: Generic type
-    async def set_map(self, key: Any, item_cls: type, items: Dict[str, Any]) -> None:
+    async def set_map(self, key: Key, item_cls: type, items: Dict[str, Any]) -> None:
         cls_name = item_cls.__name__
-        _log.info(f'setting map of {len(items)} {cls_name}s')
+        _log.info(f'setting map of {len(items)} {cls_name}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             await db.execute(f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
@@ -110,7 +112,7 @@ class SQLite:
             await db.commit()
 
     @asynccontextmanager
-    async def _connect(self, key: Any) -> AsyncIterator[Connection]:
+    async def _connect(self, key: Key) -> AsyncIterator[Connection]:
         name = self._normalize_key(key)
         _log.info(f'connecting to {key}')
         name = str(home_path().joinpath(f'v{_VERSION}_{name}.db'))
@@ -124,11 +126,10 @@ class SQLite:
             await db.commit()
             tables.add(type_)
 
-    def _normalize_key(self, key: Any) -> str:
+    def _normalize_key(self, key: Key) -> str:
         key_type = type(key)
         if key_type is str:
-            # The type is already known to be str but this is to please mypy.
-            return str(key)
+            return cast(str, key)
         elif key_type is tuple:
             return '_'.join(map(str, key))
         else:

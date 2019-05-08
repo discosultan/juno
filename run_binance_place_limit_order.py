@@ -11,7 +11,7 @@ from juno.math import adjust_price, adjust_size
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
-TEST = False
+TEST = True
 SIDE = Side.BUY
 SYMBOL = 'ada-btc'
 CLIENT_ID = 'foo'
@@ -56,6 +56,13 @@ async def main() -> None:
                                  symbol_info.price_step)
             size = adjust_size(size, symbol_info.min_size, symbol_info.max_size,
                                symbol_info.size_step)
+
+            # DEBUG
+            size = symbol_info.min_size
+            if SIDE is Side.BUY:
+                price = symbol_info.max_price
+            else:
+                price = symbol_info.min_price
 
             logging.info(f'Adjusted price: {price}, size: {size}')
 

@@ -114,6 +114,7 @@ class Orderbook:
                            ) -> OrderResult:
         if fills.total_size == 0:
             return OrderResult.not_placed()
+
         res = await self._exchanges[exchange].place_order(
             symbol=symbol,
             side=side,
@@ -148,6 +149,7 @@ class Orderbook:
             return OrderResult.not_placed()
 
         client_id = str(uuid.uuid4())
+        to_fill = size
 
         res = await self._exchanges[exchange].place_order(
             symbol=symbol,
@@ -159,9 +161,11 @@ class Orderbook:
             client_id=client_id,
             test=False)
 
-        async for order in self._exchanges[exchange].stream_orders():
-            if order['client_id'] == client_id:
-                pass
+        to_fill -= res.fills.total_size
+        if to_fill > 0:
+            async for order in self._exchanges[exchange].stream_orders():
+                if order['client_id'] != client_id:
+                    continue
 
         return None
 
