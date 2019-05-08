@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import sys
-from decimal import Decimal
 
 from juno import OrderType, Side
 from juno.components import Informant, Orderbook, Wallet

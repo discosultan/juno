@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, AsyncIterable, Dict, Tuple
+from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, Tuple
 
 from juno import Candle, Fees, Span, SymbolInfo
 from juno.exchanges import Exchange
@@ -15,6 +15,8 @@ from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
 _log = logging.getLogger(__name__)
 
+FetchMap = Callable[[Exchange], Awaitable[Dict[str, Any]]]
+
 
 class Informant:
 
@@ -22,36 +24,35 @@ class Informant:
         self._exchanges: Dict[str, Exchange] = {
             k: v for k, v in services.items() if isinstance(v, Exchange)}
         self._storage: SQLite = services[config['storage']]
-        self._exchange_fees: Dict[str, Dict[str, Fees]] = defaultdict(dict)
-        self._exchange_symbol_infos: Dict[str, Dict[str, SymbolInfo]] = defaultdict(dict)
+
+        self._exchange_data: Dict[str, Dict[type, Dict[str, Any]]] = (
+            defaultdict(lambda: defaultdict(dict)))
+        self._sync_tasks: List[asyncio.Task[None]] = []
+        self._initial_sync_events: List[asyncio.Event] = []
 
     async def __aenter__(self) -> Informant:
-        self._initial_fees_fetched = asyncio.Event()
-        self._initial_symbol_infos_fetched = asyncio.Event()
-        self._sync_fees_task = asyncio.create_task(self._sync_all_fees())
-        self._sync_symbol_infos_task = asyncio.create_task(self._sync_all_symbol_infos())
-        await asyncio.gather(
-            self._initial_fees_fetched.wait(),
-            self._initial_symbol_infos_fetched.wait())
+        self._setup_sync_task(Fees, lambda e: e.map_fees())
+        self._setup_sync_task(SymbolInfo, lambda e: e.map_symbol_infos())
+        await asyncio.gather(*(e.wait() for e in self._initial_sync_events))
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        self._sync_fees_task.cancel()
-        self._sync_symbol_infos_task.cancel()
-        await asyncio.gather(self._sync_fees_task, self._sync_symbol_infos_task)
+        for task in self._sync_tasks:
+            task.cancel()
+        await asyncio.gather(*self._sync_tasks)
 
     def get_fees(self, exchange: str, symbol: str) -> Fees:
         # `__all__` is a special key which allows exchange to return same fee for any symbol.
-        all_fees = self._exchange_fees[exchange].get('__all__')
+        all_fees = self._exchange_data[exchange][Fees].get('__all__')
         if all_fees:
             return all_fees
-        fees = self._exchange_fees[exchange].get(symbol)
+        fees = self._exchange_data[exchange][Fees].get(symbol)
         if not fees:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
         return fees
 
     def get_symbol_info(self, exchange: str, symbol: str) -> SymbolInfo:
-        symbol_info = self._exchange_symbol_infos[exchange].get(symbol)
+        symbol_info = self._exchange_data[exchange][SymbolInfo].get(symbol)
         if not symbol_info:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
         return symbol_info
@@ -108,44 +109,30 @@ class Informant:
             await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
                                                        batch_start, batch_end)
 
-    # TODO: Generalize functionality below to get rid of duplication.
+    def _setup_sync_task(self, type_: type, fetch: FetchMap) -> None:
+        initial_sync_event = asyncio.Event()
+        self._initial_sync_events.append(initial_sync_event)
+        self._sync_tasks.append(
+            asyncio.create_task(self._sync_all_data(type_, fetch, initial_sync_event)))
 
-    async def _sync_all_symbol_infos(self) -> None:
+    async def _sync_all_data(self, type_: type, fetch: FetchMap, initial_sync_event: asyncio.Event
+                             ) -> None:
         try:
             while True:
-                await asyncio.gather(*(self._sync_symbol_infos(e) for e in self._exchanges.keys()))
-                if not self._initial_symbol_infos_fetched.is_set():
-                    self._initial_symbol_infos_fetched.set()
+                await asyncio.gather(
+                    *(self._sync_data(e, type_, fetch) for e in self._exchanges.keys()))
+                if not initial_sync_event.is_set():
+                    initial_sync_event.set()
                 await asyncio.sleep(DAY_MS / 1000.0)
         except asyncio.CancelledError:
-            _log.info('symbol info sync task cancelled')
+            _log.info(f'{type_.__name__.lower()} sync task cancelled')
         except Exception:
-            _log.exception('unhandled exception in symbol info sync task')
+            _log.exception(f'unhandled exception in {type_.__name__.lower()} sync task')
 
-    async def _sync_symbol_infos(self, exchange: str) -> None:
+    async def _sync_data(self, exchange: str, type_: type, fetch: FetchMap) -> None:
         now = time_ms()
-        data, updated = await self._storage.get_map(exchange, SymbolInfo)
+        data, updated = await self._storage.get_map(exchange, type_)
         if not data or not updated or now >= updated + DAY_MS:
-            data = await self._exchanges[exchange].map_symbol_infos()
-            await self._storage.set_map(exchange, SymbolInfo, data)
-        self._exchange_symbol_infos[exchange] = data
-
-    async def _sync_all_fees(self) -> None:
-        try:
-            while True:
-                await asyncio.gather(*(self._sync_fees(e) for e in self._exchanges.keys()))
-                if not self._initial_fees_fetched.is_set():
-                    self._initial_fees_fetched.set()
-                await asyncio.sleep(DAY_MS / 1000.0)
-        except asyncio.CancelledError:
-            _log.info('fees sync task cancelled')
-        except Exception:
-            _log.exception('unhandled exception in fees sync task')
-
-    async def _sync_fees(self, exchange: str) -> None:
-        now = time_ms()
-        data, updated = await self._storage.get_map(exchange, Fees)
-        if not data or not updated or now >= updated + DAY_MS:
-            data = await self._exchanges[exchange].map_fees()
-            await self._storage.set_map(exchange, Fees, data)
-        self._exchange_fees[exchange] = data
+            data = await fetch(self._exchanges[exchange])
+            await self._storage.set_map(exchange, type_, data)
+        self._exchange_data[exchange][type_] = data
