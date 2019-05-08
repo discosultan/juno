@@ -9,7 +9,7 @@ from juno import Candle, Fees, Span, SymbolInfo
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.storages import SQLite
-from juno.time import DAY_MS, time_ms
+from juno.time import DAY_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
@@ -117,22 +117,29 @@ class Informant:
 
     async def _sync_all_data(self, type_: type, fetch: FetchMap, initial_sync_event: asyncio.Event
                              ) -> None:
+        period = DAY_MS
+        type_name = type_.__name__.lower()
+        _log.info(f'starting periodic sync of {type_name} every {strfinterval(period)}')
         try:
             while True:
                 await asyncio.gather(
                     *(self._sync_data(e, type_, fetch) for e in self._exchanges.keys()))
                 if not initial_sync_event.is_set():
                     initial_sync_event.set()
-                await asyncio.sleep(DAY_MS / 1000.0)
+                await asyncio.sleep(period / 1000.0)
         except asyncio.CancelledError:
-            _log.info(f'{type_.__name__.lower()} sync task cancelled')
+            _log.info(f'{type_name} sync task cancelled')
         except Exception:
-            _log.exception(f'unhandled exception in {type_.__name__.lower()} sync task')
+            _log.exception(f'unhandled exception in {type_name} sync task')
 
     async def _sync_data(self, exchange: str, type_: type, fetch: FetchMap) -> None:
         now = time_ms()
+        type_name = type_.__name__.lower()
         data, updated = await self._storage.get_map(exchange, type_)
         if not data or not updated or now >= updated + DAY_MS:
+            _log.info(f'fetching data for {type_name} from exchange')
             data = await fetch(self._exchanges[exchange])
             await self._storage.set_map(exchange, type_, data)
+        else:
+            _log.info(f'using data for {type_name} from storage')
         self._exchange_data[exchange][type_] = data
