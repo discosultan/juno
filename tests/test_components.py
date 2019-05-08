@@ -213,7 +213,6 @@ init_wallet = partial(init_component, Wallet)
 
 
 def _assert_fills(output, expected_output):
-    for o, eo in zip(output, expected_output):
-        eoprice, eosize = eo
+    for o, (eoprice, eosize) in zip(output, expected_output):
         assert o.price == eoprice
         assert o.size == eosize
