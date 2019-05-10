@@ -131,6 +131,7 @@ class Informant:
             _log.info(f'{type_name} sync task cancelled')
         except Exception:
             _log.exception(f'unhandled exception in {type_name} sync task')
+            raise
 
     async def _sync_data(self, exchange: str, type_: type, fetch: FetchMap) -> None:
         now = time_ms()

@@ -162,9 +162,24 @@ class Orderbook:
         fills = res.fills
         to_fill -= res.fills.total_size
 
-        if to_fill > 0:
+        if to_fill == 0:
+            assert res.status == OrderStatus.FILLED
+        else:
             assert res.status in [OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED]
-            # Listen to order updates until we fill.
+            # Re-adjust order if someone surpasses us in orderbook.
+            adj_task = asyncio.create_task(self._readjust_order_best(client_id))
+            add_fills, _ = await asyncio.gather(
+                # Listen to order updates until we fill.
+                self._wait_order_fills(to_fill, client_id, exchange, adj_task),
+                adj_task)
+            fills.extend(add_fills)
+
+        return OrderResult(status=OrderStatus.FILLED, fills=fills)
+
+    async def _wait_order_fills(self, to_fill: Decimal, client_id: str, exchange: str,
+                                adj_task: asyncio.Task[None]) -> List[Fill]:
+        fills = []
+        try:
             async for order in self._exchanges[exchange].stream_orders():
                 if order['order_client_id'] != client_id:
                     continue
@@ -172,6 +187,7 @@ class Orderbook:
                     # TODO: temp
                     _log.critical(f'order update with status {order["status"]}')
                     continue
+
                 to_fill -= order['fill_size']
                 fills.append(Fill(
                     price=order['fill_price'],
@@ -181,12 +197,24 @@ class Orderbook:
                 if to_fill == 0:
                     assert order['order_status'] == OrderStatus.FILLED
                     break
+            # Cancels re-adjustment of the order task.
+            adj_task.cancel()
+        except asyncio.CancelledError:
+            _log.info(f'order {client_id} wait for fill task cancelled')
+        except Exception:
+            _log.exception(f'unhandled exception in order {client_id} wait for fill task')
+            raise
+        return fills
 
-            # Re-adjust order if someone surpasses us in orderbook.
-
-        return OrderResult(
-            status=OrderStatus.FILLED,
-            fills=fills)
+    async def _readjust_order_best(self, client_id: str) -> None:
+        try:
+            # TODO
+            pass
+        except asyncio.CancelledError:
+            _log.info(f'order {client_id} re-adjustment task cancelled')
+        except Exception:
+            _log.exception(f'unhandled exception in order {client_id} re-adjustment task')
+            raise
 
     async def _sync_orderbooks(self) -> None:
         try:
@@ -194,6 +222,9 @@ class Orderbook:
                 *(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
         except asyncio.CancelledError:
             _log.info('orderbook sync task cancelled')
+        except Exception:
+            _log.exception('unhandled exception in orderbook sync task')
+            raise
 
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         snapshot_received = False

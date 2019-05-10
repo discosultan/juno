@@ -39,6 +39,7 @@ class Wallet:
             _log.info('balance sync task cancelled')
         except Exception:
             _log.exception('unhandled exception in balance sync task')
+            raise
 
     async def _sync_balances(self, exchange: str) -> None:
         async for balances in self._exchanges[exchange].stream_balances():
