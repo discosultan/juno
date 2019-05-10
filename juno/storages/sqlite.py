@@ -5,8 +5,8 @@ import sqlite3
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, NamedTuple, Optional, Set,
-                    Tuple, Type, Union, cast, get_type_hints)
+from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple, Type,
+                    Union, cast, get_type_hints)
 
 import simplejson as json
 from aiosqlite import Connection, connect
@@ -21,7 +21,7 @@ _log = logging.getLogger(__name__)
 # Version should be incremented every time a storage schema changes.
 _VERSION = 9
 
-Key = Union[str, tuple]
+Key = Union[str, Tuple[Any, ...]]
 Primitive = Union[int, float, Decimal, str]
 
 
@@ -184,7 +184,7 @@ def _load_type_from_string(type_: Type[Any], values: Dict[str, Any]) -> Any:
     return type_(**values)
 
 
-def _isnamedtuple(type_: Type[Any]):
+def _isnamedtuple(type_: Type[Any]) -> bool:
     return issubclass(type_, tuple) and bool(getattr(type_, '_fields', False))
 
 

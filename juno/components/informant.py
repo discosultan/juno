@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, Tuple
+from typing import cast, Any, AsyncIterable, Awaitable, Callable, Dict, List, Tuple, Type
 
 from juno import Candle, Fees, Span
 from juno.exchanges import Exchange
@@ -26,7 +26,7 @@ class Informant:
             k: v for k, v in services.items() if isinstance(v, Exchange)}
         self._storage: SQLite = services[config['storage']]
 
-        self._exchange_data: Dict[str, Dict[type, Dict[str, Any]]] = (
+        self._exchange_data: Dict[str, Dict[Type[Any], Dict[str, Any]]] = (
             defaultdict(lambda: defaultdict(dict)))
         self._sync_tasks: List[asyncio.Task[None]] = []
         self._initial_sync_events: List[asyncio.Event] = []
@@ -44,19 +44,18 @@ class Informant:
 
     def get_fees(self, exchange: str, symbol: str) -> Fees:
         # `__all__` is a special key which allows exchange to return same fee for any symbol.
-        all_fees = self._exchange_data[exchange][Fees].get('__all__')
-        if all_fees:
-            return all_fees
-        fees = self._exchange_data[exchange][Fees].get(symbol)
+        fees = self._exchange_data[exchange][Fees].get('__all__')
+        if not fees:
+            fees = self._exchange_data[exchange][Fees].get(symbol)
         if not fees:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
-        return fees
+        return cast(Fees, fees)
 
     def get_filters(self, exchange: str, symbol: str) -> Filters:
         filters = self._exchange_data[exchange][Filters].get(symbol)
         if not filters:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
-        return filters
+        return cast(Filters, filters)
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
                              ) -> AsyncIterable[Tuple[Candle, bool]]:

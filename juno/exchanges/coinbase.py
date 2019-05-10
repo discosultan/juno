@@ -14,7 +14,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 import simplejson as json
 
 from juno import Balance, Candle, Fees, OrderType, Side, TimeInForce
-from juno.filters import Filters, MinNotional, Price, PercentPrice, Size
+from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms

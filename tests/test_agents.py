@@ -7,7 +7,7 @@ from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultSta
 from juno.agents import Agent, Backtest, Live, Paper, list_required_component_names
 from juno.agents.summary import Position, TradingSummary
 from juno.components import Orderbook
-from juno.filters import Filters, Price, PercentPrice, Size, MinNotional
+from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
 
 from .utils import load_json_file
