@@ -170,9 +170,14 @@ class Binance(Exchange):
             data = await self._order_event.wait()
             self._order_event.clear()
             result = {
-                'client_id': data['c'],
-                'size': Decimal(data['q']),
-                'filled_size': Decimal(data['z'])
+                'status': data['x'],
+                'order_status': _from_order_status(data['X']),
+                'order_client_id': data['c'],
+                # 'size': Decimal(data['q']),
+                'fill_price': Decimal(data['L']),
+                'fill_size': Decimal(data['l']),
+                'fee': Decimal(data['n']),
+                'fee_asset': data['N'].lower()
             }
             yield result
 

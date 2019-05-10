@@ -164,10 +164,25 @@ class Orderbook:
 
         if to_fill > 0:
             assert res.status in [OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED]
+            # Listen to order updates until we fill.
             async for order in self._exchanges[exchange].stream_orders():
-                if order['client_id'] != client_id:
+                if order['order_client_id'] != client_id:
                     continue
-                # TODO: implement this stuff lol
+                if order['status'] != 'TRADE':
+                    # TODO: temp
+                    _log.critical(f'order update with status {order["status"]}')
+                    continue
+                to_fill -= order['fill_size']
+                fills.append(Fill(
+                    price=order['fill_price'],
+                    size=order['fill_size'],
+                    fee=order['fee'],
+                    fee_asset=order['fee_asset']))
+                if to_fill == 0:
+                    assert order['order_status'] == OrderStatus.FILLED
+                    break
+
+            # Re-adjust order if someone surpasses us in orderbook.
 
         return OrderResult(
             status=OrderStatus.FILLED,
