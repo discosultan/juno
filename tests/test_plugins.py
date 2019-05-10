@@ -2,9 +2,10 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, Fill, Fills, SymbolInfo
+from juno import Candle, Fees, Fill, Fills
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
+from juno.filters import Filters
 from juno.plugins import discord
 from juno.time import HOUR_MS
 
@@ -12,16 +13,14 @@ from .utils import full_path
 
 
 def get_dummy_trading_summary():
-    symbol_info = SymbolInfo(*([Decimal(0)] * 6))
-    fees = Fees(Decimal(0), Decimal(0))
     return TradingSummary(
         exchange='dummy_exchange',
         symbol='eth-btc',
         interval=HOUR_MS,
         start=0,
         quote=Decimal(1),
-        fees=fees,
-        symbol_info=symbol_info)
+        fees=Fees.none(),
+        filters=Filters.none())
 
 
 class Dummy(Agent):

@@ -3,10 +3,11 @@ from decimal import Decimal
 import pytest
 import simplejson as json
 
-from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultStatus, SymbolInfo
+from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultStatus
 from juno.agents import Agent, Backtest, Live, Paper, list_required_component_names
 from juno.agents.summary import Position, TradingSummary
 from juno.components import Orderbook
+from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
 
 from .utils import load_json_file
@@ -15,9 +16,9 @@ from .utils import load_json_file
 async def test_backtest(loop):
     informant = FakeInformant(
         fees=Fees(Decimal(0), Decimal(0)),
-        symbol_info=SymbolInfo(
-            min_size=Decimal(1), max_size=Decimal(10000), size_step=Decimal(1),
-            min_price=Decimal(1), max_price=Decimal(10000), price_step=Decimal(1)),
+        filters=Filters(
+            price=Price(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1)),
+            size=Size(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1))),
         candles=[
             Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
             Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
@@ -62,19 +63,16 @@ async def test_backtest(loop):
 
 
 # 1. was failing as quote was incorrectly calculated after closing a position.
-# 2. was failing as `juno.math.adjust_size` was rounding closest and not down.
+# 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
 async def test_backtest_scenarios(loop, scenario_nr):
     path = f'/data/backtest_scenario{scenario_nr}_candles.json'
     informant = FakeInformant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
-        symbol_info=SymbolInfo(
-            min_size=Decimal('0.00100000'),
-            max_size=Decimal('100000.00000000'),
-            size_step=Decimal('0.00100000'),
-            min_price=Decimal('0E-8'),
-            max_price=Decimal('0E-8'),
-            price_step=Decimal('0.00000100')),
+        filters=Filters(
+            price=Price(min_=Decimal('0E-8'), max_=Decimal('0E-8'), step=Decimal('0.00000100')),
+            size=Size(min_=Decimal('0.00100000'), max_=Decimal('100000.00000000'),
+                      step=Decimal('0.00100000'))),
         candles=list(map(lambda c: Candle(**c), load_json_file(path)))
     )
     agent_config = {
@@ -103,9 +101,9 @@ async def test_backtest_scenarios(loop, scenario_nr):
 async def test_paper(loop):
     informant = FakeInformant(
         fees=Fees(Decimal(0), Decimal(0)),
-        symbol_info=SymbolInfo(
-            min_size=Decimal(1), max_size=Decimal(10000), size_step=Decimal(1),
-            min_price=Decimal(1), max_price=Decimal(10000), price_step=Decimal(1)),
+        filters=Filters(
+            price=Price(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1)),
+            size=Size(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1))),
         candles=[
             Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
             Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
@@ -156,9 +154,9 @@ async def test_paper(loop):
 async def test_live(loop):
     informant = FakeInformant(
         fees=Fees(Decimal(0), Decimal(0)),
-        symbol_info=SymbolInfo(
-            min_size=Decimal(1), max_size=Decimal(10000), size_step=Decimal(1),
-            min_price=Decimal(1), max_price=Decimal(10000), price_step=Decimal(1)),
+        filters=Filters(
+            price=Price(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1)),
+            size=Size(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1))),
         candles=[
             Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
             Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
@@ -235,8 +233,8 @@ def test_summary():
         interval=HOUR_MS,
         start=0,
         quote=Decimal(100),
-        fees=Fees(*([Decimal(1)] * 2)),
-        symbol_info=SymbolInfo(*([Decimal(1)] * 6)))
+        fees=Fees.none(),
+        filters=Filters.none())
     summary.append_candle(Candle(0, *([Decimal(1)] * 5)))
     summary.append_position(Position(
         time=0,
@@ -269,16 +267,16 @@ def test_list_required_component_names():
 
 class FakeInformant:
 
-    def __init__(self, fees, symbol_info, candles):
+    def __init__(self, fees, filters, candles):
         self.fees = fees
-        self.symbol_info = symbol_info
+        self.filters = filters
         self.candles = candles
 
     def get_fees(self, exchange, symbol):
         return self.fees
 
-    def get_symbol_info(self, exchange, symbol):
-        return self.symbol_info
+    def get_filters(self, exchange, symbol):
+        return self.filters
 
     async def stream_candles(self, exchange, symbol, interval, start, end):
         for candle in self.candles:
@@ -291,24 +289,44 @@ class FakeOrderbook(Orderbook):
         self._orderbooks = orderbooks
         self._update_on_find = update_on_find
 
-    def find_market_order_asks(self, exchange, symbol, quote_balance, symbol_info, fees):
-        asks = super().find_market_order_asks(exchange, symbol, quote_balance, symbol_info, fees)
+    def find_market_order_asks(self, exchange, symbol, quote, fees, filters):
+        asks = super().find_market_order_asks(
+            exchange=exchange,
+            symbol=symbol,
+            quote=quote,
+            fees=fees,
+            filters=filters)
         if self._update_on_find:
             self._remove_from_side(self._orderbooks[exchange][symbol]['asks'], asks)
         return asks
 
-    def find_market_order_bids(self, exchange, symbol, base_balance, symbol_info, fees):
-        bids = super().find_market_order_bids(exchange, symbol, base_balance, symbol_info, fees)
+    def find_market_order_bids(self, exchange, symbol, base, fees, filters):
+        bids = super().find_market_order_bids(
+            exchange=exchange,
+            symbol=symbol,
+            base=base,
+            fees=fees,
+            filters=filters)
         if self._update_on_find:
             self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
         return bids
 
-    async def buy_market(self, exchange, symbol, quote, symbol_info, fees, test):
-        fills = self.find_market_order_asks(exchange, symbol, quote, symbol_info, fees)
+    async def buy_market(self, exchange, symbol, quote, fees, filters, test):
+        fills = self.find_market_order_asks(
+            exchange=exchange,
+            symbol=symbol,
+            quote=quote,
+            fees=fees,
+            filters=filters)
         return OrderResult(status=OrderResultStatus.FILLED, fills=fills)
 
-    async def sell_market(self, exchange, symbol, base, symbol_info, fees, test):
-        fills = self.find_market_order_bids(exchange, symbol, base, symbol_info, fees)
+    async def sell_market(self, exchange, symbol, base, fees, filters, test):
+        fills = self.find_market_order_bids(
+            exchange=exchange,
+            symbol=symbol,
+            base=base,
+            fees=fees,
+            filters=filters)
         return OrderResult(status=OrderResultStatus.FILLED, fills=fills)
 
     def _remove_from_side(self, side, fills):

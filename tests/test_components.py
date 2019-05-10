@@ -4,9 +4,10 @@ from functools import partial
 
 import pytest
 
-from juno import Balance, Candle, Fees, SymbolInfo
+from juno import Balance, Candle, Fees
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Exchange
+from juno.filters import Filters, Price, Size
 from juno.storages import Memory
 from juno.utils import list_async
 
@@ -45,16 +46,13 @@ async def test_get_fees(loop):
         assert out_fees == fees
 
 
-async def test_get_symbol_info(loop):
-    symbol_info = SymbolInfo(min_size=Decimal(1),
-                             max_size=Decimal(1),
-                             size_step=Decimal(1),
-                             min_price=Decimal(1),
-                             max_price=Decimal(1),
-                             price_step=Decimal(1))
-    async with init_informant(Fake(symbol_infos={'eth-btc': symbol_info})) as informant:
-        out_symbol_info = informant.get_symbol_info('fake', 'eth-btc')
-        assert out_symbol_info == symbol_info
+async def test_get_filters(loop):
+    filters = Filters(
+        price=Price(min_=Decimal(1), max_=Decimal(1), step=Decimal(1)),
+        size=Size(min_=Decimal(1), max_=Decimal(1), step=Decimal(1)))
+    async with init_informant(Fake(filters={'eth-btc': filters})) as informant:
+        out_filters = informant.get_filters('fake', 'eth-btc')
+        assert out_filters == filters
 
 
 @pytest.mark.parametrize('quote,snapshot_asks,update_asks,expected_output', [
@@ -82,15 +80,11 @@ async def test_find_market_order_asks(loop, quote, snapshot_asks, update_asks, e
         'bids': [],
     }]
     async with init_orderbook(Fake(depths=depths)) as orderbook:
-        sinfo = SymbolInfo(
-            min_size=Decimal(1),
-            max_size=Decimal(10),
-            size_step=Decimal('0.1'),
-            min_price=Decimal(1),
-            max_price=Decimal(10),
-            price_step=Decimal('0.1'))
+        filters = Filters(
+            price=Price(min_=Decimal(1), max_=Decimal(10), step=Decimal('0.1')),
+            size=Size(min_=Decimal(1), max_=Decimal(10), step=Decimal('0.1')))
         output = orderbook.find_market_order_asks(exchange='fake', symbol='eth-btc', quote=quote,
-                                                  symbol_info=sinfo, fees=Fees.zero())
+                                                  fees=Fees.none(), filters=filters)
         _assert_fills(output, expected_output)
 
 
@@ -119,15 +113,11 @@ async def test_find_market_order_bids(loop, base, snapshot_bids, update_bids, ex
         'bids': update_bids,
     }]
     async with init_orderbook(Fake(depths=depths)) as orderbook:
-        sinfo = SymbolInfo(
-            min_size=Decimal(1),
-            max_size=Decimal(10),
-            size_step=Decimal('0.1'),
-            min_price=Decimal(1),
-            max_price=Decimal(10),
-            price_step=Decimal('0.1'))
+        filters = Filters(
+            price=Price(min_=Decimal(1), max_=Decimal(10), step=Decimal('0.1')),
+            size=Size(min_=Decimal(1), max_=Decimal(10), step=Decimal('0.1')))
         output = orderbook.find_market_order_bids(exchange='fake', symbol='eth-btc', base=base,
-                                                  symbol_info=sinfo, fees=Fees.zero())
+                                                  fees=Fees.none(), filters=filters)
         _assert_fills(output, expected_output)
 
 
@@ -153,10 +143,10 @@ async def test_get_balance(loop):
 
 
 class Fake(Exchange):
-    def __init__(self, candles=[], fees={}, symbol_infos={}, balances={}, depths={}, orders=[]):
+    def __init__(self, candles=[], fees={}, filters={}, balances={}, depths={}, orders=[]):
         self.candles = candles
         self.fees = fees
-        self.symbol_infos = symbol_infos
+        self.filters = filters
         self.balances = balances
         self.depths = depths
         self.orders = orders
@@ -164,8 +154,8 @@ class Fake(Exchange):
     async def map_fees(self):
         return self.fees
 
-    async def map_symbol_infos(self):
-        return self.symbol_infos
+    async def map_filters(self):
+        return self.filters
 
     async def stream_balances(self):
         for balance in self.balances:

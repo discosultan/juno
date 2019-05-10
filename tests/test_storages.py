@@ -61,7 +61,7 @@ async def test_memory_set_map_twice_get_map(loop, memory):
 
 async def test_memory_set_different_maps(loop, memory):
     candle = {'foo': _new_candle(time=1)}
-    fees = {'foo': Fees.zero()}
+    fees = {'foo': Fees.none()}
 
     await asyncio.gather(
         memory.set_map(key='key', item_cls=Candle, items=candle),

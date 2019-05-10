@@ -42,8 +42,8 @@ class Paper(Agent):
         self.fees = informant.get_fees(exchange, symbol)
         _log.info(f'Fees: {self.fees}')
 
-        self.symbol_info = informant.get_symbol_info(exchange, symbol)
-        _log.info(f'Symbol info: {self.symbol_info}')
+        self.filters = informant.get_filters(exchange, symbol)
+        _log.info(f'Symbol info: {self.filters}')
 
         self.result = TradingSummary(
             exchange=exchange,
@@ -52,7 +52,7 @@ class Paper(Agent):
             start=now,
             quote=quote,
             fees=self.fees,
-            symbol_info=self.symbol_info)
+            filters=self.filters)
         self.open_position = None
         restart_count = 0
 
@@ -115,7 +115,7 @@ class Paper(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             quote=self.quote,
-            symbol_info=self.symbol_info,
+            filters=self.filters,
             fees=self.fees,
             test=True)
 
@@ -136,7 +136,7 @@ class Paper(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             base=self.open_position.total_size - self.open_position.fills.total_fee,
-            symbol_info=self.symbol_info,
+            filters=self.filters,
             fees=self.fees,
             test=True)
 

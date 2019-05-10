@@ -5,8 +5,9 @@ import logging
 from collections import defaultdict
 from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, Tuple
 
-from juno import Candle, Fees, Span, SymbolInfo
+from juno import Candle, Fees, Span
 from juno.exchanges import Exchange
+from juno.filters import Filters
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, strfinterval, time_ms
@@ -32,7 +33,7 @@ class Informant:
 
     async def __aenter__(self) -> Informant:
         self._setup_sync_task(Fees, lambda e: e.map_fees())
-        self._setup_sync_task(SymbolInfo, lambda e: e.map_symbol_infos())
+        self._setup_sync_task(Filters, lambda e: e.map_filters())
         await asyncio.gather(*(e.wait() for e in self._initial_sync_events))
         return self
 
@@ -51,11 +52,11 @@ class Informant:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
         return fees
 
-    def get_symbol_info(self, exchange: str, symbol: str) -> SymbolInfo:
-        symbol_info = self._exchange_data[exchange][SymbolInfo].get(symbol)
-        if not symbol_info:
+    def get_filters(self, exchange: str, symbol: str) -> Filters:
+        filters = self._exchange_data[exchange][Filters].get(symbol)
+        if not filters:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
-        return symbol_info
+        return filters
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
                              ) -> AsyncIterable[Tuple[Candle, bool]]:

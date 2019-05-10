@@ -13,7 +13,8 @@ from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 import simplejson as json
 
-from juno import Balance, Candle, Fees, OrderType, Side, SymbolInfo, TimeInForce
+from juno import Balance, Candle, Fees, OrderType, Side, TimeInForce
+from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms
@@ -70,17 +71,17 @@ class Coinbase(Exchange):
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
         return {'__all__': Fees(maker=Decimal('0.0015'), taker=Decimal('0.0025'))}
 
-    async def map_symbol_infos(self) -> Dict[str, SymbolInfo]:
+    async def map_filters(self) -> Dict[str, Filters]:
         res = await self._public_request('GET', '/products')
         result = {}
         for product in res:
-            result[product['id'].lower()] = SymbolInfo(
-                min_size=Decimal(product['base_min_size']),
-                max_size=Decimal(product['base_max_size']),
-                size_step=Decimal(product['base_min_size']),
-                min_price=Decimal(product['min_market_funds']),
-                max_price=Decimal(product['max_market_funds']),
-                price_step=Decimal(product['quote_increment']))
+            result[product['id'].lower()] = Filters(
+                price=Price(
+                    step=Decimal(product['quote_increment'])),
+                size=Size(
+                    min_=Decimal(product['base_min_size']),
+                    max_=Decimal(product['base_max_size']),
+                    step=Decimal(product['base_increment'])))
         return result
 
     async def stream_balances(self) -> AsyncIterable[Dict[str, Balance]]:

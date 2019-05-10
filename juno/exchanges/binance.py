@@ -14,7 +14,8 @@ import aiohttp
 import simplejson as json
 
 from juno import (Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultStatus, OrderType,
-                  Side, SymbolInfo, TimeInForce, Trade)
+                  Side, TimeInForce, Trade)
+from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import HOUR_MS, MIN_MS, time_ms
@@ -72,19 +73,21 @@ class Binance(Exchange):
         return {_from_symbol(fee['symbol']): Fees(maker=fee['maker'], taker=fee['taker'])
                 for fee in res['tradeFee']}
 
-    async def map_symbol_infos(self) -> Dict[str, SymbolInfo]:
+    async def map_filters(self) -> Dict[str, Filters]:
         res = await self._request('GET', '/api/v1/exchangeInfo')
         result = {}
         for symbol in res['symbols']:
             size = next((f for f in symbol['filters'] if f['filterType'] == 'LOT_SIZE'))
             price = next((f for f in symbol['filters'] if f['filterType'] == 'PRICE_FILTER'))
-            result[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = SymbolInfo(
-                min_size=Decimal(size['minQty']),
-                max_size=Decimal(size['maxQty']),
-                size_step=Decimal(size['stepSize']),
-                min_price=Decimal(price['minPrice']),
-                max_price=Decimal(price['maxPrice']),
-                price_step=Decimal(price['tickSize']))
+            result[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
+                price=Price(
+                    min_=Decimal(price['minPrice']),
+                    max_=Decimal(price['maxPrice']),
+                    step=Decimal(price['tickSize'])),
+                size=Size(
+                    min_=Decimal(size['minQty']),
+                    max_=Decimal(size['maxQty']),
+                    step=Decimal(size['stepSize'])))
         return result
 
     async def stream_balances(self) -> AsyncIterable[Dict[str, Balance]]:

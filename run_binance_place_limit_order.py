@@ -7,7 +7,6 @@ from decimal import Decimal
 from juno import OrderType, Side, TimeInForce
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance
-from juno.math import adjust_price, adjust_size
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
@@ -15,7 +14,7 @@ TEST = True
 SIDE = Side.BUY
 SYMBOL = 'ada-btc'
 CLIENT_ID = 'foo'
-LOG_LEVEL = 'DEBUG'
+LOG_LEVEL = 'INFO'
 
 
 async def main() -> None:
@@ -34,8 +33,8 @@ async def main() -> None:
             fees = informant.get_fees(exchange, SYMBOL)
             logging.info(fees)
 
-            symbol_info = informant.get_symbol_info(exchange, SYMBOL)
-            logging.info(symbol_info)
+            filters = informant.get_filters(exchange, SYMBOL)
+            logging.info(filters)
 
             base_asset, quote_asset = unpack_symbol(SYMBOL)
             asks = orderbook.list_asks(exchange, SYMBOL)
@@ -52,17 +51,17 @@ async def main() -> None:
                 price = best_price * Decimal('1.5')  # way shittier, so we dont fill
                 size = balance.available
 
-            price = adjust_price(price, symbol_info.min_price, symbol_info.max_price,
-                                 symbol_info.price_step)
-            size = adjust_size(size, symbol_info.min_size, symbol_info.max_size,
-                               symbol_info.size_step)
+            price = filters.price.adjust(price)
+            size = filters.size.adjust(size)
 
             # DEBUG
-            size = symbol_info.min_size
+            size = filters.size.min
             if SIDE is Side.BUY:
-                price = symbol_info.max_price
+                price = best_price * Decimal('1.2')  # way better, so we fill
             else:
-                price = symbol_info.min_price
+                price = best_price * Decimal('0.8')  # way better, so we fill
+            price = filters.price.adjust(price)
+            # DEBUG END
 
             logging.info(f'Adjusted price: {price}, size: {size}')
 

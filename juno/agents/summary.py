@@ -3,7 +3,8 @@ import statistics
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Candle, Fees, Fills, SymbolInfo
+from juno import Candle, Fees, Fills
+from juno.filters import Filters
 from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
 
 
@@ -91,14 +92,14 @@ class Position:
 class TradingSummary:
 
     def __init__(self, exchange: str, symbol: str, interval: int, start: int, quote: Decimal,
-                 fees: Fees, symbol_info: SymbolInfo) -> None:
+                 filters: Filters, fees: Fees) -> None:
         self.exchange = exchange
         self.symbol = symbol
         self.interval = interval
         self.start = start
         self.quote = quote
+        self.filters = filters
         self.fees = fees
-        self.symbol_info = symbol_info
 
         # self.candles: List[Candle] = []
         self.positions: List[Position] = []

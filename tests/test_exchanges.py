@@ -46,9 +46,9 @@ async def test_map_fees(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_map_symbol_infos(loop, request, exchange):
+async def test_map_filters(loop, request, exchange):
     skip_non_configured(request, exchange)
-    res = await exchange.map_symbol_infos()
+    res = await exchange.map_filters()
     assert len(res) > 0
 
 

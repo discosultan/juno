@@ -107,8 +107,11 @@ class SQLite:
         _log.info(f'setting map of {len(items)} {cls_name}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
-            await db.execute(f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                             ['map_' + cls_name, json.dumps(items, use_decimal=True), time_ms()])
+            await db.execute(
+                f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)', [
+                    'map_' + cls_name,
+                    json.dumps(items, default=lambda o: o.__dict__, use_decimal=True),
+                    time_ms()])
             await db.commit()
 
     @asynccontextmanager

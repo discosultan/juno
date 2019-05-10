@@ -6,7 +6,6 @@ import sys
 from juno import OrderType, Side
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance
-from juno.math import adjust_size
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
@@ -31,24 +30,31 @@ async def main() -> None:
             fees = informant.get_fees(exchange, SYMBOL)
             logging.info(fees)
 
-            symbol_info = informant.get_symbol_info(exchange, SYMBOL)
-            logging.info(symbol_info)
+            filters = informant.get_filters(exchange, SYMBOL)
+            logging.info(filters)
 
             base_asset, quote_asset = unpack_symbol(SYMBOL)
             if SIDE == Side.BUY:
                 balance = wallet.get_balance(exchange, quote_asset)
                 logging.info(balance)
                 fills = orderbook.find_market_order_asks(
-                    exchange, SYMBOL, balance.available, symbol_info, fees)
+                    exchange=exchange,
+                    symbol=SYMBOL,
+                    quote=balance.available,
+                    fees=fees,
+                    filters=filters)
             else:
                 balance = wallet.get_balance(exchange, base_asset)
                 logging.info(balance)
                 fills = orderbook.find_market_order_bids(
-                    exchange, SYMBOL, balance.available, symbol_info, fees)
+                    exchange=exchange,
+                    symbol=SYMBOL,
+                    base=balance.available,
+                    fees=fees,
+                    filters=filters)
 
             logging.info(f'Size from orderbook: {fills.total_size}')
-            size = adjust_size(fills.total_size, symbol_info.min_size, symbol_info.max_size,
-                               symbol_info.size_step)
+            size = filters.size.adjust(fills.total_size)
             logging.info(f'Adjusted size: {size}')
 
             if size == 0:

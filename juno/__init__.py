@@ -40,7 +40,7 @@ class Fees(NamedTuple):
     taker: Decimal
 
     @staticmethod
-    def zero() -> Fees:
+    def none() -> Fees:
         return Fees(maker=Decimal(0), taker=Decimal(0))
 
 
@@ -51,15 +51,6 @@ class Span(NamedTuple):
     def __repr__(self) -> str:
         return (f'{type(self).__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
                 f'end={datetime_utcfromtimestamp_ms(self.end)})')
-
-
-class SymbolInfo(NamedTuple):
-    min_size: Decimal
-    max_size: Decimal
-    size_step: Decimal
-    min_price: Decimal
-    max_price: Decimal
-    price_step: Decimal
 
 
 class Advice(Enum):

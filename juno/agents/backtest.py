@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 
 from juno import Candle, Fill, Fills
 from juno.components import Informant
-from juno.math import adjust_size
 from juno.strategies import new_strategy
 from juno.time import time_ms
 from juno.utils import unpack_symbol
@@ -35,8 +34,8 @@ class Backtest(Agent):
         self.fees = informant.get_fees(exchange, symbol)
         _log.info(f'Fees: {self.fees}')
 
-        self.symbol_info = informant.get_symbol_info(exchange, symbol)
-        _log.info(f'Symbol info: {self.symbol_info}')
+        self.filters = informant.get_filters(exchange, symbol)
+        _log.info(f'Symbol info: {self.filters}')
 
         self.result = TradingSummary(
             exchange=exchange,
@@ -45,7 +44,7 @@ class Backtest(Agent):
             start=start,
             quote=quote,
             fees=self.fees,
-            symbol_info=self.symbol_info)
+            filters=self.filters)
         self.open_position = None
         restart_count = 0
 
@@ -105,9 +104,7 @@ class Backtest(Agent):
     def _try_open_position(self, candle: Candle) -> bool:
         price = candle.close
 
-        size = self.quote / price
-        size = adjust_size(size, self.symbol_info.min_size, self.symbol_info.max_size,
-                           self.symbol_info.size_step)
+        size = self.filters.size.adjust(self.quote / price)
         if size == 0:
             return False
 
@@ -127,9 +124,8 @@ class Backtest(Agent):
 
         price = candle.close
 
-        size = self.open_position.total_size - self.open_position.fills.total_fee
-        size = adjust_size(size, self.symbol_info.min_size, self.symbol_info.max_size,
-                           self.symbol_info.size_step)
+        size = self.filters.size.adjust(
+            self.open_position.total_size - self.open_position.fills.total_fee)
 
         quote = size * price
         fee = quote * self.fees.taker

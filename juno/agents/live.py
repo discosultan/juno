@@ -40,8 +40,8 @@ class Live(Agent):
         self.fees = informant.get_fees(exchange, symbol)
         _log.info(f'Fees: {self.fees}')
 
-        self.symbol_info = informant.get_symbol_info(exchange, symbol)
-        _log.info(f'Symbol info: {self.symbol_info}')
+        self.filters = informant.get_filters(exchange, symbol)
+        _log.info(f'Symbol info: {self.filters}')
 
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         self.quote = self.wallet.get_balance(exchange, self.quote_asset).available
@@ -54,7 +54,7 @@ class Live(Agent):
             start=now,
             quote=self.quote,
             fees=self.fees,
-            symbol_info=self.symbol_info)
+            filters=self.filters)
         self.open_position = None
         restart_count = 0
 
@@ -117,7 +117,7 @@ class Live(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             quote=self.quote,
-            symbol_info=self.symbol_info,
+            filters=self.filters,
             fees=self.fees,
             test=False)
 
@@ -138,7 +138,7 @@ class Live(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             base=self.open_position.total_size - self.open_position.fills.total_fee,
-            symbol_info=self.symbol_info,
+            filters=self.filters,
             fees=self.fees,
             test=True)
 
