@@ -113,16 +113,18 @@ class Fills(List[Fill]):
 
 
 class OrderResult(NamedTuple):
-    status: OrderResultStatus
+    status: OrderStatus
     fills: Fills
 
     @staticmethod
     def not_placed() -> OrderResult:
         return OrderResult(
-            status=OrderResultStatus.NOT_PLACED,
+            status=OrderStatus.NOT_PLACED,
             fills=Fills())
 
 
-class OrderResultStatus(Enum):
+class OrderStatus(Enum):
     NOT_PLACED = 0
-    FILLED = 1
+    NEW = 1
+    FILLED = 2
+    PARTIALLY_FILLED = 3

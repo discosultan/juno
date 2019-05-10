@@ -13,7 +13,7 @@ from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Dict, List, Opt
 import aiohttp
 import simplejson as json
 
-from juno import (Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultStatus, OrderType,
+from juno import (Balance, Candle, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType,
                   Side, TimeInForce, Trade)
 from juno.filters import Filters, MinNotional, Price, PercentPrice, Size
 from juno.http import ClientSession
@@ -245,7 +245,7 @@ class Binance(Exchange):
         if test:
             return OrderResult.not_placed()
         return OrderResult(
-            status=OrderResultStatus.FILLED,
+            status=_from_order_status(res['status']),
             fills=Fills([
                 Fill(
                     price=Decimal(f['price']),
@@ -253,8 +253,7 @@ class Binance(Exchange):
                     fee=Decimal(f['commission']),
                     fee_asset=f['commissionAsset'].lower()
                 ) for f in res['fills']
-            ])
-        )
+            ]))
 
     async def cancel_order(self, symbol: str, client_id: str) -> Any:
         data = {
@@ -454,6 +453,16 @@ def _interval(interval: int) -> str:
         604_800_000: '1w',
         2_629_746_000: '1M',
     }[interval]
+
+
+def _from_order_status(status: str) -> OrderStatus:
+    if status == 'NEW':
+        return OrderStatus.NEW
+    if status == 'PARTIALLY_FILLED':
+        return OrderStatus.PARTIALLY_FILLED
+    if status == 'FILLED':
+        return OrderStatus.FILLED
+    raise NotImplementedError(f'Handling of status {status} not implemented')
 
 
 def _finalize_task(task: Optional[asyncio.Task[None]]) -> Awaitable[None]:

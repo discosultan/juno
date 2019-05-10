@@ -8,7 +8,7 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import Fees, Fill, Fills, OrderResult, OrderResultStatus, OrderType, Side, TimeInForce
+from juno import Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, Side, TimeInForce
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.filters import Filters
@@ -122,7 +122,7 @@ class Orderbook:
             test=test)
         if test:
             res = OrderResult(
-                status=OrderResultStatus.NOT_PLACED,
+                status=OrderStatus.NOT_PLACED,
                 fills=fills)
         return res
 
@@ -159,13 +159,19 @@ class Orderbook:
             client_id=client_id,
             test=False)
 
+        fills = res.fills
         to_fill -= res.fills.total_size
+
         if to_fill > 0:
+            assert res.status in [OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED]
             async for order in self._exchanges[exchange].stream_orders():
                 if order['client_id'] != client_id:
                     continue
+                # TODO: implement this stuff lol
 
-        return None
+        return OrderResult(
+            status=OrderStatus.FILLED,
+            fills=fills)
 
     async def _sync_orderbooks(self) -> None:
         try:

@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 import simplejson as json
 
-from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultStatus
+from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, OrderStatus
 from juno.agents import Agent, Backtest, Live, Paper, list_required_component_names
 from juno.agents.summary import Position, TradingSummary
 from juno.components import Orderbook
@@ -318,7 +318,7 @@ class FakeOrderbook(Orderbook):
             quote=quote,
             fees=fees,
             filters=filters)
-        return OrderResult(status=OrderResultStatus.FILLED, fills=fills)
+        return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     async def sell_market(self, exchange, symbol, base, fees, filters, test):
         fills = self.find_market_order_bids(
@@ -327,7 +327,7 @@ class FakeOrderbook(Orderbook):
             base=base,
             fees=fees,
             filters=filters)
-        return OrderResult(status=OrderResultStatus.FILLED, fills=fills)
+        return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     def _remove_from_side(self, side, fills):
         for fill in fills:

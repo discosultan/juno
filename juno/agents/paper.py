@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional
 
 import simplejson as json
 
-from juno import Candle, OrderResultStatus
+from juno import Candle, OrderStatus
 from juno.components import Informant, Orderbook
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
@@ -119,7 +119,7 @@ class Paper(Agent):
             fees=self.fees,
             test=True)
 
-        if res.status == OrderResultStatus.NOT_PLACED:
+        if res.status == OrderStatus.NOT_PLACED:
             return False
 
         self.open_position = Position(candle.time, res.fills)
