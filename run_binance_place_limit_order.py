@@ -10,11 +10,11 @@ from juno.exchanges import Binance
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
-TEST = True
+TEST = False
 SIDE = Side.BUY
 SYMBOL = 'ada-btc'
 CLIENT_ID = 'foo'
-LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'DEBUG'
 
 
 async def main() -> None:
@@ -51,8 +51,8 @@ async def main() -> None:
                 price = best_price * Decimal('1.5')  # way shittier, so we dont fill
                 size = balance.available
 
-            price = filters.price.adjust(price)
-            size = filters.size.adjust(size)
+            price = filters.price.round_down(price)
+            size = filters.size.round_down(size)
 
             # DEBUG
             size = filters.size.min
@@ -60,7 +60,9 @@ async def main() -> None:
                 price = best_price * Decimal('1.2')  # way better, so we fill
             else:
                 price = best_price * Decimal('0.8')  # way better, so we fill
-            price = filters.price.adjust(price)
+            price = filters.price.round_down(price)
+            size = filters.min_notional.min_size_for_price(price)
+            size = filters.size.round_up(size)
             # DEBUG END
 
             logging.info(f'Adjusted price: {price}, size: {size}')

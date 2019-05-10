@@ -48,8 +48,8 @@ async def test_get_fees(loop):
 
 async def test_get_filters(loop):
     filters = Filters(
-        price=Price(min_=Decimal(1), max_=Decimal(1), step=Decimal(1)),
-        size=Size(min_=Decimal(1), max_=Decimal(1), step=Decimal(1)))
+        price=Price(min=Decimal(1), max=Decimal(1), step=Decimal(1)),
+        size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1)))
     async with init_informant(Fake(filters={'eth-btc': filters})) as informant:
         out_filters = informant.get_filters('fake', 'eth-btc')
         assert out_filters == filters
@@ -81,8 +81,8 @@ async def test_find_market_order_asks(loop, quote, snapshot_asks, update_asks, e
     }]
     async with init_orderbook(Fake(depths=depths)) as orderbook:
         filters = Filters(
-            price=Price(min_=Decimal(1), max_=Decimal(10), step=Decimal('0.1')),
-            size=Size(min_=Decimal(1), max_=Decimal(10), step=Decimal('0.1')))
+            price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
+            size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')))
         output = orderbook.find_market_order_asks(exchange='fake', symbol='eth-btc', quote=quote,
                                                   fees=Fees.none(), filters=filters)
         _assert_fills(output, expected_output)
@@ -114,8 +114,8 @@ async def test_find_market_order_bids(loop, base, snapshot_bids, update_bids, ex
     }]
     async with init_orderbook(Fake(depths=depths)) as orderbook:
         filters = Filters(
-            price=Price(min_=Decimal(1), max_=Decimal(10), step=Decimal('0.1')),
-            size=Size(min_=Decimal(1), max_=Decimal(10), step=Decimal('0.1')))
+            price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
+            size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')))
         output = orderbook.find_market_order_bids(exchange='fake', symbol='eth-btc', base=base,
                                                   fees=Fees.none(), filters=filters)
         _assert_fills(output, expected_output)

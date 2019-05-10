@@ -54,7 +54,7 @@ async def main() -> None:
                     filters=filters)
 
             logging.info(f'Size from orderbook: {fills.total_size}')
-            size = filters.size.adjust(fills.total_size)
+            size = filters.size.round_down(fills.total_size)
             logging.info(f'Adjusted size: {size}')
 
             if size == 0:

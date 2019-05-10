@@ -79,8 +79,8 @@ class Coinbase(Exchange):
                 price=Price(
                     step=Decimal(product['quote_increment'])),
                 size=Size(
-                    min_=Decimal(product['base_min_size']),
-                    max_=Decimal(product['base_max_size']),
+                    min=Decimal(product['base_min_size']),
+                    max=Decimal(product['base_max_size']),
                     step=Decimal(product['base_increment'])))
         return result
 

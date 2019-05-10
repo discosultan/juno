@@ -17,8 +17,8 @@ async def test_backtest(loop):
     informant = FakeInformant(
         fees=Fees(Decimal(0), Decimal(0)),
         filters=Filters(
-            price=Price(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1)),
-            size=Size(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1))),
+            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
+            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
         candles=[
             Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
             Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
@@ -70,8 +70,8 @@ async def test_backtest_scenarios(loop, scenario_nr):
     informant = FakeInformant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
         filters=Filters(
-            price=Price(min_=Decimal('0E-8'), max_=Decimal('0E-8'), step=Decimal('0.00000100')),
-            size=Size(min_=Decimal('0.00100000'), max_=Decimal('100000.00000000'),
+            price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
+            size=Size(min=Decimal('0.00100000'), max=Decimal('100000.00000000'),
                       step=Decimal('0.00100000'))),
         candles=list(map(lambda c: Candle(**c), load_json_file(path)))
     )
@@ -102,8 +102,8 @@ async def test_paper(loop):
     informant = FakeInformant(
         fees=Fees(Decimal(0), Decimal(0)),
         filters=Filters(
-            price=Price(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1)),
-            size=Size(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1))),
+            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
+            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
         candles=[
             Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
             Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
@@ -155,8 +155,8 @@ async def test_live(loop):
     informant = FakeInformant(
         fees=Fees(Decimal(0), Decimal(0)),
         filters=Filters(
-            price=Price(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1)),
-            size=Size(min_=Decimal(1), max_=Decimal(10000), step=Decimal(1))),
+            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
+            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
         candles=[
             Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
             Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),

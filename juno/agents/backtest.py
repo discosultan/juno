@@ -104,7 +104,7 @@ class Backtest(Agent):
     def _try_open_position(self, candle: Candle) -> bool:
         price = candle.close
 
-        size = self.filters.size.adjust(self.quote / price)
+        size = self.filters.size.round_down(self.quote / price)
         if size == 0:
             return False
 
@@ -124,7 +124,7 @@ class Backtest(Agent):
 
         price = candle.close
 
-        size = self.filters.size.adjust(
+        size = self.filters.size.round_down(
             self.open_position.total_size - self.open_position.fills.total_fee)
 
         quote = size * price

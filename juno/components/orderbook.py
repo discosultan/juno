@@ -63,7 +63,7 @@ class Orderbook:
             aquote = aprice * asize
             base_asset, quote_asset = unpack_symbol(symbol)
             if aquote >= quote:
-                size = filters.size.adjust(quote / aprice)
+                size = filters.size.round_down(quote / aprice)
                 if size != Decimal(0):
                     fee = aprice * size * fees.taker
                     result.append(Fill(price=aprice, size=size, fee=fee, fee_asset=base_asset))
@@ -81,7 +81,7 @@ class Orderbook:
         for bprice, bsize in self.list_bids(exchange, symbol):
             base_asset, quote_asset = unpack_symbol(symbol)
             if bsize >= base:
-                size = filters.size.adjust(base)
+                size = filters.size.round_down(base)
                 if size != Decimal(0):
                     fee = bprice * size * fees.taker
                     result.append(Fill(price=bprice, size=size, fee=fee, fee_asset=quote_asset))
@@ -141,7 +141,7 @@ class Orderbook:
             else:
                 price = bids[0][0] + filters.price.step
         # No need to adjust price as we take it from existing orders.
-        size = filters.size.adjust(quote / price)
+        size = filters.size.round_down(quote / price)
 
         if size == 0:
             return OrderResult.not_placed()
@@ -203,5 +203,4 @@ def _update_orderbook_side(orderbook_side: Dict[Decimal, Decimal],
         else:
             # Receiving an event that removes a price level that is not in the local orderbook can
             # happen and is normal for Binance, for example.
-            _log.info(f'request for price level {price} to be removed but does not exist in '
-                      'in local orderbook')
+            pass

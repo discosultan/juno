@@ -5,8 +5,8 @@ import sqlite3
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple, Union,
-                    cast, get_type_hints)
+from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, NamedTuple, Optional, Set,
+                    Tuple, Type, Union, cast, get_type_hints)
 
 import simplejson as json
 from aiosqlite import Connection, connect
@@ -19,9 +19,10 @@ from juno.utils import home_path
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 8
+_VERSION = 9
 
 Key = Union[str, tuple]
+Primitive = Union[int, float, Decimal, str]
 
 
 def _serialize_decimal(d: Decimal) -> bytes:
@@ -85,31 +86,29 @@ class SQLite:
             await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
-    async def get_map(self, key: Key, item_cls: type
+    async def get_map(self, key: Key, type_: Type[Any]
                       ) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
-        cls_name = item_cls.__name__
-        _log.info(f'getting map of {cls_name}')
+        _log.info(f'getting map of {type_.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             cursor = await db.execute(f'SELECT * FROM {Bag.__name__} WHERE key=?',
-                                      ['map_' + cls_name])
+                                      ['map_' + type_.__name__])
             row = await cursor.fetchone()
             await cursor.close()
             if row:
-                return {k: item_cls(**v) for k, v
+                return {k: _load_type_from_string(type_, v) for k, v
                         in json.loads(row[1], use_decimal=True).items()}, row[2]
             else:
                 return None, None
 
     # TODO: Generic type
-    async def set_map(self, key: Key, item_cls: type, items: Dict[str, Any]) -> None:
-        cls_name = item_cls.__name__
-        _log.info(f'setting map of {len(items)} {cls_name}')
+    async def set_map(self, key: Key, type_: Type[Any], items: Dict[str, Any]) -> None:
+        _log.info(f'setting map of {len(items)} {type_.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             await db.execute(
                 f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)', [
-                    'map_' + cls_name,
+                    'map_' + type_.__name__,
                     json.dumps(items, default=lambda o: o.__dict__, use_decimal=True),
                     time_ms()])
             await db.commit()
@@ -122,7 +121,7 @@ class SQLite:
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 
-    async def _ensure_table(self, db: Any, type_: type) -> None:
+    async def _ensure_table(self, db: Any, type_: Type[Any]) -> None:
         tables = self._tables[db]
         if type_ not in tables:
             await _create_table(db, type_)
@@ -139,7 +138,7 @@ class SQLite:
             raise NotImplementedError()
 
 
-async def _create_table(db: Any, type_: type) -> None:
+async def _create_table(db: Any, type_: Type[Any]) -> None:
     annotations = get_type_hints(type_)
     col_names = list(annotations.keys())
     col_types = [_type_to_sql_type(t) for t in annotations.values()]
@@ -164,7 +163,7 @@ async def _create_table(db: Any, type_: type) -> None:
                          f'SELECT {", ".join(view_cols)} FROM {type_.__name__}')
 
 
-def _type_to_sql_type(type_: type) -> str:
+def _type_to_sql_type(type_: Type[Primitive]) -> str:
     if type_ is int:
         return 'INTEGER'
     if type_ is float:
@@ -174,6 +173,20 @@ def _type_to_sql_type(type_: type) -> str:
     if type_ is str:
         return 'TEXT'
     raise NotImplementedError(f'Missing conversion for type {type_}')
+
+
+def _load_type_from_string(type_: Type[Any], values: Dict[str, Any]) -> Any:
+    # TODO: Supports only one level of nesting. Go recursive if need more!
+    annotations = get_type_hints(type_)
+    for key, attr_type in annotations.items():
+        if _isnamedtuple(attr_type):
+            # Materialize it.
+            values[key] = attr_type(**values[key])
+    return type_(**values)
+
+
+def _isnamedtuple(type_: Type[Any]):
+    return issubclass(type_, tuple) and bool(getattr(type_, '_fields', False))
 
 
 class Bag:

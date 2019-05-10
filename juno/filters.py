@@ -3,29 +3,21 @@
 
 from __future__ import annotations
 
-from decimal import ROUND_DOWN, ROUND_FLOOR, Decimal
+from decimal import ROUND_DOWN, ROUND_UP, Decimal
+from typing import NamedTuple
 
 
-class Price:
+class Price(NamedTuple):
+    min: Decimal = Decimal(0)  # 0 means disabled.
+    max: Decimal = Decimal(0)  # 0 means disabled.
+    step: Decimal = Decimal(0)  # 0 means disabled.
 
-    def __init__(
-            self,
-            min_: Decimal = Decimal(0),
-            max_: Decimal = Decimal(0),
-            step: Decimal = Decimal(0)) -> None:
-        # 0 means disabled.
-        self.min = min_
-        # 0 means disabled.
-        self.max = max_
-        # 0 means disabled.
-        self.step = step
-
-    def adjust(self, price: Decimal) -> Decimal:
+    def round_down(self, price: Decimal) -> Decimal:
         if price < self.min:
             return Decimal(0)
         if self.max:
             price = min(price, self.max)
-        return price.quantize(self.step.normalize(), rounding=ROUND_FLOOR)
+        return price.quantize(self.step.normalize(), rounding=ROUND_DOWN)
 
     def valid(self, price: Decimal) -> bool:
         return ((not self.min or price >= self.min) and
@@ -37,14 +29,10 @@ class Price:
         return Price()
 
 
-class PercentPrice:
-
-    def __init__(self, multiplier_up: Decimal, multiplier_down: Decimal, avg_price_period: int = 0
-                 ) -> None:
-        self.multiplier_up = multiplier_up
-        self.multiplier_down = multiplier_down
-        # 0 means the last price is used.
-        self.avg_price_period = avg_price_period
+class PercentPrice(NamedTuple):
+    multiplier_up: Decimal
+    multiplier_down: Decimal
+    avg_price_period: int = 0  # 0 means the last price is used.
 
     def valid(self, price: Decimal, weighted_average_price: Decimal) -> bool:
         return (price <= weighted_average_price * self.multiplier_up and
@@ -55,18 +43,22 @@ class PercentPrice:
         return PercentPrice(multiplier_up=Decimal('Inf'), multiplier_down=Decimal(0))
 
 
-class Size:
+class Size(NamedTuple):
+    min: Decimal
+    max: Decimal
+    step: Decimal
 
-    def __init__(self, min_: Decimal, max_: Decimal, step: Decimal) -> None:
-        self.min = min_
-        self.max = max_
-        self.step = step
+    def round_down(self, size: Decimal) -> Decimal:
+        return self._round(size, ROUND_DOWN)
 
-    def adjust(self, size: Decimal) -> Decimal:
+    def round_up(self, size: Decimal) -> Decimal:
+        return self._round(size, ROUND_UP)
+
+    def _round(self, size: Decimal, rounding: str) -> Decimal:
         if size < self.min:
             return Decimal(0)
         size = min(size, self.max)
-        return size.quantize(self.step.normalize(), rounding=ROUND_DOWN)
+        return size.quantize(self.step.normalize(), rounding=rounding)
 
     def valid(self, size: Decimal) -> bool:
         return (size >= self.min and
@@ -75,40 +67,32 @@ class Size:
 
     @staticmethod
     def none() -> Size:
-        return Size(min_=Decimal(0), max_=Decimal('Inf'), step=Decimal(0))
+        return Size(min=Decimal(0), max=Decimal('Inf'), step=Decimal(0))
 
 
-class MinNotional:
+class MinNotional(NamedTuple):
+    min_notional: Decimal
+    apply_to_market: bool
+    avg_price_period: int = 0  # 0 means the last price is used.
 
-    def __init__(self, min_notional: Decimal, apply_to_market: bool, avg_price_period: int = 0
-                 ) -> None:
-        self.min_notional = min_notional
-        self.apply_to_market = apply_to_market
-        # 0 means the last price is used.
-        self.avg_price_period = avg_price_period
+    def valid(self, price: Decimal, size: Decimal) -> bool:
+        # For limit order only.
+        return price * size >= self.min_notional
+
+    def min_size_for_price(self, price: Decimal) -> Decimal:
+        return self.min_notional / price
 
     @staticmethod
     def none() -> MinNotional:
         return MinNotional(min_notional=Decimal(0), apply_to_market=False)
 
 
-class Filters:
-
-    def __init__(
-            self,
-            price: Price = Price.none(),
-            percent_price: PercentPrice = PercentPrice.none(),
-            size: Size = Size.none(),
-            min_notional: MinNotional = MinNotional.none()) -> None:
-        self.price = price
-        self.percent_price = percent_price
-        self.size = size
-        self.min_notional = min_notional
+class Filters(NamedTuple):
+    price: Price = Price.none()
+    percent_price: PercentPrice = PercentPrice.none()
+    size: Size = Size.none()
+    min_notional: MinNotional = MinNotional.none()
 
     @staticmethod
     def none() -> Filters:
-        return Filters(
-            price=Price(),
-            percent_price=PercentPrice.none(),
-            size=Size.none(),
-            min_notional=MinNotional.none())
+        return Filters()

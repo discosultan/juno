@@ -10,9 +10,9 @@ from juno import filters
      Decimal('0.00000554')),
     (Decimal(1), Decimal(0), Decimal(0), Decimal(0), Decimal(1))
 ])
-def test_adjust_price(price, min_, max_, step, expected_output):
-    filter_ = filters.Price(min_=min_, max_=max_, step=step)
-    output = filter_.adjust(price)
+def test_price_round_down(price, min_, max_, step, expected_output):
+    filter_ = filters.Price(min=min_, max=max_, step=step)
+    output = filter_.round_down(price)
     assert output == expected_output
 
 
@@ -23,7 +23,7 @@ def test_adjust_price(price, min_, max_, step, expected_output):
     (Decimal('1412.10939049659'), Decimal('0.00100000'), Decimal('100000.00000000'),
      Decimal('0.00100000'), Decimal('1412.109'))  # rounding down to step
 ])
-def test_adjust_size(size, min_, max_, step, expected_output):
-    filter_ = filters.Size(min_=min_, max_=max_, step=step)
-    output = filter_.adjust(size)
+def test_size_round_down(size, min_, max_, step, expected_output):
+    filter_ = filters.Size(min=min_, max=max_, step=step)
+    output = filter_.round_down(size)
     assert output == expected_output

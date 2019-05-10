@@ -91,16 +91,16 @@ class Binance(Exchange):
 
             result[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
                 price=Price(
-                    min_=Decimal(price['minPrice']),
-                    max_=Decimal(price['maxPrice']),
+                    min=Decimal(price['minPrice']),
+                    max=Decimal(price['maxPrice']),
                     step=Decimal(price['tickSize'])),
                 percent_price=PercentPrice(
                     multiplier_up=Decimal(percent_price['multiplierUp']),
                     multiplier_down=Decimal(percent_price['multiplierDown']),
                     avg_price_period=percent_price['avgPriceMins'] * MIN_MS),
                 size=Size(
-                    min_=Decimal(lot_size['minQty']),
-                    max_=Decimal(lot_size['maxQty']),
+                    min=Decimal(lot_size['minQty']),
+                    max=Decimal(lot_size['maxQty']),
                     step=Decimal(lot_size['stepSize'])),
                 min_notional=MinNotional(
                     min_notional=Decimal(min_notional['minNotional']),
