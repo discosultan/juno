@@ -7,7 +7,8 @@ from juno import filters
 
 @pytest.mark.parametrize('price,min_,max_,step,expected_output', [
     (Decimal('0.000005540'), Decimal('1E-8'), Decimal('100000.00000000'), Decimal('1E-8'),
-     Decimal('0.00000554'))
+     Decimal('0.00000554')),
+    (Decimal(1), Decimal(0), Decimal(0), Decimal(0), Decimal(1))
 ])
 def test_adjust_price(price, min_, max_, step, expected_output):
     filter_ = filters.Price(min_=min_, max_=max_, step=step)

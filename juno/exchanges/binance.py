@@ -15,7 +15,7 @@ import simplejson as json
 
 from juno import (Balance, Candle, Fees, Fill, Fills, OrderResult, OrderResultStatus, OrderType,
                   Side, TimeInForce, Trade)
-from juno.filters import Filters, Price, Size
+from juno.filters import Filters, MinNotional, Price, PercentPrice, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import HOUR_MS, MIN_MS, time_ms
@@ -77,17 +77,35 @@ class Binance(Exchange):
         res = await self._request('GET', '/api/v1/exchangeInfo')
         result = {}
         for symbol in res['symbols']:
-            size = next((f for f in symbol['filters'] if f['filterType'] == 'LOT_SIZE'))
-            price = next((f for f in symbol['filters'] if f['filterType'] == 'PRICE_FILTER'))
+            for f in symbol['filters']:
+                t = f['filterType']
+                if t == 'PRICE_FILTER':
+                    price = f
+                elif t == 'PERCENT_PRICE':
+                    percent_price = f
+                elif t == 'LOT_SIZE':
+                    lot_size = f
+                elif t == 'MIN_NOTIONAL':
+                    min_notional = f
+            assert all((price, percent_price, lot_size, min_notional))
+
             result[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
                 price=Price(
                     min_=Decimal(price['minPrice']),
                     max_=Decimal(price['maxPrice']),
                     step=Decimal(price['tickSize'])),
+                percent_price=PercentPrice(
+                    multiplier_up=Decimal(percent_price['multiplierUp']),
+                    multiplier_down=Decimal(percent_price['multiplierDown']),
+                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS),
                 size=Size(
-                    min_=Decimal(size['minQty']),
-                    max_=Decimal(size['maxQty']),
-                    step=Decimal(size['stepSize'])))
+                    min_=Decimal(lot_size['minQty']),
+                    max_=Decimal(lot_size['maxQty']),
+                    step=Decimal(lot_size['stepSize'])),
+                min_notional=MinNotional(
+                    min_notional=Decimal(min_notional['minNotional']),
+                    apply_to_market=min_notional['applyToMarket'],
+                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS))
         return result
 
     async def stream_balances(self) -> AsyncIterable[Dict[str, Balance]]:
