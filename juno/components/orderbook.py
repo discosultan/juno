@@ -175,7 +175,7 @@ class Orderbook:
         else:
             assert res.status in [OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED]
             # Re-adjust order if someone surpasses us in orderbook.
-            adj_task = asyncio.create_task(self._readjust_order_best(client_id))
+            adj_task = asyncio.create_task(self._readjust_order_best(client_id, exchange, symbol))
             # Listen to order updates until we fill.
             add_fills = await self._wait_order_fills(to_fill, client_id, exchange, adj_task)
             fills.extend(add_fills)
@@ -212,10 +212,13 @@ class Orderbook:
         #     raise
         return fills
 
-    async def _readjust_order_best(self, client_id: str) -> None:
+    async def _readjust_order_best(self, client_id: str, exchange: str, symbol: str) -> None:
         try:
-            # TODO
-            pass
+            orderbook = self._orderbooks[exchange][symbol]
+            while True:
+                await orderbook.updated.wait()
+                orderbook.updated.clear()
+                # TODO
         except asyncio.CancelledError:
             _log.info(f'order {client_id} re-adjustment task cancelled')
         except Exception:
@@ -246,6 +249,7 @@ class Orderbook:
                 _update_orderbook_side(orderbook['asks'], val['asks'])
             else:
                 raise NotImplementedError()
+            orderbook.updated.set()
 
 
 def _update_orderbook_side(orderbook_side: Dict[Decimal, Decimal],
