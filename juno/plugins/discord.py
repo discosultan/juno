@@ -53,9 +53,10 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
 
 class Discord:
 
-    def __init__(self, token: str, channel_id: str) -> None:
+    def __init__(self, token: str, channel_id: str, timeout: float = 10.0) -> None:
         self._token = token
         self._channel_id = channel_id
+        self._timeout = timeout
 
     async def __aenter__(self) -> Discord:
         self._last_sequence: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
@@ -83,12 +84,12 @@ class Discord:
     async def post_msg(self, msg: Any) -> None:
         # TODO: wtf? # await self.ee.emit('discord_msg', msg)
         # Careful! Request is patched above. Make sure not to accidentally use post method.
-        await asyncio.wait_for(self._last_sequence, timeout=5.0)
+        await asyncio.wait_for(self._last_sequence, timeout=self._timeout)
         await self._request(
             'POST', f'/channels/{self._channel_id}/messages', json={'content': msg})
 
     async def post_img(self, path: str) -> None:
-        await asyncio.wait_for(self._last_sequence, timeout=5.0)
+        await asyncio.wait_for(self._last_sequence, timeout=self._timeout)
         data = {'file': open(path, 'rb')}
         await self._request('POST', f'/channels/{self._channel_id}/messages', data=data)
 

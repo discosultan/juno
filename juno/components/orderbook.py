@@ -18,6 +18,14 @@ from juno.utils import Barrier, unpack_symbol
 _log = logging.getLogger(__name__)
 
 
+class _Orderbook(Dict[str, Dict[Decimal, Decimal]]):
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.updated = asyncio.Event()
+        self.snapshot_received = False
+
+
 class Orderbook:
 
     def __init__(self, services: Dict[str, Any], config: Dict[str, Any]) -> None:
@@ -37,8 +45,8 @@ class Orderbook:
         #     }
         #   }
         # }
-        self._orderbooks: Dict[str, Dict[str, Dict[str, Dict[Decimal, Decimal]]]] = (
-            defaultdict(lambda: defaultdict(dict)))
+        self._orderbooks: Dict[str, Dict[str, _Orderbook]] = defaultdict(
+            lambda: defaultdict(_Orderbook))
 
     async def __aenter__(self) -> Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
@@ -168,10 +176,8 @@ class Orderbook:
             assert res.status in [OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED]
             # Re-adjust order if someone surpasses us in orderbook.
             adj_task = asyncio.create_task(self._readjust_order_best(client_id))
-            add_fills, _ = await asyncio.gather(
-                # Listen to order updates until we fill.
-                self._wait_order_fills(to_fill, client_id, exchange, adj_task),
-                adj_task)
+            # Listen to order updates until we fill.
+            add_fills = await self._wait_order_fills(to_fill, client_id, exchange, adj_task)
             fills.extend(add_fills)
 
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
@@ -179,31 +185,31 @@ class Orderbook:
     async def _wait_order_fills(self, to_fill: Decimal, client_id: str, exchange: str,
                                 adj_task: asyncio.Task[None]) -> List[Fill]:
         fills = []
-        try:
-            async for order in self._exchanges[exchange].stream_orders():
-                if order['order_client_id'] != client_id:
-                    continue
-                if order['status'] != 'TRADE':
-                    # TODO: temp
-                    _log.critical(f'order update with status {order["status"]}')
-                    continue
+        # try:
+        async for order in self._exchanges[exchange].stream_orders():
+            if order['order_client_id'] != client_id:
+                continue
+            if order['status'] != 'TRADE':
+                # TODO: temp logging
+                _log.critical(f'order update with status {order["status"]}')
+                continue
 
-                to_fill -= order['fill_size']
-                fills.append(Fill(
-                    price=order['fill_price'],
-                    size=order['fill_size'],
-                    fee=order['fee'],
-                    fee_asset=order['fee_asset']))
-                if to_fill == 0:
-                    assert order['order_status'] == OrderStatus.FILLED
-                    break
-            # Cancels re-adjustment of the order task.
-            adj_task.cancel()
-        except asyncio.CancelledError:
-            _log.info(f'order {client_id} wait for fill task cancelled')
-        except Exception:
-            _log.exception(f'unhandled exception in order {client_id} wait for fill task')
-            raise
+            to_fill -= order['fill_size']
+            fills.append(Fill(
+                price=order['fill_price'],
+                size=order['fill_size'],
+                fee=order['fee'],
+                fee_asset=order['fee_asset']))
+            if to_fill == 0:
+                assert order['order_status'] == OrderStatus.FILLED
+                break
+        # Cancels re-adjustment of the order task.
+        adj_task.cancel()
+        # except asyncio.CancelledError:
+        #     _log.info(f'order {client_id} wait for fill task cancelled')
+        # except Exception:
+        #     _log.exception(f'unhandled exception in order {client_id} wait for fill task')
+        #     raise
         return fills
 
     async def _readjust_order_best(self, client_id: str) -> None:
@@ -227,18 +233,15 @@ class Orderbook:
             raise
 
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
-        snapshot_received = False
+        orderbook = self._orderbooks[exchange][symbol]
         async for val in self._exchanges[exchange].stream_depth(symbol):
             if val['type'] == 'snapshot':
-                snapshot_received = True
-                orderbook = {
-                    'bids': {k: v for k, v in val['bids']},
-                    'asks': {k: v for k, v in val['asks']}
-                }
-                self._orderbooks[exchange][symbol] = orderbook
+                orderbook['bids'] = {k: v for k, v in val['bids']}
+                orderbook['asks'] = {k: v for k, v in val['asks']}
+                orderbook.snapshot_received = True
                 self._initial_orderbook_fetched.release()
             elif val['type'] == 'update':
-                assert snapshot_received
+                assert orderbook.snapshot_received
                 _update_orderbook_side(orderbook['bids'], val['bids'])
                 _update_orderbook_side(orderbook['asks'], val['asks'])
             else:
