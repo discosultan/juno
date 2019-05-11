@@ -170,6 +170,7 @@ class Binance(Exchange):
             data = await self._order_event.wait()
             self._order_event.clear()
             result = {
+                'symbol': _from_symbol(data['s']),
                 'status': data['x'],
                 'order_status': _from_order_status(data['X']),
                 'order_client_id': data['c'],

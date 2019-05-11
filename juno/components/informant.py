@@ -49,12 +49,14 @@ class Informant:
             fees = self._exchange_data[exchange][Fees].get(symbol)
         if not fees:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
+        _log.info(f'Get fees: {fees}')
         return cast(Fees, fees)
 
     def get_filters(self, exchange: str, symbol: str) -> Filters:
         filters = self._exchange_data[exchange][Filters].get(symbol)
         if not filters:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
+        _log.info(f'Get filters: {filters}')
         return cast(Filters, filters)
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int

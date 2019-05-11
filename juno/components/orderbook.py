@@ -120,8 +120,10 @@ class Orderbook:
     async def _fill_market(self, exchange: str, symbol: str, side: Side, fills: Fills, test: bool
                            ) -> OrderResult:
         if fills.total_size == 0:
+            _log.info('skipping market order placement; size zero')
             return OrderResult.not_placed()
 
+        _log.info(f'placing market {side} order of size {fills.total_size}')
         res = await self._exchanges[exchange].place_order(
             symbol=symbol,
             side=side,
@@ -136,93 +138,124 @@ class Orderbook:
 
     async def buy_limit_at_spread(self, exchange: str, symbol: str, quote: Decimal,
                                   filters: Filters) -> OrderResult:
-        asks = self.list_asks(exchange, symbol)
-        bids = self.list_bids(exchange, symbol)
-        if len(bids) == 0:
-            raise NotImplementedError('no existing bids in orderbook! what is optimal bid price?')
-        if len(asks) == 0:
-            price = bids[0][0] + filters.price.step
-        else:
-            spread = asks[0][0] - bids[0][0]
-            if spread == filters.price.step:
-                price = bids[0][0]
-            else:
-                price = bids[0][0] + filters.price.step
-        # No need to adjust price as we take it from existing orders.
-        size = filters.size.round_down(quote / price)
-
-        if size == 0:
-            return OrderResult.not_placed()
+        _log.info(f'filling {quote} worth of quote with limit orders at spread')
 
         client_id = str(uuid.uuid4())
-        to_fill = size
+        fills = Fills()
+        done = asyncio.Event()
 
-        res = await self._exchanges[exchange].place_order(
-            symbol=symbol,
-            side=Side.BUY,
-            type_=OrderType.LIMIT,
-            price=price,
-            size=size,
-            time_in_force=TimeInForce.GTC,
-            client_id=client_id,
-            test=False)
+        # Keeps a limit order at spread.
+        keep_limit_order_best_task = asyncio.create_task(
+            self._keep_limit_order_best(exchange, symbol, client_id, quote, fills, filters, done))
+        # Listens for fill events for an existing order.
+        wait_order_fills_task = asyncio.create_task(
+            self._wait_order_fills(exchange, symbol, client_id, fills, done))
 
-        fills = res.fills
-        to_fill -= res.fills.total_size
-
-        if to_fill == 0:
-            assert res.status == OrderStatus.FILLED
-        else:
-            assert res.status in [OrderStatus.NEW, OrderStatus.PARTIALLY_FILLED]
-            # Re-adjust order if someone surpasses us in orderbook.
-            adj_task = asyncio.create_task(self._readjust_order_best(client_id, exchange, symbol))
-            # Listen to order updates until we fill.
-            add_fills = await self._wait_order_fills(to_fill, client_id, exchange, adj_task)
-            fills.extend(add_fills)
+        # Could also use `asycnio.wait` first completed. No need to for event sync that way.
+        await done.wait()
+        keep_limit_order_best_task.cancel()
+        wait_order_fills_task.cancel()
+        await asyncio.gather(keep_limit_order_best_task, wait_order_fills_task)
 
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
-    async def _wait_order_fills(self, to_fill: Decimal, client_id: str, exchange: str,
-                                adj_task: asyncio.Task[None]) -> List[Fill]:
-        fills = []
-        # try:
-        async for order in self._exchanges[exchange].stream_orders():
-            if order['order_client_id'] != client_id:
-                continue
-            if order['status'] != 'TRADE':
-                # TODO: temp logging
-                _log.critical(f'order update with status {order["status"]}')
-                continue
-
-            to_fill -= order['fill_size']
-            fills.append(Fill(
-                price=order['fill_price'],
-                size=order['fill_size'],
-                fee=order['fee'],
-                fee_asset=order['fee_asset']))
-            if to_fill == 0:
-                assert order['order_status'] == OrderStatus.FILLED
-                break
-        # Cancels re-adjustment of the order task.
-        adj_task.cancel()
-        # except asyncio.CancelledError:
-        #     _log.info(f'order {client_id} wait for fill task cancelled')
-        # except Exception:
-        #     _log.exception(f'unhandled exception in order {client_id} wait for fill task')
-        #     raise
-        return fills
-
-    async def _readjust_order_best(self, client_id: str, exchange: str, symbol: str) -> None:
+    async def _keep_limit_order_best(self, exchange: str, symbol: str, client_id: str,
+                                     quote: Decimal, fills: Fills, filters: Filters,
+                                     done: asyncio.Event) -> None:
         try:
             orderbook = self._orderbooks[exchange][symbol]
+            last_order_price = Decimal(0)
             while True:
                 await orderbook.updated.wait()
                 orderbook.updated.clear()
-                # TODO
+
+                asks = self.list_asks(exchange, symbol)
+                bids = self.list_bids(exchange, symbol)
+                if len(bids) == 0:
+                    raise NotImplementedError('no existing bids in orderbook! what is optimal bid '
+                                              ' price?')
+                if len(asks) == 0:
+                    price = bids[0][0] + filters.price.step
+                else:
+                    spread = asks[0][0] - bids[0][0]
+                    if spread == filters.price.step:
+                        price = bids[0][0]
+                    else:
+                        price = bids[0][0] + filters.price.step
+
+                if price <= last_order_price:
+                    continue
+
+                if last_order_price != 0:
+                    # Cancel prev order.
+                    _log.info(f'cancelling previous limit order {client_id} at price '
+                              f'{last_order_price}')
+                    await self._exchanges[exchange].cancel_order(symbol, client_id)
+
+                # No need to round price as we take it from existing orders.
+                size = filters.size.round_down(quote / price)
+
+                if size == 0:
+                    raise NotImplementedError('size 0')
+
+                if not filters.min_notional.valid(price=price, size=size):
+                    raise NotImplementedError(
+                        'min notional not valid: '
+                        f'{price} * {size} != {filters.min_notional.min_notional}')
+
+                _log.info(f'placing limit order at price {price} for size {size}')
+                res = await self._exchanges[exchange].place_order(
+                    symbol=symbol,
+                    side=Side.BUY,
+                    type_=OrderType.LIMIT,
+                    price=price,
+                    size=size,
+                    time_in_force=TimeInForce.GTC,
+                    client_id=client_id,
+                    test=False)
+
+                fills.extend(res.fills)
+                if res.status == OrderStatus.FILLED:
+                    _log.info(f'new limit order {client_id} immediately filled {res.fills}')
+                    done.set()
+                    break
+                last_order_price = price
         except asyncio.CancelledError:
             _log.info(f'order {client_id} re-adjustment task cancelled')
         except Exception:
             _log.exception(f'unhandled exception in order {client_id} re-adjustment task')
+            raise
+
+    async def _wait_order_fills(self, exchange: str, symbol: str, client_id: str, fills: Fills,
+                                done: asyncio.Event) -> None:
+        try:
+            async for order in self._exchanges[exchange].stream_orders():
+                if order['order_client_id'] != client_id:
+                    continue
+                if order['symbol'] != symbol:
+                    continue
+                if order['status'] != 'TRADE':
+                    # TODO: temp logging
+                    _log.critical(f'order update with status {order["status"]}')
+                    continue
+
+                fill = Fill(
+                    price=order['fill_price'],
+                    size=order['fill_size'],
+                    fee=order['fee'],
+                    fee_asset=order['fee_asset'])
+                fills.append(fill)
+                _log.info(f'received fill for existing order {client_id} at price {fill.price} '
+                          f'for size {fill.size}')
+
+                if order['order_status'] == OrderStatus.FILLED:
+                    _log.info(f'existing order {client_id} filled')
+                    done.set()
+                    break
+        except asyncio.CancelledError:
+            _log.info(f'order {client_id} wait for fill task cancelled')
+        except Exception:
+            _log.exception(f'unhandled exception in order {client_id} wait for fill task')
             raise
 
     async def _sync_orderbooks(self) -> None:

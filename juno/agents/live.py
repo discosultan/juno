@@ -38,14 +38,10 @@ class Live(Agent):
         self.wallet: Wallet = self.components['wallet']
 
         self.fees = informant.get_fees(exchange, symbol)
-        _log.info(f'Fees: {self.fees}')
-
         self.filters = informant.get_filters(exchange, symbol)
-        _log.info(f'Symbol info: {self.filters}')
 
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         self.quote = self.wallet.get_balance(exchange, self.quote_asset).available
-        _log.info(f'Available balance: {self.quote} {self.quote_asset}')
 
         self.result = TradingSummary(
             exchange=exchange,

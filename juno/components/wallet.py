@@ -30,7 +30,9 @@ class Wallet:
         await self._sync_all_balances_task
 
     def get_balance(self, exchange: str, asset: str) -> Balance:
-        return self._exchange_balances[exchange][asset]
+        balance = self._exchange_balances[exchange][asset]
+        _log.info(f'Get balance: {balance}')
+        return balance
 
     async def _sync_all_balances(self) -> None:
         try:
