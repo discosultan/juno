@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, Optional, Tuple
 
-from juno import Balance, Candle, Fees, OrderResult, OrderType, Side, TimeInForce
+from juno import (Balance, CancelOrderResult, Candle, Fees, OrderResult, OrderType, Side,
+                  TimeInForce)
 from juno.filters import Filters
 
 
@@ -47,5 +48,5 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    async def cancel_order(self, symbol: str, client_id: str) -> Any:
+    async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         pass

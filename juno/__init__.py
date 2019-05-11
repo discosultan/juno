@@ -128,3 +128,13 @@ class OrderStatus(Enum):
     NEW = 1
     FILLED = 2
     PARTIALLY_FILLED = 3
+    CANCELED = 4
+
+
+class CancelOrderResult(NamedTuple):
+    status: CancelOrderStatus
+
+
+class CancelOrderStatus(Enum):
+    SUCCESS = 0
+    REJECTED = 1

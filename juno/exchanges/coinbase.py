@@ -13,7 +13,7 @@ from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
 
 import simplejson as json
 
-from juno import Balance, Candle, Fees, OrderType, Side, TimeInForce
+from juno import Balance, CancelOrderResult, Candle, Fees, OrderType, Side, TimeInForce
 from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
@@ -215,7 +215,7 @@ class Coinbase(Exchange):
             test: bool = True) -> Any:
         raise NotImplementedError()
 
-    async def cancel_order(self, symbol: str, client_id: str) -> Any:
+    async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         raise NotImplementedError()
 
     def _ensure_stream_open(self):

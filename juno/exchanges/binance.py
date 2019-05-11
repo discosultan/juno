@@ -13,8 +13,8 @@ from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Dict, List, Opt
 import aiohttp
 import simplejson as json
 
-from juno import (Balance, Candle, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType,
-                  Side, TimeInForce, Trade)
+from juno import (Balance, CancelOrderResult, CancelOrderStatus, Candle, Fees, Fill, Fills,
+                  OrderResult, OrderStatus, OrderType, Side, TimeInForce, Trade)
 from juno.filters import Filters, MinNotional, Price, PercentPrice, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
@@ -32,6 +32,8 @@ _SEC_TRADE = 1  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_DATA = 2  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
+
+_ERR_CANCEL_REJECTED = -2011
 
 _log = logging.getLogger(__name__)
 
@@ -64,8 +66,10 @@ class Binance(Exchange):
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await asyncio.gather(*(_finalize_task(t) for t in (
-            self._sync_clock_task, self._listen_key_refresh_task, self._stream_user_data_task)))
+        await _try_cancel_and_await_tasks(
+            self._sync_clock_task,
+            self._listen_key_refresh_task,
+            self._stream_user_data_task)
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_fees(self) -> Dict[str, Fees]:
@@ -261,13 +265,16 @@ class Binance(Exchange):
                 ) for f in res['fills']
             ]))
 
-    async def cancel_order(self, symbol: str, client_id: str) -> Any:
+    async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         data = {
             'symbol': _http_symbol(symbol),
             'origClientOrderId': client_id
         }
-        res = await self._request('DELETE', '/api/v3/order', data=data, security=_SEC_TRADE)
-        return res
+        res = await self._request('DELETE', '/api/v3/order', data=data, security=_SEC_TRADE,
+                                  raise_for_status=False)
+        if res.get('code') == _ERR_CANCEL_REJECTED:
+            return CancelOrderResult(status=CancelOrderStatus.REJECTED)
+        return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
 
     async def get_trades(self, symbol: str) -> List[Trade]:
         url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'
@@ -358,7 +365,7 @@ class Binance(Exchange):
 
     @retry_on(aiohttp.ClientConnectionError, max_tries=3)
     async def _request(self, method: str, url: str, weight: int = 1, data: Optional[Any] = None,
-                       security: int = _SEC_NONE) -> Any:
+                       security: int = _SEC_NONE, raise_for_status: Optional[bool] = None) -> Any:
         if method == '/api/v3/order':
             await asyncio.gather(
                 self._reqs_per_min_limiter.acquire(weight),
@@ -367,7 +374,7 @@ class Binance(Exchange):
         else:
             await self._reqs_per_min_limiter.acquire(weight)
 
-        kwargs = {}
+        kwargs: Dict[str, Any] = {}
 
         if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_USER_STREAM, _SEC_MARKET_DATA]:
             kwargs['headers'] = {'X-MBX-APIKEY': self._api_key}
@@ -387,6 +394,9 @@ class Binance(Exchange):
 
         if data:
             kwargs['params' if method == 'GET' else 'data'] = data
+
+        if raise_for_status is not None:
+            kwargs['raise_for_status'] = raise_for_status
 
         async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as res:
             return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
@@ -468,13 +478,13 @@ def _from_order_status(status: str) -> OrderStatus:
         return OrderStatus.PARTIALLY_FILLED
     if status == 'FILLED':
         return OrderStatus.FILLED
+    if status == 'CANCELED':
+        return OrderStatus.CANCELED
     raise NotImplementedError(f'Handling of status {status} not implemented')
 
 
-def _finalize_task(task: Optional[asyncio.Task[None]]) -> Awaitable[None]:
-    if task:
+async def _try_cancel_and_await_tasks(*tasks: Optional[asyncio.Task[None]]) -> None:
+    material_tasks = [task for task in tasks if task]
+    for task in material_tasks:
         task.cancel()
-        return task
-    res: asyncio.Future[None] = asyncio.Future()
-    res.set_result(None)
-    return res
+    await asyncio.gather(*(task for task in material_tasks))

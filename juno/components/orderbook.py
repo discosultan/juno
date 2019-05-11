@@ -8,7 +8,8 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, Side, TimeInForce
+from juno import (CancelOrderStatus, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, Side,
+                  TimeInForce)
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.filters import Filters
@@ -190,7 +191,10 @@ class Orderbook:
                     # Cancel prev order.
                     _log.info(f'cancelling previous limit order {client_id} at price '
                               f'{last_order_price}')
-                    await self._exchanges[exchange].cancel_order(symbol, client_id)
+                    cancel_res = await self._exchanges[exchange].cancel_order(symbol, client_id)
+                    if cancel_res.status == CancelOrderStatus.REJECTED:
+                        _log.warning(f'failed to cancel order {client_id}; probably got filled')
+                        break
 
                 # No need to round price as we take it from existing orders.
                 size = filters.size.round_down(quote / price)

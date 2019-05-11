@@ -43,7 +43,7 @@ class ClientSession:
             }
             if res.status >= 400:
                 _aiohttp_log.error(content)
-                if self._raise_for_status:
+                if kwargs.get('raise_for_status', self._raise_for_status):
                     res.raise_for_status()
             else:
                 _aiohttp_log.debug(content)
