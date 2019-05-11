@@ -32,13 +32,13 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
 
         @ee.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
-            await client.post_msg(f'Opened a position:\n```\n{pos}\n```')
-            await client.post_msg(f'Summary so far:\n```\n{agent.result}\n```')
+            await client.post_msg(f'Opened a position:\n```\n{pos}\n```\n'
+                                  f'Summary so far:\n```\n{agent.result}\n```')
 
         @ee.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
-            await client.post_msg(f'Closed a position:\n```\n{pos}\n```')
-            await client.post_msg(f'Summary so far:\n```\n{agent.result}\n```')
+            await client.post_msg(f'Closed a position:\n```\n{pos}\n```\n'
+                                  f'Summary so far:\n```\n{agent.result}\n```')
 
         @ee.on('finished')
         async def on_finished() -> None:
