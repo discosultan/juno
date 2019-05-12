@@ -211,7 +211,7 @@ class Orderbook:
                 if op_last_price_cmp(price, last_order_price):
                     continue
 
-                if last_order_price != 0:
+                if last_order_price not in [0, Decimal('Inf')]:
                     # Cancel prev order.
                     _log.info(f'cancelling previous limit order {client_id} at price '
                               f'{last_order_price}')
@@ -272,14 +272,8 @@ class Orderbook:
                     _log.critical(f'order update with status {order["status"]}')
                     continue
 
-                fill = Fill(
-                    price=order['fill_price'],
-                    size=order['fill_size'],
-                    fee=order['fee'],
-                    fee_asset=order['fee_asset'])
-                fills.append(fill)
-                _log.info(f'received fill for existing order {client_id} at price {fill.price} '
-                          f'for size {fill.size}')
+                fills.extend(order.fills)
+                _log.info(f'received fills for existing order {client_id}: {order.fills}')
 
                 if order['order_status'] is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')

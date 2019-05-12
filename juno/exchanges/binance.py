@@ -173,16 +173,21 @@ class Binance(Exchange):
         while True:
             data = await self._order_event.wait()
             self._order_event.clear()
+            fills = Fills()
+            fill_size = Decimal(data['l'])
+            if fill_size > 0:
+                fills.append(Fill(
+                    price=Decimal(data['L']),
+                    size=fill_size,
+                    fee=Decimal(data['n']),
+                    fee_asset=data['N'].lower()))
             result = {
                 'symbol': _from_symbol(data['s']),
                 'status': data['x'],
                 'order_status': _from_order_status(data['X']),
                 'order_client_id': data['c'],
                 # 'size': Decimal(data['q']),
-                'fill_price': Decimal(data['L']),
-                'fill_size': Decimal(data['l']),
-                'fee': Decimal(data['n']),
-                'fee_asset': data['N'].lower()
+                'fills': fills
             }
             yield result
 
@@ -271,9 +276,12 @@ class Binance(Exchange):
             'origClientOrderId': client_id
         }
         res = await self._request('DELETE', '/api/v3/order', data=data, security=_SEC_TRADE,
-                                  raise_for_status=False)
-        if res.get('code') == _ERR_CANCEL_REJECTED:
+                                  expected_errors=[400])
+        binance_error = res.get('code')
+        if binance_error == _ERR_CANCEL_REJECTED:
             return CancelOrderResult(status=CancelOrderStatus.REJECTED)
+        if binance_error:
+            raise NotImplementedError(f'No handling for binance error: {res}')
         return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
 
     async def get_trades(self, symbol: str) -> List[Trade]:
@@ -365,7 +373,8 @@ class Binance(Exchange):
 
     @retry_on(aiohttp.ClientConnectionError, max_tries=3)
     async def _request(self, method: str, url: str, weight: int = 1, data: Optional[Any] = None,
-                       security: int = _SEC_NONE, raise_for_status: Optional[bool] = None) -> Any:
+                       security: int = _SEC_NONE, expected_errors: Optional[List[int]] = None
+                       ) -> Any:
         if method == '/api/v3/order':
             await asyncio.gather(
                 self._reqs_per_min_limiter.acquire(weight),
@@ -395,8 +404,9 @@ class Binance(Exchange):
         if data:
             kwargs['params' if method == 'GET' else 'data'] = data
 
-        if raise_for_status is not None:
-            kwargs['raise_for_status'] = raise_for_status
+        if expected_errors is not None:
+            kwargs['expected_errors'] = expected_errors
+            kwargs['raise_for_status'] = False
 
         async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as res:
             return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
@@ -472,15 +482,16 @@ def _interval(interval: int) -> str:
 
 
 def _from_order_status(status: str) -> OrderStatus:
-    if status == 'NEW':
-        return OrderStatus.NEW
-    if status == 'PARTIALLY_FILLED':
-        return OrderStatus.PARTIALLY_FILLED
-    if status == 'FILLED':
-        return OrderStatus.FILLED
-    if status == 'CANCELED':
-        return OrderStatus.CANCELED
-    raise NotImplementedError(f'Handling of status {status} not implemented')
+    status_map = {
+        'NEW': OrderStatus.NEW,
+        'PARTIALLY_FILLED': OrderStatus.PARTIALLY_FILLED,
+        'FILLED': OrderStatus.FILLED,
+        'CANCELED': OrderStatus.CANCELED
+    }
+    mapped_status = status_map.get(status)
+    if not mapped_status:
+        raise NotImplementedError(f'Handling of status {status} not implemented')
+    return mapped_status
 
 
 async def _try_cancel_and_await_tasks(*tasks: Optional[asyncio.Task[None]]) -> None:

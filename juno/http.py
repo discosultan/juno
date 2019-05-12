@@ -31,6 +31,7 @@ class ClientSession:
     @asynccontextmanager
     async def request(self, method: str, url: str, **kwargs: Any
                       ) -> AsyncIterator[aiohttp.ClientResponse]:
+        expected_errors = kwargs.pop('expected_errors', [])
         req = self._session.request(method, url, **kwargs)
         req_id = id(req)
         _aiohttp_log.info(f'Req {req_id} {method} {url}')
@@ -41,7 +42,7 @@ class ClientSession:
                 'headers': res.headers,
                 'body': await res.text()
             }
-            if res.status >= 400:
+            if res.status not in expected_errors and res.status >= 400:
                 _aiohttp_log.error(content)
                 if kwargs.get('raise_for_status', self._raise_for_status):
                     res.raise_for_status()

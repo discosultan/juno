@@ -16,42 +16,42 @@ _log = logging.getLogger(__name__)
 
 
 async def engine() -> None:
-    # Load config.
-    config_path = 'config.json'
-    if len(sys.argv) > 1:
-        config_path = sys.argv[1]
-    config = {}
-    config.update(load_from_json_file(config_path))
-    config.update(load_from_env())
+    try:
+        # Load config.
+        config_path = 'config.json'
+        if len(sys.argv) > 1:
+            config_path = sys.argv[1]
+        config = {}
+        config.update(load_from_json_file(config_path))
+        config.update(load_from_env())
 
-    # Configure logging.
-    log_level = config.get('log_level', 'INFO').upper()
-    logging.basicConfig(
-        handlers=[logging.StreamHandler(stream=sys.stdout)],
-        level=logging.getLevelName(log_level))
-    _log.info(f'log level set to: {log_level}')
+        # Configure logging.
+        log_level = config.get('log_level', 'INFO').upper()
+        logging.basicConfig(
+            handlers=[logging.StreamHandler(stream=sys.stdout)],
+            level=logging.getLevelName(log_level))
+        _log.info(f'log level set to: {log_level}')
 
-    # Configure signals.
-    signal.signal(signal.SIGTERM, handle_sigterm)
+        # Configure signals.
+        signal.signal(signal.SIGTERM, handle_sigterm)
 
-    # Create configured services.
-    services = {}
-    services.update(map_exchanges(config, list_required_names(config, 'exchange')))
-    services.update(map_storages(config, list_required_names(config, 'storage')))
-    _log.info(f'services created: {", ".join(services.keys())}')
+        # Create configured services.
+        services = {}
+        services.update(map_exchanges(config, list_required_names(config, 'exchange')))
+        services.update(map_storages(config, list_required_names(config, 'storage')))
+        _log.info(f'services created: {", ".join(services.keys())}')
 
-    # Create components used by configured agents.
-    components = map_components(services, config, list_required_component_names(config))
-    _log.info(f'components created: {", ".join(components.keys())}')
+        # Create components used by configured agents.
+        components = map_components(services, config, list_required_component_names(config))
+        _log.info(f'components created: {", ".join(components.keys())}')
 
-    # Create configured agents.
-    agents = list_agents(components, config)
+        # Create configured agents.
+        agents = list_agents(components, config)
 
-    # Load plugins.
-    plugins = list_plugins(agents, config)
+        # Load plugins.
+        plugins = list_plugins(agents, config)
 
-    async with AsyncExitStack() as stack:
-        try:
+        async with AsyncExitStack() as stack:
             # Init services.
             await asyncio.gather(*(stack.enter_async_context(s) for s in services.values()))
             # Init components.
@@ -62,13 +62,13 @@ async def engine() -> None:
             await asyncio.gather(*(stack.enter_async_context(p) for p in plugins))
             # Run configured agents.
             await asyncio.gather(*(a.start() for a in agents))
-        except asyncio.CancelledError:
-            _log.info('main task cancelled')
-        except Exception:
-            _log.exception('unhandled exception in main')
-            raise
 
-    _log.info('main finished')
+        _log.info('main finished')
+    except asyncio.CancelledError:
+        _log.info('main task cancelled')
+    except Exception:
+        _log.exception('unhandled exception in main')
+        raise
 
 
 def handle_sigterm(signalnum: int, frame: FrameType) -> None:
