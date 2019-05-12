@@ -55,6 +55,7 @@ class Binance(Exchange):
         self._sync_clock_task: Optional[asyncio.Task[None]] = None
 
         # User data stream.
+        self._listen_key_lock = asyncio.Lock()
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
         self._balance_event: Event[Dict[str, Balance]] = Event()
@@ -168,8 +169,11 @@ class Binance(Exchange):
                 }
                 last_update_id = data['u']
 
-    async def stream_orders(self) -> AsyncIterable[Any]:
+    async def stream_orders(self, stream_open: Optional[asyncio.Event] = None
+                            ) -> AsyncIterable[Any]:
         await self._ensure_user_data_stream()
+        if stream_open:
+            stream_open.set()
         while True:
             data = await self._order_event.wait()
             self._order_event.clear()
@@ -192,17 +196,18 @@ class Binance(Exchange):
             yield result
 
     async def _ensure_user_data_stream(self) -> None:
-        if self._listen_key_refresh_task:
-            return
+        async with self._listen_key_lock:
+            if self._listen_key_refresh_task:
+                return
 
-        listen_key = (await self._request(
-            'POST',
-            '/api/v1/userDataStream',
-            security=_SEC_USER_STREAM))['listenKey']
-        self._listen_key_refresh_task = asyncio.create_task(
-            self._periodic_listen_key_refresh(listen_key))
-        self._stream_user_data_task = asyncio.create_task(
-            self._stream_user_data(listen_key))
+            listen_key = (await self._request(
+                'POST',
+                '/api/v1/userDataStream',
+                security=_SEC_USER_STREAM))['listenKey']
+            self._listen_key_refresh_task = asyncio.create_task(
+                self._periodic_listen_key_refresh(listen_key))
+            self._stream_user_data_task = asyncio.create_task(
+                self._stream_user_data(listen_key))
 
     async def _stream_user_data(self, listen_key: str) -> None:
         try:

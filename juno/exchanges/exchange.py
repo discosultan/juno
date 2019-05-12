@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, AsyncIterable, Dict, Optional, Tuple
@@ -31,7 +32,8 @@ class Exchange(ABC):
         yield
 
     @abstractmethod
-    async def stream_orders(self) -> AsyncIterable[Any]:
+    async def stream_orders(self, stream_open: Optional[asyncio.Event] = None
+                            ) -> AsyncIterable[Any]:
         yield
 
     @abstractmethod

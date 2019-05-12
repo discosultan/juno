@@ -9,10 +9,10 @@ from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance
 from juno.storages import Memory, SQLite
 
-SIDE = Side.SELL
+SIDE = Side.BUY
 EXCHANGE = 'binance'
 SYMBOL = 'ada-btc'
-LOG_LEVEL = 'DEBUG'
+LOG_LEVEL = 'INFO'
 QUOTE = Decimal('0.0015')
 BASE = Decimal('150')
 

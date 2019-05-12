@@ -152,7 +152,15 @@ class Orderbook:
                                filters: Filters) -> OrderResult:
         client_id = str(uuid.uuid4())
         fills = Fills()
+        order_stream_open = asyncio.Event()
         done = asyncio.Event()
+
+        # Listens for fill events for an existing order.
+        wait_order_fills_task = asyncio.create_task(
+            self._wait_order_fills(exchange, symbol, client_id, fills, order_stream_open, done))
+
+        # TODO: shit doesnt work :/
+        await order_stream_open.wait()
 
         # Keeps a limit order at spread.
         keep_limit_order_best_task = asyncio.create_task(
@@ -165,11 +173,8 @@ class Orderbook:
                 fills=fills,
                 filters=filters,
                 done=done))
-        # Listens for fill events for an existing order.
-        wait_order_fills_task = asyncio.create_task(
-            self._wait_order_fills(exchange, symbol, client_id, fills, done))
 
-        # Could also use `asycnio.wait` first completed. No need to for event sync that way.
+        # Could also use `asyncio.wait` first completed. No need to for event sync that way.
         await done.wait()
         keep_limit_order_best_task.cancel()
         wait_order_fills_task.cancel()
@@ -233,6 +238,7 @@ class Orderbook:
                         'min notional not valid: '
                         f'{price} * {size} != {filters.min_notional.min_notional}')
 
+                # TODO: We need to ensure user data stream is already open before that!
                 _log.info(f'placing limit order at price {price} for size {size}')
                 res = await self._exchanges[exchange].place_order(
                     symbol=symbol,
@@ -257,9 +263,9 @@ class Orderbook:
             raise
 
     async def _wait_order_fills(self, exchange: str, symbol: str, client_id: str, fills: Fills,
-                                done: asyncio.Event) -> None:
+                                stream_open: asyncio.Event, done: asyncio.Event) -> None:
         try:
-            async for order in self._exchanges[exchange].stream_orders():
+            async for order in self._exchanges[exchange].stream_orders(stream_open=stream_open):
                 if order['order_client_id'] != client_id:
                     continue
                 if order['symbol'] != symbol:
@@ -272,8 +278,8 @@ class Orderbook:
                     _log.critical(f'order update with status {order["status"]}')
                     continue
 
-                fills.extend(order.fills)
-                _log.info(f'received fills for existing order {client_id}: {order.fills}')
+                fills.extend(order['fills'])
+                _log.info(f'received fills for existing order {client_id}: {order["fills"]}')
 
                 if order['order_status'] is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
