@@ -116,7 +116,7 @@ class Paper(Agent):
             fees=self.fees,
             test=True)
 
-        if res.status == OrderStatus.NOT_PLACED:
+        if res.status is OrderStatus.NOT_PLACED:
             return False
 
         self.open_position = Position(candle.time, res.fills)

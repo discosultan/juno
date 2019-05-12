@@ -8,7 +8,7 @@ import math
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 
 import aiohttp
 import simplejson as json

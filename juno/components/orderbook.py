@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import operator
 import uuid
 from collections import defaultdict
 from decimal import Decimal
@@ -140,14 +141,30 @@ class Orderbook:
     async def buy_limit_at_spread(self, exchange: str, symbol: str, quote: Decimal,
                                   filters: Filters) -> OrderResult:
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
+        return await self._limit_at_spread(exchange, symbol, Side.BUY, quote, filters)
 
+    async def sell_limit_at_spread(self, exchange: str, symbol: str, base: Decimal,
+                                   filters: Filters) -> OrderResult:
+        _log.info(f'filling {base} worth of base with limit orders at spread')
+        return await self._limit_at_spread(exchange, symbol, Side.SELL, base, filters)
+
+    async def _limit_at_spread(self, exchange: str, symbol: str, side: Side, available: Decimal,
+                               filters: Filters) -> OrderResult:
         client_id = str(uuid.uuid4())
         fills = Fills()
         done = asyncio.Event()
 
         # Keeps a limit order at spread.
         keep_limit_order_best_task = asyncio.create_task(
-            self._keep_limit_order_best(exchange, symbol, client_id, quote, fills, filters, done))
+            self._keep_limit_order_best(
+                exchange=exchange,
+                symbol=symbol,
+                client_id=client_id,
+                side=side,
+                available=available,
+                fills=fills,
+                filters=filters,
+                done=done))
         # Listens for fill events for an existing order.
         wait_order_fills_task = asyncio.create_task(
             self._wait_order_fills(exchange, symbol, client_id, fills, done))
@@ -160,44 +177,53 @@ class Orderbook:
 
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
-    async def _keep_limit_order_best(self, exchange: str, symbol: str, client_id: str,
-                                     quote: Decimal, fills: Fills, filters: Filters,
+    async def _keep_limit_order_best(self, exchange: str, symbol: str, client_id: str, side: Side,
+                                     available: Decimal, fills: Fills, filters: Filters,
                                      done: asyncio.Event) -> None:
         try:
             orderbook = self._orderbooks[exchange][symbol]
-            last_order_price = Decimal(0)
+            last_order_price = Decimal(0) if side is Side.BUY else Decimal('Inf')
             while True:
                 await orderbook.updated.wait()
                 orderbook.updated.clear()
 
                 asks = self.list_asks(exchange, symbol)
                 bids = self.list_bids(exchange, symbol)
-                if len(bids) == 0:
-                    raise NotImplementedError('no existing bids in orderbook! what is optimal bid '
-                                              ' price?')
-                if len(asks) == 0:
-                    price = bids[0][0] + filters.price.step
-                else:
-                    spread = asks[0][0] - bids[0][0]
-                    if spread == filters.price.step:
-                        price = bids[0][0]
-                    else:
-                        price = bids[0][0] + filters.price.step
+                ob_side = bids if side is Side.BUY else asks
+                ob_other_side = asks if side is Side.BUY else bids
+                op_step = operator.add if side is Side.BUY else operator.sub
+                op_last_price_cmp = operator.le if side is Side.BUY else operator.ge
 
-                if price <= last_order_price:
+                if len(ob_side) == 0:
+                    raise NotImplementedError(
+                        f'no existing {"bids" if side is Side.BUY else "asks"} in orderbook! what '
+                        'is optimal price?')
+
+                if len(ob_other_side) == 0:
+                    price = op_step(ob_side[0][0], filters.price.step)
+                else:
+                    spread = abs(ob_other_side[0][0] - ob_side[0][0])
+                    if spread == filters.price.step:
+                        price = ob_side[0][0]
+                    else:
+                        price = op_step(ob_side[0][0], filters.price.step)
+
+                if op_last_price_cmp(price, last_order_price):
                     continue
 
                 if last_order_price != 0:
                     # Cancel prev order.
                     _log.info(f'cancelling previous limit order {client_id} at price '
                               f'{last_order_price}')
-                    cancel_res = await self._exchanges[exchange].cancel_order(symbol, client_id)
-                    if cancel_res.status == CancelOrderStatus.REJECTED:
+                    cancel_res = await self._exchanges[exchange].cancel_order(
+                        symbol=symbol, client_id=client_id)
+                    if cancel_res.status is CancelOrderStatus.REJECTED:
                         _log.warning(f'failed to cancel order {client_id}; probably got filled')
                         break
 
                 # No need to round price as we take it from existing orders.
-                size = filters.size.round_down(quote / price)
+                size = available / price if side is Side.BUY else available
+                size = filters.size.round_down(size)
 
                 if size == 0:
                     raise NotImplementedError('size 0')
@@ -210,7 +236,7 @@ class Orderbook:
                 _log.info(f'placing limit order at price {price} for size {size}')
                 res = await self._exchanges[exchange].place_order(
                     symbol=symbol,
-                    side=Side.BUY,
+                    side=side,
                     type_=OrderType.LIMIT,
                     price=price,
                     size=size,
@@ -219,7 +245,7 @@ class Orderbook:
                     test=False)
 
                 fills.extend(res.fills)
-                if res.status == OrderStatus.FILLED:
+                if res.status is OrderStatus.FILLED:
                     _log.info(f'new limit order {client_id} immediately filled {res.fills}')
                     done.set()
                     break
@@ -239,6 +265,9 @@ class Orderbook:
                 if order['symbol'] != symbol:
                     continue
                 if order['status'] != 'TRADE':
+                    # We could also check for 'NEW' messages but we lose granularity over fills
+                    # and only get a single cumulative fill.
+
                     # TODO: temp logging
                     _log.critical(f'order update with status {order["status"]}')
                     continue
@@ -252,7 +281,7 @@ class Orderbook:
                 _log.info(f'received fill for existing order {client_id} at price {fill.price} '
                           f'for size {fill.size}')
 
-                if order['order_status'] == OrderStatus.FILLED:
+                if order['order_status'] is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
                     done.set()
                     break

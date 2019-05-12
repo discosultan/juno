@@ -34,7 +34,7 @@ async def main() -> None:
             logging.info(filters)
 
             base_asset, quote_asset = unpack_symbol(SYMBOL)
-            if SIDE == Side.BUY:
+            if SIDE is Side.BUY:
                 balance = wallet.get_balance(exchange, quote_asset)
                 logging.info(balance)
                 fills = orderbook.find_market_order_asks(
