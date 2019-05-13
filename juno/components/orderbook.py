@@ -7,7 +7,7 @@ import uuid
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import Any, AsyncIterable, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from juno import (CancelOrderStatus, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, Side,
                   TimeInForce)
@@ -143,8 +143,8 @@ class Orderbook:
                                   fees: Fees, filters: Filters) -> OrderResult:
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
         res = await self._limit_at_spread(exchange, symbol, Side.BUY, quote, filters)
+        # TODO: DEBUG. Doesn't exactly match as exchange performs rounding.
         _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_size} * {fees.maker}')
-        # assert res.fills.total_fee == res.fills.total_size * fees.maker
         return res
 
     async def sell_limit_at_spread(self, exchange: str, symbol: str, base: Decimal,
@@ -152,7 +152,6 @@ class Orderbook:
         _log.info(f'filling {base} worth of base with limit orders at spread')
         res = await self._limit_at_spread(exchange, symbol, Side.SELL, base, filters)
         _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_quote} * {fees.maker}')
-        # assert res.fills.total_fee == res.fills.total_quote * fees.maker
         return res
 
     async def _limit_at_spread(self, exchange: str, symbol: str, side: Side, available: Decimal,
@@ -161,10 +160,6 @@ class Orderbook:
         fills = Fills()  # Fills from aggregated trades.
 
         async with self._exchanges[exchange].stream_orders() as order_stream:
-            # # Listens for fill events for an existing order.
-            # wait_order_fills_task = asyncio.create_task(
-            #     self._wait_order_fills(symbol, client_id, fills, order_stream, done))
-
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
                 self._keep_limit_order_best(
@@ -181,16 +176,10 @@ class Orderbook:
                     continue
                 if order['symbol'] != symbol:
                     continue
-                if order['status'] is not OrderStatus.FILLED:
-                    # We could also check for 'NEW' messages but we lose granularity over fills
-                    # and only get a single cumulative fill.
-
+                if order['status'] not in [OrderStatus.CANCELED, OrderStatus.FILLED]:
                     # TODO: temp logging
                     _log.critical(f'order update with status {order["status"]}')
                     continue
-
-                # fills.extend(order['fills'])
-                # _log.info(f'received fills for existing order {client_id}: {order["fills"]}')
 
                 if order['status'] is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
@@ -209,12 +198,8 @@ class Orderbook:
                             fee=order['fee'],
                             fee_asset=order['fee_asset']))
 
-            # Could also use `asyncio.wait` first completed. No need to for event sync that way.
-            # await done.wait()
             keep_limit_order_best_task.cancel()
             await keep_limit_order_best_task
-            # wait_order_fills_task.cancel()
-            # await asyncio.gather(keep_limit_order_best_task, wait_order_fills_task)
 
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
@@ -284,60 +269,14 @@ class Orderbook:
                     client_id=client_id,
                     test=False)
 
-                # fills.extend(res.fills)
                 if res.status is OrderStatus.FILLED:
                     _log.info(f'new limit order {client_id} immediately filled {res.fills}')
-                    # done.set()
                     break
                 last_order_price = price
         except asyncio.CancelledError:
             _log.info(f'order {client_id} re-adjustment task cancelled')
         except Exception:
             _log.exception(f'unhandled exception in order {client_id} re-adjustment task')
-            raise
-
-    async def _wait_order_fills(self, symbol: str, client_id: str, fills: Fills,
-                                order_stream: AsyncIterable[Any], done: asyncio.Event) -> None:
-        # TODO: User data stream payloads are not guaranteed to be in order during heavy periods;
-        # make sure to order your updates using event time
-        try:
-            async for order in order_stream:
-                if order['client_id'] != client_id:
-                    continue
-                if order['symbol'] != symbol:
-                    continue
-                if order['status'] is not OrderStatus.FILLED:
-                    # We could also check for 'NEW' messages but we lose granularity over fills
-                    # and only get a single cumulative fill.
-
-                    # TODO: temp logging
-                    _log.critical(f'order update with status {order["status"]}')
-                    continue
-
-                fills.extend(order['fills'])
-                _log.info(f'received fills for existing order {client_id}: {order["fills"]}')
-
-                if order['order_status'] is OrderStatus.FILLED:
-                    _log.info(f'existing order {client_id} filled')
-                    fills.append(Fill(
-                        price=order['price'],
-                        size=order['size'],
-                        fee=order['fee'],
-                        fee_asset=order['fee_asset']))
-                    done.set()
-                else:  # CANCELED
-                    _log.info(f'existing order {client_id} canceled')
-                    if order['cumulative_filled_size'] > 0:
-                        fills.append(Fill(
-                            price=order['price'],
-                            size=order['cumulative_filled_size'],
-                            fee=order['fee'],
-                            fee_asset=order['fee_asset']))
-                break
-        except asyncio.CancelledError:
-            _log.info(f'order {client_id} wait for fill task cancelled')
-        except Exception:
-            _log.exception(f'unhandled exception in order {client_id} wait for fill task')
             raise
 
     async def _sync_orderbooks(self) -> None:
