@@ -57,8 +57,8 @@ async def test_map_filters(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_balances(loop, request, exchange):
     skip_non_configured(request, exchange)
-    stream = exchange.stream_balances()
-    await stream.__anext__()
+    async with exchange.stream_balances() as stream:
+        await stream.__anext__()
 
 
 @pytest.mark.exchange
@@ -67,12 +67,12 @@ async def test_stream_balances(loop, request, exchange):
 async def test_stream_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
     start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
-    stream = exchange.stream_candles(
-        symbol='eth-btc',
-        interval=HOUR_MS,
-        start=start,
-        end=start + HOUR_MS)
-    candle, _ = await stream.__anext__()
+    async with exchange.stream_candles(
+            symbol='eth-btc',
+            interval=HOUR_MS,
+            start=start,
+            end=start + HOUR_MS) as stream:
+        candle = await stream.__anext__()
 
     assert isinstance(candle.time, int)
     assert isinstance(candle.close, Decimal)
@@ -86,8 +86,8 @@ async def test_stream_candles(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_depth(loop, request, exchange):
     skip_non_configured(request, exchange)
-    stream = exchange.stream_depth('eth-btc')
-    res = await stream.__anext__()
+    async with exchange.stream_depth('eth-btc') as stream:
+        res = await stream.__anext__()
     assert res
 
 

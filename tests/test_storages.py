@@ -8,6 +8,8 @@ from juno.filters import Filters
 from juno.storages import Memory
 from juno.utils import list_async
 
+from .utils import new_candle
+
 DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal('0.1234567890123456789012345678901234567890123456789')
 
 
@@ -18,7 +20,7 @@ async def memory(request):
 
 
 async def test_memory_store_candles(loop, memory):
-    candles = [_new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT), _new_candle(time=1)]
+    candles = [new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT), new_candle(time=1)]
     start, end = 0, 2
 
     await memory.store_candles_and_span(
@@ -35,7 +37,7 @@ async def test_memory_store_candles(loop, memory):
 
 
 async def test_memory_store_get_map(loop, memory):
-    candle = {'foo': _new_candle(time=1, close=DECIMAL_TOO_PRECISE_FOR_FLOAT)}
+    candle = {'foo': new_candle(time=1, close=DECIMAL_TOO_PRECISE_FOR_FLOAT)}
 
     await memory.set_map(key='key', type_=Candle, items=candle)
     out_candle, _ = await memory.get_map(key='key', type_=Candle)
@@ -50,8 +52,8 @@ async def test_memory_get_map_missing(loop, memory):
 
 
 async def test_memory_set_map_twice_get_map(loop, memory):
-    candle1 = {'foo': _new_candle(time=1)}
-    candle2 = {'foo': _new_candle(time=2)}
+    candle1 = {'foo': new_candle(time=1)}
+    candle2 = {'foo': new_candle(time=2)}
 
     await memory.set_map(key='key', type_=Candle, items=candle1)
     await memory.set_map(key='key', type_=Candle, items=candle2)
@@ -73,13 +75,3 @@ async def test_memory_set_different_maps(loop, memory):
 
     assert out_fees == fees
     assert out_filters == filters
-
-
-def _new_candle(time=0, close=Decimal(0)):
-    return Candle(
-        time=time,
-        open=Decimal(0),
-        high=Decimal(0),
-        low=Decimal(0),
-        close=close,
-        volume=Decimal(0))

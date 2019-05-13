@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Dict, Optional, Tuple
+from typing import AsyncIterable, AsyncIterator, Dict, Optional
 
-from juno import (Balance, CancelOrderResult, Candle, Fees, OrderResult, OrderType, Side,
-                  TimeInForce)
+from juno import (Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderResult, OrderType,
+                  OrderUpdate, Side, TimeInForce)
 from juno.filters import Filters
 
 
@@ -19,21 +19,24 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    async def stream_balances(self) -> AsyncIterable[Dict[str, Balance]]:
+    @asynccontextmanager
+    async def stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
-
-    @abstractmethod
-    async def stream_candles(self, symbol: str, interval: int, start: int, end: int
-                             ) -> AsyncIterable[Tuple[Candle, bool]]:
-        yield  # type: ignore
-
-    @abstractmethod
-    async def stream_depth(self, symbol: str) -> AsyncIterable[Any]:
-        yield
 
     @abstractmethod
     @asynccontextmanager
-    async def stream_orders(self) -> AsyncIterator[AsyncIterable[Any]]:
+    async def stream_candles(self, symbol: str, interval: int, start: int, end: int
+                             ) -> AsyncIterator[AsyncIterable[Candle]]:
+        yield  # type: ignore
+
+    @abstractmethod
+    @asynccontextmanager
+    async def stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
+        yield  # type: ignore
+
+    @abstractmethod
+    @asynccontextmanager
+    async def stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         yield  # type: ignore
 
     @abstractmethod

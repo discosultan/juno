@@ -10,7 +10,7 @@ from juno.components import Orderbook
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
 
-from .utils import load_json_file
+from .utils import load_json_file, new_candle
 
 
 async def test_backtest(loop):
@@ -20,15 +20,15 @@ async def test_backtest(loop):
             price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
             size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
         candles=[
-            Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
-            Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
+            new_candle(time=0, close=Decimal(5)),
+            new_candle(time=1, close=Decimal(10)),
             # Long. Size 10.
-            Candle(2, Decimal(1), Decimal(1), Decimal(1), Decimal(30), Decimal(1)),
-            Candle(3, Decimal(1), Decimal(1), Decimal(1), Decimal(20), Decimal(1)),
+            new_candle(time=2, close=Decimal(30)),
+            new_candle(time=3, close=Decimal(20)),
             # Short.
-            Candle(4, Decimal(1), Decimal(1), Decimal(1), Decimal(40), Decimal(1)),
+            new_candle(time=4, close=Decimal(40)),
             # Long. Size 5.
-            Candle(5, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1))
+            new_candle(time=5, close=Decimal(10))
         ])
     agent_config = {
         'exchange': 'dummy',
@@ -73,7 +73,7 @@ async def test_backtest_scenarios(loop, scenario_nr):
             price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
             size=Size(min=Decimal('0.00100000'), max=Decimal('100000.00000000'),
                       step=Decimal('0.00100000'))),
-        candles=list(map(lambda c: Candle(**c), load_json_file(path)))
+        candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(path)))
     )
     agent_config = {
         'name': 'backtest',
@@ -105,11 +105,11 @@ async def test_paper(loop):
             price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
             size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
         candles=[
-            Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
-            Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
+            new_candle(time=0, close=Decimal(5),),
+            new_candle(time=1, close=Decimal(10),),
             # 1. Long. Size 5 + 1.
-            Candle(2, Decimal(1), Decimal(1), Decimal(1), Decimal(30), Decimal(1)),
-            Candle(3, Decimal(1), Decimal(1), Decimal(1), Decimal(20), Decimal(1)),
+            new_candle(time=2, close=Decimal(30)),
+            new_candle(time=3, close=Decimal(20)),
             # 2. Short. Size 4 + 2.
         ])
     orderbook_data = {
@@ -158,11 +158,11 @@ async def test_live(loop):
             price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
             size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
         candles=[
-            Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(5), Decimal(1)),
-            Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(10), Decimal(1)),
+            new_candle(time=0, close=Decimal(5)),
+            new_candle(time=1, close=Decimal(10)),
             # 1. Long. Size 5 + 1.
-            Candle(2, Decimal(1), Decimal(1), Decimal(1), Decimal(30), Decimal(1)),
-            Candle(3, Decimal(1), Decimal(1), Decimal(1), Decimal(20), Decimal(1)),
+            new_candle(time=2, close=Decimal(30)),
+            new_candle(time=3, close=Decimal(20)),
             # 2. Short. Size 4 + 2.
         ])
     orderbook_data = {
@@ -235,7 +235,7 @@ def test_summary():
         quote=Decimal(100),
         fees=Fees.none(),
         filters=Filters.none())
-    summary.append_candle(Candle(0, *([Decimal(1)] * 5)))
+    summary.append_candle(new_candle())
     summary.append_position(Position(
         time=0,
         fills=Fills([Fill(*([Decimal(1)] * 3), 'eth')])
@@ -280,7 +280,7 @@ class FakeInformant:
 
     async def stream_candles(self, exchange, symbol, interval, start, end):
         for candle in self.candles:
-            yield candle, True
+            yield candle
 
 
 class FakeOrderbook(Orderbook):

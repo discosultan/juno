@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, Tuple, Type, cast
+from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, Type, cast
 
 from juno import Candle, Fees, Span
 from juno.exchanges import Exchange
@@ -60,7 +60,7 @@ class Informant:
         return cast(Filters, filters)
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
-                             ) -> AsyncIterable[Tuple[Candle, bool]]:
+                             ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
         storage_key = (exchange, symbol, interval)
@@ -80,36 +80,37 @@ class Informant:
                 _log.info(f'local candles exist between {Span(span_start, span_end)}')
                 async for candle in self._storage.stream_candles(
                         storage_key, span_start, span_end):
-                    yield candle, True
+                    yield candle
             else:
                 _log.info(f'missing candles between {Span(span_start, span_end)}')
-                async for candle, primary in self._stream_and_store_exchange_candles(
+                async for candle in self._stream_and_store_exchange_candles(
                         exchange, symbol, interval, span_start, span_end):
-                    yield candle, primary
+                    yield candle
 
     async def _stream_and_store_exchange_candles(self, exchange: str, symbol: str, interval: int,
                                                  start: int, end: int
-                                                 ) -> AsyncIterable[Tuple[Candle, bool]]:
+                                                 ) -> AsyncIterable[Candle]:
         BATCH_SIZE = 1000
         batch = []
         batch_start = start
 
-        async for candle, primary in self._exchanges[exchange].stream_candles(symbol, interval,
-                                                                              start, end):
-            if primary:
-                batch.append(candle)
-                if len(batch) == BATCH_SIZE:
-                    batch_end = batch[-1].time + interval
-                    await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
-                                                               batch_start, batch_end)
-                    batch_start = batch_end
-                    del batch[:]
-            yield candle, primary
+        async with self._exchanges[exchange].stream_candles(
+                symbol, interval, start, end) as candle_stream:
+            async for candle in candle_stream:
+                if candle.closed:
+                    batch.append(candle)
+                    if len(batch) == BATCH_SIZE:
+                        batch_end = batch[-1].time + interval
+                        await self._storage.store_candles_and_span(
+                            (exchange, symbol, interval), batch, batch_start, batch_end)
+                        batch_start = batch_end
+                        del batch[:]
+                yield candle
 
-        if len(batch) > 0:
-            batch_end = min(end, floor_multiple(time_ms(), interval))
-            await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
-                                                       batch_start, batch_end)
+            if len(batch) > 0:
+                batch_end = min(end, floor_multiple(time_ms(), interval))
+                await self._storage.store_candles_and_span(
+                    (exchange, symbol, interval), batch, batch_start, batch_end)
 
     def _setup_sync_task(self, type_: type, fetch: FetchMap) -> None:
         initial_sync_event = asyncio.Event()

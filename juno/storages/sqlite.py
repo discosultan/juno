@@ -19,10 +19,10 @@ from juno.utils import home_path
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 9
+_VERSION = 10
 
 Key = Union[str, Tuple[Any, ...]]
-Primitive = Union[int, float, Decimal, str]
+Primitive = Union[bool, int, float, Decimal, str]
 
 
 def _serialize_decimal(d: Decimal) -> bytes:
@@ -35,6 +35,9 @@ def _deserialize_decimal(s: bytes) -> Decimal:
 
 sqlite3.register_adapter(Decimal, _serialize_decimal)
 sqlite3.register_converter('DECIMAL', _deserialize_decimal)
+
+sqlite3.register_adapter(bool, int)
+sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
 
 
 class SQLite:
@@ -76,7 +79,7 @@ class SQLite:
             await self._ensure_table(db, Candle)
             try:
                 await db.executemany(
-                    f'INSERT INTO {Candle.__name__} VALUES (?, ?, ?, ?, ?, ?)',
+                    f'INSERT INTO {Candle.__name__} VALUES (?, ?, ?, ?, ?, ?, ?)',
                     candles)
             except sqlite3.IntegrityError as err:
                 # TODO: Can we relax this constraint?
@@ -172,6 +175,8 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
         return 'DECIMAL'
     if type_ is str:
         return 'TEXT'
+    if type_ is bool:
+        return 'BOOLEAN'
     raise NotImplementedError(f'Missing conversion for type {type_}')
 
 

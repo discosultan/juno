@@ -59,13 +59,13 @@ class Backtest(Agent):
                           'strategy')
                 start -= strategy.req_history * interval
 
-            async for candle, primary in informant.stream_candles(
+            async for candle in informant.stream_candles(
                     exchange=exchange,
                     symbol=symbol,
                     interval=interval,
                     start=start,
                     end=end):
-                if not primary:
+                if not candle.closed:
                     continue
 
                 self.result.append_candle(candle)

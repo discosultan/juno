@@ -4,20 +4,22 @@ from functools import partial
 
 import pytest
 
-from juno import Balance, Candle, Fees
+from juno import Balance, DepthUpdate, DepthUpdateType, Fees
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.storages import Memory
 from juno.utils import list_async
 
+from .utils import new_candle
+
 
 async def test_stream_candles(loop):
     candles = [
-        (Candle(0, Decimal(1), Decimal(1), Decimal(1), Decimal(1), Decimal(1)), True),
-        (Candle(1, Decimal(1), Decimal(1), Decimal(1), Decimal(1), Decimal(1)), True),
+        new_candle(time=0),
+        new_candle(time=1),
         # Deliberately skipped candle.
-        (Candle(3, Decimal(1), Decimal(1), Decimal(1), Decimal(1), Decimal(1)), True)
+        new_candle(time=3)
     ]
     async with init_informant(Fake(candles=candles)) as informant:
         # -> 0
@@ -70,15 +72,16 @@ async def test_get_filters(loop):
      [(Decimal(1), Decimal(1)), (Decimal(2), Decimal(1))]),
 ])
 async def test_find_market_order_asks(loop, quote, snapshot_asks, update_asks, expected_output):
-    depths = [{
-        'type': 'snapshot',
-        'asks': snapshot_asks,
-        'bids': [],
-    }, {
-        'type': 'update',
-        'asks': update_asks,
-        'bids': [],
-    }]
+    depths = [
+        DepthUpdate(
+            type=DepthUpdateType.SNAPSHOT,
+            asks=snapshot_asks,
+            bids=[]),
+        DepthUpdate(
+            type=DepthUpdateType.UPDATE,
+            asks=update_asks,
+            bids=[])
+    ]
     async with init_orderbook(Fake(depths=depths)) as orderbook:
         filters = Filters(
             price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
@@ -103,15 +106,16 @@ async def test_find_market_order_asks(loop, quote, snapshot_asks, update_asks, e
      [(Decimal(2), Decimal(1)), (Decimal(1), Decimal(1))]),
 ])
 async def test_find_market_order_bids(loop, base, snapshot_bids, update_bids, expected_output):
-    depths = [{
-        'type': 'snapshot',
-        'asks': [],
-        'bids': snapshot_bids,
-    }, {
-        'type': 'update',
-        'asks': [],
-        'bids': update_bids,
-    }]
+    depths = [
+        DepthUpdate(
+            type=DepthUpdateType.SNAPSHOT,
+            asks=[],
+            bids=snapshot_bids),
+        DepthUpdate(
+            type=DepthUpdateType.UPDATE,
+            asks=[],
+            bids=update_bids)
+    ]
     async with init_orderbook(Fake(depths=depths)) as orderbook:
         filters = Filters(
             price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
@@ -122,11 +126,12 @@ async def test_find_market_order_bids(loop, base, snapshot_bids, update_bids, ex
 
 
 async def test_list_asks_bids(loop):
-    depths = [{
-        'type': 'snapshot',
-        'asks': [(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
-        'bids': [(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
-    }]
+    depths = [
+        DepthUpdate(
+            type=DepthUpdateType.SNAPSHOT,
+            asks=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
+            bids=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))])
+    ]
     async with init_orderbook(Fake(depths=depths)) as orderbook:
         asks = orderbook.list_asks(exchange='fake', symbol='eth-btc')
         bids = orderbook.list_bids(exchange='fake', symbol='eth-btc')
@@ -143,7 +148,7 @@ async def test_get_balance(loop):
 
 
 class Fake(Exchange):
-    def __init__(self, candles=[], fees={}, filters={}, balances={}, depths={}, orders=[]):
+    def __init__(self, candles=[], fees={}, filters={}, balances=[], depths=[], orders=[]):
         self.candles = candles
         self.fees = fees
         self.filters = filters
@@ -157,17 +162,26 @@ class Fake(Exchange):
     async def map_filters(self):
         return self.filters
 
+    @asynccontextmanager
     async def stream_balances(self):
-        for balance in self.balances:
-            yield balance
+        async def inner():
+            for balance in self.balances:
+                yield balance
+        yield inner()
 
+    @asynccontextmanager
     async def stream_candles(self, symbol, interval, start, end):
-        for c, p in ((c, p) for c, p in self.candles if c.time >= start and c.time < end):
-            yield c, p
+        async def inner():
+            for c in (c for c in self.candles if c.time >= start and c.time < end):
+                yield c
+        yield inner()
 
+    @asynccontextmanager
     async def stream_depth(self, symbol):
-        for depth in self.depths:
-            yield depth
+        async def inner():
+            for depth in self.depths:
+                yield depth
+        yield inner()
 
     @asynccontextmanager
     async def stream_orders(self):

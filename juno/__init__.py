@@ -3,13 +3,11 @@ from __future__ import annotations
 from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional, Tuple
 
 from juno.time import datetime_utcfromtimestamp_ms
 
 AccountInfo = namedtuple('AccountInfo', ['time', 'base_balance', 'quote_balance', 'fees'])
-# BidAsk = namedtuple('BidAsk', ['price', 'size'])
-# Depth = namedtuple('Depth', ['bids', 'asks'])
 Trade = namedtuple('Trade', ['price', 'size', 'commission', 'commission_asset', 'is_buyer'])
 
 
@@ -29,10 +27,12 @@ class Candle(NamedTuple):
     low: Decimal
     close: Decimal
     volume: Decimal
+    closed: bool
 
     def __repr__(self) -> str:
         return (f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
-                f'open={self.open}, high={self.high}, low={self.low}, close={self.close})')
+                f'open={self.open}, high={self.high}, low={self.low}, close={self.close}, '
+                f'volume={self.volume}, closed={self.closed})')
 
 
 class Fees(NamedTuple):
@@ -138,3 +138,25 @@ class CancelOrderResult(NamedTuple):
 class CancelOrderStatus(Enum):
     SUCCESS = 0
     REJECTED = 1
+
+
+class OrderUpdate(NamedTuple):
+    symbol: str
+    status: OrderStatus
+    client_id: str
+    price: Decimal
+    size: Decimal
+    cumulative_filled_size: Decimal
+    fee: Decimal
+    fee_asset: Optional[str]
+
+
+class DepthUpdate(NamedTuple):
+    type: DepthUpdateType
+    bids: List[Tuple[Decimal, Decimal]]
+    asks: List[Tuple[Decimal, Decimal]]
+
+
+class DepthUpdateType(Enum):
+    SNAPSHOT = 0
+    UPDATE = 1

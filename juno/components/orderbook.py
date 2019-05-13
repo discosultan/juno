@@ -9,8 +9,8 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import (CancelOrderStatus, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, Side,
-                  TimeInForce)
+from juno import (CancelOrderStatus, DepthUpdateType, Fees, Fill, Fills, OrderResult, OrderStatus,
+                  OrderType, Side, TimeInForce)
 from juno.config import list_required_names
 from juno.exchanges import Exchange
 from juno.filters import Filters
@@ -172,31 +172,33 @@ class Orderbook:
 
             # Listens for fill events for an existing order.
             async for order in order_stream:
-                if order['client_id'] != client_id:
+                if order.client_id != client_id:
                     continue
-                if order['symbol'] != symbol:
+                if order.symbol != symbol:
                     continue
-                if order['status'] not in [OrderStatus.CANCELED, OrderStatus.FILLED]:
+                if order.status not in [OrderStatus.CANCELED, OrderStatus.FILLED]:
                     # TODO: temp logging
-                    _log.critical(f'order update with status {order["status"]}')
+                    _log.critical(f'order update with status {order.status}')
                     continue
 
-                if order['status'] is OrderStatus.FILLED:
+                if order.status is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
+                    assert order.fee_asset
                     fills.append(Fill(
-                        price=order['price'],
-                        size=order['size'],
-                        fee=order['fee'],
-                        fee_asset=order['fee_asset']))
+                        price=order.price,
+                        size=order.size,
+                        fee=order.fee,
+                        fee_asset=order.fee_asset))
                     break
                 else:  # CANCELED
                     _log.info(f'existing order {client_id} canceled')
-                    if order['cumulative_filled_size'] > 0:
+                    if order.cumulative_filled_size > 0:
+                        assert order.fee_asset
                         fills.append(Fill(
-                            price=order['price'],
-                            size=order['cumulative_filled_size'],
-                            fee=order['fee'],
-                            fee_asset=order['fee_asset']))
+                            price=order.price,
+                            size=order.cumulative_filled_size,
+                            fee=order.fee,
+                            fee_asset=order.fee_asset))
 
             keep_limit_order_best_task.cancel()
             await keep_limit_order_best_task
@@ -291,19 +293,20 @@ class Orderbook:
 
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         orderbook = self._orderbooks[exchange][symbol]
-        async for val in self._exchanges[exchange].stream_depth(symbol):
-            if val['type'] == 'snapshot':
-                orderbook['bids'] = {k: v for k, v in val['bids']}
-                orderbook['asks'] = {k: v for k, v in val['asks']}
-                orderbook.snapshot_received = True
-                self._initial_orderbook_fetched.release()
-            elif val['type'] == 'update':
-                assert orderbook.snapshot_received
-                _update_orderbook_side(orderbook['bids'], val['bids'])
-                _update_orderbook_side(orderbook['asks'], val['asks'])
-            else:
-                raise NotImplementedError()
-            orderbook.updated.set()
+        async with self._exchanges[exchange].stream_depth(symbol) as depth_stream:
+            async for val in depth_stream:
+                if val.type is DepthUpdateType.SNAPSHOT:
+                    orderbook['bids'] = {k: v for k, v in val.bids}
+                    orderbook['asks'] = {k: v for k, v in val.asks}
+                    orderbook.snapshot_received = True
+                    self._initial_orderbook_fetched.release()
+                elif val.type is DepthUpdateType.UPDATE:
+                    assert orderbook.snapshot_received
+                    _update_orderbook_side(orderbook['bids'], val.bids)
+                    _update_orderbook_side(orderbook['asks'], val.asks)
+                else:
+                    raise NotImplementedError()
+                orderbook.updated.set()
 
 
 def _update_orderbook_side(orderbook_side: Dict[Decimal, Decimal],

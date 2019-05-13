@@ -2,14 +2,14 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, Fill, Fills
+from juno import Fees, Fill, Fills
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
 from juno.filters import Filters
 from juno.plugins import discord
 from juno.time import HOUR_MS
 
-from .utils import full_path
+from .utils import full_path, new_candle
 
 
 def get_dummy_trading_summary():
@@ -41,14 +41,14 @@ async def test_discord(loop, request, config, agent: Agent):
     ee = agent.ee
     agent.result = get_dummy_trading_summary()
     async with discord.activate(agent, config['discord']):
-        candle = Candle(0, Decimal(0), Decimal(0), Decimal(0), Decimal(1), Decimal(10))
+        candle = new_candle(time=0, close=Decimal(1), volume=Decimal(10))
         pos = Position(
             time=candle.time,
             fills=Fills([
                 Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='btc')
             ]))
         await ee.emit('position_opened', pos)
-        candle = Candle(HOUR_MS, Decimal(0), Decimal(0), Decimal(0), Decimal(2), Decimal(10))
+        candle = new_candle(time=HOUR_MS, close=Decimal(2), volume=Decimal(10))
         pos.close(
             time=candle.time,
             fills=Fills([
