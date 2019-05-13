@@ -281,7 +281,7 @@ class Binance(Exchange):
             'origClientOrderId': client_id
         }
         res = await self._request('DELETE', '/api/v3/order', data=data, security=_SEC_TRADE,
-                                  expected_errors=[400])
+                                  raise_for_status=False)
         binance_error = res.get('code')
         if binance_error == _ERR_CANCEL_REJECTED:
             return CancelOrderResult(status=CancelOrderStatus.REJECTED)
@@ -378,8 +378,7 @@ class Binance(Exchange):
 
     @retry_on(aiohttp.ClientConnectionError, max_tries=3)
     async def _request(self, method: str, url: str, weight: int = 1, data: Optional[Any] = None,
-                       security: int = _SEC_NONE, expected_errors: Optional[List[int]] = None
-                       ) -> Any:
+                       security: int = _SEC_NONE, raise_for_status: Optional[bool] = None) -> Any:
         if method == '/api/v3/order':
             await asyncio.gather(
                 self._reqs_per_min_limiter.acquire(weight),
@@ -409,11 +408,8 @@ class Binance(Exchange):
         if data:
             kwargs['params' if method == 'GET' else 'data'] = data
 
-        if expected_errors is not None:
-            kwargs['expected_errors'] = expected_errors
-            kwargs['raise_for_status'] = False
-
-        async with self._session.request(method, _BASE_REST_URL + url, **kwargs) as res:
+        async with self._session.request(method=method, url=_BASE_REST_URL + url,
+                                         raise_for_status=raise_for_status, **kwargs) as res:
             return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
 
     @asynccontextmanager

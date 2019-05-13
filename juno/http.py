@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Optional
 
 import aiohttp
 
@@ -17,8 +17,8 @@ _aiohttp_log = logging.getLogger('aiohttp.client')
 # https://github.com/aio-libs/aiohttp/issues/3185
 class ClientSession:
 
-    def __init__(self, **kwargs: Any) -> None:
-        self._raise_for_status = kwargs.pop('raise_for_status', None)
+    def __init__(self, raise_for_status: Optional[bool] = None, **kwargs: Any) -> None:
+        self._raise_for_status = raise_for_status
         self._session = aiohttp.ClientSession(**kwargs)
 
     async def __aenter__(self) -> ClientSession:
@@ -29,9 +29,8 @@ class ClientSession:
         await self._session.__aexit__(exc_type, exc, tb)
 
     @asynccontextmanager
-    async def request(self, method: str, url: str, **kwargs: Any
-                      ) -> AsyncIterator[aiohttp.ClientResponse]:
-        expected_errors = kwargs.pop('expected_errors', [])
+    async def request(self, method: str, url: str, raise_for_status: Optional[bool] = None,
+                      **kwargs: Any) -> AsyncIterator[aiohttp.ClientResponse]:
         req = self._session.request(method, url, **kwargs)
         req_id = id(req)
         _aiohttp_log.info(f'Req {req_id} {method} {url}')
@@ -42,12 +41,9 @@ class ClientSession:
                 'headers': res.headers,
                 'body': await res.text()
             }
-            if res.status not in expected_errors and res.status >= 400:
-                _aiohttp_log.error(content)
-                if kwargs.get('raise_for_status', self._raise_for_status):
-                    res.raise_for_status()
-            else:
-                _aiohttp_log.debug(content)
+            _aiohttp_log.debug(content)
+            if raise_for_status or (raise_for_status is None and self._raise_for_status):
+                res.raise_for_status()
             yield res
 
     @asynccontextmanager
