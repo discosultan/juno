@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import cast, Any, AsyncIterable, Awaitable, Callable, Dict, List, Tuple, Type
+from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, Tuple, Type, cast
 
 from juno import Candle, Fees, Span
 from juno.exchanges import Exchange

@@ -169,9 +169,12 @@ class Fake(Exchange):
         for depth in self.depths:
             yield depth
 
+    @asynccontextmanager
     async def stream_orders(self):
-        for order in self.orders:
-            yield order
+        async def inner():
+            for order in self.orders:
+                yield order
+        yield inner()
 
     async def place_order(self, *args, **kwargs):
         pass

@@ -105,6 +105,7 @@ class Backtest(Agent):
         if size == 0:
             return False
 
+        # TODO: Fee should also be rounded.
         fee = size * self.fees.taker
 
         self.open_position = Position(

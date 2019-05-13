@@ -6,10 +6,11 @@ import hashlib
 import hmac
 import logging
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
 from time import time
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple
+from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 
 import simplejson as json
 
@@ -199,8 +200,8 @@ class Coinbase(Exchange):
                     'asks': [(Decimal(p), Decimal(s)) for p, s in asks]
                 }
 
-    async def stream_orders(self, stream_open: Optional[asyncio.Event] = None
-                            ) -> AsyncIterable[Any]:
+    @asynccontextmanager
+    async def stream_orders(self) -> AsyncIterator[AsyncIterable[Any]]:
         raise NotImplementedError()
         yield
 

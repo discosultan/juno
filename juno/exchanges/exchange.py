@@ -1,7 +1,7 @@
-import asyncio
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterable, Dict, Optional, Tuple
+from typing import Any, AsyncIterable, AsyncIterator, Dict, Optional, Tuple
 
 from juno import (Balance, CancelOrderResult, Candle, Fees, OrderResult, OrderType, Side,
                   TimeInForce)
@@ -32,9 +32,9 @@ class Exchange(ABC):
         yield
 
     @abstractmethod
-    async def stream_orders(self, stream_open: Optional[asyncio.Event] = None
-                            ) -> AsyncIterable[Any]:
-        yield
+    @asynccontextmanager
+    async def stream_orders(self) -> AsyncIterator[AsyncIterable[Any]]:
+        yield  # type: ignore
 
     @abstractmethod
     async def place_order(

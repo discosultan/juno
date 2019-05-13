@@ -12,9 +12,13 @@ from juno.storages import Memory, SQLite
 SIDE = Side.BUY
 EXCHANGE = 'binance'
 SYMBOL = 'ada-btc'
-LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'DEBUG'
 QUOTE = Decimal('0.0015')
 BASE = Decimal('150')
+
+
+if len(sys.argv) > 1:
+    SIDE = Side[sys.argv[1].upper()]
 
 
 async def main() -> None:
@@ -43,6 +47,7 @@ async def main() -> None:
                     exchange=EXCHANGE,
                     symbol=SYMBOL,
                     quote=QUOTE,
+                    fees=fees,
                     filters=filters)
             else:
                 market_fills = orderbook.find_market_order_bids(
@@ -55,9 +60,11 @@ async def main() -> None:
                     exchange=EXCHANGE,
                     symbol=SYMBOL,
                     base=BASE,
+                    fees=fees,
                     filters=filters)
 
             logging.info(res)
+            logging.info(f'{SIDE} {SYMBOL}')
             logging.info(f'total size: {res.fills.total_size}')
             logging.info(f'total quote: {res.fills.total_quote}')
             logging.info(f'in case of market order total size: {market_fills.total_size}')

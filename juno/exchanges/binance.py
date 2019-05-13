@@ -8,15 +8,16 @@ import math
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
+from typing import (Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional,
+                    Tuple)
 
 import aiohttp
 import simplejson as json
 
 from juno import (Balance, CancelOrderResult, CancelOrderStatus, Candle, Fees, Fill, Fills,
                   OrderResult, OrderStatus, OrderType, Side, TimeInForce, Trade)
-from juno.filters import Filters, MinNotional, Price, PercentPrice, Size
-from juno.http import ClientSession
+from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
+from juno.http import ClientSession, ClientWebSocketResponse
 from juno.math import floor_multiple
 from juno.time import HOUR_MS, MIN_MS, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
@@ -169,36 +170,45 @@ class Binance(Exchange):
                 }
                 last_update_id = data['u']
 
-    async def stream_orders(self, stream_open: Optional[asyncio.Event] = None
-                            ) -> AsyncIterable[Any]:
+    @asynccontextmanager
+    async def stream_orders(self) -> AsyncIterator[AsyncIterable[Any]]:
         await self._ensure_user_data_stream()
-        if stream_open:
-            stream_open.set()
-        while True:
-            data = await self._order_event.wait()
-            self._order_event.clear()
-            fills = Fills()
-            fill_size = Decimal(data['l'])
-            if fill_size > 0:
-                fills.append(Fill(
-                    price=Decimal(data['L']),
-                    size=fill_size,
-                    fee=Decimal(data['n']),
-                    fee_asset=data['N'].lower()))
-            result = {
-                'symbol': _from_symbol(data['s']),
-                'status': data['x'],
-                'order_status': _from_order_status(data['X']),
-                'order_client_id': data['c'],
-                # 'size': Decimal(data['q']),
-                'fills': fills
-            }
-            yield result
+
+        async def inner():
+            while True:
+                data = await self._order_event.wait()
+                self._order_event.clear()
+                # fills = Fills()
+                # fill_size = Decimal(data['l'])
+                # if fill_size > 0:
+                #     fills.append(Fill(
+                #         price=Decimal(data['L']),
+                #         size=fill_size,
+                #         fee=Decimal(data['n']),
+                #         fee_asset=data['N'].lower()))
+                result = {
+                    'symbol': _from_symbol(data['s']),
+                    # 'status': data['x'],
+                    'status': _from_order_status(data['X']),
+                    'client_id': data['c'],
+                    'price': Decimal(data['p']),
+                    'size': Decimal(data['q']),
+                    'cumulative_filled_size': Decimal(data['z']),
+                    'fee': Decimal(data['n']),
+                    'fee_asset': data['N'].lower() if data['N'] else None
+                    # 'size': Decimal(data['q']),
+                    # 'fills': fills
+                }
+                yield result
+
+        yield inner()
 
     async def _ensure_user_data_stream(self) -> None:
         async with self._listen_key_lock:
             if self._listen_key_refresh_task:
                 return
+
+            user_stream_connected = asyncio.Event()
 
             listen_key = (await self._request(
                 'POST',
@@ -207,34 +217,42 @@ class Binance(Exchange):
             self._listen_key_refresh_task = asyncio.create_task(
                 self._periodic_listen_key_refresh(listen_key))
             self._stream_user_data_task = asyncio.create_task(
-                self._stream_user_data(listen_key))
+                self._stream_user_data(listen_key, user_stream_connected))
 
-    async def _stream_user_data(self, listen_key: str) -> None:
+            await user_stream_connected.wait()
+
+    async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
         try:
             bal_time, order_time = 0, 0
-            while True:
-                KEEP_ALIVE_HOURS = 12
-                valid_until = time_ms() + KEEP_ALIVE_HOURS * HOUR_MS
+            # while True:
+            KEEP_ALIVE_HOURS = 12
+            valid_until = time_ms() + KEEP_ALIVE_HOURS * HOUR_MS
 
-                async with self._ws_connect('/ws/' + listen_key) as ws:
-                    async for msg in ws:
-                        if msg.type is aiohttp.WSMsgType.CLOSED:
-                            _log.error(f'user data ws connection closed unexpectedly ({msg})')
+            # TODO: how to switch over from one ws to another by making sure not to lose any
+            # message in-between?
+            async with self._ws_connect('/ws/' + listen_key) as ws:
+                connected.set()
+                async for msg in ws:
+                    if msg.type is aiohttp.WSMsgType.CLOSED:
+                        _log.error(f'user data ws connection closed unexpectedly ({msg})')
 
-                        data = json.loads(msg.data)
+                    data = json.loads(msg.data)
 
-                        # The data can come out of sync. Make sure to discard old updates.
-                        if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
-                            bal_time = data['E']
-                            self._balance_event.set(data)
-                        elif data['e'] == 'executionReport' and data['E'] >= order_time:
-                            order_time = data['E']
-                            self._order_event.set(data)
+                    # The data can come out of sync. Make sure to discard old updates.
+                    if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
+                        bal_time = data['E']
+                        self._balance_event.set(data)
+                    elif data['e'] == 'executionReport' and data['E'] >= order_time:
+                        order_time = data['E']
+                        self._order_event.set(data)
 
-                        if time_ms() > valid_until:
-                            _log.info('restarting user data ws connection after '
-                                      f'{KEEP_ALIVE_HOURS}h')
-                            break
+                    if time_ms() > valid_until:
+                        _log.info(f'restarting user data ws connection after {KEEP_ALIVE_HOURS}h')
+                        connected = asyncio.Event()
+                        self._stream_user_data_task = asyncio.create_task(
+                            self._stream_user_data(listen_key, connected))
+                        await connected.wait()
+                        break
         except asyncio.CancelledError:
             _log.info('user data streaming task cancelled')
 
@@ -412,12 +430,13 @@ class Binance(Exchange):
                                          raise_for_status=raise_for_status, **kwargs) as res:
             return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
 
-    @asynccontextmanager
+    # @asynccontextmanager
     # TODO: Figure out how to backoff an asynccontextmanager.
     # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
-    async def _ws_connect(self, url: str, **kwargs: Any) -> AsyncIterator[Any]:
-        async with self._session.ws_connect(_BASE_WS_URL + url, **kwargs) as ws:
-            yield ws
+    def _ws_connect(self, url: str, **kwargs: Any) -> AsyncContextManager[ClientWebSocketResponse]:
+        return self._session.ws_connect(_BASE_WS_URL + url, **kwargs)
+        # async with self._session.ws_connect(_BASE_WS_URL + url, **kwargs) as ws:
+        #     yield ws
 
     async def _sync_clock(self) -> None:
         try:

@@ -7,7 +7,7 @@ import uuid
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import Any, Dict, List, Tuple
+from typing import Any, AsyncIterable, Dict, List, Tuple
 
 from juno import (CancelOrderStatus, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, Side,
                   TimeInForce)
@@ -75,6 +75,7 @@ class Orderbook:
             if aquote >= quote:
                 size = filters.size.round_down(quote / aprice)
                 if size != Decimal(0):
+                    # TODO: Fee should also be rounded.
                     fee = aprice * size * fees.taker
                     result.append(Fill(price=aprice, size=size, fee=fee, fee_asset=base_asset))
                 break
@@ -139,52 +140,86 @@ class Orderbook:
         return res
 
     async def buy_limit_at_spread(self, exchange: str, symbol: str, quote: Decimal,
-                                  filters: Filters) -> OrderResult:
+                                  fees: Fees, filters: Filters) -> OrderResult:
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
-        return await self._limit_at_spread(exchange, symbol, Side.BUY, quote, filters)
+        res = await self._limit_at_spread(exchange, symbol, Side.BUY, quote, filters)
+        _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_size} * {fees.maker}')
+        # assert res.fills.total_fee == res.fills.total_size * fees.maker
+        return res
 
     async def sell_limit_at_spread(self, exchange: str, symbol: str, base: Decimal,
-                                   filters: Filters) -> OrderResult:
+                                   fees: Fees, filters: Filters) -> OrderResult:
         _log.info(f'filling {base} worth of base with limit orders at spread')
-        return await self._limit_at_spread(exchange, symbol, Side.SELL, base, filters)
+        res = await self._limit_at_spread(exchange, symbol, Side.SELL, base, filters)
+        _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_quote} * {fees.maker}')
+        # assert res.fills.total_fee == res.fills.total_quote * fees.maker
+        return res
 
     async def _limit_at_spread(self, exchange: str, symbol: str, side: Side, available: Decimal,
                                filters: Filters) -> OrderResult:
         client_id = str(uuid.uuid4())
-        fills = Fills()
-        order_stream_open = asyncio.Event()
-        done = asyncio.Event()
+        fills = Fills()  # Fills from aggregated trades.
 
-        # Listens for fill events for an existing order.
-        wait_order_fills_task = asyncio.create_task(
-            self._wait_order_fills(exchange, symbol, client_id, fills, order_stream_open, done))
+        async with self._exchanges[exchange].stream_orders() as order_stream:
+            # # Listens for fill events for an existing order.
+            # wait_order_fills_task = asyncio.create_task(
+            #     self._wait_order_fills(symbol, client_id, fills, order_stream, done))
 
-        # TODO: shit doesnt work :/
-        await order_stream_open.wait()
+            # Keeps a limit order at spread.
+            keep_limit_order_best_task = asyncio.create_task(
+                self._keep_limit_order_best(
+                    exchange=exchange,
+                    symbol=symbol,
+                    client_id=client_id,
+                    side=side,
+                    available=available,
+                    filters=filters))
 
-        # Keeps a limit order at spread.
-        keep_limit_order_best_task = asyncio.create_task(
-            self._keep_limit_order_best(
-                exchange=exchange,
-                symbol=symbol,
-                client_id=client_id,
-                side=side,
-                available=available,
-                fills=fills,
-                filters=filters,
-                done=done))
+            # Listens for fill events for an existing order.
+            async for order in order_stream:
+                if order['client_id'] != client_id:
+                    continue
+                if order['symbol'] != symbol:
+                    continue
+                if order['status'] is not OrderStatus.FILLED:
+                    # We could also check for 'NEW' messages but we lose granularity over fills
+                    # and only get a single cumulative fill.
 
-        # Could also use `asyncio.wait` first completed. No need to for event sync that way.
-        await done.wait()
-        keep_limit_order_best_task.cancel()
-        wait_order_fills_task.cancel()
-        await asyncio.gather(keep_limit_order_best_task, wait_order_fills_task)
+                    # TODO: temp logging
+                    _log.critical(f'order update with status {order["status"]}')
+                    continue
+
+                # fills.extend(order['fills'])
+                # _log.info(f'received fills for existing order {client_id}: {order["fills"]}')
+
+                if order['status'] is OrderStatus.FILLED:
+                    _log.info(f'existing order {client_id} filled')
+                    fills.append(Fill(
+                        price=order['price'],
+                        size=order['size'],
+                        fee=order['fee'],
+                        fee_asset=order['fee_asset']))
+                    break
+                else:  # CANCELED
+                    _log.info(f'existing order {client_id} canceled')
+                    if order['cumulative_filled_size'] > 0:
+                        fills.append(Fill(
+                            price=order['price'],
+                            size=order['cumulative_filled_size'],
+                            fee=order['fee'],
+                            fee_asset=order['fee_asset']))
+
+            # Could also use `asyncio.wait` first completed. No need to for event sync that way.
+            # await done.wait()
+            keep_limit_order_best_task.cancel()
+            await keep_limit_order_best_task
+            # wait_order_fills_task.cancel()
+            # await asyncio.gather(keep_limit_order_best_task, wait_order_fills_task)
 
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     async def _keep_limit_order_best(self, exchange: str, symbol: str, client_id: str, side: Side,
-                                     available: Decimal, fills: Fills, filters: Filters,
-                                     done: asyncio.Event) -> None:
+                                     available: Decimal, filters: Filters) -> None:
         try:
             orderbook = self._orderbooks[exchange][symbol]
             last_order_price = Decimal(0) if side is Side.BUY else Decimal('Inf')
@@ -238,7 +273,6 @@ class Orderbook:
                         'min notional not valid: '
                         f'{price} * {size} != {filters.min_notional.min_notional}')
 
-                # TODO: We need to ensure user data stream is already open before that!
                 _log.info(f'placing limit order at price {price} for size {size}')
                 res = await self._exchanges[exchange].place_order(
                     symbol=symbol,
@@ -250,10 +284,10 @@ class Orderbook:
                     client_id=client_id,
                     test=False)
 
-                fills.extend(res.fills)
+                # fills.extend(res.fills)
                 if res.status is OrderStatus.FILLED:
                     _log.info(f'new limit order {client_id} immediately filled {res.fills}')
-                    done.set()
+                    # done.set()
                     break
                 last_order_price = price
         except asyncio.CancelledError:
@@ -262,15 +296,17 @@ class Orderbook:
             _log.exception(f'unhandled exception in order {client_id} re-adjustment task')
             raise
 
-    async def _wait_order_fills(self, exchange: str, symbol: str, client_id: str, fills: Fills,
-                                stream_open: asyncio.Event, done: asyncio.Event) -> None:
+    async def _wait_order_fills(self, symbol: str, client_id: str, fills: Fills,
+                                order_stream: AsyncIterable[Any], done: asyncio.Event) -> None:
+        # TODO: User data stream payloads are not guaranteed to be in order during heavy periods;
+        # make sure to order your updates using event time
         try:
-            async for order in self._exchanges[exchange].stream_orders(stream_open=stream_open):
-                if order['order_client_id'] != client_id:
+            async for order in order_stream:
+                if order['client_id'] != client_id:
                     continue
                 if order['symbol'] != symbol:
                     continue
-                if order['status'] != 'TRADE':
+                if order['status'] is not OrderStatus.FILLED:
                     # We could also check for 'NEW' messages but we lose granularity over fills
                     # and only get a single cumulative fill.
 
@@ -283,8 +319,21 @@ class Orderbook:
 
                 if order['order_status'] is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
+                    fills.append(Fill(
+                        price=order['price'],
+                        size=order['size'],
+                        fee=order['fee'],
+                        fee_asset=order['fee_asset']))
                     done.set()
-                    break
+                else:  # CANCELED
+                    _log.info(f'existing order {client_id} canceled')
+                    if order['cumulative_filled_size'] > 0:
+                        fills.append(Fill(
+                            price=order['price'],
+                            size=order['cumulative_filled_size'],
+                            fee=order['fee'],
+                            fee_asset=order['fee_asset']))
+                break
         except asyncio.CancelledError:
             _log.info(f'order {client_id} wait for fill task cancelled')
         except Exception:
