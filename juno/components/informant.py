@@ -95,7 +95,7 @@ class Informant:
         batch_start = start
 
         async with self._exchanges[exchange].stream_candles(
-                symbol, interval, start, end) as candle_stream:
+                symbol=symbol, interval=interval, start=start, end=end) as candle_stream:
             async for candle in candle_stream:
                 if candle.closed:
                     batch.append(candle)
