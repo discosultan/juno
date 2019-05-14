@@ -320,24 +320,29 @@ class Binance(Exchange):
         return [Trade(x['price'], x['qty'], x['commission'], x['commissionAsset'], x['isBuyer'])
                 for x in result]
 
-    # TODO: Make sure we don't miss a candle when switching from historical to future.
     @asynccontextmanager
     async def stream_candles(self, symbol: str, interval: int, start: int, end: int
                              ) -> AsyncIterator[AsyncIterable[Candle]]:
+        current = floor_multiple(time_ms(), interval)
+        future_stream = None
+
         async def inner() -> AsyncIterable[Candle]:
-            current = floor_multiple(time_ms(), interval)
             if start < current:
-                async for candle in self._stream_historical_candles(
+                async for candle in self._fetch_historical_candles(
                         symbol, interval, start, min(end, current)):
                     yield candle
-            if end > current:
-                async for candle in self._stream_future_candles(symbol, interval, end):
+            if future_stream:
+                async for candle in future_stream:
                     yield candle
 
-        yield inner()
+        if end > current:
+            async with self._stream_future_candles(symbol, interval, end) as future_stream:
+                yield inner()
+        else:
+            yield inner()
 
-    async def _stream_historical_candles(self, symbol: str, interval: int, start: int, end: int
-                                         ) -> AsyncIterable[Candle]:
+    async def _fetch_historical_candles(self, symbol: str, interval: int, start: int, end: int
+                                        ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             res = await self._request('GET', '/api/v1/klines', data={
@@ -351,8 +356,9 @@ class Binance(Exchange):
                 yield Candle(c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
                              Decimal(c[5]), True)
 
+    @asynccontextmanager
     async def _stream_future_candles(self, symbol: str, interval: int, end: int
-                                     ) -> AsyncIterable[Candle]:
+                                     ) -> AsyncIterator[AsyncIterable[Candle]]:
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where
@@ -367,24 +373,28 @@ class Binance(Exchange):
                 break
 
             async with self._ws_connect(url) as ws:
-                async for msg in ws:
-                    if msg.type is aiohttp.WSMsgType.CLOSED:
-                        _log.error(f'candles ws connection closed unexpectedly ({msg})')
-                        break
 
-                    data = json.loads(msg.data)
+                async def inner() -> AsyncIterable[Candle]:
+                    async for msg in ws:
+                        if msg.type is aiohttp.WSMsgType.CLOSED:
+                            _log.error(f'candles ws connection closed unexpectedly ({msg})')
+                            break
 
-                    cd = data['k']
-                    # A closed candle is the last candle in a period.
-                    c = Candle(cd['t'], Decimal(cd['o']), Decimal(cd['h']), Decimal(cd['l']),
-                               Decimal(cd['c']), Decimal(cd['v']), cd['x'])
+                        data = json.loads(msg.data)
 
-                    yield c
+                        cd = data['k']
+                        # A closed candle is the last candle in a period.
+                        c = Candle(cd['t'], Decimal(cd['o']), Decimal(cd['h']), Decimal(cd['l']),
+                                   Decimal(cd['c']), Decimal(cd['v']), cd['x'])
 
-                    if c.time >= end - interval:
-                        return
-                    if time_ms() > valid_until:
-                        break
+                        yield c
+
+                        if c.time >= end - interval:
+                            return
+                        if time_ms() > valid_until:
+                            break
+
+                yield inner()
 
     async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
         try:
