@@ -1,5 +1,7 @@
 from types import TracebackType
-from typing import Any, Dict, List, NewType, Optional, Type, Union
+from typing import Any, Dict, List, NewType, Optional, Type, TypeVar, Union
+
+T = TypeVar('T')
 
 ExcType = Optional[Type[BaseException]]
 ExcValue = Optional[BaseException]

@@ -275,9 +275,8 @@ class Coinbase(Exchange):
 
     async def _public_request(self, method, url, data={}):
         # TODO: raises RuntimeError due to https://bugs.python.org/issue33786
-        stream = self._paginated_public_request(method, url, data)
-        val = await stream.__anext__()
-        return val
+        async for val in self._paginated_public_request(method, url, data):
+            return val  # Return only first.
 
     # TODO: retry with backoff
     async def _private_request(self, method, url, body=''):

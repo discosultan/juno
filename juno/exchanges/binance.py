@@ -17,9 +17,9 @@ from juno import (Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUp
                   DepthUpdateType, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType,
                   OrderUpdate, Side, TimeInForce, Trade)
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
-from juno.http import ClientSession, ClientWebSocketResponse
+from juno.http import ClientSession, ClientWebSocketResponse, ws_connect_with_refresh
 from juno.math import floor_multiple
-from juno.time import HOUR_MS, MIN_MS, time_ms
+from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import Event, LeakyBucket, page, retry_on
 
@@ -116,8 +116,6 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
-        await self._ensure_user_data_stream()
-
         async def inner() -> AsyncIterable[Dict[str, Balance]]:
             # Get initial status from REST API.
             res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
@@ -139,50 +137,53 @@ class Binance(Exchange):
                         hold=Decimal(balance['l']))
                 yield result
 
+        await self._ensure_user_data_stream()
         yield inner()
 
     @asynccontextmanager
     async def stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
-        async with self._ws_connect(f'/ws/{_ws_symbol(symbol)}@depth') as ws:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[DepthUpdate]:
+            # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
+            result = await self._request('GET', '/api/v1/depth', data={
+                'limit': 100,  # TODO: We might wanna increase that and accept higher weight.
+                'symbol': _http_symbol(symbol)
+            })
+            yield DepthUpdate(
+                type=DepthUpdateType.SNAPSHOT,
+                bids=[(Decimal(x[0]), Decimal(x[1])) for x in result['bids']],
+                asks=[(Decimal(x[0]), Decimal(x[1])) for x in result['asks']])
 
-            async def inner() -> AsyncIterable[DepthUpdate]:
-                # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-                result = await self._request('GET', '/api/v1/depth', data={
-                    'limit': 100,  # TODO: We might wanna increase that and accept higher weight.
-                    'symbol': _http_symbol(symbol)
-                })
+            last_update_id = result['lastUpdateId']
+            is_first_ws_message = True
+            async for msg in ws:
+                data = json.loads(msg.data)
+
+                if data['u'] <= last_update_id:
+                    continue
+
+                if is_first_ws_message:
+                    assert data['U'] <= last_update_id + 1 and data['u'] >= last_update_id + 1
+                    is_first_ws_message = False
+                else:
+                    assert data['U'] == last_update_id + 1
+
                 yield DepthUpdate(
-                    type=DepthUpdateType.SNAPSHOT,
-                    bids=[(Decimal(x[0]), Decimal(x[1])) for x in result['bids']],
-                    asks=[(Decimal(x[0]), Decimal(x[1])) for x in result['asks']])
+                    type=DepthUpdateType.UPDATE,
+                    bids=[(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
+                    asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']])
+                last_update_id = data['u']
 
-                last_update_id = result['lastUpdateId']
-                is_first_ws_message = True
-                async for msg in ws:
-                    data = json.loads(msg.data)
-
-                    if data['u'] <= last_update_id:
-                        continue
-
-                    if is_first_ws_message:
-                        assert data['U'] <= last_update_id + 1 and data['u'] >= last_update_id + 1
-                        is_first_ws_message = False
-                    else:
-                        assert data['U'] == last_update_id + 1
-
-                    yield DepthUpdate(
-                        type=DepthUpdateType.UPDATE,
-                        bids=[(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
-                        asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']])
-                    last_update_id = data['u']
-
-            yield inner()
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
+        async with ws_connect_with_refresh(
+                self._session,
+                url=f'{_BASE_WS_URL}/ws/{_ws_symbol(symbol)}@depth',
+                interval=12 * HOUR_SEC,
+                loads=json.loads,
+                take_until=lambda old, new: old['E'] < new['E']) as ws:
+            yield inner(ws)
 
     @asynccontextmanager
     async def stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
-        await self._ensure_user_data_stream()
-
         async def inner() -> AsyncIterable[OrderUpdate]:
             while True:
                 data = await self._order_event.wait()
@@ -208,6 +209,7 @@ class Binance(Exchange):
                     fee=Decimal(data['n']),
                     fee_asset=data['N'].lower() if data['N'] else None)
 
+        await self._ensure_user_data_stream()
         yield inner()
 
     async def _ensure_user_data_stream(self) -> None:
@@ -231,20 +233,15 @@ class Binance(Exchange):
     async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
         try:
             bal_time, order_time = 0, 0
-            # while True:
-            KEEP_ALIVE_HOURS = 12
-            valid_until = time_ms() + KEEP_ALIVE_HOURS * HOUR_MS
-
-            # TODO: how to switch over from one ws to another by making sure not to lose any
-            # message in-between?
-            async with self._ws_connect('/ws/' + listen_key) as ws:
+            # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
+            async with ws_connect_with_refresh(
+                    self._session,
+                    url=f'{_BASE_WS_URL}/ws/{listen_key}',
+                    interval=12 * HOUR_SEC,
+                    loads=json.loads,
+                    take_until=lambda old, new: old['E'] < new['E']) as ws:
                 connected.set()
-                async for msg in ws:
-                    if msg.type is aiohttp.WSMsgType.CLOSED:
-                        _log.error(f'user data ws connection closed unexpectedly ({msg})')
-
-                    data = json.loads(msg.data)
-
+                async for data in ws:
                     # The data can come out of sync. Make sure to discard old updates.
                     if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
                         bal_time = data['E']
@@ -252,16 +249,11 @@ class Binance(Exchange):
                     elif data['e'] == 'executionReport' and data['E'] >= order_time:
                         order_time = data['E']
                         self._order_event.set(data)
-
-                    if time_ms() > valid_until:
-                        _log.info(f'restarting user data ws connection after {KEEP_ALIVE_HOURS}h')
-                        connected = asyncio.Event()
-                        self._stream_user_data_task = asyncio.create_task(
-                            self._stream_user_data(listen_key, connected))
-                        await connected.wait()
-                        break
         except asyncio.CancelledError:
             _log.info('user data streaming task cancelled')
+        except Exception:
+            _log.exception('unhandled exception in stream user data task')
+            raise
 
     async def place_order(
             self,
@@ -328,7 +320,7 @@ class Binance(Exchange):
 
         async def inner() -> AsyncIterable[Candle]:
             if start < current:
-                async for candle in self._fetch_historical_candles(
+                async for candle in self._stream_historical_candles(
                         symbol, interval, start, min(end, current)):
                     yield candle
             if future_stream:
@@ -341,8 +333,8 @@ class Binance(Exchange):
         else:
             yield inner()
 
-    async def _fetch_historical_candles(self, symbol: str, interval: int, start: int, end: int
-                                        ) -> AsyncIterable[Candle]:
+    async def _stream_historical_candles(self, symbol: str, interval: int, start: int, end: int
+                                         ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             res = await self._request('GET', '/api/v1/klines', data={
@@ -364,42 +356,29 @@ class Binance(Exchange):
         # This can be used to switch from one stream to another and avoiding the edge case where
         # we miss out on the very last update to a candle.
 
-        url = f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}'
-        while True:
-            stream_start = time_ms()
-            valid_until = stream_start + HOUR_MS * 12
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
+            async for data in ws:
+                cd = data['k']
 
-            if stream_start >= end:
-                break
+                candle = Candle(cd['t'], Decimal(cd['o']), Decimal(cd['h']), Decimal(cd['l']),
+                                Decimal(cd['c']), Decimal(cd['v']), cd['x'])
+                yield candle
 
-            async with self._ws_connect(url) as ws:
+                if candle.time >= end - interval and candle.closed:
+                    break
 
-                async def inner() -> AsyncIterable[Candle]:
-                    async for msg in ws:
-                        if msg.type is aiohttp.WSMsgType.CLOSED:
-                            _log.error(f'candles ws connection closed unexpectedly ({msg})')
-                            break
-
-                        data = json.loads(msg.data)
-
-                        cd = data['k']
-                        # A closed candle is the last candle in a period.
-                        c = Candle(cd['t'], Decimal(cd['o']), Decimal(cd['h']), Decimal(cd['l']),
-                                   Decimal(cd['c']), Decimal(cd['v']), cd['x'])
-
-                        yield c
-
-                        if c.time >= end - interval:
-                            return
-                        if time_ms() > valid_until:
-                            break
-
-                yield inner()
+        async with ws_connect_with_refresh(
+                self._session,
+                url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}',
+                interval=12 * HOUR_SEC,
+                loads=json.loads,
+                take_until=lambda old, new: old['E'] < new['E']) as ws:
+            yield inner(ws)
 
     async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
         try:
             while True:
-                await asyncio.sleep(MIN_MS * 30)
+                await asyncio.sleep(30 * MIN_SEC)
                 await self._request(
                     'PUT',
                     '/api/v1/userDataStream',
