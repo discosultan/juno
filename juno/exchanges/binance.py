@@ -17,7 +17,7 @@ from juno import (Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUp
                   DepthUpdateType, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType,
                   OrderUpdate, Side, TimeInForce, Trade)
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
-from juno.http import ClientSession, ClientWebSocketResponse, ws_connect_with_refresh
+from juno.http import ClientSession, ws_connect_with_refresh
 from juno.math import floor_multiple
 from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
@@ -174,12 +174,9 @@ class Binance(Exchange):
                 last_update_id = data['u']
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
-        async with ws_connect_with_refresh(
-                self._session,
-                url=f'{_BASE_WS_URL}/ws/{_ws_symbol(symbol)}@depth',
-                interval=12 * HOUR_SEC,
-                loads=json.loads,
-                take_until=lambda old, new: old['E'] < new['E']) as ws:
+        async with self._ws_connect_with_refresh(
+                url=f'/ws/{_ws_symbol(symbol)}@depth',
+                interval=12 * HOUR_SEC) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -234,12 +231,9 @@ class Binance(Exchange):
         try:
             bal_time, order_time = 0, 0
             # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
-            async with ws_connect_with_refresh(
-                    self._session,
-                    url=f'{_BASE_WS_URL}/ws/{listen_key}',
-                    interval=12 * HOUR_SEC,
-                    loads=json.loads,
-                    take_until=lambda old, new: old['E'] < new['E']) as ws:
+            async with self._ws_connect_with_refresh(
+                    url=f'/ws/{listen_key}',
+                    interval=12 * HOUR_SEC) as ws:
                 connected.set()
                 async for data in ws:
                     # The data can come out of sync. Make sure to discard old updates.
@@ -367,12 +361,9 @@ class Binance(Exchange):
                 if candle.time >= end - interval and candle.closed:
                     break
 
-        async with ws_connect_with_refresh(
-                self._session,
+        async with self._ws_connect_with_refresh(
                 url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}',
-                interval=12 * HOUR_SEC,
-                loads=json.loads,
-                take_until=lambda old, new: old['E'] < new['E']) as ws:
+                interval=12 * HOUR_SEC) as ws:
             yield inner(ws)
 
     async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
@@ -432,10 +423,14 @@ class Binance(Exchange):
     # @asynccontextmanager
     # TODO: Figure out how to backoff an asynccontextmanager.
     # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
-    def _ws_connect(self, url: str, **kwargs: Any) -> AsyncContextManager[ClientWebSocketResponse]:
-        return self._session.ws_connect(_BASE_WS_URL + url, **kwargs)
-        # async with self._session.ws_connect(_BASE_WS_URL + url, **kwargs) as ws:
-        #     yield ws
+    def _ws_connect_with_refresh(self, url: str, interval: int, **kwargs: Any
+                                 ) -> AsyncContextManager[AsyncIterable[Any]]:
+        return ws_connect_with_refresh(
+            self._session,
+            url=_BASE_WS_URL + url,
+            interval=interval,
+            loads=json.loads,
+            take_until=lambda old, new: old['E'] < new['E'])
 
     async def _sync_clock(self) -> None:
         try:
