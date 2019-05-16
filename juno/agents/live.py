@@ -136,7 +136,7 @@ class Live(Agent):
             base=self.open_position.total_size - self.open_position.fills.total_fee,
             filters=self.filters,
             fees=self.fees,
-            test=True)
+            test=False)
 
         position = self.open_position
         self.open_position = None

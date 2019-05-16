@@ -140,7 +140,8 @@ class Orderbook:
         return res
 
     async def buy_limit_at_spread(self, exchange: str, symbol: str, quote: Decimal,
-                                  fees: Fees, filters: Filters) -> OrderResult:
+                                  fees: Fees, filters: Filters, test: bool) -> OrderResult:
+        assert not test
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
         res = await self._limit_at_spread(exchange, symbol, Side.BUY, quote, filters)
         # TODO: DEBUG. Doesn't exactly match as exchange performs rounding.
@@ -148,7 +149,8 @@ class Orderbook:
         return res
 
     async def sell_limit_at_spread(self, exchange: str, symbol: str, base: Decimal,
-                                   fees: Fees, filters: Filters) -> OrderResult:
+                                   fees: Fees, filters: Filters, test: bool) -> OrderResult:
+        assert not test
         _log.info(f'filling {base} worth of base with limit orders at spread')
         res = await self._limit_at_spread(exchange, symbol, Side.SELL, base, filters)
         _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_quote} * {fees.maker}')
