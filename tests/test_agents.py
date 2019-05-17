@@ -47,8 +47,8 @@ async def test_backtest(loop):
         }
     }
 
-    async with Backtest(components={'informant': informant}, agent_config=agent_config) as agent:
-        res = await agent.start()
+    async with Backtest(informant) as agent:
+        res = await agent.start(agent_config)
 
     assert res.profit == -50
     assert res.potential_hodl_profit == 100
@@ -94,8 +94,8 @@ async def test_backtest_scenarios(loop, scenario_nr):
         }
     }
 
-    async with Backtest(components={'informant': informant}, agent_config=agent_config) as agent:
-        await agent.start()
+    async with Backtest(informant) as agent:
+        await agent.start(agent_config)
 
 
 async def test_paper(loop):
@@ -142,9 +142,8 @@ async def test_paper(loop):
         'get_time': FakeTime()
     }
 
-    async with Paper(components={'informant': informant, 'orderbook': orderbook},
-                     agent_config=agent_config) as agent:
-        res = await agent.start()
+    async with Paper(informant, orderbook) as agent:
+        res = await agent.start(agent_config)
 
     assert res
     assert len(orderbook_data['asks']) == 0
@@ -195,9 +194,8 @@ async def test_live(loop):
         'get_time': FakeTime()
     }
 
-    async with Live(components={'informant': informant, 'orderbook': orderbook, 'wallet': wallet},
-                    agent_config=agent_config) as agent:
-        res = await agent.start()
+    async with Live(informant, orderbook, wallet) as agent:
+        res = await agent.start(agent_config)
 
     assert res
     assert len(orderbook_data['asks']) == 0

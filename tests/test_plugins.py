@@ -28,8 +28,8 @@ class Dummy(Agent):
 
 
 @pytest.fixture
-async def agent(config):
-    async with Dummy(components={}, agent_config=config) as client:
+async def agent():
+    async with Dummy() as client:
         yield client
 
 
