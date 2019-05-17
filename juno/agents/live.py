@@ -18,8 +18,11 @@ _log = logging.getLogger(__name__)
 
 class Live(Agent):
 
-    required_components = ['informant', 'orderbook', 'wallet']
-    open_position: Optional[Position]
+    def __init__(self, informant: Informant, orderbook: Orderbook, wallet: Wallet) -> None:
+        self.informant = informant
+        self.orderbook = orderbook
+        self.wallet = wallet
+        self.open_position: Optional[Position] = None
 
     async def run(self, exchange: str, symbol: str, interval: int, strategy_config: Dict[str, Any],
                   end: int = MAX_TIME_MS, restart_on_missed_candle: bool = True,
@@ -33,12 +36,8 @@ class Live(Agent):
         self.exchange = exchange
         self.symbol = symbol
 
-        informant: Informant = self.components['informant']
-        self.orderbook: Orderbook = self.components['orderbook']
-        self.wallet: Wallet = self.components['wallet']
-
-        self.fees = informant.get_fees(exchange, symbol)
-        self.filters = informant.get_filters(exchange, symbol)
+        self.fees = self.informant.get_fees(exchange, symbol)
+        self.filters = self.informant.get_filters(exchange, symbol)
 
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         self.quote = self.wallet.get_balance(exchange, self.quote_asset).available
@@ -68,7 +67,7 @@ class Live(Agent):
                           'strategy')
                 start = now - strategy.req_history * interval
 
-            async for candle in informant.stream_candles(
+            async for candle in self.informant.stream_candles(
                     exchange=exchange,
                     symbol=symbol,
                     interval=interval,

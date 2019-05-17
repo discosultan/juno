@@ -18,8 +18,10 @@ _log = logging.getLogger(__name__)
 
 class Paper(Agent):
 
-    required_components = ['informant', 'orderbook']
-    open_position: Optional[Position]
+    def __init__(self, informant: Informant, orderbook: Orderbook) -> None:
+        self.informant = informant
+        self.orderbook = orderbook
+        self.open_position: Optional[Position] = None
 
     async def run(self, exchange: str, symbol: str, interval: int, quote: Decimal,
                   strategy_config: Dict[str, Any], end: int = MAX_TIME_MS,
@@ -36,11 +38,8 @@ class Paper(Agent):
         self.symbol = symbol
         self.quote = quote
 
-        informant: Informant = self.components['informant']
-        self.orderbook: Orderbook = self.components['orderbook']
-
-        self.fees = informant.get_fees(exchange, symbol)
-        self.filters = informant.get_filters(exchange, symbol)
+        self.fees = self.informant.get_fees(exchange, symbol)
+        self.filters = self.informant.get_filters(exchange, symbol)
 
         self.result = TradingSummary(
             exchange=exchange,
@@ -67,7 +66,7 @@ class Paper(Agent):
                           'strategy')
                 start = now - strategy.req_history * interval
 
-            async for candle in informant.stream_candles(
+            async for candle in self.informant.stream_candles(
                     exchange=exchange,
                     symbol=symbol,
                     interval=interval,

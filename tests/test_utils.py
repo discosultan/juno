@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from statistics import mean
 
 import pytest
@@ -183,3 +184,33 @@ def test_circular_buffer():
     assert mean(buffer) == 5
     assert min(buffer) == 4
     assert max(buffer) == 6
+
+
+def test_map_dependencies():
+    dep_map = utils.map_dependencies([Bar], [sys.modules[__name__]])
+
+    assert len(dep_map) == 2
+    assert dep_map[Bar] == [Foo]
+    assert dep_map[Foo] == []
+
+
+def test_list_deps_in_init_order():
+    dep_map = {
+        Bar: [Foo],
+        Foo: []
+    }
+
+    assert utils.list_deps_in_init_order(dep_map) == [
+        [Foo],
+        [Bar]
+    ]
+
+
+class Foo:
+    pass
+
+
+class Bar:
+
+    def __init__(self, foo: Foo, baz: int) -> None:
+        pass

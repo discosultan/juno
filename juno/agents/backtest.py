@@ -16,8 +16,9 @@ _log = logging.getLogger(__name__)
 
 class Backtest(Agent):
 
-    required_components = ['informant']
-    open_position: Optional[Position]
+    def __init__(self, informant: Informant) -> None:
+        self.informant = informant
+        self.open_position: Optional[Position] = None
 
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   quote: Decimal, strategy_config: Dict[str, Any],
@@ -29,10 +30,8 @@ class Backtest(Agent):
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         self.quote = quote
 
-        informant: Informant = self.components['informant']
-
-        self.fees = informant.get_fees(exchange, symbol)
-        self.filters = informant.get_filters(exchange, symbol)
+        self.fees = self.informant.get_fees(exchange, symbol)
+        self.filters = self.informant.get_filters(exchange, symbol)
 
         self.result = TradingSummary(
             exchange=exchange,
@@ -59,7 +58,7 @@ class Backtest(Agent):
                           'strategy')
                 start -= strategy.req_history * interval
 
-            async for candle in informant.stream_candles(
+            async for candle in self.informant.stream_candles(
                     exchange=exchange,
                     symbol=symbol,
                     interval=interval,

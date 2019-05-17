@@ -1,11 +1,13 @@
 import asyncio
+import inspect
 import itertools
 import math
 import random
 from collections import defaultdict
 from pathlib import Path
+from types import ModuleType
 from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
-                    List, Optional, Tuple, Type, TypeVar, Union, cast)
+                    List, Optional, Set, Tuple, Type, TypeVar, Union, cast, get_type_hints)
 
 import backoff
 
@@ -115,6 +117,46 @@ def flatten(items: List[Union[T, List[T]]]) -> Iterable[T]:
                 yield subitem
         else:
             yield item
+
+
+def map_dependencies(types: Iterable[type], dep_modules: List[ModuleType]
+                     ) -> Dict[type, List[type]]:
+    graph: Dict[type, List[type]] = defaultdict(list)
+
+    all_deps = set((type_ for module in dep_modules
+                    for _name, type_ in inspect.getmembers(module, _isconcreteclass)))
+
+    def fill_graph(types: Iterable[type]) -> None:
+        for type_ in types:
+            if type_ in graph:
+                continue
+
+            deps = [t for t in get_type_hints(type_.__init__).values()  # type: ignore
+                    if t in all_deps]
+            graph[type_] = deps
+            fill_graph(deps)
+
+    fill_graph(types)
+    return graph
+
+
+def _isconcreteclass(obj: Any) -> bool:
+    return inspect.isclass(obj) and not inspect.isabstract(obj)
+
+
+def list_deps_in_init_order(dep_map: Dict[type, List[type]]) -> List[List[type]]:
+    initialized: Set[type] = set()
+    tiers = []
+    while len(initialized) < len(dep_map):
+        tier = []
+        for type_, deps in dep_map.items():
+            if type_ in initialized:
+                continue
+            if all((dep in initialized for dep in deps)):
+                tier.append(type_)
+                initialized.add(type_)
+        tiers.append(tier)
+    return tiers
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.

@@ -16,35 +16,30 @@ _random_names = gen_random_names()
 
 class Agent:
 
-    required_components: List[str] = []
     run: Callable[..., Awaitable[None]]
-
-    def __init__(self, components: Dict[str, Any], agent_config: Dict[str, Any]) -> None:
-        self.components = components
-        self.config = agent_config
-        self.state = 'stopped'
-        self.result: Any = None
-        self.name = next(_random_names)
 
     # TODO: Make use of __aenter__ and __aexit__ instead?
     async def __aenter__(self) -> Agent:
         self.ee = EventEmitter()
+        self.state = 'stopped'
+        self.result: Any = None
+        self.name = next(_random_names)
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
-    async def start(self) -> Any:
+    async def start(self, agent_config: Dict[str, any]) -> Any:
         assert self.state != 'running'
 
         await self.ee.emit('starting', self)
 
         self.state = 'running'
         type_name = type(self).__name__.lower()
-        _log.info(f'running {self.name} ({type_name}): {self.config}')
+        _log.info(f'running {self.name} ({type_name}): {agent_config}')
         try:
             await self.run(
-                **{k: v for k, v in self.config.items() if k not in _EXCLUDE_FROM_CONFIG})
+                **{k: v for k, v in agent_config.items() if k not in _EXCLUDE_FROM_CONFIG})
         except asyncio.CancelledError:
             _log.info('agent cancelled')
         except Exception:
