@@ -14,9 +14,9 @@ _log = logging.getLogger(__name__)
 
 class Wallet:
 
-    def __init__(self, services: Dict[str, Any], config: Dict[str, Any]) -> None:
+    def __init__(self, components: Dict[str, Any], config: Dict[str, Any]) -> None:
         self._exchanges: Dict[str, Exchange] = {
-            k: v for k, v in services.items() if isinstance(v, Exchange)}
+            k: v for k, v in components.items() if isinstance(v, Exchange)}
         self._exchange_balances: Dict[str, Dict[str, Balance]] = defaultdict(dict)
 
     async def __aenter__(self) -> Wallet:

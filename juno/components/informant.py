@@ -21,10 +21,10 @@ FetchMap = Callable[[Exchange], Awaitable[Dict[str, Any]]]
 
 class Informant:
 
-    def __init__(self, services: Dict[str, Any], config: Dict[str, Any]) -> None:
+    def __init__(self, components: Dict[str, Any], config: Dict[str, Any]) -> None:
         self._exchanges: Dict[str, Exchange] = {
-            k: v for k, v in services.items() if isinstance(v, Exchange)}
-        self._storage: SQLite = services[config['storage']]
+            k: v for k, v in components.items() if isinstance(v, Exchange)}
+        self._storage: SQLite = components[config['storage']]
 
         self._exchange_data: Dict[str, Dict[Type[Any], Dict[str, Any]]] = (
             defaultdict(lambda: defaultdict(dict)))

@@ -200,7 +200,7 @@ class Fake(Exchange):
 @asynccontextmanager
 async def init_component(type_, exchange):
     async with Memory() as memory:
-        services = {
+        components = {
             'fake': exchange,
             'memory': memory
         }
@@ -210,7 +210,7 @@ async def init_component(type_, exchange):
                 {'symbol': 'eth-btc'}
             ]
         }
-        async with type_(services=services, config=config) as component:
+        async with type_(components=components, config=config) as component:
             yield component
 
 

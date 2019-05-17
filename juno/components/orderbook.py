@@ -30,9 +30,9 @@ class _Orderbook(Dict[str, Dict[Decimal, Decimal]]):
 
 class Orderbook:
 
-    def __init__(self, services: Dict[str, Any], config: Dict[str, Any]) -> None:
+    def __init__(self, components: Dict[str, Any], config: Dict[str, Any]) -> None:
         self._exchanges: Dict[str, Exchange] = {
-            k: v for k, v in services.items() if isinstance(v, Exchange)}
+            k: v for k, v in components.items() if isinstance(v, Exchange)}
         self._symbols = list_required_names(config, 'symbol')
         self._orderbooks_product = list(product(self._exchanges.keys(), self._symbols))
 
