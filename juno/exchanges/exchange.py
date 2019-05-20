@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
-from contextlib import asynccontextmanager
+from abc import abstractmethod
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, Optional
 
@@ -8,7 +8,7 @@ from juno import (Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderRe
 from juno.filters import Filters
 
 
-class Exchange(ABC):
+class Exchange(AbstractAsyncContextManager):
 
     @abstractmethod
     async def map_fees(self) -> Dict[str, Fees]:

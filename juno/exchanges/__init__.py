@@ -1,6 +1,8 @@
 import inspect
 import sys
-from typing import Any, Dict, Optional, Set, Type, get_type_hints
+from typing import Any, Dict, Optional, Set, Type
+
+from juno.typing import get_input_type_hints
 
 from .binance import Binance  # noqa
 from .coinbase import Coinbase  # noqa
@@ -23,9 +25,8 @@ def create_exchange(type_: Type[Exchange], config: Dict[str, Any]) -> Optional[E
     exchange_config = config.get(name)
     if not exchange_config:
         raise ValueError(f'Missing config for {name}')
-    keys = get_type_hints(type_.__init__).keys()
-    param_keys = (k for k in keys if k != 'return')
-    kwargs = {key: exchange_config.get(key) for key in param_keys}
+    keys = get_input_type_hints(type_.__init__).keys()
+    kwargs = {key: exchange_config.get(key) for key in keys}
     if not all(kwargs.values()):
         raise ValueError(f'Misconfiguration of {name}: {exchange_config}')
     return type_(**kwargs)  # type: ignore

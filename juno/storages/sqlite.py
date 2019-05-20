@@ -16,6 +16,8 @@ from juno.time import time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import home_path
 
+from .storage import Storage
+
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
@@ -40,7 +42,7 @@ sqlite3.register_adapter(bool, int)
 sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
 
 
-class SQLite:
+class SQLite(Storage):
 
     def __init__(self) -> None:
         self._tables: Dict[Any, Set[type]] = defaultdict(set)

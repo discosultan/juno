@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable, Dict, List
+from enum import Enum
+from typing import Any, Awaitable, Callable, Dict
 
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import EventEmitter, gen_random_names
@@ -21,7 +22,7 @@ class Agent:
     # TODO: Make use of __aenter__ and __aexit__ instead?
     async def __aenter__(self) -> Agent:
         self.ee = EventEmitter()
-        self.state = 'stopped'
+        self.state = AgentState.STOPPED
         self.result: Any = None
         self.name = next(_random_names)
         return self
@@ -29,12 +30,12 @@ class Agent:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
-    async def start(self, agent_config: Dict[str, any]) -> Any:
-        assert self.state != 'running'
+    async def start(self, agent_config: Dict[str, Any]) -> Any:
+        assert self.state is not AgentState.RUNNING
 
         await self.ee.emit('starting', self)
 
-        self.state = 'running'
+        self.state = AgentState.RUNNING
         type_name = type(self).__name__.lower()
         _log.info(f'running {self.name} ({type_name}): {agent_config}')
         try:
@@ -45,7 +46,7 @@ class Agent:
         except Exception:
             _log.exception('unhandled exception in agent')
             raise
-        self.state = 'stopped'
+        self.state = AgentState.STOPPED
         _log.info(f'{self.name} ({type_name}) finished: {self.result}')
 
         await self.finalize()
@@ -56,3 +57,8 @@ class Agent:
 
     async def finalize(self) -> None:
         pass
+
+
+class AgentState(Enum):
+    STOPPED = 0
+    RUNNING = 1

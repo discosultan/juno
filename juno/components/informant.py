@@ -9,7 +9,7 @@ from juno import Candle, Fees, Span
 from juno.exchanges import Exchange
 from juno.filters import Filters
 from juno.math import floor_multiple
-from juno.storages import SQLite
+from juno.storages import Storage
 from juno.time import DAY_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
@@ -24,7 +24,7 @@ class Informant:
     def __init__(self, components: Dict[str, Any], config: Dict[str, Any]) -> None:
         self._exchanges: Dict[str, Exchange] = {
             k: v for k, v in components.items() if isinstance(v, Exchange)}
-        self._storage: SQLite = components[config['storage']]
+        self._storage: Storage = components[config['storage']]
 
         self._exchange_data: Dict[str, Dict[Type[Any], Dict[str, Any]]] = (
             defaultdict(lambda: defaultdict(dict)))

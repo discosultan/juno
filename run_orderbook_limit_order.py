@@ -48,7 +48,8 @@ async def main() -> None:
                     symbol=SYMBOL,
                     quote=QUOTE,
                     fees=fees,
-                    filters=filters)
+                    filters=filters,
+                    test=False)
             else:
                 market_fills = orderbook.find_market_order_bids(
                     exchange=EXCHANGE,
@@ -61,7 +62,8 @@ async def main() -> None:
                     symbol=SYMBOL,
                     base=BASE,
                     fees=fees,
-                    filters=filters)
+                    filters=filters,
+                    test=False)
 
             logging.info(res)
             logging.info(f'{SIDE} {SYMBOL}')
