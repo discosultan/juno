@@ -29,7 +29,8 @@ class Position:
             res += (
                     f'\nGain: {self.gain}'
                     f'\nProfit: {self.profit}'
-                    f'\nROI: {self.roi}'
+                    f'\nROI: {self.roi:.0%}'
+                    f'\nAnnualized ROI: {self.annualized_roi:.0%}'
                     f'\nDust: {self.dust}'
                     f'\nQuote fee: {self.closing_fills.total_fee}'
                     f'\nEnd: {datetime_utcfromtimestamp_ms(self.end)}'
@@ -58,6 +59,11 @@ class Position:
         return self.fills.total_quote
 
     @property
+    def gain(self) -> Decimal:
+        assert self.closing_fills
+        return self.closing_fills.total_quote - self.closing_fills.total_fee
+
+    @property
     def profit(self) -> Decimal:
         assert self.closing_fills
         return self.gain - self.cost
@@ -67,10 +73,12 @@ class Position:
         assert self.closing_fills
         return self.profit / self.cost
 
+    # Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
     @property
-    def gain(self) -> Decimal:
+    def annualized_roi(self) -> Decimal:
         assert self.closing_fills
-        return self.closing_fills.total_quote - self.closing_fills.total_fee
+        n = Decimal(self.duration) / YEAR_MS
+        return (1 + self.roi)**(1 / n) - 1
 
     @property
     def dust(self) -> Decimal:
@@ -119,13 +127,17 @@ class TradingSummary:
         return (f'{self.exchange} {self.symbol} {strfinterval(self.interval)} '
                 f'{datetime_utcfromtimestamp_ms(self.start)} - '
                 f'{datetime_utcfromtimestamp_ms(self.end)}\n'
-                f'Start balance: {self.start_balance}\n'
-                f'End balance: {self.end_balance}\n'
-                f'Total profit: {self.profit}\n'
+                f'Cost: {self.cost}\n'
+                f'Gain: {self.gain}\n'
+                f'Profit: {self.profit}\n'
                 f'Potential hodl profit: {self.potential_hodl_profit}\n'
-                f'Total duration: {strfinterval(self.duration)}\n'
+                f'ROI: {self.roi:.0%}\n'
+                f'Annualized ROI: {self.annualized_roi:.0%}\n'
+                f'Duration: {strfinterval(self.duration)}\n'
                 f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
                 f'{datetime_utcfromtimestamp_ms(self.end)}\n'
+                f'Max drawdown: {self.max_drawdown:.0%}\n'
+                f'Mean drawdown: {self.mean_drawdown:.0%}\n'
                 f'Positions taken: {len(self.positions)}\n'
                 f'Mean profit per position: {self.mean_position_profit}\n'
                 f'Mean duration per position: {strfinterval(self.mean_position_duration)}')
@@ -140,16 +152,25 @@ class TradingSummary:
         return 0
 
     @property
-    def start_balance(self) -> Decimal:
+    def cost(self) -> Decimal:
         return self.quote
 
     @property
-    def end_balance(self) -> Decimal:
+    def gain(self) -> Decimal:
         return self.quote + self.profit
 
     @property
     def profit(self) -> Decimal:
-        return sum((p.profit for p in self.positions))  # type: ignore
+        return sum((p.profit for p in self.positions), Decimal(0))
+
+    @property
+    def roi(self) -> Decimal:
+        return self.profit / self.cost
+
+    @property
+    def annualized_roi(self) -> Decimal:
+        n = Decimal(self.duration) / YEAR_MS
+        return (1 + self.roi)**(1 / n) - 1
 
     @property
     def potential_hodl_profit(self) -> Decimal:
@@ -164,11 +185,6 @@ class TradingSummary:
     @property
     def duration(self) -> int:
         return self.end - self.start if self.end > 0 else 0
-
-    @property
-    def yearly_roi(self) -> Decimal:
-        yearly_profit = self.profit * YEAR_MS / self.duration
-        return yearly_profit / self.quote
 
     @property
     def max_drawdown(self) -> Decimal:
