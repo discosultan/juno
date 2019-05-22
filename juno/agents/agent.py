@@ -46,11 +46,12 @@ class Agent:
         except Exception:
             _log.exception('unhandled exception in agent')
             raise
-        self.state = AgentState.STOPPED
-        _log.info(f'{self.name} ({type_name}) finished: {self.result}')
 
+        _log.info('finalizing')
         await self.finalize()
 
+        self.state = AgentState.STOPPED
+        _log.info(f'{self.name} ({type_name}) finished: {self.result}')
         await self.ee.emit('finished')
 
         return self.result

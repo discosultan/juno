@@ -103,6 +103,7 @@ class Paper(Agent):
 
     async def finalize(self) -> None:
         if self.last_candle and self.open_position:
+            _log.info('closing currently open position')
             await self._close_position(self.last_candle)
         _log.info(json.dumps(self.result, default=lambda o: o.__dict__, use_decimal=True))
 

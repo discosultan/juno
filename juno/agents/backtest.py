@@ -95,6 +95,7 @@ class Backtest(Agent):
 
     async def finalize(self) -> None:
         if self.last_candle and self.open_position:
+            _log.info('closing currently open position')
             self._close_position(self.last_candle)
 
     def _try_open_position(self, candle: Candle) -> bool:
