@@ -91,36 +91,42 @@ async def ws_connect_with_refresh(
     ws = await conn.__aenter__()
 
     async def inner() -> AsyncIterable[Any]:
-        nonlocal conn, ws
-        to_close_conn = None
-        to_close_ws = None
+        try:
+            nonlocal conn, ws
+            to_close_conn = None
+            to_close_ws = None
 
-        while True:
-            timeout_task = asyncio.create_task(asyncio.sleep(interval))
             while True:
-                receive_task = asyncio.create_task(ws.receive())
-                done, pending = await asyncio.wait(
-                    [receive_task, timeout_task], return_when=asyncio.FIRST_COMPLETED)
+                timeout_task = asyncio.create_task(asyncio.sleep(interval))
+                while True:
+                    receive_task = asyncio.create_task(ws.receive())
+                    done, pending = await asyncio.wait(
+                        [receive_task, timeout_task], return_when=asyncio.FIRST_COMPLETED)
 
-                if receive_task in done:
-                    yield loads(_process_ws_msg(ws, receive_task.result()))
-                if timeout_task in done:
-                    _aiohttp_log.info('refreshing ws connection')
-                    to_close_conn = conn
-                    to_close_ws = ws
-                    conn = session.ws_connect(url)
-                    ws = await conn.__aenter__()
-                    new_data = loads(_process_ws_msg(ws, await ws.receive()))
-                    async for old_msg in to_close_ws:
-                        old_data = loads(_process_ws_msg(to_close_ws, old_msg))
-                        if take_until(old_data, new_data):
-                            yield old_data
-                        else:
-                            break
-                    yield new_data
-                    await to_close_ws.close()
-                    await to_close_conn.__aexit__(None, None, None)
-                    break
+                    if receive_task in done:
+                        yield loads(_process_ws_msg(ws, receive_task.result()))
+                    if timeout_task in done:
+                        _aiohttp_log.info('refreshing ws connection')
+                        to_close_conn = conn
+                        to_close_ws = ws
+                        conn = session.ws_connect(url)
+                        ws = await conn.__aenter__()
+                        new_data = loads(_process_ws_msg(ws, await ws.receive()))
+                        async for old_msg in to_close_ws:
+                            old_data = loads(_process_ws_msg(to_close_ws, old_msg))
+                            if take_until(old_data, new_data):
+                                yield old_data
+                            else:
+                                break
+                        yield new_data
+                        await to_close_ws.close()
+                        await to_close_conn.__aexit__(None, None, None)
+                        break
+        except asyncio.CancelledError:
+            timeout_task.cancel()
+            receive_task.cancel()
+            await asyncio.gather(timeout_task, receive_task)
+            raise
 
     try:
         yield inner()
@@ -129,7 +135,7 @@ async def ws_connect_with_refresh(
         await conn.__aexit__(None, None, None)
 
 
-def _process_ws_msg(ws: ClientWebSocketResponse, msg: aiohttp.WSMessage) -> str:
+def _process_ws_msg(ws: ClientWebSocketResponse, msg: aiohttp.WSMessage) -> Any:
     # Note that ping message is by default automatically handled by aiohttp by sending pong.
     if msg.type is aiohttp.WSMsgType.CLOSED:
         _aiohttp_log.error(f'ws connection closed unexpectedly ({msg})')

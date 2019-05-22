@@ -6,9 +6,9 @@ from contextlib import AsyncExitStack
 from types import FrameType
 from typing import Any, Dict, List
 
-from juno import components, exchanges, storages
+import juno
 from juno.agents import map_agent_types
-from juno.config import list_required_names, load_from_env, load_from_json_file
+from juno.config import init_type, list_names, load_from_env, load_from_json_file
 from juno.plugins import list_plugins
 from juno.utils import list_deps_in_init_order, map_dependencies
 
@@ -35,63 +35,45 @@ async def engine() -> None:
         # Configure signals.
         signal.signal(signal.SIGTERM, handle_sigterm)
 
-        # # Create configured services.
-        # services = {}
-        # services.update(map_exchanges(config, list_required_names(config, 'exchange')))
-        # services.update(map_storages(config, list_required_names(config, 'storage')))
-        # _log.info(f'services created: {", ".join(services.keys())}')
-
-        # # Create components used by configured agents.
-        # components = map_components(services, config, list_required_component_names(config))
-        # _log.info(f'components created: {", ".join(components.keys())}')
-
-        # # Create configured agents.
-        # agents = list_agents(components, config)
-
-        # # Load plugins.
-        # plugins = list_plugins(agents, config)
-
-        def initialize(type_: type, dep_map: Dict[type, List[type]], instances: Dict[type, Any],
-                       config: Dict[str, Any]) -> Any:
-            return dep(
-                **{t.__name__.lower(): instances[t] for t in dep_map[type_]},
-                **config.get(type_.__name__.lower(), {}))
-
-        # TEMP START
         agent_type_map = map_agent_types(config)
-        dep_map = map_dependencies(agent_type_map.values(), [components, exchanges, storages])
+
+        def resolve_abstract(abstract: type, candidates: List[type]) -> List[type]:
+            abstract_name = abstract.__name__.lower()
+            return [c for c in candidates if
+                    c.__name__.lower() in list_names(config, abstract_name)]
+
+        # Setup components used by agents.
+        dep_map = map_dependencies(
+            agent_type_map.values(),
+            [juno.components, juno.exchanges, juno.storages],
+            resolve_abstract)
+
         async with AsyncExitStack() as stack:
-            component_instances: Dict[type, Any] = {}
+            components: Dict[str, Any] = {}
             for deps in list_deps_in_init_order(dep_map):
-                deps = (dep for dep in deps if dep not in agent_type_map.values())
-                for dep in deps:
-                    component_instances[dep] = initialize(dep, dep_map, component_instances,
-                                                          config)
-                await asyncio.gather(
-                    *(stack.enter_async_context(component_instances[dep]) for t in deps))
+                to_init = []
+                for dep in (dep for dep in deps if dep not in agent_type_map.values()):
+                    component = init_type(dep, components, config)
+                    components[dep.__name__.lower()] = component
+                    to_init.append(component)
+                await asyncio.gather(*(stack.enter_async_context(c) for c in to_init))
 
+            # Setup agents.
             agent_config_map = {
-                initialize(agent_type_map[agent_config['name']], dep_map, component_instances, {}):
-                agent_config for agent_config in config['agents']}
-
+                init_type(
+                    agent_type_map[agent_config['name']],
+                    components,
+                    {}): agent_config for agent_config in config['agents']
+            }
             await asyncio.gather(
                 *(stack.enter_async_context(agent) for agent in agent_config_map.keys()))
 
+            # Setup plugins.
+            plugins = list_plugins(agent_config_map.items(), config)
+            await asyncio.gather(*(stack.enter_async_context(p) for p in plugins))
+
             # Run configured agents.
             await asyncio.gather(*(agent.start(ac) for agent, ac in agent_config_map.items()))
-        # TEMP END
-
-        # async with AsyncExitStack() as stack:
-        #     # Init services.
-        #     await asyncio.gather(*(stack.enter_async_context(s) for s in services.values()))
-        #     # Init components.
-        #     await asyncio.gather(*(stack.enter_async_context(c) for c in components.values()))
-        #     # Init agents.
-        #     await asyncio.gather(*(stack.enter_async_context(a) for a in agents))
-        #     # Init plugins.
-        #     await asyncio.gather(*(stack.enter_async_context(p) for p in plugins))
-        #     # Run configured agents.
-        #     await asyncio.gather(*(a.start() for a in agents))
 
         _log.info('main finished')
     except asyncio.CancelledError:

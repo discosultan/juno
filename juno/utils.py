@@ -119,29 +119,45 @@ def flatten(items: List[Union[T, List[T]]]) -> Iterable[T]:
             yield item
 
 
-def map_dependencies(types: Iterable[type], dep_modules: List[ModuleType]
+def ischild(child: type, parent: type) -> bool:
+    return issubclass(child, parent) and child is not parent
+
+
+def map_dependencies(types: Iterable[type], dep_modules: List[ModuleType],
+                     resolve_abstract: Optional[Callable[[type, List[type]], List[type]]] = None
                      ) -> Dict[type, List[type]]:
     graph: Dict[type, List[type]] = defaultdict(list)
 
     all_deps = set((type_ for module in dep_modules
-                    for _name, type_ in inspect.getmembers(module, _isconcreteclass)))
+                    for _name, type_ in inspect.getmembers(module, inspect.isclass)))
 
     def fill_graph(types: Iterable[type]) -> None:
         for type_ in types:
             if type_ in graph:
                 continue
 
-            deps = [t for t in get_type_hints(type_.__init__).values()  # type: ignore
-                    if t in all_deps]
+            deps: List[type] = []
+
+            if inspect.isabstract(type_):
+                candidates = [d for d in all_deps if ischild(d, type_)]
+                if resolve_abstract:
+                    deps.extend(resolve_abstract(type_, candidates))
+                else:
+                    deps.extend(candidates)
+            else:
+                for t in get_type_hints(type_.__init__).values():  # type: ignore
+                    # Unwrap container types.
+                    origin = getattr(t, '__origin__', None)
+                    if origin is list:
+                        t = t.__args__[0]
+                    if t in all_deps:
+                        deps.append(t)
+
             graph[type_] = deps
             fill_graph(deps)
 
     fill_graph(types)
     return graph
-
-
-def _isconcreteclass(obj: Any) -> bool:
-    return inspect.isclass(obj) and not inspect.isabstract(obj)
 
 
 def list_deps_in_init_order(dep_map: Dict[type, List[type]]) -> List[List[type]]:
@@ -153,9 +169,11 @@ def list_deps_in_init_order(dep_map: Dict[type, List[type]]) -> List[List[type]]
             if type_ in initialized:
                 continue
             if all((dep in initialized for dep in deps)):
-                tier.append(type_)
+                if not inspect.isabstract(type_):
+                    tier.append(type_)
                 initialized.add(type_)
-        tiers.append(tier)
+        if tier:
+            tiers.append(tier)
     return tiers
 
 

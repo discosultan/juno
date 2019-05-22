@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from functools import partial
 
 import pytest
 
@@ -198,25 +197,22 @@ class Fake(Exchange):
 
 
 @asynccontextmanager
-async def init_component(type_, exchange):
+async def init_informant(exchange):
     async with Memory() as memory:
-        components = {
-            'fake': exchange,
-            'memory': memory
-        }
-        config = {
-            'storage': 'memory',
-            'agents': [
-                {'symbol': 'eth-btc'}
-            ]
-        }
-        async with type_(components=components, config=config) as component:
+        async with Informant(storage=memory, exchanges=[exchange]) as component:
             yield component
 
 
-init_informant = partial(init_component, Informant)
-init_orderbook = partial(init_component, Orderbook)
-init_wallet = partial(init_component, Wallet)
+@asynccontextmanager
+async def init_orderbook(exchange):
+    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as component:
+        yield component
+
+
+@asynccontextmanager
+async def init_wallet(exchange):
+    async with Wallet(exchanges=[exchange]) as component:
+        yield component
 
 
 def _assert_fills(output, expected_output):

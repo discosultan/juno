@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import abstractmethod
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from decimal import Decimal
@@ -6,9 +8,16 @@ from typing import AsyncIterable, AsyncIterator, Dict, Optional
 from juno import (Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderResult, OrderType,
                   OrderUpdate, Side, TimeInForce)
 from juno.filters import Filters
+from juno.typing import ExcType, ExcValue, Traceback
 
 
 class Exchange(AbstractAsyncContextManager):
+
+    async def __aenter__(self) -> Exchange:
+        return self
+
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        pass
 
     @abstractmethod
     async def map_fees(self) -> Dict[str, Fees]:

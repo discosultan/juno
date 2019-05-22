@@ -4,7 +4,7 @@ import pytest
 import simplejson as json
 
 from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, OrderStatus
-from juno.agents import Agent, Backtest, Live, Paper, list_required_component_names
+from juno.agents import Backtest, Live, Paper
 from juno.agents.summary import Position, TradingSummary
 from juno.components import Orderbook
 from juno.filters import Filters, Price, Size
@@ -239,28 +239,6 @@ def test_summary():
         fills=Fills([Fill(*([Decimal(1)] * 3), 'eth')])
     ))
     json.dumps(summary, default=lambda o: o.__dict__, use_decimal=True)
-
-
-def test_list_required_component_names():
-
-    class Foo(Agent):
-        required_components = ['a']
-
-    class Bar(Agent):
-        required_components = ['b', 'c']
-
-    result = list_required_component_names(
-        config={
-            'agents': [
-                {'name': 'foo'},
-                {'name': 'bar'}
-            ]},
-        agents={
-            'foo': Foo,
-            'bar': Bar
-        })
-
-    assert result == set(('a', 'b', 'c'))
 
 
 class FakeInformant:

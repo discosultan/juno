@@ -6,7 +6,8 @@ import aiohttp
 import pytest
 
 from juno import OrderType, Side
-from juno.exchanges import Binance, Coinbase, create_exchange
+from juno.config import init_type
+from juno.exchanges import Binance, Coinbase
 from juno.time import HOUR_MS, UTC, datetime_timestamp_ms
 
 exchange_types = [Binance, Coinbase]
@@ -38,7 +39,6 @@ async def coinbase(loop, config):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_map_fees(loop, request, exchange):
     skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)
     res = await exchange.map_fees()
     assert res
 
@@ -122,7 +122,7 @@ def skip_exchange(exchange, *skip_exchange_types):
 @asynccontextmanager
 async def try_init_exchange(type_, config):
     try:
-        async with create_exchange(type_, config) as exchange:
+        async with init_type(type_, config=config) as exchange:
             yield exchange
     except ValueError:
         yield None

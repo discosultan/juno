@@ -116,12 +116,12 @@ class Coinbase(Exchange):
 
     async def _stream_historical_candles(self, symbol: str, interval: int, start: int, end: int
                                          ) -> AsyncIterable[Candle]:
-        MAX_CANDLES_PER_REQUEST = 300  # They advertise 350.
+        MAX_CANDLES_PER_REQUEST = 300
         url = f'/products/{_product(symbol)}/candles'
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             res = await self._public_request('GET', url, {
                 'start': _datetime(page_start),
-                'end': _datetime(page_end),
+                'end': _datetime(page_end - 1),
                 'granularity': _granularity(interval)
             })
             for c in reversed(res):

@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Tuple
 
 from juno import (CancelOrderStatus, DepthUpdateType, Fees, Fill, Fills, OrderResult, OrderStatus,
                   OrderType, Side, TimeInForce)
-from juno.config import list_required_names
+from juno.config import list_names
 from juno.exchanges import Exchange
 from juno.filters import Filters
 from juno.typing import ExcType, ExcValue, Traceback
@@ -30,10 +30,9 @@ class _Orderbook(Dict[str, Dict[Decimal, Decimal]]):
 
 class Orderbook:
 
-    def __init__(self, components: Dict[str, Any], config: Dict[str, Any]) -> None:
-        self._exchanges: Dict[str, Exchange] = {
-            k: v for k, v in components.items() if isinstance(v, Exchange)}
-        self._symbols = list_required_names(config, 'symbol')
+    def __init__(self, exchanges: List[Exchange], config: Dict[str, Any]) -> None:
+        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._symbols = list_names(config, 'symbol')
         self._orderbooks_product = list(product(self._exchanges.keys(), self._symbols))
 
         # {

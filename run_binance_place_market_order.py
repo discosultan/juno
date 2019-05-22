@@ -9,6 +9,7 @@ from juno.exchanges import Binance
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
+EXCHANGE = 'binance'
 TEST = True
 SIDE = Side.SELL
 SYMBOL = 'ada-btc'
@@ -20,34 +21,31 @@ async def main() -> None:
     memory = Memory()
     sqlite = SQLite()
     async with binance, memory, sqlite:
-        exchange = 'binance'
-        services = {'binance': binance, 'memory': memory, 'sqlite': sqlite}
-        config = {'symbol': SYMBOL, 'storage': 'sqlite'}
-        informant = Informant(services, config)
-        orderbook = Orderbook(services, config)
-        wallet = Wallet(services, config)
+        informant = Informant(storage=sqlite, exchanges=[binance])
+        orderbook = Orderbook(exchanges=[binance], config={'symbol': SYMBOL})
+        wallet = Wallet(exchanges=[binance])
         async with informant, orderbook, wallet:
-            fees = informant.get_fees(exchange, SYMBOL)
+            fees = informant.get_fees(EXCHANGE, SYMBOL)
             logging.info(fees)
 
-            filters = informant.get_filters(exchange, SYMBOL)
+            filters = informant.get_filters(EXCHANGE, SYMBOL)
             logging.info(filters)
 
             base_asset, quote_asset = unpack_symbol(SYMBOL)
             if SIDE is Side.BUY:
-                balance = wallet.get_balance(exchange, quote_asset)
+                balance = wallet.get_balance(EXCHANGE, quote_asset)
                 logging.info(balance)
                 fills = orderbook.find_market_order_asks(
-                    exchange=exchange,
+                    exchange=EXCHANGE,
                     symbol=SYMBOL,
                     quote=balance.available,
                     fees=fees,
                     filters=filters)
             else:
-                balance = wallet.get_balance(exchange, base_asset)
+                balance = wallet.get_balance(EXCHANGE, base_asset)
                 logging.info(balance)
                 fills = orderbook.find_market_order_bids(
-                    exchange=exchange,
+                    exchange=EXCHANGE,
                     symbol=SYMBOL,
                     base=balance.available,
                     fees=fees,

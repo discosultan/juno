@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Dict
+from typing import Dict, List
 
 from juno import Balance
 from juno.exchanges import Exchange
@@ -14,9 +14,8 @@ _log = logging.getLogger(__name__)
 
 class Wallet:
 
-    def __init__(self, components: Dict[str, Any], config: Dict[str, Any]) -> None:
-        self._exchanges: Dict[str, Exchange] = {
-            k: v for k, v in components.items() if isinstance(v, Exchange)}
+    def __init__(self, exchanges: List[Exchange]) -> None:
+        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._exchange_balances: Dict[str, Dict[str, Balance]] = defaultdict(dict)
 
     async def __aenter__(self) -> Wallet:

@@ -13,7 +13,6 @@ from aiosqlite import Connection, connect
 
 from juno import Candle, Span
 from juno.time import time_ms
-from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import home_path
 
 from .storage import Storage
@@ -46,12 +45,6 @@ class SQLite(Storage):
 
     def __init__(self) -> None:
         self._tables: Dict[Any, Set[type]] = defaultdict(set)
-
-    async def __aenter__(self) -> SQLite:
-        return self
-
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        pass
 
     async def stream_candle_spans(self, key: Key, start: int, end: int) -> AsyncIterable[Span]:
         _log.info(f'streaming candle span(s) between {Span(start, end)}')

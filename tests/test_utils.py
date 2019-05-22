@@ -1,6 +1,8 @@
 import asyncio
 import sys
+from abc import ABC, abstractmethod
 from statistics import mean
+from typing import List
 
 import pytest
 
@@ -187,30 +189,45 @@ def test_circular_buffer():
 
 
 def test_map_dependencies():
-    dep_map = utils.map_dependencies([Bar], [sys.modules[__name__]])
+    dep_map = utils.map_dependencies(
+        [Baz],
+        [sys.modules[__name__]],
+        lambda a, c: [c[0]])
 
-    assert len(dep_map) == 2
-    assert dep_map[Bar] == [Foo]
-    assert dep_map[Foo] == []
+    assert dep_map == {
+        Baz: [Foo],
+        Foo: [Bar],
+        Bar: []
+    }
 
 
 def test_list_deps_in_init_order():
     dep_map = {
-        Bar: [Foo],
-        Foo: []
+        Baz: [Foo],
+        Foo: [Bar],
+        Bar: []
     }
 
     assert utils.list_deps_in_init_order(dep_map) == [
-        [Foo],
-        [Bar]
+        [Bar],
+        [Baz]
     ]
 
 
-class Foo:
-    pass
+class Foo(ABC):
+
+    @abstractmethod
+    def dummy(self):
+        pass
 
 
-class Bar:
+class Bar(Foo):
 
-    def __init__(self, foo: Foo, baz: int) -> None:
+    def dummy(self):
+        pass
+
+
+class Baz:
+
+    def __init__(self, foo: List[Foo], baz: int) -> None:
         pass

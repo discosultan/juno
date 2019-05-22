@@ -1,3 +1,4 @@
+import inspect
 import os
 import re
 from decimal import Decimal
@@ -7,7 +8,8 @@ import simplejson as json
 from dateutil.parser import isoparse  # type: ignore
 
 from juno.time import UTC, datetime_timestamp_ms, strpinterval
-from juno.utils import recursive_iter
+from juno.typing import get_input_type_hints
+from juno.utils import ischild, recursive_iter
 
 
 def load_from_env(env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
@@ -60,7 +62,7 @@ def transform(value: Any) -> Any:
     return value
 
 
-def list_required_names(config: Dict[str, Any], name: str) -> Set[str]:
+def list_names(config: Dict[str, Any], name: str) -> Set[str]:
     result = set()
     name_plural = name + 's'
     for keys, v in recursive_iter(config):
@@ -88,3 +90,38 @@ def _get(collection: Any, key: Any) -> Optional[Any]:
         return collection[key]
     else:
         return collection.get(key)
+
+
+def init_type(type_: type, components: Dict[str, Any] = {}, config: Dict[str, Any] = {}) -> Any:
+    kwargs = {}
+
+    # TODO: make use of assignment expression in py 3.8
+    for dep_name, dep_type in get_input_type_hints(type_.__init__).items():  # type: ignore
+        dep = next((c for c in components.values() if type(c) is dep_type), None)
+        if dep:
+            value = dep
+        elif inspect.isabstract(dep_type):
+            concretes = [c for c in components.values() if ischild(type(c), dep_type)]
+            if len(concretes) != 1:
+                raise NotImplementedError()
+            value = concretes[0]
+        elif dep_name == 'config':
+            value = config
+        elif dep_name == 'components':
+            value = components
+        else:
+            component_config = config.get(type_.__name__.lower(), {})
+            value = component_config.get(dep_name)
+            if not value:
+                origin = getattr(dep_type, '__origin__', None)
+                if origin is list:
+                    dep_type = dep_type.__args__[0]  # type: ignore
+                    value = [c for c in components.values() if ischild(type(c), dep_type)]
+                elif origin:
+                    raise NotImplementedError()
+                else:
+                    raise ValueError(f'Unable to resolve {dep_name}: {dep_type} input for {type_}')
+
+        kwargs[dep_name] = value
+
+    return type_(**kwargs)
