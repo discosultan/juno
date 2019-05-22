@@ -11,7 +11,7 @@ from juno.filters import Filters
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.time import DAY_MS, strfinterval, time_ms
-from juno.typing import ExcType, ExcValue, Traceback
+from juno.typing import ExcType, ExcValue, T, Traceback
 from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
 
 _log = logging.getLogger(__name__)
@@ -42,21 +42,20 @@ class Informant:
         await asyncio.gather(*self._sync_tasks)
 
     def get_fees(self, exchange: str, symbol: str) -> Fees:
-        # `__all__` is a special key which allows exchange to return same fee for any symbol.
-        fees = self._exchange_data[exchange][Fees].get('__all__')
-        if not fees:
-            fees = self._exchange_data[exchange][Fees].get(symbol)
-        if not fees:
-            raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
-        _log.info(f'Get fees: {fees}')
-        return cast(Fees, fees)
+        return self._get_data(exchange, symbol, Fees)
 
     def get_filters(self, exchange: str, symbol: str) -> Filters:
-        filters = self._exchange_data[exchange][Filters].get(symbol)
-        if not filters:
-            raise Exception(f'Exchange {exchange} does not support symbol {symbol}')
-        _log.info(f'Get filters: {filters}')
-        return cast(Filters, filters)
+        return self._get_data(exchange, symbol, Filters)
+
+    def _get_data(self, exchange: str, symbol: str, type_: Type[T]) -> T:
+        # `__all__` is a special key which allows exchange to return same fee for any symbol.
+        data = self._exchange_data[exchange][type_].get('__all__')
+        if not data:
+            data = self._exchange_data[exchange][type_].get(symbol)
+        if not data:
+            raise Exception(f'Exchange {exchange} does not support symbol {symbol} for {type_}')
+        _log.info(f'get {type_.__name__.lower()}: {data}')
+        return cast(T, data)
 
     async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
                              ) -> AsyncIterable[Candle]:

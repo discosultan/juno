@@ -37,21 +37,20 @@ async def test_stream_candles(loop):
         assert out_candles == candles[-1:]
 
 
-async def test_get_fees(loop):
+@pytest.mark.parametrize('exchange_fees_key', ['__all__', 'eth-btc'])
+async def test_get_fees(loop, exchange_fees_key):
     fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
-    async with init_informant(Fake(fees={'__all__': fees})) as informant:
-        out_fees = informant.get_fees('fake', 'eth-btc')
-        assert out_fees == fees
-    async with init_informant(Fake(fees={'eth-btc': fees})) as informant:
+    async with init_informant(Fake(fees={exchange_fees_key: fees})) as informant:
         out_fees = informant.get_fees('fake', 'eth-btc')
         assert out_fees == fees
 
 
-async def test_get_filters(loop):
+@pytest.mark.parametrize('exchange_filters_key', ['__all__', 'eth-btc'])
+async def test_get_filters(loop, exchange_filters_key):
     filters = Filters(
         price=Price(min=Decimal(1), max=Decimal(1), step=Decimal(1)),
         size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1)))
-    async with init_informant(Fake(filters={'eth-btc': filters})) as informant:
+    async with init_informant(Fake(filters={exchange_filters_key: filters})) as informant:
         out_filters = informant.get_filters('fake', 'eth-btc')
         assert out_filters == filters
 
@@ -81,12 +80,11 @@ async def test_find_market_order_asks(loop, quote, snapshot_asks, update_asks, e
             asks=update_asks,
             bids=[])
     ]
-    async with init_orderbook(Fake(depths=depths)) as orderbook:
-        filters = Filters(
-            price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
-            size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')))
-        output = orderbook.find_market_order_asks(exchange='fake', symbol='eth-btc', quote=quote,
-                                                  fees=Fees.none(), filters=filters)
+    filters = Filters(
+        price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
+        size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')))
+    async with init_orderbook(Fake(depths=depths, filters={'__all__': filters})) as orderbook:
+        output = orderbook.find_market_order_asks(exchange='fake', symbol='eth-btc', quote=quote)
         _assert_fills(output, expected_output)
 
 
@@ -115,12 +113,11 @@ async def test_find_market_order_bids(loop, base, snapshot_bids, update_bids, ex
             asks=[],
             bids=update_bids)
     ]
-    async with init_orderbook(Fake(depths=depths)) as orderbook:
-        filters = Filters(
-            price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
-            size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')))
-        output = orderbook.find_market_order_bids(exchange='fake', symbol='eth-btc', base=base,
-                                                  fees=Fees.none(), filters=filters)
+    filters = Filters(
+        price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
+        size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')))
+    async with init_orderbook(Fake(depths=depths, filters={'__all__': filters})) as orderbook:
+        output = orderbook.find_market_order_bids(exchange='fake', symbol='eth-btc', base=base)
         _assert_fills(output, expected_output)
 
 
@@ -147,7 +144,8 @@ async def test_get_balance(loop):
 
 
 class Fake(Exchange):
-    def __init__(self, candles=[], fees={}, filters={}, balances=[], depths=[], orders=[]):
+    def __init__(self, candles=[], fees={'__all__': Fees.none()},
+                 filters={'__all__': Filters.none()}, balances=[], depths=[], orders=[]):
         self.candles = candles
         self.fees = fees
         self.filters = filters
@@ -205,8 +203,11 @@ async def init_informant(exchange):
 
 @asynccontextmanager
 async def init_orderbook(exchange):
-    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as component:
-        yield component
+    async with Memory() as memory:
+        async with Informant(storage=memory, exchanges=[exchange]) as informant:
+            async with Orderbook(informant=informant, exchanges=[exchange],
+                                 config={'symbol': 'eth-btc'}) as component:
+                yield component
 
 
 @asynccontextmanager

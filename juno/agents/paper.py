@@ -38,17 +38,14 @@ class Paper(Agent):
         self.symbol = symbol
         self.quote = quote
 
-        self.fees = self.informant.get_fees(exchange, symbol)
-        self.filters = self.informant.get_filters(exchange, symbol)
-
         self.result = TradingSummary(
             exchange=exchange,
             symbol=symbol,
             interval=interval,
             start=now,
             quote=quote,
-            fees=self.fees,
-            filters=self.filters)
+            fees=self.informant.get_fees(exchange, symbol),
+            filters=self.informant.get_filters(exchange, symbol))
         self.open_position = None
         restart_count = 0
 
@@ -112,8 +109,6 @@ class Paper(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             quote=self.quote,
-            filters=self.filters,
-            fees=self.fees,
             test=True)
 
         if res.status is OrderStatus.NOT_PLACED:
@@ -133,8 +128,6 @@ class Paper(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             base=self.open_position.total_size - self.open_position.fills.total_fee,
-            filters=self.filters,
-            fees=self.fees,
             test=True)
 
         position = self.open_position

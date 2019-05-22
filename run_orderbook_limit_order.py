@@ -28,39 +28,28 @@ async def main() -> None:
     sqlite = SQLite()
     async with binance, memory, sqlite:
         informant = Informant(storage=sqlite, exchanges=[binance])
-        orderbook = Orderbook(exchanges=[binance], config={'symbol': SYMBOL})
+        orderbook = Orderbook(informant=informant, exchanges=[binance], config={'symbol': SYMBOL})
         wallet = Wallet(exchanges=[binance])
         async with informant, orderbook, wallet:
-            fees = informant.get_fees(exchange=EXCHANGE, symbol=SYMBOL)
-            filters = informant.get_filters(exchange=EXCHANGE, symbol=SYMBOL)
-
             if SIDE is Side.BUY:
                 market_fills = orderbook.find_market_order_asks(
                     exchange=EXCHANGE,
                     symbol=SYMBOL,
-                    quote=QUOTE,
-                    fees=fees,
-                    filters=filters)
+                    quote=QUOTE)
                 res = await orderbook.buy_limit_at_spread(
                     exchange=EXCHANGE,
                     symbol=SYMBOL,
                     quote=QUOTE,
-                    fees=fees,
-                    filters=filters,
                     test=False)
             else:
                 market_fills = orderbook.find_market_order_bids(
                     exchange=EXCHANGE,
                     symbol=SYMBOL,
-                    base=BASE,
-                    fees=fees,
-                    filters=filters)
+                    base=BASE)
                 res = await orderbook.sell_limit_at_spread(
                     exchange=EXCHANGE,
                     symbol=SYMBOL,
                     base=BASE,
-                    fees=fees,
-                    filters=filters,
                     test=False)
 
             logging.info(res)

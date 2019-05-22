@@ -9,11 +9,11 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import (CancelOrderStatus, DepthUpdateType, Fees, Fill, Fills, OrderResult, OrderStatus,
+from juno import (CancelOrderStatus, DepthUpdateType, Fill, Fills, OrderResult, OrderStatus,
                   OrderType, Side, TimeInForce)
+from juno.components import Informant
 from juno.config import list_names
 from juno.exchanges import Exchange
-from juno.filters import Filters
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import Barrier, unpack_symbol
 
@@ -30,7 +30,9 @@ class _Orderbook(Dict[str, Dict[Decimal, Decimal]]):
 
 class Orderbook:
 
-    def __init__(self, exchanges: List[Exchange], config: Dict[str, Any]) -> None:
+    def __init__(self, informant: Informant, exchanges: List[Exchange], config: Dict[str, Any]
+                 ) -> None:
+        self._informant = informant
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._symbols = list_names(config, 'symbol')
         self._orderbooks_product = list(product(self._exchanges.keys(), self._symbols))
@@ -65,9 +67,10 @@ class Orderbook:
     def list_bids(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
         return sorted(self._orderbooks[exchange][symbol]['bids'].items(), reverse=True)
 
-    def find_market_order_asks(self, exchange: str, symbol: str, quote: Decimal, fees: Fees,
-                               filters: Filters) -> Fills:
+    def find_market_order_asks(self, exchange: str, symbol: str, quote: Decimal) -> Fills:
         result = Fills()
+        fees = self._informant.get_fees(exchange, symbol)
+        filters = self._informant.get_filters(exchange, symbol)
         for aprice, asize in self.list_asks(exchange, symbol):
             aquote = aprice * asize
             base_asset, quote_asset = unpack_symbol(symbol)
@@ -85,9 +88,10 @@ class Orderbook:
                 quote -= aquote
         return result
 
-    def find_market_order_bids(self, exchange: str, symbol: str, base: Decimal, fees: Fees,
-                               filters: Filters) -> Fills:
+    def find_market_order_bids(self, exchange: str, symbol: str, base: Decimal) -> Fills:
         result = Fills()
+        fees = self._informant.get_fees(exchange, symbol)
+        filters = self._informant.get_filters(exchange, symbol)
         for bprice, bsize in self.list_bids(exchange, symbol):
             base_asset, quote_asset = unpack_symbol(symbol)
             if bsize >= base:
@@ -103,19 +107,17 @@ class Orderbook:
                 base -= bsize
         return result
 
-    async def buy_market(self, exchange: str, symbol: str, quote: Decimal, fees: Fees,
-                         filters: Filters, test: bool) -> OrderResult:
+    async def buy_market(self, exchange: str, symbol: str, quote: Decimal, test: bool
+                         ) -> OrderResult:
         # TODO: Add dep to Informant and fetch filters and fees from there?
         # Simplifies Orderbook usage but makes testing more difficult.
-        fills = self.find_market_order_asks(exchange=exchange, symbol=symbol, quote=quote,
-                                            fees=fees, filters=filters)
+        fills = self.find_market_order_asks(exchange=exchange, symbol=symbol, quote=quote)
         return await self._fill_market(exchange=exchange, symbol=symbol, side=Side.BUY,
                                        fills=fills, test=test)
 
-    async def sell_market(self, exchange: str, symbol: str, base: Decimal, fees: Fees,
-                          filters: Filters, test: bool) -> OrderResult:
-        fills = self.find_market_order_bids(exchange=exchange, symbol=symbol, base=base,
-                                            fees=fees, filters=filters)
+    async def sell_market(self, exchange: str, symbol: str, base: Decimal, test: bool
+                          ) -> OrderResult:
+        fills = self.find_market_order_bids(exchange=exchange, symbol=symbol, base=base)
         return await self._fill_market(exchange=exchange, symbol=symbol, side=Side.SELL,
                                        fills=fills, test=test)
 
@@ -138,25 +140,27 @@ class Orderbook:
                 fills=fills)
         return res
 
-    async def buy_limit_at_spread(self, exchange: str, symbol: str, quote: Decimal,
-                                  fees: Fees, filters: Filters, test: bool) -> OrderResult:
+    async def buy_limit_at_spread(self, exchange: str, symbol: str, quote: Decimal, test: bool
+                                  ) -> OrderResult:
         assert not test
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
-        res = await self._limit_at_spread(exchange, symbol, Side.BUY, quote, filters)
+        res = await self._limit_at_spread(exchange, symbol, Side.BUY, quote)
         # TODO: DEBUG. Doesn't exactly match as exchange performs rounding.
+        fees = self._informant.get_fees(exchange, symbol)
         _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_size} * {fees.maker}')
         return res
 
     async def sell_limit_at_spread(self, exchange: str, symbol: str, base: Decimal,
-                                   fees: Fees, filters: Filters, test: bool) -> OrderResult:
+                                   test: bool) -> OrderResult:
         assert not test
         _log.info(f'filling {base} worth of base with limit orders at spread')
-        res = await self._limit_at_spread(exchange, symbol, Side.SELL, base, filters)
+        res = await self._limit_at_spread(exchange, symbol, Side.SELL, base)
+        fees = self._informant.get_fees(exchange, symbol)
         _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_quote} * {fees.maker}')
         return res
 
-    async def _limit_at_spread(self, exchange: str, symbol: str, side: Side, available: Decimal,
-                               filters: Filters) -> OrderResult:
+    async def _limit_at_spread(self, exchange: str, symbol: str, side: Side, available: Decimal
+                               ) -> OrderResult:
         client_id = str(uuid.uuid4())
         fills = Fills()  # Fills from aggregated trades.
 
@@ -168,8 +172,7 @@ class Orderbook:
                     symbol=symbol,
                     client_id=client_id,
                     side=side,
-                    available=available,
-                    filters=filters))
+                    available=available))
 
             # Listens for fill events for an existing order.
             async for order in order_stream:
@@ -207,9 +210,10 @@ class Orderbook:
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     async def _keep_limit_order_best(self, exchange: str, symbol: str, client_id: str, side: Side,
-                                     available: Decimal, filters: Filters) -> None:
+                                     available: Decimal) -> None:
         try:
             orderbook = self._orderbooks[exchange][symbol]
+            filters = self._informant.get_filters(exchange, symbol)
             last_order_price = Decimal(0) if side is Side.BUY else Decimal('Inf')
             while True:
                 await orderbook.updated.wait()

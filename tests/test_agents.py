@@ -100,10 +100,8 @@ async def test_backtest_scenarios(loop, scenario_nr):
 
 async def test_paper(loop):
     informant = FakeInformant(
-        fees=Fees(Decimal(0), Decimal(0)),
-        filters=Filters(
-            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
-            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
+        fees=Fees.none(),
+        filters=Filters.none(),
         candles=[
             new_candle(time=0, close=Decimal(5),),
             new_candle(time=1, close=Decimal(10),),
@@ -123,6 +121,7 @@ async def test_paper(loop):
         }
     }
     orderbook = FakeOrderbook(
+        informant=informant,
         orderbooks={'dummy': {'eth-btc': orderbook_data}},
         update_on_find=True)
     agent_config = {
@@ -152,10 +151,8 @@ async def test_paper(loop):
 
 async def test_live(loop):
     informant = FakeInformant(
-        fees=Fees(Decimal(0), Decimal(0)),
-        filters=Filters(
-            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
-            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
+        fees=Fees.none(),
+        filters=Filters.none(),
         candles=[
             new_candle(time=0, close=Decimal(5)),
             new_candle(time=1, close=Decimal(10)),
@@ -175,6 +172,7 @@ async def test_live(loop):
         }
     }
     orderbook = FakeOrderbook(
+        informant=informant,
         orderbooks={'dummy': {'eth-btc': orderbook_data}},
         update_on_find=True)
     wallet = FakeWallet({'dummy': {'btc': Balance(available=Decimal(100), hold=Decimal(50))}})
@@ -261,48 +259,41 @@ class FakeInformant:
 
 class FakeOrderbook(Orderbook):
 
-    def __init__(self, orderbooks, update_on_find):
+    def __init__(self, informant, orderbooks, update_on_find):
+        self._informant = informant
         self._orderbooks = orderbooks
         self._update_on_find = update_on_find
 
-    def find_market_order_asks(self, exchange, symbol, quote, fees, filters):
+    def find_market_order_asks(self, exchange, symbol, quote):
         asks = super().find_market_order_asks(
             exchange=exchange,
             symbol=symbol,
-            quote=quote,
-            fees=fees,
-            filters=filters)
+            quote=quote)
         if self._update_on_find:
             self._remove_from_side(self._orderbooks[exchange][symbol]['asks'], asks)
         return asks
 
-    def find_market_order_bids(self, exchange, symbol, base, fees, filters):
+    def find_market_order_bids(self, exchange, symbol, base):
         bids = super().find_market_order_bids(
             exchange=exchange,
             symbol=symbol,
-            base=base,
-            fees=fees,
-            filters=filters)
+            base=base)
         if self._update_on_find:
             self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
         return bids
 
-    async def buy_market(self, exchange, symbol, quote, fees, filters, test):
+    async def buy_market(self, exchange, symbol, quote, test):
         fills = self.find_market_order_asks(
             exchange=exchange,
             symbol=symbol,
-            quote=quote,
-            fees=fees,
-            filters=filters)
+            quote=quote)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
-    async def sell_market(self, exchange, symbol, base, fees, filters, test):
+    async def sell_market(self, exchange, symbol, base, test):
         fills = self.find_market_order_bids(
             exchange=exchange,
             symbol=symbol,
-            base=base,
-            fees=fees,
-            filters=filters)
+            base=base)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     def _remove_from_side(self, side, fills):

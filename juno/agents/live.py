@@ -36,9 +36,6 @@ class Live(Agent):
         self.exchange = exchange
         self.symbol = symbol
 
-        self.fees = self.informant.get_fees(exchange, symbol)
-        self.filters = self.informant.get_filters(exchange, symbol)
-
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         self.quote = self.wallet.get_balance(exchange, self.quote_asset).available
 
@@ -48,8 +45,8 @@ class Live(Agent):
             interval=interval,
             start=now,
             quote=self.quote,
-            fees=self.fees,
-            filters=self.filters)
+            fees=self.informant.get_fees(exchange, symbol),
+            filters=self.informant.get_filters(exchange, symbol))
         self.open_position = None
         restart_count = 0
 
@@ -113,8 +110,6 @@ class Live(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             quote=self.quote,
-            filters=self.filters,
-            fees=self.fees,
             test=False)
 
         if res.status is OrderStatus.NOT_PLACED:
@@ -134,8 +129,6 @@ class Live(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             base=self.open_position.total_size - self.open_position.fills.total_fee,
-            filters=self.filters,
-            fees=self.fees,
             test=False)
 
         position = self.open_position
