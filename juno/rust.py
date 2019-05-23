@@ -36,9 +36,11 @@ def init() -> None:
         shutil.copy2(str(compiled_path), str(dst_path))
 
 
-def _map_type(cls_: type) -> str:
-    if cls_ is int:
-        return 'uint32_t'
-    if cls_ is float:
-        return 'double'
-    raise NotImplementedError()
+def _map_type(type_: type) -> str:
+    result = {
+        int: 'uint32_t',
+        float: 'double'
+    }.get(type_)
+    if not result:
+        raise NotImplementedError()
+    return result

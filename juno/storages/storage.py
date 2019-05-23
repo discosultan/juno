@@ -5,7 +5,7 @@ from contextlib import AbstractAsyncContextManager
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, Type, Union
 
 from juno import Candle, Span
-from juno.typing import ExcType, ExcValue, Traceback
+from juno.typing import ExcType, ExcValue, T, Traceback
 
 Key = Union[str, Tuple[Any, ...]]
 
@@ -32,10 +32,10 @@ class Storage(AbstractAsyncContextManager):
         pass
 
     @abstractmethod
-    async def get_map(self, key: Key, type_: Type[Any]
-                      ) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
+    async def get_map(self, key: Key, type_: Type[T]
+                      ) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
         pass
 
     @abstractmethod
-    async def set_map(self, key: Key, type_: Type[Any], items: Dict[str, Any]) -> None:
+    async def set_map(self, key: Key, type_: Type[T], items: Dict[str, T]) -> None:
         pass

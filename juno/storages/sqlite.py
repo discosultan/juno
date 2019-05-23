@@ -13,6 +13,7 @@ from aiosqlite import Connection, connect
 
 from juno import Candle, Span
 from juno.time import time_ms
+from juno.typing import T
 from juno.utils import home_path
 
 from .storage import Storage
@@ -84,8 +85,8 @@ class SQLite(Storage):
             await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
-    async def get_map(self, key: Key, type_: Type[Any]
-                      ) -> Tuple[Optional[Dict[str, Any]], Optional[int]]:
+    async def get_map(self, key: Key, type_: Type[T]
+                      ) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
         _log.info(f'getting map of {type_.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
@@ -100,7 +101,7 @@ class SQLite(Storage):
                 return None, None
 
     # TODO: Generic type
-    async def set_map(self, key: Key, type_: Type[Any], items: Dict[str, Any]) -> None:
+    async def set_map(self, key: Key, type_: Type[T], items: Dict[str, T]) -> None:
         _log.info(f'setting map of {len(items)} {type_.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)

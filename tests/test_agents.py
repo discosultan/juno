@@ -53,7 +53,8 @@ async def test_backtest(loop):
     assert res.profit == -50
     assert res.potential_hodl_profit == 100
     assert res.duration == 6
-    assert res.yearly_roi == -2629746000
+    assert res.roi == Decimal('-0.5')
+    assert res.annualized_roi == Decimal(-1)
     assert res.max_drawdown == Decimal('0.75')
     assert res.mean_drawdown == Decimal('0.25')
     assert res.mean_position_profit == -25

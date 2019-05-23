@@ -7,10 +7,10 @@
 temp-plot.html
 
 # And additionally everything not required by runtime.
-.git
-tests
 .dockerignore
+.git
 .gitignore
 Dockerfile
 README.md
 setup.cfg
+tests
