@@ -125,6 +125,7 @@ async def test_paper(loop):
         informant=informant,
         orderbooks={'dummy': {'eth-btc': orderbook_data}},
         update_on_find=True)
+    broker = FakeBroker(orderbook)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -142,7 +143,7 @@ async def test_paper(loop):
         'get_time': FakeTime()
     }
 
-    async with Paper(informant, orderbook) as agent:
+    async with Paper(informant=informant, broker=broker) as agent:
         res = await agent.start(agent_config)
 
     assert res
@@ -177,6 +178,7 @@ async def test_live(loop):
         orderbooks={'dummy': {'eth-btc': orderbook_data}},
         update_on_find=True)
     wallet = FakeWallet({'dummy': {'btc': Balance(available=Decimal(100), hold=Decimal(50))}})
+    broker = FakeBroker(orderbook)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -193,7 +195,7 @@ async def test_live(loop):
         'get_time': FakeTime()
     }
 
-    async with Live(informant, orderbook, wallet) as agent:
+    async with Live(informant, wallet, broker) as agent:
         res = await agent.start(agent_config)
 
     assert res
@@ -265,8 +267,8 @@ class FakeOrderbook(Orderbook):
         self._orderbooks = orderbooks
         self._update_on_find = update_on_find
 
-    def find_market_order_asks(self, exchange, symbol, quote):
-        asks = super().find_market_order_asks(
+    def find_order_asks(self, exchange, symbol, quote):
+        asks = super().find_order_asks(
             exchange=exchange,
             symbol=symbol,
             quote=quote)
@@ -274,28 +276,14 @@ class FakeOrderbook(Orderbook):
             self._remove_from_side(self._orderbooks[exchange][symbol]['asks'], asks)
         return asks
 
-    def find_market_order_bids(self, exchange, symbol, base):
-        bids = super().find_market_order_bids(
+    def find_order_bids(self, exchange, symbol, base):
+        bids = super().find_order_bids(
             exchange=exchange,
             symbol=symbol,
             base=base)
         if self._update_on_find:
             self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
         return bids
-
-    async def buy_market(self, exchange, symbol, quote, test):
-        fills = self.find_market_order_asks(
-            exchange=exchange,
-            symbol=symbol,
-            quote=quote)
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
-
-    async def sell_market(self, exchange, symbol, base, test):
-        fills = self.find_market_order_bids(
-            exchange=exchange,
-            symbol=symbol,
-            base=base)
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     def _remove_from_side(self, side, fills):
         for fill in fills:
@@ -311,6 +299,26 @@ class FakeWallet:
 
     def get_balance(self, exchange, asset):
         return self._exchange_balances[exchange][asset]
+
+
+class FakeBroker:
+
+    def __init__(self, orderbook):
+        self._orderbook = orderbook
+
+    async def buy(self, exchange, symbol, quote, test):
+        fills = self._orderbook.find_order_asks(
+            exchange=exchange,
+            symbol=symbol,
+            quote=quote)
+        return OrderResult(status=OrderStatus.FILLED, fills=fills)
+
+    async def sell(self, exchange, symbol, base, test):
+        fills = self._orderbook.find_order_bids(
+            exchange=exchange,
+            symbol=symbol,
+            base=base)
+        return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
 
 def FakeTime():

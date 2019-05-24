@@ -15,12 +15,13 @@ from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 import simplejson as json
 
 from juno import Balance, CancelOrderResult, Candle, Fees, OrderType, Side, TimeInForce
+from juno.asyncio import Event
 from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import Event, LeakyBucket, page
+from juno.utils import LeakyBucket, page
 
 from .exchange import Exchange
 
@@ -46,6 +47,7 @@ class Coinbase(Exchange):
         self._stream_task = None
         self._stream_subscriptions: Dict[str, List[str]] = {}
         self._stream_subscription_queue: asyncio.Queue[Any] = asyncio.Queue()
+        # TODO: Most probably require `autoclear=True`.
         self._stream_heartbeat_event: Event[Any] = Event()
         self._stream_depth_event: Event[Any] = Event()
         self._stream_match_event: Event[Any] = Event()

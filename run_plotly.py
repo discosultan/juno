@@ -7,11 +7,11 @@ from datetime import datetime
 import plotly.graph_objs as go
 import plotly.offline as py
 
+from juno.asyncio import list_async
 from juno.components import Informant
 from juno.exchanges import Binance, Coinbase
 from juno.storages import Memory, SQLite
 from juno.time import HOUR_MS, UTC, datetime_timestamp_ms, datetime_utcfromtimestamp_ms
-from juno.utils import list_async
 
 
 async def main():

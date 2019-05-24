@@ -6,13 +6,14 @@ from collections import defaultdict
 from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, Type, cast
 
 from juno import Candle, Fees, Span
+from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.filters import Filters
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.time import DAY_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, T, Traceback
-from juno.utils import generate_missing_spans, list_async, merge_adjacent_spans
+from juno.utils import generate_missing_spans, merge_adjacent_spans
 
 _log = logging.getLogger(__name__)
 

@@ -39,9 +39,11 @@ async def test_discord(loop, request, config, agent: Agent):
     skip_non_configured(request, config)
 
     ee = agent.ee
-    agent.result = get_dummy_trading_summary()
+    summary = get_dummy_trading_summary()
+    agent.result = summary
     async with discord.activate(agent, config['discord']):
         candle = new_candle(time=0, close=Decimal(1), volume=Decimal(10))
+        summary.append_candle(candle)
         pos = Position(
             time=candle.time,
             fills=Fills([
@@ -49,11 +51,13 @@ async def test_discord(loop, request, config, agent: Agent):
             ]))
         await ee.emit('position_opened', pos)
         candle = new_candle(time=HOUR_MS, close=Decimal(2), volume=Decimal(10))
+        summary.append_candle(candle)
         pos.close(
             time=candle.time,
             fills=Fills([
                 Fill(price=Decimal(2), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
             ]))
+        summary.append_position(pos)
         await ee.emit('position_closed', pos)
         await ee.emit('finished')
         await ee.emit('img_saved', full_path('/data/dummy_img.png'))

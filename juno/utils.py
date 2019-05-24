@@ -6,16 +6,12 @@ import random
 from collections import defaultdict
 from pathlib import Path
 from types import ModuleType
-from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
-                    List, Optional, Set, Tuple, Type, TypeVar, Union, cast, get_type_hints)
+from typing import (Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional,
+                    Set, Tuple, Type, Union, cast, get_type_hints)
 
 import backoff
 
-T = TypeVar('T')
-
-
-async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
-    return [item async for item in async_iter]
+from .typing import T
 
 
 def merge_adjacent_spans(spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
@@ -221,51 +217,6 @@ class LeakyBucket:
             await asyncio.sleep(1.0 / self._rate_per_sec)
 
         self._level += amount
-
-
-class Barrier:
-
-    def __init__(self, count: int) -> None:
-        if count < 0:
-            raise ValueError('Count cannot be negative')
-
-        self._remaining_count = count
-        self._event = asyncio.Event()
-        if count == 0:
-            self._event.set()
-
-    async def wait(self) -> None:
-        await self._event.wait()
-
-    def locked(self) -> bool:
-        return self._remaining_count > 0
-
-    def release(self) -> None:
-        self._remaining_count = max(self._remaining_count - 1, 0)
-        if not self.locked():
-            self._event.set()
-
-
-class Event(Generic[T]):
-
-    def __init__(self) -> None:
-        self._event = asyncio.Event()
-        self._event_data: Optional[T] = None
-
-    async def wait(self) -> T:
-        await self._event.wait()
-        assert self._event_data
-        return self._event_data
-
-    def set(self, data: T) -> None:
-        self._event_data = data
-        self._event.set()
-
-    def clear(self) -> None:
-        self._event.clear()
-
-    def is_set(self) -> bool:
-        return self._event.is_set()
 
 
 class Trend:

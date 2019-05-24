@@ -1,6 +1,7 @@
 {
     "log_level": "debug",
     "storage": "memory",
+    "broker": "market",
     "agents": [
         {
             "name": "paper",

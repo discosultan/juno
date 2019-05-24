@@ -45,7 +45,7 @@ async def engine() -> None:
         # Setup components used by agents.
         dep_map = map_dependencies(
             agent_type_map.values(),
-            [juno.components, juno.exchanges, juno.storages],
+            [juno.brokers, juno.components, juno.exchanges, juno.storages],
             resolve_abstract)
 
         async with AsyncExitStack() as stack:

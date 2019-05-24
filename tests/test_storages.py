@@ -4,9 +4,9 @@ from decimal import Decimal
 import pytest
 
 from juno import Candle, Fees
+from juno.asyncio import list_async
 from juno.filters import Filters
 from juno.storages import Memory
-from juno.utils import list_async
 
 from .utils import new_candle
 

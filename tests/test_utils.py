@@ -1,4 +1,3 @@
-import asyncio
 import sys
 from abc import ABC, abstractmethod
 from statistics import mean
@@ -64,46 +63,6 @@ def test_flatten():
     expected_output = [35, 53, 525, 6743, 64, 63, 743, 754, 757]
     output = list(utils.flatten([35, 53, [525, 6743], 64, 63, [743, 754, 757]]))
     assert output == expected_output
-
-
-async def test_barrier(loop):
-    barrier = utils.Barrier(2)
-    event = asyncio.Event()
-
-    async def process_event():
-        await barrier.wait()
-        event.set()
-
-    _process_event_task = loop.create_task(process_event())
-
-    barrier.release()
-    await asyncio.sleep(0)
-    assert not event.is_set()
-
-    barrier.release()
-    await asyncio.sleep(0)
-    assert event.is_set()
-
-    assert _process_event_task.done()
-
-
-async def test_empty_barrier(loop):
-    barrier = utils.Barrier(0)
-    await asyncio.wait_for(barrier.wait(), timeout=0.001)
-
-
-async def test_event(loop):
-    event = utils.Event()
-
-    t1 = event.wait()
-    t2 = event.wait()
-
-    event.set('value')
-
-    r1, r2 = await asyncio.gather(t1, t2)
-
-    assert r1 == 'value'
-    assert r2 == 'value'
 
 
 def test_trend_without_age_threshold():

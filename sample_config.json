@@ -4,6 +4,7 @@
         "api_key": "abc",
         "secret_key": "abc"
     },
+    "broker": "market",
     "storage": "sqlite",
     "agents": [
         {

@@ -5,7 +5,8 @@ from typing import Any, Callable, Dict, Optional
 import simplejson as json
 
 from juno import Candle, OrderStatus
-from juno.components import Informant, Orderbook
+from juno.brokers import Broker
+from juno.components import Informant
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
 from juno.time import MAX_TIME_MS, time_ms
@@ -18,9 +19,9 @@ _log = logging.getLogger(__name__)
 
 class Paper(Agent):
 
-    def __init__(self, informant: Informant, orderbook: Orderbook) -> None:
+    def __init__(self, informant: Informant, broker: Broker) -> None:
         self.informant = informant
-        self.orderbook = orderbook
+        self.broker = broker
         self.open_position: Optional[Position] = None
 
     async def run(self, exchange: str, symbol: str, interval: int, quote: Decimal,
@@ -105,7 +106,7 @@ class Paper(Agent):
         _log.info(json.dumps(self.result, default=lambda o: o.__dict__, use_decimal=True))
 
     async def _try_open_position(self, candle: Candle) -> bool:
-        res = await self.orderbook.buy_market(
+        res = await self.broker.buy(
             exchange=self.exchange,
             symbol=self.symbol,
             quote=self.quote,
@@ -124,7 +125,7 @@ class Paper(Agent):
     async def _close_position(self, candle: Candle) -> None:
         assert self.open_position
 
-        res = await self.orderbook.sell_market(
+        res = await self.broker.sell(
             exchange=self.exchange,
             symbol=self.symbol,
             base=self.open_position.total_size - self.open_position.fills.total_fee,

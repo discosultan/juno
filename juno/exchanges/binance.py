@@ -16,12 +16,13 @@ import simplejson as json
 from juno import (Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate,
                   DepthUpdateType, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType,
                   OrderUpdate, Side, TimeInForce, Trade)
+from juno.asyncio import Event
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, ws_connect_with_refresh
 from juno.math import floor_multiple
 from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import Event, LeakyBucket, page, retry_on
+from juno.utils import LeakyBucket, page, retry_on
 
 from .exchange import Exchange
 
@@ -59,8 +60,8 @@ class Binance(Exchange):
         self._listen_key_lock = asyncio.Lock()
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
-        self._balance_event: Event[Dict[str, Balance]] = Event()
-        self._order_event: Event[Any] = Event()
+        self._balance_event: Event[Dict[str, Balance]] = Event(autoclear=True)
+        self._order_event: Event[Any] = Event(autoclear=True)
 
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()
@@ -129,7 +130,6 @@ class Binance(Exchange):
             # Stream future updates over WS.
             while True:
                 data = await self._balance_event.wait()
-                self._balance_event.clear()
                 result = {}
                 for balance in data['B']:
                     result[balance['a'].lower()] = Balance(
@@ -184,7 +184,6 @@ class Binance(Exchange):
         async def inner() -> AsyncIterable[OrderUpdate]:
             while True:
                 data = await self._order_event.wait()
-                self._order_event.clear()
                 # fills = Fills()
                 # fill_size = Decimal(data['l'])
                 # if fill_size > 0:
