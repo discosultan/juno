@@ -91,8 +91,7 @@ class Limit:
     async def _keep_limit_order_best(self, exchange: str, symbol: str, client_id: str, side: Side,
                                      available: Decimal) -> None:
         try:
-            # TODO
-            orderbook_updated = self._orderbook.get_orderbook_updated(exchange, symbol)
+            orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
             filters = self._informant.get_filters(exchange, symbol)
             last_order_price = Decimal(0) if side is Side.BUY else Decimal('Inf')
             while True:

@@ -5,6 +5,7 @@ import sys
 from typing import List
 
 from juno import OrderType, Side
+from juno.brokers import Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
 from juno.storages import Memory, SQLite
@@ -23,24 +24,24 @@ async def main() -> None:
     memory = Memory()
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=exchanges)
-    orderbook = Orderbook(informant=informant, exchanges=exchanges, config={'symbol': SYMBOL})
+    orderbook = Orderbook(exchanges=exchanges, config={'symbol': SYMBOL})
     wallet = Wallet(exchanges=exchanges)
+    market = Market(informant, orderbook, exchanges)
     async with binance, memory, sqlite, informant, orderbook, wallet:
         filters = informant.get_filters(EXCHANGE, SYMBOL)
-        logging.info(filters)
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         if SIDE is Side.BUY:
             balance = wallet.get_balance(EXCHANGE, quote_asset)
             logging.info(balance)
-            fills = orderbook.find_order_asks(
+            fills = market.find_order_asks(
                 exchange=EXCHANGE,
                 symbol=SYMBOL,
                 quote=balance.available)
         else:
             balance = wallet.get_balance(EXCHANGE, base_asset)
             logging.info(balance)
-            fills = orderbook.find_order_bids(
+            fills = market.find_order_bids(
                 exchange=EXCHANGE,
                 symbol=SYMBOL,
                 base=balance.available)

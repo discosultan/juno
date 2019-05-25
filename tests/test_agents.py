@@ -3,18 +3,18 @@ from decimal import Decimal
 import pytest
 import simplejson as json
 
-from juno import Balance, Candle, Fees, Fill, Fills, OrderResult, OrderStatus
+from juno import Balance, Candle, Fees, Fill, Fills
 from juno.agents import Backtest, Live, Paper
 from juno.agents.summary import Position, TradingSummary
-from juno.components import Orderbook
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
 
+from . import fakes
 from .utils import load_json_file, new_candle
 
 
 async def test_backtest(loop):
-    informant = FakeInformant(
+    informant = fakes.Informant(
         fees=Fees(Decimal(0), Decimal(0)),
         filters=Filters(
             price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
@@ -68,7 +68,7 @@ async def test_backtest(loop):
 @pytest.mark.parametrize('scenario_nr', [1, 2])
 async def test_backtest_scenarios(loop, scenario_nr):
     path = f'/data/backtest_scenario{scenario_nr}_candles.json'
-    informant = FakeInformant(
+    informant = fakes.Informant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
         filters=Filters(
             price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
@@ -100,7 +100,7 @@ async def test_backtest_scenarios(loop, scenario_nr):
 
 
 async def test_paper(loop):
-    informant = FakeInformant(
+    informant = fakes.Informant(
         fees=Fees.none(),
         filters=Filters.none(),
         candles=[
@@ -121,11 +121,10 @@ async def test_paper(loop):
             Decimal(10): Decimal(2),  # 2.
         }
     }
-    orderbook = FakeOrderbook(
-        informant=informant,
-        orderbooks={'dummy': {'eth-btc': orderbook_data}},
-        update_on_find=True)
-    broker = FakeBroker(orderbook)
+    orderbook = fakes.Orderbook(
+        data={'dummy': {'eth-btc': orderbook_data}},
+    )
+    broker = fakes.Market(informant, orderbook, update_orderbook=True)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -140,7 +139,7 @@ async def test_paper(loop):
             'pos_threshold': Decimal(1),
             'persistence': 0
         },
-        'get_time': FakeTime()
+        'get_time': fakes.Time()
     }
 
     async with Paper(informant=informant, broker=broker) as agent:
@@ -152,7 +151,7 @@ async def test_paper(loop):
 
 
 async def test_live(loop):
-    informant = FakeInformant(
+    informant = fakes.Informant(
         fees=Fees.none(),
         filters=Filters.none(),
         candles=[
@@ -173,12 +172,9 @@ async def test_live(loop):
             Decimal(10): Decimal(2),  # 2.
         }
     }
-    orderbook = FakeOrderbook(
-        informant=informant,
-        orderbooks={'dummy': {'eth-btc': orderbook_data}},
-        update_on_find=True)
-    wallet = FakeWallet({'dummy': {'btc': Balance(available=Decimal(100), hold=Decimal(50))}})
-    broker = FakeBroker(orderbook)
+    orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
+    wallet = fakes.Wallet({'dummy': {'btc': Balance(available=Decimal(100), hold=Decimal(50))}})
+    broker = fakes.Market(informant, orderbook, update_orderbook=True)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -192,7 +188,7 @@ async def test_live(loop):
             'pos_threshold': Decimal(1),
             'persistence': 0
         },
-        'get_time': FakeTime()
+        'get_time': fakes.Time()
     }
 
     async with Live(informant, wallet, broker) as agent:
@@ -240,93 +236,3 @@ def test_summary():
         fills=Fills([Fill(*([Decimal(1)] * 3), 'eth')])
     ))
     json.dumps(summary, default=lambda o: o.__dict__, use_decimal=True)
-
-
-class FakeInformant:
-
-    def __init__(self, fees, filters, candles):
-        self.fees = fees
-        self.filters = filters
-        self.candles = candles
-
-    def get_fees(self, exchange, symbol):
-        return self.fees
-
-    def get_filters(self, exchange, symbol):
-        return self.filters
-
-    async def stream_candles(self, exchange, symbol, interval, start, end):
-        for candle in self.candles:
-            yield candle
-
-
-class FakeOrderbook(Orderbook):
-
-    def __init__(self, informant, orderbooks, update_on_find):
-        self._informant = informant
-        self._orderbooks = orderbooks
-        self._update_on_find = update_on_find
-
-    def find_order_asks(self, exchange, symbol, quote):
-        asks = super().find_order_asks(
-            exchange=exchange,
-            symbol=symbol,
-            quote=quote)
-        if self._update_on_find:
-            self._remove_from_side(self._orderbooks[exchange][symbol]['asks'], asks)
-        return asks
-
-    def find_order_bids(self, exchange, symbol, base):
-        bids = super().find_order_bids(
-            exchange=exchange,
-            symbol=symbol,
-            base=base)
-        if self._update_on_find:
-            self._remove_from_side(self._orderbooks[exchange][symbol]['bids'], bids)
-        return bids
-
-    def _remove_from_side(self, side, fills):
-        for fill in fills:
-            side[fill.price] -= fill.size
-            if side[fill.price] == Decimal(0):
-                del side[fill.price]
-
-
-class FakeWallet:
-
-    def __init__(self, exchange_balances):
-        self._exchange_balances = exchange_balances
-
-    def get_balance(self, exchange, asset):
-        return self._exchange_balances[exchange][asset]
-
-
-class FakeBroker:
-
-    def __init__(self, orderbook):
-        self._orderbook = orderbook
-
-    async def buy(self, exchange, symbol, quote, test):
-        fills = self._orderbook.find_order_asks(
-            exchange=exchange,
-            symbol=symbol,
-            quote=quote)
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
-
-    async def sell(self, exchange, symbol, base, test):
-        fills = self._orderbook.find_order_bids(
-            exchange=exchange,
-            symbol=symbol,
-            base=base)
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
-
-
-def FakeTime():
-    time = -1
-
-    def get_time():
-        nonlocal time
-        time += 1
-        return time
-
-    return get_time

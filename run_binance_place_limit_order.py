@@ -25,11 +25,10 @@ async def main() -> None:
     sqlite = SQLite()
     async with binance, memory, sqlite:
         informant = Informant(storage=sqlite, exchanges=[binance])
-        orderbook = Orderbook(informant=informant, exchanges=[binance], config={'symbol': SYMBOL})
+        orderbook = Orderbook(exchanges=[binance], config={'symbol': SYMBOL})
         wallet = Wallet(exchanges=[binance])
         async with informant, orderbook, wallet:
             filters = informant.get_filters(EXCHANGE, SYMBOL)
-            logging.info(filters)
 
             base_asset, quote_asset = unpack_symbol(SYMBOL)
             asks = orderbook.list_asks(EXCHANGE, SYMBOL)

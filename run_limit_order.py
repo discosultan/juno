@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import List
 
 from juno import Side
-from juno.brokers import Limit
+from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
 from juno.storages import Memory, SQLite
@@ -30,12 +30,13 @@ async def main() -> None:
     memory = Memory()
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=exchanges)
-    orderbook = Orderbook(informant=informant, exchanges=exchanges, config={'symbol': SYMBOL})
+    orderbook = Orderbook(exchanges=exchanges, config={'symbol': SYMBOL})
     wallet = Wallet(exchanges=exchanges)
+    market = Market(informant, orderbook, exchanges)
     limit = Limit(informant, orderbook, exchanges)
     async with binance, memory, sqlite, informant, orderbook, wallet:
         if SIDE is Side.BUY:
-            market_fills = orderbook.find_order_asks(
+            market_fills = market.find_order_asks(
                 exchange=EXCHANGE,
                 symbol=SYMBOL,
                 quote=QUOTE)
@@ -45,7 +46,7 @@ async def main() -> None:
                 quote=QUOTE,
                 test=False)
         else:
-            market_fills = orderbook.find_order_bids(
+            market_fills = market.find_order_bids(
                 exchange=EXCHANGE,
                 symbol=SYMBOL,
                 base=BASE)
