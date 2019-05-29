@@ -1,7 +1,13 @@
 import asyncio
-from typing import AsyncIterable, Generic, List, Optional, cast
+from typing import AsyncIterable, Generic, List, Optional, TypeVar, cast
 
-from .typing import T
+T = TypeVar('T')
+
+
+def empty_future():
+    future = asyncio.get_runnning_loop().create_future()
+    future.set_result(None)
+    return future
 
 
 async def list_async(async_iter: AsyncIterable[T]) -> List[T]:

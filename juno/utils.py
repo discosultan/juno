@@ -7,11 +7,11 @@ from collections import defaultdict
 from pathlib import Path
 from types import ModuleType
 from typing import (Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional,
-                    Set, Tuple, Type, Union, cast, get_type_hints)
+                    Set, Tuple, Type, TypeVar, Union, cast, get_type_hints)
 
 import backoff
 
-from .typing import T
+T = TypeVar('T')
 
 
 def merge_adjacent_spans(spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
@@ -117,6 +117,10 @@ def flatten(items: List[Union[T, List[T]]]) -> Iterable[T]:
 
 def ischild(child: type, parent: type) -> bool:
     return issubclass(child, parent) and child is not parent
+
+
+def map_module_types(module: ModuleType):
+    return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
 
 
 def map_dependencies(types: Iterable[type], dep_modules: List[ModuleType],

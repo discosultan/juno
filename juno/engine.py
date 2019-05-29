@@ -7,10 +7,12 @@ from types import FrameType
 from typing import Any, Dict, List
 
 import juno
-from juno.agents import map_agent_types
-from juno.config import init_type, list_names, load_from_env, load_from_json_file
+from juno.config import load_all_types, load_from_env, load_from_json_file, load_type
+from juno.di import Container
+from juno.exchanges import Exchange
 from juno.plugins import list_plugins
-from juno.utils import list_deps_in_init_order, map_dependencies
+from juno.storages import Storage
+from juno.utils import map_module_types
 
 _log = logging.getLogger(__name__)
 
@@ -33,47 +35,34 @@ async def engine() -> None:
         _log.info(f'log level set to: {log_level}')
 
         # Configure signals.
+        def handle_sigterm(signalnum: int, frame: FrameType) -> None:
+            _log.info(f'SIGTERM terminating the process')
+            sys.exit()
         signal.signal(signal.SIGTERM, handle_sigterm)
 
-        agent_type_map = map_agent_types(config)
+        # Configure deps.
+        container = Container()
+        container.add_singleton(Dict[str, Any], config)
+        container.add_singleton(Storage, load_type(config, Storage))
+        container.add_singleton(List[Exchange], load_all_types(config, Exchange))
 
-        def resolve_abstract(abstract: type, candidates: List[type]) -> List[type]:
-            abstract_name = abstract.__name__.lower()
-            return [c for c in candidates if
-                    c.__name__.lower() in list_names(config, abstract_name)]
+        # Load agents.
+        agent_types = map_module_types(juno.agents)
+        agent_config_map = {container.resolve(agent_types[c['name']]): c for c
+                            in config['agents']}
 
-        # Setup components used by agents.
-        dep_map = map_dependencies(
-            agent_type_map.values(),
-            [juno.brokers, juno.components, juno.exchanges, juno.storages],
-            resolve_abstract)
+        # Load plugins.
+        plugins = list_plugins(agent_config_map, config)
 
         async with AsyncExitStack() as stack:
-            components: Dict[str, Any] = {}
-            for deps in list_deps_in_init_order(dep_map):
-                to_init = []
-                for dep in (dep for dep in deps if dep not in agent_type_map.values()):
-                    component = init_type(dep, components, config)
-                    components[dep.__name__.lower()] = component
-                    to_init.append(component)
-                await asyncio.gather(*(stack.enter_async_context(c) for c in to_init))
 
-            # Setup agents.
-            agent_config_map = {
-                init_type(
-                    agent_type_map[agent_config['name']],
-                    components,
-                    {}): agent_config for agent_config in config['agents']
-            }
+            # Init all deps and plugins.
             await asyncio.gather(
-                *(stack.enter_async_context(agent) for agent in agent_config_map.keys()))
+                stack.enter_async_context(container),
+                *(stack.enter_async_context(p) for p in plugins))
 
-            # Setup plugins.
-            plugins = list_plugins(agent_config_map.items(), config)
-            await asyncio.gather(*(stack.enter_async_context(p) for p in plugins))
-
-            # Run configured agents.
-            await asyncio.gather(*(agent.start(ac) for agent, ac in agent_config_map.items()))
+            # Run agents.
+            await asyncio.gather(*(a.start(c) for a, c in agent_config_map))
 
         _log.info('main finished')
     except asyncio.CancelledError:
@@ -81,11 +70,6 @@ async def engine() -> None:
     except Exception:
         _log.exception('unhandled exception in main')
         raise
-
-
-def handle_sigterm(signalnum: int, frame: FrameType) -> None:
-    _log.info(f'SIGTERM terminating the process')
-    sys.exit()
 
 
 try:

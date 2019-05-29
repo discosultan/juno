@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from contextlib import AbstractAsyncContextManager
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 from juno import Candle, Span
-from juno.typing import ExcType, ExcValue, T, Traceback
+from juno.typing import ExcType, ExcValue, Traceback
+
+T = TypeVar('T')
 
 Key = Union[str, Tuple[Any, ...]]
 

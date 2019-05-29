@@ -20,6 +20,7 @@ _log = logging.getLogger(__name__)
 class Live(Agent):
 
     def __init__(self, informant: Informant, wallet: Wallet, broker: Broker) -> None:
+        super().__init__()
         self.informant = informant
         self.wallet = wallet
         self.broker = broker

@@ -20,6 +20,7 @@ _log = logging.getLogger(__name__)
 class Paper(Agent):
 
     def __init__(self, informant: Informant, broker: Broker) -> None:
+        super().__init__()
         self.informant = informant
         self.broker = broker
         self.open_position: Optional[Position] = None

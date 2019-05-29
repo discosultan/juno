@@ -17,6 +17,7 @@ _log = logging.getLogger(__name__)
 class Backtest(Agent):
 
     def __init__(self, informant: Informant) -> None:
+        super().__init__()
         self.informant = informant
         self.open_position: Optional[Position] = None
 

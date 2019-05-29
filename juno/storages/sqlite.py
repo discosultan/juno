@@ -1,19 +1,16 @@
-from __future__ import annotations
-
 import logging
 import sqlite3
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple, Type,
-                    Union, cast, get_type_hints)
+                    TypeVar, Union, cast, get_type_hints)
 
 import simplejson as json
 from aiosqlite import Connection, connect
 
 from juno import Candle, Span
 from juno.time import time_ms
-from juno.typing import T
 from juno.utils import home_path
 
 from .storage import Storage
@@ -22,6 +19,8 @@ _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
 _VERSION = 10
+
+T = TypeVar('T')
 
 Key = Union[str, Tuple[Any, ...]]
 Primitive = Union[bool, int, float, Decimal, str]

@@ -1,6 +1,7 @@
 import inspect
 import os
 import re
+import sys
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
@@ -8,8 +9,8 @@ import simplejson as json
 from dateutil.parser import isoparse  # type: ignore
 
 from juno.time import UTC, datetime_timestamp_ms, strpinterval
-from juno.typing import get_input_type_hints
-from juno.utils import ischild, recursive_iter
+from juno.typing import filter_member_args, get_input_type_hints
+from juno.utils import ischild, map_module_types, recursive_iter
 
 
 def load_from_env(env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
@@ -125,3 +126,22 @@ def init_type(type_: type, components: Dict[str, Any] = {}, config: Dict[str, An
         kwargs[dep_name] = value
 
     return type_(**kwargs)
+
+
+def load_all_types(config: Dict[str, Any], type_: type) -> List[Any]:
+    result = []
+    name = type_.__name__.lower()
+    module_types = map_module_types(sys.modules[type_.__module__])
+    for name in list_names(config, name):
+        type_ = module_types[name]
+        if not inspect.isabstract(type_):
+            result.append(load_type(config, type_))
+    return result
+
+
+def load_type(config: Dict[str, Any], type_: type) -> Any:
+    name = type_.__name__.lower()
+    if inspect.isabstract(type_):
+        type_ = map_module_types(sys.modules[type_.__module__])[config[name]]
+        name = type_.__name__.lower()
+    return type_(filter_member_args(type_.__init__, config[name]))  # type: ignore

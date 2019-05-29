@@ -47,8 +47,7 @@ async def test_backtest(loop):
         }
     }
 
-    async with Backtest(informant) as agent:
-        res = await agent.start(agent_config)
+    res = await Backtest(informant=informant).start(agent_config)
 
     assert res.profit == -50
     assert res.potential_hodl_profit == 100
@@ -95,8 +94,7 @@ async def test_backtest_scenarios(loop, scenario_nr):
         }
     }
 
-    async with Backtest(informant) as agent:
-        await agent.start(agent_config)
+    assert await Backtest(informant=informant).start(agent_config)
 
 
 async def test_paper(loop):
@@ -142,10 +140,7 @@ async def test_paper(loop):
         'get_time': fakes.Time()
     }
 
-    async with Paper(informant=informant, broker=broker) as agent:
-        res = await agent.start(agent_config)
-
-    assert res
+    assert await Paper(informant=informant, broker=broker).start(agent_config)
     assert len(orderbook_data['asks']) == 0
     assert len(orderbook_data['bids']) == 0
 
@@ -191,10 +186,7 @@ async def test_live(loop):
         'get_time': fakes.Time()
     }
 
-    async with Live(informant, wallet, broker) as agent:
-        res = await agent.start(agent_config)
-
-    assert res
+    assert await Live(informant=informant, wallet=wallet, broker=broker).start(agent_config)
     assert len(orderbook_data['asks']) == 0
     assert len(orderbook_data['bids']) == 0
 
@@ -218,7 +210,8 @@ def test_position():
     assert pos.duration == 1
     assert pos.start == 0
     assert pos.end == 1
-    # TODO: assert roi and yearly roi
+    assert pos.roi == Decimal('-0.75')
+    assert pos.annualized_roi == Decimal(-1)
 
 
 def test_summary():

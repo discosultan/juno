@@ -9,6 +9,7 @@ _strategies = {name.lower(): obj for name, obj
                in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
 
 
+# TODO: use a more generalized approach
 def new_strategy(config: Dict[str, Any]) -> Strategy:
     name = config['name']
     strategy_cls = _strategies.get(name)
