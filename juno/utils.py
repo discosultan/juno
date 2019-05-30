@@ -7,7 +7,7 @@ from collections import defaultdict
 from pathlib import Path
 from types import ModuleType
 from typing import (Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional,
-                    Set, Tuple, Type, TypeVar, Union, cast, get_type_hints)
+                    Tuple, Type, TypeVar, Union, cast)
 
 import backoff
 

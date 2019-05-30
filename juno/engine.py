@@ -7,6 +7,7 @@ from types import FrameType
 from typing import Any, Dict, List
 
 import juno
+from juno.agents import Agent
 from juno.config import load_all_types, load_from_env, load_from_json_file, load_type
 from juno.di import Container
 from juno.exchanges import Exchange
@@ -48,8 +49,8 @@ async def engine() -> None:
 
         # Load agents.
         agent_types = map_module_types(juno.agents)
-        agent_config_map = {container.resolve(agent_types[c['name']]): c for c
-                            in config['agents']}
+        agent_config_map: Dict[Agent, Dict[str, Any]] = {
+            container.resolve(agent_types[c['name']]): c for c in config['agents']}
 
         # Load plugins.
         plugins = list_plugins(agent_config_map, config)

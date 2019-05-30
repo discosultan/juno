@@ -4,7 +4,7 @@ import asyncio
 from collections import defaultdict
 from collections.abc import Hashable
 from contextlib import AbstractAsyncContextManager, AsyncExitStack
-from typing import Any, Dict, List, Set, Type, TypeVar, Optional
+from typing import Any, Dict, List, Optional, Set, Type, TypeVar
 
 from juno.utils import recursive_iter
 

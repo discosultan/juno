@@ -1,7 +1,4 @@
-import sys
-from abc import ABC, abstractmethod
 from statistics import mean
-from typing import List
 
 import pytest
 
