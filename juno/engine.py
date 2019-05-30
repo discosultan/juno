@@ -43,8 +43,8 @@ async def engine() -> None:
         # Configure deps.
         container = Container()
         container.add_singleton(Dict[str, Any], config)
-        container.add_singleton(Storage, load_type(config, Storage))
-        container.add_singleton(List[Exchange], load_all_types(config, Exchange))
+        container.add_singleton(Storage, load_type(Storage, config))
+        container.add_singleton(List[Exchange], load_all_types(Exchange, config))
 
         # Load agents.
         agent_types = map_module_types(juno.agents)
@@ -62,7 +62,7 @@ async def engine() -> None:
                 *(stack.enter_async_context(p) for p in plugins))
 
             # Run agents.
-            await asyncio.gather(*(a.start(c) for a, c in agent_config_map))
+            await asyncio.gather(*(a.start(c) for a, c in agent_config_map.items()))
 
         _log.info('main finished')
     except asyncio.CancelledError:

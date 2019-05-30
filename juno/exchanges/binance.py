@@ -8,14 +8,14 @@ import math
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional
 
 import aiohttp
 import simplejson as json
 
 from juno import (Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate,
                   DepthUpdateType, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType,
-                  OrderUpdate, Side, TimeInForce, Trade)
+                  OrderUpdate, Side, TimeInForce)
 from juno.asyncio import Event
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, ws_connect_with_refresh
@@ -298,12 +298,6 @@ class Binance(Exchange):
         if binance_error:
             raise NotImplementedError(f'No handling for binance error: {res}')
         return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
-
-    async def get_trades(self, symbol: str) -> List[Trade]:
-        url = f'/api/v3/myTrades?symbol={_http_symbol(symbol)}'
-        result = await self._request('GET', url, 5)
-        return [Trade(x['price'], x['qty'], x['commission'], x['commissionAsset'], x['isBuyer'])
-                for x in result]
 
     @asynccontextmanager
     async def stream_candles(self, symbol: str, interval: int, start: int, end: int

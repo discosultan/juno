@@ -9,8 +9,8 @@ import simplejson as json
 from dateutil.parser import isoparse  # type: ignore
 
 from juno.time import UTC, datetime_timestamp_ms, strpinterval
-from juno.typing import filter_member_args, get_input_type_hints
-from juno.utils import ischild, map_module_types, recursive_iter
+from juno.typing import filter_member_args
+from juno.utils import map_module_types, recursive_iter
 
 
 def load_from_env(env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
@@ -93,55 +93,27 @@ def _get(collection: Any, key: Any) -> Optional[Any]:
         return collection.get(key)
 
 
-def init_type(type_: type, components: Dict[str, Any] = {}, config: Dict[str, Any] = {}) -> Any:
-    kwargs = {}
-
-    # TODO: make use of assignment expression in py 3.8
-    for dep_name, dep_type in get_input_type_hints(type_.__init__).items():  # type: ignore
-        dep = next((c for c in components.values() if type(c) is dep_type), None)
-        if dep:
-            value = dep
-        elif inspect.isabstract(dep_type):
-            concretes = [c for c in components.values() if ischild(type(c), dep_type)]
-            if len(concretes) != 1:
-                raise NotImplementedError()
-            value = concretes[0]
-        elif dep_name == 'config':
-            value = config
-        elif dep_name == 'components':
-            value = components
-        else:
-            component_config = config.get(type_.__name__.lower(), {})
-            value = component_config.get(dep_name)
-            if not value:
-                origin = getattr(dep_type, '__origin__', None)
-                if origin is list:
-                    dep_type = dep_type.__args__[0]  # type: ignore
-                    value = [c for c in components.values() if ischild(type(c), dep_type)]
-                elif origin:
-                    raise NotImplementedError()
-                else:
-                    raise ValueError(f'Unable to resolve {dep_name}: {dep_type} input for {type_}')
-
-        kwargs[dep_name] = value
-
-    return type_(**kwargs)
-
-
-def load_all_types(config: Dict[str, Any], type_: type) -> List[Any]:
+def load_all_types(type_: type, config: Dict[str, Any]) -> List[Any]:
     result = []
     name = type_.__name__.lower()
-    module_types = map_module_types(sys.modules[type_.__module__])
+    module_types = _map_type_parent_module_types(type_)
     for name in list_names(config, name):
         type_ = module_types[name]
         if not inspect.isabstract(type_):
-            result.append(load_type(config, type_))
+            result.append(load_type(type_, config))
     return result
 
 
-def load_type(config: Dict[str, Any], type_: type) -> Any:
+def load_type(type_: type, config: Dict[str, Any]) -> Any:
     name = type_.__name__.lower()
     if inspect.isabstract(type_):
-        type_ = map_module_types(sys.modules[type_.__module__])[config[name]]
+        module_type_map = _map_type_parent_module_types(type_)
+        type_ = module_type_map[config[name]]
         name = type_.__name__.lower()
-    return type_(filter_member_args(type_.__init__, config[name]))  # type: ignore
+    return type_(**filter_member_args(type_.__init__, config.get(name, {})))  # type: ignore
+
+
+def _map_type_parent_module_types(type_: type) -> Dict[str, type]:
+    module_name = type_.__module__
+    parent_module_name = module_name[0:module_name.rfind('.')]
+    return map_module_types(sys.modules[parent_module_name])

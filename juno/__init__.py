@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-from collections import namedtuple
 from decimal import Decimal
 from enum import Enum
 from typing import List, NamedTuple, Optional, Tuple
 
 from juno.time import datetime_utcfromtimestamp_ms
-
-AccountInfo = namedtuple('AccountInfo', ['time', 'base_balance', 'quote_balance', 'fees'])
-Trade = namedtuple('Trade', ['price', 'size', 'commission', 'commission_asset', 'is_buyer'])
 
 
 class Balance(NamedTuple):

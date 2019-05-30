@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from collections.abc import Hashable
 from contextlib import AbstractAsyncContextManager, AsyncExitStack
-from typing import Any, Dict, List, Set, Type, TypeVar
+from typing import Any, Dict, List, Set, Type, TypeVar, Optional
 
 from .typing import ExcType, ExcValue, Traceback, get_input_type_hints
 
@@ -21,8 +22,8 @@ class Container:
 
     async def __aenter__(self) -> Container:
         await self._exit_stack.__aenter__()
-        dep_map = _map_dependencies(list(self._singletons.values()))
-        for deps in _list_deps_in_init_order(dep_map):
+        dep_map = map_dependencies(self._singletons)
+        for deps in list_dependencies_in_init_order(dep_map):
             await asyncio.gather(*(self._exit_stack.enter_async_context(d) for d in deps
                                  if isinstance(d, AbstractAsyncContextManager)))
         return self
@@ -51,35 +52,36 @@ class Container:
         return instance
 
 
-def _map_dependencies(instances: List[Any]) -> Dict[Any, List[Any]]:
-    graph: Dict[Any, List[Any]] = defaultdict(list)
+def map_dependencies(instances: Dict[Type[Any], Any], graph: Optional[Dict[Any, List[Any]]] = None
+                     ) -> Dict[Any, List[Any]]:
+    if not graph:
+        graph = defaultdict(list)
 
-    def fill_graph(instances: List[Any]) -> None:
-        for instance in instances:
-            if instance in graph:
-                continue
+    for type_, instance in instances.items():
+        if not isinstance(instance, Hashable):
+            continue
+        if instance in graph:
+            continue
 
-            deps: List[Any] = []
+        deps: Dict[Type[Any], Any] = {}
 
-            for t in get_input_type_hints(type(instance).__init__).values():  # type: ignore
+        for dep_type in get_input_type_hints(type_.__init__).values():  # type: ignore
+            dep = instances.get(dep_type)
+            if dep:
                 # Unwrap container types.
-                origin = getattr(t, '__origin__', None)
+                origin = getattr(dep_type, '__origin__', None)
                 if origin is list:
-                    t = t.__args__[0]  # type: ignore
-                dep = [i for i in instances if type(i) is t]
-                if len(dep) > 1:
-                    raise Exception()
-                if dep:
-                    deps.append(dep[0])
+                    deps.update({type(d): d for d in dep})
+                else:
+                    deps[dep_type] = dep
 
-            graph[instance] = deps
-            fill_graph(deps)
+        graph[instance] = list(deps.values())
+        map_dependencies(deps, graph)
 
-    fill_graph(instances)
     return graph
 
 
-def _list_deps_in_init_order(dep_map: Dict[Any, List[Any]]) -> List[List[Any]]:
+def list_dependencies_in_init_order(dep_map: Dict[Any, List[Any]]) -> List[List[Any]]:
     initialized: Set[Any] = set()
     tiers = []
     while len(initialized) < len(dep_map):

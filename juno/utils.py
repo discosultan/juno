@@ -105,6 +105,7 @@ def home_path() -> Path:
     return path
 
 
+# TODO: Use `recursive_iter` instead?
 # Ref: https://stackoverflow.com/a/10632356/1466456
 def flatten(items: List[Union[T, List[T]]]) -> Iterable[T]:
     for item in items:
@@ -115,66 +116,8 @@ def flatten(items: List[Union[T, List[T]]]) -> Iterable[T]:
             yield item
 
 
-def ischild(child: type, parent: type) -> bool:
-    return issubclass(child, parent) and child is not parent
-
-
-def map_module_types(module: ModuleType):
+def map_module_types(module: ModuleType) -> Dict[str, type]:
     return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
-
-
-def map_dependencies(types: Iterable[type], dep_modules: List[ModuleType],
-                     resolve_abstract: Optional[Callable[[type, List[type]], List[type]]] = None
-                     ) -> Dict[type, List[type]]:
-    graph: Dict[type, List[type]] = defaultdict(list)
-
-    all_deps = set((type_ for module in dep_modules
-                    for _name, type_ in inspect.getmembers(module, inspect.isclass)))
-
-    def fill_graph(types: Iterable[type]) -> None:
-        for type_ in types:
-            if type_ in graph:
-                continue
-
-            deps: List[type] = []
-
-            if inspect.isabstract(type_):
-                candidates = [d for d in all_deps if ischild(d, type_)]
-                if resolve_abstract:
-                    deps.extend(resolve_abstract(type_, candidates))
-                else:
-                    deps.extend(candidates)
-            else:
-                for t in get_type_hints(type_.__init__).values():  # type: ignore
-                    # Unwrap container types.
-                    origin = getattr(t, '__origin__', None)
-                    if origin is list:
-                        t = t.__args__[0]
-                    if t in all_deps:
-                        deps.append(t)
-
-            graph[type_] = deps
-            fill_graph(deps)
-
-    fill_graph(types)
-    return graph
-
-
-def list_deps_in_init_order(dep_map: Dict[type, List[type]]) -> List[List[type]]:
-    initialized: Set[type] = set()
-    tiers = []
-    while len(initialized) < len(dep_map):
-        tier = []
-        for type_, deps in dep_map.items():
-            if type_ in initialized:
-                continue
-            if all((dep in initialized for dep in deps)):
-                if not inspect.isabstract(type_):
-                    tier.append(type_)
-                initialized.add(type_)
-        if tier:
-            tiers.append(tier)
-    return tiers
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.

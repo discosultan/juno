@@ -1,23 +1,24 @@
 import itertools
+from contextlib import AbstractAsyncContextManager
 
-from juno.di import Container
+from juno import di
 
 counter = itertools.count(start=1)
 
 
 def test_resolve_no_deps():
-    container = Container()
+    container = di.Container()
     assert container.resolve(Foo)
 
 
 def test_resolve_implicit_dep():
     # Foo is resolved automatically as singleton.
-    container = Container()
+    container = di.Container()
     assert container.resolve(Bar)
 
 
 def test_resolve_added_dep():
-    container = Container()
+    container = di.Container()
     foo = Foo()
     container.add_singleton(Foo, foo)
     bar = container.resolve(Bar)
@@ -25,7 +26,7 @@ def test_resolve_added_dep():
 
 
 async def test_aenter():
-    container = Container()
+    container = di.Container()
     foo = Foo()
     container.add_singleton(Foo, foo)
     bar = Bar(foo)
@@ -36,7 +37,34 @@ async def test_aenter():
         assert foo.count == 1
 
 
-class Foo:
+def test_map_dependencies():
+    foo = Foo()
+    bar = Bar(foo)
+    baz = Baz(bar)
+    assert di.map_dependencies({Foo: foo, Bar: bar, Baz: baz}) == {
+        baz: [bar],
+        bar: [foo],
+        foo: []
+    }
+
+
+def test_list_dependencies_in_init_order():
+    foo = Foo()
+    bar = Bar(foo)
+    baz = Baz(bar)
+    dep_map = {
+        baz: [bar],
+        bar: [foo],
+        foo: []
+    }
+    assert di.list_dependencies_in_init_order(dep_map) == [
+        [foo],
+        [bar],
+        [baz]
+    ]
+
+
+class Foo(AbstractAsyncContextManager):
     count = 0
 
     async def __aenter__(self):
@@ -46,7 +74,7 @@ class Foo:
         pass
 
 
-class Bar:
+class Bar(AbstractAsyncContextManager):
     count = 0
 
     def __init__(self, foo: Foo) -> None:

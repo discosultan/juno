@@ -16,12 +16,11 @@ _log = logging.getLogger(__name__)
 
 class Optimize(Agent):
 
-    required_components = ['informant']
+    def __init__(self, informant: Informant):
+        self._informant = informant
 
     async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
                   strategy_cls: Type[Strategy], seed: Optional[int] = None) -> None:
-        informant: Informant = self.components['informant']
-
         # It's useful to set a seed for idempotent results. Useful for debugging.
         # seed = 42  # TODO TEMP
         if seed:

@@ -1,13 +1,13 @@
 import importlib
-from typing import Any, AsyncContextManager, Dict, Iterable, List, Tuple
+from typing import Any, AsyncContextManager, Dict, List
 
 from juno.agents import Agent
 
 
-# TODO: only supports loading a type of plugin once (not the same plugin with different configs)
-def list_plugins(agent_config_map: Iterable[Tuple[Agent, Dict[str, Any]]], config: Dict[str, Any]
+# Only supports loading a type of plugin once (not the same plugin with different configs).
+def list_plugins(agent_config_map: Dict[Agent, Dict[str, Any]], config: Dict[str, Any]
                  ) -> List[AsyncContextManager[None]]:
-    agent_plugin_names = {a: c.get('plugins', []) for a, c in agent_config_map}
+    agent_plugin_names = {a: c.get('plugins', []) for a, c in agent_config_map.items()}
 
     plugins = []
     for agent, plugin_names in agent_plugin_names.items():

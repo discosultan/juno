@@ -100,7 +100,7 @@ async def ws_connect_with_refresh(
                 timeout_task = asyncio.create_task(asyncio.sleep(interval))
                 while True:
                     receive_task = asyncio.create_task(ws.receive())
-                    done, pending = await asyncio.wait(
+                    done, _pending = await asyncio.wait(
                         [receive_task, timeout_task], return_when=asyncio.FIRST_COMPLETED)
 
                     if receive_task in done:
