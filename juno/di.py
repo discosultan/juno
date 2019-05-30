@@ -6,6 +6,8 @@ from collections.abc import Hashable
 from contextlib import AbstractAsyncContextManager, AsyncExitStack
 from typing import Any, Dict, List, Set, Type, TypeVar, Optional
 
+from juno.utils import recursive_iter
+
 from .typing import ExcType, ExcValue, Traceback, get_input_type_hints
 
 T = TypeVar('T')
@@ -69,11 +71,8 @@ def map_dependencies(instances: Dict[Type[Any], Any], graph: Optional[Dict[Any, 
             dep = instances.get(dep_type)
             if dep:
                 # Unwrap container types.
-                origin = getattr(dep_type, '__origin__', None)
-                if origin is list:
-                    deps.update({type(d): d for d in dep})
-                else:
-                    deps[dep_type] = dep
+                for _keys, sub_dep in recursive_iter(dep):
+                    deps[type(sub_dep)] = sub_dep
 
         graph[instance] = list(deps.values())
         map_dependencies(deps, graph)
