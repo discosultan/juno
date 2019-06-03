@@ -8,7 +8,9 @@ from typing import Any, Dict, List
 
 import juno
 from juno.agents import Agent
-from juno.config import load_all_types, load_from_env, load_from_json_file, load_type
+from juno.brokers import Broker
+from juno.config import (load_from_env, load_from_json_file, load_instance, load_instances,
+                         load_type)
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.plugins import list_plugins
@@ -43,9 +45,10 @@ async def engine() -> None:
 
         # Configure deps.
         container = Container()
-        container.add_singleton(Dict[str, Any], config)
-        container.add_singleton(Storage, load_type(Storage, config))
-        container.add_singleton(List[Exchange], load_all_types(Exchange, config))
+        container.add_singleton_instance(Dict[str, Any], lambda: config)
+        container.add_singleton_instance(Storage, lambda: load_instance(Storage, config))
+        container.add_singleton_instance(List[Exchange], lambda: load_instances(Exchange, config))
+        container.add_singleton_type(Broker, lambda: load_type(Broker, config))
 
         # Load agents.
         agent_types = map_module_types(juno.agents)

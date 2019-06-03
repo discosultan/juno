@@ -8,9 +8,10 @@ from juno.agents import Backtest, Live, Paper
 from juno.agents.summary import Position, TradingSummary
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
+from juno.utils import load_json_file
 
 from . import fakes
-from .utils import load_json_file, new_candle
+from .utils import new_candle
 
 
 async def test_backtest(loop):
@@ -66,14 +67,14 @@ async def test_backtest(loop):
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
 async def test_backtest_scenarios(loop, scenario_nr):
-    path = f'/data/backtest_scenario{scenario_nr}_candles.json'
+    path = f'./data/backtest_scenario{scenario_nr}_candles.json'
     informant = fakes.Informant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
         filters=Filters(
             price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
             size=Size(min=Decimal('0.00100000'), max=Decimal('100000.00000000'),
                       step=Decimal('0.00100000'))),
-        candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(path)))
+        candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(__file__, path)))
     )
     agent_config = {
         'name': 'backtest',

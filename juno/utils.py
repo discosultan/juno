@@ -4,12 +4,14 @@ import itertools
 import math
 import random
 from collections import defaultdict
+from os import path
 from pathlib import Path
 from types import ModuleType
 from typing import (Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional,
                     Tuple, Type, TypeVar, Union, cast)
 
 import backoff
+import simplejson as json
 
 T = TypeVar('T')
 
@@ -73,25 +75,15 @@ def retry_on(exception: Type[Exception],
                 backoff.on_exception(backoff.expo, exception, max_tries=max_tries))
 
 
-def gen_random_names() -> Iterator[str]:
-    random_words = [
-        'custumal', 'nummary', 'bamboozlement', 'bider', 'ellipticity', 'unscribbled', 'dampishly',
-        'insincerity', 'vaticide', 'qualifiedness', 'tolerableness', 'dolph', 'olethreutid',
-        'tensileness', 'besetment', 'suspiciousness', 'santander', 'stately', 'albategnius',
-        'repositories', 'delaine', 'surfaceless', 'prelusorily', 'loins', 'unneutralised',
-        'dropsy', 'poet', 'remodeling', 'intracellularly', 'strengtheningly', 'organography',
-        'romanticistic', 'exchangee', 'brawn', 'defilade', 'cowpox', 'serpent', 'arginine',
-        'unbroached', 'phdre', 'trustbuster', 'souter', 'deiced', 'multifistulous', 'ruffian',
-        'krupp', 'kerbaya', 'biddable', 'marcel', 'creneling', 'rev', 'untransposed', 'cordelle',
-        'encopresis', 'glykopexic', 'superabsurd', 'sanaa', 'deign', 'sternwheeler', 'katrine',
-        'afrasian', 'jeannette', 'seora', 'disrate', 'airdrie', 'regrow', 'endoperidium',
-        'strophoid', 'direst', 'justificative', 'iyyar', 'puss', 'stipulation', 'subsonic',
-        'hyman', 'unsour', 'popish', 'carrara', 'mtb', 'flashing', 'retotaled', 'remediably',
-        'telophasic', 'safford', 'suboxide', 'matchbox', 'preextinguish', 'uncobbled', 'stalinsk',
-        'bogarde', 'jerrid', 'recategorized', 'intercarotid', 'eurypterid', 'fluidics', 'charity',
-        'underwork', 'skill', 'actionable', 'judith'
-    ]
-    return itertools.cycle(sorted(iter(random_words), key=lambda _: random.random()))
+def gen_random_words(length: Optional[int] = None) -> Iterator[str]:
+    if length is not None and (length < 2 or 14 < length):
+        raise ValueError('Length must be between 2 and 14')
+
+    words = load_json_file(__file__, './data/words.json')
+    words = itertools.cycle(sorted(iter(words), key=lambda _: random.random()))
+    if length:
+        words = filter(lambda w: len(w) == length, words)
+    return words
 
 
 def unpack_symbol(symbol: str) -> Tuple[str, str]:
@@ -103,6 +95,15 @@ def home_path() -> Path:
     path = Path(Path.home(), '.juno')
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def full_path(root: str, rel_path: str) -> str:
+    return path.join(path.dirname(root), *filter(None, rel_path.split('/')))
+
+
+def load_json_file(root: str, rel_path: str) -> Any:
+    with open(full_path(root, rel_path)) as f:
+        return json.load(f, use_decimal=True)
 
 
 # TODO: Use `recursive_iter` instead?

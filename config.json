@@ -1,7 +1,6 @@
 {
     "log_level": "info",
     "storage": "sqlite",
-    "broker": "market",
     "agents": [
         {
             "name": "backtest",

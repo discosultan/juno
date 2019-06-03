@@ -7,9 +7,13 @@ from typing import Any, AsyncIterable, AsyncIterator, Callable, Optional
 
 import aiohttp
 
+from juno.utils import gen_random_words
+
 from .typing import ExcType, ExcValue, Traceback
 
 _aiohttp_log = logging.getLogger('aiohttp.client')
+
+_random_words = gen_random_words(length=6)
 
 
 # Adds logging to aiohttp client session.
@@ -33,7 +37,7 @@ class ClientSession:
     async def request(self, method: str, url: str, raise_for_status: Optional[bool] = None,
                       **kwargs: Any) -> AsyncIterator[aiohttp.ClientResponse]:
         req = self._session.request(method, url, **kwargs)
-        req_id = id(req)
+        req_id = next(_random_words)
         _aiohttp_log.info(f'Req {req_id} {method} {url}')
         _aiohttp_log.debug(kwargs)
         async with req as res:
@@ -50,34 +54,38 @@ class ClientSession:
     @asynccontextmanager
     async def ws_connect(self, url: str, **kwargs: Any
                          ) -> AsyncIterator[ClientWebSocketResponse]:
-        _aiohttp_log.info(f'WS {url}')
+        ws_id = next(_random_words)
+        _aiohttp_log.info(f'WS {ws_id} {url}')
         _aiohttp_log.debug(kwargs)
         async with self._session.ws_connect(url, **kwargs) as ws:
-            yield ClientWebSocketResponse(ws)
+            yield ClientWebSocketResponse(ws, ws_id)
 
 
 class ClientWebSocketResponse:
 
-    def __init__(self, client_ws_response: aiohttp.ClientWebSocketResponse) -> None:
+    def __init__(self, client_ws_response: aiohttp.ClientWebSocketResponse, ws_id: str) -> None:
         self._client_ws_response = client_ws_response
+        self._ws_id = ws_id
 
     def __aiter__(self) -> ClientWebSocketResponse:
         return self
 
     async def __anext__(self) -> aiohttp.WSMessage:
         msg = await self._client_ws_response.__anext__()
-        _aiohttp_log.debug(msg)
+        _aiohttp_log.debug(f'{self._ws_id} {msg}')
         return msg
 
     async def send_json(self, data: Any) -> None:
-        _aiohttp_log.debug(data)
+        _aiohttp_log.debug(f'{self._ws_id} {data}')
         await self._client_ws_response.send_json(data)
 
     async def close(self) -> None:
         await self._client_ws_response.close()
 
     async def receive(self) -> aiohttp.WSMessage:
-        return await self._client_ws_response.receive()
+        msg = await self._client_ws_response.receive()
+        _aiohttp_log.debug(f'{self._ws_id} {msg}')
+        return msg
 
 
 @asynccontextmanager

@@ -93,24 +93,29 @@ def _get(collection: Any, key: Any) -> Optional[Any]:
         return collection.get(key)
 
 
-def load_all_types(type_: type, config: Dict[str, Any]) -> List[Any]:
+def load_instances(type_: type, config: Dict[str, Any]) -> List[Any]:
     result = []
     name = type_.__name__.lower()
     module_types = _map_type_parent_module_types(type_)
     for name in list_names(config, name):
         type_ = module_types[name]
         if not inspect.isabstract(type_):
-            result.append(load_type(type_, config))
+            result.append(load_instance(type_, config))
     return result
 
 
-def load_type(type_: type, config: Dict[str, Any]) -> Any:
-    name = type_.__name__.lower()
+def load_instance(type_: type, config: Dict[str, Any]) -> Any:
     if inspect.isabstract(type_):
-        module_type_map = _map_type_parent_module_types(type_)
-        type_ = module_type_map[config[name]]
-        name = type_.__name__.lower()
+        type_ = load_type(type_, config)
+    name = type_.__name__.lower()
     return type_(**filter_member_args(type_.__init__, config.get(name, {})))  # type: ignore
+
+
+def load_type(type_: type, config: Dict[str, Any]) -> Any:
+    if not inspect.isabstract(type_):
+        raise ValueError()
+    module_type_map = _map_type_parent_module_types(type_)
+    return module_type_map[config[type_.__name__.lower()]]
 
 
 def _map_type_parent_module_types(type_: type) -> Dict[str, type]:

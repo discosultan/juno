@@ -5,11 +5,11 @@ from typing import Any, Awaitable, Callable, Dict
 
 from juno.asyncio import empty_future
 from juno.typing import filter_member_args
-from juno.utils import EventEmitter, gen_random_names
+from juno.utils import EventEmitter, gen_random_words
 
 _log = logging.getLogger(__name__)
 
-_random_names = gen_random_names()
+_random_names = gen_random_words()
 
 
 class Agent:

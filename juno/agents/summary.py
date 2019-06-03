@@ -170,6 +170,8 @@ class TradingSummary:
     @property
     def annualized_roi(self) -> Decimal:
         n = Decimal(self.duration) / YEAR_MS
+        if n == 0:
+            return Decimal(0)
         return (1 + self.roi)**(1 / n) - 1
 
     @property

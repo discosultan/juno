@@ -155,9 +155,7 @@ class Binance(Exchange):
 
             last_update_id = result['lastUpdateId']
             is_first_ws_message = True
-            async for msg in ws:
-                data = json.loads(msg.data)
-
+            async for data in ws:
                 if data['u'] <= last_update_id:
                     continue
 

@@ -6,7 +6,7 @@ import aiohttp
 import pytest
 
 from juno import OrderType, Side
-from juno.config import load_type
+from juno.config import load_instance
 from juno.exchanges import Binance, Coinbase
 from juno.time import HOUR_MS, UTC, datetime_timestamp_ms
 
@@ -122,7 +122,7 @@ def skip_exchange(exchange, *skip_exchange_types):
 @asynccontextmanager
 async def try_init_exchange(type_, config):
     try:
-        async with load_type(type_, config) as exchange:
+        async with load_instance(type_, config) as exchange:
             yield exchange
     except ValueError:
         yield None

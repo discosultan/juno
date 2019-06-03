@@ -17,24 +17,27 @@ def test_resolve_implicit_dep():
     assert container.resolve(Bar)
 
 
-def test_resolve_added_dep():
+def test_resolve_added_instance_dep():
     container = di.Container()
     foo = Foo()
-    container.add_singleton(Foo, foo)
+    container.add_singleton_instance(Foo, lambda: foo)
     bar = container.resolve(Bar)
     assert bar.foo == foo
 
 
+def test_resolve_added_type_dep():
+    container = di.Container()
+    container.add_singleton_type(Foo, lambda: Foo)
+    bar = container.resolve(Bar)
+    assert isinstance(bar.foo, Foo)
+
+
 async def test_aenter():
     container = di.Container()
-    foo = Foo()
-    container.add_singleton(Foo, foo)
-    bar = Bar(foo)
-    container.add_singleton(Bar, bar)
-    container.resolve(Baz)
+    baz = container.resolve(Baz)
     async with container:
-        assert bar.count == 2
-        assert foo.count == 1
+        assert baz.bar.foo.count == 1
+        assert baz.bar.count == 2
 
 
 def test_map_dependencies():
