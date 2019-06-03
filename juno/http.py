@@ -7,13 +7,13 @@ from typing import Any, AsyncIterable, AsyncIterator, Callable, Optional
 
 import aiohttp
 
-from juno.utils import gen_random_words
+from juno.utils import generate_random_words
 
 from .typing import ExcType, ExcValue, Traceback
 
 _aiohttp_log = logging.getLogger('aiohttp.client')
 
-_random_words = gen_random_words(length=6)
+_random_words = generate_random_words(length=6)
 
 
 # Adds logging to aiohttp client session.

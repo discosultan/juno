@@ -75,15 +75,20 @@ def retry_on(exception: Type[Exception],
                 backoff.on_exception(backoff.expo, exception, max_tries=max_tries))
 
 
-def gen_random_words(length: Optional[int] = None) -> Iterator[str]:
+_words = None
+
+
+def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
+    global _words
+
     if length is not None and (length < 2 or 14 < length):
         raise ValueError('Length must be between 2 and 14')
 
-    words = load_json_file(__file__, './data/words.json')
-    words = itertools.cycle(sorted(iter(words), key=lambda _: random.random()))
-    if length:
-        words = filter(lambda w: len(w) == length, words)
-    return words
+    if not _words:
+        _words = load_json_file(__file__, './data/words.json')
+        _words = itertools.cycle(sorted(iter(_words), key=lambda _: random.random()))
+
+    return filter(lambda w: len(w) == length, _words) if length else _words
 
 
 def unpack_symbol(symbol: str) -> Tuple[str, str]:
