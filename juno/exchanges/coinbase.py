@@ -14,7 +14,8 @@ from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 import simplejson as json
 
-from juno import Balance, CancelOrderResult, Candle, Fees, OrderType, Side, TimeInForce
+from juno import (Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderType, Side,
+                  TimeInForce)
 from juno.asyncio import Event
 from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
@@ -88,7 +89,7 @@ class Coinbase(Exchange):
         return result
 
     @asynccontextmanager
-    async def stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner() -> AsyncIterable[Dict[str, Balance]]:
             res = await self._private_request('GET', '/accounts')
             result = {}
@@ -102,8 +103,8 @@ class Coinbase(Exchange):
         yield inner()
 
     @asynccontextmanager
-    async def stream_candles(self, symbol: str, interval: int, start: int, end: int
-                             ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str, interval: int, start: int, end: int
+                                     ) -> AsyncIterator[AsyncIterable[Candle]]:
         async def inner() -> AsyncIterable[Candle]:
             current = floor_multiple(time_ms(), interval)
             if start < current:
@@ -191,7 +192,7 @@ class Coinbase(Exchange):
                 last_candle_map[product_id] = current_candle
 
     @asynccontextmanager
-    async def stream_depth(self, symbol: str):
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
         # TODO: await till stream open
         self._ensure_stream_open()
         if symbol not in self._stream_subscriptions.get('level2', []):
@@ -222,7 +223,7 @@ class Coinbase(Exchange):
         yield inner()
 
     @asynccontextmanager
-    async def stream_orders(self) -> AsyncIterator[AsyncIterable[Any]]:
+    async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[Any]]:
         raise NotImplementedError()
         yield
 

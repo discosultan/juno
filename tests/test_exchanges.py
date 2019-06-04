@@ -55,19 +55,19 @@ async def test_map_filters(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_stream_balances(loop, request, exchange):
+async def test_connect_stream_balances(loop, request, exchange):
     skip_non_configured(request, exchange)
-    async with exchange.stream_balances() as stream:
+    async with exchange.connect_stream_balances() as stream:
         await stream.__anext__()
 
 
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_stream_candles(loop, request, exchange):
+async def test_connect_stream_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
     start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
-    async with exchange.stream_candles(
+    async with exchange.connect_stream_candles(
             symbol='eth-btc',
             interval=HOUR_MS,
             start=start,
@@ -84,11 +84,10 @@ async def test_stream_candles(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_stream_depth(loop, request, exchange):
+async def test_connect_stream_depth(loop, request, exchange):
     skip_non_configured(request, exchange)
-    async with exchange.stream_depth('eth-btc') as stream:
-        res = await stream.__anext__()
-    assert res
+    async with exchange.connect_stream_depth('eth-btc') as stream:
+        assert await stream.__anext__()
 
 
 @pytest.mark.exchange

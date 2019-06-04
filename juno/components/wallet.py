@@ -43,7 +43,7 @@ class Wallet:
             raise
 
     async def _sync_balances(self, exchange: str) -> None:
-        async with self._exchanges[exchange].stream_balances() as balances_stream:
+        async with self._exchanges[exchange].connect_stream_balances() as balances_stream:
             async for balances in balances_stream:
                 self._exchange_balances[exchange] = balances
                 if not self._initial_balances_fetched.is_set():

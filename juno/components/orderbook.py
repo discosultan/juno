@@ -68,17 +68,17 @@ class Orderbook:
 
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         orderbook = self._data[exchange][symbol]
-        async with self._exchanges[exchange].stream_depth(symbol) as depth_stream:
-            async for val in depth_stream:
-                if val.type is DepthUpdateType.SNAPSHOT:
-                    orderbook['bids'] = {k: v for k, v in val.bids}
-                    orderbook['asks'] = {k: v for k, v in val.asks}
+        async with self._exchanges[exchange].connect_stream_depth(symbol) as stream:
+            async for depth_update in stream:
+                if depth_update.type is DepthUpdateType.SNAPSHOT:
+                    orderbook['bids'] = {k: v for k, v in depth_update.bids}
+                    orderbook['asks'] = {k: v for k, v in depth_update.asks}
                     orderbook.snapshot_received = True
                     self._initial_orderbook_fetched.release()
-                elif val.type is DepthUpdateType.UPDATE:
+                elif depth_update.type is DepthUpdateType.UPDATE:
                     assert orderbook.snapshot_received
-                    _update_orderbook_side(orderbook['bids'], val.bids)
-                    _update_orderbook_side(orderbook['asks'], val.asks)
+                    _update_orderbook_side(orderbook['bids'], depth_update.bids)
+                    _update_orderbook_side(orderbook['asks'], depth_update.asks)
                 else:
                     raise NotImplementedError()
                 orderbook.updated.set()

@@ -22,28 +22,28 @@ class Exchange(exchanges.Exchange):
         return self.filters
 
     @asynccontextmanager
-    async def stream_balances(self):
+    async def connect_stream_balances(self):
         async def inner():
             for balance in self.balances:
                 yield balance
         yield inner()
 
     @asynccontextmanager
-    async def stream_candles(self, symbol, interval, start, end):
+    async def connect_stream_candles(self, symbol, interval, start, end):
         async def inner():
             for c in (c for c in self.candles if c.time >= start and c.time < end):
                 yield c
         yield inner()
 
     @asynccontextmanager
-    async def stream_depth(self, symbol):
+    async def connect_stream_depth(self, symbol):
         async def inner():
             for depth in self.depths:
                 yield depth
         yield inner()
 
     @asynccontextmanager
-    async def stream_orders(self):
+    async def connect_stream_orders(self):
         async def inner():
             for order in self.orders:
                 yield order

@@ -14,7 +14,7 @@ async def main():
         start = floor_multiple(time_ms(), MIN_MS) - 2 * MIN_MS
         end = start + HOUR_MS
         logging.critical(f'start {start}')
-        async with client.stream_candles('eth-btc', MIN_MS, start, end) as stream:
+        async with client.connect_stream_candles('eth-btc', MIN_MS, start, end) as stream:
             # Historical.
             candle = await stream.asend(None)
             logging.critical(f'candle1 {candle.time} == {start}')

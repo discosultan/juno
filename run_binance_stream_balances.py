@@ -8,8 +8,9 @@ from juno.exchanges import Binance
 async def main():
     async with Binance(os.environ['JUNO__BINANCE__API_KEY'],
                        os.environ['JUNO__BINANCE__SECRET_KEY']) as client:
-        async for x in client.stream_balances():
-            logging.info(x)
+        async with client.connect_stream_balances() as stream:
+            async for balance in stream:
+                logging.info(balance)
 
 
 logging.basicConfig(level='DEBUG')

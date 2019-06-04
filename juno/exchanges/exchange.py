@@ -29,23 +29,23 @@ class Exchange(AbstractAsyncContextManager):
 
     @abstractmethod
     @asynccontextmanager
-    async def stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
 
     @abstractmethod
     @asynccontextmanager
-    async def stream_candles(self, symbol: str, interval: int, start: int, end: int
-                             ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str, interval: int, start: int, end: int
+                                     ) -> AsyncIterator[AsyncIterable[Candle]]:
         yield  # type: ignore
 
     @abstractmethod
     @asynccontextmanager
-    async def stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
         yield  # type: ignore
 
     @abstractmethod
     @asynccontextmanager
-    async def stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
+    async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         yield  # type: ignore
 
     @abstractmethod

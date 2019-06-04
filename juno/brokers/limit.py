@@ -43,7 +43,7 @@ class Limit:
         client_id = str(uuid.uuid4())
         fills = Fills()  # Fills from aggregated trades.
 
-        async with self._exchanges[exchange].stream_orders() as order_stream:
+        async with self._exchanges[exchange].connect_stream_orders() as stream:
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
                 self._keep_limit_order_best(
@@ -54,7 +54,7 @@ class Limit:
                     available=available))
 
             # Listens for fill events for an existing order.
-            async for order in order_stream:
+            async for order in stream:
                 if order.client_id != client_id:
                     continue
                 if order.symbol != symbol:

@@ -116,7 +116,7 @@ class Binance(Exchange):
         return result
 
     @asynccontextmanager
-    async def stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner() -> AsyncIterable[Dict[str, Balance]]:
             # Get initial status from REST API.
             res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
@@ -128,6 +128,10 @@ class Binance(Exchange):
             yield result
 
             # Stream future updates over WS.
+            # TODO: Note that someone else might consume the event data while we do the initial
+            # fetch request. This might require a more sophisticated tracking impl.
+            # For example, instead of pub/sub events, keep a queue of messages and deliver them
+            # based on timestamps.
             while True:
                 data = await self._balance_event.wait()
                 result = {}
@@ -141,7 +145,7 @@ class Binance(Exchange):
         yield inner()
 
     @asynccontextmanager
-    async def stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[DepthUpdate]:
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
             result = await self._request('GET', '/api/v1/depth', data={
@@ -178,7 +182,7 @@ class Binance(Exchange):
             yield inner(ws)
 
     @asynccontextmanager
-    async def stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
+    async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         async def inner() -> AsyncIterable[OrderUpdate]:
             while True:
                 data = await self._order_event.wait()
@@ -298,8 +302,8 @@ class Binance(Exchange):
         return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
 
     @asynccontextmanager
-    async def stream_candles(self, symbol: str, interval: int, start: int, end: int
-                             ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str, interval: int, start: int, end: int
+                                     ) -> AsyncIterator[AsyncIterable[Candle]]:
         current = floor_multiple(time_ms(), interval)
         future_stream = None
 
