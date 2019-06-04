@@ -89,12 +89,15 @@ class ClientWebSocketResponse:
 
 
 @asynccontextmanager
-async def ws_connect_with_refresh(
+async def connect_refreshing_stream(
         session: ClientSession,
         url: str,
         interval: int,
         loads: Callable[[str], Any],
         take_until: Callable[[Any, Any], bool]) -> AsyncIterator[AsyncIterable[Any]]:
+    """Streams messages over WebSocket. The connection is restarted every `interval` milliseconds.
+    Ensures no data is lost during restart when switching from one connection to another.
+    """
     conn = session.ws_connect(url)
     ws = await conn.__aenter__()
 

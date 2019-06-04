@@ -18,7 +18,7 @@ from juno import (Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUp
                   OrderUpdate, Side, TimeInForce)
 from juno.asyncio import Event
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
-from juno.http import ClientSession, ws_connect_with_refresh
+from juno.http import ClientSession, connect_refreshing_stream
 from juno.math import floor_multiple
 from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
@@ -176,7 +176,7 @@ class Binance(Exchange):
                 last_update_id = data['u']
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
-        async with self._ws_connect_with_refresh(
+        async with self._connect_refreshing_stream(
                 url=f'/ws/{_ws_symbol(symbol)}@depth',
                 interval=12 * HOUR_SEC) as ws:
             yield inner(ws)
@@ -232,7 +232,7 @@ class Binance(Exchange):
         try:
             bal_time, order_time = 0, 0
             # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
-            async with self._ws_connect_with_refresh(
+            async with self._connect_refreshing_stream(
                     url=f'/ws/{listen_key}',
                     interval=12 * HOUR_SEC) as ws:
                 connected.set()
@@ -356,7 +356,7 @@ class Binance(Exchange):
                 if candle.time >= end - interval and candle.closed:
                     break
 
-        async with self._ws_connect_with_refresh(
+        async with self._connect_refreshing_stream(
                 url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}',
                 interval=12 * HOUR_SEC) as ws:
             yield inner(ws)
@@ -418,9 +418,9 @@ class Binance(Exchange):
     # @asynccontextmanager
     # TODO: Figure out how to backoff an asynccontextmanager.
     # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
-    def _ws_connect_with_refresh(self, url: str, interval: int, **kwargs: Any
-                                 ) -> AsyncContextManager[AsyncIterable[Any]]:
-        return ws_connect_with_refresh(
+    def _connect_refreshing_stream(self, url: str, interval: int, **kwargs: Any
+                                   ) -> AsyncContextManager[AsyncIterable[Any]]:
+        return connect_refreshing_stream(
             self._session,
             url=_BASE_WS_URL + url,
             interval=interval,
