@@ -74,7 +74,8 @@ class SQLite(Storage):
             await self._ensure_table(db, Candle)
             try:
                 await db.executemany(
-                    f'INSERT INTO {Candle.__name__} VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    f"INSERT INTO {Candle.__name__} "
+                    f"VALUES ({', '.join(['?'] * len(get_type_hints(Candle)))})",
                     candles)
             except sqlite3.IntegrityError as err:
                 # TODO: Can we relax this constraint?

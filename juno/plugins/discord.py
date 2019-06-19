@@ -99,7 +99,6 @@ class Discord:
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def post_msg(self, msg: Any) -> None:
-        # TODO: wtf? # await self.ee.emit('discord_msg', msg)
         # Careful! Request is patched above. Make sure not to accidentally use post method.
         await asyncio.wait_for(self._last_sequence, timeout=self._timeout)
         await self._request(
