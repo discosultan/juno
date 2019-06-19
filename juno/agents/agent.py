@@ -25,7 +25,7 @@ class Agent:
     async def start(self, agent_config: Dict[str, Any]) -> Any:
         assert self.state is not AgentState.RUNNING
 
-        await self.ee.emit('starting', self)
+        await self.ee.emit('starting')
 
         self.state = AgentState.RUNNING
         type_name = type(self).__name__.lower()
@@ -34,8 +34,9 @@ class Agent:
             await self.run(**filter_member_args(self.run, agent_config))
         except asyncio.CancelledError:
             _log.info('agent cancelled')
-        except Exception:
+        except Exception as e:
             _log.exception('unhandled exception in agent')
+            await self.ee.emit('errored', e)
             raise
 
         _log.info('finalizing')

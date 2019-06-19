@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import traceback
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict, Optional
 
@@ -25,28 +26,44 @@ _log = logging.getLogger(__name__)
 @asynccontextmanager
 async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator[None]:
     ee = agent.ee
+    agent_type_name = type(agent).__name__.lower()
+
+    def format_action(action: str) -> str:
+        return f'Agent {agent.name} ({agent_type_name}) {action}.\n'
+
+    def format_block(title: str, content: str) -> str:
+        return f'{title}:\n```\n{content}\n```\n'
 
     async with Discord(
             token=plugin_config['token'],
-            channel_id=plugin_config['channel_id'][type(agent).__name__.lower()]) as client:
+            channel_id=plugin_config['channel_id'][agent_type_name]) as client:
+
+        @ee.on('starting')
+        async def on_starting() -> None:
+            await client.post_msg(format_action('starting'))
 
         @ee.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
-            await client.post_msg(f'Opened a position:\n```\n{pos}\n```\n'
-                                  f'Summary so far:\n```\n{agent.result}\n```')
+            await client.post_msg(format_action('opened a position') +
+                                  format_block('Position', str(pos)) +
+                                  format_block('Summary', str(agent.result)))
 
         @ee.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
-            await client.post_msg(f'Closed a position:\n```\n{pos}\n```\n'
-                                  f'Summary so far:\n```\n{agent.result}\n```')
+            await client.post_msg(format_action('closed a position') +
+                                  format_block('Position', str(pos)) +
+                                  format_block('Summary', str(agent.result)))
 
         @ee.on('finished')
         async def on_finished() -> None:
-            await client.post_msg(f'Agent finished. Summary:\n```\n{agent.result}\n```')
+            await client.post_msg(format_action('finished') +
+                                  format_block('Summary', str(agent.result)))
 
-        @ee.on('img_saved')
-        async def on_image_saved(path: str) -> None:
-            await client.post_img(path)
+        @ee.on('errored')
+        async def on_errored(_e: Exception) -> None:
+            await client.post_msg(format_action('errored') +
+                                  format_block('Exception', traceback.format_exc()) +
+                                  format_block('Summary', str(agent.result)))
 
         yield
 
