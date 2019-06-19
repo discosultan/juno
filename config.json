@@ -5,7 +5,7 @@
         {
             "name": "backtest",
             "exchange": "binance",
-            "symbol": "ada-btc",
+            "symbol": "eth-btc",
             "start": "2018-01-01",
             "end": "2019-04-29T10:00",
             "interval": "1h",
