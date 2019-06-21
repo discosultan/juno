@@ -1,4 +1,5 @@
 {
+    "log_format": "default",
     "log_level": "info",
     "storage": "sqlite",
     "agents": [

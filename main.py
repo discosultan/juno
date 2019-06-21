@@ -13,6 +13,7 @@ from juno.config import (load_from_env, load_from_json_file, load_instance, load
                          load_type)
 from juno.di import Container
 from juno.exchanges import Exchange
+from juno.logging import create_handler
 from juno.plugins import list_plugins
 from juno.storages import Storage
 from juno.utils import map_module_types
@@ -31,11 +32,12 @@ async def engine() -> None:
         config.update(load_from_env())
 
         # Configure logging.
-        log_level = config.get('log_level', 'INFO').upper()
+        log_level = config.get('log_level', 'info')
+        log_format = config.get('log_format', 'default')
         logging.basicConfig(
-            handlers=[logging.StreamHandler(stream=sys.stdout)],
-            level=logging.getLevelName(log_level))
-        _log.info(f'log level set to: {log_level}')
+            handlers=[create_handler(log_format)],
+            level=logging.getLevelName(log_level.upper()))
+        _log.info(f'log level: {log_level}; format: {log_format}')
 
         # Configure signals.
         def handle_sigterm(signalnum: int, frame: FrameType) -> None:
@@ -73,7 +75,7 @@ async def engine() -> None:
         _log.info('main task cancelled')
     except Exception:
         _log.exception('unhandled exception in main')
-        raise
+        sys.exit(1)
 
 
 try:

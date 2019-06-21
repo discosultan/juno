@@ -1,4 +1,5 @@
 {
+    "log_format": "azure",
     "log_level": "debug",
     "storage": "memory",
     "broker": "market",

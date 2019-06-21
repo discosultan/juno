@@ -1,4 +1,5 @@
 {
+    "log_format": "default",
     "log_level": "debug",
     "binance": {
         "api_key": "abc",
