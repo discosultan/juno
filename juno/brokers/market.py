@@ -83,6 +83,6 @@ class Market:
             test=test)
         if test:
             res = OrderResult(
-                status=OrderStatus.NOT_PLACED,
+                status=OrderStatus.FILLED,
                 fills=fills)
         return res

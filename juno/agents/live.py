@@ -41,14 +41,19 @@ class Live(Agent):
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         self.quote = self.wallet.get_balance(exchange, self.quote_asset).available
 
+        fees = self.informant.get_fees(exchange, symbol)
+        filters = self.informant.get_filters(exchange, symbol)
+
+        assert self.quote > filters.price.min
+
         self.result = TradingSummary(
             exchange=exchange,
             symbol=symbol,
             interval=interval,
             start=now,
             quote=self.quote,
-            fees=self.informant.get_fees(exchange, symbol),
-            filters=self.informant.get_filters(exchange, symbol))
+            fees=fees,
+            filters=filters)
         self.open_position = None
         restart_count = 0
 
@@ -62,8 +67,8 @@ class Live(Agent):
                 # Adjust start to accommodate for the required history before a strategy becomes
                 # effective. Only do it on first run because subsequent runs mean missed candles
                 # and we don't want to fetch passed a missed candle.
-                _log.info(f'fetching {strategy.req_history} candles before start time to warm-up '
-                          'strategy')
+                _log.info(f'fetching {strategy.req_history} candle(s) before start time to '
+                          'warm-up strategy')
                 start = now - strategy.req_history * interval
 
             async for candle in self.informant.stream_candles(

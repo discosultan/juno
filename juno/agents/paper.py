@@ -34,7 +34,11 @@ class Paper(Agent):
 
         now = floor_multiple(get_time(), interval)
         assert end > now
-        assert quote > 0
+
+        fees = self.informant.get_fees(exchange, symbol)
+        filters = self.informant.get_filters(exchange, symbol)
+
+        assert quote > filters.price.min
 
         self.exchange = exchange
         self.symbol = symbol
@@ -46,8 +50,8 @@ class Paper(Agent):
             interval=interval,
             start=now,
             quote=quote,
-            fees=self.informant.get_fees(exchange, symbol),
-            filters=self.informant.get_filters(exchange, symbol))
+            fees=fees,
+            filters=filters)
         self.open_position = None
         restart_count = 0
 
@@ -61,8 +65,8 @@ class Paper(Agent):
                 # Adjust start to accommodate for the required history before a strategy becomes
                 # effective. Only do it on first run because subsequent runs mean missed candles
                 # and we don't want to fetch passed a missed candle.
-                _log.info(f'fetching {strategy.req_history} candles before start time to warm-up '
-                          'strategy')
+                _log.info(f'fetching {strategy.req_history} candle(s) before start time to '
+                          'warm-up strategy')
                 start = now - strategy.req_history * interval
 
             async for candle in self.informant.stream_candles(

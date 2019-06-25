@@ -55,8 +55,8 @@ class Backtest(Agent):
                 # Adjust start to accommodate for the required history before a strategy becomes
                 # effective. Only do it on first run because subsequent runs mean missed candles
                 # and we don't want to fetch passed a missed candle.
-                _log.info(f'fetching {strategy.req_history} candles before start time to warm-up '
-                          'strategy')
+                _log.info(f'fetching {strategy.req_history} candle(s) before start time to '
+                          'warm-up strategy')
                 start -= strategy.req_history * interval
 
             async for candle in self.informant.stream_candles(
