@@ -347,10 +347,9 @@ class Binance(Exchange):
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for data in ws:
-                cd = data['k']
-
-                candle = Candle(cd['t'], Decimal(cd['o']), Decimal(cd['h']), Decimal(cd['l']),
-                                Decimal(cd['c']), Decimal(cd['v']), cd['x'])
+                c = data['k']
+                candle = Candle(c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']),
+                                Decimal(c['c']), Decimal(c['v']), c['x'])
                 yield candle
 
                 if candle.time >= end - interval and candle.closed:

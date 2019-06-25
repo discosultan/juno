@@ -102,7 +102,7 @@ class Market(brokers.Market):
             symbol=symbol,
             quote=quote)
         if self._update_orderbook:
-            self._remove_from_orderbook(self._orderbook._data[exchange][symbol]['asks'], fills)
+            self._remove_from_orderbook(exchange, symbol, 'asks', fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     async def sell(self, exchange, symbol, base, test):
@@ -111,14 +111,15 @@ class Market(brokers.Market):
             symbol=symbol,
             base=base)
         if self._update_orderbook:
-            self._remove_from_orderbook(self._orderbook._data[exchange][symbol]['bids'], fills)
+            self._remove_from_orderbook(exchange, symbol, 'bids', fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
-    def _remove_from_orderbook(self, side, fills):
+    def _remove_from_orderbook(self, exchange, symbol, side, fills):
+        orderbook_side = self._orderbook._data[exchange][symbol][side]
         for fill in fills:
-            side[fill.price] -= fill.size
-            if side[fill.price] == Decimal(0):
-                del side[fill.price]
+            orderbook_side[fill.price] -= fill.size
+            if orderbook_side[fill.price] == Decimal(0):
+                del orderbook_side[fill.price]
 
 
 def Time():
