@@ -1,6 +1,6 @@
 import asyncio
 
-from juno.asyncio import Barrier, Event, list_async
+from juno.asyncio import Barrier, Event, concat_async, list_async
 
 
 async def test_list_async(loop):
@@ -10,6 +10,18 @@ async def test_list_async(loop):
             yield i
 
     assert await list_async(gen()) == [0, 1, 2]
+
+
+async def test_concat_async(loop):
+
+    async def gen():
+        yield 1
+        yield 2
+
+    counter = 0
+    async for val in concat_async(0, gen()):
+        assert val == counter
+        counter += 1
 
 
 async def test_barrier(loop):

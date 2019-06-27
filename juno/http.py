@@ -9,6 +9,7 @@ import aiohttp
 
 from juno.utils import generate_random_words
 
+from .asyncio import concat_async
 from .typing import ExcType, ExcValue, Traceback
 
 _aiohttp_log = logging.getLogger('aiohttp.client')
@@ -114,25 +115,28 @@ async def connect_refreshing_stream(
                     done, _pending = await asyncio.wait(
                         [receive_task, timeout_task], return_when=asyncio.FIRST_COMPLETED)
 
-                    if receive_task in done:
-                        yield loads(_process_ws_msg(ws, receive_task.result()))
                     if timeout_task in done:
                         _aiohttp_log.info('refreshing ws connection')
                         to_close_conn = conn
                         to_close_ws = ws
                         conn = session.ws_connect(url)
                         ws = await conn.__aenter__()
-                        new_data = loads(_process_ws_msg(ws, await ws.receive()))
-                        async for old_msg in to_close_ws:
-                            old_data = loads(_process_ws_msg(to_close_ws, old_msg))
-                            if take_until(old_data, new_data):
-                                yield old_data
-                            else:
-                                break
-                        yield new_data
+
+                        if receive_task.done():
+                            new_data = loads(_process_ws_msg(ws, await ws.receive()))
+                            async for old_msg in concat_async(receive_task.result(), to_close_ws):
+                                old_data = loads(_process_ws_msg(to_close_ws, old_msg))
+                                if take_until(old_data, new_data):
+                                    yield old_data
+                                else:
+                                    break
+                            yield new_data
+
                         await to_close_ws.close()
                         await to_close_conn.__aexit__(None, None, None)
                         break
+
+                    yield loads(_process_ws_msg(ws, receive_task.result()))
         except asyncio.CancelledError:
             timeout_task.cancel()
             receive_task.cancel()

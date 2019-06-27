@@ -1,5 +1,5 @@
 import asyncio
-from typing import AsyncIterable, Generic, List, Optional, TypeVar, cast
+from typing import AsyncIterable, Generic, List, Optional, TypeVar, Union, cast
 
 T = TypeVar('T')
 
@@ -13,6 +13,15 @@ def empty_future():
 async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
     """Async equivalent to `list(iter)`."""
     return [item async for item in async_iter]
+
+
+async def concat_async(*args: Union[T, AsyncIterable[T]]) -> AsyncIterable[T]:
+    for arg in args:
+        if hasattr(arg, '__aiter__'):
+            async for val in arg:  # type: ignore
+                yield val
+        else:
+            yield arg  # type: ignore
 
 
 class Barrier:
