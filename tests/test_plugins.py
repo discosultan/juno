@@ -18,7 +18,7 @@ from .utils import new_candle
 async def test_discord(loop, request, config):
     skip_non_configured(request, config)
 
-    agent = Agent()
+    agent = Dummy()
     agent.result = get_dummy_trading_summary(quote=Decimal(1), interval=DAY_MS)
     async with discord.activate(agent, config['discord']):
         candle = new_candle(time=0, close=Decimal(1), volume=Decimal(10))
@@ -60,3 +60,7 @@ def get_dummy_trading_summary(quote=Decimal(1), interval=1):
         quote=quote,
         fees=Fees.none(),
         filters=Filters.none())
+
+
+class Dummy(Agent):
+    pass
