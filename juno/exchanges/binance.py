@@ -434,7 +434,9 @@ class Binance(Exchange):
             after = time_ms()
             # Assume response time is same as request time.
             delay = (after - before) // 2
-            self._time_diff = server_time - after - delay
+            local_time = before + delay
+            # Adjustment required converting from local time to server time.
+            self._time_diff = server_time - local_time
             _log.info(f'found {self._time_diff}ms time difference')
             # TODO: If we want to sync periodically, we should schedule a task on the event loop
             # to set self.sync_clock to None after a period of time. This will force re-sync.
