@@ -1,8 +1,8 @@
 from decimal import Decimal
 
-from juno import Candle
+from juno import Advice, Candle, Trend
 from juno.indicators import Ema
-from juno.utils import Trend
+from juno.utils import Persistence
 
 from .strategy import Strategy
 
@@ -22,7 +22,7 @@ class EmaEmaCX(Strategy):
         self._ema_long = Ema(long_period)
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
-        self._trend = Trend(persistence)
+        self._persistence = Persistence(level=persistence, allow_initial_trend=False)
         self._t = 0
         self._t1 = long_period - 1
 
@@ -30,19 +30,30 @@ class EmaEmaCX(Strategy):
     def req_history(self) -> int:
         return self._t1
 
-    def update(self, candle: Candle) -> int:
+    def update(self, candle: Candle) -> Advice:
         self._ema_short.update(candle.close)
         self._ema_long.update(candle.close)
 
-        trend_dir = 0
+        trend = Trend.UNKNOWN
         if self._t == self._t1:
             diff = 100 * (self._ema_short.value - self._ema_long.value) / ((
                 self._ema_short.value + self._ema_long.value) / 2)
 
             if diff > self._pos_threshold:
-                trend_dir = 1
+                trend = Trend.UP
             elif diff < self._neg_threshold:
-                trend_dir = -1
+                trend = Trend.DOWN
 
         self._t = min(self._t + 1, self._t1)
-        return self._trend.update(trend_dir)
+
+        return advice(*self._persistence.update(trend))
+
+
+def advice(trend: Trend, changed: bool) -> Advice:
+    advice = Advice.NONE
+    if changed:
+        if trend is Trend.UP:
+            advice = Advice.BUY
+        elif trend is Trend.DOWN:
+            advice = Advice.SELL
+    return advice

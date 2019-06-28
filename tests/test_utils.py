@@ -2,7 +2,7 @@ from statistics import mean
 
 import pytest
 
-from juno import utils
+from juno import Trend, utils
 
 
 @pytest.mark.parametrize('input,expected_output', [
@@ -62,65 +62,67 @@ def test_flatten():
     assert output == expected_output
 
 
-def test_trend_without_age_threshold():
-    trend = utils.Trend(0)
-    # Ensure advice skipped when starting in the middle of a trend.
-    assert trend.update(1) == 0
-    assert trend.update(1) == 0
-    # Ensure advice signaled on trend change.
-    assert trend.update(-1) == -1
-    assert trend.update(1) == 1
-    # Ensure advice not signaled twice for a trend.
-    assert trend.update(1) == 0
-    # Ensure when getting no trend direction and then receiving old
-    # direction again, advice is not signaled again.
-    assert trend.update(0) == 0
-    assert trend.update(1) == 0
-    # Ensure starting with no trend does not skip the initial trend.
-    trend = utils.Trend(0)
-    assert trend.update(0) == 0
-    assert trend.update(1) == 1
+def test_persistence_level_0_allow_initial_trend():
+    persistence = utils.Persistence(level=0, allow_initial_trend=True)
+    assert persistence.update(Trend.UP) == (Trend.UP, True)
+    assert persistence.update(Trend.UP) == (Trend.UP, False)
+    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
+    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, True)
+    assert persistence.update(Trend.UP) == (Trend.UP, True)
 
 
-def test_trend_with_age_threshold():
-    # Ensure advice is skipped when starting in the middle of a trend.
-    trend = utils.Trend(1)
-    assert trend.update(1) == 0
-    assert trend.update(1) == 0
-    # Ensure advice signaled after age threshold.
-    assert trend.update(-1) == 0
-    assert trend.update(-1) == -1
-    # Ensure moving out of trend and back to it does not re-signal the advice.
-    assert trend.update(0) == 0
-    assert trend.update(-1) == 0
-    assert trend.update(-1) == 0
-    # Ensure starting with a trend that hasn't passed age threshold does not skip the initial trend
-    # for opposite dir.
-    trend = utils.Trend(1)
-    assert trend.update(1) == 0
-    assert trend.update(-1) == 0
-    assert trend.update(-1) == -1
-    # Ensure starting with no trend does not skip the initial trend.
-    trend = utils.Trend(1)
-    assert trend.update(0) == 0
-    assert trend.update(1) == 0
-    assert trend.update(1) == 1
-    # Ensure that even if trend dir changes, if it has not passed the age threshold, going back to
-    # previous dir does not re-signal the advice.
-    assert trend.update(-1) == 0
-    assert trend.update(1) == 0
-    assert trend.update(1) == 0
-    # Ensure that even if trend is updated without dir, the age is still incremented for previous
-    # trend.
-    assert trend.update(-1) == 0
-    assert trend.update(0) == 0
-    assert trend.update(-1) == -1
-    # Ensure that even if trend is updated without dir and the age is incremented for previous
-    # trend above its threshold, going back to the dir signals advice.
-    assert trend.update(1) == 0
-    assert trend.update(0) == 0
-    assert trend.update(0) == 0
-    assert trend.update(1) == 1
+def test_persistence_level_0_disallow_initial_trend():
+    persistence = utils.Persistence(level=0, allow_initial_trend=False)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+
+
+def test_persistence_level_0_disallow_initial_trend_starting_with_unknown_does_not_skip_initial():
+    persistence = utils.Persistence(level=0, allow_initial_trend=False)
+    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.UP) == (Trend.UP, True)
+
+
+def test_persistence_level_1_allow_initial_trend():
+    persistence = utils.Persistence(level=1, allow_initial_trend=True)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.UP) == (Trend.UP, True)
+    assert persistence.update(Trend.UP) == (Trend.UP, False)
+    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
+    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
+    assert persistence.update(Trend.UNKNOWN) == (Trend.DOWN, False)
+    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, True)
+
+
+def test_persistence_level_1_disallow_initial_trend():
+    persistence = utils.Persistence(level=1, allow_initial_trend=False)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+
+
+def test_persistence_level_1_disallow_initial_trend_starting_with_unknown_does_not_skip_initial():
+    persistence = utils.Persistence(level=1, allow_initial_trend=False)
+    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.UP) == (Trend.UP, True)
+
+
+def test_persistence_level_1_disallow_initial_trend_starting_with_up_does_not_skip_initial():
+    persistence = utils.Persistence(level=1, allow_initial_trend=False)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.DOWN) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
+
+
+def test_persistence_level_1_allow_initial_trend_change_resets_age():
+    persistence = utils.Persistence(level=1, allow_initial_trend=True)
+    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    assert persistence.update(Trend.UP) == (Trend.UP, True)
+    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
+    assert persistence.update(Trend.UP) == (Trend.UP, False)
+    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
+    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
 
 
 def test_circular_buffer():

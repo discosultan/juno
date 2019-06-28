@@ -50,13 +50,14 @@ class Span(NamedTuple):
 
 
 class Advice(Enum):
-    LONG = 0
-    SHORT = 1
+    NONE = 0
+    BUY = 1
+    SELL = 2
 
 
 class Side(Enum):
-    BUY = 0
-    SELL = 1
+    ASK = 0
+    BID = 1
 
 
 class OrderType(Enum):
@@ -79,6 +80,12 @@ class TimeInForce(Enum):
     # If the entire Fill-or-Kill order does not execute as soon as it becomes available, the entire
     # order is canceled.
     FOK = 2
+
+
+class Trend(Enum):
+    UNKNOWN = 0
+    UP = 1
+    DOWN = 2
 
 
 class Fill(NamedTuple):

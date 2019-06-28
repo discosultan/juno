@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from juno import Candle, Fill, Fills
+from juno import Advice, Candle, Fill, Fills
 from juno.components import Informant
 from juno.strategies import new_strategy
 from juno.time import time_ms
@@ -84,11 +84,11 @@ class Backtest(Agent):
                 self.last_candle = candle
                 advice = strategy.update(candle)
 
-                if not self.open_position and advice == 1:
+                if not self.open_position and advice is Advice.BUY:
                     if not self._try_open_position(candle):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
-                elif self.open_position and advice == -1:
+                elif self.open_position and advice is Advice.SELL:
                     self._close_position(candle)
 
             if not restart:

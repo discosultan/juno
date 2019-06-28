@@ -98,7 +98,7 @@ async def test_place_order(loop, request, exchange):
     skip_exchange(exchange, Coinbase)
     await exchange.place_order(
         symbol='eth-btc',
-        side=Side.BUY,
+        side=Side.ASK,
         type_=OrderType.MARKET,
         size=Decimal(1),
         test=True)

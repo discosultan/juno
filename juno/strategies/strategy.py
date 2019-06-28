@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod, abstractproperty
 
-from juno import Candle
+from juno import Advice, Candle
 
 
 class Strategy(ABC):
@@ -10,5 +10,5 @@ class Strategy(ABC):
         pass
 
     @abstractmethod
-    def update(self, candle: Candle) -> int:
+    def update(self, candle: Candle) -> Advice:
         pass

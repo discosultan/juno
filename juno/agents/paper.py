@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional
 
 import simplejson as json
 
-from juno import Candle, OrderStatus
+from juno import Advice, Candle, OrderStatus
 from juno.brokers import Broker
 from juno.components import Informant
 from juno.math import floor_multiple
@@ -94,11 +94,11 @@ class Paper(Agent):
                 self.last_candle = candle
                 advice = strategy.update(candle)
 
-                if not self.open_position and advice == 1:
+                if not self.open_position and advice is Advice.BUY:
                     if not await self._try_open_position(candle):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
-                elif self.open_position and advice == -1:
+                elif self.open_position and advice is Advice.SELL:
                     await self._close_position(candle)
 
             if not restart:

@@ -10,6 +10,7 @@ from juno.strategies import Strategy
 from juno.utils import flatten
 
 from .agent import Agent
+from juno.typing import get_input_type_hints
 
 _log = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ class Optimize(Agent):
         toolbox.register('evaluate', problem)
 
         attrs = []
-        keys = list(strategy_cls.__init__.__annotations__.keys())
+        keys = list(get_input_type_hints(strategy_cls.__init__).keys())
         skip = 0
         for key in keys:
             if skip > 0:

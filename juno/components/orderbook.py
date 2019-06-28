@@ -7,7 +7,7 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
-from juno import DepthUpdateType
+from juno import DepthUpdateType, Side
 from juno.asyncio import Barrier, Event
 from juno.config import list_names
 from juno.exchanges import Exchange
@@ -51,10 +51,10 @@ class Orderbook:
         return self._data[exchange][symbol].updated
 
     def list_asks(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
-        return sorted(self._data[exchange][symbol]['asks'].items())
+        return sorted(self._data[exchange][symbol][Side.ASK].items())
 
     def list_bids(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
-        return sorted(self._data[exchange][symbol]['bids'].items(), reverse=True)
+        return sorted(self._data[exchange][symbol][Side.BID].items(), reverse=True)
 
     async def _sync_orderbooks(self) -> None:
         try:
@@ -71,14 +71,14 @@ class Orderbook:
         async with self._exchanges[exchange].connect_stream_depth(symbol) as stream:
             async for depth_update in stream:
                 if depth_update.type is DepthUpdateType.SNAPSHOT:
-                    orderbook['bids'] = {k: v for k, v in depth_update.bids}
-                    orderbook['asks'] = {k: v for k, v in depth_update.asks}
+                    orderbook[Side.ASK] = {k: v for k, v in depth_update.asks}
+                    orderbook[Side.BID] = {k: v for k, v in depth_update.bids}
                     orderbook.snapshot_received = True
                     self._initial_orderbook_fetched.release()
                 elif depth_update.type is DepthUpdateType.UPDATE:
                     assert orderbook.snapshot_received
-                    _update_orderbook_side(orderbook['bids'], depth_update.bids)
-                    _update_orderbook_side(orderbook['asks'], depth_update.asks)
+                    _update_orderbook_side(orderbook[Side.ASK], depth_update.asks)
+                    _update_orderbook_side(orderbook[Side.BID], depth_update.bids)
                 else:
                     raise NotImplementedError()
                 orderbook.updated.set()
@@ -97,7 +97,7 @@ def _update_orderbook_side(orderbook_side: Dict[Decimal, Decimal],
             pass
 
 
-class _OrderbookData(Dict[str, Dict[Decimal, Decimal]]):
+class _OrderbookData(Dict[Side, Dict[Decimal, Decimal]]):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

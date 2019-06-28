@@ -13,6 +13,8 @@ from typing import (Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator,
 import backoff
 import simplejson as json
 
+from juno import Trend
+
 T = TypeVar('T')
 
 
@@ -172,35 +174,35 @@ class LeakyBucket:
         self._level += amount
 
 
-class Trend:
+class Persistence:
+    """The number of ticks required to confirm a trend."""
 
-    def __init__(self, persistence: int) -> None:
+    def __init__(self, level: int, allow_initial_trend: bool = False) -> None:
         self.age = 0
-        self.persistence = persistence
-        self.last_dir = 0
-        self.last_advice = 0
-        self.initial_trend = True
+        self.level = level
+        self.allow_next_trend = allow_initial_trend
+        self.trend = Trend.UNKNOWN
+        self.potential_trend = Trend.UNKNOWN
 
-    def update(self, direction: int) -> int:
-        advice = 0
-        if direction == 0:
-            self.initial_trend = False
-        else:
-            if direction != self.last_dir:
-                self.age = 0
-                if self.last_dir != 0:
-                    self.initial_trend = False
-                self.last_dir = direction
+    def update(self, trend: Trend) -> Tuple[Trend, bool]:
+        trend_changed = False
 
-            if not self.initial_trend and self.age == self.persistence:
-                advice = 1 if direction == 1 else -1
-                if advice is self.last_advice:
-                    advice = 0
-                else:
-                    self.last_advice = advice
+        if trend is Trend.UNKNOWN or (self.potential_trend is not Trend.UNKNOWN and
+                                      trend is not self.potential_trend):
+            self.allow_next_trend = True
 
-            self.age += 1
-        return advice
+        if trend is not self.potential_trend:
+            self.age = 0
+            self.potential_trend = trend
+
+        if (self.allow_next_trend and self.age == self.level and
+                self.potential_trend is not self.trend):
+            self.trend = self.potential_trend
+            trend_changed = True
+
+        self.age += 1
+
+        return self.trend, trend_changed
 
 
 class CircularBuffer(Generic[T]):

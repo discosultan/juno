@@ -262,7 +262,7 @@ class Binance(Exchange):
             test: bool = True) -> OrderResult:
         data = {
             'symbol': _http_symbol(symbol),
-            'side': side.name,
+            'side': _side(side),
             'type': type_.name,
             'quantity': str(size)
         }
@@ -487,6 +487,13 @@ def _interval(interval: int) -> str:
         604_800_000: '1w',
         2_629_746_000: '1M',
     }[interval]
+
+
+def _side(side: Side) -> str:
+    return {
+        Side.ASK: 'BUY',
+        Side.BID: 'SELL'
+    }[side]
 
 
 def _from_order_status(status: str) -> OrderStatus:

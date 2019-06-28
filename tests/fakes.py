@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
-from juno import Fees, OrderResult, OrderStatus, brokers, components, exchanges
+from juno import Fees, OrderResult, OrderStatus, Side, brokers, components, exchanges
 from juno.filters import Filters
 
 
@@ -102,7 +102,7 @@ class Market(brokers.Market):
             symbol=symbol,
             quote=quote)
         if self._update_orderbook:
-            self._remove_from_orderbook(exchange, symbol, 'asks', fills)
+            self._remove_from_orderbook(exchange, symbol, Side.ASK, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     async def sell(self, exchange, symbol, base, test):
@@ -111,7 +111,7 @@ class Market(brokers.Market):
             symbol=symbol,
             base=base)
         if self._update_orderbook:
-            self._remove_from_orderbook(exchange, symbol, 'bids', fills)
+            self._remove_from_orderbook(exchange, symbol, Side.BID, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     def _remove_from_orderbook(self, exchange, symbol, side, fills):
