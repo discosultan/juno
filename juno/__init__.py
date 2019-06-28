@@ -56,8 +56,8 @@ class Advice(Enum):
 
 
 class Side(Enum):
-    ASK = 0
-    BID = 1
+    BID = 0
+    ASK = 1
 
 
 class OrderType(Enum):

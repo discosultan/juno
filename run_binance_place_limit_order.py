@@ -12,7 +12,7 @@ from juno.utils import unpack_symbol
 
 EXCHANGE = 'binance'
 TEST = False
-SIDE = Side.ASK
+SIDE = Side.BID
 SYMBOL = 'ada-btc'
 CLIENT_ID = 'foo'
 LOG_LEVEL = 'DEBUG'
@@ -34,7 +34,7 @@ async def main() -> None:
             asks = orderbook.list_asks(EXCHANGE, SYMBOL)
             bids = orderbook.list_bids(EXCHANGE, SYMBOL)
 
-            if SIDE is Side.ASK:
+            if SIDE is Side.BID:
                 balance = wallet.get_balance(EXCHANGE, quote_asset)
                 best_price, _ = bids[0]
                 price = best_price * Decimal('0.5')  # way shittier, so we dont fill
@@ -50,7 +50,7 @@ async def main() -> None:
 
             # DEBUG
             size = filters.size.min
-            if SIDE is Side.ASK:
+            if SIDE is Side.BID:
                 price = best_price * Decimal('1.2')  # way better, so we fill
             else:
                 price = best_price * Decimal('0.8')  # way better, so we fill

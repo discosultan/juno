@@ -13,7 +13,7 @@ from juno.utils import unpack_symbol
 
 EXCHANGE = 'binance'
 TEST = True
-SIDE = Side.BID
+SIDE = Side.ASK
 SYMBOL = 'ada-btc'
 
 
@@ -31,7 +31,7 @@ async def main() -> None:
         filters = informant.get_filters(EXCHANGE, SYMBOL)
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
-        if SIDE is Side.ASK:
+        if SIDE is Side.BID:
             balance = wallet.get_balance(EXCHANGE, quote_asset)
             logging.info(balance)
             fills = market.find_order_asks(
