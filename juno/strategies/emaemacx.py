@@ -1,6 +1,7 @@
+import operator
 from decimal import Decimal
 
-from juno import Advice, Candle, Trend
+from juno import Advice, Candle, Trend, math
 from juno.indicators import Ema
 from juno.utils import Persistence
 
@@ -30,6 +31,15 @@ class EmaEmaCX(Strategy):
     def req_history(self) -> int:
         return self._t1
 
+    @staticmethod
+    def meta():
+        return {
+            ('short_period', 'long_period'): math.random_int_pair(1, 50, operator.lt, 2, 100),
+            'neg_threshold': math.random_uniform(-1.0, -0.1),
+            'pos_threshold': math.random_uniform(0.1, 1.0),
+            'persistence': math.random_int(0, 10)
+        }
+
     def update(self, candle: Candle) -> Advice:
         self._ema_short.update(candle.close)
         self._ema_long.update(candle.close)
@@ -50,10 +60,7 @@ class EmaEmaCX(Strategy):
 
 
 def advice(trend: Trend, changed: bool) -> Advice:
-    advice = Advice.NONE
-    if changed:
-        if trend is Trend.UP:
-            advice = Advice.BUY
-        elif trend is Trend.DOWN:
-            advice = Advice.SELL
-    return advice
+    return {
+        Trend.UP: Advice.BUY,
+        Trend.DOWN: Advice.SELL
+    }.get(trend, Advice.NONE) if changed else Advice.NONE

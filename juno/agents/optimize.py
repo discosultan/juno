@@ -40,52 +40,24 @@ class Optimize(Agent):
         creator.create('FitnessMulti', base.Fitness, weights=weights)
         creator.create('Individual', list, fitness=creator.FitnessMulti)
 
-        # SHORT_PERIOD_MIN, SHORT_PERIOD_MAX = 1, 50
-        # LONG_PERIOD_MIN, LONG_PERIOD_MAX = 2, 100
-        # THRESHOLD_MIN, THRESHOLD_MAX = 0.1, 1.0
-        # PERSISTENCE_MIN, PERSISTENCE_MAX = 0, 10
+        # def attr_period() -> int:
+        #     return random.randint(1, 100)
 
-        def attr_period() -> int:
-            return random.randint(1, 100)
+        # def attr_neg_pos_thresholds() -> Tuple[float, float]:
+        #     down_threshold = random.uniform(-2.0, -0.1)
+        #     up_threshold = random.uniform(0.1, 2.0)
+        #     return down_threshold, up_threshold
 
-        def attr_short_long_periods() -> Tuple[int, int]:
-            # Variant A.
-            short_period, long_period = 0, 0
-            while long_period <= short_period:
-                short_period = random.randint(1, 50)
-                long_period = random.randint(2, 100)
+        # def attr_down_up_thresholds() -> Tuple[float, float]:
+        #     down_threshold = random.uniform(0.1, 0.4)
+        #     up_threshold = random.uniform(0.6, 0.9)
+        #     return down_threshold, up_threshold
 
-            # Variant B.
-            # short_period = random.randint(1, 50)
-            # long_period = random.randint(short_period + 1, 100)
+        # def attr_rsi_down_threshold() -> float:
+        #     return random.uniform(10.0, 40.0)
 
-            return short_period, long_period
-
-        # TODO: Decimal?
-        def attr_neg_pos_thresholds() -> Tuple[float, float]:
-            down_threshold = random.uniform(-2.0, -0.1)
-            up_threshold = random.uniform(0.1, 2.0)
-            return down_threshold, up_threshold
-
-        def attr_down_up_thresholds() -> Tuple[float, float]:
-            down_threshold = random.uniform(0.1, 0.4)
-            up_threshold = random.uniform(0.6, 0.9)
-            return down_threshold, up_threshold
-
-        def attr_threshold() -> float:
-            return random.uniform(0.1, 1.0)
-
-        def attr_neg_threshold() -> float:
-            return random.uniform(-1.0, -0.1)
-
-        def attr_persistence() -> int:
-            return random.randint(0, 10)
-
-        def attr_rsi_down_threshold() -> float:
-            return random.uniform(10.0, 40.0)
-
-        def attr_rsi_up_threshold() -> float:
-            return random.uniform(60.0, 90.0)
+        # def attr_rsi_up_threshold() -> float:
+        #     return random.uniform(60.0, 90.0)
 
         def result_fitness(result):
             return (
@@ -96,45 +68,20 @@ class Optimize(Agent):
                 result.mean_position_duration)
 
         def problem(individual):
-            return result_fitness(backtester.run(*flatten(individual)))
+            return result_fitness(backtester.run(*individual))
 
         toolbox = base.Toolbox()
         toolbox.register('evaluate', problem)
 
         attrs = []
-        keys = list(get_input_type_hints(strategy_cls.__init__).keys())
-        skip = 0
-        for key in keys:
-            if skip > 0:
-                skip -= 1
-                continue
 
-            if key.endswith('short_period'):
-                skip += 1
-                attrs.append(attr_short_long_periods)
-            elif key.endswith('period'):
-                attrs.append(attr_period)
-            elif key.endswith('neg_threshold'):
-                skip += 1
-                attrs.append(attr_neg_pos_thresholds)
-                # attrs.append(attr_neg_threshold)
-                # attrs.append(attr_threshold)
-            elif key.endswith('rsi_down_threshold'):
-                attrs.append(attr_rsi_down_threshold)
-            elif key.endswith('rsi_up_threshold'):
-                attrs.append(attr_rsi_up_threshold)
-            elif key.endswith('down_threshold'):
-                skip += 1
-                attrs.append(attr_down_up_thresholds)
-            # elif key.endswith('threshold'):
-            #     attrs.append(attr_threshold)
-            elif key.endswith('persistence'):
-                attrs.append(attr_persistence)
-            else:
-                raise Exception(f'unknown strategy parameter ({key})')
+        # TODO: validate against __init__ input args.
+        # keys = list(get_input_type_hints(strategy_cls.__init__).keys())
+        for keys, f in strategy_cls.meta().items():
+            attrs.append(f(random))
 
         def strategy_args():
-            return [a() for a in attrs]
+            return flatten([a() for a in attrs])
 
         toolbox.register('strategy_args', strategy_args)
         toolbox.register('individual', tools.initIterate, creator.Individual, toolbox.strategy_args)
