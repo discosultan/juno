@@ -123,5 +123,5 @@ async def try_init_exchange(type_, config):
     try:
         async with load_instance(type_, config) as exchange:
             yield exchange
-    except ValueError:
+    except TypeError:
         yield None
