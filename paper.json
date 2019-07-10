@@ -1,6 +1,6 @@
 {
     "log_format": "azure",
-    "log_level": "debug",
+    "log_level": "info",
     "storage": "memory",
     "broker": "market",
     "agents": [

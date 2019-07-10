@@ -141,7 +141,7 @@ class Discord:
                                 }
                             })
                         elif data['op'] == 11:  # Heartbeat ACK.
-                            _log.info('acknowledged heartbeat')
+                            _log.debug('acknowledged heartbeat')
                         elif data['op'] >= 4000:
                             _log.error(f'gateway closed ({data})')
         except asyncio.CancelledError:
