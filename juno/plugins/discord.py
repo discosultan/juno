@@ -29,8 +29,8 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
     def format_action(action: str) -> str:
         return f'{type(agent).__name__} agent {agent.name} {action}.\n'
 
-    def format_block(title: str, content: str) -> str:
-        return f'{title}:\n```\n{content}\n```\n'
+    def format_block(title: str, content: str, lang: str = '') -> str:
+        return f'{title}:\n```{lang}\n{content}\n```\n'
 
     async with Discord(
             token=plugin_config['token'],
@@ -39,7 +39,8 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
         @agent.ee.on('starting')
         async def on_starting(agent_config: Dict[str, Any]) -> None:
             await client.post_msg(format_action('starting') +
-                                  format_block('Config', str(agent_config)))
+                                  format_block('Config', json.dumps(agent_config, indent=4),
+                                               lang='json'))
 
         @agent.ee.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
