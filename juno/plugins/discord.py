@@ -37,8 +37,9 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
             channel_id=plugin_config['channel_id'][type(agent).__name__.lower()]) as client:
 
         @agent.ee.on('starting')
-        async def on_starting() -> None:
-            await client.post_msg(format_action('starting'))
+        async def on_starting(agent_config: Dict[str, Any]) -> None:
+            await client.post_msg(format_action('starting') +
+                                  format_block('Config', str(agent_config)))
 
         @agent.ee.on('position_opened')
         async def on_position_opened(pos: Position) -> None:

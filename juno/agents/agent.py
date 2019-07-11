@@ -25,7 +25,7 @@ class Agent:
     async def start(self, agent_config: Dict[str, Any]) -> Any:
         assert self.state is not AgentState.RUNNING
 
-        await self.ee.emit('starting')
+        await self.ee.emit('starting', agent_config)
 
         self.state = AgentState.RUNNING
         type_name = type(self).__name__.lower()
