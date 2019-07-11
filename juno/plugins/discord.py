@@ -4,7 +4,8 @@ import asyncio
 import logging
 import traceback
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict, Optional
+from types import TracebackType
+from typing import Any, AsyncIterator, Dict, Optional, Type
 
 import aiohttp
 import simplejson as json
@@ -60,9 +61,13 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
                                   format_block('Summary', str(agent.result)))
 
         @agent.ee.on('errored')
-        async def on_errored(_e: Exception) -> None:
+        async def on_errored(
+                exc_type: Type[BaseException],
+                exc_value: BaseException,
+                tb: TracebackType) -> None:
+            exc_msg_list = traceback.format_exception(exc_type, exc_value, tb)
             await client.post_msg(format_action('errored') +
-                                  format_block('Exception', traceback.format_exc()) +
+                                  format_block('Exception', ''.join(exc_msg_list)) +
                                   format_block('Summary', str(agent.result)))
 
         yield

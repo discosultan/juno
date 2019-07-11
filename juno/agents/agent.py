@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 from enum import Enum
 from typing import Any, Awaitable, Callable, Dict
 
@@ -34,9 +35,9 @@ class Agent:
             await self.run(**filter_member_args(self.run, agent_config))
         except asyncio.CancelledError:
             _log.info('agent cancelled')
-        except Exception as e:
+        except Exception:
             _log.exception('unhandled exception in agent')
-            await self.ee.emit('errored', e)
+            await self.ee.emit('errored', *sys.exc_info())
             raise
 
         _log.info('finalizing')

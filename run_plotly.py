@@ -6,7 +6,6 @@ from datetime import datetime
 
 import plotly.graph_objs as go
 import plotly.offline as py
-
 from juno.asyncio import list_async
 from juno.components import Informant
 from juno.exchanges import Binance, Coinbase

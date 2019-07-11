@@ -7,10 +7,10 @@ from deap import algorithms, base, creator, tools
 
 from juno.components import Informant
 from juno.strategies import Strategy
+from juno.typing import get_input_type_hints
 from juno.utils import flatten
 
 from .agent import Agent
-from juno.typing import get_input_type_hints
 
 _log = logging.getLogger(__name__)
 
