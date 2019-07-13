@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, AsyncIterable, Awaitable, Callable, Dict, List, Type, TypeVar, cast
+from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, List, Optional, Type, TypeVar,
+                    cast)
 
 from juno import Candle, Fees, Span
 from juno.asyncio import list_async
@@ -137,9 +138,10 @@ class Informant:
             _log.exception(f'unhandled exception in {type_name} sync task')
             raise
 
-    async def _sync_data(self, exchange: str, type_: type, fetch: FetchMap) -> None:
+    async def _sync_data(self, exchange: str, type_: Type[T], fetch: FetchMap) -> None:
         now = time_ms()
         type_name = type_.__name__.lower()
+        data: Optional[Dict[str, T]]
         data, updated = await self._storage.get_map(exchange, type_)
         if not data or not updated or now >= updated + DAY_MS:
             _log.info(f'fetching data for {type_name} from exchange')
