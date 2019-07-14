@@ -49,9 +49,11 @@ async def test_get_fees(loop, exchange_fees_key):
 async def test_get_filters(loop, exchange_filters_key):
     filters = Filters(
         price=Price(min=Decimal(1), max=Decimal(1), step=Decimal(1)),
-        size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1)))
-    async with init_informant(fakes.Exchange(filters={exchange_filters_key: filters})
-                              ) as informant:
+        size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1))
+    )
+    async with init_informant(
+        fakes.Exchange(filters={exchange_filters_key: filters})
+    ) as informant:
         out_filters = informant.get_filters('exchange', 'eth-btc')
         assert out_filters == filters
 
@@ -61,7 +63,8 @@ async def test_list_asks_bids(loop):
         DepthUpdate(
             type=DepthUpdateType.SNAPSHOT,
             asks=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
-            bids=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))])
+            bids=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))]
+        )
     ]
     async with init_orderbook(fakes.Exchange(depths=depths)) as orderbook:
         asks = orderbook.list_asks(exchange='exchange', symbol='eth-btc')

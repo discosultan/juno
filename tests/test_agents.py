@@ -19,7 +19,8 @@ async def test_backtest(loop):
         fees=Fees(Decimal(0), Decimal(0)),
         filters=Filters(
             price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
-            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))),
+            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))
+        ),
         candles=[
             new_candle(time=0, close=Decimal(5)),
             new_candle(time=1, close=Decimal(10)),
@@ -30,7 +31,8 @@ async def test_backtest(loop):
             new_candle(time=4, close=Decimal(40)),
             # Long. Size 5.
             new_candle(time=5, close=Decimal(10))
-        ])
+        ]
+    )
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -72,8 +74,12 @@ async def test_backtest_scenarios(loop, scenario_nr):
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
         filters=Filters(
             price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
-            size=Size(min=Decimal('0.00100000'), max=Decimal('100000.00000000'),
-                      step=Decimal('0.00100000'))),
+            size=Size(
+                min=Decimal('0.00100000'),
+                max=Decimal('100000.00000000'),
+                step=Decimal('0.00100000')
+            )
+        ),
         candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(__file__, path)))
     )
     agent_config = {
@@ -103,13 +109,14 @@ async def test_paper(loop):
         fees=Fees.none(),
         filters=Filters.none(),
         candles=[
-            new_candle(time=0, close=Decimal(5),),
-            new_candle(time=1, close=Decimal(10),),
+            new_candle(time=0, close=Decimal(5)),
+            new_candle(time=1, close=Decimal(10)),
             # 1. Long. Size 5 + 1.
             new_candle(time=2, close=Decimal(30)),
             new_candle(time=3, close=Decimal(20)),
             # 2. Short. Size 4 + 2.
-        ])
+        ]
+    )
     orderbook_data = {
         Side.BID: {
             Decimal(10): Decimal(5),  # 1.
@@ -120,9 +127,7 @@ async def test_paper(loop):
             Decimal(10): Decimal(2),  # 2.
         }
     }
-    orderbook = fakes.Orderbook(
-        data={'dummy': {'eth-btc': orderbook_data}},
-    )
+    orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}}, )
     broker = fakes.Market(informant, orderbook, update_orderbook=True)
     agent_config = {
         'exchange': 'dummy',
@@ -157,7 +162,8 @@ async def test_live(loop):
             new_candle(time=2, close=Decimal(30)),
             new_candle(time=3, close=Decimal(20)),
             # 2. Short. Size 4 + 2.
-        ])
+        ]
+    )
     orderbook_data = {
         Side.BID: {
             Decimal(10): Decimal(5),  # 1.
@@ -195,14 +201,12 @@ async def test_live(loop):
 def test_position():
     pos = Position(
         time=0,
-        fills=Fills([
-            Fill(price=Decimal(2), size=Decimal(6), fee=Decimal(2), fee_asset='btc')
-        ]))
+        fills=Fills([Fill(price=Decimal(2), size=Decimal(6), fee=Decimal(2), fee_asset='btc')])
+    )
     pos.close(
         time=1,
-        fills=Fills([
-            Fill(price=Decimal(2), size=Decimal(2), fee=Decimal(1), fee_asset='eth')
-        ]))
+        fills=Fills([Fill(price=Decimal(2), size=Decimal(2), fee=Decimal(1), fee_asset='eth')])
+    )
 
     assert pos.cost == Decimal(12)  # 6 * 2
     assert pos.gain == Decimal(3)  # 2 * 2 - 1
@@ -223,10 +227,8 @@ def test_summary():
         start=0,
         quote=Decimal(100),
         fees=Fees.none(),
-        filters=Filters.none())
+        filters=Filters.none()
+    )
     summary.append_candle(new_candle())
-    summary.append_position(Position(
-        time=0,
-        fills=Fills([Fill(*([Decimal(1)] * 3), 'eth')])
-    ))
+    summary.append_position(Position(time=0, fills=Fills([Fill(*([Decimal(1)] * 3), 'eth')])))
     json.dumps(summary, default=lambda o: o.__dict__, use_decimal=True)

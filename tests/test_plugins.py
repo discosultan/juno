@@ -25,17 +25,15 @@ async def test_discord(loop, request, config):
         agent.result.append_candle(candle)
         pos = Position(
             time=candle.time,
-            fills=Fills([
-                Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='btc')
-            ]))
+            fills=Fills([Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='btc')])
+        )
         await agent.ee.emit('position_opened', pos)
         candle = new_candle(time=DAY_MS, close=Decimal(2), volume=Decimal(10))
         agent.result.append_candle(candle)
         pos.close(
             time=candle.time,
-            fills=Fills([
-                Fill(price=Decimal(2), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
-            ]))
+            fills=Fills([Fill(price=Decimal(2), size=Decimal(1), fee=Decimal(0), fee_asset='eth')])
+        )
         agent.result.append_position(pos)
         await agent.ee.emit('position_closed', pos)
         await agent.ee.emit('finished')
@@ -59,7 +57,8 @@ def get_dummy_trading_summary(quote=Decimal(1), interval=1):
         start=0,
         quote=quote,
         fees=Fees.none(),
-        filters=Filters.none())
+        filters=Filters.none()
+    )
 
 
 class Dummy(Agent):

@@ -68,10 +68,8 @@ async def test_connect_stream_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
     start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
     async with exchange.connect_stream_candles(
-            symbol='eth-btc',
-            interval=HOUR_MS,
-            start=start,
-            end=start + HOUR_MS) as stream:
+        symbol='eth-btc', interval=HOUR_MS, start=start, end=start + HOUR_MS
+    ) as stream:
         candle = await stream.__anext__()
 
     assert isinstance(candle.time, int)
@@ -97,11 +95,8 @@ async def test_place_order(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Coinbase)
     await exchange.place_order(
-        symbol='eth-btc',
-        side=Side.BID,
-        type_=OrderType.MARKET,
-        size=Decimal(1),
-        test=True)
+        symbol='eth-btc', side=Side.BID, type_=OrderType.MARKET, size=Decimal(1), test=True
+    )
 
 
 def skip_non_configured(request, exchange):

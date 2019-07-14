@@ -4,7 +4,6 @@ from juno.asyncio import Barrier, Event, concat_async, list_async
 
 
 async def test_list_async(loop):
-
     async def gen():
         for i in range(3):
             yield i
@@ -13,7 +12,6 @@ async def test_list_async(loop):
 
 
 async def test_concat_async(loop):
-
     async def gen():
         yield 1
         yield 2

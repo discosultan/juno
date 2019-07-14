@@ -5,18 +5,18 @@ import pytest
 from juno import Trend, utils
 
 
-@pytest.mark.parametrize('input,expected_output', [
-    ([(0, 1), (1, 2), (3, 4), (4, 5)], [(0, 2), (3, 5)])
-])
+@pytest.mark.parametrize(
+    'input,expected_output', [([(0, 1), (1, 2), (3, 4), (4, 5)], [(0, 2), (3, 5)])]
+)
 def test_merge_adjacent_spans(input, expected_output):
     output = list(utils.merge_adjacent_spans(input))
     assert output == expected_output
 
 
-@pytest.mark.parametrize('start,end,spans,expected_output', [
-    (0, 5, [(1, 2), (3, 4)], [(0, 1), (2, 3), (4, 5)]),
-    (2, 5, [(1, 3), (4, 6)], [(3, 4)])
-])
+@pytest.mark.parametrize(
+    'start,end,spans,expected_output', [(0, 5, [(1, 2), (3, 4)], [(0, 1), (2, 3), (4, 5)]),
+                                        (2, 5, [(1, 3), (4, 6)], [(3, 4)])]
+)
 def test_generate_missing_spans(start, end, spans, expected_output):
     output = list(utils.generate_missing_spans(start, end, spans))
     assert output == expected_output
@@ -34,20 +34,8 @@ def test_page():
 
 
 def test_recursive_iter():
-    input = {
-        'aa': 'ab',
-        'ba': {
-            'ca': 'cb'
-        },
-        'da': [
-            {'ea': 'eb'}
-        ]
-    }
-    expected_output = [
-        (('aa',), 'ab'),
-        (('ba', 'ca'), 'cb'),
-        (('da', 0, 'ea'), 'eb')
-    ]
+    input = {'aa': 'ab', 'ba': {'ca': 'cb'}, 'da': [{'ea': 'eb'}]}
+    expected_output = [(('aa', ), 'ab'), (('ba', 'ca'), 'cb'), (('da', 0, 'ea'), 'eb')]
     output = list(utils.recursive_iter(input))
     assert output == expected_output
 

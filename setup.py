@@ -10,7 +10,7 @@ setup(
         'backoff',
         'deap',
         'python-dateutil',
-        'simplejson'
+        'simplejson',
     ],
     extras_require={
         'dev': [
@@ -20,6 +20,6 @@ setup(
             'pytest',
             'pytest-aiohttp',
             'pytest-lazy-fixture',
-            'yapf'
+            'yapf',
         ]
     })

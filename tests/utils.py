@@ -11,4 +11,5 @@ def new_candle(time=0, close=Decimal(0), volume=Decimal(0)):
         low=Decimal(0),
         close=close,
         volume=volume,
-        closed=True)
+        closed=True
+    )

@@ -44,27 +44,15 @@ def test_map_dependencies():
     foo = Foo()
     bar = Bar(foo)
     baz = Baz(bar)
-    assert di.map_dependencies({Foo: foo, Bar: bar, Baz: baz}) == {
-        baz: [bar],
-        bar: [foo],
-        foo: []
-    }
+    assert di.map_dependencies({Foo: foo, Bar: bar, Baz: baz}) == {baz: [bar], bar: [foo], foo: []}
 
 
 def test_list_dependencies_in_init_order():
     foo = Foo()
     bar = Bar(foo)
     baz = Baz(bar)
-    dep_map = {
-        baz: [bar],
-        bar: [foo],
-        foo: []
-    }
-    assert di.list_dependencies_in_init_order(dep_map) == [
-        [foo],
-        [bar],
-        [baz]
-    ]
+    dep_map = {baz: [bar], bar: [foo], foo: []}
+    assert di.list_dependencies_in_init_order(dep_map) == [[foo], [bar], [baz]]
 
 
 class Foo(AbstractAsyncContextManager):

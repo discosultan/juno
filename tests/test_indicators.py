@@ -2,8 +2,9 @@ from decimal import Decimal
 
 import pytest
 
-from juno.indicators import (DI, DM, DX, Adx, Adxr, Cci, Dema, Ema, Macd, Rsi, Sma, Stoch,
-                             StochRsi, Tsi)
+from juno.indicators import (
+    DI, DM, DX, Adx, Adxr, Cci, Dema, Ema, Macd, Rsi, Sma, Stoch, StochRsi, Tsi
+)
 
 
 def test_adx():
@@ -436,5 +437,5 @@ def _assert(indicator, inputs, outputs, precision):
         values = [v for k, v in vars(indicator).items() if not k.startswith('_')]
         if i >= offset:
             for j in range(0, len(values)):
-                assert pytest.approx(
-                    float(values[j]), abs=10**-precision) == outputs[j][i - offset]
+                assert pytest.approx(float(values[j]),
+                                     abs=10**-precision) == outputs[j][i - offset]

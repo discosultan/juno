@@ -6,8 +6,15 @@ from juno.filters import Filters
 
 
 class Exchange(exchanges.Exchange):
-    def __init__(self, candles=[], fees={'__all__': Fees.none()},
-                 filters={'__all__': Filters.none()}, balances=[], depths=[], orders=[]):
+    def __init__(
+        self,
+        candles=[],
+        fees={'__all__': Fees.none()},
+        filters={'__all__': Filters.none()},
+        balances=[],
+        depths=[],
+        orders=[]
+    ):
         self.candles = candles
         self.fees = fees
         self.filters = filters
@@ -26,6 +33,7 @@ class Exchange(exchanges.Exchange):
         async def inner():
             for balance in self.balances:
                 yield balance
+
         yield inner()
 
     @asynccontextmanager
@@ -33,6 +41,7 @@ class Exchange(exchanges.Exchange):
         async def inner():
             for c in (c for c in self.candles if c.time >= start and c.time < end):
                 yield c
+
         yield inner()
 
     @asynccontextmanager
@@ -40,6 +49,7 @@ class Exchange(exchanges.Exchange):
         async def inner():
             for depth in self.depths:
                 yield depth
+
         yield inner()
 
     @asynccontextmanager
@@ -47,6 +57,7 @@ class Exchange(exchanges.Exchange):
         async def inner():
             for order in self.orders:
                 yield order
+
         yield inner()
 
     async def place_order(self, *args, **kwargs):
@@ -57,7 +68,6 @@ class Exchange(exchanges.Exchange):
 
 
 class Informant:
-
     def __init__(self, fees, filters, candles):
         self.fees = fees
         self.filters = filters
@@ -75,13 +85,11 @@ class Informant:
 
 
 class Orderbook(components.Orderbook):
-
     def __init__(self, data):
         self._data = data
 
 
 class Wallet:
-
     def __init__(self, exchange_balances):
         self._exchange_balances = exchange_balances
 
@@ -90,26 +98,19 @@ class Wallet:
 
 
 class Market(brokers.Market):
-
     def __init__(self, informant, orderbook, update_orderbook):
         self._informant = informant
         self._orderbook = orderbook
         self._update_orderbook = update_orderbook
 
     async def buy(self, exchange, symbol, quote, test):
-        fills = super().find_order_asks(
-            exchange=exchange,
-            symbol=symbol,
-            quote=quote)
+        fills = super().find_order_asks(exchange=exchange, symbol=symbol, quote=quote)
         if self._update_orderbook:
             self._remove_from_orderbook(exchange, symbol, Side.BID, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     async def sell(self, exchange, symbol, base, test):
-        fills = super().find_order_bids(
-            exchange=exchange,
-            symbol=symbol,
-            base=base)
+        fills = super().find_order_bids(exchange=exchange, symbol=symbol, base=base)
         if self._update_orderbook:
             self._remove_from_orderbook(exchange, symbol, Side.ASK, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)

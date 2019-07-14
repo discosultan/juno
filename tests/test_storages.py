@@ -23,14 +23,11 @@ async def test_memory_store_candles(loop, memory):
     candles = [new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT), new_candle(time=1)]
     start, end = 0, 2
 
-    await memory.store_candles_and_span(
-        key='key',
-        candles=candles,
-        start=start,
-        end=end)
+    await memory.store_candles_and_span(key='key', candles=candles, start=start, end=end)
     spans, candles = await asyncio.gather(
         list_async(memory.stream_candle_spans('key', 0, 2)),
-        list_async(memory.stream_candles('key', 0, 2)))
+        list_async(memory.stream_candles('key', 0, 2))
+    )
 
     assert spans == [(start, end)]
     assert candles == candles
@@ -68,10 +65,11 @@ async def test_memory_set_different_maps(loop, memory):
 
     await asyncio.gather(
         memory.set_map(key='key', type_=Fees, items=fees),
-        memory.set_map(key='key', type_=Filters, items=filters))
+        memory.set_map(key='key', type_=Filters, items=filters)
+    )
     (out_fees, _), (out_filters, _) = await asyncio.gather(
-        memory.get_map(key='key', type_=Fees),
-        memory.get_map(key='key', type_=Filters))
+        memory.get_map(key='key', type_=Fees), memory.get_map(key='key', type_=Filters)
+    )
 
     assert out_fees == fees
     assert out_filters == filters
