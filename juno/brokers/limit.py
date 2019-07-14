@@ -8,7 +8,7 @@ from typing import List
 from juno import (
     CancelOrderStatus, Fill, Fills, OrderResult, OrderStatus, OrderType, Side, TimeInForce
 )
-from juno.asyncio import cancel
+from juno.asyncio import cancel, cancelable
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 
@@ -49,13 +49,13 @@ class Limit:
         async with self._exchanges[exchange].connect_stream_orders() as stream:
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
-                self._keep_limit_order_best(
+                cancelable(self._keep_limit_order_best(
                     exchange=exchange,
                     symbol=symbol,
                     client_id=client_id,
                     side=side,
                     available=available
-                )
+                ))
             )
 
             # Listens for fill events for an existing order.
@@ -101,82 +101,76 @@ class Limit:
     async def _keep_limit_order_best(
         self, exchange: str, symbol: str, client_id: str, side: Side, available: Decimal
     ) -> None:
-        try:
-            orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
-            filters = self._informant.get_filters(exchange, symbol)
-            last_order_price = Decimal(0) if side is Side.BID else Decimal('Inf')
-            while True:
-                await orderbook_updated.wait()
+        orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
+        filters = self._informant.get_filters(exchange, symbol)
+        last_order_price = Decimal(0) if side is Side.BID else Decimal('Inf')
+        while True:
+            await orderbook_updated.wait()
 
-                asks = self._orderbook.list_asks(exchange, symbol)
-                bids = self._orderbook.list_bids(exchange, symbol)
-                ob_side = bids if side is Side.BID else asks
-                ob_other_side = asks if side is Side.BID else bids
-                op_step = operator.add if side is Side.BID else operator.sub
-                op_last_price_cmp = operator.le if side is Side.BID else operator.ge
+            asks = self._orderbook.list_asks(exchange, symbol)
+            bids = self._orderbook.list_bids(exchange, symbol)
+            ob_side = bids if side is Side.BID else asks
+            ob_other_side = asks if side is Side.BID else bids
+            op_step = operator.add if side is Side.BID else operator.sub
+            op_last_price_cmp = operator.le if side is Side.BID else operator.ge
 
-                if len(ob_side) == 0:
-                    raise NotImplementedError(
-                        f'no existing {"bids" if side is Side.BID else "asks"} in orderbook! what '
-                        'is optimal price?'
-                    )
-
-                if len(ob_other_side) == 0:
-                    price = op_step(ob_side[0][0], filters.price.step)
-                else:
-                    spread = abs(ob_other_side[0][0] - ob_side[0][0])
-                    if spread == filters.price.step:
-                        price = ob_side[0][0]
-                    else:
-                        price = op_step(ob_side[0][0], filters.price.step)
-
-                if op_last_price_cmp(price, last_order_price):
-                    continue
-
-                if last_order_price not in [0, Decimal('Inf')]:
-                    # Cancel prev order.
-                    _log.info(
-                        f'cancelling previous limit order {client_id} at price '
-                        f'{last_order_price}'
-                    )
-                    cancel_res = await self._exchanges[exchange].cancel_order(
-                        symbol=symbol, client_id=client_id
-                    )
-                    if cancel_res.status is CancelOrderStatus.REJECTED:
-                        _log.warning(f'failed to cancel order {client_id}; probably got filled')
-                        break
-
-                # No need to round price as we take it from existing orders.
-                size = available / price if side is Side.BID else available
-                size = filters.size.round_down(size)
-
-                if size == 0:
-                    raise NotImplementedError('size 0')
-
-                if not filters.min_notional.valid(price=price, size=size):
-                    raise NotImplementedError(
-                        'min notional not valid: '
-                        f'{price} * {size} != {filters.min_notional.min_notional}'
-                    )
-
-                _log.info(f'placing limit order at price {price} for size {size}')
-                res = await self._exchanges[exchange].place_order(
-                    symbol=symbol,
-                    side=side,
-                    type_=OrderType.LIMIT,
-                    price=price,
-                    size=size,
-                    time_in_force=TimeInForce.GTC,
-                    client_id=client_id,
-                    test=False
+            if len(ob_side) == 0:
+                raise NotImplementedError(
+                    f'no existing {"bids" if side is Side.BID else "asks"} in orderbook! what '
+                    'is optimal price?'
                 )
 
-                if res.status is OrderStatus.FILLED:
-                    _log.info(f'new limit order {client_id} immediately filled {res.fills}')
+            if len(ob_other_side) == 0:
+                price = op_step(ob_side[0][0], filters.price.step)
+            else:
+                spread = abs(ob_other_side[0][0] - ob_side[0][0])
+                if spread == filters.price.step:
+                    price = ob_side[0][0]
+                else:
+                    price = op_step(ob_side[0][0], filters.price.step)
+
+            if op_last_price_cmp(price, last_order_price):
+                continue
+
+            if last_order_price not in [0, Decimal('Inf')]:
+                # Cancel prev order.
+                _log.info(
+                    f'cancelling previous limit order {client_id} at price '
+                    f'{last_order_price}'
+                )
+                cancel_res = await self._exchanges[exchange].cancel_order(
+                    symbol=symbol, client_id=client_id
+                )
+                if cancel_res.status is CancelOrderStatus.REJECTED:
+                    _log.warning(f'failed to cancel order {client_id}; probably got filled')
                     break
-                last_order_price = price
-        except asyncio.CancelledError:
-            _log.info(f'order {client_id} re-adjustment task cancelled')
-        except Exception:
-            _log.exception(f'unhandled exception in order {client_id} re-adjustment task')
-            raise
+
+            # No need to round price as we take it from existing orders.
+            size = available / price if side is Side.BID else available
+            size = filters.size.round_down(size)
+
+            if size == 0:
+                raise NotImplementedError('size 0')
+
+            if not filters.min_notional.valid(price=price, size=size):
+                raise NotImplementedError(
+                    'min notional not valid: '
+                    f'{price} * {size} != {filters.min_notional.min_notional}'
+                )
+
+            _log.info(f'placing limit order at price {price} for size {size}')
+            res = await self._exchanges[exchange].place_order(
+                symbol=symbol,
+                side=side,
+                type_=OrderType.LIMIT,
+                price=price,
+                size=size,
+                time_in_force=TimeInForce.GTC,
+                client_id=client_id,
+                test=False
+            )
+
+            if res.status is OrderStatus.FILLED:
+                _log.info(f'new limit order {client_id} immediately filled {res.fills}')
+                break
+            last_order_price = price

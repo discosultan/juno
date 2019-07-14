@@ -1,5 +1,6 @@
 import asyncio
 import inspect
+import logging
 from typing import Any, AsyncIterable, Awaitable, Generic, List, Optional, TypeVar, Union, cast
 
 T = TypeVar('T')
@@ -33,7 +34,12 @@ def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
         try:
             return await coro
         except asyncio.CancelledError:
-            print(f'{module.__name__} {coro.__qualname__} task cancelled')  # type: ignore
+            log = logging.getLogger(module.__name__)
+            log.info(f'{coro.__qualname__} task cancelled')  # type: ignore
+        except Exception:
+            log = logging.getLogger(module.__name__)
+            log.exception(f'unhandled exception in {coro.__qualname__} task')
+            raise
 
     return inner()
 

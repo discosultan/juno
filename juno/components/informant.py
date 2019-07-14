@@ -8,7 +8,7 @@ from typing import (
 )
 
 from juno import Candle, Fees, Span
-from juno.asyncio import cancel, list_async
+from juno.asyncio import cancel, cancelable, list_async
 from juno.exchanges import Exchange
 from juno.filters import Filters
 from juno.math import floor_multiple
@@ -122,7 +122,7 @@ class Informant:
         initial_sync_event = asyncio.Event()
         self._initial_sync_events.append(initial_sync_event)
         self._sync_tasks.append(
-            asyncio.create_task(self._sync_all_data(type_, fetch, initial_sync_event))
+            asyncio.create_task(cancelable(self._sync_all_data(type_, fetch, initial_sync_event)))
         )
 
     async def _sync_all_data(
@@ -131,19 +131,13 @@ class Informant:
         period = DAY_MS
         type_name = type_.__name__.lower()
         _log.info(f'starting periodic sync of {type_name} every {strfinterval(period)}')
-        try:
-            while True:
-                await asyncio.gather(
-                    *(self._sync_data(e, type_, fetch) for e in self._exchanges.keys())
-                )
-                if not initial_sync_event.is_set():
-                    initial_sync_event.set()
-                await asyncio.sleep(period / 1000.0)
-        except asyncio.CancelledError:
-            _log.info(f'{type_name} sync task cancelled')
-        except Exception:
-            _log.exception(f'unhandled exception in {type_name} sync task')
-            raise
+        while True:
+            await asyncio.gather(
+                *(self._sync_data(e, type_, fetch) for e in self._exchanges.keys())
+            )
+            if not initial_sync_event.is_set():
+                initial_sync_event.set()
+            await asyncio.sleep(period / 1000.0)
 
     async def _sync_data(self, exchange: str, type_: Type[T], fetch: FetchMap) -> None:
         now = time_ms()

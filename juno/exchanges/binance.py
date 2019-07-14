@@ -17,7 +17,7 @@ from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate, DepthUpdateType, Fees,
     Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
 )
-from juno.asyncio import Event, cancel
+from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, connect_refreshing_stream
 from juno.math import floor_multiple
@@ -234,35 +234,29 @@ class Binance(Exchange):
                 await self._request('POST', '/api/v1/userDataStream', security=_SEC_USER_STREAM)
             )['listenKey']
             self._listen_key_refresh_task = asyncio.create_task(
-                self._periodic_listen_key_refresh(listen_key)
+                cancelable(self._periodic_listen_key_refresh(listen_key))
             )
             self._stream_user_data_task = asyncio.create_task(
-                self._stream_user_data(listen_key, user_stream_connected)
+                cancelable(self._stream_user_data(listen_key, user_stream_connected))
             )
 
             await user_stream_connected.wait()
 
     async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
-        try:
-            bal_time, order_time = 0, 0
-            # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
-            async with self._connect_refreshing_stream(
-                url=f'/ws/{listen_key}', interval=12 * HOUR_SEC
-            ) as ws:
-                connected.set()
-                async for data in ws:
-                    # The data can come out of sync. Make sure to discard old updates.
-                    if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
-                        bal_time = data['E']
-                        self._balance_event.set(data)
-                    elif data['e'] == 'executionReport' and data['E'] >= order_time:
-                        order_time = data['E']
-                        self._order_event.set(data)
-        except asyncio.CancelledError:
-            _log.info('user data streaming task cancelled')
-        except Exception:
-            _log.exception('unhandled exception in stream user data task')
-            raise
+        bal_time, order_time = 0, 0
+        # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
+        async with self._connect_refreshing_stream(
+            url=f'/ws/{listen_key}', interval=12 * HOUR_SEC
+        ) as ws:
+            connected.set()
+            async for data in ws:
+                # The data can come out of sync. Make sure to discard old updates.
+                if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
+                    bal_time = data['E']
+                    self._balance_event.set(data)
+                elif data['e'] == 'executionReport' and data['E'] >= order_time:
+                    order_time = data['E']
+                    self._order_event.set(data)
 
     async def place_order(
         self,
@@ -393,8 +387,6 @@ class Binance(Exchange):
                     data={'listenKey': listen_key},
                     security=_SEC_USER_STREAM
                 )
-        except asyncio.CancelledError:
-            _log.info('periodic listen key refresh task cancelled')
         finally:
             await self._request(
                 'DELETE',
@@ -431,7 +423,7 @@ class Binance(Exchange):
             # Synchronize clock. Note that we may want to do this periodically instead of only
             # initially.
             if not self._sync_clock_task:
-                self._sync_clock_task = asyncio.create_task(self._sync_clock())
+                self._sync_clock_task = asyncio.create_task(cancelable(self._sync_clock()))
             await self._sync_clock_task
 
             data = data or {}
@@ -462,21 +454,18 @@ class Binance(Exchange):
         )
 
     async def _sync_clock(self) -> None:
-        try:
-            _log.info('syncing clock with Binance')
-            before = time_ms()
-            server_time = (await self._request('GET', '/api/v1/time'))['serverTime']
-            after = time_ms()
-            # Assume response time is same as request time.
-            delay = (after - before) // 2
-            local_time = before + delay
-            # Adjustment required converting from local time to server time.
-            self._time_diff = server_time - local_time
-            _log.info(f'found {self._time_diff}ms time difference')
-            # TODO: If we want to sync periodically, we should schedule a task on the event loop
-            # to set self.sync_clock to None after a period of time. This will force re-sync.
-        except asyncio.CancelledError:
-            _log.info('sync clock task cancelled')
+        _log.info('syncing clock with Binance')
+        before = time_ms()
+        server_time = (await self._request('GET', '/api/v1/time'))['serverTime']
+        after = time_ms()
+        # Assume response time is same as request time.
+        delay = (after - before) // 2
+        local_time = before + delay
+        # Adjustment required converting from local time to server time.
+        self._time_diff = server_time - local_time
+        _log.info(f'found {self._time_diff}ms time difference')
+        # TODO: If we want to sync periodically, we should schedule a task on the event loop
+        # to set self.sync_clock to None after a period of time. This will force re-sync.
 
 
 def _http_symbol(symbol: str) -> str:

@@ -17,7 +17,7 @@ import simplejson as json
 from juno import (
     Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderType, Side, TimeInForce
 )
-from juno.asyncio import Event, cancel
+from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
@@ -249,24 +249,21 @@ class Coinbase(Exchange):
 
     def _ensure_stream_open(self):
         if not self._stream_task:
-            self._stream_task = asyncio.create_task(self._stream())
+            self._stream_task = asyncio.create_task(cancelable(self._stream()))
 
     async def _stream(self):
-        try:
-            async with self._session.ws_connect(_BASE_WS_URL) as ws:
-                for _ in range(0, self._stream_subscription_queue.qsize()):
-                    await ws.send_json(self._stream_subscription_queue.get_nowait())
-                async for msg in ws:
-                    data = json.loads(msg.data)
-                    if data['type'] == 'subscriptions':
-                        self._stream_subscriptions = {
-                            c['name']: [s.lower() for s in c['product_ids']]
-                            for c in data['channels']
-                        }
-                    else:
-                        self._stream_consumer_events[data['type']].set(data)
-        except asyncio.CancelledError:
-            _log.info('streaming task cancelled')
+        async with self._session.ws_connect(_BASE_WS_URL) as ws:
+            for _ in range(0, self._stream_subscription_queue.qsize()):
+                await ws.send_json(self._stream_subscription_queue.get_nowait())
+            async for msg in ws:
+                data = json.loads(msg.data)
+                if data['type'] == 'subscriptions':
+                    self._stream_subscriptions = {
+                        c['name']: [s.lower() for s in c['product_ids']]
+                        for c in data['channels']
+                    }
+                else:
+                    self._stream_consumer_events[data['type']].set(data)
 
     async def _paginated_public_request(self, method, url, data={}):
         url = _BASE_REST_URL + url

@@ -8,7 +8,7 @@ from itertools import product
 from typing import Any, Dict, List, Tuple
 
 from juno import DepthUpdateType, Side
-from juno.asyncio import Barrier, Event, cancel
+from juno.asyncio import Barrier, Event, cancel, cancelable
 from juno.config import list_names
 from juno.exchanges import Exchange
 from juno.typing import ExcType, ExcValue, Traceback
@@ -39,7 +39,7 @@ class Orderbook:
 
     async def __aenter__(self) -> Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
-        self._sync_task = asyncio.create_task(self._sync_orderbooks())
+        self._sync_task = asyncio.create_task(cancelable(self._sync_orderbooks()))
         await self._initial_orderbook_fetched.wait()
         return self
 
@@ -56,15 +56,9 @@ class Orderbook:
         return sorted(self._data[exchange][symbol][Side.ASK].items(), reverse=True)
 
     async def _sync_orderbooks(self) -> None:
-        try:
-            await asyncio.gather(
-                *(self._sync_orderbook(e, s) for e, s in self._orderbooks_product)
-            )
-        except asyncio.CancelledError:
-            _log.info('orderbook sync task cancelled')
-        except Exception:
-            _log.exception('unhandled exception in orderbook sync task')
-            raise
+        await asyncio.gather(
+            *(self._sync_orderbook(e, s) for e, s in self._orderbooks_product)
+        )
 
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         orderbook = self._data[exchange][symbol]

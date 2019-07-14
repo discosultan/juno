@@ -12,7 +12,7 @@ import simplejson as json
 
 from juno.agents import Agent
 from juno.agents.summary import Position
-from juno.asyncio import cancel
+from juno.asyncio import cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, retry_on
@@ -92,7 +92,7 @@ class Discord:
         # See https://discordapp.com/developers/docs/topics/rate-limits
         self._limiter = LeakyBucket(rate=1, period=1)
         await self._session.__aenter__()
-        self._run_task = asyncio.create_task(self._run())
+        self._run_task = asyncio.create_task(cancelable(self._run()))
         self._heartbeat_task: Optional[asyncio.Task[None]] = None
         return self
 
@@ -114,47 +114,42 @@ class Discord:
         await self._request('POST', f'/channels/{self._channel_id}/messages', data=data)
 
     async def _run(self) -> None:
-        try:
-            _log.info('starting')
-            url = (await self._request('GET', '/gateway'))['url']
+        _log.info('starting')
+        url = (await self._request('GET', '/gateway'))['url']
 
-            while True:
-                async with self._ws_connect(f'{url}?v=6&encoding=json') as ws:
-                    async for msg in ws:
-                        if msg.type is aiohttp.WSMsgType.CLOSED:
-                            _log.error(f'websocket connection closed unexpectedly ({msg})')
-                            break
+        while True:
+            async with self._ws_connect(f'{url}?v=6&encoding=json') as ws:
+                async for msg in ws:
+                    if msg.type is aiohttp.WSMsgType.CLOSED:
+                        _log.error(f'websocket connection closed unexpectedly ({msg})')
+                        break
 
-                        data = json.loads(msg.data)
+                    data = json.loads(msg.data)
 
-                        if data['op'] == 0:  # Dispatch.
-                            if data['t'] == 'READY':
-                                _log.info('ready')
-                            if self._last_sequence.done():
-                                self._last_sequence = asyncio.get_running_loop().create_future()
-                            self._last_sequence.set_result(data['d'])
-                        elif data['op'] == 10:  # Hello.
-                            _log.info('hello from discord')
-                            self._heartbeat_task = asyncio.create_task(
-                                self._heartbeat(ws, data['d']['heartbeat_interval'])
-                            )
-                            await ws.send_json({
-                                'op': 2,  # Identify.
-                                'd': {
-                                    'token': self._token,
-                                    'properties': {},
-                                    'compress': False,
-                                    'large_threshold': 250
-                                }
-                            })
-                        elif data['op'] == 11:  # Heartbeat ACK.
-                            _log.debug('acknowledged heartbeat')
-                        elif data['op'] >= 4000:
-                            _log.error(f'gateway closed ({data})')
-        except asyncio.CancelledError:
-            _log.info('main task cancelled')
-        except Exception:
-            _log.exception('unhandled exception in main')
+                    if data['op'] == 0:  # Dispatch.
+                        if data['t'] == 'READY':
+                            _log.info('ready')
+                        if self._last_sequence.done():
+                            self._last_sequence = asyncio.get_running_loop().create_future()
+                        self._last_sequence.set_result(data['d'])
+                    elif data['op'] == 10:  # Hello.
+                        _log.info('hello from discord')
+                        self._heartbeat_task = asyncio.create_task(
+                            cancelable(self._heartbeat(ws, data['d']['heartbeat_interval']))
+                        )
+                        await ws.send_json({
+                            'op': 2,  # Identify.
+                            'd': {
+                                'token': self._token,
+                                'properties': {},
+                                'compress': False,
+                                'large_threshold': 250
+                            }
+                        })
+                    elif data['op'] == 11:  # Heartbeat ACK.
+                        _log.debug('acknowledged heartbeat')
+                    elif data['op'] >= 4000:
+                        _log.error(f'gateway closed ({data})')
 
     async def _heartbeat(self, ws: ClientWebSocketResponse, interval: int) -> None:
         try:
@@ -164,12 +159,8 @@ class Discord:
                     'op': 1,  # Heartbeat.
                     'd': self._last_sequence.result()
                 })
-        except asyncio.CancelledError:
-            _log.info('heartbeat task cancelled')
         except ConnectionResetError:
             _log.warning('heartbeat connection lost')
-        except Exception:
-            _log.exception('unhandled exception in heartbeat')
 
     @retry_on(aiohttp.ClientConnectionError, max_tries=3)
     async def _request(self, method: str, url: str, **kwargs: Any) -> Any:
