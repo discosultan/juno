@@ -8,7 +8,7 @@ from typing import (
 )
 
 from juno import Candle, Fees, Span
-from juno.asyncio import list_async
+from juno.asyncio import cancel, list_async
 from juno.exchanges import Exchange
 from juno.filters import Filters
 from juno.math import floor_multiple
@@ -42,9 +42,7 @@ class Informant:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        for task in self._sync_tasks:
-            task.cancel()
-        await asyncio.gather(*self._sync_tasks)
+        await cancel(*self._sync_tasks)
 
     def get_fees(self, exchange: str, symbol: str) -> Fees:
         return self._get_data(exchange, symbol, Fees)

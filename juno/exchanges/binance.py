@@ -17,7 +17,7 @@ from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate, DepthUpdateType, Fees,
     Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
 )
-from juno.asyncio import Event
+from juno.asyncio import Event, cancel
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, connect_refreshing_stream
 from juno.math import floor_multiple
@@ -69,7 +69,7 @@ class Binance(Exchange):
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await _try_cancel_and_await_tasks(
+        await cancel(
             self._sync_clock_task, self._listen_key_refresh_task, self._stream_user_data_task
         )
         await self._session.__aexit__(exc_type, exc, tb)
@@ -544,10 +544,3 @@ def _from_order_status(status: str) -> OrderStatus:
     if not mapped_status:
         raise NotImplementedError(f'Handling of status {status} not implemented')
     return mapped_status
-
-
-async def _try_cancel_and_await_tasks(*tasks: Optional[asyncio.Task[None]]) -> None:
-    material_tasks = [task for task in tasks if task]
-    for task in material_tasks:
-        task.cancel()
-    await asyncio.gather(*(task for task in material_tasks))

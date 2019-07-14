@@ -17,7 +17,7 @@ import simplejson as json
 from juno import (
     Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderType, Side, TimeInForce
 )
-from juno.asyncio import Event
+from juno.asyncio import Event, cancel
 from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
@@ -65,9 +65,7 @@ class Coinbase(Exchange):
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        if self._stream_task:
-            self._stream_task.cancel()
-            await self._stream_task
+        await cancel(self._stream_task)
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_fees(self) -> Dict[str, Fees]:

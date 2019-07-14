@@ -8,6 +8,7 @@ from typing import List
 from juno import (
     CancelOrderStatus, Fill, Fills, OrderResult, OrderStatus, OrderType, Side, TimeInForce
 )
+from juno.asyncio import cancel
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 
@@ -93,8 +94,7 @@ class Limit:
                             )
                         )
 
-            keep_limit_order_best_task.cancel()
-            await keep_limit_order_best_task
+            await cancel(keep_limit_order_best_task)
 
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 

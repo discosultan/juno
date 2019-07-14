@@ -8,7 +8,7 @@ from itertools import product
 from typing import Any, Dict, List, Tuple
 
 from juno import DepthUpdateType, Side
-from juno.asyncio import Barrier, Event
+from juno.asyncio import Barrier, Event, cancel
 from juno.config import list_names
 from juno.exchanges import Exchange
 from juno.typing import ExcType, ExcValue, Traceback
@@ -44,8 +44,7 @@ class Orderbook:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        self._sync_task.cancel()
-        await self._sync_task
+        await cancel(self._sync_task)
 
     def get_updated_event(self, exchange: str, symbol: str) -> Event[None]:
         return self._data[exchange][symbol].updated

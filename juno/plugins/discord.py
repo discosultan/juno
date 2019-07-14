@@ -12,6 +12,7 @@ import simplejson as json
 
 from juno.agents import Agent
 from juno.agents.summary import Position
+from juno.asyncio import cancel
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, retry_on
@@ -96,14 +97,8 @@ class Discord:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        self._run_task.cancel()
-        if self._heartbeat_task:
-            self._heartbeat_task.cancel()
-
-        await self._run_task
-        if self._heartbeat_task:
-            await self._heartbeat_task
-
+        await cancel(self._run_task)
+        await cancel(self._heartbeat_task)
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def post_msg(self, msg: Any) -> None:

@@ -1,5 +1,6 @@
 import asyncio
-from typing import AsyncIterable, Generic, List, Optional, TypeVar, Union, cast
+import inspect
+from typing import Any, AsyncIterable, Awaitable, Generic, List, Optional, TypeVar, Union, cast
 
 T = TypeVar('T')
 
@@ -22,6 +23,26 @@ async def concat_async(*args: Union[T, AsyncIterable[T]]) -> AsyncIterable[T]:
                 yield val
         else:
             yield arg  # type: ignore
+
+
+def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
+    frame = inspect.stack()[1]
+    module = inspect.getmodule(frame[0])
+
+    async def inner():
+        try:
+            return await coro
+        except asyncio.CancelledError:
+            print(f'{module.__name__} {coro.__qualname__} task cancelled')  # type: ignore
+
+    return inner()
+
+
+async def cancel(*tasks: Optional[asyncio.Task]) -> None:
+    material_tasks = [task for task in tasks if task]
+    for task in material_tasks:
+        task.cancel()
+    await asyncio.gather(*material_tasks)
 
 
 class Barrier:

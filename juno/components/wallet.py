@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import Dict, List
 
 from juno import Balance
+from juno.asyncio import cancel
 from juno.exchanges import Exchange
 from juno.typing import ExcType, ExcValue, Traceback
 
@@ -24,8 +25,7 @@ class Wallet:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        self._sync_all_balances_task.cancel()
-        await self._sync_all_balances_task
+        await cancel(self._sync_all_balances_task)
 
     def get_balance(self, exchange: str, asset: str) -> Balance:
         balance = self._exchange_balances[exchange][asset]

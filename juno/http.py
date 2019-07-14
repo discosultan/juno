@@ -9,7 +9,7 @@ import aiohttp
 
 from juno.utils import generate_random_words
 
-from .asyncio import concat_async
+from .asyncio import cancel, cancelable, concat_async
 from .typing import ExcType, ExcValue, Traceback
 
 _aiohttp_log = logging.getLogger('aiohttp.client')
@@ -96,15 +96,14 @@ async def connect_refreshing_stream(
     ws = await conn.__aenter__()
 
     async def inner() -> AsyncIterable[Any]:
+        nonlocal conn, ws
         try:
-            nonlocal conn, ws
-            to_close_conn = None
-            to_close_ws = None
-
             while True:
-                timeout_task = asyncio.create_task(asyncio.sleep(interval))
+                to_close_conn = None
+                to_close_ws = None
+                timeout_task = asyncio.create_task(cancelable(asyncio.sleep(interval)))
                 while True:
-                    receive_task = asyncio.create_task(ws.receive())
+                    receive_task = asyncio.create_task(cancelable(_receive(ws)))
                     done, _pending = await asyncio.wait([receive_task, timeout_task],
                                                         return_when=asyncio.FIRST_COMPLETED)
 
@@ -116,9 +115,13 @@ async def connect_refreshing_stream(
                         ws = await conn.__aenter__()
 
                         if receive_task.done():
-                            new_data = loads(_process_ws_msg(ws, await ws.receive()))
+                            new_msg = await _receive(ws)
+                            assert new_msg.type is aiohttp.WSMsgType.TEXT
+                            new_data = loads(new_msg.data)
                             async for old_msg in concat_async(receive_task.result(), to_close_ws):
-                                old_data = loads(_process_ws_msg(to_close_ws, old_msg))
+                                if old_msg.type is aiohttp.WSMsgType.CLOSED:
+                                    break
+                                old_data = loads(old_msg)
                                 if take_until(old_data, new_data):
                                     yield old_data
                                 else:
@@ -129,11 +132,19 @@ async def connect_refreshing_stream(
                         await to_close_conn.__aexit__(None, None, None)
                         break
 
-                    yield loads(_process_ws_msg(ws, receive_task.result()))
+                    msg = receive_task.result()
+                    if msg.type is aiohttp.WSMsgType.CLOSED:
+                        _aiohttp_log.warning(f'server closed connection: {msg.data}; reconnecting')
+                        await asyncio.gather(
+                            conn.__aexit__(None, None, None), cancel(timeout_task)
+                        )
+                        conn = session.ws_connect(url)
+                        ws = await conn.__aenter__()
+                        break
+
+                    yield loads(msg.data)
         except asyncio.CancelledError:
-            timeout_task.cancel()
-            receive_task.cancel()
-            await asyncio.gather(timeout_task, receive_task)
+            await cancel(receive_task, timeout_task)
             raise
 
     try:
@@ -143,9 +154,13 @@ async def connect_refreshing_stream(
         await conn.__aexit__(None, None, None)
 
 
-def _process_ws_msg(ws: ClientWebSocketResponse, msg: aiohttp.WSMessage) -> Any:
-    # Note that ping message is by default automatically handled by aiohttp by sending pong.
-    if msg.type is aiohttp.WSMsgType.CLOSED:
-        _aiohttp_log.error(f'ws connection closed unexpectedly ({msg})')
-        raise NotImplementedError(':/')
-    return msg.data
+async def _receive(ws: ClientWebSocketResponse) -> aiohttp.WSMessage:
+    while True:
+        msg = await ws.receive()
+        if msg.type in [aiohttp.WSMsgType.TEXT, aiohttp.WSMsgType.CLOSED]:
+            return msg
+        # Ping is handled implicitly by aiohttp because `autoping=True`. It will never reach here.
+        # Close is handled implicitly by aiohttp because `autoclose=True`. It will reach here.
+        if msg.type in [aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSE]:
+            continue
+        raise NotImplementedError(f'Unhandled WS message. Type: {msg.type}; data: {msg.data}')
