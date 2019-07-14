@@ -18,8 +18,9 @@ SYMBOL = 'ada-btc'
 
 
 async def main() -> None:
-    binance = Binance(os.environ['JUNO__BINANCE__API_KEY'],
-                      os.environ['JUNO__BINANCE__SECRET_KEY'])
+    binance = Binance(
+        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
+    )
     exchanges: List[Exchange] = [binance]
     memory = Memory()
     sqlite = SQLite()
@@ -35,16 +36,14 @@ async def main() -> None:
             balance = wallet.get_balance(EXCHANGE, quote_asset)
             logging.info(balance)
             fills = market.find_order_asks(
-                exchange=EXCHANGE,
-                symbol=SYMBOL,
-                quote=balance.available)
+                exchange=EXCHANGE, symbol=SYMBOL, quote=balance.available
+            )
         else:
             balance = wallet.get_balance(EXCHANGE, base_asset)
             logging.info(balance)
             fills = market.find_order_bids(
-                exchange=EXCHANGE,
-                symbol=SYMBOL,
-                base=balance.available)
+                exchange=EXCHANGE, symbol=SYMBOL, base=balance.available
+            )
 
         logging.info(f'Size from orderbook: {fills.total_size}')
         size = filters.size.round_down(fills.total_size)
@@ -55,16 +54,11 @@ async def main() -> None:
             return
 
         res = await binance.place_order(
-            symbol=SYMBOL,
-            side=SIDE,
-            type_=OrderType.MARKET,
-            size=size,
-            test=TEST)
+            symbol=SYMBOL, side=SIDE, type_=OrderType.MARKET, size=size, test=TEST
+        )
         logging.info(res)
     logging.info('Done!')
 
 
-logging.basicConfig(
-    handlers=[logging.StreamHandler(stream=sys.stdout)],
-    level='INFO')
+logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level='INFO')
 asyncio.run(main())

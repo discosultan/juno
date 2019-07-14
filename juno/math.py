@@ -24,6 +24,7 @@ def random_int_pair(amin: int, amax: int, op: Callable[[int, int], bool], bmin: 
                 if op(a, b):
                     break
             return a, b
+
     return inner
 
 
@@ -31,6 +32,7 @@ def random_uniform(min_: float, max_: float):
     def inner(random: Random):
         def inner2() -> float:
             return random.uniform(min_, max_)
+
     return inner
 
 
@@ -38,4 +40,5 @@ def random_int(min_: int, max_: int):
     def inner(random: Random):
         def inner2() -> int:
             return random.randint(min_, max_)
+
     return inner

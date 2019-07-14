@@ -47,7 +47,16 @@ def test_load_from_env():
 
 
 def test_list_names():
-    input = {'foo': {'bar': 'a'}, 'bars': ['b', 'c'], 'baz': 'd', 'qux': [{'bar': 'e'}]}
+    input = {
+        'foo': {
+            'bar': 'a'
+        },
+        'bars': ['b', 'c'],
+        'baz': 'd',
+        'qux': [{
+            'bar': 'e'
+        }],
+    }
     expected_output = set(('a', 'b', 'c', 'e'))
     output = config.list_names(input, 'bar')
     assert output == expected_output

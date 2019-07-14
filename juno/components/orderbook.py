@@ -17,7 +17,6 @@ _log = logging.getLogger(__name__)
 
 
 class Orderbook:
-
     def __init__(self, exchanges: List[Exchange], config: Dict[str, Any]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._symbols = list_names(config, 'symbol')
@@ -35,7 +34,8 @@ class Orderbook:
         #   }
         # }
         self._data: Dict[str, Dict[str, _OrderbookData]] = defaultdict(
-            lambda: defaultdict(_OrderbookData))
+            lambda: defaultdict(_OrderbookData)
+        )
 
     async def __aenter__(self) -> Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
@@ -59,7 +59,8 @@ class Orderbook:
     async def _sync_orderbooks(self) -> None:
         try:
             await asyncio.gather(
-                *(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
+                *(self._sync_orderbook(e, s) for e, s in self._orderbooks_product)
+            )
         except asyncio.CancelledError:
             _log.info('orderbook sync task cancelled')
         except Exception:
@@ -84,8 +85,9 @@ class Orderbook:
                 orderbook.updated.set()
 
 
-def _update_orderbook_side(orderbook_side: Dict[Decimal, Decimal],
-                           values: List[Tuple[Decimal, Decimal]]) -> None:
+def _update_orderbook_side(
+    orderbook_side: Dict[Decimal, Decimal], values: List[Tuple[Decimal, Decimal]]
+) -> None:
     for price, size in values:
         if size > 0:
             orderbook_side[price] = size
@@ -98,7 +100,6 @@ def _update_orderbook_side(orderbook_side: Dict[Decimal, Decimal],
 
 
 class _OrderbookData(Dict[Side, Dict[Decimal, Decimal]]):
-
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.updated: Event[None] = Event(autoclear=True)

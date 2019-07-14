@@ -3,8 +3,10 @@ import sqlite3
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import (Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple, Type,
-                    TypeVar, Union, cast, get_type_hints)
+from typing import (
+    Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union,
+    cast, get_type_hints
+)
 
 import simplejson as json
 from aiosqlite import Connection, connect
@@ -42,7 +44,6 @@ sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
 
 
 class SQLite(Storage):
-
     def __init__(self) -> None:
         self._tables: Dict[Any, Set[type]] = defaultdict(set)
 
@@ -64,8 +65,9 @@ class SQLite(Storage):
                 async for row in cursor:
                     yield Candle(*row)
 
-    async def store_candles_and_span(self, key: Key, candles: List[Candle], start: int, end: int
-                                     ) -> None:
+    async def store_candles_and_span(
+        self, key: Key, candles: List[Candle], start: int, end: int
+    ) -> None:
         if start > candles[0].time or end <= candles[-1].time:
             raise ValueError('Invalid input')
 
@@ -75,8 +77,8 @@ class SQLite(Storage):
             try:
                 await db.executemany(
                     f"INSERT INTO {Candle.__name__} "
-                    f"VALUES ({', '.join(['?'] * len(get_type_hints(Candle)))})",
-                    candles)
+                    f"VALUES ({', '.join(['?'] * len(get_type_hints(Candle)))})", candles
+                )
             except sqlite3.IntegrityError as err:
                 # TODO: Can we relax this constraint?
                 _log.error(f'{err} {key}')
@@ -85,18 +87,21 @@ class SQLite(Storage):
             await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
-    async def get_map(self, key: Key, type_: Type[T]
-                      ) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
+    async def get_map(self, key: Key,
+                      type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
         _log.info(f'getting map of {type_.__name__}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
-            cursor = await db.execute(f'SELECT * FROM {Bag.__name__} WHERE key=?',
-                                      ['map_' + type_.__name__])
+            cursor = await db.execute(
+                f'SELECT * FROM {Bag.__name__} WHERE key=?', ['map_' + type_.__name__]
+            )
             row = await cursor.fetchone()
             await cursor.close()
             if row:
-                return {k: _load_type_from_string(type_, v) for k, v
-                        in json.loads(row[1], use_decimal=True).items()}, row[2]
+                return {
+                    k: _load_type_from_string(type_, v)
+                    for k, v in json.loads(row[1], use_decimal=True).items()
+                }, row[2]
             else:
                 return None, None
 
@@ -109,7 +114,9 @@ class SQLite(Storage):
                 f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)', [
                     'map_' + type_.__name__,
                     json.dumps(items, default=lambda o: o.__dict__, use_decimal=True),
-                    time_ms()])
+                    time_ms()
+                ]
+            )
             await db.commit()
 
     @asynccontextmanager
@@ -154,12 +161,15 @@ async def _create_table(db: Any, type_: Type[Any]) -> None:
         for col in col_names:
             if col in VIEW_COL_NAMES:
                 view_cols.append(
-                    f"strftime('%Y-%m-%d %H:%M:%S', {col} / 1000, 'unixepoch') AS {col}")
+                    f"strftime('%Y-%m-%d %H:%M:%S', {col} / 1000, 'unixepoch') AS {col}"
+                )
             else:
                 view_cols.append(col)
 
-        await db.execute(f'CREATE VIEW IF NOT EXISTS {type_.__name__}View AS '
-                         f'SELECT {", ".join(view_cols)} FROM {type_.__name__}')
+        await db.execute(
+            f'CREATE VIEW IF NOT EXISTS {type_.__name__}View AS '
+            f'SELECT {", ".join(view_cols)} FROM {type_.__name__}'
+        )
 
 
 def _type_to_sql_type(type_: Type[Primitive]) -> str:

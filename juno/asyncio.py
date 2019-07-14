@@ -25,7 +25,6 @@ async def concat_async(*args: Union[T, AsyncIterable[T]]) -> AsyncIterable[T]:
 
 
 class Barrier:
-
     def __init__(self, count: int) -> None:
         if count < 0:
             raise ValueError('Count cannot be negative')
@@ -49,7 +48,6 @@ class Barrier:
 
 class Event(Generic[T]):
     """Abstraction over `asyncio.Event` which adds passing values to waiters and auto clearing."""
-
     def __init__(self, autoclear: bool = False) -> None:
         self._autoclear = autoclear
         self._event = asyncio.Event()

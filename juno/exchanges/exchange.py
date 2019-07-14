@@ -5,14 +5,15 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, Optional
 
-from juno import (Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderResult, OrderType,
-                  OrderUpdate, Side, TimeInForce)
+from juno import (
+    Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderResult, OrderType, OrderUpdate,
+    Side, TimeInForce
+)
 from juno.filters import Filters
 from juno.typing import ExcType, ExcValue, Traceback
 
 
 class Exchange(AbstractAsyncContextManager):
-
     async def __aenter__(self) -> Exchange:
         return self
 
@@ -34,8 +35,8 @@ class Exchange(AbstractAsyncContextManager):
 
     @abstractmethod
     @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str, interval: int, start: int, end: int
-                                     ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str, interval: int, start: int,
+                                     end: int) -> AsyncIterator[AsyncIterable[Candle]]:
         yield  # type: ignore
 
     @abstractmethod
@@ -50,15 +51,16 @@ class Exchange(AbstractAsyncContextManager):
 
     @abstractmethod
     async def place_order(
-            self,
-            symbol: str,
-            side: Side,
-            type_: OrderType,
-            size: Decimal,
-            price: Optional[Decimal] = None,
-            time_in_force: Optional[TimeInForce] = None,
-            client_id: Optional[str] = None,
-            test: bool = True) -> OrderResult:
+        self,
+        symbol: str,
+        side: Side,
+        type_: OrderType,
+        size: Decimal,
+        price: Optional[Decimal] = None,
+        time_in_force: Optional[TimeInForce] = None,
+        client_id: Optional[str] = None,
+        test: bool = True
+    ) -> OrderResult:
         pass
 
     @abstractmethod

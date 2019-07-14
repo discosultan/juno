@@ -22,4 +22,5 @@ setup(
             'pytest-lazy-fixture',
             'yapf',
         ]
-    })
+    }
+)

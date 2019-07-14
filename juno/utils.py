@@ -7,8 +7,10 @@ from collections import defaultdict
 from os import path
 from pathlib import Path
 from types import ModuleType
-from typing import (Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional,
-                    Tuple, Type, TypeVar, Union, cast)
+from typing import (
+    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, Type,
+    TypeVar, Union, cast
+)
 
 import backoff
 import simplejson as json
@@ -63,18 +65,20 @@ def page(start: int, end: int, interval: int, limit: int) -> Iterable[Tuple[int,
 def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple[Any, ...], Any]]:
     if isinstance(obj, dict):
         for k, v in obj.items():
-            yield from recursive_iter(v, keys + (k,))
+            yield from recursive_iter(v, keys + (k, ))
     elif any(isinstance(obj, t) for t in (list, tuple)):
         for idx, item in enumerate(obj):
-            yield from recursive_iter(item, keys + (idx,))
+            yield from recursive_iter(item, keys + (idx, ))
     else:
         yield keys, obj
 
 
 def retry_on(exception: Type[Exception],
              max_tries: Optional[int] = None) -> Callable[[Callable[..., Any]], Any]:
-    return cast(Callable[[Callable[..., Any]], Any],
-                backoff.on_exception(backoff.expo, exception, max_tries=max_tries))
+    return cast(
+        Callable[[Callable[..., Any]], Any],
+        backoff.on_exception(backoff.expo, exception, max_tries=max_tries)
+    )
 
 
 _words = None
@@ -137,7 +141,6 @@ class LeakyBucket:
 
     Period is measured in seconds.
     """
-
     def __init__(self, rate: float, period: float) -> None:
         self._max_level = rate
         self._rate_per_sec = rate / period
@@ -176,7 +179,6 @@ class LeakyBucket:
 
 class Persistence:
     """The number of ticks required to confirm a trend."""
-
     def __init__(self, level: int, allow_initial_trend: bool = False) -> None:
         self.age = 0
         self.level = level
@@ -187,16 +189,19 @@ class Persistence:
     def update(self, trend: Trend) -> Tuple[Trend, bool]:
         trend_changed = False
 
-        if trend is Trend.UNKNOWN or (self.potential_trend is not Trend.UNKNOWN and
-                                      trend is not self.potential_trend):
+        if trend is Trend.UNKNOWN or (
+            self.potential_trend is not Trend.UNKNOWN and trend is not self.potential_trend
+        ):
             self.allow_next_trend = True
 
         if trend is not self.potential_trend:
             self.age = 0
             self.potential_trend = trend
 
-        if (self.allow_next_trend and self.age == self.level and
-                self.potential_trend is not self.trend):
+        if (
+            self.allow_next_trend and self.age == self.level
+            and self.potential_trend is not self.trend
+        ):
             self.trend = self.potential_trend
             trend_changed = True
 
@@ -206,7 +211,6 @@ class Persistence:
 
 
 class CircularBuffer(Generic[T]):
-
     def __init__(self, size: int, default: T) -> None:
         if size < 0:
             raise ValueError('Size must be positive')
@@ -229,12 +233,10 @@ class CircularBuffer(Generic[T]):
 
 
 class EventEmitter:
-
     def __init__(self) -> None:
         self._handlers: Dict[str, List[Callable[..., Awaitable[None]]]] = defaultdict(list)
 
     def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
-
         def _on(func: Callable[..., Awaitable[None]]) -> None:
             self._handlers[event].append(func)
 

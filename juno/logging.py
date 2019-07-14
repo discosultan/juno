@@ -17,4 +17,5 @@ class AzureFormatter(logging.Formatter):
         return json.dumps({
             'severity': record.levelname,
             'time': datetime.utcfromtimestamp(record.created).isoformat() + 'Z',
-            'message': f'{record.name}: {super().format(record)}'})
+            'message': f'{record.name}: {super().format(record)}'
+        })

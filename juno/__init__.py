@@ -26,9 +26,11 @@ class Candle(NamedTuple):
     closed: bool
 
     def __repr__(self) -> str:
-        return (f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
-                f'open={self.open}, high={self.high}, low={self.low}, close={self.close}, '
-                f'volume={self.volume}, closed={self.closed})')
+        return (
+            f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
+            f'open={self.open}, high={self.high}, low={self.low}, close={self.close}, '
+            f'volume={self.volume}, closed={self.closed})'
+        )
 
 
 class Fees(NamedTuple):
@@ -45,8 +47,10 @@ class Span(NamedTuple):
     end: int
 
     def __repr__(self) -> str:
-        return (f'{type(self).__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
-                f'end={datetime_utcfromtimestamp_ms(self.end)})')
+        return (
+            f'{type(self).__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
+            f'end={datetime_utcfromtimestamp_ms(self.end)})'
+        )
 
 
 class Advice(Enum):
@@ -96,7 +100,6 @@ class Fill(NamedTuple):
 
 
 class Fills(List[Fill]):
-
     @property
     def total_size(self) -> Decimal:
         return sum((f.size for f in self), Decimal(0))
@@ -121,9 +124,7 @@ class OrderResult(NamedTuple):
 
     @staticmethod
     def not_placed() -> OrderResult:
-        return OrderResult(
-            status=OrderStatus.NOT_PLACED,
-            fills=Fills())
+        return OrderResult(status=OrderStatus.NOT_PLACED, fills=Fills())
 
 
 class OrderStatus(Enum):

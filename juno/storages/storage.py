@@ -13,7 +13,6 @@ Key = Union[str, Tuple[Any, ...]]
 
 
 class Storage(AbstractAsyncContextManager):
-
     async def __aenter__(self) -> Storage:
         return self
 
@@ -29,13 +28,14 @@ class Storage(AbstractAsyncContextManager):
         yield  # type: ignore
 
     @abstractmethod
-    async def store_candles_and_span(self, key: Key, candles: List[Candle], start: int, end: int
-                                     ) -> None:
+    async def store_candles_and_span(
+        self, key: Key, candles: List[Candle], start: int, end: int
+    ) -> None:
         pass
 
     @abstractmethod
-    async def get_map(self, key: Key, type_: Type[T]
-                      ) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
+    async def get_map(self, key: Key,
+                      type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
         pass
 
     @abstractmethod

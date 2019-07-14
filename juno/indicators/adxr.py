@@ -7,7 +7,6 @@ from .adx import Adx
 
 # Average Directional Movement Index Rating
 class Adxr:
-
     def __init__(self, period: int) -> None:
         self.value = Decimal(0)
         self._adx = Adx(period)

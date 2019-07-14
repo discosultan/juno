@@ -7,7 +7,6 @@ from .sma import Sma
 
 # Full Stochastic Oscillator
 class Stoch:
-
     def __init__(self, k_period: int, k_sma_period: int, d_sma_period: int) -> None:
         if k_period < 1:
             raise ValueError(f'Invalid period ({k_period})')

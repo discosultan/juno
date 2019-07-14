@@ -10,7 +10,6 @@ from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
 
 # TODO: Add support for external token fees (i.e BNB)
 class Position:
-
     def __init__(self, time: int, fills: Fills) -> None:
         self.time = time
         self.fills = fills
@@ -19,23 +18,25 @@ class Position:
 
     def __str__(self) -> str:
         res = (
-               f'Start: {datetime_utcfromtimestamp_ms(self.start)}'
-               f'\nCost: {self.cost}'
-               f'\nBase fee: {self.fills.total_fee}'
-               '\n')
+            f'Start: {datetime_utcfromtimestamp_ms(self.start)}'
+            f'\nCost: {self.cost}'
+            f'\nBase fee: {self.fills.total_fee}'
+            '\n'
+        )
         for i, fill in enumerate(self.fills, 1):
             res += f'\nTrade {i}: (price: {fill.price}, size: {fill.size})'
         if self.closing_fills:
             res += (
-                    f'\nGain: {self.gain}'
-                    f'\nProfit: {self.profit}'
-                    f'\nROI: {self.roi:.0%}'
-                    f'\nAnnualized ROI: {self.annualized_roi:.0%}'
-                    f'\nDust: {self.dust}'
-                    f'\nQuote fee: {self.closing_fills.total_fee}'
-                    f'\nEnd: {datetime_utcfromtimestamp_ms(self.end)}'
-                    f'\nDuration: {strfinterval(self.duration)}'
-                    '\n')
+                f'\nGain: {self.gain}'
+                f'\nProfit: {self.profit}'
+                f'\nROI: {self.roi:.0%}'
+                f'\nAnnualized ROI: {self.annualized_roi:.0%}'
+                f'\nDust: {self.dust}'
+                f'\nQuote fee: {self.closing_fills.total_fee}'
+                f'\nEnd: {datetime_utcfromtimestamp_ms(self.end)}'
+                f'\nDuration: {strfinterval(self.duration)}'
+                '\n'
+            )
             for i, fill in enumerate(self.closing_fills, 1):
                 res += f'\nTrade {i}: (price: {fill.price}, size: {fill.size})'
         return res
@@ -98,9 +99,10 @@ class Position:
 
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
-
-    def __init__(self, exchange: str, symbol: str, interval: int, start: int, quote: Decimal,
-                 filters: Filters, fees: Fees) -> None:
+    def __init__(
+        self, exchange: str, symbol: str, interval: int, start: int, quote: Decimal,
+        filters: Filters, fees: Fees
+    ) -> None:
         self.exchange = exchange
         self.symbol = symbol
         self.interval = interval
@@ -124,23 +126,25 @@ class TradingSummary:
         self.positions.append(pos)
 
     def __str__(self) -> str:
-        return (f'{self.exchange} {self.symbol} {strfinterval(self.interval)} '
-                f'{datetime_utcfromtimestamp_ms(self.start)} - '
-                f'{datetime_utcfromtimestamp_ms(self.end)}\n'
-                f'Cost: {self.cost}\n'
-                f'Gain: {self.gain}\n'
-                f'Profit: {self.profit}\n'
-                f'Potential hodl profit: {self.potential_hodl_profit}\n'
-                f'ROI: {self.roi:.0%}\n'
-                f'Annualized ROI: {self.annualized_roi:.0%}\n'
-                f'Duration: {strfinterval(self.duration)}\n'
-                f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
-                f'{datetime_utcfromtimestamp_ms(self.end)}\n'
-                f'Max drawdown: {self.max_drawdown:.0%}\n'
-                f'Mean drawdown: {self.mean_drawdown:.0%}\n'
-                f'Positions taken: {len(self.positions)}\n'
-                f'Mean profit per position: {self.mean_position_profit}\n'
-                f'Mean duration per position: {strfinterval(self.mean_position_duration)}')
+        return (
+            f'{self.exchange} {self.symbol} {strfinterval(self.interval)} '
+            f'{datetime_utcfromtimestamp_ms(self.start)} - '
+            f'{datetime_utcfromtimestamp_ms(self.end)}\n'
+            f'Cost: {self.cost}\n'
+            f'Gain: {self.gain}\n'
+            f'Profit: {self.profit}\n'
+            f'Potential hodl profit: {self.potential_hodl_profit}\n'
+            f'ROI: {self.roi:.0%}\n'
+            f'Annualized ROI: {self.annualized_roi:.0%}\n'
+            f'Duration: {strfinterval(self.duration)}\n'
+            f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
+            f'{datetime_utcfromtimestamp_ms(self.end)}\n'
+            f'Max drawdown: {self.max_drawdown:.0%}\n'
+            f'Mean drawdown: {self.mean_drawdown:.0%}\n'
+            f'Positions taken: {len(self.positions)}\n'
+            f'Mean profit per position: {self.mean_position_profit}\n'
+            f'Mean duration per position: {strfinterval(self.mean_position_duration)}'
+        )
 
     def __repr__(self) -> str:
         return f'{type(self).__name__} {self.__dict__}'

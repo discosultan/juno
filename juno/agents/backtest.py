@@ -15,15 +15,22 @@ _log = logging.getLogger(__name__)
 
 
 class Backtest(Agent):
-
     def __init__(self, informant: Informant) -> None:
         super().__init__()
         self.informant = informant
         self.open_position: Optional[Position] = None
 
-    async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
-                  quote: Decimal, strategy_config: Dict[str, Any],
-                  restart_on_missed_candle: bool = True) -> None:
+    async def run(
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int,
+        quote: Decimal,
+        strategy_config: Dict[str, Any],
+        restart_on_missed_candle: bool = True
+    ) -> None:
         assert end <= time_ms()
         assert end > start
         assert quote > 0
@@ -41,7 +48,8 @@ class Backtest(Agent):
             start=start,
             quote=quote,
             fees=self.fees,
-            filters=self.filters)
+            filters=self.filters
+        )
         self.open_position = None
         restart_count = 0
 
@@ -55,16 +63,15 @@ class Backtest(Agent):
                 # Adjust start to accommodate for the required history before a strategy becomes
                 # effective. Only do it on first run because subsequent runs mean missed candles
                 # and we don't want to fetch passed a missed candle.
-                _log.info(f'fetching {strategy.req_history} candle(s) before start time to '
-                          'warm-up strategy')
+                _log.info(
+                    f'fetching {strategy.req_history} candle(s) before start time to '
+                    'warm-up strategy'
+                )
                 start -= strategy.req_history * interval
 
             async for candle in self.informant.stream_candles(
-                    exchange=exchange,
-                    symbol=symbol,
-                    interval=interval,
-                    start=start,
-                    end=end):
+                exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
+            ):
                 if not candle.closed:
                     continue
 
@@ -72,8 +79,10 @@ class Backtest(Agent):
 
                 # Check if we have missed a candle.
                 if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
-                    _log.warning(f'missed candle(s); last candle {self.last_candle}; current '
-                                 f'candle {candle}')
+                    _log.warning(
+                        f'missed candle(s); last candle {self.last_candle}; current '
+                        f'candle {candle}'
+                    )
                     if restart_on_missed_candle:
                         _log.info('restarting strategy')
                         start = candle.time
@@ -111,8 +120,8 @@ class Backtest(Agent):
 
         self.open_position = Position(
             time=candle.time,
-            fills=Fills([
-                Fill(price=price, size=size, fee=fee, fee_asset=self.base_asset)]))
+            fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=self.base_asset)])
+        )
 
         self.quote -= size * price
 
@@ -124,15 +133,16 @@ class Backtest(Agent):
         price = candle.close
 
         size = self.filters.size.round_down(
-            self.open_position.total_size - self.open_position.fills.total_fee)
+            self.open_position.total_size - self.open_position.fills.total_fee
+        )
 
         quote = size * price
         fee = quote * self.fees.taker
 
         self.open_position.close(
             time=candle.time,
-            fills=Fills([
-                Fill(price=price, size=size, fee=fee, fee_asset=self.quote_asset)]))
+            fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=self.quote_asset)])
+        )
         self.result.append_position(self.open_position)
         self.open_position = None
 

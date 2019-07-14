@@ -13,9 +13,10 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict,
 import aiohttp
 import simplejson as json
 
-from juno import (Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate,
-                  DepthUpdateType, Fees, Fill, Fills, OrderResult, OrderStatus, OrderType,
-                  OrderUpdate, Side, TimeInForce)
+from juno import (
+    Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate, DepthUpdateType, Fees,
+    Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
+)
 from juno.asyncio import Event
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, connect_refreshing_stream
@@ -41,15 +42,14 @@ _log = logging.getLogger(__name__)
 
 
 class Binance(Exchange):
-
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
 
     async def __aenter__(self) -> Binance:
         # Rate limiters.
-        self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)           # 1200 per min.
-        self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)            # 10 per sec.
+        self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)  # 1200 per min.
+        self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)  # 10 per sec.
         self._orders_per_day_limiter = LeakyBucket(rate=100_000, period=86_400)  # 100 000 per day.
 
         # Clock synchronization.
@@ -70,15 +70,16 @@ class Binance(Exchange):
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await _try_cancel_and_await_tasks(
-            self._sync_clock_task,
-            self._listen_key_refresh_task,
-            self._stream_user_data_task)
+            self._sync_clock_task, self._listen_key_refresh_task, self._stream_user_data_task
+        )
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def map_fees(self) -> Dict[str, Fees]:
         res = await self._request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA)
-        return {_from_symbol(fee['symbol']): Fees(maker=fee['maker'], taker=fee['taker'])
-                for fee in res['tradeFee']}
+        return {
+            _from_symbol(fee['symbol']): Fees(maker=fee['maker'], taker=fee['taker'])
+            for fee in res['tradeFee']
+        }
 
     async def map_filters(self) -> Dict[str, Filters]:
         res = await self._request('GET', '/api/v1/exchangeInfo')
@@ -100,19 +101,24 @@ class Binance(Exchange):
                 price=Price(
                     min=Decimal(price['minPrice']),
                     max=Decimal(price['maxPrice']),
-                    step=Decimal(price['tickSize'])),
+                    step=Decimal(price['tickSize'])
+                ),
                 percent_price=PercentPrice(
                     multiplier_up=Decimal(percent_price['multiplierUp']),
                     multiplier_down=Decimal(percent_price['multiplierDown']),
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS),
+                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
+                ),
                 size=Size(
                     min=Decimal(lot_size['minQty']),
                     max=Decimal(lot_size['maxQty']),
-                    step=Decimal(lot_size['stepSize'])),
+                    step=Decimal(lot_size['stepSize'])
+                ),
                 min_notional=MinNotional(
                     min_notional=Decimal(min_notional['minNotional']),
                     apply_to_market=min_notional['applyToMarket'],
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS))
+                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
+                )
+            )
         return result
 
     @asynccontextmanager
@@ -122,9 +128,9 @@ class Binance(Exchange):
             res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
             result = {}
             for balance in res['balances']:
-                result[balance['asset'].lower()] = Balance(
-                    available=Decimal(balance['free']),
-                    hold=Decimal(balance['locked']))
+                result[
+                    balance['asset'].lower()
+                ] = Balance(available=Decimal(balance['free']), hold=Decimal(balance['locked']))
             yield result
 
             # Stream future updates over WS.
@@ -136,9 +142,9 @@ class Binance(Exchange):
                 data = await self._balance_event.wait()
                 result = {}
                 for balance in data['B']:
-                    result[balance['a'].lower()] = Balance(
-                        available=Decimal(balance['f']),
-                        hold=Decimal(balance['l']))
+                    result[
+                        balance['a'].lower()
+                    ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
                 yield result
 
         await self._ensure_user_data_stream()
@@ -148,14 +154,19 @@ class Binance(Exchange):
     async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[DepthUpdate]:
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-            result = await self._request('GET', '/api/v1/depth', data={
-                'limit': 100,  # TODO: We might wanna increase that and accept higher weight.
-                'symbol': _http_symbol(symbol)
-            })
+            result = await self._request(
+                'GET',
+                '/api/v1/depth',
+                data={
+                    'limit': 100,  # TODO: We might wanna increase that and accept higher weight.
+                    'symbol': _http_symbol(symbol)
+                }
+            )
             yield DepthUpdate(
                 type=DepthUpdateType.SNAPSHOT,
                 bids=[(Decimal(x[0]), Decimal(x[1])) for x in result['bids']],
-                asks=[(Decimal(x[0]), Decimal(x[1])) for x in result['asks']])
+                asks=[(Decimal(x[0]), Decimal(x[1])) for x in result['asks']]
+            )
 
             last_update_id = result['lastUpdateId']
             is_first_ws_message = True
@@ -172,13 +183,14 @@ class Binance(Exchange):
                 yield DepthUpdate(
                     type=DepthUpdateType.UPDATE,
                     bids=[(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
-                    asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']])
+                    asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']]
+                )
                 last_update_id = data['u']
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         async with self._connect_refreshing_stream(
-                url=f'/ws/{_ws_symbol(symbol)}@depth',
-                interval=12 * HOUR_SEC) as ws:
+            url=f'/ws/{_ws_symbol(symbol)}@depth', interval=12 * HOUR_SEC
+        ) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -205,7 +217,8 @@ class Binance(Exchange):
                     # 'size': Decimal(data['q']),
                     # 'fills': fills,
                     fee=Decimal(data['n']),
-                    fee_asset=data['N'].lower() if data['N'] else None)
+                    fee_asset=data['N'].lower() if data['N'] else None
+                )
 
         await self._ensure_user_data_stream()
         yield inner()
@@ -217,14 +230,15 @@ class Binance(Exchange):
 
             user_stream_connected = asyncio.Event()
 
-            listen_key = (await self._request(
-                'POST',
-                '/api/v1/userDataStream',
-                security=_SEC_USER_STREAM))['listenKey']
+            listen_key = (
+                await self._request('POST', '/api/v1/userDataStream', security=_SEC_USER_STREAM)
+            )['listenKey']
             self._listen_key_refresh_task = asyncio.create_task(
-                self._periodic_listen_key_refresh(listen_key))
+                self._periodic_listen_key_refresh(listen_key)
+            )
             self._stream_user_data_task = asyncio.create_task(
-                self._stream_user_data(listen_key, user_stream_connected))
+                self._stream_user_data(listen_key, user_stream_connected)
+            )
 
             await user_stream_connected.wait()
 
@@ -233,8 +247,8 @@ class Binance(Exchange):
             bal_time, order_time = 0, 0
             # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
             async with self._connect_refreshing_stream(
-                    url=f'/ws/{listen_key}',
-                    interval=12 * HOUR_SEC) as ws:
+                url=f'/ws/{listen_key}', interval=12 * HOUR_SEC
+            ) as ws:
                 connected.set()
                 async for data in ws:
                     # The data can come out of sync. Make sure to discard old updates.
@@ -251,15 +265,16 @@ class Binance(Exchange):
             raise
 
     async def place_order(
-            self,
-            symbol: str,
-            side: Side,
-            type_: OrderType,
-            size: Decimal,
-            price: Optional[Decimal] = None,
-            time_in_force: Optional[TimeInForce] = None,
-            client_id: Optional[str] = None,
-            test: bool = True) -> OrderResult:
+        self,
+        symbol: str,
+        side: Side,
+        type_: OrderType,
+        size: Decimal,
+        price: Optional[Decimal] = None,
+        time_in_force: Optional[TimeInForce] = None,
+        client_id: Optional[str] = None,
+        test: bool = True
+    ) -> OrderResult:
         data = {
             'symbol': _http_symbol(symbol),
             'side': _side(side),
@@ -285,15 +300,14 @@ class Binance(Exchange):
                     fee=Decimal(f['commission']),
                     fee_asset=f['commissionAsset'].lower()
                 ) for f in res['fills']
-            ]))
+            ])
+        )
 
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
-        data = {
-            'symbol': _http_symbol(symbol),
-            'origClientOrderId': client_id
-        }
-        res = await self._request('DELETE', '/api/v3/order', data=data, security=_SEC_TRADE,
-                                  raise_for_status=False)
+        data = {'symbol': _http_symbol(symbol), 'origClientOrderId': client_id}
+        res = await self._request(
+            'DELETE', '/api/v3/order', data=data, security=_SEC_TRADE, raise_for_status=False
+        )
         binance_error = res.get('code')
         if binance_error == _ERR_CANCEL_REJECTED:
             return CancelOrderResult(status=CancelOrderStatus.REJECTED)
@@ -302,15 +316,16 @@ class Binance(Exchange):
         return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
 
     @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str, interval: int, start: int, end: int
-                                     ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str, interval: int, start: int,
+                                     end: int) -> AsyncIterator[AsyncIterable[Candle]]:
         current = floor_multiple(time_ms(), interval)
         future_stream = None
 
         async def inner() -> AsyncIterable[Candle]:
             if start < current:
                 async for candle in self._stream_historical_candles(
-                        symbol, interval, start, min(end, current)):
+                    symbol, interval, start, min(end, current)
+                ):
                     yield candle
             if future_stream:
                 async for candle in future_stream:
@@ -322,24 +337,30 @@ class Binance(Exchange):
         else:
             yield inner()
 
-    async def _stream_historical_candles(self, symbol: str, interval: int, start: int, end: int
-                                         ) -> AsyncIterable[Candle]:
+    async def _stream_historical_candles(self, symbol: str, interval: int, start: int,
+                                         end: int) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            res = await self._request('GET', '/api/v1/klines', data={
-                'symbol': _http_symbol(symbol),
-                'interval': _interval(interval),
-                'startTime': page_start,
-                'endTime': page_end - 1,
-                'limit': MAX_CANDLES_PER_REQUEST
-            })
+            res = await self._request(
+                'GET',
+                '/api/v1/klines',
+                data={
+                    'symbol': _http_symbol(symbol),
+                    'interval': _interval(interval),
+                    'startTime': page_start,
+                    'endTime': page_end - 1,
+                    'limit': MAX_CANDLES_PER_REQUEST
+                }
+            )
             for c in res:
-                yield Candle(c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
-                             Decimal(c[5]), True)
+                yield Candle(
+                    c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
+                    Decimal(c[5]), True
+                )
 
     @asynccontextmanager
-    async def _stream_future_candles(self, symbol: str, interval: int, end: int
-                                     ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def _stream_future_candles(self, symbol: str, interval: int,
+                                     end: int) -> AsyncIterator[AsyncIterable[Candle]]:
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where
@@ -348,16 +369,18 @@ class Binance(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for data in ws:
                 c = data['k']
-                candle = Candle(c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']),
-                                Decimal(c['c']), Decimal(c['v']), c['x'])
+                candle = Candle(
+                    c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']), Decimal(c['c']),
+                    Decimal(c['v']), c['x']
+                )
                 yield candle
 
                 if candle.time >= end - interval and candle.closed:
                     break
 
         async with self._connect_refreshing_stream(
-                url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}',
-                interval=12 * HOUR_SEC) as ws:
+            url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}', interval=12 * HOUR_SEC
+        ) as ws:
             yield inner(ws)
 
     async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
@@ -368,7 +391,8 @@ class Binance(Exchange):
                     'PUT',
                     '/api/v1/userDataStream',
                     data={'listenKey': listen_key},
-                    security=_SEC_USER_STREAM)
+                    security=_SEC_USER_STREAM
+                )
         except asyncio.CancelledError:
             _log.info('periodic listen key refresh task cancelled')
         finally:
@@ -376,16 +400,24 @@ class Binance(Exchange):
                 'DELETE',
                 '/api/v1/userDataStream',
                 data={'listenKey': listen_key},
-                security=_SEC_USER_STREAM)
+                security=_SEC_USER_STREAM
+            )
 
     @retry_on(aiohttp.ClientConnectionError, max_tries=3)
-    async def _request(self, method: str, url: str, weight: int = 1, data: Optional[Any] = None,
-                       security: int = _SEC_NONE, raise_for_status: Optional[bool] = None) -> Any:
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        weight: int = 1,
+        data: Optional[Any] = None,
+        security: int = _SEC_NONE,
+        raise_for_status: Optional[bool] = None
+    ) -> Any:
         if method == '/api/v3/order':
             await asyncio.gather(
-                self._reqs_per_min_limiter.acquire(weight),
-                self._orders_per_day_limiter.acquire(),
-                self._orders_per_sec_limiter.acquire())
+                self._reqs_per_min_limiter.acquire(weight), self._orders_per_day_limiter.acquire(),
+                self._orders_per_sec_limiter.acquire()
+            )
         else:
             await self._reqs_per_min_limiter.acquire(weight)
 
@@ -410,21 +442,23 @@ class Binance(Exchange):
         if data:
             kwargs['params' if method == 'GET' else 'data'] = data
 
-        async with self._session.request(method=method, url=_BASE_REST_URL + url,
-                                         raise_for_status=raise_for_status, **kwargs) as res:
+        async with self._session.request(
+            method=method, url=_BASE_REST_URL + url, raise_for_status=raise_for_status, **kwargs
+        ) as res:
             return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
 
     # @asynccontextmanager
     # TODO: Figure out how to backoff an asynccontextmanager.
     # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
-    def _connect_refreshing_stream(self, url: str, interval: int, **kwargs: Any
-                                   ) -> AsyncContextManager[AsyncIterable[Any]]:
+    def _connect_refreshing_stream(self, url: str, interval: int,
+                                   **kwargs: Any) -> AsyncContextManager[AsyncIterable[Any]]:
         return connect_refreshing_stream(
             self._session,
             url=_BASE_WS_URL + url,
             interval=interval,
             loads=json.loads,
-            take_until=lambda old, new: old['E'] < new['E'])
+            take_until=lambda old, new: old['E'] < new['E']
+        )
 
     async def _sync_clock(self) -> None:
         try:
@@ -492,10 +526,7 @@ def _interval(interval: int) -> str:
 
 
 def _side(side: Side) -> str:
-    return {
-        Side.BID: 'BUY',
-        Side.ASK: 'SELL'
-    }[side]
+    return {Side.BID: 'BUY', Side.ASK: 'SELL'}[side]
 
 
 def _from_order_status(status: str) -> OrderStatus:

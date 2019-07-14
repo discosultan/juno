@@ -5,7 +5,6 @@ from .dm import DM
 
 # Directional Indicator
 class DI:
-
     def __init__(self, period: int) -> None:
         self.plus_value = Decimal(0)
         self.minus_value = Decimal(0)

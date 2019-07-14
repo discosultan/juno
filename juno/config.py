@@ -13,8 +13,9 @@ from juno.typing import filter_member_args
 from juno.utils import map_module_types, recursive_iter
 
 
-def load_from_env(env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
-                  ) -> Dict[str, Any]:
+def load_from_env(
+    env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
+) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
     entries = ((k.split(separator)[1:], v) for k, v in env.items()
                if k.startswith(prefix + separator))

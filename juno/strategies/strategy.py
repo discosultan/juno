@@ -5,7 +5,6 @@ from juno import Advice, Candle
 
 
 class Strategy(ABC):
-
     @abstractproperty
     def req_history(self) -> int:
         pass

@@ -14,8 +14,9 @@ from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 import simplejson as json
 
-from juno import (Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderType, Side,
-                  TimeInForce)
+from juno import (
+    Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderType, Side, TimeInForce
+)
 from juno.asyncio import Event
 from juno.filters import Filters, Price, Size
 from juno.http import ClientSession
@@ -33,7 +34,6 @@ _log = logging.getLogger(__name__)
 
 
 class Coinbase(Exchange):
-
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
         self._secret_key_bytes = base64.b64decode(secret_key)
@@ -41,7 +41,7 @@ class Coinbase(Exchange):
 
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
-        self._pub_limiter = LeakyBucket(rate=1, period=1)   # They advertise 3 per sec.
+        self._pub_limiter = LeakyBucket(rate=1, period=1)  # They advertise 3 per sec.
         self._priv_limiter = LeakyBucket(rate=5, period=1)  # They advertise 5 per sec.
 
         # Stream.
@@ -80,12 +80,13 @@ class Coinbase(Exchange):
         result = {}
         for product in res:
             result[product['id'].lower()] = Filters(
-                price=Price(
-                    step=Decimal(product['quote_increment'])),
+                price=Price(step=Decimal(product['quote_increment'])),
                 size=Size(
                     min=Decimal(product['base_min_size']),
                     max=Decimal(product['base_max_size']),
-                    step=Decimal(product['base_increment'])))
+                    step=Decimal(product['base_increment'])
+                )
+            )
         return result
 
     @asynccontextmanager
@@ -95,21 +96,22 @@ class Coinbase(Exchange):
             result = {}
             for balance in res:
                 result[balance['currency'].lower()] = Balance(
-                    available=Decimal(balance['available']),
-                    hold=Decimal(balance['hold']))
+                    available=Decimal(balance['available']), hold=Decimal(balance['hold'])
+                )
             yield result
 
         # TODO: Add support for future balance changes.
         yield inner()
 
     @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str, interval: int, start: int, end: int
-                                     ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str, interval: int, start: int,
+                                     end: int) -> AsyncIterator[AsyncIterable[Candle]]:
         async def inner() -> AsyncIterable[Candle]:
             current = floor_multiple(time_ms(), interval)
             if start < current:
                 async for candle in self._stream_historical_candles(
-                        symbol, interval, start, min(end, current)):
+                    symbol, interval, start, min(end, current)
+                ):
                     yield candle
             if end > current:
                 async for candle in self._stream_future_candles(symbol, interval, end):
@@ -117,16 +119,18 @@ class Coinbase(Exchange):
 
         yield inner()
 
-    async def _stream_historical_candles(self, symbol: str, interval: int, start: int, end: int
-                                         ) -> AsyncIterable[Candle]:
+    async def _stream_historical_candles(self, symbol: str, interval: int, start: int,
+                                         end: int) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
         url = f'/products/{_product(symbol)}/candles'
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            res = await self._public_request('GET', url, {
-                'start': _datetime(page_start),
-                'end': _datetime(page_end - 1),
-                'granularity': _granularity(interval)
-            })
+            res = await self._public_request(
+                'GET', url, {
+                    'start': _datetime(page_start),
+                    'end': _datetime(page_end - 1),
+                    'granularity': _granularity(interval)
+                }
+            )
             for c in reversed(res):
                 # This seems to be an issue on Coinbase side. I didn't find any documentation for
                 # this behavior but occasionally they send null values inside candle rows for
@@ -137,8 +141,8 @@ class Coinbase(Exchange):
                 yield Candle(c[0] * 1000, c[3], c[2], c[1], c[4], c[5], True)
 
     # TODO: First candle can be partial.
-    async def _stream_future_candles(self, symbol: str, interval: int, end: int
-                                     ) -> AsyncIterable[Candle]:
+    async def _stream_future_candles(self, symbol: str, interval: int,
+                                     end: int) -> AsyncIterable[Candle]:
         self._ensure_stream_open()
         if symbol not in self._stream_subscriptions.get('matches', []):
             self._stream_subscription_queue.put_nowait({
@@ -179,7 +183,8 @@ class Coinbase(Exchange):
                     low=price,
                     close=price,
                     volume=size,
-                    closed=True)
+                    closed=True
+                )
             else:
                 current_candle = Candle(
                     time=current_candle.time,
@@ -188,7 +193,8 @@ class Coinbase(Exchange):
                     low=min(price, current_candle.low),
                     close=price,
                     volume=current_candle.volume + size,
-                    closed=True)
+                    closed=True
+                )
                 last_candle_map[product_id] = current_candle
 
     @asynccontextmanager
@@ -228,15 +234,16 @@ class Coinbase(Exchange):
         yield
 
     async def place_order(
-            self,
-            symbol: str,
-            side: Side,
-            type_: OrderType,
-            size: Decimal,
-            price: Optional[Decimal] = None,
-            time_in_force: Optional[TimeInForce] = None,
-            client_id: Optional[str] = None,
-            test: bool = True) -> Any:
+        self,
+        symbol: str,
+        side: Side,
+        type_: OrderType,
+        size: Decimal,
+        price: Optional[Decimal] = None,
+        time_in_force: Optional[TimeInForce] = None,
+        client_id: Optional[str] = None,
+        test: bool = True
+    ) -> Any:
         raise NotImplementedError()
 
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
@@ -256,7 +263,8 @@ class Coinbase(Exchange):
                     if data['type'] == 'subscriptions':
                         self._stream_subscriptions = {
                             c['name']: [s.lower() for s in c['product_ids']]
-                            for c in data['channels']}
+                            for c in data['channels']
+                        }
                     else:
                         self._stream_consumer_events[data['type']].set(data)
         except asyncio.CancelledError:
@@ -292,7 +300,8 @@ class Coinbase(Exchange):
             'CB-ACCESS-SIGN': signature,
             'CB-ACCESS-TIMESTAMP': timestamp,
             'CB-ACCESS-KEY': self._api_key,
-            'CB-ACCESS-PASSPHRASE': self._passphrase}
+            'CB-ACCESS-PASSPHRASE': self._passphrase
+        }
         url = _BASE_REST_URL + url
         async with self._session.request(method, url, headers=headers, data=body) as res:
             return await res.json(loads=lambda x: json.loads(x, use_decimal=True))

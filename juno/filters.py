@@ -20,9 +20,8 @@ class Price(NamedTuple):
         return price.quantize(self.step.normalize(), rounding=ROUND_DOWN)
 
     def valid(self, price: Decimal) -> bool:
-        return ((not self.min or price >= self.min) and
-                (not self.max or price <= self.max) and
-                (not self.step or (price - self.min) % self.step == 0))
+        return ((not self.min or price >= self.min) and (not self.max or price <= self.max)
+                and (not self.step or (price - self.min) % self.step == 0))
 
     @staticmethod
     def none() -> Price:
@@ -35,8 +34,10 @@ class PercentPrice(NamedTuple):
     avg_price_period: int = 0  # 0 means the last price is used.
 
     def valid(self, price: Decimal, weighted_average_price: Decimal) -> bool:
-        return (price <= weighted_average_price * self.multiplier_up and
-                price >= weighted_average_price * self.multiplier_down)
+        return (
+            price <= weighted_average_price * self.multiplier_up
+            and price >= weighted_average_price * self.multiplier_down
+        )
 
     @staticmethod
     def none() -> PercentPrice:
@@ -61,9 +62,7 @@ class Size(NamedTuple):
         return size.quantize(self.step.normalize(), rounding=rounding)
 
     def valid(self, size: Decimal) -> bool:
-        return (size >= self.min and
-                size <= self.max and
-                (size - self.min) % self.step == 0)
+        return (size >= self.min and size <= self.max and (size - self.min) % self.step == 0)
 
     @staticmethod
     def none() -> Size:

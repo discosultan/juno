@@ -20,7 +20,6 @@ _log = logging.getLogger(__name__)
 # Only type based resolution is applied. For name/type resolution, additional impl is required.
 # If type registering was purely explicit, we could start using `resolve` after `__aenter__`.
 class Container:
-
     def __init__(self) -> None:
         self._singleton_instances: Dict[Type[Any], Callable[[], Any]] = {}
         self._singleton_types: Dict[Type[Any], Callable[[], Type[Any]]] = {}
@@ -28,13 +27,16 @@ class Container:
         self._exit_stack = AsyncExitStack()
 
     async def __aenter__(self) -> Container:
-        _log.info(
-            f'Created instances: {[i for i in self._singletons.values()]}')
+        _log.info(f'Created instances: {[i for i in self._singletons.values()]}')
         await self._exit_stack.__aenter__()
         dep_map = map_dependencies(self._singletons)
         for deps in list_dependencies_in_init_order(dep_map):
-            await asyncio.gather(*(self._exit_stack.enter_async_context(d) for d in deps
-                                 if isinstance(d, AbstractAsyncContextManager)))
+            await asyncio.gather(
+                *(
+                    self._exit_stack.enter_async_context(d)
+                    for d in deps if isinstance(d, AbstractAsyncContextManager)
+                )
+            )
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
@@ -67,8 +69,8 @@ class Container:
                 instance_type = type_factory()
 
             kwargs = {}
-            for dep_name, dep_type in get_input_type_hints(
-                    instance_type.__init__).items():  # type: ignore
+            for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
+                                                           ).items():
                 kwargs[dep_name] = self._resolve_dep(dep_type)
             try:
                 instance = instance_type(**kwargs)
@@ -79,8 +81,9 @@ class Container:
         return instance
 
 
-def map_dependencies(instances: Dict[Type[Any], Any], graph: Optional[Dict[Any, List[Any]]] = None
-                     ) -> Dict[Any, List[Any]]:
+def map_dependencies(
+    instances: Dict[Type[Any], Any], graph: Optional[Dict[Any, List[Any]]] = None
+) -> Dict[Any, List[Any]]:
     if not graph:
         graph = defaultdict(list)
 

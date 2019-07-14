@@ -5,7 +5,6 @@ from .ema import Ema
 
 # Double Exponential Moving Average
 class Dema:
-
     def __init__(self, period: int) -> None:
         self.value = Decimal(0)
         self._ema1 = Ema(period)

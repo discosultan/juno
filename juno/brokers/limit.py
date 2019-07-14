@@ -5,8 +5,9 @@ import uuid
 from decimal import Decimal
 from typing import List
 
-from juno import (CancelOrderStatus, Fill, Fills, OrderResult, OrderStatus, OrderType, Side,
-                  TimeInForce)
+from juno import (
+    CancelOrderStatus, Fill, Fills, OrderResult, OrderStatus, OrderType, Side, TimeInForce
+)
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 
@@ -14,9 +15,9 @@ _log = logging.getLogger(__name__)
 
 
 class Limit:
-
-    def __init__(self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
-                 ) -> None:
+    def __init__(
+        self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
+    ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -38,8 +39,9 @@ class Limit:
         _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_quote} * {fees.maker}')
         return res
 
-    async def _fill(self, exchange: str, symbol: str, side: Side, available: Decimal
-                    ) -> OrderResult:
+    async def _fill(
+        self, exchange: str, symbol: str, side: Side, available: Decimal
+    ) -> OrderResult:
         client_id = str(uuid.uuid4())
         fills = Fills()  # Fills from aggregated trades.
 
@@ -51,7 +53,9 @@ class Limit:
                     symbol=symbol,
                     client_id=client_id,
                     side=side,
-                    available=available))
+                    available=available
+                )
+            )
 
             # Listens for fill events for an existing order.
             async for order in stream:
@@ -67,29 +71,36 @@ class Limit:
                 if order.status is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
                     assert order.fee_asset
-                    fills.append(Fill(
-                        price=order.price,
-                        size=order.size,
-                        fee=order.fee,
-                        fee_asset=order.fee_asset))
+                    fills.append(
+                        Fill(
+                            price=order.price,
+                            size=order.size,
+                            fee=order.fee,
+                            fee_asset=order.fee_asset
+                        )
+                    )
                     break
                 else:  # CANCELED
                     _log.info(f'existing order {client_id} canceled')
                     if order.cumulative_filled_size > 0:
                         assert order.fee_asset
-                        fills.append(Fill(
-                            price=order.price,
-                            size=order.cumulative_filled_size,
-                            fee=order.fee,
-                            fee_asset=order.fee_asset))
+                        fills.append(
+                            Fill(
+                                price=order.price,
+                                size=order.cumulative_filled_size,
+                                fee=order.fee,
+                                fee_asset=order.fee_asset
+                            )
+                        )
 
             keep_limit_order_best_task.cancel()
             await keep_limit_order_best_task
 
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
-    async def _keep_limit_order_best(self, exchange: str, symbol: str, client_id: str, side: Side,
-                                     available: Decimal) -> None:
+    async def _keep_limit_order_best(
+        self, exchange: str, symbol: str, client_id: str, side: Side, available: Decimal
+    ) -> None:
         try:
             orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
             filters = self._informant.get_filters(exchange, symbol)
@@ -107,7 +118,8 @@ class Limit:
                 if len(ob_side) == 0:
                     raise NotImplementedError(
                         f'no existing {"bids" if side is Side.BID else "asks"} in orderbook! what '
-                        'is optimal price?')
+                        'is optimal price?'
+                    )
 
                 if len(ob_other_side) == 0:
                     price = op_step(ob_side[0][0], filters.price.step)
@@ -123,10 +135,13 @@ class Limit:
 
                 if last_order_price not in [0, Decimal('Inf')]:
                     # Cancel prev order.
-                    _log.info(f'cancelling previous limit order {client_id} at price '
-                              f'{last_order_price}')
+                    _log.info(
+                        f'cancelling previous limit order {client_id} at price '
+                        f'{last_order_price}'
+                    )
                     cancel_res = await self._exchanges[exchange].cancel_order(
-                        symbol=symbol, client_id=client_id)
+                        symbol=symbol, client_id=client_id
+                    )
                     if cancel_res.status is CancelOrderStatus.REJECTED:
                         _log.warning(f'failed to cancel order {client_id}; probably got filled')
                         break
@@ -141,7 +156,8 @@ class Limit:
                 if not filters.min_notional.valid(price=price, size=size):
                     raise NotImplementedError(
                         'min notional not valid: '
-                        f'{price} * {size} != {filters.min_notional.min_notional}')
+                        f'{price} * {size} != {filters.min_notional.min_notional}'
+                    )
 
                 _log.info(f'placing limit order at price {price} for size {size}')
                 res = await self._exchanges[exchange].place_order(
@@ -152,7 +168,8 @@ class Limit:
                     size=size,
                     time_in_force=TimeInForce.GTC,
                     client_id=client_id,
-                    test=False)
+                    test=False
+                )
 
                 if res.status is OrderStatus.FILLED:
                     _log.info(f'new limit order {client_id} immediately filled {res.fills}')

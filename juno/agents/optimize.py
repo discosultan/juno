@@ -16,12 +16,19 @@ _log = logging.getLogger(__name__)
 
 
 class Optimize(Agent):
-
     def __init__(self, informant: Informant):
         self._informant = informant
 
-    async def run(self, exchange: str, symbol: str, interval: int, start: int, end: int,
-                  strategy_cls: Type[Strategy], seed: Optional[int] = None) -> None:
+    async def run(
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int,
+        strategy_cls: Type[Strategy],
+        seed: Optional[int] = None
+    ) -> None:
         # It's useful to set a seed for idempotent results. Useful for debugging.
         # seed = 42  # TODO TEMP
         if seed:
@@ -61,11 +68,9 @@ class Optimize(Agent):
 
         def result_fitness(result):
             return (
-                result.total_profit,
-                result.mean_drawdown,
-                result.max_drawdown,
-                result.mean_position_profit,
-                result.mean_position_duration)
+                result.total_profit, result.mean_drawdown, result.max_drawdown,
+                result.mean_position_profit, result.mean_position_duration
+            )
 
         def problem(individual):
             return result_fitness(backtester.run(*individual))
@@ -84,7 +89,9 @@ class Optimize(Agent):
             return flatten([a() for a in attrs])
 
         toolbox.register('strategy_args', strategy_args)
-        toolbox.register('individual', tools.initIterate, creator.Individual, toolbox.strategy_args)
+        toolbox.register(
+            'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
+        )
         toolbox.register('population', tools.initRepeat, list, toolbox.individual)
 
         def mut_individual(individual, indpb):
@@ -109,7 +116,8 @@ class Optimize(Agent):
 
             cxpoint2 += 1
 
-            ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = ind2[cxpoint1:cxpoint2], ind1[cxpoint1:cxpoint2]
+            ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = ind2[cxpoint1:cxpoint2
+                                                                    ], ind1[cxpoint1:cxpoint2]
 
             return ind1, ind2
 
@@ -134,14 +142,18 @@ class Optimize(Agent):
         hall = tools.HallOfFame(1)
 
         # Returns the final population and logbook with the statistics of the evolution.
-        final_pop, stat = algorithms.eaMuPlusLambda(pop, toolbox, mu=toolbox.pop_size,
-                                                    lambda_=toolbox.pop_size,
-                                                    cxpb=1.0 - toolbox.mut_prob,
-                                                    mutpb=toolbox.mut_prob,
-                                                    stats=None,
-                                                    ngen=toolbox.max_gen,
-                                                    halloffame=hall,
-                                                    verbose=False)
+        final_pop, stat = algorithms.eaMuPlusLambda(
+            pop,
+            toolbox,
+            mu=toolbox.pop_size,
+            lambda_=toolbox.pop_size,
+            cxpb=1.0 - toolbox.mut_prob,
+            mutpb=toolbox.mut_prob,
+            stats=None,
+            ngen=toolbox.max_gen,
+            halloffame=hall,
+            verbose=False
+        )
 
         self.result = flatten(hall[0])
 

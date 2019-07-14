@@ -5,7 +5,6 @@ from juno import OrderResult
 
 
 class Broker(ABC):
-
     @abstractmethod
     async def buy(self, exchange: str, symbol: str, quote: Decimal, test: bool) -> OrderResult:
         pass

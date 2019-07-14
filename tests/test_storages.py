@@ -68,7 +68,8 @@ async def test_memory_set_different_maps(loop, memory):
         memory.set_map(key='key', type_=Filters, items=filters)
     )
     (out_fees, _), (out_filters, _) = await asyncio.gather(
-        memory.get_map(key='key', type_=Fees), memory.get_map(key='key', type_=Filters)
+        memory.get_map(key='key', type_=Fees),
+        memory.get_map(key='key', type_=Filters),
     )
 
     assert out_fees == fees

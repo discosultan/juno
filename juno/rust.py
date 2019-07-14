@@ -39,7 +39,7 @@ def init() -> None:
 def _map_type(type_: type) -> str:
     result = {
         int: 'uint32_t',
-        float: 'double'
+        float: 'double',
     }.get(type_)
     if not result:
         raise NotImplementedError()

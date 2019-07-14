@@ -18,14 +18,14 @@ LOG_LEVEL = 'DEBUG'
 QUOTE = Decimal('0.0015')
 BASE = Decimal('150')
 
-
 if len(sys.argv) > 1:
     SIDE = Side[sys.argv[1].upper()]
 
 
 async def main() -> None:
-    binance = Binance(os.environ['JUNO__BINANCE__API_KEY'],
-                      os.environ['JUNO__BINANCE__SECRET_KEY'])
+    binance = Binance(
+        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
+    )
     exchanges: List[Exchange] = [binance]
     memory = Memory()
     sqlite = SQLite()
@@ -36,25 +36,11 @@ async def main() -> None:
     limit = Limit(informant, orderbook, exchanges)
     async with binance, memory, sqlite, informant, orderbook, wallet:
         if SIDE is Side.BID:
-            market_fills = market.find_order_asks(
-                exchange=EXCHANGE,
-                symbol=SYMBOL,
-                quote=QUOTE)
-            res = await limit.buy(
-                exchange=EXCHANGE,
-                symbol=SYMBOL,
-                quote=QUOTE,
-                test=False)
+            market_fills = market.find_order_asks(exchange=EXCHANGE, symbol=SYMBOL, quote=QUOTE)
+            res = await limit.buy(exchange=EXCHANGE, symbol=SYMBOL, quote=QUOTE, test=False)
         else:
-            market_fills = market.find_order_bids(
-                exchange=EXCHANGE,
-                symbol=SYMBOL,
-                base=BASE)
-            res = await limit.sell(
-                exchange=EXCHANGE,
-                symbol=SYMBOL,
-                base=BASE,
-                test=False)
+            market_fills = market.find_order_bids(exchange=EXCHANGE, symbol=SYMBOL, base=BASE)
+            res = await limit.sell(exchange=EXCHANGE, symbol=SYMBOL, base=BASE, test=False)
 
         logging.info(res)
         logging.info(f'{SIDE} {SYMBOL}')
@@ -66,7 +52,5 @@ async def main() -> None:
     logging.info('Done!')
 
 
-logging.basicConfig(
-    handlers=[logging.StreamHandler(stream=sys.stdout)],
-    level=LOG_LEVEL)
+logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level=LOG_LEVEL)
 asyncio.run(main())

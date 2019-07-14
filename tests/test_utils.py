@@ -34,8 +34,20 @@ def test_page():
 
 
 def test_recursive_iter():
-    input = {'aa': 'ab', 'ba': {'ca': 'cb'}, 'da': [{'ea': 'eb'}]}
-    expected_output = [(('aa', ), 'ab'), (('ba', 'ca'), 'cb'), (('da', 0, 'ea'), 'eb')]
+    input = {
+        'aa': 'ab',
+        'ba': {
+            'ca': 'cb'
+        },
+        'da': [{
+            'ea': 'eb'
+        }],
+    }
+    expected_output = [
+        (('aa', ), 'ab'),
+        (('ba', 'ca'), 'cb'),
+        (('da', 0, 'ea'), 'eb'),
+    ]
     output = list(utils.recursive_iter(input))
     assert output == expected_output
 

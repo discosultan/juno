@@ -5,8 +5,8 @@ from juno.agents import Agent
 
 
 # Only supports loading a type of plugin once (not the same plugin with different configs).
-def list_plugins(agent_config_map: Dict[Agent, Dict[str, Any]], config: Dict[str, Any]
-                 ) -> List[AsyncContextManager[None]]:
+def list_plugins(agent_config_map: Dict[Agent, Dict[str, Any]],
+                 config: Dict[str, Any]) -> List[AsyncContextManager[None]]:
     agent_plugin_names = {a: c.get('plugins', []) for a, c in agent_config_map.items()}
 
     plugins = []

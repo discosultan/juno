@@ -6,7 +6,6 @@ from .smma import Smma
 
 # Average Directional Index
 class Adx:
-
     def __init__(self, period: int) -> None:
         if period < 2:
             raise ValueError(f'Invalid period ({period})')

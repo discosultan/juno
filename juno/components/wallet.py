@@ -13,7 +13,6 @@ _log = logging.getLogger(__name__)
 
 
 class Wallet:
-
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._exchange_balances: Dict[str, Dict[str, Balance]] = defaultdict(dict)

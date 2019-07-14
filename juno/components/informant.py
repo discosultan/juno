@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import (Any, AsyncIterable, Awaitable, Callable, Dict, List, Optional, Type, TypeVar,
-                    cast)
+from typing import (
+    Any, AsyncIterable, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, cast
+)
 
 from juno import Candle, Fees, Span
 from juno.asyncio import list_async
@@ -24,13 +25,13 @@ FetchMap = Callable[[Exchange], Awaitable[Dict[str, Any]]]
 
 
 class Informant:
-
     def __init__(self, storage: Storage, exchanges: List[Exchange]) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
         self._exchange_data: Dict[str, Dict[Type[Any], Dict[str, Any]]] = (
-            defaultdict(lambda: defaultdict(dict)))
+            defaultdict(lambda: defaultdict(dict))
+        )
         self._sync_tasks: List[asyncio.Task[None]] = []
         self._initial_sync_events: List[asyncio.Event] = []
 
@@ -61,74 +62,82 @@ class Informant:
         _log.info(f'get {type_.__name__.lower()}: {data}')
         return cast(T, data)
 
-    async def stream_candles(self, exchange: str, symbol: str, interval: int, start: int, end: int
-                             ) -> AsyncIterable[Candle]:
+    async def stream_candles(
+        self, exchange: str, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
         storage_key = (exchange, symbol, interval)
 
         _log.info('checking for existing candles in local storage')
         existing_spans = await list_async(
-            self._storage.stream_candle_spans(storage_key, start, end))
+            self._storage.stream_candle_spans(storage_key, start, end)
+        )
         merged_existing_spans = list(merge_adjacent_spans(existing_spans))
         missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
 
-        spans = ([(a, b, True) for a, b in merged_existing_spans] +
-                 [(a, b, False) for a, b in missing_spans])
+        spans = ([(a, b, True) for a, b in merged_existing_spans] + [(a, b, False)
+                                                                     for a, b in missing_spans])
         spans.sort(key=lambda s: s[0])
 
         for span_start, span_end, exist_locally in spans:
             if exist_locally:
                 _log.info(f'local candles exist between {Span(span_start, span_end)}')
                 async for candle in self._storage.stream_candles(
-                        storage_key, span_start, span_end):
+                    storage_key, span_start, span_end
+                ):
                     yield candle
             else:
                 _log.info(f'missing candles between {Span(span_start, span_end)}')
                 async for candle in self._stream_and_store_exchange_candles(
-                        exchange, symbol, interval, span_start, span_end):
+                    exchange, symbol, interval, span_start, span_end
+                ):
                     yield candle
 
-    async def _stream_and_store_exchange_candles(self, exchange: str, symbol: str, interval: int,
-                                                 start: int, end: int
-                                                 ) -> AsyncIterable[Candle]:
+    async def _stream_and_store_exchange_candles(
+        self, exchange: str, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
         BATCH_SIZE = 1000
         batch = []
         batch_start = start
 
         async with self._exchanges[exchange].connect_stream_candles(
-                symbol=symbol, interval=interval, start=start, end=end) as stream:
+            symbol=symbol, interval=interval, start=start, end=end
+        ) as stream:
             async for candle in stream:
                 if candle.closed:
                     batch.append(candle)
                     if len(batch) == BATCH_SIZE:
                         batch_end = batch[-1].time + interval
-                        await self._storage.store_candles_and_span(
-                            (exchange, symbol, interval), batch, batch_start, batch_end)
+                        await self._storage.store_candles_and_span((exchange, symbol, interval),
+                                                                   batch, batch_start, batch_end)
                         batch_start = batch_end
                         del batch[:]
                 yield candle
 
             if len(batch) > 0:
                 batch_end = min(end, floor_multiple(time_ms(), interval))
-                await self._storage.store_candles_and_span(
-                    (exchange, symbol, interval), batch, batch_start, batch_end)
+                await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
+                                                           batch_start, batch_end)
 
     def _setup_sync_task(self, type_: type, fetch: FetchMap) -> None:
         initial_sync_event = asyncio.Event()
         self._initial_sync_events.append(initial_sync_event)
         self._sync_tasks.append(
-            asyncio.create_task(self._sync_all_data(type_, fetch, initial_sync_event)))
+            asyncio.create_task(self._sync_all_data(type_, fetch, initial_sync_event))
+        )
 
-    async def _sync_all_data(self, type_: type, fetch: FetchMap, initial_sync_event: asyncio.Event
-                             ) -> None:
+    async def _sync_all_data(
+        self, type_: type, fetch: FetchMap, initial_sync_event: asyncio.Event
+    ) -> None:
         period = DAY_MS
         type_name = type_.__name__.lower()
         _log.info(f'starting periodic sync of {type_name} every {strfinterval(period)}')
         try:
             while True:
                 await asyncio.gather(
-                    *(self._sync_data(e, type_, fetch) for e in self._exchanges.keys()))
+                    *(self._sync_data(e, type_, fetch) for e in self._exchanges.keys())
+                )
                 if not initial_sync_event.is_set():
                     initial_sync_event.set()
                 await asyncio.sleep(period / 1000.0)

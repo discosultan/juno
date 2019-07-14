@@ -10,15 +10,14 @@ SYMBOL = 'ada-btc'
 
 
 async def main() -> None:
-    binance = Binance(os.environ['JUNO__BINANCE__API_KEY'],
-                      os.environ['JUNO__BINANCE__SECRET_KEY'])
+    binance = Binance(
+        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
+    )
     async with binance:
         res = await binance.cancel_order(symbol=SYMBOL, client_id=CLIENT_ID)
         logging.info(res)
     logging.info('Done!')
 
 
-logging.basicConfig(
-    handlers=[logging.StreamHandler(stream=sys.stdout)],
-    level='INFO')
+logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level='INFO')
 asyncio.run(main())

@@ -5,8 +5,10 @@ from typing import Any, Dict, cast
 from .emaemacx import EmaEmaCX  # noqa
 from .strategy import Strategy
 
-_strategies = {name.lower(): obj for name, obj
-               in inspect.getmembers(sys.modules[__name__], inspect.isclass)}
+_strategies = {
+    name.lower(): obj
+    for name, obj in inspect.getmembers(sys.modules[__name__], inspect.isclass)
+}
 
 
 # TODO: use a more generalized approach

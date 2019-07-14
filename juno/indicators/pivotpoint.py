@@ -2,7 +2,6 @@ from decimal import Decimal
 
 
 class PivotPoint:
-
     def __init__(self) -> None:
         pass
 

@@ -18,7 +18,6 @@ _log = logging.getLogger(__name__)
 
 
 class Live(Agent):
-
     def __init__(self, informant: Informant, wallet: Wallet, broker: Broker) -> None:
         super().__init__()
         self.informant = informant
@@ -26,9 +25,16 @@ class Live(Agent):
         self.broker = broker
         self.open_position: Optional[Position] = None
 
-    async def run(self, exchange: str, symbol: str, interval: int, strategy_config: Dict[str, Any],
-                  end: int = MAX_TIME_MS, restart_on_missed_candle: bool = True,
-                  get_time: Optional[Callable[[], int]] = None) -> None:
+    async def run(
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        strategy_config: Dict[str, Any],
+        end: int = MAX_TIME_MS,
+        restart_on_missed_candle: bool = True,
+        get_time: Optional[Callable[[], int]] = None
+    ) -> None:
         if not get_time:
             get_time = time_ms
 
@@ -53,7 +59,8 @@ class Live(Agent):
             start=now,
             quote=self.quote,
             fees=fees,
-            filters=filters)
+            filters=filters
+        )
         self.open_position = None
         restart_count = 0
 
@@ -67,16 +74,15 @@ class Live(Agent):
                 # Adjust start to accommodate for the required history before a strategy becomes
                 # effective. Only do it on first run because subsequent runs mean missed candles
                 # and we don't want to fetch passed a missed candle.
-                _log.info(f'fetching {strategy.req_history} candle(s) before start time to '
-                          'warm-up strategy')
+                _log.info(
+                    f'fetching {strategy.req_history} candle(s) before start time to '
+                    'warm-up strategy'
+                )
                 start = now - strategy.req_history * interval
 
             async for candle in self.informant.stream_candles(
-                    exchange=exchange,
-                    symbol=symbol,
-                    interval=interval,
-                    start=start,
-                    end=end):
+                exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
+            ):
                 if not candle.closed:
                     continue
 
@@ -84,8 +90,10 @@ class Live(Agent):
 
                 # Check if we have missed a candle.
                 if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
-                    _log.warning(f'missed candle(s); last candle {self.last_candle}; current '
-                                 f'candle {candle}')
+                    _log.warning(
+                        f'missed candle(s); last candle {self.last_candle}; current '
+                        f'candle {candle}'
+                    )
                     if restart_on_missed_candle:
                         _log.info('restarting strategy')
                         start = candle.time
@@ -114,10 +122,8 @@ class Live(Agent):
 
     async def _try_open_position(self, candle: Candle) -> bool:
         res = await self.broker.buy(
-            exchange=self.exchange,
-            symbol=self.symbol,
-            quote=self.quote,
-            test=False)
+            exchange=self.exchange, symbol=self.symbol, quote=self.quote, test=False
+        )
 
         if res.status is OrderStatus.NOT_PLACED:
             return False
@@ -136,7 +142,8 @@ class Live(Agent):
             exchange=self.exchange,
             symbol=self.symbol,
             base=self.open_position.total_size - self.open_position.fills.total_fee,
-            test=False)
+            test=False
+        )
 
         position = self.open_position
         self.open_position = None

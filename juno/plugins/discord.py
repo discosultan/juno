@@ -26,7 +26,6 @@ _log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator[None]:
-
     def format_action(action: str) -> str:
         return f'{type(agent).__name__} agent {agent.name} {action}.\n'
 
@@ -34,47 +33,51 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
         return f'{title}:\n```{lang}\n{content}\n```\n'
 
     async with Discord(
-            token=plugin_config['token'],
-            channel_id=plugin_config['channel_id'][type(agent).__name__.lower()]) as client:
+        token=plugin_config['token'],
+        channel_id=plugin_config['channel_id'][type(agent).__name__.lower()]
+    ) as client:
 
         @agent.ee.on('starting')
         async def on_starting(agent_config: Dict[str, Any]) -> None:
-            await client.post_msg(format_action('starting') +
-                                  format_block('Config', json.dumps(agent_config, indent=4),
-                                               lang='json'))
+            await client.post_msg(
+                format_action('starting') +
+                format_block('Config', json.dumps(agent_config, indent=4), lang='json')
+            )
 
         @agent.ee.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
-            await client.post_msg(format_action('opened a position') +
-                                  format_block('Position', str(pos)) +
-                                  format_block('Summary', str(agent.result)))
+            await client.post_msg(
+                format_action('opened a position') + format_block('Position', str(pos)) +
+                format_block('Summary', str(agent.result))
+            )
 
         @agent.ee.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
-            await client.post_msg(format_action('closed a position') +
-                                  format_block('Position', str(pos)) +
-                                  format_block('Summary', str(agent.result)))
+            await client.post_msg(
+                format_action('closed a position') + format_block('Position', str(pos)) +
+                format_block('Summary', str(agent.result))
+            )
 
         @agent.ee.on('finished')
         async def on_finished() -> None:
-            await client.post_msg(format_action('finished') +
-                                  format_block('Summary', str(agent.result)))
+            await client.post_msg(
+                format_action('finished') + format_block('Summary', str(agent.result))
+            )
 
         @agent.ee.on('errored')
         async def on_errored(
-                exc_type: Type[BaseException],
-                exc_value: BaseException,
-                tb: TracebackType) -> None:
+            exc_type: Type[BaseException], exc_value: BaseException, tb: TracebackType
+        ) -> None:
             exc_msg_list = traceback.format_exception(exc_type, exc_value, tb)
-            await client.post_msg(format_action('errored') +
-                                  format_block('Exception', ''.join(exc_msg_list)) +
-                                  format_block('Summary', str(agent.result)))
+            await client.post_msg(
+                format_action('errored') + format_block('Exception', ''.join(exc_msg_list)) +
+                format_block('Summary', str(agent.result))
+            )
 
         yield
 
 
 class Discord:
-
     def __init__(self, token: str, channel_id: str, timeout: float = 10.0) -> None:
         self._token = token
         self._channel_id = channel_id
@@ -107,7 +110,8 @@ class Discord:
         # Careful! Request is patched above. Make sure not to accidentally use post method.
         await asyncio.wait_for(self._last_sequence, timeout=self._timeout)
         await self._request(
-            'POST', f'/channels/{self._channel_id}/messages', json={'content': msg})
+            'POST', f'/channels/{self._channel_id}/messages', json={'content': msg}
+        )
 
     async def post_img(self, path: str) -> None:
         await asyncio.wait_for(self._last_sequence, timeout=self._timeout)
@@ -137,7 +141,8 @@ class Discord:
                         elif data['op'] == 10:  # Hello.
                             _log.info('hello from discord')
                             self._heartbeat_task = asyncio.create_task(
-                                self._heartbeat(ws, data['d']['heartbeat_interval']))
+                                self._heartbeat(ws, data['d']['heartbeat_interval'])
+                            )
                             await ws.send_json({
                                 'op': 2,  # Identify.
                                 'd': {

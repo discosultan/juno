@@ -1,11 +1,9 @@
-
 from decimal import Decimal
 from typing import Tuple
 
 
 # Directional Movement Indicator
 class DM:
-
     def __init__(self, period: int) -> None:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')
@@ -50,8 +48,8 @@ class DM:
         self._t = min(self._t + 1, self._t3)
 
 
-def _calc_direction(prev_high: Decimal, prev_low: Decimal, high: Decimal, low: Decimal
-                    ) -> Tuple[Decimal, Decimal]:
+def _calc_direction(prev_high: Decimal, prev_low: Decimal, high: Decimal,
+                    low: Decimal) -> Tuple[Decimal, Decimal]:
     up = high - prev_high
     down = prev_low - low
 

@@ -9,7 +9,6 @@ from .rsi import Rsi
 
 # Stochastic Relative Strength Index
 class StochRsi:
-
     def __init__(self, period: int) -> None:
         if period < 2:
             raise ValueError(f'Invalid period ({period})')

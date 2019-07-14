@@ -7,7 +7,6 @@ from .sma import Sma
 
 # Exponential Moving Average
 class Ema:
-
     def __init__(self, period: int, v2: bool = False) -> None:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')

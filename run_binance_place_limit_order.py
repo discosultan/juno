@@ -19,8 +19,9 @@ LOG_LEVEL = 'DEBUG'
 
 
 async def main() -> None:
-    binance = Binance(os.environ['JUNO__BINANCE__API_KEY'],
-                      os.environ['JUNO__BINANCE__SECRET_KEY'])
+    binance = Binance(
+        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
+    )
     memory = Memory()
     sqlite = SQLite()
     async with binance, memory, sqlite:
@@ -77,12 +78,11 @@ async def main() -> None:
                 size=size,
                 time_in_force=TimeInForce.GTC,
                 client_id=CLIENT_ID,
-                test=TEST)
+                test=TEST
+            )
             logging.info(res)
     logging.info('Done!')
 
 
-logging.basicConfig(
-    handlers=[logging.StreamHandler(stream=sys.stdout)],
-    level=LOG_LEVEL)
+logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level=LOG_LEVEL)
 asyncio.run(main())

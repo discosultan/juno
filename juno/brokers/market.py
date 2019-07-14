@@ -11,22 +11,24 @@ _log = logging.getLogger(__name__)
 
 
 class Market:
-
-    def __init__(self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
-                 ) -> None:
+    def __init__(
+        self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
+    ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
     async def buy(self, exchange: str, symbol: str, quote: Decimal, test: bool) -> OrderResult:
         fills = self.find_order_asks(exchange=exchange, symbol=symbol, quote=quote)
-        return await self._fill(exchange=exchange, symbol=symbol, side=Side.BID, fills=fills,
-                                test=test)
+        return await self._fill(
+            exchange=exchange, symbol=symbol, side=Side.BID, fills=fills, test=test
+        )
 
     async def sell(self, exchange: str, symbol: str, base: Decimal, test: bool) -> OrderResult:
         fills = self.find_order_bids(exchange=exchange, symbol=symbol, base=base)
-        return await self._fill(exchange=exchange, symbol=symbol, side=Side.ASK, fills=fills,
-                                test=test)
+        return await self._fill(
+            exchange=exchange, symbol=symbol, side=Side.ASK, fills=fills, test=test
+        )
 
     def find_order_asks(self, exchange: str, symbol: str, quote: Decimal) -> Fills:
         result = Fills()
@@ -68,21 +70,17 @@ class Market:
                 base -= bsize
         return result
 
-    async def _fill(self, exchange: str, symbol: str, side: Side, fills: Fills, test: bool
-                    ) -> OrderResult:
+    async def _fill(
+        self, exchange: str, symbol: str, side: Side, fills: Fills, test: bool
+    ) -> OrderResult:
         if fills.total_size == 0:
             _log.info('skipping market order placement; size zero')
             return OrderResult.not_placed()
 
         _log.info(f'placing market {side} order of size {fills.total_size}')
         res = await self._exchanges[exchange].place_order(
-            symbol=symbol,
-            side=side,
-            type_=OrderType.MARKET,
-            size=fills.total_size,
-            test=test)
+            symbol=symbol, side=side, type_=OrderType.MARKET, size=fills.total_size, test=test
+        )
         if test:
-            res = OrderResult(
-                status=OrderStatus.FILLED,
-                fills=fills)
+            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
         return res

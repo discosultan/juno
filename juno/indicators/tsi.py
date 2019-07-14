@@ -34,8 +34,9 @@ class Tsi:
             self._abs_pc_ema_dbl_smoothed.update(self._abs_pc_ema_smoothed.value)
 
         if self._t == self._t3:
-            self.value = 100 * (self._pc_ema_dbl_smoothed.value /
-                                self._abs_pc_ema_dbl_smoothed.value)
+            self.value = 100 * (
+                self._pc_ema_dbl_smoothed.value / self._abs_pc_ema_dbl_smoothed.value
+            )
 
         self._last_price = price
         self._t = min(self._t + 1, self._t3)

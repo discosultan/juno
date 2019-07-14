@@ -6,7 +6,6 @@ from juno.utils import CircularBuffer
 
 # Simple Moving Average
 class Sma:
-
     def __init__(self, period: int) -> None:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')
