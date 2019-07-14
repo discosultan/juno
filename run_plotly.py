@@ -56,7 +56,7 @@ async def main():
             'size': 12
         },
         'type': 'scatter',
-        'mode': 'markers'
+        'mode': 'markers',
     }
     trace3 = {
         'x': [datetime_utcfromtimestamp_ms(b) for _, b in positions],
@@ -66,7 +66,7 @@ async def main():
             'size': 12
         },
         'mode': 'markers',
-        'type': 'scatter'
+        'type': 'scatter',
     }
     data = [trace1, trace2, trace3]
     py.plot(data)
@@ -75,17 +75,26 @@ async def main():
 @asynccontextmanager
 async def new_informat():
     binance = Binance(
-        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
+        os.environ['JUNO__BINANCE__API_KEY'],
+        os.environ['JUNO__BINANCE__SECRET_KEY'],
     )
     coinbase = Coinbase(
-        os.environ['JUNO__COINBASE__API_KEY'], os.environ['JUNO__COINBASE__SECRET_KEY'],
-        os.environ['JUNO__COINBASE__PASSPHRASE']
+        os.environ['JUNO__COINBASE__API_KEY'],
+        os.environ['JUNO__COINBASE__SECRET_KEY'],
+        os.environ['JUNO__COINBASE__PASSPHRASE'],
     )
     sqlite = SQLite()
     memory = Memory()
     async with binance, coinbase, sqlite, memory:
-        services = {'memory': memory, 'sqlite': sqlite, 'binance': binance, 'coinbase': coinbase}
-        config = {'storage': 'sqlite'}
+        services = {
+            'memory': memory,
+            'sqlite': sqlite,
+            'binance': binance,
+            'coinbase': coinbase,
+        }
+        config = {
+            'storage': 'sqlite',
+        }
         async with Informant(services, config) as informant:
             yield informant
 

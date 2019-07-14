@@ -415,8 +415,9 @@ class Binance(Exchange):
     ) -> Any:
         if method == '/api/v3/order':
             await asyncio.gather(
-                self._reqs_per_min_limiter.acquire(weight), self._orders_per_day_limiter.acquire(),
-                self._orders_per_sec_limiter.acquire()
+                self._reqs_per_min_limiter.acquire(weight),
+                self._orders_per_day_limiter.acquire(),
+                self._orders_per_sec_limiter.acquire(),
             )
         else:
             await self._reqs_per_min_limiter.acquire(weight)
@@ -526,7 +527,10 @@ def _interval(interval: int) -> str:
 
 
 def _side(side: Side) -> str:
-    return {Side.BID: 'BUY', Side.ASK: 'SELL'}[side]
+    return {
+        Side.BID: 'BUY',
+        Side.ASK: 'SELL',
+    }[side]
 
 
 def _from_order_status(status: str) -> OrderStatus:
