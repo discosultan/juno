@@ -121,7 +121,7 @@ async def connect_refreshing_stream(
                             async for old_msg in concat_async(receive_task.result(), to_close_ws):
                                 if old_msg.type is aiohttp.WSMsgType.CLOSED:
                                     break
-                                old_data = loads(old_msg)
+                                old_data = loads(old_msg.data)
                                 if take_until(old_data, new_data):
                                     yield old_data
                                 else:
