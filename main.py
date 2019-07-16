@@ -73,7 +73,7 @@ async def engine() -> None:
         )
 
         # Run agents.
-        await asyncio.gather(*(a.start(c) for a, c in agent_config_map.items()))
+        await asyncio.gather(*(a.start(**c) for a, c in agent_config_map.items()))
 
     _log.info('main finished')
 

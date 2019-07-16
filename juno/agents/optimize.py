@@ -1,23 +1,23 @@
 import logging
-# import math
 from random import Random
-from typing import Optional, Tuple, Type
+from typing import Optional, Type
 
 from deap import algorithms, base, creator, tools
 
+from juno.agents.summary import TradingSummary
 from juno.components import Informant
 from juno.strategies import Strategy
-from juno.typing import get_input_type_hints
 from juno.utils import flatten
 
-from .agent import Agent
+from . import Agent, Backtest
 
 _log = logging.getLogger(__name__)
 
 
 class Optimize(Agent):
-    def __init__(self, informant: Informant):
+    def __init__(self, informant: Informant, backtest: Backtest):
         self._informant = informant
+        self._backtest = backtest
 
     async def run(
         self,
@@ -26,8 +26,13 @@ class Optimize(Agent):
         interval: int,
         start: int,
         end: int,
+        quote: float,
         strategy_cls: Type[Strategy],
-        seed: Optional[int] = None
+        restart_on_missed_candle: bool = False,
+        population_size: int = 50,
+        max_generations: int = 1000,
+        mutation_probability: float = 0.2,
+        seed: Optional[int] = None,
     ) -> None:
         # It's useful to set a seed for idempotent results. Useful for debugging.
         # seed = 42  # TODO TEMP
@@ -66,14 +71,31 @@ class Optimize(Agent):
         # def attr_rsi_up_threshold() -> float:
         #     return random.uniform(60.0, 90.0)
 
-        def result_fitness(result):
+        def result_fitness(result: TradingSummary):
             return (
-                result.total_profit, result.mean_drawdown, result.max_drawdown,
+                result.profit, result.mean_drawdown, result.max_drawdown,
                 result.mean_position_profit, result.mean_position_duration
             )
 
         def problem(individual):
-            return result_fitness(backtester.run(*individual))
+            kargs = {
+                'exchange': exchange,
+                'symbol': symbol,
+                'interval': interval,
+                'start': start,
+                'end': end,
+                'quote': quote,
+                'restart_on_missed_candle': restart_on_missed_candle,
+                'strategy_config': {
+                    # TODO: dynamic
+                    'short_period': individual[0],
+                    'long_period': individual[1],
+                    'neg_threshold': individual[2],
+                    'pos_threshold': individual[3],
+                    'persistence': individual[4],
+                }
+            }
+            return result_fitness(self._backtest.run(**kargs))
 
         toolbox = base.Toolbox()
         toolbox.register('evaluate', problem)
@@ -82,8 +104,8 @@ class Optimize(Agent):
 
         # TODO: validate against __init__ input args.
         # keys = list(get_input_type_hints(strategy_cls.__init__).keys())
-        for keys, f in strategy_cls.meta().items():
-            attrs.append(f(random))
+        for constraint in strategy_cls.meta().values():
+            attrs.append(lambda: constraint.random(random))
 
         def strategy_args():
             return flatten([a() for a in attrs])
@@ -121,22 +143,24 @@ class Optimize(Agent):
 
             return ind1, ind2
 
-        # eta - Crowding degree of the crossover. A high eta will produce children resembling to their
-        # parents, while a small eta will produce solutions much more different.
+        # eta - Crowding degree of the crossover. A high eta will produce children resembling to
+        # their parents, while a small eta will produce solutions much more different.
 
-        # toolbox.register('mate', tools.tools.cxSimulatedBinaryBounded, low=BOUND_LOW, up=BOUND_UP, eta=20.0)
+        # toolbox.register('mate', tools.tools.cxSimulatedBinaryBounded, low=BOUND_LOW,
+        #                  up=BOUND_UP, eta=20.0)
         toolbox.register('mate', cx_individual)
-        # toolbox.register('mutate', tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP, eta=20.0, indpb=1.0 / NDIM)
+        # toolbox.register('mutate', tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP,
+        #                  eta=20.0, indpb=1.0 / NDIM)
         toolbox.register('mutate', mut_individual, indpb=1.0 / len(attrs))
         toolbox.register('select', tools.selNSGA2)
 
-        toolbox.pop_size = pop_size  # 50
-        toolbox.max_gen = max_gen  # 1000
-        toolbox.mut_prob = mut_prob  # 0.2
+        toolbox.population_size = population_size  # 50
+        toolbox.max_generations = max_generations  # 1000
+        toolbox.mutation_probability = mutation_probability  # 0.2
 
         _log.info('evolving')
 
-        pop = toolbox.population(n=toolbox.pop_size)
+        pop = toolbox.population(n=toolbox.population_size)
         pop = toolbox.select(pop, len(pop))
 
         hall = tools.HallOfFame(1)
@@ -145,12 +169,12 @@ class Optimize(Agent):
         final_pop, stat = algorithms.eaMuPlusLambda(
             pop,
             toolbox,
-            mu=toolbox.pop_size,
-            lambda_=toolbox.pop_size,
-            cxpb=1.0 - toolbox.mut_prob,
-            mutpb=toolbox.mut_prob,
+            mu=toolbox.population_size,
+            lambda_=toolbox.population_size,
+            cxpb=1.0 - toolbox.mutation_probability,
+            mutpb=toolbox.mutation_probability,
             stats=None,
-            ngen=toolbox.max_gen,
+            ngen=toolbox.max_generations,
             halloffame=hall,
             verbose=False
         )

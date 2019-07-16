@@ -29,7 +29,7 @@ class Backtest(Agent):
         end: int,
         quote: Decimal,
         strategy_config: Dict[str, Any],
-        restart_on_missed_candle: bool = True
+        restart_on_missed_candle: bool = False,
     ) -> None:
         assert end <= time_ms()
         assert end > start

@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 from enum import Enum
-from typing import Any, Awaitable, Callable, Dict
+from typing import Any, Awaitable, Callable
 
 from juno.asyncio import empty_future
 from juno.typing import filter_member_args
@@ -23,7 +23,7 @@ class Agent:
         self.result: Any = None
         self.name = next(_random_names)
 
-    async def start(self, agent_config: Dict[str, Any]) -> Any:
+    async def start(self, **agent_config: Any) -> Any:
         assert self.state is not AgentState.RUNNING
 
         await self.ee.emit('starting', agent_config)
