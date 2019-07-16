@@ -51,11 +51,4 @@ class EmaEmaCX(Strategy):
 
         self._t = min(self._t + 1, self._t1)
 
-        return advice(*self._persistence.update(trend))
-
-
-def advice(trend: Trend, changed: bool) -> Advice:
-    return {
-        Trend.UP: Advice.BUY,
-        Trend.DOWN: Advice.SELL,
-    }.get(trend, Advice.NONE) if changed else Advice.NONE
+        return Strategy.advice(*self._persistence.update(trend))

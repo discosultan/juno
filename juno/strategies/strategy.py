@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Dict
 
-from juno import Advice, Candle
+from juno import Advice, Candle, Trend
 
 
 class Strategy(ABC):
@@ -20,15 +20,24 @@ class Strategy(ABC):
 
     def validate(self, *args: Any) -> None:
         # Assumes ordered.
-        arg_index = 0
-        for names, constraint in type(self).meta():
+        from_index = 0
+        for names, constraint in type(self).meta().items():
             # Normalize scalars into a single element tuples.
-            if names is not tuple:
+            if not isinstance(names, tuple):
                 names = names,
 
-            arg_count = len(names)
+            to_index = from_index + len(names)
+            inputs = args[from_index:to_index]
 
-            if not constraint.validate(args[arg_index:arg_count]):
-                raise ValueError(f'Incorrect argument(s) for parameter(s): {",".join(names)}')
+            if not constraint.validate(*inputs):
+                raise ValueError(f'Incorrect argument(s): {",".join(map(str, inputs))} for '
+                                 f'parameter(s): {",".join(names)}')
 
-            arg_index += arg_count
+            from_index = to_index
+
+    @staticmethod
+    def advice(trend: Trend, changed: bool) -> Advice:
+        return {
+            Trend.UP: Advice.BUY,
+            Trend.DOWN: Advice.SELL,
+        }.get(trend, Advice.NONE) if changed else Advice.NONE

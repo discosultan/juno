@@ -17,9 +17,9 @@ def floor_multiple(value: TNum, multiple: TNum) -> TNum:
 
 class Constraint(ABC):
 
-    # @abstractmethod
-    validate: Callable[..., bool] = lambda: True
+    validate: Callable[..., bool] = abstractmethod(lambda: True)
 
+    @abstractmethod
     def random(self, random: Random) -> Any:
         pass
 
@@ -46,13 +46,14 @@ class IntPair(Constraint):
         return a, b
 
 
+# TODO: Decimal?
 class Uniform(Constraint):
     def __init__(self, min_: float, max_: float) -> None:
         self.min = min_
         self.max = max_
 
     def validate(self, value: float) -> bool:
-        return value >= self.min and value < self.max
+        return value >= self.min and value <= self.max
 
     def random(self, random: Random) -> float:
         return random.uniform(self.min, self.max)
@@ -68,33 +69,3 @@ class Int(Constraint):
 
     def random(self, random: Random) -> int:
         return random.randint(self.min, self.max)
-
-
-# TODO: Decimal?
-def random_int_pair(amin: int, amax: int, op: Callable[[int, int], bool], bmin: int, bmax: int):
-    def inner(random: Random):
-        def inner2() -> Tuple[int, int]:
-            while True:
-                a = random.randint(amin, amax)
-                b = random.randint(bmin, bmax)
-                if op(a, b):
-                    break
-            return a, b
-
-    return inner
-
-
-def random_uniform(min_: float, max_: float):
-    def inner(random: Random):
-        def inner2() -> float:
-            return random.uniform(min_, max_)
-
-    return inner
-
-
-def random_int(min_: int, max_: int):
-    def inner(random: Random):
-        def inner2() -> int:
-            return random.randint(min_, max_)
-
-    return inner
