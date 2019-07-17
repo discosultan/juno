@@ -1,12 +1,12 @@
 import logging
 from random import Random
-from typing import Optional, Type
+from typing import Optional
 
 from deap import algorithms, base, creator, tools
 
 from juno.agents.summary import TradingSummary
 from juno.components import Informant
-from juno.strategies import Strategy
+from juno.strategies import get_strategy_type
 from juno.utils import flatten
 
 from . import Agent, Backtest
@@ -16,6 +16,7 @@ _log = logging.getLogger(__name__)
 
 class Optimize(Agent):
     def __init__(self, informant: Informant, backtest: Backtest):
+        super().__init__()
         self._informant = informant
         self._backtest = backtest
 
@@ -27,7 +28,7 @@ class Optimize(Agent):
         start: int,
         end: int,
         quote: float,
-        strategy_cls: Type[Strategy],
+        strategy: str,
         restart_on_missed_candle: bool = False,
         population_size: int = 50,
         max_generations: int = 1000,
@@ -78,6 +79,8 @@ class Optimize(Agent):
             )
 
         def problem(individual):
+            print(individual)
+            print(type(individual))
             kargs = {
                 'exchange': exchange,
                 'symbol': symbol,
@@ -88,6 +91,7 @@ class Optimize(Agent):
                 'restart_on_missed_candle': restart_on_missed_candle,
                 'strategy_config': {
                     # TODO: dynamic
+                    'name': strategy,
                     'short_period': individual[0],
                     'long_period': individual[1],
                     'neg_threshold': individual[2],
@@ -102,13 +106,16 @@ class Optimize(Agent):
 
         attrs = []
 
+        strategy_type = get_strategy_type(strategy)
         # TODO: validate against __init__ input args.
         # keys = list(get_input_type_hints(strategy_cls.__init__).keys())
-        for constraint in strategy_cls.meta().values():
+        for constraint in strategy_type.meta().values():
             attrs.append(lambda: constraint.random(random))
 
         def strategy_args():
-            return flatten([a() for a in attrs])
+            print('VIKTOR')
+            print([a() for a in attrs])
+            return list(flatten((a() for a in attrs)))
 
         toolbox.register('strategy_args', strategy_args)
         toolbox.register(

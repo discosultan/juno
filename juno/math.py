@@ -43,7 +43,9 @@ class IntPair(Constraint):
             b = random.randint(self.bmin, self.bmax)
             if self.validate(a, b):
                 break
-        return a, b
+        value = a, b
+        print(value)
+        return value
 
 
 # TODO: Decimal?
@@ -56,7 +58,9 @@ class Uniform(Constraint):
         return value >= self.min and value <= self.max
 
     def random(self, random: Random) -> float:
-        return random.uniform(self.min, self.max)
+        value = random.uniform(self.min, self.max)
+        print(value)
+        return value
 
 
 class Int(Constraint):
@@ -68,4 +72,6 @@ class Int(Constraint):
         return value >= self.min and value < self.max
 
     def random(self, random: Random) -> int:
-        return random.randint(self.min, self.max)
+        value = random.randint(self.min, self.max)
+        print(value)
+        return value
