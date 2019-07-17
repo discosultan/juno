@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from random import Random
 from typing import Optional
 
@@ -79,8 +80,6 @@ class Optimize(Agent):
             )
 
         def problem(individual):
-            print(individual)
-            print(type(individual))
             kargs = {
                 'exchange': exchange,
                 'symbol': symbol,
@@ -110,11 +109,9 @@ class Optimize(Agent):
         # TODO: validate against __init__ input args.
         # keys = list(get_input_type_hints(strategy_cls.__init__).keys())
         for constraint in strategy_type.meta().values():
-            attrs.append(lambda: constraint.random(random))
+            attrs.append(partial(constraint.random, random))
 
         def strategy_args():
-            print('VIKTOR')
-            print([a() for a in attrs])
             return list(flatten((a() for a in attrs)))
 
         toolbox.register('strategy_args', strategy_args)
