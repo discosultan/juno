@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from functools import partial
 from random import Random
 from typing import Optional
@@ -6,6 +7,7 @@ from typing import Optional
 from deap import algorithms, base, creator, tools
 
 from juno.agents.summary import TradingSummary
+from juno.asyncio import list_async
 from juno.components import Informant
 from juno.strategies import get_strategy_type
 from juno.utils import flatten
@@ -48,7 +50,8 @@ class Optimize(Agent):
         #   - min max drawdown
         #   - max mean position profit
         #   - min mean position duration
-        weights = (1.0, -1.0, -1.0, 1.0, -1.0)
+        # weights = (1.0, -1.0, -1.0, 1.0, -1.0)
+        weights = (Decimal(1), Decimal(-1), Decimal(-1), Decimal(1), Decimal(-1))
         # weights = (1.0, -0.5, -1.0, 1.0, -0.5)
         # weights = (1.0, -0.1, -1.0, 0.1, -0.1)
         creator.create('FitnessMulti', base.Fitness, weights=weights)
@@ -79,6 +82,11 @@ class Optimize(Agent):
                 result.mean_position_profit, result.mean_position_duration
             )
 
+        candles = await list_async(
+            self._informant.stream_candles(exchange, symbol, interval, start, end))
+        fees = self._informant.get_fees(exchange, symbol)
+        filters = self._informant.get_filters(exchange, symbol)
+
         def problem(individual):
             kargs = {
                 'exchange': exchange,
@@ -96,9 +104,12 @@ class Optimize(Agent):
                     'neg_threshold': individual[2],
                     'pos_threshold': individual[3],
                     'persistence': individual[4],
-                }
+                },
+                'candles': candles,
+                'fees': fees,
+                'filters': filters
             }
-            return result_fitness(self._backtest.run(**kargs))
+            return result_fitness(self._backtest.run_sync(**kargs))
 
         toolbox = base.Toolbox()
         toolbox.register('evaluate', problem)
@@ -108,7 +119,8 @@ class Optimize(Agent):
         strategy_type = get_strategy_type(strategy)
         # TODO: validate against __init__ input args.
         # keys = list(get_input_type_hints(strategy_cls.__init__).keys())
-        for constraint in strategy_type.meta().values():
+        meta = strategy_type.meta()
+        for constraint in meta.values():
             attrs.append(partial(constraint.random, random))
 
         def strategy_args():
@@ -121,6 +133,9 @@ class Optimize(Agent):
         toolbox.register('population', tools.initRepeat, list, toolbox.individual)
 
         def mut_individual(individual, indpb):
+            # TODO: fix it bljaaaat
+            # for i in range(0, len(individual)):
+
             for i, attr in enumerate(attrs):
                 if random.random() < indpb:
                     individual[i] = attr()
@@ -158,9 +173,9 @@ class Optimize(Agent):
         toolbox.register('mutate', mut_individual, indpb=1.0 / len(attrs))
         toolbox.register('select', tools.selNSGA2)
 
-        toolbox.population_size = population_size  # 50
-        toolbox.max_generations = max_generations  # 1000
-        toolbox.mutation_probability = mutation_probability  # 0.2
+        toolbox.population_size = population_size
+        toolbox.max_generations = max_generations
+        toolbox.mutation_probability = mutation_probability
 
         _log.info('evolving')
 
@@ -182,6 +197,8 @@ class Optimize(Agent):
             halloffame=hall,
             verbose=False
         )
+
+        _log.info('done')
 
         self.result = flatten(hall[0])
 

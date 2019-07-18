@@ -12,7 +12,8 @@
             "interval": "1h",
             "quote": "10.0",
             "restart_on_missed_candle": false,
-            "strategy": "emaemacx"
+            "strategy": "emaemacx",
+            "max_generations": 5
         }
     ]
 }

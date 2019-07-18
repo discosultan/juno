@@ -52,11 +52,11 @@ class Uniform(Constraint):
         self.min = min_
         self.max = max_
 
-    def validate(self, value: float) -> bool:
+    def validate(self, value: Decimal) -> bool:
         return value >= self.min and value <= self.max
 
-    def random(self, random: Random) -> float:
-        return random.uniform(self.min, self.max)
+    def random(self, random: Random) -> Decimal:
+        return Decimal(random.uniform(self.min, self.max))
 
 
 class Int(Constraint):
@@ -65,7 +65,7 @@ class Int(Constraint):
         self.max = max_
 
     def validate(self, value: int) -> bool:
-        return value >= self.min and value < self.max
+        return value >= self.min and value <= self.max
 
     def random(self, random: Random) -> int:
         return random.randint(self.min, self.max)
