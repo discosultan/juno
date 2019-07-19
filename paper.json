@@ -1,6 +1,6 @@
 {
     "log_format": "azure",
-    "log_level": "info",
+    "log_level": "debug",
     "storage": "memory",
     "broker": "market",
     "agents": [
@@ -15,9 +15,9 @@
                 "name": "emaemacx",
                 "short_period": 18,
                 "long_period": 29,
-                "neg_threshold": "-0.25",
-                "pos_threshold": "0.25",
-                "persistence": 4
+                "neg_threshold": "-0.01",
+                "pos_threshold": "0.01",
+                "persistence": 0
             },
             "plugins": ["discord"]
         }

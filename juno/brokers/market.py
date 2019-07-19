@@ -73,11 +73,13 @@ class Market:
     async def _fill(
         self, exchange: str, symbol: str, side: Side, fills: Fills, test: bool
     ) -> OrderResult:
+        order_log = f'{"test " if test else ""}market {side} order'
+
         if fills.total_size == 0:
-            _log.info('skipping market order placement; size zero')
+            _log.info(f'skipping {order_log} placement; size zero')
             return OrderResult.not_placed()
 
-        _log.info(f'placing market {side} order of size {fills.total_size}')
+        _log.info(f'placing {order_log} of size {fills.total_size}')
         res = await self._exchanges[exchange].place_order(
             symbol=symbol, side=side, type_=OrderType.MARKET, size=fills.total_size, test=test
         )
