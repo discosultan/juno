@@ -30,8 +30,8 @@ class EmaEmaCX(Strategy):
     def meta():
         return {
             ('short_period', 'long_period'): math.IntPair(1, 50, operator.lt, 2, 100),
-            'neg_threshold': math.Uniform(-1.0, -0.1),
-            'pos_threshold': math.Uniform(0.1, 1.0),
+            'neg_threshold': math.Uniform(Decimal(-1), Decimal('-0.1')),
+            'pos_threshold': math.Uniform(Decimal('0.1'), Decimal(1)),
             'persistence': math.Int(0, 10),
         }
 

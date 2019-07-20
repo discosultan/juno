@@ -15,8 +15,8 @@
                 "name": "emaemacx",
                 "short_period": 18,
                 "long_period": 29,
-                "neg_threshold": "-0.01",
-                "pos_threshold": "0.01",
+                "neg_threshold": "-0.1",
+                "pos_threshold": "0.1",
                 "persistence": 0
             },
             "plugins": ["discord"]

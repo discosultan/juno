@@ -46,9 +46,8 @@ class IntPair(Constraint):
         return a, b
 
 
-# TODO: Decimal?
 class Uniform(Constraint):
-    def __init__(self, min_: float, max_: float) -> None:
+    def __init__(self, min_: Decimal, max_: Decimal) -> None:
         self.min = min_
         self.max = max_
 
@@ -56,7 +55,8 @@ class Uniform(Constraint):
         return value >= self.min and value <= self.max
 
     def random(self, random: Random) -> Decimal:
-        return Decimal(random.uniform(self.min, self.max))
+        # TODO: fix decimal gen
+        return Decimal(random.uniform(self.min, self.max))  # type: ignore
 
 
 class Int(Constraint):
