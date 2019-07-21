@@ -66,7 +66,7 @@ def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple
     if isinstance(obj, dict):
         for k, v in obj.items():
             yield from recursive_iter(v, keys + (k, ))
-    elif any(isinstance(obj, t) for t in (list, tuple)):
+    elif isinstance(obj, (list, tuple)):
         for idx, item in enumerate(obj):
             yield from recursive_iter(item, keys + (idx, ))
     else:
@@ -119,9 +119,9 @@ def load_json_file(root: str, rel_path: str) -> Any:
 
 # TODO: Use `recursive_iter` instead?
 # Ref: https://stackoverflow.com/a/10632356/1466456
-def flatten(items: List[Union[T, List[T]]]) -> Iterable[T]:
+def flatten(items: Iterable[Union[T, List[T]]]) -> Iterable[T]:
     for item in items:
-        if isinstance(item, list):
+        if isinstance(item, (list, tuple)):
             for subitem in item:
                 yield subitem
         else:

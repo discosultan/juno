@@ -1,7 +1,8 @@
 import math
+from abc import ABC, abstractmethod
 from decimal import Decimal
 from random import Random
-from typing import Callable, Tuple, TypeVar
+from typing import Any, Callable, Tuple, TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
 
@@ -14,31 +15,57 @@ def floor_multiple(value: TNum, multiple: TNum) -> TNum:
     return value - (value % multiple)
 
 
-# TODO: Decimal?
-def random_int_pair(amin: int, amax: int, op: Callable[[int, int], bool], bmin: int, bmax: int):
-    def inner(random: Random):
-        def inner2() -> Tuple[int, int]:
-            while True:
-                a = random.randint(amin, amax)
-                b = random.randint(bmin, bmax)
-                if op(a, b):
-                    break
-            return a, b
+class Constraint(ABC):
 
-    return inner
+    validate: Callable[..., bool] = abstractmethod(lambda: True)
+
+    @abstractmethod
+    def random(self, random: Random) -> Any:
+        pass
 
 
-def random_uniform(min_: float, max_: float):
-    def inner(random: Random):
-        def inner2() -> float:
-            return random.uniform(min_, max_)
+class IntPair(Constraint):
+    def __init__(
+        self, amin: int, amax: int, op: Callable[[int, int], bool], bmin: int, bmax: int
+    ) -> None:
+        self.amin = amin
+        self.amax = amax
+        self.op = op
+        self.bmin = bmin
+        self.bmax = bmax
 
-    return inner
+    def validate(self, a: int, b: int) -> bool:
+        return self.op(a, b)
+
+    def random(self, random: Random) -> Tuple[int, int]:
+        while True:
+            a = random.randint(self.amin, self.amax)
+            b = random.randint(self.bmin, self.bmax)
+            if self.validate(a, b):
+                break
+        return a, b
 
 
-def random_int(min_: int, max_: int):
-    def inner(random: Random):
-        def inner2() -> int:
-            return random.randint(min_, max_)
+class Uniform(Constraint):
+    def __init__(self, min_: Decimal, max_: Decimal) -> None:
+        self.min = min_
+        self.max = max_
 
-    return inner
+    def validate(self, value: Decimal) -> bool:
+        return value >= self.min and value <= self.max
+
+    def random(self, random: Random) -> Decimal:
+        # TODO: fix decimal gen
+        return Decimal(random.uniform(self.min, self.max))  # type: ignore
+
+
+class Int(Constraint):
+    def __init__(self, min_: int, max_: int) -> None:
+        self.min = min_
+        self.max = max_
+
+    def validate(self, value: int) -> bool:
+        return value >= self.min and value <= self.max
+
+    def random(self, random: Random) -> int:
+        return random.randint(self.min, self.max)

@@ -18,3 +18,7 @@ def new_strategy(config: Dict[str, Any]) -> Strategy:
     if strategy_cls is None:
         raise ValueError(f'Strategy {name} not found')
     return cast(Strategy, strategy_cls(**{k: v for k, v in config.items() if k != 'name'}))
+
+
+def get_strategy_type(name: str) -> Strategy:
+    return _strategies[name]

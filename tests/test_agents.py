@@ -50,7 +50,7 @@ async def test_backtest(loop):
         }
     }
 
-    res = await Backtest(informant=informant).start(agent_config)
+    res = await Backtest(informant=informant).start(**agent_config)
 
     assert res.profit == -50
     assert res.potential_hodl_profit == 100
@@ -101,7 +101,7 @@ async def test_backtest_scenarios(loop, scenario_nr):
         }
     }
 
-    assert await Backtest(informant=informant).start(agent_config)
+    assert await Backtest(informant=informant).start(**agent_config)
 
 
 async def test_paper(loop):
@@ -146,7 +146,7 @@ async def test_paper(loop):
         'get_time': fakes.Time()
     }
 
-    assert await Paper(informant=informant, broker=broker).start(agent_config)
+    assert await Paper(informant=informant, broker=broker).start(**agent_config)
     assert len(orderbook_data[Side.BID]) == 0
     assert len(orderbook_data[Side.ASK]) == 0
 
@@ -193,7 +193,7 @@ async def test_live(loop):
         'get_time': fakes.Time()
     }
 
-    assert await Live(informant=informant, wallet=wallet, broker=broker).start(agent_config)
+    assert await Live(informant=informant, wallet=wallet, broker=broker).start(**agent_config)
     assert len(orderbook_data[Side.BID]) == 0
     assert len(orderbook_data[Side.ASK]) == 0
 
