@@ -10,7 +10,7 @@ setup(
         'backoff',
         'deap',
         'discord.py',
-        'numpy',  # Required by 'deap'.
+        'numpy',  # Required by deap.
         'python-dateutil',
         'simplejson',
     ],

@@ -19,7 +19,9 @@
                 "pos_threshold": "0.1",
                 "persistence": 0
             },
-            "plugins": ["discord"]
+            "plugins": [
+                "discord"
+            ]
         }
     ]
 }
