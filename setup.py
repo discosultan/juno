@@ -9,6 +9,7 @@ setup(
         'aiosqlite',
         'backoff',
         'deap',
+        'discord.py',
         'numpy',  # Required by 'deap'.
         'python-dateutil',
         'simplejson',

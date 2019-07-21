@@ -6,7 +6,6 @@ from juno import Fees, Fill, Fills
 from juno.agents import Agent
 from juno.agents.summary import Position, TradingSummary
 from juno.filters import Filters
-from juno.plugins import discord
 from juno.time import DAY_MS
 from juno.utils import full_path
 
@@ -17,6 +16,8 @@ from .utils import new_candle
 @pytest.mark.plugin
 async def test_discord(loop, request, config):
     skip_non_configured(request, config)
+
+    from juno.plugins import discord
 
     agent = Dummy()
     agent.result = get_dummy_trading_summary(quote=Decimal(1), interval=DAY_MS)
@@ -37,7 +38,7 @@ async def test_discord(loop, request, config):
         agent.result.append_position(pos)
         await agent.ee.emit('position_closed', pos)
         await agent.ee.emit('finished')
-        await agent.ee.emit('img_saved', full_path(__file__, '/data/dummy_img.png'))
+        await agent.ee.emit('image', full_path(__file__, '/data/dummy_img.png'))
 
 
 def skip_non_configured(request, config):
