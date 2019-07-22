@@ -10,6 +10,7 @@ from juno.agents.summary import TradingSummary
 from juno.asyncio import list_async
 from juno.components import Informant
 from juno.strategies import get_strategy_type
+from juno.typing import get_input_type_hints
 from juno.utils import flatten
 
 from . import Agent, Backtest
@@ -35,7 +36,7 @@ class Optimize(Agent):
         restart_on_missed_candle: bool = False,
         population_size: int = 50,
         max_generations: int = 1000,
-        mutation_probability: float = 0.2,
+        mutation_probability: Decimal = Decimal('0.2'),
         seed: Optional[int] = None,
     ) -> None:
         # It's useful to set a seed for idempotent results. Useful for debugging.
@@ -87,7 +88,13 @@ class Optimize(Agent):
         fees = self._informant.get_fees(exchange, symbol)
         filters = self._informant.get_filters(exchange, symbol)
 
+        strategy_type = get_strategy_type(strategy)
+        keys = list(get_input_type_hints(strategy_type.__init__).keys())  # type: ignore
+
         def problem(individual):
+            args = flatten(individual)
+            strategy_config = {k: v for k, v in zip(keys, args)}
+            strategy_config.update({'name': strategy})
             kargs = {
                 'exchange': exchange,
                 'symbol': symbol,
@@ -96,15 +103,7 @@ class Optimize(Agent):
                 'end': end,
                 'quote': quote,
                 'restart_on_missed_candle': restart_on_missed_candle,
-                'strategy_config': {
-                    # TODO: dynamic
-                    'name': strategy,
-                    'short_period': individual[0],
-                    'long_period': individual[1],
-                    'neg_threshold': individual[2],
-                    'pos_threshold': individual[3],
-                    'persistence': individual[4],
-                },
+                'strategy_config': strategy_config,
                 'candles': candles,
                 'fees': fees,
                 'filters': filters
@@ -115,16 +114,12 @@ class Optimize(Agent):
         toolbox.register('evaluate', problem)
 
         attrs = []
-
-        strategy_type = get_strategy_type(strategy)
-        # TODO: validate against __init__ input args.
-        # keys = list(get_input_type_hints(strategy_cls.__init__).keys())
         meta = strategy_type.meta()
         for constraint in meta.values():
             attrs.append(partial(constraint.random, random))
 
         def strategy_args():
-            return list(flatten((a() for a in attrs)))
+            return (a() for a in attrs)
 
         toolbox.register('strategy_args', strategy_args)
         toolbox.register(
@@ -132,14 +127,10 @@ class Optimize(Agent):
         )
         toolbox.register('population', tools.initRepeat, list, toolbox.individual)
 
-        def mut_individual(individual, indpb):
-            # TODO: fix it bljaaaat
-            # for i in range(0, len(individual)):
-
+        def mut_individual(individual, indpb: float):
             for i, attr in enumerate(attrs):
                 if random.random() < indpb:
                     individual[i] = attr()
-
             return individual,
 
         def cx_individual(ind1, ind2):
@@ -190,7 +181,7 @@ class Optimize(Agent):
             toolbox,
             mu=toolbox.population_size,
             lambda_=toolbox.population_size,
-            cxpb=1.0 - toolbox.mutation_probability,
+            cxpb=Decimal('1.0') - toolbox.mutation_probability,
             mutpb=toolbox.mutation_probability,
             stats=None,
             ngen=toolbox.max_generations,

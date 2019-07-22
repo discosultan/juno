@@ -55,8 +55,9 @@ class Uniform(Constraint):
         return value >= self.min and value <= self.max
 
     def random(self, random: Random) -> Decimal:
-        # TODO: fix decimal gen
-        return Decimal(random.uniform(self.min, self.max))  # type: ignore
+        # Two different approaches which can be found here:
+        # https://stackoverflow.com/questions/439115/random-decimal-in-python
+        return Decimal(str(random.uniform(float(self.min), float(self.max))))
 
 
 class Int(Constraint):
