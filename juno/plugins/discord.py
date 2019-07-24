@@ -13,6 +13,7 @@ from juno.agents import Agent
 from juno.agents.summary import Position
 from juno.asyncio import cancel, cancelable
 from juno.typing import ExcType, ExcValue, Traceback
+from juno.utils import chunks
 
 
 _log = logging.getLogger(__name__)
@@ -20,11 +21,8 @@ _log = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator[None]:
-    def format_action(action: str) -> str:
-        return f'{type(agent).__name__} agent {agent.name} {action}.\n'
-
-    def format_block(title: str, content: str, lang: str = '') -> str:
-        return f'{title}:\n```{lang}\n{content}\n```\n'
+    def format_message(title: str, content: str, lang: str = '') -> str:
+        return f'{type(agent).__name__} agent {agent.name} {title}:\n```{lang}\n{content}\n```\n'
 
     async with Discord(
         token=plugin_config['token'],
@@ -33,38 +31,29 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
 
         @agent.on('starting')
         async def on_starting(agent_config: Dict[str, Any]) -> None:
-            await client.send_message(
-                format_action('starting') +
-                format_block('Config', json.dumps(agent_config, indent=4), lang='json')
-            )
+            msg = json.dumps(agent_config, indent=4)
+            await client.send_message(format_message('starting with config', msg, lang='json'))
 
         @agent.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
-            await client.send_message(
-                format_action('opened a position') + format_block('Position', str(pos)) +
-                format_block('Summary', str(agent.result))
-            )
+            # We send separate messages to avoid exhausting max message length limit.
+            await client.send_message(format_message('opened position', str(pos)))
+            await client.send_message(format_message('summary', str(agent.result)))
 
         @agent.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
-            await client.send_message(
-                format_action('closed a position') + format_block('Position', str(pos)) +
-                format_block('Summary', str(agent.result))
-            )
+            await client.send_message(format_message('closed position', str(pos)))
+            await client.send_message(format_message('summary', str(agent.result)))
 
         @agent.on('finished')
         async def on_finished() -> None:
-            await client.send_message(
-                format_action('finished') + format_block('Summary', str(agent.result))
-            )
+            await client.send_message(format_message('finished with summary', str(agent.result)))
 
         @agent.on('errored')
         async def on_errored(exc: Exception) -> None:
-            exc_msg_list = traceback.format_exception(type(exc), exc, exc.__traceback__)
-            await client.send_message(
-                format_action('errored') + format_block('Exception', ''.join(exc_msg_list)) +
-                format_block('Summary', str(agent.result))
-            )
+            msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            await client.send_message(format_message('errored', msg))
+            await client.send_message(format_message('summary', str(agent.result)))
 
         @agent.on('image')
         async def on_image(path: str):
@@ -88,10 +77,15 @@ class Discord(discord.Client):
         await cancel(self._start_task)
         await self.close()
 
-    async def send_message(self, msg: Any) -> None:
+    async def send_message(self, msg: str) -> None:
         await self.wait_until_ready()
         channel = self.get_channel(self._channel_id)
-        await channel.send(msg)
+        max_length = 2000
+        # We break the message and send it in chunks in case it exceeds the max allowed limit.
+        # Note that this is bad as it will break formatting. Splitting is done by chars and not
+        # words.
+        for chunk in chunks(msg, max_length):
+            await channel.send(chunk)
 
     async def send_file(self, path: str) -> None:
         await self.wait_until_ready()

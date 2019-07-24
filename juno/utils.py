@@ -132,6 +132,18 @@ def map_module_types(module: ModuleType) -> Dict[str, type]:
     return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
 
 
+# TODO: Generalize typing to lists.
+# Ref: https://stackoverflow.com/a/312464/1466456
+def chunks(l: str, n: int) -> Iterable[str]:
+    """Yield successive n-sized chunks from l."""
+    length = len(l)
+    if length <= n:
+        yield l
+    else:
+        for i in range(0, length, n):
+            yield l[i:i + n]
+
+
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.
 # Implementation taken from: https://stackoverflow.com/a/45502319/1466456
 class LeakyBucket:

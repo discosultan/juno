@@ -159,3 +159,12 @@ async def test_event_emitter():
         raise exc
 
     assert await ee.emit('foo') == [1, exc]
+
+
+@pytest.mark.parametrize('input,count,expected_output', [
+    ('ab', 1, ['a', 'b']),
+    ('ab', 2, ['ab']),
+])
+def test_chunks(input, count, expected_output):
+    output = list(utils.chunks(input, count))
+    assert output == expected_output
