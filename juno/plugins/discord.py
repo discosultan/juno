@@ -4,8 +4,7 @@ import asyncio
 import logging
 import traceback
 from contextlib import asynccontextmanager
-from types import TracebackType
-from typing import Any, AsyncIterator, Dict, Type
+from typing import Any, AsyncIterator, Dict
 
 import discord
 import simplejson as json
@@ -32,34 +31,34 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
         channel_id=plugin_config['channel_id'][type(agent).__name__.lower()]
     ) as client:
 
-        @agent.ee.on('starting')
+        @agent.on('starting')
         async def on_starting(agent_config: Dict[str, Any]) -> None:
             await client.send_message(
                 format_action('starting') +
                 format_block('Config', json.dumps(agent_config, indent=4), lang='json')
             )
 
-        @agent.ee.on('position_opened')
+        @agent.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
             await client.send_message(
                 format_action('opened a position') + format_block('Position', str(pos)) +
                 format_block('Summary', str(agent.result))
             )
 
-        @agent.ee.on('position_closed')
+        @agent.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
             await client.send_message(
                 format_action('closed a position') + format_block('Position', str(pos)) +
                 format_block('Summary', str(agent.result))
             )
 
-        @agent.ee.on('finished')
+        @agent.on('finished')
         async def on_finished() -> None:
             await client.send_message(
                 format_action('finished') + format_block('Summary', str(agent.result))
             )
 
-        @agent.ee.on('errored')
+        @agent.on('errored')
         async def on_errored(exc: Exception) -> None:
             exc_msg_list = traceback.format_exception(type(exc), exc, exc.__traceback__)
             await client.send_message(
@@ -67,7 +66,7 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
                 format_block('Summary', str(agent.result))
             )
 
-        @agent.ee.on('image')
+        @agent.on('image')
         async def on_image(path: str):
             await client.send_file(path)
 

@@ -129,7 +129,7 @@ class Paper(Agent):
         self.open_position = Position(candle.time, res.fills)
         self.quote -= res.fills.total_quote
 
-        await self.ee.emit('position_opened', self.open_position)
+        await self.emit('position_opened', self.open_position)
 
         return True
 
@@ -149,4 +149,4 @@ class Paper(Agent):
         self.result.append_position(position)
         self.quote += res.fills.total_quote - res.fills.total_fee
 
-        await self.ee.emit('position_closed', position)
+        await self.emit('position_closed', position)

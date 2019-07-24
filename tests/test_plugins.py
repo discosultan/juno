@@ -28,7 +28,7 @@ async def test_discord(loop, request, config):
             time=candle.time,
             fills=Fills([Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='btc')])
         )
-        await agent.ee.emit('position_opened', pos)
+        await agent.emit('position_opened', pos)
         candle = new_candle(time=DAY_MS, close=Decimal(2), volume=Decimal(10))
         agent.result.append_candle(candle)
         pos.close(
@@ -36,13 +36,13 @@ async def test_discord(loop, request, config):
             fills=Fills([Fill(price=Decimal(2), size=Decimal(1), fee=Decimal(0), fee_asset='eth')])
         )
         agent.result.append_position(pos)
-        await agent.ee.emit('position_closed', pos)
-        await agent.ee.emit('finished')
-        await agent.ee.emit('image', full_path(__file__, '/data/dummy_img.png'))
+        await agent.emit('position_closed', pos)
+        await agent.emit('finished')
+        await agent.emit('image', full_path(__file__, '/data/dummy_img.png'))
         try:
             raise Exception('Expected error.')
         except Exception as exc:
-            await agent.ee.emit('errored', exc)
+            await agent.emit('errored', exc)
 
 
 def skip_non_configured(request, config):

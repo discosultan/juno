@@ -1,10 +1,8 @@
 import asyncio
 import inspect
 import itertools
-import logging
 import math
 import random
-import traceback
 from collections import defaultdict
 from os import path
 from pathlib import Path
@@ -20,8 +18,6 @@ import simplejson as json
 from juno import Trend
 
 T = TypeVar('T')
-
-_log = logging.getLogger(__name__)
 
 
 def merge_adjacent_spans(spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
@@ -246,8 +242,6 @@ class EventEmitter:
 
         return _on
 
-    async def emit(self, event: str, *args: Any) -> None:
-        results = await asyncio.gather(*(x(*args) for x in self._handlers[event]),
-                                       return_exceptions=True)
-        for e in (r for r in results if isinstance(r, Exception)):
-            _log.error(''.join(traceback.format_exception(type(e), e, e.__traceback__)))
+    async def emit(self, event: str, *args: Any) -> Tuple[Any, ...]:
+        return await asyncio.gather(*(x(*args) for x in self._handlers[event]),
+                                    return_exceptions=True)

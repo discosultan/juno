@@ -148,13 +148,14 @@ def test_circular_buffer():
 
 async def test_event_emitter():
     ee = utils.EventEmitter()
+    exc = Exception('Expected error.')
 
     @ee.on('foo')
     async def succeed():
-        pass
+        return 1
 
     @ee.on('foo')
     async def error():
-        raise Exception('Expected error.')
+        raise exc
 
-    await ee.emit('foo')
+    assert await ee.emit('foo') == [1, exc]
