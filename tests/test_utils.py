@@ -144,3 +144,17 @@ def test_circular_buffer():
     assert mean(buffer) == 5
     assert min(buffer) == 4
     assert max(buffer) == 6
+
+
+async def test_event_emitter():
+    ee = utils.EventEmitter()
+
+    @ee.on('foo')
+    async def succeed():
+        pass
+
+    @ee.on('foo')
+    async def fail():
+        raise Exception('Expected failure')
+
+    await ee.emit('foo')
