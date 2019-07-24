@@ -60,10 +60,8 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
             )
 
         @agent.ee.on('errored')
-        async def on_errored(
-            exc_type: Type[BaseException], exc_value: BaseException, tb: TracebackType
-        ) -> None:
-            exc_msg_list = traceback.format_exception(exc_type, exc_value, tb)
+        async def on_errored(exc: Exception) -> None:
+            exc_msg_list = traceback.format_exception(type(exc), exc, exc.__traceback__)
             await client.send_message(
                 format_action('errored') + format_block('Exception', ''.join(exc_msg_list)) +
                 format_block('Summary', str(agent.result))

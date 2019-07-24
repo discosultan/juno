@@ -250,4 +250,4 @@ class EventEmitter:
         results = await asyncio.gather(*(x(*args) for x in self._handlers[event]),
                                        return_exceptions=True)
         for e in (r for r in results if isinstance(r, Exception)):
-            _log.error(traceback.format_exception(type(e), e, e.__traceback__))
+            _log.error(''.join(traceback.format_exception(type(e), e, e.__traceback__)))

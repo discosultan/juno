@@ -154,7 +154,7 @@ async def test_event_emitter():
         pass
 
     @ee.on('foo')
-    async def fail():
-        raise Exception('Expected failure')
+    async def error():
+        raise Exception('Expected error.')
 
     await ee.emit('foo')

@@ -39,6 +39,10 @@ async def test_discord(loop, request, config):
         await agent.ee.emit('position_closed', pos)
         await agent.ee.emit('finished')
         await agent.ee.emit('image', full_path(__file__, '/data/dummy_img.png'))
+        try:
+            raise Exception('Expected error.')
+        except Exception as exc:
+            await agent.ee.emit('errored', exc)
 
 
 def skip_non_configured(request, config):
