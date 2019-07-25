@@ -11,7 +11,7 @@ async def main():
     async with Binance(
         os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
     ) as client:
-        # Should fetch 1 historical and rest future.
+        # Should fetch 2 historical and rest future.
         start = floor_multiple(time_ms(), MIN_MS) - 2 * MIN_MS
         end = start + HOUR_MS
         logging.critical(f'start {start}')

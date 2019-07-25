@@ -12,5 +12,6 @@ temp-plot.html
 .gitignore
 Dockerfile
 README.md
+run
 setup.cfg
 tests

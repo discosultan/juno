@@ -6,16 +6,15 @@ RUN apk --no-cache add musl-dev linux-headers g++ && \
     python --version && \
     pip --version
 
-ARG agent=paper
-ARG environment=azure
+ARG config=paper_azure
 
 WORKDIR /juno
 
 COPY . .
 
 RUN ls -a && \
-    mv config/${agent}_${environment}.json config/default.json && \
+    mv config/${config}.json config/default.json && \
     cat config/default.json && \
-    pip install .
+    pip install .[discord]
 
 ENTRYPOINT ["/usr/local/bin/python", "/juno/main.py"]
