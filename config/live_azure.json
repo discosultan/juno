@@ -1,7 +1,7 @@
 {
     "log_format": "azure",
     "log_level": "debug",
-    "storage": "memory",
+    "storage": "sqlite",
     "broker": "market",
     "agents": [
         {

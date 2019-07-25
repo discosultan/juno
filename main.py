@@ -25,11 +25,9 @@ _log = logging.getLogger(__name__)
 
 async def engine() -> None:
     # Load config.
-    config_path = 'config.json'
-    if len(sys.argv) > 1:
-        config_path = sys.argv[1]
+    config_name = sys.argv[1] if len(sys.argv) >= 2 else 'default'
     config = {}
-    config.update(load_from_json_file(config_path))
+    config.update(load_from_json_file(f'config/{config_name}.json'))
     config.update(load_from_env())
 
     # Configure logging.

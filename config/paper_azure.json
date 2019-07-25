@@ -1,7 +1,7 @@
 {
     "log_format": "azure",
     "log_level": "debug",
-    "storage": "memory",
+    "storage": "sqlite",
     "broker": "market",
     "agents": [
         {
@@ -9,7 +9,7 @@
             "exchange": "binance",
             "symbol": "eth-btc",
             "interval": "1h",
-            "quote": "100.0",
+            "quote": "1.0",
             "restart_on_missed_candle": false,
             "strategy_config": {
                 "name": "emaemacx",

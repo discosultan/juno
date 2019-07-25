@@ -7,14 +7,15 @@ RUN apk --no-cache add musl-dev linux-headers g++ && \
     pip --version
 
 ARG agent=paper
+ARG environment=azure
 
 WORKDIR /juno
 
 COPY . .
 
 RUN ls -a && \
-    mv ${agent}.json config.json && \
-    cat config.json && \
+    mv config/${agent}_${environment}.json config/default.json && \
+    cat config/default.json && \
     pip install .
 
 ENTRYPOINT ["/usr/local/bin/python", "/juno/main.py"]
