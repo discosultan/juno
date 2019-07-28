@@ -23,7 +23,7 @@ from juno.utils import map_module_types
 _log = logging.getLogger(__name__)
 
 
-async def engine() -> None:
+async def main() -> None:
     # Load config.
     config_name = sys.argv[1] if len(sys.argv) >= 2 else 'default'
     config = {}
@@ -77,6 +77,6 @@ async def engine() -> None:
 
 
 try:
-    asyncio.run(cancelable(engine()))
+    asyncio.run(cancelable(main()))
 except KeyboardInterrupt:
     _log.info('program interrupted by keyboard')
