@@ -80,3 +80,7 @@ try:
     asyncio.run(cancelable(main()))
 except KeyboardInterrupt:
     _log.info('program interrupted by keyboard')
+except BaseException:
+    _log.exception('unhandled error in program')
+finally:
+    _log.info('program exiting')
