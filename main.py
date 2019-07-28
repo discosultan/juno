@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import pkg_resources
 import signal
 import sys
 from contextlib import AsyncExitStack
@@ -36,6 +37,12 @@ async def main() -> None:
     logging.basicConfig(
         handlers=[create_handler(log_format)], level=logging.getLevelName(log_level.upper())
     )
+
+    try:
+        _log.info(f'version: {pkg_resources.get_distribution(juno.__name__)}')
+    except pkg_resources.DistributionNotFound:
+        pass
+
     _log.info(f'log level: {log_level}; format: {log_format}')
 
     # Configure signals.
@@ -82,5 +89,6 @@ except KeyboardInterrupt:
     _log.info('program interrupted by keyboard')
 except BaseException:
     _log.exception('unhandled error in program')
+    sys.exit(1)
 finally:
     _log.info('program exiting')

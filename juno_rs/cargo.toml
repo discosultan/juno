@@ -9,4 +9,4 @@ name = "juno_rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.6.0", features = ["extension-module"] }
+pyo3 = { version = "0.7.0", features = ["extension-module"] }
