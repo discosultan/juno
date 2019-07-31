@@ -51,8 +51,8 @@ class Optimize(Agent):
         #   - min max drawdown
         #   - max mean position profit
         #   - min mean position duration
-        # weights = (1.0, -1.0, -1.0, 1.0, -1.0)
-        weights = (Decimal(1), Decimal(-1), Decimal(-1), Decimal(1), Decimal(-1))
+        weights = (1.0, -1.0, -1.0, 1.0, -1.0)
+        # weights = (Decimal(1), Decimal(-1), Decimal(-1), Decimal(1), Decimal(-1))
         # weights = (1.0, -0.5, -1.0, 1.0, -0.5)
         # weights = (1.0, -0.1, -1.0, 0.1, -0.1)
         creator.create('FitnessMulti', base.Fitness, weights=weights)
@@ -78,10 +78,11 @@ class Optimize(Agent):
         #     return random.uniform(60.0, 90.0)
 
         def result_fitness(result: TradingSummary):
-            return (
+            return map(float, (
                 result.profit, result.mean_drawdown, result.max_drawdown,
                 result.mean_position_profit, result.mean_position_duration
-            )
+            ))
+
 
         candles = await list_async(
             self._informant.stream_candles(exchange, symbol, interval, start, end))

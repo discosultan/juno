@@ -73,8 +73,7 @@ class IntPair(Constraint):
         self.op = op
         self.b = Int(bmin, bmax)
 
-    def validate(self, value: Tuple[int, int]) -> bool:
-        a, b = value
+    def validate(self, a: int, b: int) -> bool:
         return self.a.validate(a) and self.b.validate(b) and self.op(a, b)
 
     def random(self, random: Random) -> Tuple[int, int]:

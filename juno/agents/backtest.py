@@ -190,10 +190,10 @@ class Backtest(Agent):
                 # Adjust start to accommodate for the required history before a strategy becomes
                 # effective. Only do it on first run because subsequent runs mean missed candles
                 # and we don't want to fetch passed a missed candle.
-                _log.info(
-                    f'fetching {strategy.req_history} candle(s) before start time to '
-                    'warm-up strategy'
-                )
+                # _log.info(
+                #     f'fetching {strategy.req_history} candle(s) before start time to '
+                #     'warm-up strategy'
+                # )
                 start -= strategy.req_history * interval
 
             for candle in candles:
@@ -204,12 +204,12 @@ class Backtest(Agent):
 
                 # Check if we have missed a candle.
                 if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
-                    _log.warning(
-                        f'missed candle(s); last candle {self.last_candle}; current '
-                        f'candle {candle}'
-                    )
+                    # _log.warning(
+                    #     f'missed candle(s); last candle {self.last_candle}; current '
+                    #     f'candle {candle}'
+                    # )
                     if restart_on_missed_candle:
-                        _log.info('restarting strategy')
+                        # _log.info('restarting strategy')
                         start = candle.time
                         restart = True
                         restart_count += 1
@@ -220,7 +220,7 @@ class Backtest(Agent):
 
                 if not self.open_position and advice is Advice.BUY:
                     if not self._try_open_position(candle):
-                        _log.warning(f'quote balance too low to open a position; stopping')
+                        # _log.warning(f'quote balance too low to open a position; stopping')
                         break
                 elif self.open_position and advice is Advice.SELL:
                     self._close_position(candle)
