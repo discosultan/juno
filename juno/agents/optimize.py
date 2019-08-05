@@ -83,7 +83,6 @@ class Optimize(Agent):
                 result.mean_position_profit, result.mean_position_duration
             ))
 
-
         candles = await list_async(
             self._informant.stream_candles(exchange, symbol, interval, start, end))
         fees = self._informant.get_fees(exchange, symbol)
@@ -92,24 +91,25 @@ class Optimize(Agent):
         strategy_type = get_strategy_type(strategy)
         keys = list(get_input_type_hints(strategy_type.__init__).keys())  # type: ignore
 
+        agent_config = {
+            'exchange': exchange,
+            'symbol': symbol,
+            'interval': interval,
+            'start': start,
+            'end': end,
+            'quote': quote,
+            'restart_on_missed_candle': restart_on_missed_candle,
+            'strategy_config': None,  # Need to update before solving problem.
+            'candles': candles,
+            'fees': fees,
+            'filters': filters
+        }
+
         def problem(individual):
-            args = flatten(individual)
-            strategy_config = {k: v for k, v in zip(keys, args)}
+            strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
             strategy_config.update({'name': strategy})
-            kargs = {
-                'exchange': exchange,
-                'symbol': symbol,
-                'interval': interval,
-                'start': start,
-                'end': end,
-                'quote': quote,
-                'restart_on_missed_candle': restart_on_missed_candle,
-                'strategy_config': strategy_config,
-                'candles': candles,
-                'fees': fees,
-                'filters': filters
-            }
-            return result_fitness(self._backtest.run_sync(**kargs))
+            agent_config['strategy_config'] = strategy_config
+            return result_fitness(self._backtest.run_sync(**agent_config))
 
         toolbox = base.Toolbox()
         toolbox.register('evaluate', problem)
@@ -192,6 +192,7 @@ class Optimize(Agent):
 
         _log.info('done')
 
-        self.result = flatten(hall[0])
+        _log.critical(hall[0])
+        self.result = list(flatten(hall[0]))
 
         # TODO: Write test to validate Rust results against Python one to confirm correctness.
