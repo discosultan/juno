@@ -157,6 +157,7 @@ class Binance(Exchange):
             result = await self._request(
                 'GET',
                 '/api/v1/depth',
+                weight=1,
                 data={
                     'limit': 100,  # TODO: We might wanna increase that and accept higher weight.
                     'symbol': _http_symbol(symbol)
@@ -177,8 +178,12 @@ class Binance(Exchange):
                 if is_first_ws_message:
                     assert data['U'] <= last_update_id + 1 and data['u'] >= last_update_id + 1
                     is_first_ws_message = False
-                else:
-                    assert data['U'] == last_update_id + 1
+                elif data['U'] != last_update_id + 1:
+                    _log.warning(f'orderbook out of sync: update id {data["U"]} != '
+                                 f'last update id {last_update_id} + 1; refetching snapshot')
+                    async for data2 in inner(ws):
+                        yield data2
+                    break
 
                 yield DepthUpdate(
                     type=DepthUpdateType.UPDATE,
@@ -189,7 +194,7 @@ class Binance(Exchange):
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@depth', interval=12 * HOUR_SEC
+            url=f'/ws/{_ws_symbol(symbol)}@depth', interval=12 * HOUR_SEC, name='orderbook'
         ) as ws:
             yield inner(ws)
 
@@ -246,7 +251,7 @@ class Binance(Exchange):
         bal_time, order_time = 0, 0
         # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
         async with self._connect_refreshing_stream(
-            url=f'/ws/{listen_key}', interval=12 * HOUR_SEC
+            url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user'
         ) as ws:
             connected.set()
             async for data in ws:
@@ -373,7 +378,8 @@ class Binance(Exchange):
                     break
 
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}', interval=12 * HOUR_SEC
+            url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}', interval=12 * HOUR_SEC,
+            name='candles'
         ) as ws:
             yield inner(ws)
 
@@ -443,14 +449,15 @@ class Binance(Exchange):
     # @asynccontextmanager
     # TODO: Figure out how to backoff an asynccontextmanager.
     # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
-    def _connect_refreshing_stream(self, url: str, interval: int,
+    def _connect_refreshing_stream(self, url: str, interval: int, name: str,
                                    **kwargs: Any) -> AsyncContextManager[AsyncIterable[Any]]:
         return connect_refreshing_stream(
             self._session,
             url=_BASE_WS_URL + url,
             interval=interval,
             loads=json.loads,
-            take_until=lambda old, new: old['E'] < new['E']
+            take_until=lambda old, new: old['E'] < new['E'],
+            name=name
         )
 
     async def _sync_clock(self) -> None:

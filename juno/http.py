@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from itertools import cycle
 from typing import Any, AsyncIterable, AsyncIterator, Callable, Optional
 
 import aiohttp
@@ -35,14 +36,15 @@ class ClientSession:
 
     @asynccontextmanager
     async def request(
-        self, method: str, url: str, raise_for_status: Optional[bool] = None, **kwargs: Any
+        self, method: str, url: str, name: str = None, raise_for_status: Optional[bool] = None,
+        **kwargs: Any
     ) -> AsyncIterator[aiohttp.ClientResponse]:
         req = self._session.request(method, url, **kwargs)
-        req_id = next(_random_words)
-        _aiohttp_log.info(f'Req {req_id} {method} {url}')
+        name = name or next(_random_words)
+        _aiohttp_log.info(f'Req {name} {method} {url}')
         _aiohttp_log.debug(kwargs)
         async with req as res:
-            _aiohttp_log.info(f'Res {req_id} {res.status} {res.reason}')
+            _aiohttp_log.info(f'Res {name} {res.status} {res.reason}')
             content = {'headers': res.headers, 'body': await res.text()}
             _aiohttp_log.debug(content)
             if raise_for_status or (raise_for_status is None and self._raise_for_status):
@@ -50,29 +52,31 @@ class ClientSession:
             yield res
 
     @asynccontextmanager
-    async def ws_connect(self, url: str, **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
-        ws_id = next(_random_words)
-        _aiohttp_log.info(f'WS {ws_id} {url}')
+    async def ws_connect(
+        self, url: str, name: str = None, **kwargs: Any
+    ) -> AsyncIterator[ClientWebSocketResponse]:
+        name = name or next(_random_words)
+        _aiohttp_log.info(f'WS {name} {url}')
         _aiohttp_log.debug(kwargs)
         async with self._session.ws_connect(url, **kwargs) as ws:
-            yield ClientWebSocketResponse(ws, ws_id)
+            yield ClientWebSocketResponse(ws, name)
 
 
 class ClientWebSocketResponse:
-    def __init__(self, client_ws_response: aiohttp.ClientWebSocketResponse, ws_id: str) -> None:
+    def __init__(self, client_ws_response: aiohttp.ClientWebSocketResponse, name: str) -> None:
         self._client_ws_response = client_ws_response
-        self._ws_id = ws_id
+        self._name = name
 
     def __aiter__(self) -> ClientWebSocketResponse:
         return self
 
     async def __anext__(self) -> aiohttp.WSMessage:
         msg = await self._client_ws_response.__anext__()
-        _aiohttp_log.debug(f'{self._ws_id} {msg}')
+        _aiohttp_log.debug(f'{self._name} {msg}')
         return msg
 
     async def send_json(self, data: Any) -> None:
-        _aiohttp_log.debug(f'{self._ws_id} {data}')
+        _aiohttp_log.debug(f'{self._name} {data}')
         await self._client_ws_response.send_json(data)
 
     async def close(self) -> None:
@@ -80,19 +84,26 @@ class ClientWebSocketResponse:
 
     async def receive(self) -> aiohttp.WSMessage:
         msg = await self._client_ws_response.receive()
-        _aiohttp_log.debug(f'{self._ws_id} {msg}')
+        _aiohttp_log.debug(f'{self._name} {msg}')
         return msg
 
 
 @asynccontextmanager
 async def connect_refreshing_stream(
     session: ClientSession, url: str, interval: int, loads: Callable[[str], Any],
-    take_until: Callable[[Any, Any], bool]
+    take_until: Callable[[Any, Any], bool], name: str = None
 ) -> AsyncIterator[AsyncIterable[Any]]:
     """Streams messages over WebSocket. The connection is restarted every `interval` milliseconds.
     Ensures no data is lost during restart when switching from one connection to another.
     """
-    conn = session.ws_connect(url)
+    counter = cycle(range(0, 10))
+
+    def get_name():
+        if not name:
+            return None
+        return f'{name}-{next(counter)}'
+
+    conn = session.ws_connect(url, name=get_name())
     ws = await conn.__aenter__()
 
     async def inner() -> AsyncIterable[Any]:
@@ -111,7 +122,7 @@ async def connect_refreshing_stream(
                         _aiohttp_log.info('refreshing ws connection')
                         to_close_conn = conn
                         to_close_ws = ws
-                        conn = session.ws_connect(url)
+                        conn = session.ws_connect(url, name=get_name())
                         ws = await conn.__aenter__()
 
                         if receive_task.done():
@@ -138,7 +149,7 @@ async def connect_refreshing_stream(
                         await asyncio.gather(
                             conn.__aexit__(None, None, None), cancel(timeout_task)
                         )
-                        conn = session.ws_connect(url)
+                        conn = session.ws_connect(url, name=get_name())
                         ws = await conn.__aenter__()
                         break
 
