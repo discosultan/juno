@@ -3,6 +3,8 @@ use std::cmp::min;
 use circular_queue::CircularQueue;
 use rust_decimal::Decimal;
 
+use crate::utils::mean;
+
 pub struct Sma {
     pub value: Decimal,
     buffer: CircularQueue<Decimal>,
@@ -28,7 +30,7 @@ impl Sma {
     pub fn update(&mut self, price: Decimal) {
         self.buffer.push(price);
         if self.t == self.t1 {
-            self.value = mean(self._buffer);
+            self.value = mean(&self.buffer);
         }
         self.t = min(self.t + 1, self.t1);
     }
