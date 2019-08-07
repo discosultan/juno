@@ -1,7 +1,4 @@
 from decimal import Decimal
-from statistics import mean
-
-from juno.utils import CircularBuffer
 
 
 # Simple Moving Average
@@ -11,7 +8,9 @@ class Sma:
             raise ValueError(f'Invalid period ({period})')
 
         self.value = Decimal(0)
-        self._buffer = CircularBuffer(period, Decimal(0))
+        self._inputs = [Decimal(0)] * period
+        self._i = 0
+        self._sum = Decimal(0)
         self._t = 0
         self._t1 = period - 1
 
@@ -20,7 +19,10 @@ class Sma:
         return self._t1
 
     def update(self, price: Decimal) -> None:
-        self._buffer.push(price)
-        if self._t == self._t1:
-            self.value = mean(self._buffer)
+        last = self._inputs[self._i]
+        self._inputs[self._i] = price
+        self._i = (self._i + 1) % len(self._inputs)
+        self._sum = self._sum - last + price
+        self.value = self._sum / len(self._inputs)
+
         self._t = min(self._t + 1, self._t1)
