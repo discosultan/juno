@@ -1,13 +1,16 @@
 from decimal import Decimal
+from typing import Generic, Type, TypeVar
 
 from .di import DI
 
+T = TypeVar('T', float, Decimal)
+
 
 # Directional Movement Index
-class DX:
-    def __init__(self, period: int) -> None:
-        self.value = Decimal(0)
-        self._di = DI(period)
+class DX(Generic[T]):
+    def __init__(self, period: int, dec: Type[T] = Decimal) -> None:  # type: ignore
+        self.value: T = dec(0)
+        self._di: DI[T] = DI(period, dec=dec)
         self._t = 0
         self._t1 = period - 1
 
@@ -15,7 +18,7 @@ class DX:
     def req_history(self) -> int:
         return self._t1
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+    def update(self, high: T, low: T, close: T) -> None:
         self._di.update(high, low, close)
 
         if self._t == self._t1:

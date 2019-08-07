@@ -40,7 +40,7 @@ def test_adx():
         31.3907, 33.2726, 34.7625, 36.1460, 37.3151, 38.6246, 39.4151, 38.3660, 37.3919, 35.4565,
         33.3321, 31.0167, 29.3056, 27.5566
     ]]
-    _assert(Adx(14), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, Adx, 14)
 
 
 def test_adxr():
@@ -74,7 +74,7 @@ def test_adxr():
         27.3129, 27.5240, 27.6324, 27.9379, 27.9615, 28.6838, 29.1905, 29.5928, 29.3351, 29.4087,
         29.4736
     ]]
-    _assert(Adxr(14), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, Adxr, 14)
 
 
 def test_cci():
@@ -93,7 +93,7 @@ def test_cci():
         ]
     ]
     outputs = [[18.0890, 84.4605, 109.1186, 46.6540]]
-    _assert(Cci(5), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, Cci, 5)
 
 
 def test_dema():
@@ -102,7 +102,7 @@ def test_dema():
         170.500, 175.000, 184.750, 202.781
     ]]
     outputs = [[172.0780, 168.5718, 170.2278, 173.4940, 180.5297, 194.1428]]
-    _assert(Dema(5), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, Dema, 5)
 
 
 def test_di():
@@ -148,7 +148,7 @@ def test_di():
             22.6700
         ]
     ]
-    _assert(DI(14), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, DI, 14)
 
 
 def test_dm():
@@ -186,7 +186,7 @@ def test_dm():
             12.6902
         ]
     ]
-    _assert(DM(14), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, DM, 14)
 
 
 def test_dx():
@@ -223,19 +223,19 @@ def test_dx():
         63.9309, 51.0546, 53.6679, 55.8176, 57.7373, 54.1312, 54.1312, 52.5138, 55.6475, 49.6919,
         24.7277, 24.7277, 10.2966, 05.7150, 00.9162, 07.0623, 04.8185
     ]]
-    _assert(DX(14), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, DX, 14)
 
 
 def test_ema():
     inputs = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
     outputs = [[25.000, 24.958, 24.899, 24.797, 24.698, 24.674, 24.856, 25.654]]
-    _assert(Ema(5), inputs, outputs, 3)
+    _assert(inputs, outputs, 3, Ema, 5)
 
 
 def test_sma():
     inputs = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
     outputs = [[24.750, 24.675, 24.744, 25.238]]
-    _assert(Sma(5), inputs, outputs, 3)
+    _assert(inputs, outputs, 3, Sma, 5)
 
 
 def test_macd():
@@ -269,7 +269,7 @@ def test_macd():
             +0.105597654, +0.219777438, +0.281981844, +0.337640199, +0.445541078, +0.542216167
         ]
     ]
-    _assert(Macd(12, 26, 9), inputs, outputs, 9)
+    _assert(inputs, outputs, 9, Macd, 12, 26, 9)
 
 
 def test_rsi():
@@ -281,7 +281,7 @@ def test_rsi():
         76.6667, 78.8679, 84.9158, 81.4863, 84.5968, 73.0851, 49.3173, 45.0119, 45.0119, 57.9252,
         75.9596, 78.4676, 78.4676, 65.6299, 65.6299
     ]]
-    _assert(Rsi(5), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, Rsi, 5)
 
 
 def test_stoch():
@@ -312,7 +312,7 @@ def test_stoch():
             40.1115, 40.0008, 38.4405, 41.4415, 48.3518, 49.8770, 48.5631
         ]
     ]
-    _assert(Stoch(5, 3, 3), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, Stoch, 5, 3, 3)
 
 
 def test_stochrsi():
@@ -323,7 +323,7 @@ def test_stochrsi():
     outputs = [[
         0.9613, 0.0000, 0.0000, 0.0000, 0.0000, 0.4600, 1.0000, 1.0000, 1.0000, 0.3751, 0.0000
     ]]
-    _assert(StochRsi(5), inputs, outputs, 4)
+    _assert(inputs, outputs, 4, StochRsi, 5)
 
 
 # Data taken from:
@@ -425,14 +425,20 @@ def test_tsi():
         +18.06, +19.43, +20.84, +21.77, +22.53, +23.33, +24.97, +26.61, +28.00, +28.29, +28.57,
         +26.60, +25.99, +25.35, +24.59, +24.09
     ]]
-    _assert(Tsi(25, 13), inputs, outputs, 1)  # Precision should be 2 but it's drifting off.
+    _assert(inputs, outputs, 1, Tsi, 25, 13)  # Precision should be 2 but it's drifting off.
 
 
-def _assert(indicator, inputs, outputs, precision):
+def _assert(inputs, outputs, precision, indicator_type, *args):
+    _assert_with_type(Decimal, inputs, outputs, precision, indicator_type, *args)
+    _assert_with_type(float, inputs, outputs, precision, indicator_type, *args)
+
+
+def _assert_with_type(dec, inputs, outputs, precision, indicator_type, *args):
+    indicator = indicator_type(*args, dec=dec)
     input_len, output_len = len(inputs[0]), len(outputs[0])
     offset = input_len - output_len
     for i in range(0, input_len):
-        indicator.update(*(Decimal(input[i]) for input in inputs))
+        indicator.update(*(dec(input[i]) for input in inputs))
         # Assert public values of an indicator.
         values = [v for k, v in vars(indicator).items() if not k.startswith('_')]
         if i >= offset:

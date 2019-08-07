@@ -1,13 +1,16 @@
 from decimal import Decimal
+from typing import Generic, Type, TypeVar
 
 from .sma import Sma
 
+T = TypeVar('T', float, Decimal)
+
 
 # Smoothed Moving Average
-class Smma:
-    def __init__(self, period: int) -> None:
-        self.value = Decimal(0)
-        self._sma = Sma(period)
+class Smma(Generic[T]):
+    def __init__(self, period: int, dec: Type[T] = Decimal) -> None:  # type: ignore
+        self.value: T = dec(0)
+        self._sma: Sma[T] = Sma(period, dec=dec)
         self._weight = period
         self._t = 0
         self._t1 = period - 1
@@ -17,7 +20,7 @@ class Smma:
     def req_history(self) -> int:
         return self._t1
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: T) -> None:
         if self._t <= self._t1:
             self._sma.update(price)
 

@@ -1,18 +1,21 @@
 from decimal import Decimal
+from typing import Generic, Type, TypeVar
 
 from .ema import Ema
 
+T = TypeVar('T', float, Decimal)
 
-class Tsi:
 
+class Tsi(Generic[T]):
     # Common long: 25, short: 13
-    def __init__(self, long_period: int, short_period: int) -> None:
-        self.value = Decimal(0)
-        self._pc_ema_smoothed = Ema(long_period, v2=True)
-        self._pc_ema_dbl_smoothed = Ema(short_period, v2=True)
-        self._abs_pc_ema_smoothed = Ema(long_period, v2=True)
-        self._abs_pc_ema_dbl_smoothed = Ema(short_period, v2=True)
-        self._last_price = Decimal(0)
+    def __init__(self, long_period: int, short_period: int,  # type: ignore
+                 dec: Type[T] = Decimal) -> None:
+        self.value: T = dec(0)
+        self._pc_ema_smoothed: Ema[T] = Ema(long_period, v2=True, dec=dec)
+        self._pc_ema_dbl_smoothed: Ema[T] = Ema(short_period, v2=True, dec=dec)
+        self._abs_pc_ema_smoothed: Ema[T] = Ema(long_period, v2=True, dec=dec)
+        self._abs_pc_ema_dbl_smoothed: Ema[T] = Ema(short_period, v2=True, dec=dec)
+        self._last_price: T = dec(0)
         self._t = 0
         self._t1 = 1
         self._t2 = self._t1 + long_period - 1
@@ -22,7 +25,7 @@ class Tsi:
     def req_history(self) -> int:
         return self._t3
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: T) -> None:
         if self._t >= self._t1:
             pc = price - self._last_price
             self._pc_ema_smoothed.update(pc)

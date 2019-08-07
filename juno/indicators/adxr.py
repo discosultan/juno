@@ -1,16 +1,18 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque
+from typing import Deque, Generic, Type, TypeVar
 
 from .adx import Adx
 
+T = TypeVar('T', float, Decimal)
+
 
 # Average Directional Movement Index Rating
-class Adxr:
-    def __init__(self, period: int) -> None:
-        self.value = Decimal(0)
-        self._adx = Adx(period)
-        self._historical_adx: Deque[Decimal] = deque(maxlen=period)
+class Adxr(Generic[T]):
+    def __init__(self, period: int, dec: Type[T] = Decimal) -> None:  # type: ignore
+        self.value: T = dec(0)
+        self._adx: Adx[T] = Adx(period, dec=dec)
+        self._historical_adx: Deque[T] = deque(maxlen=period)
         self._t = 0
         self._t1 = self._adx.req_history
         self._t2 = self._t1 + period - 1
@@ -19,7 +21,7 @@ class Adxr:
     def req_history(self) -> int:
         return self._t2
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+    def update(self, high: T, low: T, close: T) -> None:
         self._adx.update(high, low, close)
 
         if self._t >= self._t1:

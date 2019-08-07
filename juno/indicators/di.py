@@ -1,19 +1,22 @@
 from decimal import Decimal
+from typing import Generic, Type, TypeVar
 
 from .dm import DM
 
+T = TypeVar('T', float, Decimal)
+
 
 # Directional Indicator
-class DI:
-    def __init__(self, period: int) -> None:
-        self.plus_value = Decimal(0)
-        self.minus_value = Decimal(0)
+class DI(Generic[T]):
+    def __init__(self, period: int, dec: Type[T] = Decimal) -> None:  # type: ignore
+        self.plus_value: T = dec(0)
+        self.minus_value: T = dec(0)
 
-        self._dm = DM(period)
-        self._atr = Decimal(0)
-        self._per = (period - 1) / Decimal(period)
+        self._dm: DM[T] = DM(period, dec=dec)
+        self._atr: T = dec(0)
+        self._per: T = (period - 1) / dec(period)
 
-        self._prev_close = Decimal(0)
+        self._prev_close: T = dec(0)
 
         self._t = 0
         self._t1 = 1
@@ -24,7 +27,7 @@ class DI:
     def req_history(self) -> int:
         return self._t1
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+    def update(self, high: T, low: T, close: T) -> None:
         self._dm.update(high, low)
 
         if self._t >= self._t1 and self._t < self._t3:
@@ -42,7 +45,7 @@ class DI:
         self._t = min(self._t + 1, self._t3)
 
 
-def _calc_truerange(prev_close: Decimal, high: Decimal, low: Decimal) -> Decimal:
+def _calc_truerange(prev_close: T, high: T, low: T) -> T:
     ych = abs(high - prev_close)
     ycl = abs(low - prev_close)
     v = high - low
