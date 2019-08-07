@@ -1,17 +1,9 @@
 use std::iter::Chain;
-use std::ops::Deref;
 use std::slice::{Iter, IterMut};
-
-use rust_decimal::Decimal;
-
-pub fn mean(numbers: &[Decimal]) -> Decimal {
-    numbers.iter().sum() / numbers.len()
-}
 
 #[derive(Clone, Debug)]
 pub struct CircularBuffer<T> {
     data: Vec<T>,
-    capacity: usize,
     insertion_index: usize,
 }
 
@@ -27,7 +19,6 @@ impl<T> CircularBuffer<T> {
 
         CircularBuffer {
             data: Vec::with_capacity(capacity),
-            capacity,
             insertion_index: 0,
         }
     }
@@ -44,7 +35,7 @@ impl<T> CircularBuffer<T> {
 
     #[inline]
     pub fn capacity(&self) -> usize {
-        self.capacity
+        self.data.capacity()
     }
 
     #[inline]
@@ -76,10 +67,10 @@ impl<T> CircularBuffer<T> {
     }
 }
 
-impl<T> Deref for CircularBuffer<T> {
-    type Target = [T];
+// impl<T> Deref for CircularBuffer<T> where T : Sum {
+//     type Target = [T];
 
-    fn deref(&self) -> &[T] {
-        &self.data
-    }
-}
+//     fn deref(&self) -> &[T] {
+//         &self.data
+//     }
+// }
