@@ -1,5 +1,6 @@
 import operator
 from decimal import Decimal
+from typing import Generic, List, Type, TypeVar
 
 from juno import Advice, Candle, Trend, math
 from juno.indicators import Ema
@@ -7,15 +8,17 @@ from juno.utils import Persistence
 
 from .strategy import Strategy
 
+T = TypeVar('T', float, Decimal)
 
-class EmaEmaCX(Strategy):
+
+class EmaEmaCX(Strategy, Generic[T]):
     def __init__(
         self, short_period: int, long_period: int, neg_threshold: Decimal, pos_threshold: Decimal,
-        persistence: int
+        persistence: int, dec: Type[T] = Decimal
     ) -> None:
         self.validate(short_period, long_period, neg_threshold, pos_threshold, persistence)
-        self._ema_short = Ema(short_period)
-        self._ema_long = Ema(long_period)
+        self._ema_short: Ema[T] = Ema(short_period, dec=dec)
+        self._ema_long: Ema[T] = Ema(long_period, dec=dec)
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
         self._persistence = Persistence(level=persistence, allow_initial_trend=False)
@@ -26,6 +29,7 @@ class EmaEmaCX(Strategy):
     def req_history(self) -> int:
         return self._t1
 
+    # TODO: Another layer of abstraction to be able to support float and Decimal?
     @staticmethod
     def meta():
         return {

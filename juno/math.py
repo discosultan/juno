@@ -2,9 +2,10 @@ import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from random import Random
-from typing import Any, Callable, Tuple, TypeVar
+from typing import Any, Callable, Generic, Tuple, Type, TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
+TDec = TypeVar('TDec', float, Decimal)
 
 
 def ceil_multiple(value: TNum, multiple: TNum) -> TNum:
@@ -24,10 +25,10 @@ class Constraint(ABC):
         pass
 
 
-class Uniform(Constraint):
-    def __init__(self, min_: Decimal, max_: Decimal) -> None:
-        self.min = min_
-        self.max = max_
+class Uniform(Constraint, Generic[TDec]):
+    def __init__(self, min_: TDec, max_: TDec) -> None:
+        self.min: TDec = min_
+        self.max: TDec = max_
 
         _min_sign, _min_digits, min_exponent = min_.as_tuple()
         _max_sign, _max_digits, max_exponent = max_.as_tuple()
@@ -40,17 +41,17 @@ class Uniform(Constraint):
         self.min_int = int(min_ * self.factor)
         self.max_int = int(max_ * self.factor)
 
-    def validate(self, value: Decimal) -> bool:
+    def validate(self, value: TDec) -> bool:
         return value >= self.min and value <= self.max
 
-    def random(self, random: Random) -> Decimal:
+    def random(self, random: Random, dec: Type[TDec] = Decimal) -> TDec:
         # Approach 1.
         # https://stackoverflow.com/a/439169/1466456
         # return Decimal(str(random.uniform(float(self.min), float(self.max))))
 
         # Approach 2.
         # https://stackoverflow.com/a/40972516/1466456
-        return Decimal(random.randrange(self.min_int, self.max_int)) / self.factor
+        return dec(random.randrange(self.min_int, self.max_int)) / self.factor
 
 
 class Int(Constraint):
