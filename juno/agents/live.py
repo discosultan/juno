@@ -53,8 +53,6 @@ class Live(Agent):
         assert self.quote > filters.price.min
 
         self.result = TradingSummary(
-            exchange=exchange,
-            symbol=symbol,
             interval=interval,
             start=now,
             quote=self.quote,

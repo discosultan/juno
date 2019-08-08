@@ -1,49 +1,37 @@
 use std::cmp::min;
-use std::ops::Div;
-
-use rust_decimal::Decimal;
-
-use crate::utils::CircularBuffer;
 
 pub struct Sma {
-    pub value: Decimal,
-
-    inputs: Vec<Decimal>,
+    pub value: f64,
+    inputs: Vec<f64>,
     i: usize,
-    sum: Decimal,
-    t: usize,
-    t1: usize,
+    sum: f64,
+
+    t: u32,
+    t1: u32,
 }
 
 impl Sma {
-    pub fn new(period: usize) -> Self {
+    pub fn new(period: u32) -> Self {
         Self {
-            value: Decimal::new(0, 0),
-            inputs: vec![Decimal::new(0, 0); period],
+            inputs: vec![0.0; period as usize],
             i: 0,
+            sum: 0.0,
             t: 0,
             t1: period - 1,
         }
     }
 
-    pub fn req_history(&self) -> usize {
+    pub fn req_history(&self) -> u32 {
         self.t1
     }
 
-    pub fn update(&mut self, price: Decimal) {
+    pub fn update(&mut self, input: f64) {
         let last = self.inputs[self.i];
-        self.inputs[self.i] = price;
+        self.inputs[self.i] = input;
         self.i = (self.i + 1) % self.inputs.len();
-        self.sum = self.sum - last + price;
-        self.value = self.sum / self.inputs.len();
-    }
-}
+        self.sum = self.sum - last + input;
+        self.value = self.sum / self.inputs.len() as f64;
 
-impl Div<usize> for Decimal {
-    // The division of rational numbers is a closed operation.
-    type Output = Decimal;
-
-    fn div(self, rhs: usize) -> Self::Output {
-        Decimal::new(0, 0)
+        self.t = min(self.t + 1, self.t1);
     }
 }

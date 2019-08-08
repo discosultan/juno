@@ -43,8 +43,6 @@ class Backtest(Agent):
         self.filters = self.informant.get_filters(exchange, symbol)
 
         self.result = TradingSummary(
-            exchange=exchange,
-            symbol=symbol,
             interval=interval,
             start=start,
             quote=quote,
@@ -153,6 +151,9 @@ class Backtest(Agent):
     # Ensure impl is similar to async version. Strips logging.
     def run_sync(
         self,
+        candles: List[Candle],
+        fees: Fees,
+        filters: Filters,
         exchange: str,
         symbol: str,
         interval: int,
@@ -160,9 +161,6 @@ class Backtest(Agent):
         end: int,
         quote: Decimal,
         strategy_config: Dict[str, Any],
-        candles: List[Candle],
-        fees: Fees,
-        filters: Filters,
         restart_on_missed_candle: bool = False,
     ) -> TradingSummary:
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
@@ -183,7 +181,7 @@ class Backtest(Agent):
         restart_count = 0
 
         while True:
-            self.last_candle = None
+            self.last_candle = Nonestrategy
             restart = False
 
             strategy = new_strategy(strategy_config)

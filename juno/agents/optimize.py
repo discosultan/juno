@@ -92,6 +92,9 @@ class Optimize(Agent):
         keys = list(get_input_type_hints(strategy_type.__init__).keys())  # type: ignore
 
         agent_config = {
+            'candles': candles,
+            'fees': fees,
+            'filters': filters,
             'exchange': exchange,
             'symbol': symbol,
             'interval': interval,
@@ -100,9 +103,6 @@ class Optimize(Agent):
             'quote': quote,
             'restart_on_missed_candle': restart_on_missed_candle,
             'strategy_config': None,  # Need to update before solving problem.
-            'candles': candles,
-            'fees': fees,
-            'filters': filters
         }
 
         def problem(individual):
