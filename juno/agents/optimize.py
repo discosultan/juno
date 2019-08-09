@@ -78,7 +78,7 @@ class Optimize(Agent):
         #     return random.uniform(60.0, 90.0)
 
         def result_fitness(result: TradingSummary):
-            return map(float, (
+            return map(float, (  # type: ignore
                 result.profit, result.mean_drawdown, result.max_drawdown,
                 result.mean_position_profit, result.mean_position_duration
             ))

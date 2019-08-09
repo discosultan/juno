@@ -1,14 +1,8 @@
-pub enum Advice {
-    None: 0,
-    Buy: 1,
-    Sell: 2,
-}
+use std::cmp::min;
 
-pub enum Trend {
-    Unknown: 0,
-    Up: 1,
-    Down: 2,
-}
+use crate::{Advice, Candle, Trend};
+use crate::indicators::Ema;
+use crate::strategies::{advice, Strategy};
 
 pub struct Persistence {
     age: u32,
@@ -24,17 +18,17 @@ impl Persistence {
             age: 0,
             level,
             allow_next_trend: allow_initial_trend,
-            trend: Trend.Unknown,
-            potential_trend: Trend.Unknown,
+            trend: Trend::Unknown,
+            potential_trend: Trend::Unknown,
         }
     }
 
-    pub fn update(&self, trend: Trend) -> (Trend, bool) {
+    pub fn update(&mut self, trend: Trend) -> (Trend, bool) {
         let mut trend_changed = false;
 
-        if trend == Trend.Unknown || (
-            self.potential_trend != Trend.Unknown && trend != self.potential_trend
-        ) {
+        if trend == Trend::Unknown ||
+            (self.potential_trend != Trend::Unknown && trend != self.potential_trend)
+        {
             self.allow_next_trend = true;
         }
 
@@ -43,10 +37,9 @@ impl Persistence {
             self.potential_trend = trend;
         }
 
-        if (
-            self.allow_next_trend && self.age == self.level
+        if self.allow_next_trend && self.age == self.level
             && self.potential_trend != self.trend
-        ) {
+        {
             self.trend = self.potential_trend;
             trend_changed = true;
         }
@@ -78,7 +71,7 @@ impl EmaEmaCx {
         Self {
             ema_short: Ema::new(short_period),
             ema_long: Ema::new(long_period),
-            trend: Trend::new(persistence),
+            persistence: Persistence::new(persistence, false),
             neg_threshold,
             pos_threshold,
             t: 0,
@@ -88,23 +81,24 @@ impl EmaEmaCx {
 }
 
 impl Strategy for EmaEmaCx {
-    fn update(&mut self, candle: &Candle) -> Option<Advice> {
-        let ema_short_result = self.ema_short.update(candle.close);
-        let ema_long_result = self.ema_long.update(candle.close);
+    fn update(&mut self, candle: &Candle) -> Advice {
+        self.ema_short.update(candle.close);
+        self.ema_long.update(candle.close);
 
-        let mut trend_dir = None;
+        let mut trend = Trend::Unknown;
         if self.t == self.t1 {
-            let diff = 100.0 * (ema_short_result - ema_long_result)
-                / ((ema_short_result + ema_long_result) / 2.0);
+            let diff = 100.0 * (self.ema_short.value - self.ema_long.value)
+                / ((self.ema_short.value + self.ema_long.value) / 2.0);
 
             if diff > self.pos_threshold {
-                trend_dir = Some(TrendDirection::Up);
+                trend = Trend::Up;
             } else if diff < self.neg_threshold {
-                trend_dir = Some(TrendDirection::Down);
+                trend = Trend::Down;
             }
         }
 
         self.t = min(self.t + 1, self.t1);
-        self.trend.update(trend_dir)
+        
+        return advice(self.persistence.update(trend))
     }
 }

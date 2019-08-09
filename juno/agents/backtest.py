@@ -169,8 +169,6 @@ class Backtest(Agent):
         self.fees = fees
         self.filters = filters
         self.result = TradingSummary(
-            exchange=exchange,
-            symbol=symbol,
             interval=interval,
             start=start,
             quote=quote,
@@ -181,7 +179,7 @@ class Backtest(Agent):
         restart_count = 0
 
         while True:
-            self.last_candle = Nonestrategy
+            self.last_candle = None
             restart = False
 
             strategy = new_strategy(strategy_config)

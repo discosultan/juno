@@ -19,7 +19,7 @@ impl Ema {
                 self.t = 1;
                 price
             }
-            _ => (price - self.result) * self.a + self.result,
+            _ => (price - self.value) * self.a + self.value,
         };
     }
 

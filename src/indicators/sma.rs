@@ -5,7 +5,6 @@ pub struct Sma {
     inputs: Vec<f64>,
     i: usize,
     sum: f64,
-
     t: u32,
     t1: u32,
 }
@@ -13,6 +12,7 @@ pub struct Sma {
 impl Sma {
     pub fn new(period: u32) -> Self {
         Self {
+            value: 0.0,
             inputs: vec![0.0; period as usize],
             i: 0,
             sum: 0.0,

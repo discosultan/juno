@@ -1,4 +1,4 @@
-use std::cmp::min;
+use pyo3::prelude::*;
 
 pub struct Price {
     pub min: f64,
@@ -12,7 +12,7 @@ impl Price {
             return 0.0;
         }
         if self.max > 0.0 {
-            price = min(price, self.max);
+            let price = f64::min(price, self.max);
         }
         // TODO: impl.
         0.0
@@ -20,7 +20,7 @@ impl Price {
 
     pub fn valid(&self, price: f64) -> bool {
         ((self.min == 0.0 || price >= self.min) && (self.max == 0.0 || price <= self.max)
-         and (self.step == 0.0 || (price - self.min) % self.step == 0))
+         && (self.step == 0.0 || (price - self.min) % self.step == 0.0))
     }
 
     pub fn none() -> Self {
@@ -48,7 +48,7 @@ impl Size {
     }
 
     pub fn valid(&self, size: f64) -> bool {
-        (size >= self.min && size <= self.max && (size - self.min) % self.step == 0)
+        size >= self.min && size <= self.max && (size - self.min) % self.step == 0.0
     }
 
     pub fn none() -> Self {
@@ -60,6 +60,7 @@ impl Size {
     }
 }
 
+#[pyclass]
 pub struct Filters {
     pub price: Price,
     pub size: Size,
@@ -68,8 +69,8 @@ pub struct Filters {
 impl Filters {
     pub fn none() -> Self {
         Filters {
-            price: Price.none(),
-            size: Size.none(),
+            price: Price::none(),
+            size: Size::none(),
         }
     }
 }
