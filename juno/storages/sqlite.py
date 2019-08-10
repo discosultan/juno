@@ -123,7 +123,7 @@ class SQLite(Storage):
     async def _connect(self, key: Key) -> AsyncIterator[Connection]:
         name = self._normalize_key(key)
         _log.info(f'connecting to {key}')
-        name = str(home_path().joinpath(f'v{_VERSION}_{name}.db'))
+        name = str(home_path('data') / f'v{_VERSION}_{name}.db')
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 

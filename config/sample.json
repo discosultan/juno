@@ -1,6 +1,10 @@
 {
     "log_format": "default",
     "log_level": "debug",
+    "log_outputs": [
+        "stdout",
+        "file"
+    ],
     "binance": {
         "api_key": "abc",
         "secret_key": "abc"

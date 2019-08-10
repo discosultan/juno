@@ -16,7 +16,7 @@ from juno.config import (
 )
 from juno.di import Container
 from juno.exchanges import Exchange
-from juno.logging import create_handler
+from juno.logging import create_handlers
 from juno.plugins import list_plugins
 from juno.storages import Storage
 from juno.utils import map_module_types
@@ -33,9 +33,11 @@ async def main() -> None:
 
     # Configure logging.
     log_level = config.get('log_level', 'info')
-    log_format = config.get('log_format', 'default')
+    log_format = config.get('log_format')
+    log_outputs = config.get('log_outputs')
     logging.basicConfig(
-        handlers=[create_handler(log_format)], level=logging.getLevelName(log_level.upper())
+        handlers=create_handlers(log_format, log_outputs),
+        level=logging.getLevelName(log_level.upper())
     )
 
     try:
@@ -43,7 +45,7 @@ async def main() -> None:
     except pkg_resources.DistributionNotFound:
         pass
 
-    _log.info(f'log level: {log_level}; format: {log_format}')
+    _log.info(f'log level: {log_level}; format: {log_format}; outputs: {log_outputs}')
 
     # Configure signals.
     def handle_sigterm(signalnum: int, frame: FrameType) -> None:

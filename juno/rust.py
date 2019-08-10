@@ -26,8 +26,8 @@ def init() -> None:
         prefix, suffix = '', '.dll'
     else:
         raise Exception(f'unknown system ({system})')
-    compiled_path = src_dir.joinpath('target', 'release', f'{prefix}juno_rs{suffix}')
-    dst_path = home_path().joinpath(f'juno_rs_{src_latest_mtime}{suffix}')
+    compiled_path = src_dir / 'target' / 'release' / f'{prefix}juno_rs{suffix}'
+    dst_path = home_path() / f'juno_rs_{src_latest_mtime}{suffix}'
 
     # Build Rust and copy to dist folder if current version missing.
     if not dst_path.is_file():
