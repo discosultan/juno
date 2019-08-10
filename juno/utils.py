@@ -102,8 +102,8 @@ def unpack_symbol(symbol: str) -> Tuple[str, str]:
     return symbol[:index_of_separator], symbol[index_of_separator + 1:]
 
 
-def home_path() -> Path:
-    path = Path(Path.home(), '.juno')
+def home_path(*args: str) -> Path:
+    path = Path(Path.home(), '.juno').joinpath(*args)
     path.mkdir(parents=True, exist_ok=True)
     return path
 

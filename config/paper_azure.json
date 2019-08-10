@@ -1,6 +1,10 @@
 {
     "log_format": "azure",
     "log_level": "debug",
+    "log_outputs": [
+        "stdout",
+        "file"
+    ],
     "storage": "sqlite",
     "broker": "market",
     "agents": [
