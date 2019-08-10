@@ -2,7 +2,7 @@ import asyncio
 import logging
 import traceback
 from enum import Enum
-from typing import Any, Awaitable, Callable, Tuple
+from typing import Any, Awaitable, Callable, Dict, Tuple
 
 from juno.asyncio import empty_future
 from juno.typing import filter_member_args
@@ -21,12 +21,15 @@ class Agent(EventEmitter):
         super().__init__()
         self.state = AgentState.STOPPED
         self.result: Any = None
+        self.config: Dict[str, Any] = {}
         self.name = next(_random_names)
 
     async def start(self, **agent_config: Any) -> Any:
         assert self.state is not AgentState.RUNNING
 
-        await self.emit('starting', agent_config)
+        self.config = agent_config
+
+        await self.emit('starting')
 
         self.state = AgentState.RUNNING
         type_name = type(self).__name__.lower()

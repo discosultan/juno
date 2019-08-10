@@ -1,6 +1,14 @@
+# Python
 **/__pycache__
 *.egg-info
 .mypy_cache
 .pytest_cache
+
+# Rust
+**/*.rs.bk
+/target/
+Cargo.lock
+
+# Misc
 .vscode
 temp-plot.html

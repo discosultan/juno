@@ -1,14 +1,13 @@
 [package]
-name = "juno-rs"
+name = "juno"
 version = "0.1.0"
 authors = ["Jaanus Varus <jaanusvarus@gmail.com>"]
 edition = "2018"
 
 [lib]
-name = "juno_rs"
+name = "juno_rust"
 crate-type = ["cdylib"]
+path = "juno_rs/lib.rs"
 
 [dependencies]
-circular-queue = "0.2.1"
 pyo3 = { version = "0.7.0", features = ["extension-module"] }
-rust_decimal = "1.0.2"

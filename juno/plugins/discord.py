@@ -30,8 +30,8 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
     ) as client:
 
         @agent.on('starting')
-        async def on_starting(agent_config: Dict[str, Any]) -> None:
-            msg = json.dumps(agent_config, indent=4)
+        async def on_starting() -> None:
+            msg = json.dumps(agent.config, indent=4)
             await client.send_message(format_message('starting with config', msg, lang='json'))
 
         @agent.on('position_opened')
@@ -46,7 +46,7 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
             await client.send_message(format_message('summary', str(agent.result)))
 
         @agent.on('finished')
-        async def on_finished() -> None:
+        async def on_finished(agent_config: Dict[str, Any]) -> None:
             await client.send_message(format_message('finished with summary', str(agent.result)))
 
         @agent.on('errored')

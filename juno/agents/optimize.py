@@ -78,7 +78,7 @@ class Optimize(Agent):
         #     return random.uniform(60.0, 90.0)
 
         def result_fitness(result: TradingSummary):
-            return map(float, (
+            return map(float, (  # type: ignore
                 result.profit, result.mean_drawdown, result.max_drawdown,
                 result.mean_position_profit, result.mean_position_duration
             ))
@@ -92,6 +92,9 @@ class Optimize(Agent):
         keys = list(get_input_type_hints(strategy_type.__init__).keys())  # type: ignore
 
         agent_config = {
+            'candles': candles,
+            'fees': fees,
+            'filters': filters,
             'exchange': exchange,
             'symbol': symbol,
             'interval': interval,
@@ -100,9 +103,6 @@ class Optimize(Agent):
             'quote': quote,
             'restart_on_missed_candle': restart_on_missed_candle,
             'strategy_config': None,  # Need to update before solving problem.
-            'candles': candles,
-            'fees': fees,
-            'filters': filters
         }
 
         def problem(individual):
