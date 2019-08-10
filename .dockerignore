@@ -1,12 +1,24 @@
-# Ignore everything ignored by .gitignore.
+###########################################
+# Ignore everything ignored by .gitignore #
+###########################################
+# Python
 **/__pycache__
 *.egg-info
 .mypy_cache
 .pytest_cache
+
+# Rust
+**/*.rs.bk
+/target/
+Cargo.lock
+
+# Misc
 .vscode
 temp-plot.html
 
-# And additionally everything not required by runtime.
+#######################################################
+# And additionally everything not required by runtime #
+#######################################################
 .dockerignore
 .git
 .gitignore

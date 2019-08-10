@@ -221,8 +221,6 @@ def test_position():
 
 def test_summary():
     summary = TradingSummary(
-        exchange='binance',
-        symbol='eth-btc',
         interval=HOUR_MS,
         start=0,
         quote=Decimal(100),

@@ -19,6 +19,7 @@ setup(
             'flake8',
             'isort',
             'mypy',
+            'pyo3-pack==0.7.0-beta.10',
             'pytest',
             'pytest-aiohttp',
             'pytest-lazy-fixture',

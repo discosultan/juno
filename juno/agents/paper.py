@@ -51,8 +51,6 @@ class Paper(Agent):
         self.quote = quote
 
         self.result = TradingSummary(
-            exchange=exchange,
-            symbol=symbol,
             interval=interval,
             start=now,
             quote=quote,
