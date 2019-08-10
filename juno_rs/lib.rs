@@ -30,7 +30,7 @@ pub fn emaemacx(
 
 // This function name will become the name of the Python module!
 #[pymodule]
-fn juno_rs(_py: Python, m: &PyModule) -> PyResult<()> {
+fn juno_rust(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_wrapped(wrap_pyfunction!(emaemacx))?;
     Ok(())
 }

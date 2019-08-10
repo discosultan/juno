@@ -1,3 +1,1 @@
-import juno_rs
-
-# print(lib)
+from juno_rust import emaemacx  # noqa
