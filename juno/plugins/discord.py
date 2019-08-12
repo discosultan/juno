@@ -46,7 +46,7 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
             await client.send_message(format_message('summary', str(agent.result)))
 
         @agent.on('finished')
-        async def on_finished(agent_config: Dict[str, Any]) -> None:
+        async def on_finished() -> None:
             await client.send_message(format_message('finished with summary', str(agent.result)))
 
         @agent.on('errored')

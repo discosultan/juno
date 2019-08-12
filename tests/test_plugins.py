@@ -56,8 +56,6 @@ def skip_non_configured(request, config):
 
 def get_dummy_trading_summary(quote=Decimal(1), interval=1):
     return TradingSummary(
-        exchange='dummy_exchange',
-        symbol='eth-btc',
         interval=interval,
         start=0,
         quote=quote,

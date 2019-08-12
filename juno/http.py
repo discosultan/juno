@@ -4,7 +4,9 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from itertools import cycle
-from typing import Any, AsyncIterable, AsyncIterator, Callable, Optional
+from typing import (
+    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Callable, Iterator, Optional
+)
 
 import aiohttp
 
@@ -36,8 +38,8 @@ class ClientSession:
 
     @asynccontextmanager
     async def request(
-        self, method: str, url: str, name: str = None, raise_for_status: Optional[bool] = None,
-        **kwargs: Any
+        self, method: str, url: str, name: Optional[str] = None,
+        raise_for_status: Optional[bool] = None, **kwargs: Any
     ) -> AsyncIterator[aiohttp.ClientResponse]:
         req = self._session.request(method, url, **kwargs)
         name = name or next(_random_words)
@@ -53,7 +55,7 @@ class ClientSession:
 
     @asynccontextmanager
     async def ws_connect(
-        self, url: str, name: str = None, **kwargs: Any
+        self, url: str, name: Optional[str] = None, **kwargs: Any
     ) -> AsyncIterator[ClientWebSocketResponse]:
         name = name or next(_random_words)
         _aiohttp_log.info(f'WS {name} {url}')
@@ -75,6 +77,10 @@ class ClientWebSocketResponse:
         _aiohttp_log.debug(f'{self._name} {msg}')
         return msg
 
+    @property
+    def closed(self) -> bool:
+        return self._client_ws_response.closed
+
     async def send_json(self, data: Any) -> None:
         _aiohttp_log.debug(f'{self._name} {data}')
         await self._client_ws_response.send_json(data)
@@ -91,45 +97,38 @@ class ClientWebSocketResponse:
 @asynccontextmanager
 async def connect_refreshing_stream(
     session: ClientSession, url: str, interval: int, loads: Callable[[str], Any],
-    take_until: Callable[[Any, Any], bool], name: str = None
+    take_until: Callable[[Any, Any], bool], name: Optional[str] = None
 ) -> AsyncIterator[AsyncIterable[Any]]:
     """Streams messages over WebSocket. The connection is restarted every `interval` milliseconds.
     Ensures no data is lost during restart when switching from one connection to another.
     """
+    name2 = name or next(_random_words)
     counter = cycle(range(0, 10))
 
-    def get_name():
-        if not name:
-            return None
-        return f'{name}-{next(counter)}'
-
-    conn = session.ws_connect(url, name=get_name())
-    ws = await conn.__aenter__()
+    ctx = await _WSConnectionContext.connect(session, url, name2, counter)
 
     async def inner() -> AsyncIterable[Any]:
-        nonlocal conn, ws
+        nonlocal ctx
         try:
             while True:
-                to_close_conn = None
-                to_close_ws = None
+                to_close_ctx = None
                 timeout_task = asyncio.create_task(cancelable(asyncio.sleep(interval)))
                 while True:
-                    receive_task = asyncio.create_task(cancelable(_receive(ws)))
+                    receive_task = asyncio.create_task(cancelable(_receive(ctx.ws)))
                     done, _pending = await asyncio.wait([receive_task, timeout_task],
                                                         return_when=asyncio.FIRST_COMPLETED)
 
                     if timeout_task in done:
-                        _aiohttp_log.info('refreshing ws connection')
-                        to_close_conn = conn
-                        to_close_ws = ws
-                        conn = session.ws_connect(url, name=get_name())
-                        ws = await conn.__aenter__()
+                        _aiohttp_log.info(f'refreshing ws {ctx.name} connection')
+                        to_close_ctx = ctx
+                        ctx = await _WSConnectionContext.connect(session, url, name2, counter)
 
                         if receive_task.done():
-                            new_msg = await _receive(ws)
+                            new_msg = await _receive(ctx.ws)
                             assert new_msg.type is aiohttp.WSMsgType.TEXT
                             new_data = loads(new_msg.data)
-                            async for old_msg in concat_async(receive_task.result(), to_close_ws):
+                            async for old_msg in concat_async(receive_task.result(),
+                                                              to_close_ctx.ws):
                                 if old_msg.type is aiohttp.WSMsgType.CLOSED:
                                     break
                                 old_data = loads(old_msg.data)
@@ -139,18 +138,15 @@ async def connect_refreshing_stream(
                                     break
                             yield new_data
 
-                        await to_close_ws.close()
-                        await to_close_conn.__aexit__(None, None, None)
+                        await to_close_ctx.close()
                         break
 
                     msg = receive_task.result()
                     if msg.type is aiohttp.WSMsgType.CLOSED:
-                        _aiohttp_log.warning(f'server closed connection: {msg.data}; reconnecting')
-                        await asyncio.gather(
-                            conn.__aexit__(None, None, None), cancel(timeout_task)
-                        )
-                        conn = session.ws_connect(url, name=get_name())
-                        ws = await conn.__aenter__()
+                        _aiohttp_log.warning(f'server closed ws {ctx.name} connection; data: '
+                                             f'{msg.data}; reconnecting')
+                        await asyncio.gather(ctx.close(), cancel(timeout_task))
+                        ctx = await _WSConnectionContext.connect(session, url, name2, counter)
                         break
 
                     yield loads(msg.data)
@@ -161,8 +157,7 @@ async def connect_refreshing_stream(
     try:
         yield inner()
     finally:
-        await ws.close()
-        await conn.__aexit__(None, None, None)
+        await ctx.close()
 
 
 async def _receive(ws: ClientWebSocketResponse) -> aiohttp.WSMessage:
@@ -175,3 +170,26 @@ async def _receive(ws: ClientWebSocketResponse) -> aiohttp.WSMessage:
         if msg.type in [aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSE]:
             continue
         raise NotImplementedError(f'Unhandled WS message. Type: {msg.type}; data: {msg.data}')
+
+
+class _WSConnectionContext:
+    name: str
+    conn: AsyncContextManager[ClientWebSocketResponse]
+    ws: ClientWebSocketResponse
+
+    @staticmethod
+    async def connect(session: ClientSession, url: str, name: str,
+                      counter: Iterator[int]) -> _WSConnectionContext:
+        name = f'{name}-{next(counter)}'
+        conn = session.ws_connect(url, name=name)
+        ws = await conn.__aenter__()
+        ctx = _WSConnectionContext()
+        ctx.name = name
+        ctx.conn = conn
+        ctx.ws = ws
+        return ctx
+
+    async def close(self) -> None:
+        if not self.ws.closed:
+            await self.ws.close()
+        await self.conn.__aexit__(None, None, None)
