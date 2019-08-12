@@ -77,10 +77,6 @@ class ClientWebSocketResponse:
         _aiohttp_log.debug(f'{self._name} {msg}')
         return msg
 
-    @property
-    def closed(self) -> bool:
-        return self._client_ws_response.closed
-
     async def send_json(self, data: Any) -> None:
         _aiohttp_log.debug(f'{self._name} {data}')
         await self._client_ws_response.send_json(data)
@@ -190,6 +186,5 @@ class _WSConnectionContext:
         return ctx
 
     async def close(self) -> None:
-        if not self.ws.closed:
-            await self.ws.close()
+        await self.ws.close()
         await self.conn.__aexit__(None, None, None)
