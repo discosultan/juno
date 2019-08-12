@@ -9,6 +9,7 @@ from deap import algorithms, base, creator, tools
 from juno.agents.summary import TradingSummary
 from juno.asyncio import list_async
 from juno.components import Informant
+from juno.rust import Rust
 from juno.strategies import get_strategy_type
 from juno.typing import get_input_type_hints
 from juno.utils import flatten
@@ -105,14 +106,26 @@ class Optimize(Agent):
             'strategy_config': None,  # Need to update before solving problem.
         }
 
-        def problem(individual):
+        def python_problem(individual):
             strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
             strategy_config.update({'name': strategy})
             agent_config['strategy_config'] = strategy_config
             return result_fitness(self._backtest.run_sync(**agent_config))
 
+        rust_solver = Rust(candles, fees, filters, strategy_type, quote)
+        await rust_solver.__aenter__()
+
+        def rust_problem(individual):
+            # _log.critical(emaemacx(Fees(), quote))
+            return result_fitness(rust_solver.solve())
+            # return (0.0,0.0,0.0,0.0,0.0)
+            # strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
+            # strategy_config.update({'name': strategy})
+            # agent_config['strategy_config'] = strategy_config
+            # return result_fitness(self._backtest.run_sync(**agent_config))
+
         toolbox = base.Toolbox()
-        toolbox.register('evaluate', problem)
+        toolbox.register('evaluate', rust_problem)
 
         attrs = []
         meta = strategy_type.meta()

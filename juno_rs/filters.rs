@@ -1,5 +1,3 @@
-use pyo3::prelude::*;
-
 pub struct Price {
     pub min: f64,
     pub max: f64,
@@ -60,7 +58,6 @@ impl Size {
     }
 }
 
-#[pyclass]
 pub struct Filters {
     pub price: Price,
     pub size: Size,

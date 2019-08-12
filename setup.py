@@ -2,13 +2,14 @@ from setuptools import find_packages, setup
 
 setup(
     name='juno',
-    version='0.3.3',
+    version='0.4.0',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
         'aiohttp',
         'aiosqlite',
         'backoff',
+        'cffi',
         'deap',
         'numpy',  # Required by deap.
         'python-dateutil',
@@ -19,7 +20,6 @@ setup(
             'flake8',
             'isort',
             'mypy',
-            'pyo3-pack==0.7.0-beta.10',
             'pytest',
             'pytest-aiohttp',
             'pytest-lazy-fixture',

@@ -1,13 +1,9 @@
 [package]
-name = "juno"
-version = "0.1.0"
+name = "juno-rs"
+version = "0.3.0"
 authors = ["Jaanus Varus <jaanusvarus@gmail.com>"]
 edition = "2018"
 
 [lib]
-name = "juno_rust"
 crate-type = ["cdylib"]
 path = "juno_rs/lib.rs"
-
-[dependencies]
-pyo3 = { version = "0.7.0", features = ["extension-module"] }
