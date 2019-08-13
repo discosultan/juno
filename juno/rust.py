@@ -22,10 +22,7 @@ class Rust:
 
     def __init__(self, candles: List[Candle], fees: Fees, filters: Filters, strategy_type,
                  quote) -> None:
-        self.candles = [
-            (c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5]), c[6])
-            for c in candles
-        ]
+        self.candles = candles
         self.fees = fees
         self.filters = filters
         self.strategy_type = strategy_type
@@ -37,7 +34,6 @@ class Rust:
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
         src_dir = Path(os.path.dirname(os.path.realpath(__file__))) / '..'
-        _log.critical(src_dir)
         src_files = src_dir.glob('./juno_rs/**/*.rs')
         # Seconds-level precision.
         src_latest_mtime = max((int(f.stat().st_mtime) for f in src_files))
@@ -67,16 +63,47 @@ class Rust:
 
         libjuno = ffi.dlopen(str(dst_path))
 
+        c_candles = ffi.new(f'Candle[{len(self.candles)}]')
+        for i, c in enumerate(self.candles):
+            c_candles[i] = {
+                'time': c[0],
+                'open': float(c[1]),
+                'high': float(c[2]),
+                'low': float(c[3]),
+                'close': float(c[4]),
+                'volume': float(c[5]),
+            }
+        # [
+        #     (c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5]), c[6])
+        #     for c in candles
+        # ]
+
         c_fees = ffi.new('Fees *')
         c_fees.maker = float(self.fees.maker)
         c_fees.taker = float(self.fees.taker)
 
+        c_filters = ffi.new('Filters *')
+        c_filters.price = {
+            'min': float(self.filters.price.min),
+            'max': float(self.filters.price.max),
+            'step': float(self.filters.price.step),
+        }
+        c_filters.size = {
+            'min': float(self.filters.size.min),
+            'max': float(self.filters.size.max),
+            'step': float(self.filters.size.step),
+        }
+
         self.solve_native = functools.partial(
             getattr(libjuno, self.strategy_type.__name__.lower()),
+            c_candles,
+            len(self.candles),
             c_fees,
+            c_filters,
             self.quote)
 
-        # We need to keep a references to these instances for Rust; otherwise GC will clean them up!
+        # We need to keep a references to these instances for Rust; otherwise GC will clean them
+        # up!
         self.refs.extend([
             ffi,
             libjuno,
@@ -100,7 +127,6 @@ def _build_cdef(strategy_type):
             double low;
             double close;
             double volume;
-            bool closed;
         }} Candle;
 
         typedef struct {{
@@ -109,11 +135,21 @@ def _build_cdef(strategy_type):
         }} Fees;
 
         typedef struct {{
-            uint32_t base_precision;
-            double min_qty;
-            double max_qty;
-            double qty_step_size;
-        }} AssetPairInfo;
+            double min;
+            double max;
+            double step;
+        }} Price;
+
+        typedef struct {{
+            double min;
+            double max;
+            double step;
+        }} Size;
+
+        typedef struct {{
+            Price price;
+            Size size;
+        }} Filters;
 
         typedef struct {{
             double profit;
@@ -124,9 +160,10 @@ def _build_cdef(strategy_type):
         }} BacktestResult;
 
         BacktestResult {strategy_type.__name__.lower()}(
-            // const Candle *candles,
-            // uint32_t length,
+            const Candle *candles,
+            uint32_t length,
             const Fees *fees,
+            const Filters *filters,
             double quote);
     '''
 

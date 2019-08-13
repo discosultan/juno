@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Price {
     pub min: f64,
     pub max: f64,
@@ -30,6 +31,7 @@ impl Price {
     }
 }
 
+#[derive(Debug)]
 pub struct Size {
     min: f64,
     max: f64,
@@ -38,10 +40,12 @@ pub struct Size {
 
 impl Size {
     pub fn round_down(self, size: f64) -> f64 {
+        // TODO: impl.
         0.0
     }
 
     pub fn round_up(self, size: f64) -> f64 {
+        // TODO: impl.
         0.0
     }
 
@@ -58,6 +62,7 @@ impl Size {
     }
 }
 
+#[derive(Debug)]
 pub struct Filters {
     pub price: Price,
     pub size: Size,
