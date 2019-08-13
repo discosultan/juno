@@ -6,6 +6,7 @@ import os
 import platform
 import shutil
 import subprocess
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, List, get_type_hints
 
@@ -73,10 +74,6 @@ class Rust:
                 'close': float(c[4]),
                 'volume': float(c[5]),
             }
-        # [
-        #     (c[0], float(c[1]), float(c[2]), float(c[3]), float(c[4]), float(c[5]), c[6])
-        #     for c in candles
-        # ]
 
         c_fees = ffi.new('Fees *')
         c_fees.maker = float(self.fees.maker)
@@ -107,7 +104,6 @@ class Rust:
         self.refs.extend([
             ffi,
             libjuno,
-            # candles,
         ])
 
         return self
@@ -117,8 +113,8 @@ class Rust:
 
 
 def _build_cdef(strategy_type):
-    # type_hints = get_type_hints(strategy_type.__init__)
-    # custom_params = ',\n'.join([f'{_map_type(v)} {k}' for k, v in type_hints.items()])
+    type_hints = get_type_hints(strategy_type.__init__)
+    custom_params = ',\n'.join([f'{_map_type(v)} {k}' for k, v in type_hints.items()])
     return f'''
         typedef struct {{
             uint64_t time;
@@ -164,7 +160,8 @@ def _build_cdef(strategy_type):
             uint32_t length,
             const Fees *fees,
             const Filters *filters,
-            double quote);
+            double quote,
+            {custom_params});
     '''
 
 
@@ -172,6 +169,7 @@ def _map_type(type_: type) -> str:
     result = {
         int: 'uint32_t',
         float: 'double',
+        Decimal: 'double',
     }.get(type_)
     if not result:
         raise NotImplementedError()
