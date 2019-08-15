@@ -1,3 +1,9 @@
-from .binance import Binance  # noqa
-from .coinbase import Coinbase  # noqa
-from .exchange import Exchange  # noqa
+from .binance import Binance
+from .coinbase import Coinbase
+from .exchange import Exchange
+
+__all__ = [
+    'Binance',
+    'Coinbase',
+    'Exchange',
+]

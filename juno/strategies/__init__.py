@@ -2,8 +2,13 @@ import inspect
 import sys
 from typing import Any, Dict, cast
 
-from .emaemacx import EmaEmaCX  # noqa
+from .emaemacx import EmaEmaCX
 from .strategy import Strategy
+
+__all__ = [
+    'EmaEmaCX',
+    'Strategy',
+]
 
 _strategies = {
     name.lower(): obj
