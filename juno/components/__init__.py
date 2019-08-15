@@ -1,3 +1,9 @@
-from .informant import Informant  # noqa
-from .orderbook import Orderbook  # noqa
-from .wallet import Wallet  # noqa
+from .informant import Informant
+from .orderbook import Orderbook
+from .wallet import Wallet
+
+__all__ = [
+    'Informant',
+    'Orderbook',
+    'Wallet',
+]
