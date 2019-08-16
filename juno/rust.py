@@ -8,12 +8,14 @@ import shutil
 import subprocess
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, List, get_type_hints
+from typing import Any, List, Type
 
 import cffi
 
 from juno import Candle, Fees
 from juno.filters import Filters
+from juno.strategies import Strategy
+from juno.typing import get_input_type_hints
 from juno.utils import home_path
 
 _log = logging.getLogger(__name__)
@@ -21,8 +23,8 @@ _log = logging.getLogger(__name__)
 
 class Rust:
 
-    def __init__(self, candles: List[Candle], fees: Fees, filters: Filters, strategy_type,
-                 quote) -> None:
+    def __init__(self, candles: List[Candle], fees: Fees, filters: Filters,
+                 strategy_type: Type[Strategy], quote) -> None:
         self.candles = candles
         self.fees = fees
         self.filters = filters
@@ -108,12 +110,12 @@ class Rust:
 
         return self
 
-    def solve(self, *args: Any):
+    def solve(self, *args: Any) -> Any:
         return self.solve_native(*args)
 
 
-def _build_cdef(strategy_type):
-    type_hints = get_type_hints(strategy_type.__init__)
+def _build_cdef(strategy_type: Type[Strategy]) -> str:
+    type_hints = get_input_type_hints(strategy_type.__init__)
     custom_params = ',\n'.join([f'{_map_type(v)} {k}' for k, v in type_hints.items()])
     return f'''
         typedef struct {{
@@ -172,5 +174,5 @@ def _map_type(type_: type) -> str:
         Decimal: 'double',
     }.get(type_)
     if not result:
-        raise NotImplementedError()
+        raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')
     return result

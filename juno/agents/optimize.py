@@ -117,7 +117,7 @@ class Optimize(Agent):
 
         def rust_problem(individual):
             # _log.critical(emaemacx(Fees(), quote))
-            return result_fitness(rust_solver.solve())
+            return result_fitness(rust_solver.solve(*flatten(individual)))
             # return (0.0,0.0,0.0,0.0,0.0)
             # strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
             # strategy_config.update({'name': strategy})

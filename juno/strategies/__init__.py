@@ -1,6 +1,6 @@
 import inspect
 import sys
-from typing import Any, Dict, cast
+from typing import Any, Dict, Type, cast
 
 from .emaemacx import EmaEmaCX
 from .strategy import Strategy
@@ -25,5 +25,5 @@ def new_strategy(config: Dict[str, Any]) -> Strategy:
     return cast(Strategy, strategy_cls(**{k: v for k, v in config.items() if k != 'name'}))
 
 
-def get_strategy_type(name: str) -> Strategy:
+def get_strategy_type(name: str) -> Type[Strategy]:
     return _strategies[name]
