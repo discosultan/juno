@@ -22,7 +22,6 @@ _log = logging.getLogger(__name__)
 
 
 class Rust:
-
     def __init__(self, candles: List[Candle], fees: Fees, filters: Filters,
                  strategy_type: Type[Strategy], quote) -> None:
         self.candles = candles
