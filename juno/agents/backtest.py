@@ -2,9 +2,8 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional, List
 
-from juno import Advice, Candle, Fees, Fill, Fills
+from juno import Advice, Candle, Fees, Fill, Fills, Filters
 from juno.components import Informant
-from juno.filters import Filters
 from juno.strategies import new_strategy
 from juno.time import time_ms
 from juno.utils import unpack_symbol
@@ -195,7 +194,6 @@ class Backtest(Agent):
 
                 if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
                     if restart_on_missed_candle:
-                        start = candle.time
                         restart = True
                         restart_count += 1
                         break

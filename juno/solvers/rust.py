@@ -12,22 +12,26 @@ from typing import Any, List, Type
 
 import cffi
 
-from juno import Candle, Fees
-from juno.filters import Filters
+from juno import Candle, Fees, Filters
 from juno.strategies import Strategy
 from juno.typing import get_input_type_hints
-from juno.utils import home_path
+from juno.utils import home_path, unpack_symbol
 
 _log = logging.getLogger(__name__)
 
 
 class Rust:
     def __init__(self, candles: List[Candle], fees: Fees, filters: Filters,
-                 strategy_type: Type[Strategy], quote) -> None:
+                 strategy_type: Type[Strategy], symbol: str, interval: int,
+                 start: int, end: int, quote: Decimal) -> None:
         self.candles = candles
         self.fees = fees
         self.filters = filters
         self.strategy_type = strategy_type
+        self.base_asset, self.quote_asset = unpack_symbol(symbol)
+        self.interval = interval
+        self.start = start
+        self.end = end
         self.quote = quote
 
         self.solve_native: Any = None
@@ -98,7 +102,7 @@ class Rust:
             len(self.candles),
             c_fees,
             c_filters,
-            self.quote)
+            float(self.quote))
 
         # We need to keep a references to these instances for Rust; otherwise GC will clean them
         # up!

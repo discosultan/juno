@@ -9,21 +9,19 @@ from deap import algorithms, base, creator, tools
 from juno.agents.summary import TradingSummary
 from juno.asyncio import list_async
 from juno.components import Informant
-from juno.rust import Rust
+from juno.solvers import get_solver_type
 from juno.strategies import get_strategy_type
-from juno.typing import get_input_type_hints
 from juno.utils import flatten
 
-from . import Agent, Backtest
+from . import Agent
 
 _log = logging.getLogger(__name__)
 
 
 class Optimize(Agent):
-    def __init__(self, informant: Informant, backtest: Backtest):
+    def __init__(self, informant: Informant):
         super().__init__()
         self._informant = informant
-        self._backtest = backtest
 
     async def run(
         self,
@@ -32,12 +30,13 @@ class Optimize(Agent):
         interval: int,
         start: int,
         end: int,
-        quote: float,
+        quote: Decimal,
         strategy: str,
         restart_on_missed_candle: bool = False,
         population_size: int = 50,
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
+        solver: str = 'rust',
         seed: Optional[int] = None,
     ) -> None:
         # It's useful to set a seed for idempotent results. Useful for debugging.
@@ -90,34 +89,35 @@ class Optimize(Agent):
         filters = self._informant.get_filters(exchange, symbol)
 
         strategy_type = get_strategy_type(strategy)
-        keys = list(get_input_type_hints(strategy_type.__init__).keys())  # type: ignore
 
-        agent_config = {
-            'candles': candles,
-            'fees': fees,
-            'filters': filters,
-            'exchange': exchange,
-            'symbol': symbol,
-            'interval': interval,
-            'start': start,
-            'end': end,
-            'quote': quote,
-            'restart_on_missed_candle': restart_on_missed_candle,
-            'strategy_config': None,  # Need to update before solving problem.
-        }
+        solver_instance = get_solver_type(solver)(
+            candles=candles,
+            fees=fees,
+            filters=filters,
+            strategy_type=strategy_type,
+            symbol=symbol,
+            interval=interval,
+            start=start,
+            end=end,
+            quote=quote)
+        await solver_instance.__aenter__()
 
-        def python_problem(individual):
-            strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
-            strategy_config.update({'name': strategy})
-            agent_config['strategy_config'] = strategy_config
-            return result_fitness(self._backtest.run_sync(**agent_config))
+        def problem(individual):
+            # TODO: No need for fitness float mapping for Rust.
+            return result_fitness(solver_instance.solve(*flatten(individual)))
 
-        rust_solver = Rust(candles, fees, filters, strategy_type, quote)
-        await rust_solver.__aenter__()
+        # def python_problem(individual):
+        #     strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
+        #     strategy_config.update({'name': strategy})
+        #     agent_config['strategy_config'] = strategy_config
+        #     return result_fitness(self._backtest.run_sync(**agent_config))
 
-        def rust_problem(individual):
+        # rust_solver = Rust(candles, fees, filters, strategy_type, quote)
+        # await rust_solver.__aenter__()
+
+        # def rust_problem(individual):
             # _log.critical(emaemacx(Fees(), quote))
-            return result_fitness(rust_solver.solve(*flatten(individual)))
+            # return result_fitness(rust_solver.solve(*flatten(individual)))
             # return (0.0,0.0,0.0,0.0,0.0)
             # strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
             # strategy_config.update({'name': strategy})
@@ -125,7 +125,7 @@ class Optimize(Agent):
             # return result_fitness(self._backtest.run_sync(**agent_config))
 
         toolbox = base.Toolbox()
-        toolbox.register('evaluate', rust_problem)
+        toolbox.register('evaluate', problem)
 
         attrs = []
         meta = strategy_type.meta()

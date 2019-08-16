@@ -92,7 +92,6 @@ class Paper(Agent):
                     )
                     if restart_on_missed_candle:
                         _log.info('restarting strategy')
-                        start = candle.time
                         restart = True
                         restart_count += 1
                         break

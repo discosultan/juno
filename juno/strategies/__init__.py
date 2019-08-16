@@ -8,6 +8,8 @@ from .strategy import Strategy
 __all__ = [
     'EmaEmaCX',
     'Strategy',
+    'new_strategy',
+    'get_strategy_type',
 ]
 
 _strategies = {

@@ -1,8 +1,7 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
-from juno import Fees, OrderResult, OrderStatus, Side, brokers, components, exchanges
-from juno.filters import Filters
+from juno import Fees, Filters, OrderResult, OrderStatus, Side, brokers, components, exchanges
 
 
 class Exchange(exchanges.Exchange):
