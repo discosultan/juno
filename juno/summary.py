@@ -228,9 +228,6 @@ class TradingSummary:
             quote += pos.profit
             quote_history.append(quote)
 
-        if len(quote_history) == 1:
-            return []
-
         # Ref: https://discuss.pytorch.org/t/efficiently-computing-max-drawdown/6480
         maximums = itertools.accumulate(quote_history, max)
         return [Decimal(1) - (a / b) for a, b in zip(quote_history, maximums)]
