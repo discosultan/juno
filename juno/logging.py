@@ -9,16 +9,9 @@ import simplejson as json
 from juno.utils import home_path
 
 
-def create_handlers(
-    log_format: Optional[str] = None, log_outputs: Optional[List[str]] = None
-) -> List[logging.Handler]:
-    if not log_format:
-        log_format = 'default'
-    if not log_outputs:
-        log_outputs = ['stdout']
-    else:
-        # We make a copy in order not to mutate the input.
-        log_outputs = log_outputs[:]
+def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Handler]:
+    # We make a copy in order not to mutate the input.
+    log_outputs = log_outputs[:]
 
     handlers: List[logging.handler] = []
 

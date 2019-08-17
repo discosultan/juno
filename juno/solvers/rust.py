@@ -39,7 +39,7 @@ class Rust:
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
-        src_dir = Path(os.path.dirname(os.path.realpath(__file__))) / '..'
+        src_dir = Path(os.path.dirname(os.path.realpath(__file__))) / '..' / '..'
         src_files = src_dir.glob('./juno_rs/**/*.rs')
         # Seconds-level precision.
         src_latest_mtime = max((int(f.stat().st_mtime) for f in src_files))

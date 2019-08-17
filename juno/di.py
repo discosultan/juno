@@ -27,7 +27,7 @@ class Container:
         self._exit_stack = AsyncExitStack()
 
     async def __aenter__(self) -> Container:
-        _log.info(f'Created instances: {[i for i in self._singletons.values()]}')
+        _log.info(f'created instances: {[i for i in self._singletons.values()]}')
         await self._exit_stack.__aenter__()
         dep_map = map_dependencies(self._singletons)
         for deps in list_dependencies_in_init_order(dep_map):

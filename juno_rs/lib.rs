@@ -17,20 +17,20 @@ pub unsafe extern "C" fn emaemacx(
     fees: *const Fees,
     filters: *const Filters,
     quote: f64,
-    // short_period: u32,
-    // long_period: u32,
-    // neg_threshold: f64,
-    // pos_threshold: f64,
-    // persistence: u32,
+    short_period: u32,
+    long_period: u32,
+    neg_threshold: f64,
+    pos_threshold: f64,
+    persistence: u32,
 ) -> BacktestResult {
     // Turn unsafe ptrs to safe references.
     let candles = slice::from_raw_parts(candles, length as usize);
     let fees = &*fees;
     let filters = &*filters;
 
-    println!("{:?}", candles);
-    println!("{:?}", fees);
-    println!("{:?}", filters);
+    // println!("{:?}", candles);
+    // println!("{:?}", fees);
+    // println!("{:?}", filters);
     
     (0.0, 0.0, 1.0, 0.0, 0)
 }
