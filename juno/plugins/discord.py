@@ -9,8 +9,8 @@ from typing import Any, AsyncIterator, Dict
 import discord
 import simplejson as json
 
+from juno import Position
 from juno.agents import Agent
-from juno.agents.summary import Position
 from juno.asyncio import cancel, cancelable
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import chunks

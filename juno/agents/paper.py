@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional
 
 import simplejson as json
 
-from juno import Advice, Candle, OrderStatus
+from juno import Advice, Candle, OrderStatus, Position, TradingSummary
 from juno.brokers import Broker
 from juno.components import Informant
 from juno.math import floor_multiple
@@ -12,7 +12,6 @@ from juno.strategies import new_strategy
 from juno.time import MAX_TIME_MS, time_ms
 
 from .agent import Agent
-from .summary import Position, TradingSummary
 
 _log = logging.getLogger(__name__)
 

@@ -2,14 +2,13 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional, List
 
-from juno import Advice, Candle, Fees, Fill, Fills, Filters
+from juno import Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingSummary
 from juno.components import Informant
 from juno.strategies import new_strategy
 from juno.time import time_ms
 from juno.utils import unpack_symbol
 
 from .agent import Agent
-from .summary import Position, TradingSummary
 
 _log = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from typing import Optional
 
 from deap import algorithms, base, creator, tools
 
-from juno.agents.summary import TradingSummary
+from juno import TradingSummary
 from juno.asyncio import list_async
 from juno.components import Informant
 from juno.solvers import get_solver_type
