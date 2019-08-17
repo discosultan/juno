@@ -7,9 +7,24 @@ from typing import List, NamedTuple, Optional, Tuple
 from juno.time import datetime_utcfromtimestamp_ms
 
 
+class Advice(Enum):
+    NONE = 0
+    BUY = 1
+    SELL = 2
+
+
 class Balance(NamedTuple):
     available: Decimal
     hold: Decimal
+
+
+class CancelOrderResult(NamedTuple):
+    status: CancelOrderStatus
+
+
+class CancelOrderStatus(Enum):
+    SUCCESS = 0
+    REJECTED = 1
 
 
 # We have a choice between dataclasses and namedtuples. Namedtuples are chosen as they support
@@ -33,6 +48,17 @@ class Candle(NamedTuple):
         )
 
 
+class DepthUpdate(NamedTuple):
+    type: DepthUpdateType
+    bids: List[Tuple[Decimal, Decimal]]
+    asks: List[Tuple[Decimal, Decimal]]
+
+
+class DepthUpdateType(Enum):
+    SNAPSHOT = 0
+    UPDATE = 1
+
+
 class Fees(NamedTuple):
     maker: Decimal
     taker: Decimal
@@ -40,56 +66,6 @@ class Fees(NamedTuple):
     @staticmethod
     def none() -> Fees:
         return Fees(maker=Decimal(0), taker=Decimal(0))
-
-
-class Span(NamedTuple):
-    start: int
-    end: int
-
-    def __repr__(self) -> str:
-        return (
-            f'{type(self).__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
-            f'end={datetime_utcfromtimestamp_ms(self.end)})'
-        )
-
-
-class Advice(Enum):
-    NONE = 0
-    BUY = 1
-    SELL = 2
-
-
-class Side(Enum):
-    BID = 0
-    ASK = 1
-
-
-class OrderType(Enum):
-    MARKET = 0
-    LIMIT = 1
-    STOP_LOSS = 2
-    STOP_LOSS_LIMIT = 3
-    TAKE_PROFIT = 4
-    TAKE_PROFIT_LIMIT = 5
-    LIMIT_MAKER = 6
-
-
-class TimeInForce(Enum):
-    # A Good-Til-Canceled order will continue to work within the system and in the marketplace
-    # until it executes or is canceled.
-    GTC = 0
-    # Any portion of an Immediate-or-Cancel order that is not filled as soon as it becomes
-    # available in the market is canceled.
-    IOC = 1
-    # If the entire Fill-or-Kill order does not execute as soon as it becomes available, the entire
-    # order is canceled.
-    FOK = 2
-
-
-class Trend(Enum):
-    UNKNOWN = 0
-    UP = 1
-    DOWN = 2
 
 
 class Fill(NamedTuple):
@@ -118,6 +94,22 @@ class Fills(List[Fill]):
         return sum((f.fee for f in self), Decimal(0))
 
 
+class Side(Enum):
+    BID = 0
+    ASK = 1
+
+
+class Span(NamedTuple):
+    start: int
+    end: int
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
+            f'end={datetime_utcfromtimestamp_ms(self.end)})'
+        )
+
+
 class OrderResult(NamedTuple):
     status: OrderStatus
     fills: Fills
@@ -135,13 +127,14 @@ class OrderStatus(Enum):
     CANCELED = 4
 
 
-class CancelOrderResult(NamedTuple):
-    status: CancelOrderStatus
-
-
-class CancelOrderStatus(Enum):
-    SUCCESS = 0
-    REJECTED = 1
+class OrderType(Enum):
+    MARKET = 0
+    LIMIT = 1
+    STOP_LOSS = 2
+    STOP_LOSS_LIMIT = 3
+    TAKE_PROFIT = 4
+    TAKE_PROFIT_LIMIT = 5
+    LIMIT_MAKER = 6
 
 
 class OrderUpdate(NamedTuple):
@@ -155,12 +148,19 @@ class OrderUpdate(NamedTuple):
     fee_asset: Optional[str]
 
 
-class DepthUpdate(NamedTuple):
-    type: DepthUpdateType
-    bids: List[Tuple[Decimal, Decimal]]
-    asks: List[Tuple[Decimal, Decimal]]
+class TimeInForce(Enum):
+    # A Good-Til-Canceled order will continue to work within the system and in the marketplace
+    # until it executes or is canceled.
+    GTC = 0
+    # Any portion of an Immediate-or-Cancel order that is not filled as soon as it becomes
+    # available in the market is canceled.
+    IOC = 1
+    # If the entire Fill-or-Kill order does not execute as soon as it becomes available, the entire
+    # order is canceled.
+    FOK = 2
 
 
-class DepthUpdateType(Enum):
-    SNAPSHOT = 0
-    UPDATE = 1
+class Trend(Enum):
+    UNKNOWN = 0
+    UP = 1
+    DOWN = 2

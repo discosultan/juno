@@ -3,54 +3,9 @@ use std::cmp::min;
 use crate::{Advice, Candle, Trend};
 use crate::indicators::Ema;
 use crate::strategies::{advice, Strategy};
+use crate::utils::Persistence;
 
-pub struct Persistence {
-    age: u32,
-    level: u32,
-    allow_next_trend: bool,
-    trend: Trend,
-    potential_trend: Trend,
-}
-
-impl Persistence {
-    pub fn new(level: u32, allow_initial_trend: bool) -> Self {
-        Persistence {
-            age: 0,
-            level,
-            allow_next_trend: allow_initial_trend,
-            trend: Trend::Unknown,
-            potential_trend: Trend::Unknown,
-        }
-    }
-
-    pub fn update(&mut self, trend: Trend) -> (Trend, bool) {
-        let mut trend_changed = false;
-
-        if trend == Trend::Unknown ||
-            (self.potential_trend != Trend::Unknown && trend != self.potential_trend)
-        {
-            self.allow_next_trend = true;
-        }
-
-        if trend != self.potential_trend {
-            self.age = 0;
-            self.potential_trend = trend;
-        }
-
-        if self.allow_next_trend && self.age == self.level
-            && self.potential_trend != self.trend
-        {
-            self.trend = self.potential_trend;
-            trend_changed = true;
-        }
-
-        self.age += 1;
-
-        (self.trend, trend_changed)
-    }
-}
-
-pub struct EmaEmaCx {
+pub struct EmaEmaCX {
     ema_short: Ema,
     ema_long: Ema,
     neg_threshold: f64,
@@ -60,7 +15,7 @@ pub struct EmaEmaCx {
     t1: u32,
 }
 
-impl EmaEmaCx {
+impl EmaEmaCX {
     pub fn new(
         short_period: u32,
         long_period: u32,
@@ -80,7 +35,7 @@ impl EmaEmaCx {
     }
 }
 
-impl Strategy for EmaEmaCx {
+impl Strategy for EmaEmaCX {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.ema_short.update(candle.close);
         self.ema_long.update(candle.close);

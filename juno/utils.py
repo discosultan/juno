@@ -144,6 +144,43 @@ def chunks(l: str, n: int) -> Iterable[str]:
             yield l[i:i + n]
 
 
+class CircularBuffer(Generic[T]):
+    def __init__(self, size: int, default: T) -> None:
+        if size < 0:
+            raise ValueError('Size must be positive')
+
+        self.values = [default] * size
+        self.index = 0
+
+    def __len__(self) -> int:
+        return len(self.values)
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.values)
+
+    def push(self, value: T) -> None:
+        if len(self.values) == 0:
+            raise ValueError('Unable to push to buffer of size 0')
+
+        self.values[self.index] = value
+        self.index = (self.index + 1) % len(self.values)
+
+
+class EventEmitter:
+    def __init__(self) -> None:
+        self._handlers: Dict[str, List[Callable[..., Awaitable[None]]]] = defaultdict(list)
+
+    def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
+        def _on(func: Callable[..., Awaitable[None]]) -> None:
+            self._handlers[event].append(func)
+
+        return _on
+
+    async def emit(self, event: str, *args: Any) -> Tuple[Any, ...]:
+        return await asyncio.gather(*(x(*args) for x in self._handlers[event]),
+                                    return_exceptions=True)
+
+
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.
 # Implementation taken from: https://stackoverflow.com/a/45502319/1466456
 class LeakyBucket:
@@ -220,40 +257,3 @@ class Persistence:
         self.age += 1
 
         return self.trend, trend_changed
-
-
-class CircularBuffer(Generic[T]):
-    def __init__(self, size: int, default: T) -> None:
-        if size < 0:
-            raise ValueError('Size must be positive')
-
-        self.values = [default] * size
-        self.index = 0
-
-    def __len__(self) -> int:
-        return len(self.values)
-
-    def __iter__(self) -> Iterator[T]:
-        return iter(self.values)
-
-    def push(self, value: T) -> None:
-        if len(self.values) == 0:
-            raise ValueError('Unable to push to buffer of size 0')
-
-        self.values[self.index] = value
-        self.index = (self.index + 1) % len(self.values)
-
-
-class EventEmitter:
-    def __init__(self) -> None:
-        self._handlers: Dict[str, List[Callable[..., Awaitable[None]]]] = defaultdict(list)
-
-    def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
-        def _on(func: Callable[..., Awaitable[None]]) -> None:
-            self._handlers[event].append(func)
-
-        return _on
-
-    async def emit(self, event: str, *args: Any) -> Tuple[Any, ...]:
-        return await asyncio.gather(*(x(*args) for x in self._handlers[event]),
-                                    return_exceptions=True)

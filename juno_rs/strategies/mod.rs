@@ -1,6 +1,6 @@
 mod emaemacx;
 
-pub use emaemacx::EmaEmaCx;
+pub use emaemacx::EmaEmaCX;
 
 use crate::{Advice, Candle, Trend};
 

@@ -100,13 +100,13 @@ class Position:
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
     def __init__(
-        self, interval: int, start: int, quote: Decimal, filters: Filters, fees: Fees
+        self, interval: int, start: int, quote: Decimal, fees: Fees, filters: Filters
     ) -> None:
         self.interval = interval
         self.start = start
         self.quote = quote
-        self.filters = filters
         self.fees = fees
+        self.filters = filters
 
         # self.candles: List[Candle] = []
         self.positions: List[Position] = []
