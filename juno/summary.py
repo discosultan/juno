@@ -113,6 +113,9 @@ class TradingSummary:
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
 
+        self._drawdowns_dirty = True
+        self._drawdowns: List[Decimal] = []
+
     def append_candle(self, candle: Candle) -> None:
         # self.candles.append(candle)
         if not self.first_candle:
@@ -121,6 +124,7 @@ class TradingSummary:
 
     def append_position(self, pos: Position) -> None:
         self.positions.append(pos)
+        self._drawdowns_dirty = True
 
     def __str__(self) -> str:
         return (
@@ -192,13 +196,13 @@ class TradingSummary:
     def max_drawdown(self) -> Decimal:
         if len(self.positions) == 0:
             return Decimal(0)
-        return max(self._drawdowns)
+        return max(self.drawdowns)
 
     @property
     def mean_drawdown(self) -> Decimal:
         if len(self.positions) == 0:
             return Decimal(0)
-        return statistics.mean(self._drawdowns)
+        return statistics.mean(self.drawdowns)
 
     @property
     def mean_position_profit(self) -> Decimal:
@@ -213,21 +217,25 @@ class TradingSummary:
         return int(statistics.mean((x.duration for x in self.positions)))
 
     @property
-    def _drawdowns(self) -> List[Decimal]:
-        quote = self.quote
+    def drawdowns(self) -> List[Decimal]:
+        if self._drawdowns_dirty:
+            quote = self.quote
 
-        # TODO: Probably not needed? We currently assume start end ending with empty base balance
-        #       (excluding dust).
-        # if self.acc_info.base_balance > self.ap_info.min_qty:
-        #     base_to_quote = self.acc_info.base_balance
-        #     base_to_quote -= base_to_quote % self.ap_info.qty_step_size
-        #     quote += base_to_quote * self.first_candle.close
+            # TODO: Probably not needed? We currently assume start end ending with empty base
+            #       balance (excluding dust).
+            # if self.acc_info.base_balance > self.ap_info.min_qty:
+            #     base_to_quote = self.acc_info.base_balance
+            #     base_to_quote -= base_to_quote % self.ap_info.qty_step_size
+            #     quote += base_to_quote * self.first_candle.close
 
-        quote_history = [quote]
-        for pos in self.positions:
-            quote += pos.profit
-            quote_history.append(quote)
+            quote_history = [quote]
+            for pos in self.positions:
+                quote += pos.profit
+                quote_history.append(quote)
 
-        # Ref: https://discuss.pytorch.org/t/efficiently-computing-max-drawdown/6480
-        maximums = itertools.accumulate(quote_history, max)
-        return [Decimal(1) - (a / b) for a, b in zip(quote_history, maximums)]
+            # Ref: https://discuss.pytorch.org/t/efficiently-computing-max-drawdown/6480
+            maximums = itertools.accumulate(quote_history, max)
+            self._drawdowns = [Decimal(1) - (a / b) for a, b in zip(quote_history, maximums)]
+            self._drawdowns_dirty = False
+
+        return self._drawdowns
