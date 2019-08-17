@@ -6,7 +6,6 @@ from typing import Optional
 
 from deap import algorithms, base, creator, tools
 
-from juno import TradingSummary
 from juno.asyncio import list_async
 from juno.components import Informant
 from juno.solvers import get_solver_type
@@ -77,12 +76,6 @@ class Optimize(Agent):
         # def attr_rsi_up_threshold() -> float:
         #     return random.uniform(60.0, 90.0)
 
-        def result_fitness(result: TradingSummary):
-            return map(float, (  # type: ignore
-                result.profit, result.mean_drawdown, result.max_drawdown,
-                result.mean_position_profit, result.mean_position_duration
-            ))
-
         candles = await list_async(
             self._informant.stream_candles(exchange, symbol, interval, start, end))
         fees = self._informant.get_fees(exchange, symbol)
@@ -102,12 +95,8 @@ class Optimize(Agent):
             quote=quote)
         await solver_instance.__aenter__()
 
-        def problem(individual):
-            # TODO: No need for fitness float mapping for Rust.
-            return result_fitness(solver_instance.solve(*flatten(individual)))
-
         toolbox = base.Toolbox()
-        toolbox.register('evaluate', problem)
+        toolbox.register('evaluate', lambda ind: solver_instance.solve(*flatten(ind)))
 
         attrs = []
         meta = strategy_type.meta()
@@ -123,7 +112,7 @@ class Optimize(Agent):
         )
         toolbox.register('population', tools.initRepeat, list, toolbox.individual)
 
-        def mut_individual(individual, indpb: float):
+        def mut_individual(individual, indpb: float) -> tuple:
             for i, attr in enumerate(attrs):
                 if random.random() < indpb:
                     individual[i] = attr()
@@ -177,7 +166,7 @@ class Optimize(Agent):
             toolbox,
             mu=toolbox.population_size,
             lambda_=toolbox.population_size,
-            cxpb=Decimal('1.0') - toolbox.mutation_probability,
+            cxpb=Decimal(1) - toolbox.mutation_probability,
             mutpb=toolbox.mutation_probability,
             stats=None,
             ngen=toolbox.max_generations,

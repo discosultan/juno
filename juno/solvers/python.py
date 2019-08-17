@@ -67,7 +67,13 @@ class Python:
             if not restart:
                 break
 
-        return self.result
+        return (
+            float(self.result.profit),
+            float(self.result.mean_drawdown),
+            float(self.result.max_drawdown),
+            float(self.result.mean_position_profit),
+            self.result.mean_position_duration,
+        )
 
     def _try_open_position(self, candle: Candle) -> bool:
         price = candle.close

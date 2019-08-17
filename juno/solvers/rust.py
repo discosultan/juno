@@ -114,7 +114,14 @@ class Rust:
         return self
 
     def solve(self, *args: Any) -> Any:
-        return self.solve_native(*args)
+        result = self.solve_native(*args)
+        return (
+            result.profit,
+            result.mean_drawdown,
+            result.max_drawdown,
+            result.mean_position_profit,
+            result.mean_position_duration,
+        )
 
 
 def _build_cdef(strategy_type: Type[Strategy]) -> str:
