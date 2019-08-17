@@ -38,9 +38,8 @@ class Optimize(Agent):
         solver: str = 'rust',
         seed: Optional[int] = None,
     ) -> None:
-        # It's useful to set a seed for idempotent results. Useful for debugging.
-        # seed = 42  # TODO TEMP
-        if seed:
+        # It's useful to set a seed for idempotent results. Helpful for debugging.
+        if seed is not None:
             _log.info(f'seeding randomizer ({seed})')
         random = Random(seed)
 
@@ -98,15 +97,8 @@ class Optimize(Agent):
         toolbox = base.Toolbox()
         toolbox.register('evaluate', lambda ind: solver_instance.solve(*flatten(ind)))
 
-        attrs = []
-        meta = strategy_type.meta()
-        for constraint in meta.values():
-            attrs.append(partial(constraint.random, random))
-
-        def strategy_args():
-            return (a() for a in attrs)
-
-        toolbox.register('strategy_args', strategy_args)
+        attrs = [partial(c.random, random) for c in strategy_type.meta().values()]
+        toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
             'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
         )
