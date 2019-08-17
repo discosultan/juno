@@ -10,6 +10,7 @@ from juno.asyncio import list_async
 from juno.components import Informant
 from juno.solvers import get_solver_type
 from juno.strategies import get_strategy_type
+from juno.typing import get_input_type_hints
 from juno.utils import flatten
 
 from . import Agent
@@ -50,7 +51,7 @@ class Optimize(Agent):
         #   - max mean position profit
         #   - min mean position duration
         weights = (1.0, -1.0, -1.0, 1.0, -1.0)
-        # weights = (Decimal(1), Decimal(-1), Decimal(-1), Decimal(1), Decimal(-1))
+        # weights = (Decimal(1), Decimal(-1), Decimal (-1), Decimal(1), Decimal(-1))
         # weights = (1.0, -0.5, -1.0, 1.0, -0.5)
         # weights = (1.0, -0.1, -1.0, 0.1, -0.1)
         creator.create('FitnessMulti', base.Fitness, weights=weights)
@@ -168,7 +169,16 @@ class Optimize(Agent):
 
         _log.info('done')
 
-        _log.critical(hall[0])
-        self.result = list(flatten(hall[0]))
+        self.result = _output_as_strategy_args(strategy_type, hall[0])
 
         # TODO: Write test to validate Rust results against Python one to confirm correctness.
+
+
+def _output_as_strategy_args(strategy_type, individiual):
+    strategy_config = {
+        'name': strategy_type.__name__.lower()
+    }
+    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(),
+                          flatten(individiual)):
+        strategy_config[key] = value
+    return strategy_config
