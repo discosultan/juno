@@ -106,24 +106,6 @@ class Optimize(Agent):
             # TODO: No need for fitness float mapping for Rust.
             return result_fitness(solver_instance.solve(*flatten(individual)))
 
-        # def python_problem(individual):
-        #     strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
-        #     strategy_config.update({'name': strategy})
-        #     agent_config['strategy_config'] = strategy_config
-        #     return result_fitness(self._backtest.run_sync(**agent_config))
-
-        # rust_solver = Rust(candles, fees, filters, strategy_type, quote)
-        # await rust_solver.__aenter__()
-
-        # def rust_problem(individual):
-            # _log.critical(emaemacx(Fees(), quote))
-            # return result_fitness(rust_solver.solve(*flatten(individual)))
-            # return (0.0,0.0,0.0,0.0,0.0)
-            # strategy_config = {k: v for k, v in zip(keys, flatten(individual))}
-            # strategy_config.update({'name': strategy})
-            # agent_config['strategy_config'] = strategy_config
-            # return result_fitness(self._backtest.run_sync(**agent_config))
-
         toolbox = base.Toolbox()
         toolbox.register('evaluate', problem)
 
