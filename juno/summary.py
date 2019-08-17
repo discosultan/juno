@@ -190,10 +190,14 @@ class TradingSummary:
 
     @property
     def max_drawdown(self) -> Decimal:
+        if len(self.positions) == 0:
+            return Decimal(0)
         return max(self._drawdowns)
 
     @property
     def mean_drawdown(self) -> Decimal:
+        if len(self.positions) == 0:
+            return Decimal(0)
         return statistics.mean(self._drawdowns)
 
     @property

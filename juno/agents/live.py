@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, Optional
 
 import simplejson as json
 
-from juno import Advice, Candle, OrderStatus
+from juno import Advice, Candle, OrderStatus, Position, TradingSummary
 from juno.brokers import Broker
 from juno.components import Informant, Wallet
 from juno.math import floor_multiple
@@ -12,7 +12,6 @@ from juno.time import MAX_TIME_MS, time_ms
 from juno.utils import unpack_symbol
 
 from .agent import Agent
-from .summary import Position, TradingSummary
 
 _log = logging.getLogger(__name__)
 
@@ -94,7 +93,6 @@ class Live(Agent):
                     )
                     if restart_on_missed_candle:
                         _log.info('restarting strategy')
-                        start = candle.time
                         restart = True
                         restart_count += 1
                         break

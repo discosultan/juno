@@ -33,8 +33,8 @@ async def main() -> None:
 
     # Configure logging.
     log_level = config.get('log_level', 'info')
-    log_format = config.get('log_format')
-    log_outputs = config.get('log_outputs')
+    log_format = config.get('log_format', 'default')
+    log_outputs = config.get('log_outputs', ['stdout'])
     logging.basicConfig(
         handlers=create_handlers(log_format, log_outputs),
         level=logging.getLevelName(log_level.upper())

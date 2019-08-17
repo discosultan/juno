@@ -7,10 +7,9 @@ from typing import (
     Any, AsyncIterable, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, cast
 )
 
-from juno import Candle, Fees, Span
+from juno import Candle, Fees, Span, Filters
 from juno.asyncio import cancel, cancelable, list_async
 from juno.exchanges import Exchange
-from juno.filters import Filters
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.time import DAY_MS, strfinterval, time_ms

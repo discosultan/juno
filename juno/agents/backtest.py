@@ -2,15 +2,14 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional, List
 
-from juno import Advice, Candle, Fees, Fill, Fills
+from juno import Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingSummary
 from juno.components import Informant
-from juno.filters import Filters
+from juno.math import floor_multiple
 from juno.strategies import new_strategy
 from juno.time import time_ms
 from juno.utils import unpack_symbol
 
 from .agent import Agent
-from .summary import Position, TradingSummary
 
 _log = logging.getLogger(__name__)
 
@@ -27,12 +26,17 @@ class Backtest(Agent):
         symbol: str,
         interval: int,
         start: int,
-        end: int,
         quote: Decimal,
         strategy_config: Dict[str, Any],
+        end: Optional[int] = None,
         restart_on_missed_candle: bool = False,
     ) -> None:
-        assert end <= time_ms()
+        now = time_ms()
+
+        if end is None:
+            end = floor_multiple(now, interval)
+
+        assert end <= now
         assert end > start
         assert quote > 0
 
@@ -195,7 +199,6 @@ class Backtest(Agent):
 
                 if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
                     if restart_on_missed_candle:
-                        start = candle.time
                         restart = True
                         restart_count += 1
                         break

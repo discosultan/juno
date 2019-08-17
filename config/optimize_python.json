@@ -15,7 +15,8 @@
             "strategy": "emaemacx",
             "max_generations": 5,
             "population_size": 5,
-            "solver": "rust"
+            "solver": "python",
+            "seed": 42
         }
     ]
 }

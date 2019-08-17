@@ -2,10 +2,8 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Fees, Fill, Fills
+from juno import Fees, Fill, Fills, Filters, Position, TradingSummary
 from juno.agents import Agent
-from juno.agents.summary import Position, TradingSummary
-from juno.filters import Filters
 from juno.time import DAY_MS
 from juno.utils import full_path
 

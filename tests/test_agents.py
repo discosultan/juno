@@ -3,9 +3,8 @@ from decimal import Decimal
 import pytest
 import simplejson as json
 
-from juno import Balance, Candle, Fees, Fill, Fills, Side
+from juno import Balance, Candle, Fees, Fill, Fills, Position, Side, TradingSummary
 from juno.agents import Backtest, Live, Paper
-from juno.agents.summary import Position, TradingSummary
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
 from juno.utils import load_json_file

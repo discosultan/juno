@@ -1,41 +1,41 @@
-use pyo3::prelude::*;
-use pyo3::wrap_pyfunction;
-
 mod agents;
 mod filters;
 mod indicators;
 mod strategies;
 mod utils;
 
+use std::slice;
+
 use agents::{backtest, BacktestResult};
 use filters::Filters;
 use strategies::EmaEmaCx;
 
-#[pyfunction]
-pub fn emaemacx(
-    candles: Vec<&Candle>,
-    fees: &Fees,
-    filters: &Filters,
+#[no_mangle]
+pub unsafe extern "C" fn emaemacx(
+    candles: *const Candle,
+    length: u32,
+    fees: *const Fees,
+    filters: *const Filters,
     quote: f64,
     short_period: u32,
     long_period: u32,
     neg_threshold: f64,
     pos_threshold: f64,
     persistence: u32,
-) -> PyResult<BacktestResult> {
-    let mut strategy = EmaEmaCx::new(
-        short_period, long_period, neg_threshold, pos_threshold, persistence);
-    Ok(backtest(strategy/*, candles, fees, filters*/, quote))
+) -> BacktestResult {
+    // Turn unsafe ptrs to safe references.
+    let candles = slice::from_raw_parts(candles, length as usize);
+    let fees = &*fees;
+    let filters = &*filters;
+
+    // println!("{:?}", candles);
+    // println!("{:?}", fees);
+    // println!("{:?}", filters);
+    
+    (0.0, 0.0, 1.0, 0.0, 0)
 }
 
-// This function name will become the name of the Python module!
-#[pymodule]
-fn juno_rust(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_wrapped(wrap_pyfunction!(emaemacx))?;
-    Ok(())
-}
-
-#[pyclass]
+#[derive(Debug)]
 pub struct Candle {
     time: u64,
     open: f64,
@@ -43,7 +43,6 @@ pub struct Candle {
     low: f64,
     close: f64,
     volume: f64,
-    closed: bool,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -60,7 +59,7 @@ pub enum Trend {
     Down,
 }
 
-#[pyclass]
+#[derive(Debug)]
 pub struct Fees {
     pub maker: f64,
     pub taker: f64,
