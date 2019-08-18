@@ -1,5 +1,7 @@
 use crate::{Candle, Fees, Filters};
 
+const YEAR_MS: f64 = 31_556_952_000.0;
+
 pub struct Position {
     time: u64,
     total_quote: f64,
@@ -43,7 +45,7 @@ impl Position {
     }
 
     pub fn annualized_roi(&self) -> f64 {
-        let n = self.duration() as f64 / 31_556_952_000.0;
+        let n = self.duration() as f64 / YEAR_MS;
         (1.0 + self.roi()).powf(1.0 / n) - 1.0
     }
 }
@@ -70,11 +72,35 @@ impl<'a> TradingSummary<'a> {
         }
     }
 
-    pub fn append_candle(&self, _candle: &Candle) {
-
+    pub fn append_candle(&mut self, candle: &'a Candle) {
+        if self.first_candle.is_none() {
+            self.first_candle = Some(candle);
+        }
+        self.last_candle = Some(candle);
     }
 
-    pub fn append_position(&self, _pos: Position) {
+    pub fn append_position(&mut self, pos: Position) {
+        self.positions.push(pos);
+    }
 
+    pub fn cost(&self) -> f64 {
+        self.quote
+    }
+
+    pub fn gain(&self) -> f64 {
+        self.quote + self.profit()
+    }
+
+    pub fn profit(&self) -> f64 {
+        self.positions.iter().map(|p| p.profit()).sum()
+    }
+
+    pub fn roi(&self) -> f64 {
+        self.profit() / self.cost()
+    }
+
+    pub fn annualized_roi(&self) -> f64 {
+        // let n = self
+        0.0
     }
 }
