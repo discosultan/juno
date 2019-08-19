@@ -204,6 +204,7 @@ class TradingSummary:
             return 0
         return int(statistics.mean((x.duration for x in self.positions)))
 
+    # TODO: Optimize drawdown related data calculation. Single iteration please!
     @property
     def drawdowns(self) -> List[Decimal]:
         if self._drawdowns_dirty:

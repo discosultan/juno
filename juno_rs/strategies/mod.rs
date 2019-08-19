@@ -5,6 +5,8 @@ pub use emaemacx::EmaEmaCX;
 use crate::{Advice, Candle, Trend};
 
 pub trait Strategy {
+    // fn reset(&mut self);
+
     fn update(&mut self, candle: &Candle) -> Advice;
 }
 
