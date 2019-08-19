@@ -193,18 +193,6 @@ class TradingSummary:
         return self.end - self.start if self.end > 0 else 0
 
     @property
-    def max_drawdown(self) -> Decimal:
-        if len(self.positions) == 0:
-            return Decimal(0)
-        return max(self.drawdowns)
-
-    @property
-    def mean_drawdown(self) -> Decimal:
-        if len(self.positions) == 0:
-            return Decimal(0)
-        return statistics.mean(self.drawdowns)
-
-    @property
     def mean_position_profit(self) -> Decimal:
         if len(self.positions) == 0:
             return Decimal(0)
@@ -235,7 +223,20 @@ class TradingSummary:
 
             # Ref: https://discuss.pytorch.org/t/efficiently-computing-max-drawdown/6480
             maximums = itertools.accumulate(quote_history, max)
+
             self._drawdowns = [Decimal(1) - (a / b) for a, b in zip(quote_history, maximums)]
             self._drawdowns_dirty = False
 
         return self._drawdowns
+
+    @property
+    def max_drawdown(self) -> Decimal:
+        if len(self.positions) == 0:
+            return Decimal(0)
+        return max(self.drawdowns)
+
+    @property
+    def mean_drawdown(self) -> Decimal:
+        if len(self.positions) == 0:
+            return Decimal(0)
+        return statistics.mean(self.drawdowns)

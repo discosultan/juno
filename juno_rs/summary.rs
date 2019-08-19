@@ -99,8 +99,47 @@ impl<'a> TradingSummary<'a> {
         self.profit() / self.cost()
     }
 
-    pub fn annualized_roi(&self) -> f64 {
-        // let n = self
-        0.0
+    // pub fn annualized_roi(&self) -> f64 {
+    //     // let n = self
+    //     0.0
+    // }
+
+    // pub fn duration(&self) -> u64 {
+    //     self.
+    // }
+
+    pub fn drawdowns(&self) -> Vec<f64> {
+        let mut quote = self.quote;
+
+        let mut quote_history = vec![quote];
+        for pos in &self.positions {
+            quote += pos.profit();
+            quote_history.push(quote);
+        }
+
+        let mut drawdowns = Vec::with_capacity(quote_history.len());
+
+        let mut max_val = 0.0;
+        for val in quote_history {
+            max_val = f64::max(val, max_val);
+            drawdowns.push(1.0 - val / max_val);
+        }
+
+        drawdowns
+    }
+
+    pub fn max_drawdown(&self) -> f64 {
+        // if self.positions.len() == 0 {
+        //     return 0.0;
+        // }
+        self.drawdowns().iter().fold(0.0, |a, &b| a.max(b))
+    }
+
+    pub fn mean_drawdown(&self) -> f64 {
+        // if self.positions.len() == 0 {
+        //     return 0.0;
+        // }
+        let drawdowns = self.drawdowns();
+        drawdowns.iter().sum::<f64>() / drawdowns.len() as f64
     }
 }
