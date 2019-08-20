@@ -102,6 +102,7 @@ class Rust:
             len(self.candles),
             c_fees,
             c_filters,
+            self.interval,
             float(self.quote))
 
         # We need to keep a references to these instances for Rust; otherwise GC will clean them
@@ -172,6 +173,7 @@ def _build_cdef(strategy_type: Type[Strategy]) -> str:
             uint32_t length,
             const Fees *fees,
             const Filters *filters,
+            uint64_t interval,
             double quote,
             {custom_params});
     '''

@@ -108,6 +108,14 @@ impl<'a> TradingSummary<'a> {
     //     self.
     // }
 
+    pub fn mean_position_profit(&self) -> f64 {
+        self.positions.iter().map(|p| p.profit()).sum::<f64>() / self.positions.len() as f64
+    }
+
+    pub fn mean_position_duration(&self) -> u64 {
+        self.positions.iter().map(|p| p.duration()).sum::<u64>() / self.positions.len() as u64
+    }
+
     pub fn drawdowns(&self) -> Vec<f64> {
         let mut quote = self.quote;
 
