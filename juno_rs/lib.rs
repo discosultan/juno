@@ -21,6 +21,8 @@ pub unsafe extern "C" fn emaemacx(
     fees: *const Fees,
     filters: *const Filters,
     interval: u64,
+    start: u64,
+    end: u64,
     quote: f64,
     short_period: u32,
     long_period: u32,
@@ -30,7 +32,7 @@ pub unsafe extern "C" fn emaemacx(
 ) -> BacktestResult {
     let strategy_factory = || EmaEmaCX::new(
         short_period, long_period, neg_threshold, pos_threshold, persistence);
-    run_test(strategy_factory, candles, length, fees, filters, interval, quote)
+    run_test(strategy_factory, candles, length, fees, filters, interval, start, end, quote)
 }
 
 unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
@@ -40,6 +42,8 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     fees: *const Fees,
     filters: *const Filters,
     interval: u64,
+    start: u64,
+    end: u64,
     quote: f64,
 ) -> BacktestResult {
     // Turn unsafe ptrs to safe references.
@@ -51,5 +55,5 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     // println!("{:?}", fees);
     // println!("{:?}", filters);
 
-    backtest(strategy_factory, candles, fees, filters, interval, quote)
+    backtest(strategy_factory, candles, fees, filters, interval, start, end, quote)
 }

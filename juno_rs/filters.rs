@@ -39,12 +39,12 @@ pub struct Size {
 }
 
 impl Size {
-    pub fn round_down(self, size: f64) -> f64 {
+    pub fn round_down(&self, size: f64) -> f64 {
         // TODO: impl.
         0.0
     }
 
-    pub fn round_up(self, size: f64) -> f64 {
+    pub fn round_up(&self, size: f64) -> f64 {
         // TODO: impl.
         0.0
     }

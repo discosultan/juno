@@ -4,71 +4,91 @@ const YEAR_MS: f64 = 31_556_952_000.0;
 
 pub struct Position {
     time: u64,
-    total_quote: f64,
-    closing_time: u64,
-    closing_total_quote: f64,
+    pub price: f64,
+    pub size: f64,
+    pub cost: f64,
+    pub fee: f64,
+
+    // Calculated.
+    pub duration: u64,
+    pub gain: f64,
+    pub profit: f64,
+    pub roi: f64,
+    pub annualized_roi: f64,
 }
 
 impl Position {
-    pub fn new(time: u64, total_quote: f64) -> Self {
+    pub fn new(time: u64, price: f64, size: f64, fee: f64) -> Self {
         Self {
             time,
-            total_quote,
-            closing_time: 0,
-            closing_total_quote: 0.0,
+            price,
+            size,
+            cost: price * size,
+            fee,
+            duration: 0,
+            gain: 0.0,
+            profit: 0.0,
+            roi: 0.0,
+            annualized_roi: 0.0,
         }
     }
 
-    pub fn close(&mut self, time: u64, total_quote: f64) {
-        self.closing_time = time;
-        self.closing_total_quote = total_quote;
-    }
+    pub fn close(&mut self, time: u64, price: f64, size: f64, fee: f64) {
+        self.duration = time - self.time;
+        self.gain = price * size - fee;
+        self.profit = self.gain - self.cost;
+        self.roi = self.profit / self.cost;
 
-    pub fn duration(&self) -> u64 {
-        self.closing_time - self.time
-    }
-
-    pub fn cost(&self) -> f64 {
-        self.total_quote
-    }
-
-    pub fn gain(&self) -> f64 {
-        self.total_quote - self.closing_total_quote
-    }
-
-    pub fn profit(&self) -> f64 {
-        self.gain() - self.cost()
-    }
-
-    pub fn roi(&self) -> f64 {
-        self.profit() / self.cost()
-    }
-
-    pub fn annualized_roi(&self) -> f64 {
-        let n = self.duration() as f64 / YEAR_MS;
-        (1.0 + self.roi()).powf(1.0 / n) - 1.0
+        // Annualized ROI.
+        let n = self.duration as f64 / YEAR_MS;
+        self.annualized_roi = (1.0 + self.roi).powf(1.0 / n) - 1.0;
     }
 }
 
 pub struct TradingSummary<'a> {
-    quote: f64,
     fees: &'a Fees,
     filters: &'a Filters,
 
     positions: Vec<Position>,
     first_candle: Option<&'a Candle>,
     last_candle: Option<&'a Candle>,
+
+    duration: u64,
+    cost: f64,
+
+    // Calculated.
+    pub gain: f64,
+    pub profit: f64,
+    pub roi: f64,
+    pub annualized_roi: f64,
+    pub mean_position_profit: f64,
+    pub mean_position_duration: u64,
+    pub drawdowns: Vec<f64>,
+    pub max_drawdown: f64,
+    pub mean_drawdown: f64,
 }
 
 impl<'a> TradingSummary<'a> {
-    pub fn new(quote: f64, fees: &'a Fees, filters: &'a Filters) -> Self {
+    pub fn new(
+        start: u64, end: u64, quote: f64, fees: &'a Fees, filters: &'a Filters
+    ) -> Self {
         Self {
-            quote,
             fees,
             filters,
             positions: Vec::new(),
             first_candle: None,
             last_candle: None,
+            duration: end - start,
+            cost: quote,
+            gain: 0.0,
+            profit: 0.0,
+            roi: 0.0,
+            annualized_roi: 0.0,
+            mean_position_profit: 0.0,
+            mean_position_duration: 0,
+            drawdowns: Vec::new(),
+            max_drawdown: 0.0,
+            mean_drawdown: 0.0,
         }
     }
 
@@ -83,71 +103,40 @@ impl<'a> TradingSummary<'a> {
         self.positions.push(pos);
     }
 
-    pub fn cost(&self) -> f64 {
-        self.quote
-    }
+    pub fn calculate(&mut self) {
+        self.profit = self.positions.iter().map(|p| p.profit).sum();
+        self.gain = self.cost + self.profit;
+        self.roi = self.profit / self.cost;
 
-    pub fn gain(&self) -> f64 {
-        self.quote + self.profit()
-    }
-
-    pub fn profit(&self) -> f64 {
-        self.positions.iter().map(|p| p.profit()).sum()
-    }
-
-    pub fn roi(&self) -> f64 {
-        self.profit() / self.cost()
-    }
-
-    // pub fn annualized_roi(&self) -> f64 {
-    //     // let n = self
-    //     0.0
-    // }
-
-    // pub fn duration(&self) -> u64 {
-    //     self.
-    // }
-
-    pub fn mean_position_profit(&self) -> f64 {
-        self.positions.iter().map(|p| p.profit()).sum::<f64>() / self.positions.len() as f64
-    }
-
-    pub fn mean_position_duration(&self) -> u64 {
-        self.positions.iter().map(|p| p.duration()).sum::<u64>() / self.positions.len() as u64
-    }
-
-    pub fn drawdowns(&self) -> Vec<f64> {
-        let mut quote = self.quote;
-
-        let mut quote_history = vec![quote];
-        for pos in &self.positions {
-            quote += pos.profit();
-            quote_history.push(quote);
+        // Annualized ROI.
+        let n = self.duration as f64 / YEAR_MS;
+        if n == 0.0 {
+            self.annualized_roi = 0.0;
+        } else {
+            self.annualized_roi = (1.0 + self.roi).powf(1.0 / n) - 1.0;
         }
 
-        let mut drawdowns = Vec::with_capacity(quote_history.len());
+        let pos_len = self.positions.len();
+        if pos_len > 0 {
+            self.mean_position_profit = self.positions.iter()
+                .map(|p| p.profit)
+                .sum::<f64>() / pos_len as f64;
+            self.mean_position_duration = self.positions.iter()
+                .map(|p| p.duration)
+                .sum::<u64>() / pos_len as u64;
+            
+            // Drawdowns.
+            let mut quote = self.cost;
+            let mut max_quote = quote;
+            // self.drawdowns.resize(pos_len, 0.0);
+            for pos in &self.positions {
+                quote += pos.profit;
+                max_quote = f64::max(max_quote, quote);
+                self.drawdowns.push(1.0 - quote / max_quote);
+            }
 
-        let mut max_val = 0.0;
-        for val in quote_history {
-            max_val = f64::max(val, max_val);
-            drawdowns.push(1.0 - val / max_val);
+            self.max_drawdown = self.drawdowns.iter().fold(0.0, |a, &b| a.max(b));
+            self.mean_drawdown = self.drawdowns.iter().sum::<f64>() / self.drawdowns.len() as f64;
         }
-
-        drawdowns
-    }
-
-    pub fn max_drawdown(&self) -> f64 {
-        // if self.positions.len() == 0 {
-        //     return 0.0;
-        // }
-        self.drawdowns().iter().fold(0.0, |a, &b| a.max(b))
-    }
-
-    pub fn mean_drawdown(&self) -> f64 {
-        // if self.positions.len() == 0 {
-        //     return 0.0;
-        // }
-        let drawdowns = self.drawdowns();
-        drawdowns.iter().sum::<f64>() / drawdowns.len() as f64
     }
 }

@@ -9,12 +9,14 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     fees: &Fees,
     filters: &Filters,
     interval: u64,
+    start: u64,
+    end: u64,
     quote: f64,
 ) -> BacktestResult {
     let restart_on_missed_candle = false;
 
-    let mut result = TradingSummary::new(quote, fees, filters);
-    let mut open_position: Option<Position> = None;
+    let mut result = TradingSummary::new(start, end, quote, fees, filters);
+    let mut ctx = TradingContext::new(quote);
 
     loop {
         let mut last_candle: Option<&Candle> = None;
@@ -36,10 +38,12 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
             last_candle = Some(candle);
             let advice = strategy.update(candle);
 
-            if open_position.is_none() && advice == Advice::Buy {
-                // if !try_open_position
-            } else if open_position.is_some() && advice == Advice::Sell {
-                // close
+            if ctx.open_position.is_none() && advice == Advice::Buy {
+                if !try_open_position(&mut ctx, fees, filters, candle) {
+                    break;   
+                }
+            } else if ctx.open_position.is_some() && advice == Advice::Sell {
+                close_position(&mut ctx, fees, filters, candle)
             }
         }
 
@@ -48,11 +52,66 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
         }
     }
 
+    result.calculate();
     (
-        result.profit(),
-        result.mean_drawdown(),
-        result.max_drawdown(),
-        result.mean_position_profit(),
-        result.mean_position_duration(),
+        result.profit,
+        result.mean_drawdown,
+        result.max_drawdown,
+        result.mean_position_profit,
+        result.mean_position_duration,
     )
+}
+
+struct TradingContext {
+    quote: f64,
+    open_position: Option<Position>,
+}
+
+impl TradingContext {
+    pub fn new(quote: f64) -> Self {
+        Self {
+            quote,
+            open_position: None,
+        }
+    }
+}
+
+fn try_open_position(
+    ctx: &mut TradingContext, fees: &Fees, filters: &Filters, candle: &Candle
+) -> bool {
+    let price = candle.close;
+    let size = filters.size.round_down(ctx.quote / price);
+    if size == 0.0 {
+        return false;
+    }
+
+    let fee = size * fees.taker;
+    ctx.open_position = Some(Position::new(candle.time, price, size, fee));
+
+    ctx.quote -= price * size;
+
+    true
+}
+
+fn close_position(
+    ctx: &mut TradingContext, fees: &Fees, filters: &Filters, candle: &Candle
+) {
+    let price = candle.close;
+    match &mut ctx.open_position {
+        Some(pos) => {
+            let size = filters.size.round_down(pos.size - pos.fee);
+
+            let quote = size * price;
+            let fee = quote * fees.taker;
+
+            pos.close(candle.time, price, size, fee);
+
+            // TODO: Add to summary
+
+            ctx.open_position = None;
+            ctx.quote = quote - fee;
+        },
+        None => panic!(),
+    }
+    
 }

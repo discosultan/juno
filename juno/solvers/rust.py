@@ -103,6 +103,8 @@ class Rust:
             c_fees,
             c_filters,
             self.interval,
+            self.start,
+            self.end,
             float(self.quote))
 
         # We need to keep a references to these instances for Rust; otherwise GC will clean them
@@ -174,6 +176,8 @@ def _build_cdef(strategy_type: Type[Strategy]) -> str:
             const Fees *fees,
             const Filters *filters,
             uint64_t interval,
+            uint64_t start,
+            uint64_t end,
             double quote,
             {custom_params});
     '''
