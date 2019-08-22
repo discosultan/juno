@@ -8,7 +8,7 @@ from deap import algorithms, base, creator, tools
 
 from juno.asyncio import list_async
 from juno.components import Informant
-from juno.solvers import get_solver_type
+from juno.solvers import Python, get_solver_type
 from juno.strategies import get_strategy_type
 from juno.typing import get_input_type_hints
 from juno.utils import flatten
@@ -167,11 +167,21 @@ class Optimize(Agent):
             verbose=False
         )
 
+        # In case of using other than python solver, run the backtest with final args also with
+        # Python solver to assert the equality of results.
+        if solver != 'python':
+            _log.info(f'validating {solver} solver result with best args against python solver')
+            python_solver = Python(candles, fees, filters, strategy_type, symbol, interval,
+                                   start, end, quote)
+            await python_solver.__aenter__()
+
+            native_result = solver_instance.solve(*hall[0])
+            python_result = python_solver.solve(*hall[0])
+            assert native_result == python_result
+
         _log.info('done')
 
         self.result = _output_as_strategy_args(strategy_type, hall[0])
-
-        # TODO: Write test to validate Rust results against Python one to confirm correctness.
 
 
 def _output_as_strategy_args(strategy_type, individiual):
