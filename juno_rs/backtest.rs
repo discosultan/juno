@@ -40,10 +40,10 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
 
             if ctx.open_position.is_none() && advice == Advice::Buy {
                 if !try_open_position(&mut ctx, fees, filters, candle) {
-                    break;   
+                    break;
                 }
             } else if ctx.open_position.is_some() && advice == Advice::Sell {
-                close_position(&mut ctx, fees, filters, candle)
+                close_position(&mut ctx, &mut result, fees, filters, candle);
             }
         }
 
@@ -94,24 +94,22 @@ fn try_open_position(
 }
 
 fn close_position(
-    ctx: &mut TradingContext, fees: &Fees, filters: &Filters, candle: &Candle
+    ctx: &mut TradingContext, summary: &mut TradingSummary, fees: &Fees, filters: &Filters,
+    candle: &Candle
 ) {
     let price = candle.close;
-    match &mut ctx.open_position {
-        Some(pos) => {
-            let size = filters.size.round_down(pos.size - pos.fee);
+    if let Some(mut pos) = ctx.open_position.take() {
+        let size = filters.size.round_down(pos.size - pos.fee);
 
-            let quote = size * price;
-            let fee = quote * fees.taker;
+        let quote = size * price;
+        let fee = quote * fees.taker;
 
-            pos.close(candle.time, price, size, fee);
+        pos.close(candle.time, price, size, fee);
+        summary.append_position(pos);
 
-            // TODO: Add to summary
-
-            ctx.open_position = None;
-            ctx.quote = quote - fee;
-        },
-        None => panic!(),
+        ctx.open_position = None;
+        ctx.quote = quote - fee;
+    } else {
+        panic!();
     }
-    
 }

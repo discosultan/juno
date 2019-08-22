@@ -13,8 +13,8 @@
             "quote": "10.0",
             "restart_on_missed_candle": false,
             "strategy": "emaemacx",
-            "max_generations": 5,
-            "population_size": 5,
+            "max_generations": 1000,
+            "population_size": 50,
             "solver": "python",
             "seed": 42
         }
