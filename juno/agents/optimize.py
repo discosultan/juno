@@ -167,6 +167,8 @@ class Optimize(Agent):
             verbose=False
         )
 
+        best_args = list(flatten(hall[0]))
+
         # In case of using other than python solver, run the backtest with final args also with
         # Python solver to assert the equality of results.
         if solver != 'python':
@@ -175,20 +177,20 @@ class Optimize(Agent):
                                    start, end, quote)
             await python_solver.__aenter__()
 
-            native_result = solver_instance.solve(*hall[0])
-            python_result = python_solver.solve(*hall[0])
+            print(best_args)
+            native_result = solver_instance.solve(*best_args)
+            python_result = python_solver.solve(*best_args)
+            print(native_result)
+            print(python_result)
             assert native_result == python_result
 
-        _log.info('done')
-
-        self.result = _output_as_strategy_args(strategy_type, hall[0])
+        self.result = _output_as_strategy_args(strategy_type, best_args)
 
 
-def _output_as_strategy_args(strategy_type, individiual):
+def _output_as_strategy_args(strategy_type, best_args):
     strategy_config = {
         'name': strategy_type.__name__.lower()
     }
-    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(),
-                          flatten(individiual)):
+    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args):
         strategy_config[key] = value
     return strategy_config

@@ -60,7 +60,10 @@ class Rust:
         if not dst_path.is_file():
             # TODO: Run on another thread.
             _log.info('compiling rust module')
-            subprocess.run(['cargo', 'build', '--release'], cwd=src_dir)
+            compilation_result = subprocess.run(['cargo', 'build', '--release'], cwd=src_dir)
+            if compilation_result.returncode != 0:
+                raise Exception('rust module compilation failed '
+                                f'({compilation_result.returncode})')
             shutil.copy2(str(compiled_path), str(dst_path))
 
         # FFI.

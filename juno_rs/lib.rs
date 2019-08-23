@@ -51,9 +51,6 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     let fees = &*fees;
     let filters = &*filters;
 
-    // println!("{:?}", candles);
-    // println!("{:?}", fees);
-    // println!("{:?}", filters);
-
-    backtest(strategy_factory, candles, fees, filters, interval, start, end, quote)
+    let res = backtest(strategy_factory, candles, fees, filters, interval, start, end, quote);
+    res
 }

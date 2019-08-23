@@ -2,6 +2,7 @@ use crate::{Candle, Fees, Filters};
 
 const YEAR_MS: f64 = 31_556_952_000.0;
 
+#[derive(Debug)]
 pub struct Position {
     time: u64,
     pub price: f64,
@@ -45,6 +46,7 @@ impl Position {
     }
 }
 
+#[derive(Debug)]
 pub struct TradingSummary<'a> {
     fees: &'a Fees,
     filters: &'a Filters,
