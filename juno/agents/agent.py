@@ -39,7 +39,7 @@ class Agent(EventEmitter):
         except asyncio.CancelledError:
             _log.info('agent cancelled')
         except Exception as exc:
-            _log.exception('unhandled exception in agent')
+            _log.error(f'unhandled exception in agent ({exc})')
             await self.emit('errored', exc)
             raise
 
