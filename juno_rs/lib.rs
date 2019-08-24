@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 mod backtest;
 mod common;
 mod filters;
