@@ -8,7 +8,7 @@ from .dema import Dema
 from .di import DI
 from .dm import DM
 from .dx import DX
-from .ema import Ema
+from .ema import Ema, Ema2
 from .macd import Macd
 from .rsi import Rsi
 from .sma import Sma
@@ -26,6 +26,7 @@ __all__ = [
     'DM',
     'DX',
     'Ema',
+    'Ema2',
     'Macd',
     'Rsi',
     'Sma',
