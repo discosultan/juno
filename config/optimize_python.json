@@ -12,7 +12,7 @@
             "interval": "1h",
             "quote": "10.0",
             "restart_on_missed_candle": false,
-            "strategy": "emaemacx",
+            "strategy": "mamacx",
             "max_generations": 1000,
             "population_size": 50,
             "solver": "python",

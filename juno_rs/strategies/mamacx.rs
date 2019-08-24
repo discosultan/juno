@@ -5,7 +5,7 @@ use crate::strategies::{advice, Strategy};
 use crate::utils::Persistence;
 use crate::{Advice, Candle, Trend};
 
-pub struct EmaEmaCX {
+pub struct MAMACX {
     ema_short: Ema,
     ema_long: Ema,
     neg_threshold: f64,
@@ -15,7 +15,7 @@ pub struct EmaEmaCX {
     t1: u32,
 }
 
-impl EmaEmaCX {
+impl MAMACX {
     pub fn new(
         short_period: u32,
         long_period: u32,
@@ -35,7 +35,7 @@ impl EmaEmaCX {
     }
 }
 
-impl Strategy for EmaEmaCX {
+impl Strategy for MAMACX {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.ema_short.update(candle.close);
         self.ema_long.update(candle.close);

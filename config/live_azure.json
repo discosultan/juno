@@ -11,7 +11,7 @@
             "interval": "1h",
             "restart_on_missed_candle": false,
             "strategy_config": {
-                "name": "emaemacx",
+                "name": "mamacx",
                 "short_period": 18,
                 "long_period": 29,
                 "neg_threshold": "-0.25",

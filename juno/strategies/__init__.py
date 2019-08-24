@@ -2,11 +2,11 @@ import inspect
 import sys
 from typing import Any, Dict, Type, cast
 
-from .emaemacx import EmaEmaCX
+from .mamacx import MAMACX
 from .strategy import Strategy
 
 __all__ = [
-    'EmaEmaCX',
+    'MAMACX',
     'Strategy',
     'new_strategy',
     'get_strategy_type',

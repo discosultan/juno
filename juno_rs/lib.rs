@@ -13,11 +13,11 @@ use std::slice;
 use backtest::{backtest, BacktestResult};
 pub use common::{Advice, Candle, Fees, Trend};
 pub use filters::Filters;
-use strategies::{EmaEmaCX, Strategy};
+use strategies::{MAMACX, Strategy};
 pub use summary::{Position, TradingSummary};
 
 #[no_mangle]
-pub unsafe extern "C" fn emaemacx(
+pub unsafe extern "C" fn mamacx(
     candles: *const Candle,
     length: u32,
     fees: *const Fees,
@@ -33,7 +33,7 @@ pub unsafe extern "C" fn emaemacx(
     persistence: u32,
 ) -> BacktestResult {
     let strategy_factory = || {
-        EmaEmaCX::new(
+        MAMACX::new(
             short_period,
             long_period,
             neg_threshold,

@@ -19,3 +19,7 @@ pub use rsi::Rsi;
 pub use sma::Sma;
 pub use smma::Smma;
 pub use stoch::Stoch;
+
+pub trait MovingAverage {
+    fn new(period: u32) -> Self;
+}
