@@ -1,5 +1,5 @@
-use std::cmp::min;
 use super::dm::DM;
+use std::cmp::min;
 
 pub struct DI {
     pub plus_value: f64,
@@ -38,11 +38,11 @@ impl DI {
         }
 
         if self.t == self.t2 {
-            self.plus_value  = 100.0 * self.dm.plus_value / self.atr;
+            self.plus_value = 100.0 * self.dm.plus_value / self.atr;
             self.minus_value = 100.0 * self.dm.minus_value / self.atr;
         } else if self.t == self.t3 {
             self.atr = self.atr * self.per + calc_truerange(self.prev_close, high, low);
-            self.plus_value  = 100.0 * self.dm.plus_value / self.atr;
+            self.plus_value = 100.0 * self.dm.plus_value / self.atr;
             self.minus_value = 100.0 * self.dm.minus_value / self.atr;
         }
 

@@ -1,5 +1,5 @@
-use std::cmp::min;
 use super::ema::Ema;
+use std::cmp::min;
 
 pub struct Macd {
     pub value: f64,

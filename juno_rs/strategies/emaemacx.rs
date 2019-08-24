@@ -1,9 +1,9 @@
 use std::cmp::min;
 
-use crate::{Advice, Candle, Trend};
 use crate::indicators::Ema;
 use crate::strategies::{advice, Strategy};
 use crate::utils::Persistence;
+use crate::{Advice, Candle, Trend};
 
 pub struct EmaEmaCX {
     ema_short: Ema,
@@ -53,7 +53,7 @@ impl Strategy for EmaEmaCX {
         }
 
         self.t = min(self.t + 1, self.t1);
-        
-        return advice(self.persistence.update(trend))
+
+        return advice(self.persistence.update(trend));
     }
 }

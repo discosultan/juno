@@ -22,8 +22,8 @@ impl Persistence {
     pub fn update(&mut self, trend: Trend) -> (Trend, bool) {
         let mut trend_changed = false;
 
-        if trend == Trend::Unknown ||
-            (self.potential_trend != Trend::Unknown && trend != self.potential_trend)
+        if trend == Trend::Unknown
+            || (self.potential_trend != Trend::Unknown && trend != self.potential_trend)
         {
             self.allow_next_trend = true;
         }
@@ -33,9 +33,7 @@ impl Persistence {
             self.potential_trend = trend;
         }
 
-        if self.allow_next_trend && self.age == self.level
-            && self.potential_trend != self.trend
-        {
+        if self.allow_next_trend && self.age == self.level && self.potential_trend != self.trend {
             self.trend = self.potential_trend;
             trend_changed = true;
         }

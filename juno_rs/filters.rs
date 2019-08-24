@@ -18,8 +18,9 @@ impl Price {
     }
 
     pub fn valid(&self, price: f64) -> bool {
-        ((self.min == 0.0 || price >= self.min) && (self.max == 0.0 || price <= self.max)
-         && (self.step == 0.0 || (price - self.min) % self.step == 0.0))
+        ((self.min == 0.0 || price >= self.min)
+            && (self.max == 0.0 || price <= self.max)
+            && (self.step == 0.0 || (price - self.min) % self.step == 0.0))
     }
 
     pub fn none() -> Self {

@@ -1,5 +1,5 @@
-use crate::{Advice, Candle, Fees, Filters, TradingSummary, Position};
 use crate::strategies::Strategy;
+use crate::{Advice, Candle, Fees, Filters, Position, TradingSummary};
 
 pub type BacktestResult = (f64, f64, f64, f64, u64);
 
@@ -77,7 +77,10 @@ impl TradingContext {
 }
 
 fn try_open_position(
-    ctx: &mut TradingContext, fees: &Fees, filters: &Filters, candle: &Candle
+    ctx: &mut TradingContext,
+    fees: &Fees,
+    filters: &Filters,
+    candle: &Candle,
 ) -> bool {
     let price = candle.close;
     let size = filters.size.round_down(ctx.quote / price);
@@ -94,8 +97,11 @@ fn try_open_position(
 }
 
 fn close_position(
-    ctx: &mut TradingContext, summary: &mut TradingSummary, fees: &Fees, filters: &Filters,
-    candle: &Candle
+    ctx: &mut TradingContext,
+    summary: &mut TradingSummary,
+    fees: &Fees,
+    filters: &Filters,
+    candle: &Candle,
 ) {
     let price = candle.close;
     if let Some(mut pos) = ctx.open_position.take() {

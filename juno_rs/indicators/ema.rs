@@ -1,5 +1,5 @@
-use std::cmp::min;
 use super::sma::Sma;
+use std::cmp::min;
 
 pub struct Ema {
     pub value: f64,

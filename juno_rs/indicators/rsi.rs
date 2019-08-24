@@ -1,5 +1,5 @@
-use std::cmp::min;
 use super::smma::Smma;
+use std::cmp::min;
 
 pub struct Rsi {
     pub value: f64,

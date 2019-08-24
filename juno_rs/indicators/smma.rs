@@ -1,5 +1,5 @@
-use std::cmp::min;
 use super::sma::Sma;
+use std::cmp::min;
 
 pub struct Smma {
     pub value: f64,
@@ -20,7 +20,7 @@ impl Smma {
             weight: f64::from(period),
             t: 0,
             t1: period - 1,
-            t2: period
+            t2: period,
         }
     }
 

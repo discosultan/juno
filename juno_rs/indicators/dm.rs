@@ -27,7 +27,7 @@ impl DM {
             t: 0,
             t1: 1,
             t2: period - 1,
-            t3: period
+            t3: period,
         }
     }
 

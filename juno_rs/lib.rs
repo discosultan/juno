@@ -10,11 +10,11 @@ mod utils;
 
 use std::slice;
 
+use backtest::{backtest, BacktestResult};
 pub use common::{Advice, Candle, Fees, Trend};
 pub use filters::Filters;
-pub use summary::{Position, TradingSummary};
-use backtest::{backtest, BacktestResult};
 use strategies::{EmaEmaCX, Strategy};
+pub use summary::{Position, TradingSummary};
 
 #[no_mangle]
 pub unsafe extern "C" fn emaemacx(
@@ -32,9 +32,26 @@ pub unsafe extern "C" fn emaemacx(
     pos_threshold: f64,
     persistence: u32,
 ) -> BacktestResult {
-    let strategy_factory = || EmaEmaCX::new(
-        short_period, long_period, neg_threshold, pos_threshold, persistence);
-    run_test(strategy_factory, candles, length, fees, filters, interval, start, end, quote)
+    let strategy_factory = || {
+        EmaEmaCX::new(
+            short_period,
+            long_period,
+            neg_threshold,
+            pos_threshold,
+            persistence,
+        )
+    };
+    run_test(
+        strategy_factory,
+        candles,
+        length,
+        fees,
+        filters,
+        interval,
+        start,
+        end,
+        quote,
+    )
 }
 
 unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
@@ -53,6 +70,14 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     let fees = &*fees;
     let filters = &*filters;
 
-    let res = backtest(strategy_factory, candles, fees, filters, interval, start, end, quote);
-    res
+    backtest(
+        strategy_factory,
+        candles,
+        fees,
+        filters,
+        interval,
+        start,
+        end,
+        quote,
+    )
 }

@@ -1,5 +1,5 @@
-use std::cmp::min;
 use super::di::DI;
+use std::cmp::min;
 
 pub struct DX {
     pub value: f64,

@@ -1,5 +1,5 @@
+use super::sma::Sma;
 use std::cmp::min;
-use super::sma::Sma; 
 
 pub struct Stoch {
     pub k: f64,

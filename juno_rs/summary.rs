@@ -71,9 +71,7 @@ pub struct TradingSummary<'a> {
 }
 
 impl<'a> TradingSummary<'a> {
-    pub fn new(
-        start: u64, end: u64, quote: f64, fees: &'a Fees, filters: &'a Filters
-    ) -> Self {
+    pub fn new(start: u64, end: u64, quote: f64, fees: &'a Fees, filters: &'a Filters) -> Self {
         Self {
             fees,
             filters,
@@ -120,13 +118,11 @@ impl<'a> TradingSummary<'a> {
 
         let pos_len = self.positions.len();
         if pos_len > 0 {
-            self.mean_position_profit = self.positions.iter()
-                .map(|p| p.profit)
-                .sum::<f64>() / pos_len as f64;
-            self.mean_position_duration = self.positions.iter()
-                .map(|p| p.duration)
-                .sum::<u64>() / pos_len as u64;
-            
+            self.mean_position_profit =
+                self.positions.iter().map(|p| p.profit).sum::<f64>() / pos_len as f64;
+            self.mean_position_duration =
+                self.positions.iter().map(|p| p.duration).sum::<u64>() / pos_len as u64;
+
             // Drawdowns.
             let mut quote = self.cost;
             let mut max_quote = quote;
