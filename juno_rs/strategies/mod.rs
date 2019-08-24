@@ -11,9 +11,13 @@ pub trait Strategy {
 }
 
 pub fn advice((trend, changed): (Trend, bool)) -> Advice {
-    match trend {
-        Trend::Up => Advice::Buy,
-        Trend::Down => Advice::Sell,
-        _ => Advice::None,
+    if changed {
+        match trend {
+            Trend::Up => Advice::Buy,
+            Trend::Down => Advice::Sell,
+            _ => Advice::None,
+        }
+    } else {
+        Advice::None
     }
 }

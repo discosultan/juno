@@ -9,7 +9,7 @@ class Rsi:
         self.value = Decimal(0)
         self._mean_down = Smma(period)
         self._mean_up = Smma(period)
-        self._last_input = Decimal(0)
+        self._last_price = Decimal(0)
         self._t = 0
         self._t1 = period
 
@@ -21,10 +21,10 @@ class Rsi:
         if self._t > 0:
             up = Decimal(0)
             down = Decimal(0)
-            if price > self._last_input:
-                up = price - self._last_input
-            elif price < self._last_input:
-                down = self._last_input - price
+            if price > self._last_price:
+                up = price - self._last_price
+            elif price < self._last_price:
+                down = self._last_price - price
 
             self._mean_up.update(up)
             self._mean_down.update(down)
@@ -38,5 +38,5 @@ class Rsi:
                     rs = self._mean_up.value / self._mean_down.value
                     self.value = 100 - (100 / (1 + rs))
 
-        self._last_input = price
+        self._last_price = price
         self._t = min(self._t + 1, self._t1)
