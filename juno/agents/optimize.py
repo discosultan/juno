@@ -8,8 +8,10 @@ from deap import algorithms, base, creator, tools
 
 from juno.asyncio import list_async
 from juno.components import Informant
+from juno.math import floor_multiple
 from juno.solvers import Python, get_solver_type
 from juno.strategies import get_strategy_type
+from juno.time import time_ms
 from juno.typing import get_input_type_hints
 from juno.utils import flatten
 
@@ -29,9 +31,9 @@ class Optimize(Agent):
         symbol: str,
         interval: int,
         start: int,
-        end: int,
         quote: Decimal,
         strategy: str,
+        end: Optional[int] = None,
         restart_on_missed_candle: bool = False,
         population_size: int = 50,
         max_generations: int = 1000,
@@ -39,6 +41,15 @@ class Optimize(Agent):
         solver: str = 'rust',
         seed: Optional[int] = None,
     ) -> None:
+        now = time_ms()
+
+        if end is None:
+            end = floor_multiple(now, interval)
+
+        assert end <= now
+        assert end > start
+        assert quote > 0
+
         # It's useful to set a seed for idempotent results. Helpful for debugging.
         if seed is not None:
             _log.info(f'seeding randomizer ({seed})')
