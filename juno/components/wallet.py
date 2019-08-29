@@ -5,6 +5,9 @@ import logging
 from collections import defaultdict
 from typing import Dict, List
 
+import aiohttp
+import backoff
+
 from juno import Balance
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
@@ -35,6 +38,9 @@ class Wallet:
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(*(self._sync_balances(e) for e in self._exchanges.keys()))
 
+    @backoff.on_exception(
+        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
+    )
     async def _sync_balances(self, exchange: str) -> None:
         async with self._exchanges[exchange].connect_stream_balances() as balances_stream:
             async for balances in balances_stream:

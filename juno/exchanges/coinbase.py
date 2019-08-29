@@ -269,7 +269,6 @@ class Coinbase(Exchange):
         url = _BASE_REST_URL + url
         page_after = None
         while True:
-            # TODO: retry with backoff
             await self._pub_limiter.acquire()
             if page_after is not None:
                 data['after'] = page_after
@@ -284,7 +283,6 @@ class Coinbase(Exchange):
         async for val in self._paginated_public_request(method, url, data):
             return val  # Return only first.
 
-    # TODO: retry with backoff
     async def _private_request(self, method, url, body=''):
         await self._priv_limiter.acquire()
         timestamp = str(time())
