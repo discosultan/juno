@@ -401,7 +401,7 @@ class Binance(Exchange):
                 security=_SEC_USER_STREAM
             )
 
-    @retry_on(aiohttp.ClientConnectionError, max_tries=3)
+    @retry_on((aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3)
     async def _request(
         self,
         method: str,

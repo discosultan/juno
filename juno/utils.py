@@ -73,7 +73,7 @@ def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple
         yield keys, obj
 
 
-def retry_on(exception: Type[Exception],
+def retry_on(exception: Union[Type[Exception], Tuple[Type[Exception], ...]],
              max_tries: Optional[int] = None) -> Callable[[Callable[..., Any]], Any]:
     return cast(
         Callable[[Callable[..., Any]], Any],
