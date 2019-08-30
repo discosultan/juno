@@ -1,0 +1,27 @@
+{
+    "log_format": "default",
+    "log_level": "debug",
+    "storage": "sqlite",
+    "broker": "market",
+    "agents": [
+        {
+            "name": "paper",
+            "exchange": "binance",
+            "symbol": "eth-btc",
+            "interval": "1h",
+            "quote": "1.0",
+            "restart_on_missed_candle": false,
+            "strategy_config": {
+                "name": "emaemacx",
+                "short_period": 5,
+                "long_period": 7,
+                "neg_threshold": "-0.103",
+                "pos_threshold": "0.594",
+                "persistence": 3
+            },
+            "plugins": [
+                "discord"
+            ]
+        }
+    ]
+}

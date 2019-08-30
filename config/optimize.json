@@ -7,14 +7,14 @@
             "name": "optimize",
             "exchange": "binance",
             "symbol": "eth-btc",
-            "start": "2018-01-01",
+            "start": "2019-04-01",
             "end": null,
             "interval": "1h",
             "quote": "10.0",
             "restart_on_missed_candle": false,
             "strategy": "emaemacx",
-            "max_generations": 100,
             "population_size": 50,
+            "max_generations": 1000,
             "solver": "rust",
             "seed": null
         }
