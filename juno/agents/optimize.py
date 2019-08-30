@@ -1,4 +1,5 @@
 import logging
+import math
 from decimal import Decimal
 from functools import partial
 from random import Random
@@ -8,8 +9,10 @@ from deap import algorithms, base, creator, tools
 
 from juno.asyncio import list_async
 from juno.components import Informant
+from juno.math import floor_multiple
 from juno.solvers import Python, get_solver_type
 from juno.strategies import get_strategy_type
+from juno.time import time_ms
 from juno.typing import get_input_type_hints
 from juno.utils import flatten
 
@@ -29,9 +32,9 @@ class Optimize(Agent):
         symbol: str,
         interval: int,
         start: int,
-        end: int,
         quote: Decimal,
         strategy: str,
+        end: Optional[int] = None,
         restart_on_missed_candle: bool = False,
         population_size: int = 50,
         max_generations: int = 1000,
@@ -39,6 +42,15 @@ class Optimize(Agent):
         solver: str = 'rust',
         seed: Optional[int] = None,
     ) -> None:
+        now = time_ms()
+
+        if end is None:
+            end = floor_multiple(now, interval)
+
+        assert end <= now
+        assert end > start
+        assert quote > 0
+
         # It's useful to set a seed for idempotent results. Helpful for debugging.
         if seed is not None:
             _log.info(f'seeding randomizer ({seed})')
@@ -168,6 +180,7 @@ class Optimize(Agent):
         )
 
         best_args = list(flatten(hall[0]))
+        self.result = _output_as_strategy_args(strategy_type, best_args)
 
         # In case of using other than python solver, run the backtest with final args also with
         # Python solver to assert the equality of results.
@@ -177,14 +190,12 @@ class Optimize(Agent):
                                    start, end, quote)
             await python_solver.__aenter__()
 
-            print(best_args)
-            native_result = solver_instance.solve(*best_args)
             python_result = python_solver.solve(*best_args)
-            print(native_result)
-            print(python_result)
-            assert native_result == python_result
-
-        self.result = _output_as_strategy_args(strategy_type, best_args)
+            native_result = solver_instance.solve(*best_args)
+            if not _isclose(native_result, python_result):
+                raise Exception(f'Optimizer results differ for input {self.result} between '
+                                f'Python and {solver.capitalize()} '
+                                f'solvers:\n{python_result}\n{native_result}')
 
 
 def _output_as_strategy_args(strategy_type, best_args):
@@ -194,3 +205,10 @@ def _output_as_strategy_args(strategy_type, best_args):
     for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args):
         strategy_config[key] = value
     return strategy_config
+
+
+def _isclose(a, b):
+    isclose = True
+    for i in range(0, len(a)):
+        isclose = isclose and math.isclose(a[i], b[i], rel_tol=Decimal('1e-14'))
+    return isclose

@@ -7,6 +7,9 @@ from typing import (
     Any, AsyncIterable, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, cast
 )
 
+import aiohttp
+import backoff
+
 from juno import Candle, Fees, Span, Filters
 from juno.asyncio import cancel, cancelable, list_async
 from juno.exchanges import Exchange
@@ -49,6 +52,9 @@ class Informant:
     def get_filters(self, exchange: str, symbol: str) -> Filters:
         return self._get_data(exchange, symbol, Filters)
 
+    @backoff.on_exception(
+        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
+    )
     def _get_data(self, exchange: str, symbol: str, type_: Type[T]) -> T:
         # `__all__` is a special key which allows exchange to return same fee for any symbol.
         data = self._exchange_data[exchange][type_].get('__all__')
@@ -91,6 +97,9 @@ class Informant:
                 ):
                     yield candle
 
+    @backoff.on_exception(
+        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
+    )
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:

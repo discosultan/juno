@@ -7,6 +7,9 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, Dict, List, Tuple
 
+import aiohttp
+import backoff
+
 from juno import DepthUpdateType, Side
 from juno.asyncio import Barrier, Event, cancel, cancelable
 from juno.config import list_names
@@ -60,6 +63,9 @@ class Orderbook:
             *(self._sync_orderbook(e, s) for e, s in self._orderbooks_product)
         )
 
+    @backoff.on_exception(
+        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
+    )
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         orderbook = self._data[exchange][symbol]
         async with self._exchanges[exchange].connect_stream_depth(symbol) as stream:

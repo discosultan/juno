@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional
 
-import aiohttp
 import simplejson as json
 
 from juno import (
@@ -23,7 +22,7 @@ from juno.http import ClientSession, connect_refreshing_stream
 from juno.math import floor_multiple
 from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import LeakyBucket, page, retry_on
+from juno.utils import LeakyBucket, page
 
 from .exchange import Exchange
 
@@ -401,7 +400,6 @@ class Binance(Exchange):
                 security=_SEC_USER_STREAM
             )
 
-    @retry_on(aiohttp.ClientConnectionError, max_tries=3)
     async def _request(
         self,
         method: str,
@@ -446,9 +444,6 @@ class Binance(Exchange):
         ) as res:
             return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
 
-    # @asynccontextmanager
-    # TODO: Figure out how to backoff an asynccontextmanager.
-    # @retry_on(aiohttp.WSServerHandshakeError, max_tries=3)
     def _connect_refreshing_stream(self, url: str, interval: int, name: str,
                                    **kwargs: Any) -> AsyncContextManager[AsyncIterable[Any]]:
         return connect_refreshing_stream(

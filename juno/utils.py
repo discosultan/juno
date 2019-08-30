@@ -8,11 +8,10 @@ from os import path
 from pathlib import Path
 from types import ModuleType
 from typing import (
-    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, Type,
-    TypeVar, Union, cast
+    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, TypeVar,
+    Union
 )
 
-import backoff
 import simplejson as json
 
 from juno import Trend
@@ -71,14 +70,6 @@ def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple
             yield from recursive_iter(item, keys + (idx, ))
     else:
         yield keys, obj
-
-
-def retry_on(exception: Type[Exception],
-             max_tries: Optional[int] = None) -> Callable[[Callable[..., Any]], Any]:
-    return cast(
-        Callable[[Callable[..., Any]], Any],
-        backoff.on_exception(backoff.expo, exception, max_tries=max_tries)
-    )
 
 
 _words = None
