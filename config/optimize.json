@@ -13,7 +13,7 @@
             "quote": "10.0",
             "restart_on_missed_candle": false,
             "strategy": "emaemacx",
-            "max_generations": 1000,
+            "max_generations": 100,
             "population_size": 50,
             "solver": "rust",
             "seed": null
