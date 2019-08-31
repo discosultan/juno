@@ -4,7 +4,6 @@ import asyncio
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from contextlib import AbstractAsyncContextManager, AsyncExitStack
 from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar
 
 from juno.utils import recursive_iter
@@ -24,23 +23,20 @@ class Container:
         self._singleton_instances: Dict[Type[Any], Callable[[], Any]] = {}
         self._singleton_types: Dict[Type[Any], Callable[[], Type[Any]]] = {}
         self._singletons: Dict[Type[Any], Any] = {}
-        self._exit_stack = AsyncExitStack()
 
     async def __aenter__(self) -> Container:
         _log.info(f'created instances: {[i for i in self._singletons.values()]}')
-        await self._exit_stack.__aenter__()
-        dep_map = map_dependencies(self._singletons)
-        for deps in list_dependencies_in_init_order(dep_map):
+        for deps in list_dependencies_in_init_order(map_dependencies(self._singletons)):
             await asyncio.gather(
-                *(
-                    self._exit_stack.enter_async_context(d)
-                    for d in deps if isinstance(d, AbstractAsyncContextManager)
-                )
+                *(d.__aenter__() for d in deps if getattr(d, '__aenter__', None))
             )
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await self._exit_stack.__aexit__(exc_type, exc, tb)
+        for deps in reversed(list_dependencies_in_init_order(map_dependencies(self._singletons))):
+            await asyncio.gather(
+                *(d.__aexit__(exc_type, exc, tb) for d in deps if getattr(d, '__aexit__', None))
+            )
 
     def add_singleton_instance(self, type_: Type[Any], factory: Callable[[], Any]) -> None:
         self._singleton_instances[type_] = factory

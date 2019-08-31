@@ -1,15 +1,16 @@
 import asyncio
 import logging
-import pkg_resources
 import signal
 import sys
 from contextlib import AsyncExitStack
 from types import FrameType
 from typing import Any, Dict, List
 
+import pkg_resources
+
 import juno
-from juno.asyncio import cancelable
 from juno.agents import Agent
+from juno.asyncio import cancelable
 from juno.brokers import Broker
 from juno.config import (
     load_from_env, load_from_json_file, load_instance, load_instances, load_type
@@ -19,7 +20,7 @@ from juno.exchanges import Exchange
 from juno.logging import create_handlers
 from juno.plugins import list_plugins
 from juno.storages import Storage
-from juno.utils import map_module_types
+from juno.utils import full_path, map_module_types
 
 _log = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ async def main() -> None:
     # Load config.
     config_name = sys.argv[1] if len(sys.argv) >= 2 else 'default'
     config = {}
-    config.update(load_from_json_file(f'config/{config_name}.json'))
+    config.update(load_from_json_file(full_path(__file__, f'config/{config_name}.json')))
     config.update(load_from_env())
 
     # Configure logging.
@@ -75,8 +76,7 @@ async def main() -> None:
 
         # Init all deps and plugins.
         await asyncio.gather(
-            stack.enter_async_context(container),
-            *(stack.enter_async_context(p) for p in plugins)
+            stack.enter_async_context(container), *(stack.enter_async_context(p) for p in plugins)
         )
 
         # Run agents.

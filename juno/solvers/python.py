@@ -9,9 +9,10 @@ from juno.utils import unpack_symbol
 
 
 class Python:
-    def __init__(self, candles: List[Candle], fees: Fees, filters: Filters,
-                 strategy_type: Type[Strategy], symbol: str, interval: int,
-                 start: int, end: int, quote: Decimal) -> None:
+    def __init__(
+        self, candles: List[Candle], fees: Fees, filters: Filters, strategy_type: Type[Strategy],
+        symbol: str, interval: int, start: int, end: int, quote: Decimal
+    ) -> None:
         self.candles = candles
         self.fees = fees
         self.filters = filters
@@ -23,9 +24,6 @@ class Python:
         self.quote = quote
         self.restart_on_missed_candle = False
         self.open_position: Optional[Position] = None
-
-    async def __aenter__(self) -> Python:
-        return self
 
     def solve(self, *args: Any) -> Any:
         self.result = TradingSummary(

@@ -15,7 +15,6 @@ from juno.asyncio import cancel, cancelable
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import chunks
 
-
 _log = logging.getLogger(__name__)
 
 

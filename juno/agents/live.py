@@ -52,11 +52,7 @@ class Live(Agent):
         assert self.quote > filters.price.min
 
         self.result = TradingSummary(
-            interval=interval,
-            start=now,
-            quote=self.quote,
-            fees=fees,
-            filters=filters
+            interval=interval, start=now, quote=self.quote, fees=fees, filters=filters
         )
         self.open_position = None
         restart_count = 0

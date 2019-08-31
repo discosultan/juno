@@ -1,5 +1,4 @@
 import itertools
-from contextlib import AbstractAsyncContextManager
 
 from juno import di
 
@@ -71,7 +70,7 @@ def test_list_dependencies_in_init_order():
     ]
 
 
-class Foo(AbstractAsyncContextManager):
+class Foo:
     count = 0
 
     async def __aenter__(self):
@@ -81,7 +80,7 @@ class Foo(AbstractAsyncContextManager):
         pass
 
 
-class Bar(AbstractAsyncContextManager):
+class Bar:
     count = 0
 
     def __init__(self, foo: Foo) -> None:

@@ -10,7 +10,7 @@ from typing import (
 import aiohttp
 import backoff
 
-from juno import Candle, Fees, Span, Filters
+from juno import Candle, Fees, Filters, Span
 from juno.asyncio import cancel, cancelable, list_async
 from juno.exchanges import Exchange
 from juno.math import floor_multiple

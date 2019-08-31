@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import functools
 import logging
 import os
 import platform
 import shutil
-import subprocess
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, List, Type
@@ -14,16 +14,17 @@ import cffi
 
 from juno import Candle, Fees, Filters
 from juno.strategies import Strategy
-from juno.typing import get_input_type_hints
+from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path, unpack_symbol
 
 _log = logging.getLogger(__name__)
 
 
 class Rust:
-    def __init__(self, candles: List[Candle], fees: Fees, filters: Filters,
-                 strategy_type: Type[Strategy], symbol: str, interval: int,
-                 start: int, end: int, quote: Decimal) -> None:
+    def __init__(
+        self, candles: List[Candle], fees: Fees, filters: Filters, strategy_type: Type[Strategy],
+        symbol: str, interval: int, start: int, end: int, quote: Decimal
+    ) -> None:
         self.candles = candles
         self.fees = fees
         self.filters = filters
@@ -58,13 +59,17 @@ class Rust:
 
         # Build Rust and copy to dist folder if current version missing.
         if not dst_path.is_file():
-            # TODO: Run on another thread.
             _log.info('compiling rust module')
-            compilation_result = subprocess.run(['cargo', 'build', '--release'], cwd=src_dir)
-            if compilation_result.returncode != 0:
-                raise Exception('rust module compilation failed '
-                                f'({compilation_result.returncode})')
-            shutil.copy2(str(compiled_path), str(dst_path))
+            proc = await asyncio.create_subprocess_shell('cargo build --release', cwd=src_dir)
+            await proc.communicate()
+            if proc.returncode != 0:
+                raise Exception(f'rust module compilation failed ({proc.returncode})')
+            await asyncio.get_running_loop().run_in_executor(
+                None,
+                shutil.copy2,
+                str(compiled_path),
+                str(dst_path)
+            )
 
         # FFI.
         ffi = cffi.FFI()
@@ -100,15 +105,9 @@ class Rust:
         }
 
         self.solve_native = functools.partial(
-            getattr(libjuno, self.strategy_type.__name__.lower()),
-            c_candles,
-            len(self.candles),
-            c_fees,
-            c_filters,
-            self.interval,
-            self.start,
-            self.end,
-            float(self.quote))
+            getattr(libjuno, self.strategy_type.__name__.lower()), c_candles, len(self.candles),
+            c_fees, c_filters, self.interval, self.start, self.end, float(self.quote)
+        )
 
         # We need to keep a references to these instances for Rust; otherwise GC will clean them
         # up!
@@ -118,6 +117,9 @@ class Rust:
         ])
 
         return self
+
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        pass
 
     def solve(self, *args: Any) -> Any:
         result = self.solve_native(*args)

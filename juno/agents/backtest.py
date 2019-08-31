@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
 from juno import Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingSummary
 from juno.components import Informant
@@ -47,11 +47,7 @@ class Backtest(Agent):
         self.filters = self.informant.get_filters(exchange, symbol)
 
         self.result = TradingSummary(
-            interval=interval,
-            start=start,
-            quote=quote,
-            fees=self.fees,
-            filters=self.filters
+            interval=interval, start=start, quote=quote, fees=self.fees, filters=self.filters
         )
         self.open_position = None
         restart_count = 0
@@ -173,11 +169,7 @@ class Backtest(Agent):
         self.fees = fees
         self.filters = filters
         self.result = TradingSummary(
-            interval=interval,
-            start=start,
-            quote=quote,
-            fees=self.fees,
-            filters=self.filters
+            interval=interval, start=start, quote=quote, fees=self.fees, filters=self.filters
         )
         self.open_position = None
         restart_count = 0

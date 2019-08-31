@@ -178,8 +178,10 @@ class Binance(Exchange):
                     assert data['U'] <= last_update_id + 1 and data['u'] >= last_update_id + 1
                     is_first_ws_message = False
                 elif data['U'] != last_update_id + 1:
-                    _log.warning(f'orderbook out of sync: update id {data["U"]} != '
-                                 f'last update id {last_update_id} + 1; refetching snapshot')
+                    _log.warning(
+                        f'orderbook out of sync: update id {data["U"]} != '
+                        f'last update id {last_update_id} + 1; refetching snapshot'
+                    )
                     async for data2 in inner(ws):
                         yield data2
                     break
@@ -377,7 +379,8 @@ class Binance(Exchange):
                     break
 
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}', interval=12 * HOUR_SEC,
+            url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}',
+            interval=12 * HOUR_SEC,
             name='candles'
         ) as ws:
             yield inner(ws)
