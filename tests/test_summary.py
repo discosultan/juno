@@ -34,11 +34,7 @@ def test_position():
 
 def test_summary():
     summary = TradingSummary(
-        interval=HOUR_MS,
-        start=0,
-        quote=Decimal(100),
-        fees=Fees.none(),
-        filters=Filters.none()
+        interval=HOUR_MS, start=0, quote=Decimal(100), fees=Fees.none(), filters=Filters.none()
     )
     summary.append_candle(new_candle())
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric

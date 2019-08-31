@@ -38,8 +38,12 @@ class ClientSession:
 
     @asynccontextmanager
     async def request(
-        self, method: str, url: str, name: Optional[str] = None,
-        raise_for_status: Optional[bool] = None, **kwargs: Any
+        self,
+        method: str,
+        url: str,
+        name: Optional[str] = None,
+        raise_for_status: Optional[bool] = None,
+        **kwargs: Any
     ) -> AsyncIterator[aiohttp.ClientResponse]:
         req = self._session.request(method, url, **kwargs)
         name = name or next(_random_words)
@@ -54,9 +58,8 @@ class ClientSession:
             yield res
 
     @asynccontextmanager
-    async def ws_connect(
-        self, url: str, name: Optional[str] = None, **kwargs: Any
-    ) -> AsyncIterator[ClientWebSocketResponse]:
+    async def ws_connect(self, url: str, name: Optional[str] = None,
+                         **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
         name = name or next(_random_words)
         _aiohttp_log.info(f'WS {name} {url}')
         _aiohttp_log.debug(kwargs)
@@ -92,8 +95,12 @@ class ClientWebSocketResponse:
 
 @asynccontextmanager
 async def connect_refreshing_stream(
-    session: ClientSession, url: str, interval: int, loads: Callable[[str], Any],
-    take_until: Callable[[Any, Any], bool], name: Optional[str] = None
+    session: ClientSession,
+    url: str,
+    interval: int,
+    loads: Callable[[str], Any],
+    take_until: Callable[[Any, Any], bool],
+    name: Optional[str] = None
 ) -> AsyncIterator[AsyncIterable[Any]]:
     """Streams messages over WebSocket. The connection is restarted every `interval` milliseconds.
     Ensures no data is lost during restart when switching from one connection to another.
@@ -123,8 +130,9 @@ async def connect_refreshing_stream(
                             new_msg = await _receive(ctx.ws)
                             assert new_msg.type is aiohttp.WSMsgType.TEXT
                             new_data = loads(new_msg.data)
-                            async for old_msg in concat_async(receive_task.result(),
-                                                              to_close_ctx.ws):
+                            async for old_msg in concat_async(
+                                receive_task.result(), to_close_ctx.ws
+                            ):
                                 if old_msg.type is aiohttp.WSMsgType.CLOSED:
                                     break
                                 old_data = loads(old_msg.data)
@@ -139,8 +147,10 @@ async def connect_refreshing_stream(
 
                     msg = receive_task.result()
                     if msg.type is aiohttp.WSMsgType.CLOSED:
-                        _aiohttp_log.warning(f'server closed ws {ctx.name} connection; data: '
-                                             f'{msg.data}; reconnecting')
+                        _aiohttp_log.warning(
+                            f'server closed ws {ctx.name} connection; data: '
+                            f'{msg.data}; reconnecting'
+                        )
                         await asyncio.gather(ctx.close(), cancel(timeout_task))
                         ctx = await _WSConnectionContext.connect(session, url, name2, counter)
                         break
@@ -174,8 +184,9 @@ class _WSConnectionContext:
     ws: ClientWebSocketResponse
 
     @staticmethod
-    async def connect(session: ClientSession, url: str, name: str,
-                      counter: Iterator[int]) -> _WSConnectionContext:
+    async def connect(
+        session: ClientSession, url: str, name: str, counter: Iterator[int]
+    ) -> _WSConnectionContext:
         name = f'{name}-{next(counter)}'
         conn = session.ws_connect(url, name=name)
         ws = await conn.__aenter__()

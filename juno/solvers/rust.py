@@ -21,9 +21,10 @@ _log = logging.getLogger(__name__)
 
 
 class Rust:
-    def __init__(self, candles: List[Candle], fees: Fees, filters: Filters,
-                 strategy_type: Type[Strategy], symbol: str, interval: int,
-                 start: int, end: int, quote: Decimal) -> None:
+    def __init__(
+        self, candles: List[Candle], fees: Fees, filters: Filters, strategy_type: Type[Strategy],
+        symbol: str, interval: int, start: int, end: int, quote: Decimal
+    ) -> None:
         self.candles = candles
         self.fees = fees
         self.filters = filters
@@ -62,8 +63,10 @@ class Rust:
             _log.info('compiling rust module')
             compilation_result = subprocess.run(['cargo', 'build', '--release'], cwd=src_dir)
             if compilation_result.returncode != 0:
-                raise Exception('rust module compilation failed '
-                                f'({compilation_result.returncode})')
+                raise Exception(
+                    'rust module compilation failed '
+                    f'({compilation_result.returncode})'
+                )
             shutil.copy2(str(compiled_path), str(dst_path))
 
         # FFI.
@@ -100,15 +103,9 @@ class Rust:
         }
 
         self.solve_native = functools.partial(
-            getattr(libjuno, self.strategy_type.__name__.lower()),
-            c_candles,
-            len(self.candles),
-            c_fees,
-            c_filters,
-            self.interval,
-            self.start,
-            self.end,
-            float(self.quote))
+            getattr(libjuno, self.strategy_type.__name__.lower()), c_candles, len(self.candles),
+            c_fees, c_filters, self.interval, self.start, self.end, float(self.quote)
+        )
 
         # We need to keep a references to these instances for Rust; otherwise GC will clean them
         # up!

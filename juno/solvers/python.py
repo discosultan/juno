@@ -9,9 +9,10 @@ from juno.utils import unpack_symbol
 
 
 class Python:
-    def __init__(self, candles: List[Candle], fees: Fees, filters: Filters,
-                 strategy_type: Type[Strategy], symbol: str, interval: int,
-                 start: int, end: int, quote: Decimal) -> None:
+    def __init__(
+        self, candles: List[Candle], fees: Fees, filters: Filters, strategy_type: Type[Strategy],
+        symbol: str, interval: int, start: int, end: int, quote: Decimal
+    ) -> None:
         self.candles = candles
         self.fees = fees
         self.filters = filters

@@ -168,8 +168,9 @@ class EventEmitter:
         return _on
 
     async def emit(self, event: str, *args: Any) -> Tuple[Any, ...]:
-        return await asyncio.gather(*(x(*args) for x in self._handlers[event]),
-                                    return_exceptions=True)
+        return await asyncio.gather(
+            *(x(*args) for x in self._handlers[event]), return_exceptions=True
+        )
 
 
 # Implements a leaky bucket algorithm. Useful for rate limiting API calls.

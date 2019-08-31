@@ -1,15 +1,16 @@
 import asyncio
 import logging
-import pkg_resources
 import signal
 import sys
 from contextlib import AsyncExitStack
 from types import FrameType
 from typing import Any, Dict, List
 
+import pkg_resources
+
 import juno
-from juno.asyncio import cancelable
 from juno.agents import Agent
+from juno.asyncio import cancelable
 from juno.brokers import Broker
 from juno.config import (
     load_from_env, load_from_json_file, load_instance, load_instances, load_type
@@ -75,8 +76,7 @@ async def main() -> None:
 
         # Init all deps and plugins.
         await asyncio.gather(
-            stack.enter_async_context(container),
-            *(stack.enter_async_context(p) for p in plugins)
+            stack.enter_async_context(container), *(stack.enter_async_context(p) for p in plugins)
         )
 
         # Run agents.

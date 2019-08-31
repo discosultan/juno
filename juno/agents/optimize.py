@@ -89,7 +89,8 @@ class Optimize(Agent):
         #     return random.uniform(60.0, 90.0)
 
         candles = await list_async(
-            self._informant.stream_candles(exchange, symbol, interval, start, end))
+            self._informant.stream_candles(exchange, symbol, interval, start, end)
+        )
         fees = self._informant.get_fees(exchange, symbol)
         filters = self._informant.get_filters(exchange, symbol)
 
@@ -104,7 +105,8 @@ class Optimize(Agent):
             interval=interval,
             start=start,
             end=end,
-            quote=quote)
+            quote=quote
+        )
         await solver_instance.__aenter__()
 
         toolbox = base.Toolbox()
@@ -186,22 +188,23 @@ class Optimize(Agent):
         # Python solver to assert the equality of results.
         if solver != 'python':
             _log.info(f'validating {solver} solver result with best args against python solver')
-            python_solver = Python(candles, fees, filters, strategy_type, symbol, interval,
-                                   start, end, quote)
+            python_solver = Python(
+                candles, fees, filters, strategy_type, symbol, interval, start, end, quote
+            )
             await python_solver.__aenter__()
 
             python_result = python_solver.solve(*best_args)
             native_result = solver_instance.solve(*best_args)
             if not _isclose(native_result, python_result):
-                raise Exception(f'Optimizer results differ for input {self.result} between '
-                                f'Python and {solver.capitalize()} '
-                                f'solvers:\n{python_result}\n{native_result}')
+                raise Exception(
+                    f'Optimizer results differ for input {self.result} between '
+                    f'Python and {solver.capitalize()} '
+                    f'solvers:\n{python_result}\n{native_result}'
+                )
 
 
 def _output_as_strategy_args(strategy_type, best_args):
-    strategy_config = {
-        'name': strategy_type.__name__.lower()
-    }
+    strategy_config = {'name': strategy_type.__name__.lower()}
     for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args):
         strategy_config[key] = value
     return strategy_config

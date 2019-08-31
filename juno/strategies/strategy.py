@@ -30,8 +30,10 @@ class Strategy(ABC):
             inputs = args[from_index:to_index]
 
             if not constraint.validate(*inputs):
-                raise ValueError(f'Incorrect argument(s): {",".join(map(str, inputs))} for '
-                                 f'parameter(s): {",".join(names)}')
+                raise ValueError(
+                    f'Incorrect argument(s): {",".join(map(str, inputs))} for '
+                    f'parameter(s): {",".join(names)}'
+                )
 
             from_index = to_index
 

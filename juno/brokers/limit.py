@@ -49,13 +49,15 @@ class Limit:
         async with self._exchanges[exchange].connect_stream_orders() as stream:
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
-                cancelable(self._keep_limit_order_best(
-                    exchange=exchange,
-                    symbol=symbol,
-                    client_id=client_id,
-                    side=side,
-                    available=available
-                ))
+                cancelable(
+                    self._keep_limit_order_best(
+                        exchange=exchange,
+                        symbol=symbol,
+                        client_id=client_id,
+                        side=side,
+                        available=available
+                    )
+                )
             )
 
             # Listens for fill events for an existing order.

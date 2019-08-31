@@ -59,9 +59,7 @@ class Orderbook:
         return sorted(self._data[exchange][symbol][Side.ASK].items(), reverse=True)
 
     async def _sync_orderbooks(self) -> None:
-        await asyncio.gather(
-            *(self._sync_orderbook(e, s) for e, s in self._orderbooks_product)
-        )
+        await asyncio.gather(*(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
 
     @backoff.on_exception(
         backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
