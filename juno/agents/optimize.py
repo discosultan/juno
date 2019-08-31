@@ -182,6 +182,7 @@ class Optimize(Agent):
         )
 
         best_args = list(flatten(hall[0]))
+        _log.info(f'final backtest result: {solver_instance.solve(*best_args)}')
         self.result = _output_as_strategy_args(strategy_type, best_args)
 
         # In case of using other than python solver, run the backtest with final args also with
