@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import functools
 import logging
 import os
 import platform
 import shutil
-import subprocess
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, List, Type
@@ -59,14 +59,11 @@ class Rust:
 
         # Build Rust and copy to dist folder if current version missing.
         if not dst_path.is_file():
-            # TODO: Run on another thread.
             _log.info('compiling rust module')
-            compilation_result = subprocess.run(['cargo', 'build', '--release'], cwd=src_dir)
-            if compilation_result.returncode != 0:
-                raise Exception(
-                    'rust module compilation failed '
-                    f'({compilation_result.returncode})'
-                )
+            proc = await asyncio.create_subprocess_shell('cargo build --release', cwd=src_dir)
+            await proc.communicate()
+            if proc.returncode != 0:
+                raise Exception(f'rust module compilation failed ({proc.returncode})')
             shutil.copy2(str(compiled_path), str(dst_path))
 
         # FFI.
