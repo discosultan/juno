@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import math
 from decimal import Decimal
@@ -107,7 +108,12 @@ class Optimize(Agent):
             end=end,
             quote=quote
         )
-        await solver_instance.__aenter__()
+        # TODO: Also __aexit__(). Use AsyncExitStack or inject solver through DI instead.
+        # The problem with the latter is that solver constructors take exchange data. This is
+        # fetched through informant. This means that for validation, we will fetch the data
+        # twice. If Informant cached its candles, this wouldn't be an issue.
+        if getattr(solver_instance, '__aenter__', None):
+            await solver_instance.__aenter__()
 
         toolbox = base.Toolbox()
         toolbox.register('evaluate', lambda ind: solver_instance.solve(*flatten(ind)))
@@ -168,17 +174,20 @@ class Optimize(Agent):
         hall = tools.HallOfFame(1)
 
         # Returns the final population and logbook with the statistics of the evolution.
-        final_pop, stat = algorithms.eaMuPlusLambda(
-            pop,
-            toolbox,
-            mu=toolbox.population_size,
-            lambda_=toolbox.population_size,
-            cxpb=Decimal(1) - toolbox.mutation_probability,
-            mutpb=toolbox.mutation_probability,
-            stats=None,
-            ngen=toolbox.max_generations,
-            halloffame=hall,
-            verbose=False
+        final_pop, stat = await asyncio.get_running_loop().run_in_executor(
+            None,
+            lambda: algorithms.eaMuPlusLambda(
+                pop,
+                toolbox,
+                mu=toolbox.population_size,
+                lambda_=toolbox.population_size,
+                cxpb=Decimal(1) - toolbox.mutation_probability,
+                mutpb=toolbox.mutation_probability,
+                stats=None,
+                ngen=toolbox.max_generations,
+                halloffame=hall,
+                verbose=False
+            )
         )
 
         best_args = list(flatten(hall[0]))
@@ -192,7 +201,6 @@ class Optimize(Agent):
             python_solver = Python(
                 candles, fees, filters, strategy_type, symbol, interval, start, end, quote
             )
-            await python_solver.__aenter__()
 
             python_result = python_solver.solve(*best_args)
             native_result = solver_instance.solve(*best_args)

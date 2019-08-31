@@ -1,24 +1,16 @@
 from __future__ import annotations
 
-from abc import abstractmethod
-from contextlib import AbstractAsyncContextManager
+from abc import ABC, abstractmethod
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 from juno import Candle, Span
-from juno.typing import ExcType, ExcValue, Traceback
 
 T = TypeVar('T')
 
 Key = Union[str, Tuple[Any, ...]]
 
 
-class Storage(AbstractAsyncContextManager):
-    async def __aenter__(self) -> Storage:
-        return self
-
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        pass
-
+class Storage(ABC):
     @abstractmethod
     async def stream_candle_spans(self, key: Key, start: int, end: int) -> AsyncIterable[Span]:
         yield  # type: ignore

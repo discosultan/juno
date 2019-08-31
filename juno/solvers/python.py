@@ -25,9 +25,6 @@ class Python:
         self.restart_on_missed_candle = False
         self.open_position: Optional[Position] = None
 
-    async def __aenter__(self) -> Python:
-        return self
-
     def solve(self, *args: Any) -> Any:
         self.result = TradingSummary(
             interval=self.interval,

@@ -19,6 +19,9 @@ class Memory(SQLite):
         super().__init__()
         self._db_ctxs: Dict[str, _DBContext] = defaultdict(_DBContext)
 
+    async def __aenter__(self) -> Memory:
+        return self
+
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await asyncio.gather(
             *(

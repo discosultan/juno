@@ -14,7 +14,7 @@ import cffi
 
 from juno import Candle, Fees, Filters
 from juno.strategies import Strategy
-from juno.typing import get_input_type_hints
+from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path, unpack_symbol
 
 _log = logging.getLogger(__name__)
@@ -64,7 +64,12 @@ class Rust:
             await proc.communicate()
             if proc.returncode != 0:
                 raise Exception(f'rust module compilation failed ({proc.returncode})')
-            shutil.copy2(str(compiled_path), str(dst_path))
+            await asyncio.get_running_loop().run_in_executor(
+                None,
+                shutil.copy2,
+                str(compiled_path),
+                str(dst_path)
+            )
 
         # FFI.
         ffi = cffi.FFI()
@@ -112,6 +117,9 @@ class Rust:
         ])
 
         return self
+
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        pass
 
     def solve(self, *args: Any) -> Any:
         result = self.solve_native(*args)
