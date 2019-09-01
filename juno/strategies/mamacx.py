@@ -31,14 +31,14 @@ class MAMACX(Strategy):
 
     @staticmethod
     def meta():
-        ma_choices = ['sma', 'smma', 'ema', 'ema2']
+        # ma_choices = ['sma', 'smma', 'ema', 'ema2']
         return {
             ('short_period', 'long_period'): math.IntPair(1, 51, operator.lt, 2, 101),
             'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
             'pos_threshold': math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
             'persistence': math.Int(0, 10),
-            'short_ma': math.Choice(ma_choices),
-            'long_ma': math.Choice(ma_choices),
+            # 'short_ma': math.Choice(ma_choices),
+            # 'long_ma': math.Choice(ma_choices),
         }
 
     def update(self, candle: Candle) -> Advice:

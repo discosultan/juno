@@ -2,6 +2,7 @@
     "log_format": "default",
     "log_level": "info",
     "storage": "sqlite",
+    "solver": "python",
     "agents": [
         {
             "name": "optimize",
@@ -14,8 +15,7 @@
             "restart_on_missed_candle": false,
             "strategy": "mamacx",
             "population_size": 50,
-            "max_generations": 100,
-            "solver": "python",
+            "max_generations": 10,
             "seed": 42
         }
     ]

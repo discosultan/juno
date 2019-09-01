@@ -2,6 +2,7 @@
     "log_format": "default",
     "log_level": "info",
     "storage": "sqlite",
+    "solver": "rust",
     "agents": [
         {
             "name": "optimize",
@@ -15,7 +16,6 @@
             "strategy": "mamacx",
             "max_generations": 1000,
             "population_size": 50,
-            "solver": "rust",
             "seed": null
         }
     ]

@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal
 from typing import List
 
+from .broker import Broker
 from juno import Fill, Fills, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
@@ -10,7 +11,7 @@ from juno.utils import unpack_symbol
 _log = logging.getLogger(__name__)
 
 
-class Market:
+class Market(Broker):
     def __init__(
         self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
     ) -> None:

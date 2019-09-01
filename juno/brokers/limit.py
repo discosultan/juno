@@ -5,6 +5,7 @@ import uuid
 from decimal import Decimal
 from typing import List
 
+from .broker import Broker
 from juno import (
     CancelOrderStatus, Fill, Fills, OrderResult, OrderStatus, OrderType, Side, TimeInForce
 )
@@ -15,7 +16,7 @@ from juno.exchanges import Exchange
 _log = logging.getLogger(__name__)
 
 
-class Limit:
+class Limit(Broker):
     def __init__(
         self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
     ) -> None:
