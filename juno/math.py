@@ -91,8 +91,7 @@ class Choice(Constraint):
         self.choices = choices
 
     def validate(self, value: Any) -> bool:
-        # TODO: We might want a more generic validation.
-        return type(value).__name__.lower() in self.choices
+        return value in self.choices
 
     def random(self, random: Random) -> Any:
         return random.choice(self.choices)

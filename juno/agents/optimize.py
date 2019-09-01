@@ -4,7 +4,7 @@ import math
 from decimal import Decimal
 from functools import partial
 from random import Random
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
@@ -12,7 +12,7 @@ from juno.asyncio import list_async
 from juno.components import Informant
 from juno.math import floor_multiple
 from juno.solvers import Python, get_solver_type
-from juno.strategies import get_strategy_type
+from juno.strategies import Strategy, get_strategy_type
 from juno.time import time_ms
 from juno.typing import get_input_type_hints
 from juno.utils import flatten
@@ -23,7 +23,7 @@ _log = logging.getLogger(__name__)
 
 
 class Optimize(Agent):
-    def __init__(self, informant: Informant):
+    def __init__(self, informant: Informant) -> None:
         super().__init__()
         self._informant = informant
 
@@ -57,38 +57,6 @@ class Optimize(Agent):
             _log.info(f'seeding randomizer ({seed})')
         random = Random(seed)
 
-        # Objectives:
-        #   - max total profit
-        #   - min mean drawdown
-        #   - min max drawdown
-        #   - max mean position profit
-        #   - min mean position duration
-        weights = (1.0, -1.0, -1.0, 1.0, -1.0)
-        # weights = (Decimal(1), Decimal(-1), Decimal (-1), Decimal(1), Decimal(-1))
-        # weights = (1.0, -0.5, -1.0, 1.0, -0.5)
-        # weights = (1.0, -0.1, -1.0, 0.1, -0.1)
-        creator.create('FitnessMulti', base.Fitness, weights=weights)
-        creator.create('Individual', list, fitness=creator.FitnessMulti)
-
-        # def attr_period() -> int:
-        #     return random.randint(1, 100)
-
-        # def attr_neg_pos_thresholds() -> Tuple[float, float]:
-        #     down_threshold = random.uniform(-2.0, -0.1)
-        #     up_threshold = random.uniform(0.1, 2.0)
-        #     return down_threshold, up_threshold
-
-        # def attr_down_up_thresholds() -> Tuple[float, float]:
-        #     down_threshold = random.uniform(0.1, 0.4)
-        #     up_threshold = random.uniform(0.6, 0.9)
-        #     return down_threshold, up_threshold
-
-        # def attr_rsi_down_threshold() -> float:
-        #     return random.uniform(10.0, 40.0)
-
-        # def attr_rsi_up_threshold() -> float:
-        #     return random.uniform(60.0, 90.0)
-
         candles = await list_async(
             self._informant.stream_candles(exchange, symbol, interval, start, end)
         )
@@ -115,9 +83,19 @@ class Optimize(Agent):
         if getattr(solver_instance, '__aenter__', None):
             await solver_instance.__aenter__()
 
-        toolbox = base.Toolbox()
-        toolbox.register('evaluate', lambda ind: solver_instance.solve(*flatten(ind)))
+        # Objectives:
+        #   - max total profit
+        #   - min mean drawdown
+        #   - min max drawdown
+        #   - max mean position profit
+        #   - min mean position duration
+        weights = (1.0, -1.0, -1.0, 1.0, -1.0)
+        creator.create('FitnessMulti', base.Fitness, weights=weights)
+        creator.create('Individual', list, fitness=creator.FitnessMulti)
 
+        toolbox = base.Toolbox()
+
+        # Initialization.
         attrs = [partial(c.random, random) for c in strategy_type.meta().values()]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
@@ -125,13 +103,15 @@ class Optimize(Agent):
         )
         toolbox.register('population', tools.initRepeat, list, toolbox.individual)
 
-        def mut_individual(individual, indpb: float) -> tuple:
+        # Operators.
+
+        def mut_individual(individual: list, indpb: float) -> Tuple[list]:
             for i, attr in enumerate(attrs):
                 if random.random() < indpb:
                     individual[i] = attr()
             return individual,
 
-        def cx_individual(ind1, ind2):
+        def cx_individual(ind1: list, ind2: list) -> Tuple[list, list]:
             end = len(ind1) - 1
 
             # Variant A.
@@ -161,6 +141,7 @@ class Optimize(Agent):
         #                  eta=20.0, indpb=1.0 / NDIM)
         toolbox.register('mutate', mut_individual, indpb=1.0 / len(attrs))
         toolbox.register('select', tools.selNSGA2)
+        toolbox.register('evaluate', lambda ind: solver_instance.solve(*flatten(ind)))
 
         toolbox.population_size = population_size
         toolbox.max_generations = max_generations
@@ -212,14 +193,16 @@ class Optimize(Agent):
                 )
 
 
-def _output_as_strategy_args(strategy_type, best_args):
+def _output_as_strategy_args(
+    strategy_type: Type[Strategy], best_args: List[Any]
+) -> Dict[str, Any]:
     strategy_config = {'name': strategy_type.__name__.lower()}
     for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args):
         strategy_config[key] = value
     return strategy_config
 
 
-def _isclose(a, b):
+def _isclose(a: Tuple[Decimal, ...], b: Tuple[Decimal, ...]) -> bool:
     isclose = True
     for i in range(0, len(a)):
         isclose = isclose and math.isclose(a[i], b[i], rel_tol=Decimal('1e-14'))
