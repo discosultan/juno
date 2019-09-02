@@ -131,6 +131,9 @@ class Rust(Solver):
                 else:
                     invoke_args.append(arg)
             fn_name = ''.join(ident_args) + 'cx'
+
+            self.ffi.cdef(_build_cdef(strategy_type))
+
             fn = getattr(self.libjuno, fn_name)
             result = fn(*invoke_args)
             # result = solve_native(*args)

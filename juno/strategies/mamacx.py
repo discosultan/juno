@@ -1,8 +1,8 @@
 import operator
 from decimal import Decimal
+from typing import Any
 
 from juno import Advice, Candle, Trend, math
-from juno.indicators import get_indicator_type
 from juno.utils import Persistence
 
 from .strategy import Strategy
@@ -11,21 +11,19 @@ from .strategy import Strategy
 # Moving average moving average crossover.
 class MAMACX(Strategy):
     def __init__(
-        self, short_period: int, long_period: int, neg_threshold: Decimal, pos_threshold: Decimal,
-        persistence: int, short_ma: str = 'ema', long_ma: str = 'ema'
+        self, short_ma: Any, long_ma: Any, neg_threshold: Decimal, pos_threshold: Decimal,
+        persistence: int
     ) -> None:
         self.validate(
-            short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
+            short_ma, long_ma, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
-        self._short_ma_name = short_ma
-        self._long_ma_name = long_ma
-        self._short_ma = get_indicator_type(short_ma)(short_period)
-        self._long_ma = get_indicator_type(long_ma)(long_period)
+        self._short_ma = short_ma
+        self._long_ma = long_ma
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
         self._persistence = Persistence(level=persistence, allow_initial_trend=False)
         self._t = 0
-        self._t1 = long_period - 1
+        self._t1 = long_ma.period - 1
 
     @property
     def req_history(self) -> int:
@@ -35,12 +33,10 @@ class MAMACX(Strategy):
     def meta():
         ma_choices = ['sma', 'smma', 'ema', 'ema2']
         return {
-            ('short_period', 'long_period'): math.IntPair(1, 51, operator.lt, 2, 101),
+            ('short_ma', 'long_ma'): math.IntPair(1, 51, operator.lt, 2, 101),
             'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
             'pos_threshold': math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
             'persistence': math.Int(0, 10),
-            'short_ma': math.Choice(ma_choices),
-            'long_ma': math.Choice(ma_choices),
         }
 
     def update(self, candle: Candle) -> Advice:
