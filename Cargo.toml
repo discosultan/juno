@@ -7,3 +7,6 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib"]
 path = "juno_rs/lib.rs"
+
+[dependencies]
+paste = "0.1.6"

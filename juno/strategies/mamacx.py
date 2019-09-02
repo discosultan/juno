@@ -17,8 +17,10 @@ class MAMACX(Strategy):
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
-        self._ma_short = get_indicator_type(short_ma)(short_period)
-        self._ma_long = get_indicator_type(long_ma)(long_period)
+        self._short_ma_name = short_ma
+        self._long_ma_name = long_ma
+        self._short_ma = get_indicator_type(short_ma)(short_period)
+        self._long_ma = get_indicator_type(long_ma)(long_period)
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
         self._persistence = Persistence(level=persistence, allow_initial_trend=False)
@@ -31,24 +33,24 @@ class MAMACX(Strategy):
 
     @staticmethod
     def meta():
-        # ma_choices = ['sma', 'smma', 'ema', 'ema2']
+        ma_choices = ['sma', 'smma', 'ema', 'ema2']
         return {
             ('short_period', 'long_period'): math.IntPair(1, 51, operator.lt, 2, 101),
             'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
             'pos_threshold': math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
             'persistence': math.Int(0, 10),
-            # 'short_ma': math.Choice(ma_choices),
-            # 'long_ma': math.Choice(ma_choices),
+            'short_ma': math.Choice(ma_choices),
+            'long_ma': math.Choice(ma_choices),
         }
 
     def update(self, candle: Candle) -> Advice:
-        self._ma_short.update(candle.close)
-        self._ma_long.update(candle.close)
+        self._short_ma.update(candle.close)
+        self._long_ma.update(candle.close)
 
         trend = Trend.UNKNOWN
         if self._t == self._t1:
-            diff = 100 * (self._ma_short.value - self._ma_long.value
-                          ) / ((self._ma_short.value + self._ma_long.value) / 2)
+            diff = 100 * (self._short_ma.value - self._long_ma.value
+                          ) / ((self._short_ma.value + self._long_ma.value) / 2)
 
             if diff > self._pos_threshold:
                 trend = Trend.UP

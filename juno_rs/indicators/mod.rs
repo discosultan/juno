@@ -3,6 +3,7 @@ mod di;
 mod dm;
 mod dx;
 mod ema;
+mod ma;
 mod macd;
 mod rsi;
 mod sma;
@@ -20,6 +21,9 @@ pub use sma::Sma;
 pub use smma::Smma;
 pub use stoch::Stoch;
 
-pub trait MovingAverage {
+pub trait MA {
     fn new(period: u32) -> Self;
+    fn update(&mut self, price: f64);
+    fn value(&self) -> f64;
+    fn period(&self) -> u32;
 }

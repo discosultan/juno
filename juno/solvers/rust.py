@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import functools
+# import functools
 import logging
 import os
 import platform
@@ -117,13 +117,23 @@ class Rust(Solver):
             'step': float(filters.size.step),
         }
 
-        solve_native = functools.partial(
-            getattr(self.libjuno, strategy_type.__name__.lower()), c_candles, len(candles), c_fees,
-            c_filters, interval, start, end, float(quote)
-        )
+        # solve_native = functools.partial(
+        #     getattr(self.libjuno, strategy_type.__name__.lower()), c_candles, len(candles), c_fees,
+        #     c_filters, interval, start, end, float(quote)
+        # )
 
         def backtest(*args: Any) -> Any:
-            result = solve_native(*args)
+            invoke_args = []
+            ident_args = []
+            for arg in args:
+                if isinstance(arg, str):
+                    ident_args.append(arg)
+                else:
+                    invoke_args.append(arg)
+            fn_name = ''.join(ident_args) + 'cx'
+            fn = getattr(self.libjuno, fn_name)
+            result = fn(*invoke_args)
+            # result = solve_native(*args)
             return (
                 result.profit,
                 result.mean_drawdown,

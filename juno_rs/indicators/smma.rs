@@ -1,8 +1,9 @@
-use super::sma::Sma;
+use super::{MA, sma::Sma};
 use std::cmp::min;
 
 pub struct Smma {
     pub value: f64,
+    pub period: u32,
 
     sma: Sma,
     weight: f64,
@@ -16,6 +17,7 @@ impl Smma {
     pub fn new(period: u32) -> Self {
         Self {
             value: 0.0,
+            period,
             sma: Sma::new(period),
             weight: f64::from(period),
             t: 0,
@@ -40,5 +42,23 @@ impl Smma {
         }
 
         self.t = min(self.t + 1, self.t2);
+    }
+}
+
+impl MA for Smma {
+    fn new(period: u32) -> Self {
+        Self::new(period)
+    }
+
+    fn update(&mut self, price: f64) {
+        self.update(price)
+    }
+
+    fn value(&self) -> f64 {
+        self.value
+    }
+
+    fn period(&self) -> u32 {
+        self.period
     }
 }
