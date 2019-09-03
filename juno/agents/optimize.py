@@ -13,7 +13,7 @@ from juno.solvers import Python, Solver
 from juno.strategies import Strategy, get_strategy_type
 from juno.time import time_ms
 from juno.typing import get_input_type_hints
-from juno.utils import flatten
+from juno.utils import get_args_by_param_names
 
 from . import Agent
 
@@ -70,8 +70,20 @@ class Optimize(Agent):
         toolbox = base.Toolbox()
 
         # Initialization.
-        attrs = [partial(c.random, random) for c in strategy_type.meta().values()]
-        toolbox.register('strategy_args', lambda: (a() for a in attrs))
+        meta = strategy_type.meta()
+        attrs = [partial(c.random, random) for c in meta.args.values()]
+
+        def generate_random_strategy_args() -> List[Any]:
+            while True:
+                # TODO: We should only regen attrs for ones failing constraint test.
+                args = [a() for a in attrs]
+                for names, constraint in meta.constraints.items():
+                    if not constraint(*get_args_by_param_names(args, meta.args.keys(), names)):
+                        continue
+                break
+            return args
+
+        toolbox.register('strategy_args', generate_random_strategy_args)
         toolbox.register(
             'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
         )
@@ -124,7 +136,7 @@ class Optimize(Agent):
             end=end,
             quote=quote
         )
-        toolbox.register('evaluate', lambda ind: solve(*flatten(ind)))
+        toolbox.register('evaluate', solve)
 
         toolbox.population_size = population_size
         toolbox.max_generations = max_generations
@@ -154,7 +166,7 @@ class Optimize(Agent):
             )
         )
 
-        best_args = list(flatten(hall[0]))
+        best_args = hall[0]
         best_result = solve(*best_args)
         _log.info(f'final backtest result: {best_result}')
         self.result = _output_as_strategy_args(strategy_type, best_args)

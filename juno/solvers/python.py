@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, List, Optional, Type
 
 from .solver import Solver
 from juno import Advice, Candle, Fill, Fills, Position, TradingSummary
@@ -38,7 +38,7 @@ class Python(Solver):
         self.quote = quote
         return self._solve
 
-    def _solve(self, *args: Any) -> Any:
+    def _solve(self, args: List[Any]) -> Any:
         ctx = TradingContext(self.quote, TradingSummary(
             interval=self.interval,
             start=self.start,

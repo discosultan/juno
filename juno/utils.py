@@ -123,6 +123,14 @@ def map_module_types(module: ModuleType) -> Dict[str, type]:
     return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
 
 
+def get_args_by_param_names(
+    args: Union[List[Any], Tuple[Any, ...]], all_names: Iterable[str], names: Tuple[str, ...]
+) -> Iterable[Any]:
+    for i, name in enumerate(all_names):
+        if name in names:
+            yield args[i]
+
+
 # TODO: Generalize typing to lists.
 # Ref: https://stackoverflow.com/a/312464/1466456
 def chunks(l: str, n: int) -> Iterable[str]:

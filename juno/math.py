@@ -2,7 +2,7 @@ import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from random import Random
-from typing import Any, Callable, List, Tuple, TypeVar
+from typing import Any, Callable, List, TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
 
@@ -15,7 +15,7 @@ def floor_multiple(value: TNum, multiple: TNum) -> TNum:
     return value - (value % multiple)
 
 
-class Constraint(ABC):
+class Randomizer(ABC):
 
     validate: Callable[..., bool] = abstractmethod(lambda: True)
 
@@ -24,7 +24,7 @@ class Constraint(ABC):
         pass
 
 
-class Uniform(Constraint):
+class Uniform(Randomizer):
     def __init__(self, min_: Decimal, max_: Decimal) -> None:
         self.min = min_
         self.max = max_
@@ -53,7 +53,7 @@ class Uniform(Constraint):
         return Decimal(random.randrange(self.min_int, self.max_int)) / self.factor
 
 
-class Int(Constraint):
+class Int(Randomizer):
     def __init__(self, min_: int, max_: int) -> None:
         self.min = min_
         self.max = max_
@@ -65,28 +65,27 @@ class Int(Constraint):
         return random.randrange(self.min, self.max)
 
 
-class IntPair(Constraint):
-    def __init__(
-        self, amin: int, amax: int, op: Callable[[int, int], bool], bmin: int, bmax: int
-    ) -> None:
-        self.a = Int(amin, amax)
-        self.op = op
-        self.b = Int(bmin, bmax)
+# class IntPair(RandomProvider):
+#     def __init__(
+#         self, amin: int, amax: int, op: Callable[[int, int], bool], bmin: int, bmax: int
+#     ) -> None:
+#         self.a = Int(amin, amax)
+#         self.op = op
+#         self.b = Int(bmin, bmax)
 
-    def validate(self, a: int, b: int) -> bool:
-        return self.a.validate(a) and self.b.validate(b) and self.op(a, b)
+#     def validate(self, a: int, b: int) -> bool:
+#         return self.a.validate(a) and self.b.validate(b) and self.op(a, b)
 
-    def random(self, random: Random) -> Tuple[int, int]:
-        while True:
-            a = self.a.random(random)
-            b = self.b.random(random)
-            if self.validate(a, b):
-                break
-        return a, b
+#     def random(self, random: Random) -> Tuple[int, int]:
+#         while True:
+#             a = self.a.random(random)
+#             b = self.b.random(random)
+#             if self.validate(a, b):
+#                 break
+#         return a, b
 
 
-# TODO: We might want to make it generic.
-class Choice(Constraint):
+class Choice(Randomizer):
     def __init__(self, choices: List[Any]) -> None:
         self.choices = choices
 

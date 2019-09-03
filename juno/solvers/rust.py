@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 # import functools
+import itertools
 import logging
 import os
 import platform
@@ -15,9 +16,9 @@ import cffi
 from .solver import Solver
 from juno.asyncio import list_async
 from juno.components import Informant
-from juno.strategies import Strategy
+from juno.strategies import Meta, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import flatten, home_path
+from juno.utils import home_path
 
 _log = logging.getLogger(__name__)
 
@@ -75,6 +76,8 @@ class Rust(Solver):
         self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
         end: int, quote: Decimal
     ) -> Callable[..., Any]:
+        meta = strategy_type.meta()
+
         self.ffi.cdef(_build_cdef(strategy_type))
 
         candles = await list_async(
@@ -147,10 +150,11 @@ class Rust(Solver):
 
 def _build_cdef(strategy_type: Type[Strategy]) -> str:
     type_hints = get_input_type_hints(strategy_type.__init__)
-    meta_keys = set(flatten(strategy_type.meta().keys()))
+    meta_keys = set(strategy_type.meta().args.keys())
     custom_params = ',\n'.join(
         (f'{_map_type(v)} {k}' for k, v in type_hints.items() if k in meta_keys)
     )
+
     return f'''
         typedef struct {{
             uint64_t time;
@@ -202,6 +206,29 @@ def _build_cdef(strategy_type: Type[Strategy]) -> str:
             double quote,
             {custom_params});
     '''
+
+
+def _build_function_permutations(meta: Meta, custom_params: str) -> str:
+    import re
+    keys = re.findall(r'\{(.*?)\}', meta.identifier)
+    possible_values = []
+    for key in keys:
+        possible_values.append(meta.args[key].choices)
+    for key in zip(cycle(keys), itertools.product(*possible_values)):
+    template = f'''
+        BacktestResult {identifier}(
+            const Candle *candles,
+            uint32_t length,
+            const Fees *fees,
+            const Filters *filters,
+            uint64_t interval,
+            uint64_t start,
+            uint64_t end,
+            double quote,
+            {custom_params});
+    '''
+
+    return template.format()
 
 
 def _map_type(type_: type) -> str:

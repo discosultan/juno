@@ -5,7 +5,7 @@ from juno import Advice, Candle, Trend, math
 from juno.indicators import get_indicator_type
 from juno.utils import Persistence
 
-from .strategy import Strategy
+from .strategy import Meta, Strategy
 
 
 # Moving average moving average crossover.
@@ -17,8 +17,6 @@ class MAMACX(Strategy):
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
-        self._short_ma_name = short_ma
-        self._long_ma_name = long_ma
         self._short_ma = get_indicator_type(short_ma)(short_period)
         self._long_ma = get_indicator_type(long_ma)(long_period)
         self._neg_threshold = neg_threshold
@@ -32,16 +30,23 @@ class MAMACX(Strategy):
         return self._t1
 
     @staticmethod
-    def meta():
+    def meta() -> Meta:
         ma_choices = ['sma', 'smma', 'ema', 'ema2']
-        return {
-            ('short_period', 'long_period'): math.IntPair(1, 51, operator.lt, 2, 101),
-            'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
-            'pos_threshold': math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
-            'persistence': math.Int(0, 10),
-            'short_ma': math.Choice(ma_choices),
-            'long_ma': math.Choice(ma_choices),
-        }
+        return Meta(
+            args={
+                'short_period': math.Int(1, 51),
+                'long_period': math.Int(2, 101),
+                'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
+                'pos_threshold': math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
+                'persistence': math.Int(0, 10),
+                'short_ma': math.Choice(ma_choices),
+                'long_ma': math.Choice(ma_choices),
+            },
+            constraints={
+                ('short_period', 'long_period'): operator.lt
+            },
+            identifier='{short_ma}{long_ma}cx'
+        )
 
     def update(self, candle: Candle) -> Advice:
         self._short_ma.update(candle.close)
