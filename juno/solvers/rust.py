@@ -18,7 +18,7 @@ from juno.asyncio import list_async
 from juno.components import Informant
 from juno.strategies import Meta, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path
+from juno.utils import get_args_by_params, home_path
 
 _log = logging.getLogger(__name__)
 
@@ -65,6 +65,10 @@ class Rust(Solver):
         # We need to keep a references to these instances for Rust; otherwise GC will clean them
         # up! Hence we assign to self.
         self.ffi = cffi.FFI()
+        # TODO: Does not allow running concurrently.
+        from juno.strategies import MAMACX
+        cdef = _build_cdef(MAMACX)
+        self.ffi.cdef(cdef)
         self.libjuno = self.ffi.dlopen(str(dst_path))
 
         return self
@@ -78,8 +82,6 @@ class Rust(Solver):
     ) -> Callable[..., Any]:
         meta = strategy_type.meta()
 
-        self.ffi.cdef(_build_cdef(strategy_type))
-
         candles = await list_async(
             self.informant.stream_candles(exchange, symbol, interval, start, end)
         )
@@ -90,7 +92,9 @@ class Rust(Solver):
         # # We need to keep a references to these instances for Rust; otherwise GC will clean them
         # # up! Hence we assign to self.
         # self.ffi = cffi.FFI()
-        # self.ffi.cdef(_build_cdef(strategy_type))
+        # cdef = _build_cdef(strategy_type)
+        # _log.critical(cdef)
+        # self.ffi.cdef(cdef)
         # self.libjuno = self.ffi.dlopen(str(self.path))
 
         c_candles = self.ffi.new(f'Candle[{len(candles)}]')
@@ -125,17 +129,18 @@ class Rust(Solver):
         #     c_filters, interval, start, end, float(quote)
         # )
 
-        def backtest(*args: Any) -> Any:
-            invoke_args = []
-            ident_args = []
-            for arg in args:
-                if isinstance(arg, str):
-                    ident_args.append(arg)
-                else:
-                    invoke_args.append(arg)
-            fn_name = ''.join(ident_args) + 'cx'
+        def backtest(args: Any) -> Any:
+            fn_args = get_args_by_params(meta.params.keys(), args, meta.non_identifier_params)
+            identifier_args = list(get_args_by_params(
+                meta.params.keys(), args, meta.identifier_params
+            ))
+            format_args = {k: v for k, v in zip(meta.identifier_params, identifier_args)}
+            fn_name = meta.identifier.format(**format_args)
             fn = getattr(self.libjuno, fn_name)
-            result = fn(*invoke_args)
+            result = fn(
+                c_candles, len(candles), c_fees, c_filters, interval, start, end, float(quote),
+                *fn_args
+            )
             # result = solve_native(*args)
             return (
                 result.profit,
@@ -150,85 +155,77 @@ class Rust(Solver):
 
 def _build_cdef(strategy_type: Type[Strategy]) -> str:
     type_hints = get_input_type_hints(strategy_type.__init__)
-    meta_keys = set(strategy_type.meta().args.keys())
-    custom_params = ',\n'.join(
-        (f'{_map_type(v)} {k}' for k, v in type_hints.items() if k in meta_keys)
+    meta = strategy_type.meta()
+    custom_params = ',\n    '.join(
+        (f'{_map_type(v)} {k}' for k, v in type_hints.items() if k in meta.non_identifier_params)
     )
 
     return f'''
-        typedef struct {{
-            uint64_t time;
-            double open;
-            double high;
-            double low;
-            double close;
-            double volume;
-        }} Candle;
+typedef struct {{
+    uint64_t time;
+    double open;
+    double high;
+    double low;
+    double close;
+    double volume;
+}} Candle;
 
-        typedef struct {{
-            double maker;
-            double taker;
-        }} Fees;
+typedef struct {{
+    double maker;
+    double taker;
+}} Fees;
 
-        typedef struct {{
-            double min;
-            double max;
-            double step;
-        }} Price;
+typedef struct {{
+    double min;
+    double max;
+    double step;
+}} Price;
 
-        typedef struct {{
-            double min;
-            double max;
-            double step;
-        }} Size;
+typedef struct {{
+    double min;
+    double max;
+    double step;
+}} Size;
 
-        typedef struct {{
-            Price price;
-            Size size;
-        }} Filters;
+typedef struct {{
+    Price price;
+    Size size;
+}} Filters;
 
-        typedef struct {{
-            double profit;
-            double mean_drawdown;
-            double max_drawdown;
-            double mean_position_profit;
-            uint64_t mean_position_duration;
-        }} BacktestResult;
+typedef struct {{
+    double profit;
+    double mean_drawdown;
+    double max_drawdown;
+    double mean_position_profit;
+    uint64_t mean_position_duration;
+}} BacktestResult;
 
-        BacktestResult {strategy_type.__name__.lower()}(
-            const Candle *candles,
-            uint32_t length,
-            const Fees *fees,
-            const Filters *filters,
-            uint64_t interval,
-            uint64_t start,
-            uint64_t end,
-            double quote,
-            {custom_params});
+{_build_function_permutations(meta, custom_params)}
     '''
 
 
 def _build_function_permutations(meta: Meta, custom_params: str) -> str:
-    import re
-    keys = re.findall(r'\{(.*?)\}', meta.identifier)
+    templates = []
     possible_values = []
-    for key in keys:
-        possible_values.append(meta.args[key].choices)
-    for key in zip(cycle(keys), itertools.product(*possible_values)):
-    template = f'''
-        BacktestResult {identifier}(
-            const Candle *candles,
-            uint32_t length,
-            const Fees *fees,
-            const Filters *filters,
-            uint64_t interval,
-            uint64_t start,
-            uint64_t end,
-            double quote,
-            {custom_params});
-    '''
-
-    return template.format()
+    for key in meta.identifier_params:
+        possible_values.append(meta.params[key].choices)
+    for keys, values in zip(
+        itertools.repeat(meta.identifier_params), itertools.product(*possible_values)
+    ):
+        format_args = {k: v for k, v in zip(keys, values)}
+        templates.append(f'''
+BacktestResult {meta.identifier.format(**format_args)}(
+    const Candle *candles,
+    uint32_t length,
+    const Fees *fees,
+    const Filters *filters,
+    uint64_t interval,
+    uint64_t start,
+    uint64_t end,
+    double quote,
+    {custom_params});
+        ''')
+    return '\n'.join(templates)
 
 
 def _map_type(type_: type) -> str:

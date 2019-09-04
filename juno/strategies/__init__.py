@@ -3,10 +3,11 @@ import sys
 from typing import Any, Dict, Type, cast
 
 from .mamacx import MAMACX
-from .strategy import Strategy
+from .strategy import Meta, Strategy
 
 __all__ = [
     'MAMACX',
+    'Meta',
     'Strategy',
     'new_strategy',
     'get_strategy_type',

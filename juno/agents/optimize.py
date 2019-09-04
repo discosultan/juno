@@ -13,7 +13,7 @@ from juno.solvers import Python, Solver
 from juno.strategies import Strategy, get_strategy_type
 from juno.time import time_ms
 from juno.typing import get_input_type_hints
-from juno.utils import get_args_by_param_names
+from juno.utils import get_args_by_params
 
 from . import Agent
 
@@ -71,14 +71,15 @@ class Optimize(Agent):
 
         # Initialization.
         meta = strategy_type.meta()
-        attrs = [partial(c.random, random) for c in meta.args.values()]
+        attrs = [partial(c.random, random) for c in meta.params.values()]
 
+        # TODO: Fix!!!!!!!
         def generate_random_strategy_args() -> List[Any]:
             while True:
                 # TODO: We should only regen attrs for ones failing constraint test.
                 args = [a() for a in attrs]
                 for names, constraint in meta.constraints.items():
-                    if not constraint(*get_args_by_param_names(args, meta.args.keys(), names)):
+                    if not constraint(*get_args_by_params(meta.params.keys(), args, names)):
                         continue
                 break
             return args
@@ -167,7 +168,7 @@ class Optimize(Agent):
         )
 
         best_args = hall[0]
-        best_result = solve(*best_args)
+        best_result = solve(best_args)
         _log.info(f'final backtest result: {best_result}')
         self.result = _output_as_strategy_args(strategy_type, best_args)
 
@@ -186,7 +187,7 @@ class Optimize(Agent):
                 end=end,
                 quote=quote
             )
-            validation_result = validation_solve(*best_args)
+            validation_result = validation_solve(best_args)
             if not _isclose(validation_result, best_result):
                 raise Exception(
                     f'Optimizer results differ for input {self.result} between python and '

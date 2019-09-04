@@ -1,15 +1,24 @@
+import re
 from abc import ABC, abstractmethod, abstractproperty
-from typing import Any, Dict, NamedTuple, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from juno import Advice, Candle, Trend
 from juno.math import Randomizer
-from juno.utils import get_args_by_param_names
+from juno.utils import get_args_by_params
 
 
-class Meta(NamedTuple):
-    args: Dict[str, Randomizer]
-    constraints: Dict[Tuple[str, ...], Any]
-    identifier: str
+class Meta:
+    def __init__(
+        self, params: Dict[str, Randomizer] = {}, constraints: Dict[Tuple[str, ...], Any] = {},
+        identifier: Optional[str] = None
+    ) -> None:
+        self.params = params
+        self.constraints = constraints
+        self.identifier = identifier
+        self.identifier_params = re.findall(r'\{(.*?)\}', identifier) if identifier else []
+        if not all((p in params.keys() for p in self.identifier_params)):
+            raise ValueError('Param from identifier missing in params.')
+        self.non_identifier_params = [k for k in params.keys() if k not in self.identifier_params]
 
 
 class Strategy(ABC):
@@ -29,12 +38,12 @@ class Strategy(ABC):
     def validate(self, *args: Any) -> None:
         # Assumes ordered.
         meta = type(self).meta()
-        for i, (name, randomizer) in enumerate(meta.args.items()):
+        for i, (name, randomizer) in enumerate(meta.params.items()):
             if not randomizer.validate(args[i]):
                 raise ValueError(f'Incorrect argument: {args[i]} for parameter: {name}')
         for names, constraint in meta.constraints.items():
-            if not constraint(*get_args_by_param_names(args, meta.args.keys(), names)):
-                raise ValueError(f'Constraint not satisfied: {names} {constraint}')
+            if not constraint(*get_args_by_params(meta.params.keys(), args, names)):
+                raise ValueError(f'Constraint not satisfied: {names} {constraint} {args}')
 
     @staticmethod
     def advice(trend: Trend, changed: bool) -> Advice:

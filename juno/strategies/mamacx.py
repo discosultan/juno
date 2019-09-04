@@ -33,7 +33,7 @@ class MAMACX(Strategy):
     def meta() -> Meta:
         ma_choices = ['sma', 'smma', 'ema', 'ema2']
         return Meta(
-            args={
+            params={
                 'short_period': math.Int(1, 51),
                 'long_period': math.Int(2, 101),
                 'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),

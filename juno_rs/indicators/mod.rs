@@ -3,7 +3,6 @@ mod di;
 mod dm;
 mod dx;
 mod ema;
-mod ma;
 mod macd;
 mod rsi;
 mod sma;

@@ -124,11 +124,12 @@ def map_module_types(module: ModuleType) -> Dict[str, type]:
     return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
 
 
-def get_args_by_param_names(
-    args: Union[List[Any], Tuple[Any, ...]], all_names: Iterable[str], names: Tuple[str, ...]
+def get_args_by_params(
+    params: Iterable[str], args: Union[List[Any], Tuple[Any, ...]],
+    find_params: Union[List[Any], Tuple[str, ...]]
 ) -> Iterable[Any]:
-    for i, name in enumerate(all_names):
-        if name in names:
+    for i, name in enumerate(params):
+        if name in find_params:
             yield args[i]
 
 

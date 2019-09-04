@@ -170,3 +170,10 @@ async def test_event_emitter():
 def test_chunks(input, count, expected_output):
     output = list(utils.chunks(input, count))
     assert output == expected_output
+
+
+def test_get_args_by_param_names():
+    params = ['foo', 'bar', 'baz']
+    args = [1, 2, 3]
+    output = list(utils.get_args_by_params(params, args, ['foo', 'baz']))
+    assert output == [1, 3]

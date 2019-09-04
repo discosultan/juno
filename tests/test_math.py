@@ -31,27 +31,27 @@ def test_floor_multiple(value, multiple, expected_output):
 
 @pytest.mark.manual
 @pytest.mark.chaos
-def test_uniform_constraint():
-    assert_constraint_chaos(math.Uniform(Decimal('-0.10'), Decimal('2.00')))
+def test_uniform_randomizer():
+    assert_randomizer_chaos(math.Uniform(Decimal('-0.10'), Decimal('2.00')))
 
 
 @pytest.mark.manual
 @pytest.mark.chaos
-def test_int_constraint():
-    assert_constraint_chaos(math.Int(-10, 10))
+def test_int_randomizer():
+    assert_randomizer_chaos(math.Int(-10, 10))
 
 
 @pytest.mark.manual
 @pytest.mark.chaos
-def test_int_pair_constraint():
-    assert_constraint_chaos(math.IntPair(-10, 10, operator.lt, 5, 20))
+def test_choice_randomizer():
+    assert_randomizer_chaos(math.Choice(['foo', 'bar']))
 
 
-def assert_constraint_chaos(constraint):
+def assert_randomizer_chaos(randomizer):
     random = Random()
     for i in range(0, 1000):
-        value = constraint.random(random)
+        value = randomizer.random(random)
     if isinstance(value, tuple):
-        assert constraint.validate(*value)
+        assert randomizer.validate(*value)
     else:
-        assert constraint.validate(value)
+        assert randomizer.validate(value)
