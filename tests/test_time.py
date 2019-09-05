@@ -1,5 +1,7 @@
 from datetime import datetime
 
+import pytest
+
 from juno import time
 
 
@@ -13,9 +15,13 @@ def test_datetime_utcfromtimestamp_ms():
     assert output == datetime(2000, 1, 1, tzinfo=time.UTC)
 
 
-def test_strfinterval():
-    output = time.strfinterval(time.DAY_MS * 2)
-    assert output == '2d'
+@pytest.mark.parametrize('input,expected_output', [
+    [time.DAY_MS * 2, '2d'],
+    [123, '123ms'],
+    [1234, '1s234ms'],
+])
+def test_strfinterval(input, expected_output):
+    assert time.strfinterval(input) == expected_output
 
 
 def test_strpinterval():

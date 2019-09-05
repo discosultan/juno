@@ -80,7 +80,7 @@ class Rust(Solver):
         self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
         end: int, quote: Decimal
     ) -> Callable[..., Any]:
-        meta = strategy_type.meta()
+        meta = strategy_type.meta
 
         candles = await list_async(
             self.informant.stream_candles(exchange, symbol, interval, start, end)
@@ -155,7 +155,7 @@ class Rust(Solver):
 
 def _build_cdef(strategy_type: Type[Strategy]) -> str:
     type_hints = get_input_type_hints(strategy_type.__init__)
-    meta = strategy_type.meta()
+    meta = strategy_type.meta
     custom_params = ',\n    '.join(
         (f'{_map_type(v)} {k}' for k, v in type_hints.items() if k in meta.non_identifier_params)
     )

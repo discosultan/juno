@@ -14,8 +14,8 @@
             "quote": "10.0",
             "restart_on_missed_candle": false,
             "strategy": "mamacx",
-            "max_generations": 1000,
             "population_size": 50,
+            "max_generations": 1000,
             "seed": 3961962239779106097
         }
     ]

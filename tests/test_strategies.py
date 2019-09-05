@@ -31,17 +31,15 @@ def test_strategy_meta():
 
 class DummyStrategy(Strategy):
 
-    @staticmethod
-    def meta():
-        return Meta(
-            params={
-                'foo': math.Int(0, 15),
-                'bar': math.Int(10, 20),
-            },
-            constraints={
-                ('foo', 'bar'): operator.lt,
-            }
-        )
+    meta = Meta(
+        params={
+            'foo': math.Int(0, 15),
+            'bar': math.Int(10, 20),
+        },
+        constraints={
+            ('foo', 'bar'): operator.lt,
+        }
+    )
 
     def req_history(self):
         pass

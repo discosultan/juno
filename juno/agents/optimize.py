@@ -12,9 +12,8 @@ from deap import algorithms, base, creator, tools
 from juno.math import floor_multiple
 from juno.solvers import Python, Solver
 from juno.strategies import Strategy, get_strategy_type
-from juno.time import time_ms
+from juno.time import strfinterval, time_ms
 from juno.typing import get_input_type_hints
-from juno.utils import get_args_by_params
 
 from . import Agent
 
@@ -71,18 +70,14 @@ class Optimize(Agent):
         toolbox = base.Toolbox()
 
         # Initialization.
-        meta = strategy_type.meta()
+        meta = strategy_type.meta
         attrs = [partial(c.random, random) for c in meta.params.values()]
 
         def generate_random_strategy_args() -> List[Any]:
             while True:
                 # TODO: We should only regen attrs for ones failing constraint test.
                 args = [a() for a in attrs]
-                ok = True
-                for params, constraint in meta.constraints.items():
-                    ok = ok and constraint(*get_args_by_params(meta.params.keys(), args, params))
-                _log.critical(ok)
-                if ok:
+                if meta.constraints_satisfied(args):
                     break
             return args
 
@@ -95,29 +90,44 @@ class Optimize(Agent):
         # Operators.
 
         def mut_individual(individual: list, indpb: float) -> Tuple[list]:
-            # TODO: take constraints into consideration
+            # TODO: Optimize impl
             for i, attr in enumerate(attrs):
                 if random.random() < indpb:
-                    individual[i] = attr()
+                    while True:
+                        individual[i] = attr()
+                        # TODO: Only validate constraints referring to the attr.
+                        if meta.constraints_satisfied(individual):
+                            break
             return individual,
 
         def cx_individual(ind1: list, ind2: list) -> Tuple[list, list]:
             end = len(ind1) - 1
 
-            # Variant A.
-            cxpoint1, cxpoint2 = 0, -1
-            while cxpoint2 < cxpoint1:
-                cxpoint1 = random.randint(0, end)
-                cxpoint2 = random.randint(0, end)
+            while True:
+                # Variant A.
+                cxpoint1, cxpoint2 = 0, -1
+                while cxpoint2 < cxpoint1:
+                    cxpoint1 = random.randint(0, end)
+                    cxpoint2 = random.randint(0, end)
 
-            # Variant B.
-            # cxpoint1 = random.randint(0, end)
-            # cxpoint2 = random.randint(cxpoint1, end)
+                # Variant B.
+                # cxpoint1 = random.randint(0, end)
+                # cxpoint2 = random.randint(cxpoint1, end)
 
-            cxpoint2 += 1
+                cxpoint2 += 1
 
-            ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = ind2[cxpoint1:cxpoint2
-                                                                    ], ind1[cxpoint1:cxpoint2]
+                ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = (
+                    ind2[cxpoint1:cxpoint2], ind1[cxpoint1:cxpoint2]
+                )
+
+                # TODO: Optimize.
+                if meta.constraints_satisfied(ind1) and meta.constraints_satisfied(ind2):
+                    break
+                else:
+                    # Revert changes.
+                    ind2[cxpoint1:cxpoint2], ind1[cxpoint1:cxpoint2] = (
+                        ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2]
+                    )
 
             return ind1, ind2
 
@@ -131,6 +141,7 @@ class Optimize(Agent):
         #                  eta=20.0, indpb=1.0 / NDIM)
         toolbox.register('mutate', mut_individual, indpb=1.0 / len(attrs))
         toolbox.register('select', tools.selNSGA2)
+
         solve = await self.solver.get(
             strategy_type=strategy_type,
             exchange=exchange,
@@ -146,12 +157,13 @@ class Optimize(Agent):
         toolbox.max_generations = max_generations
         toolbox.mutation_probability = mutation_probability
 
-        _log.info('evolving')
-
         pop = toolbox.population(n=toolbox.population_size)
         pop = toolbox.select(pop, len(pop))
 
         hall = tools.HallOfFame(1)
+
+        _log.info('evolving')
+        evolve_start = time_ms()
 
         # Returns the final population and logbook with the statistics of the evolution.
         final_pop, stat = await asyncio.get_running_loop().run_in_executor(
@@ -170,6 +182,8 @@ class Optimize(Agent):
             )
         )
 
+        _log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
+
         best_args = hall[0]
         best_result = solve(best_args)
         self.result = OptimizationResult(
@@ -181,8 +195,8 @@ class Optimize(Agent):
         # Python solver to assert the equality of results.
         if self.solver != self.validating_solver:
             solver_name = type(self.solver).__name__.lower()
-            _log.info(f'validating {solver_name} solver result with best '
-                      'args against python solver')
+            _log.info(f'validating {solver_name} solver result with best args against python '
+                      'solver')
             validation_solve = await self.validating_solver.get(
                 strategy_type=strategy_type,
                 exchange=exchange,

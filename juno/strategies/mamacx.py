@@ -7,9 +7,27 @@ from juno.utils import Persistence
 
 from .strategy import Meta, Strategy
 
+_ma_choices = math.Choice(['sma', 'smma', 'ema', 'ema2'])
+
 
 # Moving average moving average crossover.
 class MAMACX(Strategy):
+    meta = Meta(
+        params={
+            'short_period': math.Int(1, 51),
+            'long_period': math.Int(2, 101),
+            'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
+            'pos_threshold': math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
+            'persistence': math.Int(0, 10),
+            'short_ma': _ma_choices,
+            'long_ma': _ma_choices,
+        },
+        constraints={
+            ('short_period', 'long_period'): operator.lt
+        },
+        identifier='{short_ma}{long_ma}cx'
+    )
+
     def __init__(
         self, short_period: int, long_period: int, neg_threshold: Decimal, pos_threshold: Decimal,
         persistence: int, short_ma: str = 'ema', long_ma: str = 'ema'
@@ -28,25 +46,6 @@ class MAMACX(Strategy):
     @property
     def req_history(self) -> int:
         return self._t1
-
-    @staticmethod
-    def meta() -> Meta:
-        ma_choices = ['sma', 'smma', 'ema', 'ema2']
-        return Meta(
-            params={
-                'short_period': math.Int(1, 51),
-                'long_period': math.Int(2, 101),
-                'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
-                'pos_threshold': math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
-                'persistence': math.Int(0, 10),
-                'short_ma': math.Choice(ma_choices),
-                'long_ma': math.Choice(ma_choices),
-            },
-            constraints={
-                ('short_period', 'long_period'): operator.lt
-            },
-            identifier='{short_ma}{long_ma}cx'
-        )
 
     def update(self, candle: Candle) -> Advice:
         self._short_ma.update(candle.close)

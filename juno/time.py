@@ -43,7 +43,8 @@ _INTERVAL_FACTORS = {
     'd': DAY_MS,
     'h': HOUR_MS,
     'm': MIN_MS,
-    's': SEC_MS
+    's': SEC_MS,
+    'ms': 1,
 }
 
 
