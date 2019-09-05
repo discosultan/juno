@@ -38,7 +38,7 @@ class Python(Solver):
         self.quote = quote
         return self._solve
 
-    def _solve(self, args: List[Any]) -> Any:
+    def _solve(self, *args: Any) -> Any:
         ctx = TradingContext(self.quote, TradingSummary(
             interval=self.interval,
             start=self.start,

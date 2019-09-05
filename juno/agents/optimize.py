@@ -14,6 +14,7 @@ from juno.solvers import Python, Solver
 from juno.strategies import Strategy, get_strategy_type
 from juno.time import strfinterval, time_ms
 from juno.typing import get_input_type_hints
+from juno.utils import flatten
 
 from . import Agent
 
@@ -70,18 +71,8 @@ class Optimize(Agent):
         toolbox = base.Toolbox()
 
         # Initialization.
-        meta = strategy_type.meta
-        attrs = [partial(c.random, random) for c in meta.params.values()]
-
-        def generate_random_strategy_args() -> List[Any]:
-            while True:
-                # TODO: We should only regen attrs for ones failing constraint test.
-                args = [a() for a in attrs]
-                if meta.constraints_satisfied(args):
-                    break
-            return args
-
-        toolbox.register('strategy_args', generate_random_strategy_args)
+        attrs = [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
+        toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
             'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
         )
@@ -90,44 +81,28 @@ class Optimize(Agent):
         # Operators.
 
         def mut_individual(individual: list, indpb: float) -> Tuple[list]:
-            # TODO: Optimize impl
             for i, attr in enumerate(attrs):
                 if random.random() < indpb:
-                    while True:
-                        individual[i] = attr()
-                        # TODO: Only validate constraints referring to the attr.
-                        if meta.constraints_satisfied(individual):
-                            break
+                    individual[i] = attr()
             return individual,
 
         def cx_individual(ind1: list, ind2: list) -> Tuple[list, list]:
             end = len(ind1) - 1
 
-            while True:
-                # Variant A.
-                cxpoint1, cxpoint2 = 0, -1
-                while cxpoint2 < cxpoint1:
-                    cxpoint1 = random.randint(0, end)
-                    cxpoint2 = random.randint(0, end)
+            # Variant A.
+            cxpoint1, cxpoint2 = 0, -1
+            while cxpoint2 < cxpoint1:
+                cxpoint1 = random.randint(0, end)
+                cxpoint2 = random.randint(0, end)
 
-                # Variant B.
-                # cxpoint1 = random.randint(0, end)
-                # cxpoint2 = random.randint(cxpoint1, end)
+            # Variant B.
+            # cxpoint1 = random.randint(0, end)
+            # cxpoint2 = random.randint(cxpoint1, end)
 
-                cxpoint2 += 1
+            cxpoint2 += 1
 
-                ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = (
-                    ind2[cxpoint1:cxpoint2], ind1[cxpoint1:cxpoint2]
-                )
-
-                # TODO: Optimize.
-                if meta.constraints_satisfied(ind1) and meta.constraints_satisfied(ind2):
-                    break
-                else:
-                    # Revert changes.
-                    ind2[cxpoint1:cxpoint2], ind1[cxpoint1:cxpoint2] = (
-                        ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2]
-                    )
+            ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = ind2[cxpoint1:cxpoint2
+                                                                    ], ind1[cxpoint1:cxpoint2]
 
             return ind1, ind2
 
@@ -151,7 +126,7 @@ class Optimize(Agent):
             end=end,
             quote=quote
         )
-        toolbox.register('evaluate', solve)
+        toolbox.register('evaluate', lambda ind: solve(*flatten(ind)))
 
         toolbox.population_size = population_size
         toolbox.max_generations = max_generations

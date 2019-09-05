@@ -8,7 +8,7 @@ from juno.strategies import Meta, Strategy
 
 def test_meta():
     meta = Meta(
-        params={
+        constraints={
             'foo': {},
             'bar': {},
             'baz': {},
@@ -32,12 +32,8 @@ def test_strategy_meta():
 class DummyStrategy(Strategy):
 
     meta = Meta(
-        params={
-            'foo': math.Int(0, 15),
-            'bar': math.Int(10, 20),
-        },
         constraints={
-            ('foo', 'bar'): operator.lt,
+            ('foo', 'bar'): math.IntPair(0, 15, operator.lt, 10, 20),
         }
     )
 

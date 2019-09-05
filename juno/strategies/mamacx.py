@@ -13,17 +13,13 @@ _ma_choices = math.Choice(['sma', 'smma', 'ema', 'ema2'])
 # Moving average moving average crossover.
 class MAMACX(Strategy):
     meta = Meta(
-        params={
-            'short_period': math.Int(1, 51),
-            'long_period': math.Int(2, 101),
+        constraints={
+            ('short_period', 'long_period'): math.IntPair(1, 51, operator.lt, 2, 101),
             'neg_threshold': math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
             'pos_threshold': math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
             'persistence': math.Int(0, 10),
             'short_ma': _ma_choices,
             'long_ma': _ma_choices,
-        },
-        constraints={
-            ('short_period', 'long_period'): operator.lt
         },
         identifier='{short_ma}{long_ma}cx'
     )

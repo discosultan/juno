@@ -129,10 +129,10 @@ class Rust(Solver):
         #     c_filters, interval, start, end, float(quote)
         # )
 
-        def backtest(args: Any) -> Any:
-            fn_args = get_args_by_params(meta.params.keys(), args, meta.non_identifier_params)
+        def backtest(*args: Any) -> Any:
+            fn_args = get_args_by_params(meta.constraints.keys(), args, meta.non_identifier_params)
             identifier_args = list(get_args_by_params(
-                meta.params.keys(), args, meta.identifier_params
+                meta.constraints.keys(), args, meta.identifier_params
             ))
             format_args = {k: v for k, v in zip(meta.identifier_params, identifier_args)}
             fn_name = meta.identifier.format(**format_args)
@@ -208,7 +208,7 @@ def _build_function_permutations(meta: Meta, custom_params: str) -> str:
     templates = []
     possible_values = []
     for key in meta.identifier_params:
-        possible_values.append(meta.params[key].choices)
+        possible_values.append(meta.constraints[key].choices)
     for keys, values in zip(
         itertools.repeat(meta.identifier_params), itertools.product(*possible_values)
     ):
