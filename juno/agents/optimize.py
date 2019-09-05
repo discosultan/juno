@@ -1,10 +1,11 @@
 import asyncio
 import logging
 import math
+import sys
 from decimal import Decimal
 from functools import partial
-from random import Random
-from typing import Any, Dict, List, Optional, Tuple, Type
+from random import Random, randrange
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
@@ -50,9 +51,9 @@ class Optimize(Agent):
         assert end > start
         assert quote > 0
 
-        # It's useful to set a seed for idempotent results. Helpful for debugging.
-        if seed is not None:
-            _log.info(f'seeding randomizer ({seed})')
+        if seed is None:
+            seed = randrange(sys.maxsize)
+        _log.info(f'randomizer seed ({seed})')
         random = Random(seed)
 
         strategy_type = get_strategy_type(strategy)
@@ -73,15 +74,16 @@ class Optimize(Agent):
         meta = strategy_type.meta()
         attrs = [partial(c.random, random) for c in meta.params.values()]
 
-        # TODO: Fix!!!!!!!
         def generate_random_strategy_args() -> List[Any]:
             while True:
                 # TODO: We should only regen attrs for ones failing constraint test.
                 args = [a() for a in attrs]
-                for names, constraint in meta.constraints.items():
-                    if not constraint(*get_args_by_params(meta.params.keys(), args, names)):
-                        continue
-                break
+                ok = True
+                for params, constraint in meta.constraints.items():
+                    ok = ok and constraint(*get_args_by_params(meta.params.keys(), args, params))
+                _log.critical(ok)
+                if ok:
+                    break
             return args
 
         toolbox.register('strategy_args', generate_random_strategy_args)
@@ -93,6 +95,7 @@ class Optimize(Agent):
         # Operators.
 
         def mut_individual(individual: list, indpb: float) -> Tuple[list]:
+            # TODO: take constraints into consideration
             for i, attr in enumerate(attrs):
                 if random.random() < indpb:
                     individual[i] = attr()
@@ -169,8 +172,10 @@ class Optimize(Agent):
 
         best_args = hall[0]
         best_result = solve(best_args)
-        _log.info(f'final backtest result: {best_result}')
-        self.result = _output_as_strategy_args(strategy_type, best_args)
+        self.result = OptimizationResult(
+            args=_output_as_strategy_args(strategy_type, best_args),
+            result=best_result
+        )
 
         # In case of using other than python solver, run the backtest with final args also with
         # Python solver to assert the equality of results.
@@ -193,6 +198,11 @@ class Optimize(Agent):
                     f'Optimizer results differ for input {self.result} between python and '
                     f'{solver_name} solvers:\n{validation_result}\n{best_result}'
                 )
+
+
+class OptimizationResult(NamedTuple):
+    args: Dict[str, Any]
+    result: Any
 
 
 def _output_as_strategy_args(

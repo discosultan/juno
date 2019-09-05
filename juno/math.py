@@ -65,26 +65,6 @@ class Int(Randomizer):
         return random.randrange(self.min, self.max)
 
 
-# class IntPair(RandomProvider):
-#     def __init__(
-#         self, amin: int, amax: int, op: Callable[[int, int], bool], bmin: int, bmax: int
-#     ) -> None:
-#         self.a = Int(amin, amax)
-#         self.op = op
-#         self.b = Int(bmin, bmax)
-
-#     def validate(self, a: int, b: int) -> bool:
-#         return self.a.validate(a) and self.b.validate(b) and self.op(a, b)
-
-#     def random(self, random: Random) -> Tuple[int, int]:
-#         while True:
-#             a = self.a.random(random)
-#             b = self.b.random(random)
-#             if self.validate(a, b):
-#                 break
-#         return a, b
-
-
 class Choice(Randomizer):
     def __init__(self, choices: List[Any]) -> None:
         self.choices = choices
