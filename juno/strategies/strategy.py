@@ -1,3 +1,4 @@
+import operator
 import re
 from abc import ABC, abstractmethod, abstractproperty
 from typing import Any, Dict, Optional, Tuple, Union
@@ -21,6 +22,13 @@ class Meta:
         self.non_identifier_params = [
             k for k in self.all_params if k not in self.identifier_params
         ]
+
+        self.get_identifier_args = operator.itemgetter(
+            *(i for i, p in enumerate(self.all_params) if p in self.identifier_params)
+        ) if len(self.identifier_params) > 0 else lambda args: ()
+        self.get_non_identifier_args = operator.itemgetter(
+            *(i for i, p in enumerate(self.all_params) if p in self.non_identifier_params)
+        ) if len(self.non_identifier_params) > 0 else lambda args: ()
 
     @property
     def identifier(self) -> str:

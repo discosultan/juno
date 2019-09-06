@@ -1,8 +1,10 @@
 import logging
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from juno import Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingSummary
+from juno import (
+    Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingSummary
+)
 from juno.components import Informant
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
@@ -146,65 +148,3 @@ class Backtest(Agent):
         self.open_position = None
 
         self.quote = quote - fee
-
-    # TODO: Ugly but essentially just a sync version of backtesting for optimizer.
-    # Ensure impl is similar to async version. Strips logging.
-    def run_sync(
-        self,
-        candles: List[Candle],
-        fees: Fees,
-        filters: Filters,
-        exchange: str,
-        symbol: str,
-        interval: int,
-        start: int,
-        end: int,
-        quote: Decimal,
-        strategy_config: Dict[str, Any],
-        restart_on_missed_candle: bool = False,
-    ) -> TradingSummary:
-        self.base_asset, self.quote_asset = unpack_symbol(symbol)
-        self.quote = quote
-
-        self.fees = fees
-        self.filters = filters
-        self.result = TradingSummary(
-            interval=interval, start=start, quote=quote, fees=self.fees, filters=self.filters
-        )
-        self.open_position = None
-        restart_count = 0
-
-        while True:
-            self.last_candle = None
-            restart = False
-
-            strategy = new_strategy(strategy_config)
-
-            if restart_count == 0:
-                start -= strategy.req_history * interval
-
-            for candle in candles:
-                if not candle.closed:
-                    continue
-
-                self.result.append_candle(candle)
-
-                if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
-                    if restart_on_missed_candle:
-                        restart = True
-                        restart_count += 1
-                        break
-
-                self.last_candle = candle
-                advice = strategy.update(candle)
-
-                if not self.open_position and advice is Advice.BUY:
-                    if not self._try_open_position(candle):
-                        break
-                elif self.open_position and advice is Advice.SELL:
-                    self._close_position(candle)
-
-            if not restart:
-                break
-
-        return self.result

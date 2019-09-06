@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-# import functools
 import itertools
 import logging
 import os
@@ -13,12 +12,12 @@ from typing import Any, Callable, Type
 
 import cffi
 
-from .solver import Solver
+from .solver import Solver, SolverResult
 from juno.asyncio import list_async
 from juno.components import Informant
 from juno.strategies import Meta, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import get_args_by_params, home_path
+from juno.utils import home_path
 
 _log = logging.getLogger(__name__)
 
@@ -61,15 +60,7 @@ class Rust(Solver):
                 str(dst_path)
             )
 
-        # FFI.
-        # We need to keep a references to these instances for Rust; otherwise GC will clean them
-        # up! Hence we assign to self.
-        self.ffi = cffi.FFI()
-        # TODO: Does not allow running concurrently.
-        from juno.strategies import MAMACX
-        cdef = _build_cdef(MAMACX)
-        self.ffi.cdef(cdef)
-        self.libjuno = self.ffi.dlopen(str(dst_path))
+        self.lib_path = dst_path
 
         return self
 
@@ -80,24 +71,19 @@ class Rust(Solver):
         self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
         end: int, quote: Decimal
     ) -> Callable[..., Any]:
-        meta = strategy_type.meta
-
         candles = await list_async(
             self.informant.stream_candles(exchange, symbol, interval, start, end)
         )
         fees = self.informant.get_fees(exchange, symbol)
         filters = self.informant.get_filters(exchange, symbol)
 
-        # # FFI.
-        # # We need to keep a references to these instances for Rust; otherwise GC will clean them
-        # # up! Hence we assign to self.
-        # self.ffi = cffi.FFI()
-        # cdef = _build_cdef(strategy_type)
-        # _log.critical(cdef)
-        # self.ffi.cdef(cdef)
-        # self.libjuno = self.ffi.dlopen(str(self.path))
+        # FFI.
+        ffi = cffi.FFI()
+        cdef = _build_cdef(strategy_type)
+        ffi.cdef(cdef)
+        libjuno = ffi.dlopen(str(self.lib_path))
 
-        c_candles = self.ffi.new(f'Candle[{len(candles)}]')
+        c_candles = ffi.new(f'Candle[{len(candles)}]')
         for i, c in enumerate(candles):
             c_candles[i] = {
                 'time': c[0],
@@ -108,11 +94,11 @@ class Rust(Solver):
                 'volume': float(c[5]),
             }
 
-        c_fees = self.ffi.new('Fees *')
+        c_fees = ffi.new('Fees *')
         c_fees.maker = float(fees.maker)
         c_fees.taker = float(fees.taker)
 
-        c_filters = self.ffi.new('Filters *')
+        c_filters = ffi.new('Filters *')
         c_filters.price = {
             'min': float(filters.price.min),
             'max': float(filters.price.max),
@@ -124,17 +110,19 @@ class Rust(Solver):
             'step': float(filters.size.step),
         }
 
-        def backtest(*args: Any) -> Any:
-            fn_args = get_args_by_params(meta.all_params, args, meta.non_identifier_params)
-            identifier_args = get_args_by_params(meta.all_params, args, meta.identifier_params)
-            format_args = {k: v for k, v in zip(meta.identifier_params, identifier_args)}
+        meta = strategy_type.meta
+
+        def backtest(*args: Any) -> SolverResult:
+            format_args = {
+                k: v for k, v in zip(meta.identifier_params, meta.get_identifier_args(args))
+            }
             fn_name = meta.identifier.format(**format_args)
-            fn = getattr(self.libjuno, fn_name)
+            fn = getattr(libjuno, fn_name)
             result = fn(
                 c_candles, len(candles), c_fees, c_filters, interval, start, end, float(quote),
-                *fn_args
+                *meta.get_non_identifier_args(args)
             )
-            return (
+            return SolverResult(
                 result.profit,
                 result.mean_drawdown,
                 result.max_drawdown,
@@ -200,7 +188,8 @@ def _build_function_permutations(meta: Meta, custom_params: str) -> str:
     templates = []
     possible_values = []
     for key in meta.identifier_params:
-        possible_values.append(meta.constraints[key].choices)
+        # TODO: Generalize?
+        possible_values.append(meta.constraints[key].choices)  # type: ignore
     for keys, values in zip(
         itertools.repeat(meta.identifier_params), itertools.product(*possible_values)
     ):

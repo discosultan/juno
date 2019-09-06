@@ -241,3 +241,10 @@ class TradingSummary:
         if len(self.positions) == 0:
             return Decimal(0)
         return statistics.mean(self.drawdowns)
+
+
+class TradingContext:
+    def __init__(self, quote: Decimal, summary: TradingSummary) -> None:
+        self.quote = quote
+        self.summary = summary
+        self.open_position: Optional[Position] = None

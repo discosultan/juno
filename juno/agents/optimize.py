@@ -59,7 +59,7 @@ class Optimize(Agent):
         strategy_type = get_strategy_type(strategy)
 
         # Objectives:
-        #   - max total profit
+        #   - max profit
         #   - min mean drawdown
         #   - min max drawdown
         #   - max mean position profit
@@ -191,7 +191,7 @@ class Optimize(Agent):
 
 class OptimizationResult(NamedTuple):
     args: Dict[str, Any]
-    result: Any
+    result: Dict[str, Any]
 
 
 def _output_as_strategy_args(

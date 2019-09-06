@@ -1,19 +1,12 @@
 from decimal import Decimal
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, Type
 
-from .solver import Solver
-from juno import Advice, Candle, Fill, Fills, Position, TradingSummary
+from .solver import Solver, SolverResult
+from juno import Advice, Candle, Fill, Fills, Position, TradingContext, TradingSummary
 from juno.asyncio import list_async
 from juno.components import Informant
 from juno.strategies import Strategy
 from juno.utils import unpack_symbol
-
-
-class TradingContext:
-    def __init__(self, quote: Decimal, summary: TradingSummary) -> None:
-        self.quote = quote
-        self.summary = summary
-        self.open_position: Optional[Position] = None
 
 
 class Python(Solver):
@@ -38,7 +31,7 @@ class Python(Solver):
         self.quote = quote
         return self._solve
 
-    def _solve(self, *args: Any) -> Any:
+    def _solve(self, *args: Any) -> SolverResult:
         ctx = TradingContext(self.quote, TradingSummary(
             interval=self.interval,
             start=self.start,
@@ -79,7 +72,7 @@ class Python(Solver):
         if self.last_candle and ctx.open_position:
             self._close_position(ctx, self.last_candle)
 
-        return (
+        return SolverResult(
             float(ctx.summary.profit),
             float(ctx.summary.mean_drawdown),
             float(ctx.summary.max_drawdown),
