@@ -39,7 +39,7 @@ async def test_backtest(loop):
         'end': 6,
         'quote': Decimal(100),
         'strategy_config': {
-            'name': 'emaemacx',
+            'name': 'mamacx',
             'short_period': 1,
             'long_period': 2,
             'neg_threshold': Decimal(-1),
@@ -90,7 +90,7 @@ async def test_backtest_scenarios(loop, scenario_nr):
         'quote': Decimal(100),
         'restart_on_missed_candle': False,
         'strategy_config': {
-            'name': 'emaemacx',
+            'name': 'mamacx',
             'short_period': 18,
             'long_period': 29,
             'neg_threshold': Decimal('-0.25'),
@@ -134,7 +134,7 @@ async def test_paper(loop):
         'end': 4,
         'quote': Decimal(100),
         'strategy_config': {
-            'name': 'emaemacx',
+            'name': 'mamacx',
             'short_period': 1,
             'long_period': 2,
             'neg_threshold': Decimal(-1),
@@ -181,7 +181,7 @@ async def test_live(loop):
         'interval': 1,
         'end': 4,
         'strategy_config': {
-            'name': 'emaemacx',
+            'name': 'mamacx',
             'short_period': 1,
             'long_period': 2,
             'neg_threshold': Decimal(-1),

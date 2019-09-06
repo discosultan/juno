@@ -1,15 +1,21 @@
-use super::sma::Sma;
+use super::{MA, sma::Sma};
 use std::cmp::min;
 
 pub struct Ema {
     pub value: f64,
+    period: u32,
     a: f64,
     t: u32,
 }
 
 impl Ema {
     pub fn new(period: u32) -> Self {
-        Self::with_smoothing(2.0 / f64::from(period + 1))
+        Self {
+            value: 0.0,
+            period,
+            a: 2.0 / f64::from(period + 1),
+            t: 0,
+        }
     }
 
     pub fn req_history(&self) -> u32 {
@@ -27,16 +33,33 @@ impl Ema {
     }
 
     pub fn with_smoothing(a: f64) -> Self {
-        Self {
-            value: 0.0,
-            a,
-            t: 0,
-        }
+        let mut indicator = Self::new(0);
+        indicator.a = a;
+        indicator
+    }
+}
+
+impl MA for Ema {
+    fn new(period: u32) -> Self {
+        Self::new(period)
+    }
+
+    fn update(&mut self, price: f64) {
+        self.update(price)
+    }
+
+    fn value(&self) -> f64 {
+        self.value
+    }
+
+    fn period(&self) -> u32 {
+        self.period
     }
 }
 
 pub struct Ema2 {
     pub value: f64,
+    pub period: u32,
     a: f64,
     sma: Sma,
     t1: u32,
@@ -48,6 +71,7 @@ impl Ema2 {
     pub fn new(period: u32) -> Self {
         Self {
             value: 0.0,
+            period,
             a: 2.0 / f64::from(period + 1),
             sma: Sma::new(period),
             t1: period - 1,
@@ -72,5 +96,23 @@ impl Ema2 {
         }
 
         self.t = min(self.t + 1, self.t2)
+    }
+}
+
+impl MA for Ema2 {
+    fn new(period: u32) -> Self {
+        Self::new(period)
+    }
+
+    fn update(&mut self, price: f64) {
+        self.update(price)
+    }
+
+    fn value(&self) -> f64 {
+        self.value
+    }
+
+    fn period(&self) -> u32 {
+        self.period
     }
 }

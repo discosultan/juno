@@ -2,7 +2,7 @@ import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from random import Random
-from typing import Any, Callable, Tuple, TypeVar
+from typing import Any, Callable, List, Tuple, TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
 
@@ -83,3 +83,14 @@ class IntPair(Constraint):
             if self.validate(a, b):
                 break
         return a, b
+
+
+class Choice(Constraint):
+    def __init__(self, choices: List[Any]) -> None:
+        self.choices = choices
+
+    def validate(self, value: Any) -> bool:
+        return value in self.choices
+
+    def random(self, random: Random) -> Any:
+        return random.choice(self.choices)

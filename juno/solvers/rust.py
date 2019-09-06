@@ -1,42 +1,32 @@
 from __future__ import annotations
 
 import asyncio
-import functools
+# import functools
+import itertools
 import logging
 import os
 import platform
 import shutil
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, List, Type
+from typing import Any, Callable, Type
 
 import cffi
 
-from juno import Candle, Fees, Filters
-from juno.strategies import Strategy
+from .solver import Solver
+from juno.asyncio import list_async
+from juno.components import Informant
+from juno.strategies import Meta, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path, unpack_symbol
+from juno.utils import get_args_by_params, home_path
 
 _log = logging.getLogger(__name__)
 
 
-class Rust:
-    def __init__(
-        self, candles: List[Candle], fees: Fees, filters: Filters, strategy_type: Type[Strategy],
-        symbol: str, interval: int, start: int, end: int, quote: Decimal
-    ) -> None:
-        self.candles = candles
-        self.fees = fees
-        self.filters = filters
-        self.strategy_type = strategy_type
-        self.base_asset, self.quote_asset = unpack_symbol(symbol)
-        self.interval = interval
-        self.start = start
-        self.end = end
-        self.quote = quote
-
+class Rust(Solver):
+    def __init__(self, informant: Informant) -> None:
+        self.informant = informant
         self.solve_native: Any = None
-        self.refs: List[Any] = []
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
@@ -72,13 +62,43 @@ class Rust:
             )
 
         # FFI.
-        ffi = cffi.FFI()
-        ffi.cdef(_build_cdef(self.strategy_type))
+        # We need to keep a references to these instances for Rust; otherwise GC will clean them
+        # up! Hence we assign to self.
+        self.ffi = cffi.FFI()
+        # TODO: Does not allow running concurrently.
+        from juno.strategies import MAMACX
+        cdef = _build_cdef(MAMACX)
+        self.ffi.cdef(cdef)
+        self.libjuno = self.ffi.dlopen(str(dst_path))
 
-        libjuno = ffi.dlopen(str(dst_path))
+        return self
 
-        c_candles = ffi.new(f'Candle[{len(self.candles)}]')
-        for i, c in enumerate(self.candles):
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        pass
+
+    async def get(
+        self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
+        end: int, quote: Decimal
+    ) -> Callable[..., Any]:
+        meta = strategy_type.meta
+
+        candles = await list_async(
+            self.informant.stream_candles(exchange, symbol, interval, start, end)
+        )
+        fees = self.informant.get_fees(exchange, symbol)
+        filters = self.informant.get_filters(exchange, symbol)
+
+        # # FFI.
+        # # We need to keep a references to these instances for Rust; otherwise GC will clean them
+        # # up! Hence we assign to self.
+        # self.ffi = cffi.FFI()
+        # cdef = _build_cdef(strategy_type)
+        # _log.critical(cdef)
+        # self.ffi.cdef(cdef)
+        # self.libjuno = self.ffi.dlopen(str(self.path))
+
+        c_candles = self.ffi.new(f'Candle[{len(candles)}]')
+        for i, c in enumerate(candles):
             c_candles[i] = {
                 'time': c[0],
                 'open': float(c[1]),
@@ -88,104 +108,116 @@ class Rust:
                 'volume': float(c[5]),
             }
 
-        c_fees = ffi.new('Fees *')
-        c_fees.maker = float(self.fees.maker)
-        c_fees.taker = float(self.fees.taker)
+        c_fees = self.ffi.new('Fees *')
+        c_fees.maker = float(fees.maker)
+        c_fees.taker = float(fees.taker)
 
-        c_filters = ffi.new('Filters *')
+        c_filters = self.ffi.new('Filters *')
         c_filters.price = {
-            'min': float(self.filters.price.min),
-            'max': float(self.filters.price.max),
-            'step': float(self.filters.price.step),
+            'min': float(filters.price.min),
+            'max': float(filters.price.max),
+            'step': float(filters.price.step),
         }
         c_filters.size = {
-            'min': float(self.filters.size.min),
-            'max': float(self.filters.size.max),
-            'step': float(self.filters.size.step),
+            'min': float(filters.size.min),
+            'max': float(filters.size.max),
+            'step': float(filters.size.step),
         }
 
-        self.solve_native = functools.partial(
-            getattr(libjuno, self.strategy_type.__name__.lower()), c_candles, len(self.candles),
-            c_fees, c_filters, self.interval, self.start, self.end, float(self.quote)
-        )
+        def backtest(*args: Any) -> Any:
+            fn_args = get_args_by_params(meta.all_params, args, meta.non_identifier_params)
+            identifier_args = get_args_by_params(meta.all_params, args, meta.identifier_params)
+            format_args = {k: v for k, v in zip(meta.identifier_params, identifier_args)}
+            fn_name = meta.identifier.format(**format_args)
+            fn = getattr(self.libjuno, fn_name)
+            result = fn(
+                c_candles, len(candles), c_fees, c_filters, interval, start, end, float(quote),
+                *fn_args
+            )
+            return (
+                result.profit,
+                result.mean_drawdown,
+                result.max_drawdown,
+                result.mean_position_profit,
+                result.mean_position_duration,
+            )
 
-        # We need to keep a references to these instances for Rust; otherwise GC will clean them
-        # up!
-        self.refs.extend([
-            ffi,
-            libjuno,
-        ])
-
-        return self
-
-    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        pass
-
-    def solve(self, *args: Any) -> Any:
-        result = self.solve_native(*args)
-        return (
-            result.profit,
-            result.mean_drawdown,
-            result.max_drawdown,
-            result.mean_position_profit,
-            result.mean_position_duration,
-        )
+        return backtest
 
 
 def _build_cdef(strategy_type: Type[Strategy]) -> str:
     type_hints = get_input_type_hints(strategy_type.__init__)
-    custom_params = ',\n'.join([f'{_map_type(v)} {k}' for k, v in type_hints.items()])
+    meta = strategy_type.meta
+    custom_params = ',\n    '.join(
+        (f'{_map_type(v)} {k}' for k, v in type_hints.items() if k in meta.non_identifier_params)
+    )
+
     return f'''
-        typedef struct {{
-            uint64_t time;
-            double open;
-            double high;
-            double low;
-            double close;
-            double volume;
-        }} Candle;
+typedef struct {{
+    uint64_t time;
+    double open;
+    double high;
+    double low;
+    double close;
+    double volume;
+}} Candle;
 
-        typedef struct {{
-            double maker;
-            double taker;
-        }} Fees;
+typedef struct {{
+    double maker;
+    double taker;
+}} Fees;
 
-        typedef struct {{
-            double min;
-            double max;
-            double step;
-        }} Price;
+typedef struct {{
+    double min;
+    double max;
+    double step;
+}} Price;
 
-        typedef struct {{
-            double min;
-            double max;
-            double step;
-        }} Size;
+typedef struct {{
+    double min;
+    double max;
+    double step;
+}} Size;
 
-        typedef struct {{
-            Price price;
-            Size size;
-        }} Filters;
+typedef struct {{
+    Price price;
+    Size size;
+}} Filters;
 
-        typedef struct {{
-            double profit;
-            double mean_drawdown;
-            double max_drawdown;
-            double mean_position_profit;
-            uint64_t mean_position_duration;
-        }} BacktestResult;
+typedef struct {{
+    double profit;
+    double mean_drawdown;
+    double max_drawdown;
+    double mean_position_profit;
+    uint64_t mean_position_duration;
+}} BacktestResult;
 
-        BacktestResult {strategy_type.__name__.lower()}(
-            const Candle *candles,
-            uint32_t length,
-            const Fees *fees,
-            const Filters *filters,
-            uint64_t interval,
-            uint64_t start,
-            uint64_t end,
-            double quote,
-            {custom_params});
+{_build_function_permutations(meta, custom_params)}
     '''
+
+
+def _build_function_permutations(meta: Meta, custom_params: str) -> str:
+    templates = []
+    possible_values = []
+    for key in meta.identifier_params:
+        possible_values.append(meta.constraints[key].choices)
+    for keys, values in zip(
+        itertools.repeat(meta.identifier_params), itertools.product(*possible_values)
+    ):
+        format_args = {k: v for k, v in zip(keys, values)}
+        templates.append(f'''
+BacktestResult {meta.identifier.format(**format_args)}(
+    const Candle *candles,
+    uint32_t length,
+    const Fees *fees,
+    const Filters *filters,
+    uint64_t interval,
+    uint64_t start,
+    uint64_t end,
+    double quote,
+    {custom_params});
+        ''')
+    return '\n'.join(templates)
 
 
 def _map_type(type_: type) -> str:

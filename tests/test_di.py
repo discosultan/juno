@@ -70,6 +70,15 @@ def test_list_dependencies_in_init_order():
     ]
 
 
+async def test_no_duplicates_when_same_abstract_and_concrete():
+    container = di.Container()
+    container.add_singleton_type(Foo, lambda: Foo2)
+    result1 = container.resolve(Foo)
+    result2 = container.resolve(Foo2)
+    assert isinstance(result1, Foo2)
+    assert result1 == result2
+
+
 class Foo:
     count = 0
 
@@ -97,3 +106,7 @@ class Bar:
 class Baz:
     def __init__(self, bar: Bar) -> None:
         self.bar = bar
+
+
+class Foo2(Foo):
+    pass

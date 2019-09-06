@@ -22,7 +22,7 @@
             "quote": "100.0",
             "restart_on_missed_candle": true,
             "strategy_config": {
-                "name": "emaemacx",
+                "name": "mamacx",
                 "short_period": 18,
                 "long_period": 29,
                 "neg_threshold": "-0.25",
@@ -42,7 +42,7 @@
             "interval": "1h",
             "quote": "10.0",
             "restart_on_missed_candle": false,
-            "strategy": "emaemacx",
+            "strategy": "mamacx",
             "max_generations": 5,
             "population_size": 5,
             "solver": "rust"

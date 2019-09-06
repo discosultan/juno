@@ -17,19 +17,19 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
 
     let mut result = TradingSummary::new(start, end, quote, fees, filters);
     let mut ctx = TradingContext::new(quote);
+    let mut last_candle: Option<&Candle>;
 
     loop {
-        let mut last_candle: Option<&Candle> = None;
         let mut restart = false;
+        last_candle = None;
 
         let mut strategy = strategy_factory();
 
         for candle in candles {
             result.append_candle(candle);
 
-            // TODO: match
-            if last_candle.is_some() && candle.time - last_candle.unwrap().time >= interval * 2 {
-                if restart_on_missed_candle {
+            if let Some(last_candle) = last_candle {
+                if restart_on_missed_candle && candle.time - last_candle.time >= interval * 2 {
                     restart = true;
                     break;
                 }
@@ -49,6 +49,12 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
 
         if !restart {
             break;
+        }
+    }
+
+    if let Some(last_candle) = last_candle {
+        if ctx.open_position.is_some() {
+            close_position(&mut ctx, &mut result, fees, filters, last_candle);
         }
     }
 

@@ -19,6 +19,7 @@ from juno.di import Container
 from juno.exchanges import Exchange
 from juno.logging import create_handlers
 from juno.plugins import list_plugins
+from juno.solvers import Solver
 from juno.storages import Storage
 from juno.utils import full_path, map_module_types
 
@@ -61,6 +62,7 @@ async def main() -> None:
     container.add_singleton_instance(Storage, lambda: load_instance(Storage, config))
     container.add_singleton_instance(List[Exchange], lambda: load_instances(Exchange, config))
     container.add_singleton_type(Broker, lambda: load_type(Broker, config))
+    container.add_singleton_type(Solver, lambda: load_type(Solver, config))
 
     # Load agents.
     agent_types = map_module_types(juno.agents)

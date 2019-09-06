@@ -48,7 +48,7 @@ class Container:
         kwargs = {}
         for dep_name, dep_type in get_input_type_hints(type_.__init__).items():
             kwargs[dep_name] = self._resolve_dep(dep_type)
-        return type_(**kwargs)  # type: ignore
+        return self._resolve_dep(type_)
 
     def _resolve_dep(self, type_: type) -> Any:
         instance = self._singletons.get(type_)
@@ -70,6 +70,7 @@ class Container:
                 kwargs[dep_name] = self._resolve_dep(dep_type)
             try:
                 instance = instance_type(**kwargs)
+                self._singletons[instance_type] = instance
             except TypeError:
                 _log.exception(f'unable to construct {instance_type} as {type_}')
                 raise
