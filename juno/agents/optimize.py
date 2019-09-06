@@ -159,8 +159,8 @@ class Optimize(Agent):
 
         _log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
 
-        best_args = hall[0]
-        best_result = solve(best_args)
+        best_args = list(flatten(hall[0]))
+        best_result = solve(*best_args)
         self.result = OptimizationResult(
             args=_output_as_strategy_args(strategy_type, best_args),
             result=best_result
@@ -181,7 +181,7 @@ class Optimize(Agent):
                 end=end,
                 quote=quote
             )
-            validation_result = validation_solve(best_args)
+            validation_result = validation_solve(*best_args)
             if not _isclose(validation_result, best_result):
                 raise Exception(
                     f'Optimizer results differ for input {self.result} between python and '
@@ -206,5 +206,5 @@ def _output_as_strategy_args(
 def _isclose(a: Tuple[Decimal, ...], b: Tuple[Decimal, ...]) -> bool:
     isclose = True
     for i in range(0, len(a)):
-        isclose = isclose and math.isclose(a[i], b[i], rel_tol=Decimal('1e-14'))
+        isclose = isclose and math.isclose(a[i], b[i], rel_tol=Decimal('1e-13'))
     return isclose

@@ -124,16 +124,9 @@ class Rust(Solver):
             'step': float(filters.size.step),
         }
 
-        # solve_native = functools.partial(
-        #     getattr(self.libjuno, strategy_type.__name__.lower()), c_candles, len(candles), c_fees,
-        #     c_filters, interval, start, end, float(quote)
-        # )
-
         def backtest(*args: Any) -> Any:
-            fn_args = get_args_by_params(meta.constraints.keys(), args, meta.non_identifier_params)
-            identifier_args = list(get_args_by_params(
-                meta.constraints.keys(), args, meta.identifier_params
-            ))
+            fn_args = get_args_by_params(meta.all_params, args, meta.non_identifier_params)
+            identifier_args = get_args_by_params(meta.all_params, args, meta.identifier_params)
             format_args = {k: v for k, v in zip(meta.identifier_params, identifier_args)}
             fn_name = meta.identifier.format(**format_args)
             fn = getattr(self.libjuno, fn_name)
@@ -141,7 +134,6 @@ class Rust(Solver):
                 c_candles, len(candles), c_fees, c_filters, interval, start, end, float(quote),
                 *fn_args
             )
-            # result = solve_native(*args)
             return (
                 result.profit,
                 result.mean_drawdown,

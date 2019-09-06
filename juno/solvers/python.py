@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Callable, List, Optional, Type
+from typing import Any, Callable, Optional, Type
 
 from .solver import Solver
 from juno import Advice, Candle, Fill, Fills, Position, TradingSummary
