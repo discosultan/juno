@@ -52,7 +52,7 @@ class Agent(EventEmitter):
 
         return self.result
 
-    async def finalize(self) -> None:
+    async def finalize(self) -> Any:
         pass
 
     async def emit(self, event: str, *args: Any) -> Tuple[Any, ...]:

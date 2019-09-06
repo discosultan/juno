@@ -2,14 +2,12 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from juno import (
-    Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingSummary
-)
+from juno import Advice
 from juno.components import Informant
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
 from juno.time import time_ms
-from juno.utils import unpack_symbol
+from juno.trading import TradingContext, close_position, try_open_position
 
 from .agent import Agent
 
@@ -20,7 +18,6 @@ class Backtest(Agent):
     def __init__(self, informant: Informant) -> None:
         super().__init__()
         self.informant = informant
-        self.open_position: Optional[Position] = None
 
     async def run(
         self,
@@ -42,16 +39,16 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
-        self.base_asset, self.quote_asset = unpack_symbol(symbol)
-        self.quote = quote
-
         self.fees = self.informant.get_fees(exchange, symbol)
         self.filters = self.informant.get_filters(exchange, symbol)
 
-        self.result = TradingSummary(
-            interval=interval, start=start, quote=quote, fees=self.fees, filters=self.filters
-        )
-        self.open_position = None
+        self.ctx = TradingContext(
+            symbol=symbol,
+            interval=interval,
+            start=start,
+            quote=quote,
+            fees=self.fees)
+        self.result = self.ctx.summary
         restart_count = 0
 
         while True:
@@ -59,6 +56,8 @@ class Backtest(Agent):
             restart = False
 
             strategy = new_strategy(strategy_config)
+
+            # TODO: candle_start
 
             if restart_count == 0:
                 # Adjust start to accommodate for the required history before a strategy becomes
@@ -94,57 +93,32 @@ class Backtest(Agent):
                 self.last_candle = candle
                 advice = strategy.update(candle)
 
-                if not self.open_position and advice is Advice.BUY:
-                    if not self._try_open_position(candle):
+                if not self.ctx.open_position and advice is Advice.BUY:
+                    if not try_open_position(
+                        ctx=self.ctx,
+                        fees=self.fees,
+                        filters=self.filters,
+                        candle=candle
+                    ):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
-                elif self.open_position and advice is Advice.SELL:
-                    self._close_position(candle)
+                elif self.ctx.open_position and advice is Advice.SELL:
+                    close_position(
+                        ctx=self.ctx,
+                        fees=self.fees,
+                        filters=self.filters,
+                        candle=candle
+                    )
 
             if not restart:
                 break
 
     async def finalize(self) -> None:
-        if self.last_candle and self.open_position:
+        if self.last_candle and self.ctx.open_position:
             _log.info('closing currently open position')
-            self._close_position(self.last_candle)
-
-    def _try_open_position(self, candle: Candle) -> bool:
-        price = candle.close
-
-        size = self.filters.size.round_down(self.quote / price)
-        if size == 0:
-            return False
-
-        # TODO: Fee should also be rounded.
-        fee = size * self.fees.taker
-
-        self.open_position = Position(
-            time=candle.time,
-            fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=self.base_asset)])
-        )
-
-        self.quote -= size * price
-
-        return True
-
-    def _close_position(self, candle: Candle) -> None:
-        assert self.open_position
-
-        price = candle.close
-
-        size = self.filters.size.round_down(
-            self.open_position.total_size - self.open_position.fills.total_fee
-        )
-
-        quote = size * price
-        fee = quote * self.fees.taker
-
-        self.open_position.close(
-            time=candle.time,
-            fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=self.quote_asset)])
-        )
-        self.result.append_position(self.open_position)
-        self.open_position = None
-
-        self.quote = quote - fee
+            close_position(
+                ctx=self.ctx,
+                fees=self.fees,
+                filters=self.filters,
+                candle=self.last_candle
+            )

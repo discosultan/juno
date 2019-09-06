@@ -3,9 +3,10 @@ import statistics
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Candle, Fees, Fills
+from juno import Candle, Fees, Fill, Fills
 from juno.filters import Filters
 from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
+from juno.utils import unpack_symbol
 
 
 # TODO: Add support for external token fees (i.e BNB)
@@ -99,14 +100,11 @@ class Position:
 
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
-    def __init__(
-        self, interval: int, start: int, quote: Decimal, fees: Fees, filters: Filters
-    ) -> None:
+    def __init__(self, interval: int, start: int, quote: Decimal, fees: Fees) -> None:
         self.interval = interval
         self.start = start
-        self.quote = quote
-        self.fees = fees
-        self.filters = filters
+        self.starting_quote = quote
+        self.starting_fees = fees
 
         # self.candles: List[Candle] = []
         self.positions: List[Position] = []
@@ -157,11 +155,11 @@ class TradingSummary:
 
     @property
     def cost(self) -> Decimal:
-        return self.quote
+        return self.starting_quote
 
     @property
     def gain(self) -> Decimal:
-        return self.quote + self.profit
+        return self.starting_quote + self.profit
 
     @property
     def profit(self) -> Decimal:
@@ -182,11 +180,11 @@ class TradingSummary:
     def potential_hodl_profit(self) -> Decimal:
         if not self.first_candle or not self.last_candle:
             return Decimal(0)
-        base_hodl = self.quote / self.first_candle.close
-        base_hodl -= base_hodl * self.fees.taker
+        base_hodl = self.starting_quote / self.first_candle.close
+        base_hodl -= base_hodl * self.starting_fees.taker
         quote_hodl = base_hodl * self.last_candle.close
-        quote_hodl -= quote_hodl * self.fees.taker
-        return quote_hodl - self.quote
+        quote_hodl -= quote_hodl * self.starting_fees.taker
+        return quote_hodl - self.starting_quote
 
     @property
     def duration(self) -> int:
@@ -208,7 +206,7 @@ class TradingSummary:
     @property
     def drawdowns(self) -> List[Decimal]:
         if self._drawdowns_dirty:
-            quote = self.quote
+            quote = self.starting_quote
 
             # TODO: Probably not needed? We currently assume start end ending with empty base
             #       balance (excluding dust).
@@ -244,7 +242,64 @@ class TradingSummary:
 
 
 class TradingContext:
-    def __init__(self, quote: Decimal, summary: TradingSummary) -> None:
+    def __init__(self, symbol: str, interval: int, start: int, quote: Decimal, fees: Fees) -> None:
+        self.symbol = symbol
+        self.base_asset, self.quote_asset = unpack_symbol(symbol)
+        self.interval = interval
+        self.start = start
+        self.starting_quote = quote
+
         self.quote = quote
-        self.summary = summary
         self.open_position: Optional[Position] = None
+        self.summary = TradingSummary(
+            interval=interval,
+            start=start,
+            quote=quote,
+            fees=fees)
+
+
+def try_open_position(
+    ctx: TradingContext, fees: Fees, filters: Filters, candle: Candle
+) -> Optional[Position]:
+    price = candle.close
+
+    size = filters.size.round_down(ctx.quote / price)
+    if size == 0:
+        return None
+
+    # TODO: Fee should also be rounded.
+    fee = size * fees.taker
+
+    ctx.open_position = Position(
+        time=candle.time,
+        fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=ctx.base_asset)])
+    )
+
+    ctx.quote -= size * price
+
+    return ctx.open_position
+
+
+def close_position(ctx: TradingContext, fees: Fees, filters: Filters, candle: Candle) -> Position:
+    assert ctx.open_position
+
+    price = candle.close
+
+    size = filters.size.round_down(
+        ctx.open_position.total_size - ctx.open_position.fills.total_fee
+    )
+
+    quote = size * price
+    fee = quote * fees.taker
+
+    ctx.open_position.close(
+        time=candle.time,
+        fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=ctx.quote_asset)])
+    )
+    ctx.summary.append_position(ctx.open_position)
+    closed_position = ctx.open_position
+    ctx.open_position = None
+
+    ctx.quote = quote - fee
+
+    return closed_position

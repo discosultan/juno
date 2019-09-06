@@ -10,6 +10,7 @@ from juno.components import Informant
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
 from juno.time import MAX_TIME_MS, time_ms
+from juno.trading import TradingContext
 
 from .agent import Agent
 
@@ -21,7 +22,6 @@ class Paper(Agent):
         super().__init__()
         self.informant = informant
         self.broker = broker
-        self.open_position: Optional[Position] = None
 
     async def run(
         self,
@@ -49,10 +49,14 @@ class Paper(Agent):
         self.symbol = symbol
         self.quote = quote
 
-        self.result = TradingSummary(
-            interval=interval, start=now, quote=quote, fees=fees, filters=filters
+        self.ctx = TradingContext(
+            symbol=symbol,
+            interval=interval,
+            start=now,
+            quote=quote,
+            fees=self.informant.get_fees(exchange, symbol)
         )
-        self.open_position = None
+        self.result = self.ctx.summary
         restart_count = 0
 
         while True:
@@ -94,18 +98,18 @@ class Paper(Agent):
                 self.last_candle = candle
                 advice = strategy.update(candle)
 
-                if not self.open_position and advice is Advice.BUY:
+                if not self.ctx.open_position and advice is Advice.BUY:
                     if not await self._try_open_position(candle):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
-                elif self.open_position and advice is Advice.SELL:
+                elif self.ctx.open_position and advice is Advice.SELL:
                     await self._close_position(candle)
 
             if not restart:
                 break
 
     async def finalize(self) -> None:
-        if self.last_candle and self.open_position:
+        if self.last_candle and self.ctx.open_position:
             _log.info('closing currently open position')
             await self._close_position(self.last_candle)
         _log.info(json.dumps(self.result, default=lambda o: o.__dict__, use_decimal=True))
@@ -126,17 +130,17 @@ class Paper(Agent):
         return True
 
     async def _close_position(self, candle: Candle) -> None:
-        assert self.open_position
+        assert self.ctx.open_position
 
         res = await self.broker.sell(
             exchange=self.exchange,
             symbol=self.symbol,
-            base=self.open_position.total_size - self.open_position.fills.total_fee,
+            base=self.ctx.open_position.total_size - self.ctx.open_position.fills.total_fee,
             test=True
         )
 
-        position = self.open_position
-        self.open_position = None
+        position = self.ctx.open_position
+        self.ctx.open_position = None
         position.close(candle.time, res.fills)
         self.result.append_position(position)
         self.quote += res.fills.total_quote - res.fills.total_fee
