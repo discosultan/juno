@@ -244,7 +244,6 @@ class TradingSummary:
 
 
 class TradingContext:
-    def __init__(self, quote: Decimal, summary: TradingSummary) -> None:
+    def __init__(self, quote: Decimal) -> None:
         self.quote = quote
-        self.summary = summary
         self.open_position: Optional[Position] = None

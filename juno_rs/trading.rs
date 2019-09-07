@@ -139,3 +139,17 @@ impl<'a> TradingSummary<'a> {
         }
     }
 }
+
+pub struct TradingContext {
+    pub quote: f64,
+    pub open_position: Option<Position>,
+}
+
+impl TradingContext {
+    pub fn new(quote: f64) -> Self {
+        Self {
+            quote,
+            open_position: None,
+        }
+    }
+}

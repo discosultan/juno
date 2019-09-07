@@ -4,7 +4,7 @@ from juno.common import (
     Trend
 )
 from juno.filters import Filters
-from juno.summary import Position, TradingContext, TradingSummary
+from juno.trading import Position, TradingContext, TradingSummary
 
 __all__ = [
     'Filters',

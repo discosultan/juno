@@ -1,5 +1,5 @@
 use crate::strategies::Strategy;
-use crate::{Advice, Candle, Fees, Filters, Position, TradingSummary};
+use crate::{Advice, Candle, Fees, Filters, Position, TradingContext, TradingSummary};
 
 pub type BacktestResult = (f64, f64, f64, f64, u64);
 
@@ -66,20 +66,6 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
         result.mean_position_profit,
         result.mean_position_duration,
     )
-}
-
-struct TradingContext {
-    quote: f64,
-    open_position: Option<Position>,
-}
-
-impl TradingContext {
-    pub fn new(quote: f64) -> Self {
-        Self {
-            quote,
-            open_position: None,
-        }
-    }
 }
 
 fn try_open_position(

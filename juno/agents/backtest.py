@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from juno import (
-    Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingSummary
+    Advice, Candle, Fill, Fills, Position, TradingContext, TradingSummary
 )
 from juno.components import Informant
 from juno.math import floor_multiple
@@ -20,7 +20,6 @@ class Backtest(Agent):
     def __init__(self, informant: Informant) -> None:
         super().__init__()
         self.informant = informant
-        self.open_position: Optional[Position] = None
 
     async def run(
         self,
@@ -43,15 +42,14 @@ class Backtest(Agent):
         assert quote > 0
 
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
-        self.quote = quote
 
         self.fees = self.informant.get_fees(exchange, symbol)
         self.filters = self.informant.get_filters(exchange, symbol)
 
+        self.ctx = TradingContext(quote)
         self.result = TradingSummary(
             interval=interval, start=start, quote=quote, fees=self.fees, filters=self.filters
         )
-        self.open_position = None
         restart_count = 0
 
         while True:
@@ -91,57 +89,57 @@ class Backtest(Agent):
                 self.last_candle = candle
                 advice = strategy.update(candle)
 
-                if not self.open_position and advice is Advice.BUY:
+                if not self.ctx.open_position and advice is Advice.BUY:
                     if not self._try_open_position(candle):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
-                elif self.open_position and advice is Advice.SELL:
+                elif self.ctx.open_position and advice is Advice.SELL:
                     self._close_position(candle)
 
             if not restart:
                 break
 
     async def finalize(self) -> None:
-        if self.last_candle and self.open_position:
+        if self.last_candle and self.ctx.open_position:
             _log.info('closing currently open position')
             self._close_position(self.last_candle)
 
-    def _try_open_position(self, candle: Candle) -> bool:
+    def _try_open_position(self, candle: Candle) -> Optional[Position]:
         price = candle.close
 
-        size = self.filters.size.round_down(self.quote / price)
+        size = self.filters.size.round_down(self.ctx.quote / price)
         if size == 0:
-            return False
+            return None
 
         # TODO: Fee should also be rounded.
         fee = size * self.fees.taker
 
-        self.open_position = Position(
+        self.ctx.open_position = Position(
             time=candle.time,
             fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=self.base_asset)])
         )
 
-        self.quote -= size * price
+        self.ctx.quote -= size * price
 
-        return True
+        return self.ctx.open_position
 
-    def _close_position(self, candle: Candle) -> None:
-        assert self.open_position
+    def _close_position(self, candle: Candle) -> Position:
+        pos = self.ctx.open_position
+        assert pos
 
         price = candle.close
-
-        size = self.filters.size.round_down(
-            self.open_position.total_size - self.open_position.fills.total_fee
-        )
+        size = self.filters.size.round_down(pos.total_size - pos.fills.total_fee)
 
         quote = size * price
         fee = quote * self.fees.taker
 
-        self.open_position.close(
+        pos.close(
             time=candle.time,
             fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=self.quote_asset)])
         )
-        self.result.append_position(self.open_position)
-        self.open_position = None
+        self.result.append_position(pos)
 
-        self.quote = quote - fee
+        self.ctx.quote = quote - fee
+
+        self.ctx.open_position = None
+        return pos

@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional
 
 import simplejson as json
 
-from juno import Advice, Candle, OrderStatus, Position, TradingSummary
+from juno import Advice, Candle, OrderStatus, Position, TradingContext, TradingSummary
 from juno.brokers import Broker
 from juno.components import Informant
 from juno.math import floor_multiple
@@ -21,7 +21,6 @@ class Paper(Agent):
         super().__init__()
         self.informant = informant
         self.broker = broker
-        self.open_position: Optional[Position] = None
 
     async def run(
         self,
@@ -47,12 +46,11 @@ class Paper(Agent):
 
         self.exchange = exchange
         self.symbol = symbol
-        self.quote = quote
 
         self.result = TradingSummary(
             interval=interval, start=now, quote=quote, fees=fees, filters=filters
         )
-        self.open_position = None
+        self.ctx = TradingContext(quote)
         restart_count = 0
 
         while True:
@@ -91,51 +89,53 @@ class Paper(Agent):
                 self.last_candle = candle
                 advice = strategy.update(candle)
 
-                if not self.open_position and advice is Advice.BUY:
+                if not self.ctx.open_position and advice is Advice.BUY:
                     if not await self._try_open_position(candle):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
-                elif self.open_position and advice is Advice.SELL:
+                elif self.ctx.open_position and advice is Advice.SELL:
                     await self._close_position(candle)
 
             if not restart:
                 break
 
     async def finalize(self) -> None:
-        if self.last_candle and self.open_position:
+        if self.last_candle and self.ctx.open_position:
             _log.info('closing currently open position')
             await self._close_position(self.last_candle)
         _log.info(json.dumps(self.result, default=lambda o: o.__dict__, use_decimal=True))
 
-    async def _try_open_position(self, candle: Candle) -> bool:
+    async def _try_open_position(self, candle: Candle) -> Optional[Position]:
         res = await self.broker.buy(
-            exchange=self.exchange, symbol=self.symbol, quote=self.quote, test=True
+            exchange=self.exchange, symbol=self.symbol, quote=self.ctx.quote, test=True
         )
 
         if res.status is OrderStatus.NOT_PLACED:
-            return False
+            return None
 
-        self.open_position = Position(candle.time, res.fills)
-        self.quote -= res.fills.total_quote
+        self.ctx.open_position = Position(candle.time, res.fills)
+        self.ctx.quote -= res.fills.total_quote
 
-        await self.emit('position_opened', self.open_position)
+        await self.emit('position_opened', self.ctx.open_position)
 
-        return True
+        return self.ctx.open_position
 
-    async def _close_position(self, candle: Candle) -> None:
-        assert self.open_position
+    async def _close_position(self, candle: Candle) -> Position:
+        pos = self.ctx.open_position
+        assert pos
 
         res = await self.broker.sell(
             exchange=self.exchange,
             symbol=self.symbol,
-            base=self.open_position.total_size - self.open_position.fills.total_fee,
+            base=pos.fills.total_size - pos.fills.total_fee,
             test=True
         )
 
-        position = self.open_position
-        self.open_position = None
-        position.close(candle.time, res.fills)
-        self.result.append_position(position)
-        self.quote += res.fills.total_quote - res.fills.total_fee
+        pos.close(candle.time, res.fills)
+        self.result.append_position(pos)
+        self.ctx.quote += res.fills.total_quote - res.fills.total_fee
 
-        await self.emit('position_closed', position)
+        await self.emit('position_closed', pos)
+
+        self.ctx.open_position = None
+        return pos

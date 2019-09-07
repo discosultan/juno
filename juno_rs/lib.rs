@@ -5,7 +5,7 @@ mod common;
 mod filters;
 mod indicators;
 mod strategies;
-mod summary;
+mod trading;
 mod utils;
 
 use paste;
@@ -17,7 +17,7 @@ use indicators::{Ema as ema, Ema2 as ema2, Sma as sma, Smma as smma};
 use strategies::{MAMACX, Strategy};
 pub use common::{Advice, Candle, Fees, Trend};
 pub use filters::Filters;
-pub use summary::{Position, TradingSummary};
+pub use trading::{Position, TradingContext, TradingSummary};
 
 macro_rules! mamacx {
     ($short_ma:ident $long_ma:ident) => {

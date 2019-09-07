@@ -1,0 +1,56 @@
+{
+    "log_format": "default",
+    "log_level": "debug",
+    "storage": "sqlite",
+    "broker": "market",
+    "solver": "rust",
+    "agents": [
+        {
+            "name": "backtest",
+            "exchange": "binance",
+            "symbol": "eth-btc",
+            "start": "2019-01-01",
+            "interval": "1h",
+            "quote": "10.0",
+            "restart_on_missed_candle": false,
+            "strategy_config": {
+                "name": "mamacx",
+                "short_period": 18,
+                "long_period": 29,
+                "neg_threshold": "-0.25",
+                "pos_threshold": "0.25",
+                "persistence": 4
+            }
+        },
+        {
+            "name": "paper",
+            "exchange": "binance",
+            "symbol": "eth-btc",
+            "interval": "1h",
+            "quote": "1.0",
+            "restart_on_missed_candle": false,
+            "strategy_config": {
+                "name": "mamacx",
+                "short_period": 18,
+                "long_period": 29,
+                "neg_threshold": "-0.1",
+                "pos_threshold": "0.1",
+                "persistence": 0
+            }
+        },
+        {
+            "name": "optimize",
+            "exchange": "binance",
+            "symbol": "eth-btc",
+            "start": "2019-04-01",
+            "end": null,
+            "interval": "1h",
+            "quote": "10.0",
+            "restart_on_missed_candle": false,
+            "strategy": "mamacx",
+            "population_size": 50,
+            "max_generations": 1000,
+            "seed": null
+        }
+    ]
+}
