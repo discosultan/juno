@@ -34,7 +34,7 @@ async def main() -> None:
     wallet = Wallet(exchanges=exchanges)
     market = Market(informant, orderbook, exchanges)
     limit = Limit(informant, orderbook, exchanges)
-    async with binance, memory, sqlite, informant, orderbook, wallet:
+    async with binance, memory, informant, orderbook, wallet:
         if SIDE is Side.BID:
             market_fills = market.find_order_asks(exchange=EXCHANGE, symbol=SYMBOL, quote=QUOTE)
             res = await limit.buy(exchange=EXCHANGE, symbol=SYMBOL, quote=QUOTE, test=False)

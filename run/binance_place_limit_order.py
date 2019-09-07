@@ -24,7 +24,7 @@ async def main() -> None:
     )
     memory = Memory()
     sqlite = SQLite()
-    async with binance, memory, sqlite:
+    async with binance, memory:
         informant = Informant(storage=sqlite, exchanges=[binance])
         orderbook = Orderbook(exchanges=[binance], config={'symbol': SYMBOL})
         wallet = Wallet(exchanges=[binance])
