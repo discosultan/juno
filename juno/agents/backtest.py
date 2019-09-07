@@ -6,7 +6,7 @@ from juno import (
     Advice, Candle, Fill, Fills, Position, TradingContext, TradingSummary
 )
 from juno.components import Informant
-from juno.math import floor_multiple
+from juno.math import floor_multiple, round_half_up
 from juno.strategies import new_strategy
 from juno.time import time_ms
 from juno.utils import unpack_symbol
@@ -111,8 +111,7 @@ class Backtest(Agent):
         if size == 0:
             return None
 
-        # TODO: Fee should also be rounded.
-        fee = size * self.fees.taker
+        fee = round_half_up(size * self.fees.taker, self.filters.base_precision)
 
         self.ctx.open_position = Position(
             time=candle.time,
@@ -131,7 +130,7 @@ class Backtest(Agent):
         size = self.filters.size.round_down(pos.total_size - pos.fills.total_fee)
 
         quote = size * price
-        fee = quote * self.fees.taker
+        fee = round_half_up(quote * self.fees.taker, self.filters.quote_precision)
 
         pos.close(
             time=candle.time,

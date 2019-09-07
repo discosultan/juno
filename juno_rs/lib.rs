@@ -4,6 +4,7 @@ mod backtest;
 mod common;
 mod filters;
 mod indicators;
+mod math;
 mod strategies;
 mod trading;
 mod utils;
@@ -96,6 +97,9 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     let candles = slice::from_raw_parts(candles, length as usize);
     let fees = &*fees;
     let filters = &*filters;
+
+    // println!("{:?}", fees);
+    // println!("{:?}", filters);
 
     backtest(
         strategy_factory,

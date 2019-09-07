@@ -1,5 +1,6 @@
 use crate::strategies::Strategy;
 use crate::{Advice, Candle, Fees, Filters, Position, TradingContext, TradingSummary};
+use crate::math::round_half_up;
 
 pub type BacktestResult = (f64, f64, f64, f64, u64);
 
@@ -80,7 +81,7 @@ fn try_open_position(
         return false;
     }
 
-    let fee = size * fees.taker;
+    let fee = round_half_up(size * fees.taker, filters.base_precision);
     ctx.open_position = Some(Position::new(candle.time, price, size, fee));
 
     ctx.quote -= price * size;
@@ -100,7 +101,7 @@ fn close_position(
         let size = filters.size.round_down(pos.size - pos.fee);
 
         let quote = size * price;
-        let fee = quote * fees.taker;
+        let fee = round_half_up(quote * fees.taker, filters.quote_precision);
 
         pos.close(candle.time, price, size, fee);
         summary.append_position(pos);

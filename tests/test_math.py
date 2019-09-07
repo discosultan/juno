@@ -29,6 +29,10 @@ def test_floor_multiple(value, multiple, expected_output):
     assert output == expected_output
 
 
+def test_round_half_up():
+    assert math.round_half_up(Decimal('0.123'), 2) == Decimal('0.12')
+
+
 @pytest.mark.manual
 @pytest.mark.chaos
 def test_uniform_randomizer():

@@ -97,6 +97,8 @@ class Binance(Exchange):
             assert all((price, percent_price, lot_size, min_notional))
 
             result[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
+                base_precision=symbol['baseAssetPrecision'],
+                quote_precision=symbol['quotePrecision'],
                 price=Price(
                     min=Decimal(price['minPrice']),
                     max=Decimal(price['maxPrice']),

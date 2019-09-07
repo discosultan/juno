@@ -6,6 +6,7 @@ from .broker import Broker
 from juno import Fill, Fills, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
+from juno.math import round_half_up
 from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
@@ -41,13 +42,12 @@ class Market(Broker):
             if aquote >= quote:
                 size = filters.size.round_down(quote / aprice)
                 if size != Decimal(0):
-                    # TODO: Fee should also be rounded.
-                    fee = aprice * size * fees.taker
+                    fee = round_half_up(size * fees.taker, filters.base_precision)
                     result.append(Fill(price=aprice, size=size, fee=fee, fee_asset=base_asset))
                 break
             else:
                 assert asize != Decimal(0)
-                fee = aprice * asize * fees.taker
+                fee = round_half_up(asize * fees.taker, filters.base_precision)
                 result.append(Fill(price=aprice, size=asize, fee=fee, fee_asset=base_asset))
                 quote -= aquote
         return result
@@ -61,12 +61,12 @@ class Market(Broker):
             if bsize >= base:
                 size = filters.size.round_down(base)
                 if size != Decimal(0):
-                    fee = bprice * size * fees.taker
+                    fee = round_half_up(bprice * size * fees.taker, filters.quote_precision)
                     result.append(Fill(price=bprice, size=size, fee=fee, fee_asset=quote_asset))
                 break
             else:
                 assert bsize != Decimal(0)
-                fee = bprice * bsize * fees.taker
+                fee = round_half_up(bprice * bsize * fees.taker, filters.quote_precision)
                 result.append(Fill(price=bprice, size=bsize, fee=fee, fee_asset=quote_asset))
                 base -= bsize
         return result
