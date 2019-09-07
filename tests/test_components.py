@@ -13,28 +13,26 @@ from . import fakes
 from .utils import new_candle
 
 
-async def test_stream_candles(loop):
+@pytest.mark.parametrize('start,end,closed,expected_from,expected_to', [
+    [0, 3, True, 0, 2],
+    [2, 3, True, 0, 0],
+    [3, 5, True, 2, 3],
+    [0, 5, False, 0, 5],
+])
+async def test_stream_candles(loop, start, end, closed, expected_from, expected_to):
     candles = [
         new_candle(time=0),
         new_candle(time=1),
         # Deliberately skipped candle.
-        new_candle(time=3)
+        new_candle(time=3),
+        new_candle(time=4, closed=False),
     ]
     async with init_informant(fakes.Exchange(candles=candles)) as informant:
-        # -> 0
-        # -> 1
-        # -> 2 missing
-        out_candles = await list_async(informant.stream_candles('exchange', 'eth-btc', 1, 0, 3))
-        assert out_candles == candles[:2]
-
-        # -> 2 missing
-        out_candles = await list_async(informant.stream_candles('exchange', 'eth-btc', 1, 2, 3))
-        assert out_candles == []
-
-        # -> 2 missing
-        # -> 3
-        out_candles = await list_async(informant.stream_candles('exchange', 'eth-btc', 1, 3, 4))
-        assert out_candles == candles[-1:]
+        expected_candles = candles[expected_from:expected_to]
+        candles = await list_async(
+            informant.stream_candles('exchange', 'eth-btc', 1, start, end, closed)
+        )
+        assert candles == expected_candles
 
 
 @pytest.mark.parametrize('exchange_fees_key', ['__all__', 'eth-btc'])

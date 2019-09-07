@@ -66,7 +66,7 @@ class Informant:
         return cast(T, data)
 
     async def stream_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int
+        self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
@@ -89,13 +89,15 @@ class Informant:
                 async for candle in self._storage.stream_candles(
                     storage_key, span_start, span_end
                 ):
-                    yield candle
+                    if not closed or candle.closed:
+                        yield candle
             else:
                 _log.info(f'missing candles between {Span(span_start, span_end)}')
                 async for candle in self._stream_and_store_exchange_candles(
                     exchange, symbol, interval, span_start, span_end
                 ):
-                    yield candle
+                    if not closed or candle.closed:
+                        yield candle
 
     @backoff.on_exception(
         backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3

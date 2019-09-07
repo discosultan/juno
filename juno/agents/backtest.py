@@ -73,9 +73,6 @@ class Backtest(Agent):
             async for candle in self.informant.stream_candles(
                 exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
             ):
-                if not candle.closed:
-                    continue
-
                 self.result.append_candle(candle)
 
                 # Check if we have missed a candle.

@@ -3,7 +3,7 @@ from decimal import Decimal
 from juno import Candle, Fill, Fills, Position
 
 
-def new_candle(time=0, close=Decimal(0), volume=Decimal(0)):
+def new_candle(time=0, close=Decimal(0), volume=Decimal(0), closed=True):
     return Candle(
         time=time,
         open=Decimal(0),
@@ -11,7 +11,7 @@ def new_candle(time=0, close=Decimal(0), volume=Decimal(0)):
         low=Decimal(0),
         close=close,
         volume=volume,
-        closed=True,
+        closed=closed,
     )
 
 
