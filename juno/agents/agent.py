@@ -24,7 +24,7 @@ class Agent(EventEmitter):
         self.config: Dict[str, Any] = {}
         self.name = next(_random_names)
 
-    async def start(self, **agent_config: Any) -> Any:
+    async def start(self, **agent_config: Any) -> None:
         assert self.state is not AgentState.RUNNING
 
         self.config = agent_config
@@ -52,7 +52,7 @@ class Agent(EventEmitter):
 
         return self.result
 
-    async def finalize(self) -> Any:
+    async def finalize(self) -> None:
         pass
 
     async def emit(self, event: str, *args: Any) -> Tuple[Any, ...]:
