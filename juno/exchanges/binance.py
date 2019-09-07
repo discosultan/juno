@@ -484,7 +484,7 @@ def _ws_symbol(symbol: str) -> str:
 def _from_symbol(symbol: str) -> str:
     # TODO: May be incorrect! We can't systematically know which part is base and which is quote
     # since there is no separator used. We simply map based on known base currencies.
-    known_base_assets = ['BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS']
+    known_base_assets = ['BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX']
     for known_base_asset in known_base_assets:
         if symbol.endswith(known_base_asset):
             quote = symbol[:-len(known_base_asset)]
