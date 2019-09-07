@@ -99,6 +99,8 @@ class Rust(Solver):
         c_fees.taker = float(fees.taker)
 
         c_filters = ffi.new('Filters *')
+        c_filters.base_precision = filters.base_precision
+        c_filters.quote_precision = filters.quote_precision
         c_filters.price = {
             'min': float(filters.price.min),
             'max': float(filters.price.max),
@@ -168,6 +170,8 @@ typedef struct {{
 }} Size;
 
 typedef struct {{
+    uint32_t base_precision;
+    uint32_t quote_precision;
     Price price;
     Size size;
 }} Filters;

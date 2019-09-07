@@ -7,6 +7,7 @@ from juno import (
 )
 from juno.asyncio import list_async
 from juno.components import Informant
+from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.utils import unpack_symbol
 
@@ -89,7 +90,7 @@ def _try_open_position(
     if size == 0:
         return None
 
-    fee = size * fees.taker
+    fee = round_half_up(size * fees.taker, filters.base_precision)
 
     ctx.open_position = Position(
         time=candle.time,
@@ -113,7 +114,7 @@ def _close_position(
     size = filters.size.round_down(pos.fills.total_size - pos.fills.total_fee)
 
     quote = size * price
-    fee = quote * fees.taker
+    fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
     pos.close(
         time=candle.time,

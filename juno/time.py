@@ -57,7 +57,7 @@ def strfinterval(interval: int) -> str:
             result += f'{quotient}{letter}'
         if remainder == 0:
             break
-    return result
+    return result if result else '0ms'
 
 
 def strpinterval(interval: str) -> int:

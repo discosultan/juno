@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from random import Random
 from typing import Any, Callable, List, Tuple, TypeVar
 
@@ -13,6 +13,10 @@ def ceil_multiple(value: TNum, multiple: TNum) -> TNum:
 
 def floor_multiple(value: TNum, multiple: TNum) -> TNum:
     return value - (value % multiple)
+
+
+def round_half_up(value: Decimal, precision: int) -> Decimal:
+    return value.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_HALF_UP)
 
 
 class Constraint(ABC):

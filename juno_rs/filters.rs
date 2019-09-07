@@ -34,9 +34,9 @@ impl Price {
 
 #[derive(Debug)]
 pub struct Size {
-    min: f64,
-    max: f64,
-    step: f64,
+    pub min: f64,
+    pub max: f64,
+    pub step: f64,
 }
 
 impl Size {
@@ -73,6 +73,8 @@ impl Size {
 
 #[derive(Debug)]
 pub struct Filters {
+    pub base_precision: u32,
+    pub quote_precision: u32,
     pub price: Price,
     pub size: Size,
 }
@@ -80,6 +82,8 @@ pub struct Filters {
 impl Filters {
     pub fn none() -> Self {
         Filters {
+            base_precision: 8,
+            quote_precision: 8,
             price: Price::none(),
             size: Size::none(),
         }

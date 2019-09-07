@@ -4,6 +4,7 @@ mod backtest;
 mod common;
 mod filters;
 mod indicators;
+mod math;
 mod strategies;
 mod trading;
 mod utils;

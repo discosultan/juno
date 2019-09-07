@@ -12,8 +12,8 @@ from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
 EXCHANGE = 'binance'
-TEST = True
-SIDE = Side.SELL
+TEST = False
+SIDE = Side.BUY
 SYMBOL = 'ada-btc'
 
 
@@ -49,9 +49,13 @@ async def main() -> None:
         size = filters.size.round_down(fills.total_size)
         logging.info(f'Adjusted size: {size}')
 
+        logging.info(f'Unadjusted fee: {fills.total_fee}')
+
         if size == 0:
             logging.error('Not enough balance! Quitting!')
             return
+
+        logging.info(fills)
 
         res = await binance.place_order(
             symbol=SYMBOL, side=SIDE, type_=OrderType.MARKET, size=size, test=TEST
