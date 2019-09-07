@@ -522,8 +522,8 @@ def _interval(interval: int) -> str:
 
 def _side(side: Side) -> str:
     return {
-        Side.BID: 'BUY',
-        Side.ASK: 'SELL',
+        Side.BUY: 'BUY',
+        Side.SELL: 'SELL',
     }[side]
 
 

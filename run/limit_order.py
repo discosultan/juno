@@ -11,7 +11,7 @@ from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
 from juno.storages import Memory, SQLite
 
-SIDE = Side.BID
+SIDE = Side.BUY
 EXCHANGE = 'binance'
 SYMBOL = 'ada-btc'
 LOG_LEVEL = 'DEBUG'
@@ -35,7 +35,7 @@ async def main() -> None:
     market = Market(informant, orderbook, exchanges)
     limit = Limit(informant, orderbook, exchanges)
     async with binance, memory, informant, orderbook, wallet:
-        if SIDE is Side.BID:
+        if SIDE is Side.BUY:
             market_fills = market.find_order_asks(exchange=EXCHANGE, symbol=SYMBOL, quote=QUOTE)
             res = await limit.buy(exchange=EXCHANGE, symbol=SYMBOL, quote=QUOTE, test=False)
         else:

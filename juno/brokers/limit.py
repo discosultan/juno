@@ -27,7 +27,7 @@ class Limit(Broker):
     async def buy(self, exchange: str, symbol: str, quote: Decimal, test: bool) -> OrderResult:
         assert not test
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
-        res = await self._fill(exchange, symbol, Side.BID, quote)
+        res = await self._fill(exchange, symbol, Side.BUY, quote)
         # TODO: DEBUG. Doesn't exactly match as exchange performs rounding.
         fees = self._informant.get_fees(exchange, symbol)
         _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_size} * {fees.maker}')
@@ -36,7 +36,7 @@ class Limit(Broker):
     async def sell(self, exchange: str, symbol: str, base: Decimal, test: bool) -> OrderResult:
         assert not test
         _log.info(f'filling {base} worth of base with limit orders at spread')
-        res = await self._fill(exchange, symbol, Side.ASK, base)
+        res = await self._fill(exchange, symbol, Side.SELL, base)
         fees = self._informant.get_fees(exchange, symbol)
         _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_quote} * {fees.maker}')
         return res
@@ -106,20 +106,20 @@ class Limit(Broker):
     ) -> None:
         orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
         filters = self._informant.get_filters(exchange, symbol)
-        last_order_price = Decimal(0) if side is Side.BID else Decimal('Inf')
+        last_order_price = Decimal(0) if side is Side.BUY else Decimal('Inf')
         while True:
             await orderbook_updated.wait()
 
             asks = self._orderbook.list_asks(exchange, symbol)
             bids = self._orderbook.list_bids(exchange, symbol)
-            ob_side = bids if side is Side.BID else asks
-            ob_other_side = asks if side is Side.BID else bids
-            op_step = operator.add if side is Side.BID else operator.sub
-            op_last_price_cmp = operator.le if side is Side.BID else operator.ge
+            ob_side = bids if side is Side.BUY else asks
+            ob_other_side = asks if side is Side.BUY else bids
+            op_step = operator.add if side is Side.BUY else operator.sub
+            op_last_price_cmp = operator.le if side is Side.BUY else operator.ge
 
             if len(ob_side) == 0:
                 raise NotImplementedError(
-                    f'no existing {"bids" if side is Side.BID else "asks"} in orderbook! what '
+                    f'no existing {"bids" if side is Side.BUY else "asks"} in orderbook! what '
                     'is optimal price?'
                 )
 
@@ -149,7 +149,7 @@ class Limit(Broker):
                     break
 
             # No need to round price as we take it from existing orders.
-            size = available / price if side is Side.BID else available
+            size = available / price if side is Side.BUY else available
             size = filters.size.round_down(size)
 
             if size == 0:

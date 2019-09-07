@@ -1,7 +1,7 @@
 import operator
 import re
 from abc import ABC, abstractmethod, abstractproperty
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from juno import Advice, Candle, Trend
 from juno.math import Constraint

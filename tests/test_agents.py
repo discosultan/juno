@@ -116,11 +116,11 @@ async def test_paper(loop):
         ]
     )
     orderbook_data = {
-        Side.BID: {
+        Side.BUY: {
             Decimal(10): Decimal(5),  # 1.
             Decimal(50): Decimal(1),  # 1.
         },
-        Side.ASK: {
+        Side.SELL: {
             Decimal(20): Decimal(4),  # 2.
             Decimal(10): Decimal(2),  # 2.
         }
@@ -145,8 +145,8 @@ async def test_paper(loop):
     }
 
     assert await Paper(informant=informant, broker=broker).start(**agent_config)
-    assert len(orderbook_data[Side.BID]) == 0
-    assert len(orderbook_data[Side.ASK]) == 0
+    assert len(orderbook_data[Side.BUY]) == 0
+    assert len(orderbook_data[Side.SELL]) == 0
 
 
 async def test_live(loop):
@@ -163,11 +163,11 @@ async def test_live(loop):
         ]
     )
     orderbook_data = {
-        Side.BID: {
+        Side.BUY: {
             Decimal(10): Decimal(5),  # 1.
             Decimal(50): Decimal(1),  # 1.
         },
-        Side.ASK: {
+        Side.SELL: {
             Decimal(20): Decimal(4),  # 2.
             Decimal(10): Decimal(2),  # 2.
         }
@@ -192,5 +192,5 @@ async def test_live(loop):
     }
 
     assert await Live(informant=informant, wallet=wallet, broker=broker).start(**agent_config)
-    assert len(orderbook_data[Side.BID]) == 0
-    assert len(orderbook_data[Side.ASK]) == 0
+    assert len(orderbook_data[Side.BUY]) == 0
+    assert len(orderbook_data[Side.SELL]) == 0

@@ -22,13 +22,13 @@ class Market(Broker):
     async def buy(self, exchange: str, symbol: str, quote: Decimal, test: bool) -> OrderResult:
         fills = self.find_order_asks(exchange=exchange, symbol=symbol, quote=quote)
         return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.BID, fills=fills, test=test
+            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test
         )
 
     async def sell(self, exchange: str, symbol: str, base: Decimal, test: bool) -> OrderResult:
         fills = self.find_order_bids(exchange=exchange, symbol=symbol, base=base)
         return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.ASK, fills=fills, test=test
+            exchange=exchange, symbol=symbol, side=Side.SELL, fills=fills, test=test
         )
 
     def find_order_asks(self, exchange: str, symbol: str, quote: Decimal) -> Fills:

@@ -105,13 +105,13 @@ class Market(brokers.Market):
     async def buy(self, exchange, symbol, quote, test):
         fills = super().find_order_asks(exchange=exchange, symbol=symbol, quote=quote)
         if self._update_orderbook:
-            self._remove_from_orderbook(exchange, symbol, Side.BID, fills)
+            self._remove_from_orderbook(exchange, symbol, Side.BUY, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     async def sell(self, exchange, symbol, base, test):
         fills = super().find_order_bids(exchange=exchange, symbol=symbol, base=base)
         if self._update_orderbook:
-            self._remove_from_orderbook(exchange, symbol, Side.ASK, fills)
+            self._remove_from_orderbook(exchange, symbol, Side.SELL, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     def _remove_from_orderbook(self, exchange, symbol, side, fills):

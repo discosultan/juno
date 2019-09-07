@@ -95,8 +95,8 @@ class Fills(List[Fill]):
 
 
 class Side(Enum):
-    BID = 0
-    ASK = 1
+    BUY = 0
+    SELL = 1
 
 
 class Span(NamedTuple):
