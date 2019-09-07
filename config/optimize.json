@@ -8,14 +8,14 @@
             "name": "optimize",
             "exchange": "binance",
             "symbol": "eth-btc",
-            "start": "2019-04-01",
+            "start": "2019-05-07",
             "end": null,
             "interval": "1h",
-            "quote": "10.0",
+            "quote": "1.0",
             "restart_on_missed_candle": false,
             "strategy": "mamacx",
-            "population_size": 50,
-            "max_generations": 1000,
+            "population_size": 100,
+            "max_generations": 2000,
             "seed": null
         }
     ]
