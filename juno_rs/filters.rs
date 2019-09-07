@@ -72,6 +72,7 @@ impl Size {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct Filters {
     pub base_precision: u32,
     pub quote_precision: u32,
