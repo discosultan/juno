@@ -101,8 +101,9 @@ class Optimize(Agent):
 
             cxpoint2 += 1
 
-            ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = ind2[cxpoint1:cxpoint2
-                                                                    ], ind1[cxpoint1:cxpoint2]
+            ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = (
+                ind2[cxpoint1:cxpoint2], ind1[cxpoint1:cxpoint2]
+            )
 
             return ind1, ind2
 

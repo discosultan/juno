@@ -138,7 +138,7 @@ class Backtest(Agent):
         )
         self.result.append_position(pos)
 
-        self.ctx.quote = quote - fee
+        self.ctx.quote += quote - fee
 
         self.ctx.open_position = None
         return pos

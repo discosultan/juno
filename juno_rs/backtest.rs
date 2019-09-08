@@ -107,7 +107,7 @@ fn close_position(
         summary.append_position(pos);
 
         ctx.open_position = None;
-        ctx.quote = quote - fee;
+        ctx.quote += quote - fee;
     } else {
         panic!();
     }

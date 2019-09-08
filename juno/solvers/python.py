@@ -122,7 +122,7 @@ def _close_position(
     )
     summary.append_position(pos)
 
-    ctx.quote = quote - fee
+    ctx.quote += quote - fee
 
     ctx.open_position = None
     return pos
