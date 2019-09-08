@@ -11,7 +11,8 @@ setup(
         'backoff',
         'cffi',
         'deap',
-        'numpy',  # Required by deap.
+        'numpy',  # Also implicitly required by deap.
+        'pandas',
         'python-dateutil',
         'simplejson',
     ],
