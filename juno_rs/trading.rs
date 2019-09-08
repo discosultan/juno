@@ -126,16 +126,19 @@ impl<'a> TradingSummary<'a> {
             // Drawdowns.
             let mut quote = self.cost;
             let mut max_quote = quote;
+            self.max_drawdown = 0.0;
+            let mut sum_drawdown = 0.0;
             self.drawdowns.resize(pos_len + 1, 0.0);
             self.drawdowns[0] = 0.0;
             for (i, pos) in self.positions.iter().enumerate() {
                 quote += pos.profit;
                 max_quote = f64::max(max_quote, quote);
-                self.drawdowns[i + 1] = 1.0 - quote / max_quote;
+                let drawdown = 1.0 - quote / max_quote;
+                self.drawdowns[i + 1] = drawdown;
+                sum_drawdown += drawdown;
+                self.max_drawdown = f64::max(self.max_drawdown, drawdown);
             }
-
-            self.max_drawdown = self.drawdowns.iter().fold(0.0, |a, &b| a.max(b));
-            self.mean_drawdown = self.drawdowns.iter().sum::<f64>() / self.drawdowns.len() as f64;
+            self.mean_drawdown = sum_drawdown / self.drawdowns.len() as f64;
         }
     }
 }

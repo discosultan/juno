@@ -55,3 +55,13 @@ def test_summary():
     assert summary.gain == Decimal('102.91')
     assert summary.profit == Decimal('2.91')
     assert summary.max_drawdown == pytest.approx(Decimal('0.1495'), Decimal('0.001'))
+
+
+def test_empty_summary():
+    summary = TradingSummary(
+        interval=HOUR_MS, start=0, quote=Decimal(100), fees=Fees.none(), filters=Filters.none()
+    )
+    assert summary.cost == Decimal(100)
+    assert summary.gain == Decimal(100)
+    assert summary.profit == Decimal(0)
+    assert summary.max_drawdown == Decimal(0)

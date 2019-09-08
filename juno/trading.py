@@ -1,10 +1,10 @@
-import itertools
 import statistics
 from decimal import Decimal
 from typing import List, Optional
 
 from juno import Candle, Fees, Fills
 from juno.filters import Filters
+from juno.math import round_half_up
 from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
 
 
@@ -182,10 +182,10 @@ class TradingSummary:
     def potential_hodl_profit(self) -> Decimal:
         if not self.first_candle or not self.last_candle:
             return Decimal(0)
-        base_hodl = self.quote / self.first_candle.close
-        base_hodl -= base_hodl * self.fees.taker
-        quote_hodl = base_hodl * self.last_candle.close
-        quote_hodl -= quote_hodl * self.fees.taker
+        base_hodl = self.filters.size.round_down(self.quote / self.first_candle.close)
+        base_hodl -= round_half_up(base_hodl * self.fees.taker, self.filters.base_precision)
+        quote_hodl = self.filters.size.round_down(base_hodl) * self.last_candle.close
+        quote_hodl -= round_half_up(quote_hodl * self.fees.taker, self.filters.quote_precision)
         return quote_hodl - self.quote
 
     @property
@@ -204,43 +204,41 @@ class TradingSummary:
             return 0
         return int(statistics.mean((x.duration for x in self.positions)))
 
-    # TODO: Optimize drawdown related data calculation. Single iteration please!
     @property
     def drawdowns(self) -> List[Decimal]:
-        if self._drawdowns_dirty:
-            quote = self.quote
-
-            # TODO: Probably not needed? We currently assume start end ending with empty base
-            #       balance (excluding dust).
-            # if self.acc_info.base_balance > self.ap_info.min_qty:
-            #     base_to_quote = self.acc_info.base_balance
-            #     base_to_quote -= base_to_quote % self.ap_info.qty_step_size
-            #     quote += base_to_quote * self.first_candle.close
-
-            quote_history = [quote]
-            for pos in self.positions:
-                quote += pos.profit
-                quote_history.append(quote)
-
-            # Ref: https://discuss.pytorch.org/t/efficiently-computing-max-drawdown/6480
-            maximums = itertools.accumulate(quote_history, max)
-
-            self._drawdowns = [Decimal(1) - (a / b) for a, b in zip(quote_history, maximums)]
-            self._drawdowns_dirty = False
-
+        self._calc_drawdowns_if_stale()
         return self._drawdowns
 
     @property
     def max_drawdown(self) -> Decimal:
-        if len(self.positions) == 0:
-            return Decimal(0)
-        return max(self.drawdowns)
+        self._calc_drawdowns_if_stale()
+        return self._max_drawdown
 
     @property
     def mean_drawdown(self) -> Decimal:
-        if len(self.positions) == 0:
-            return Decimal(0)
-        return statistics.mean(self.drawdowns)
+        self._calc_drawdowns_if_stale()
+        return self._mean_drawdown
+
+    def _calc_drawdowns_if_stale(self) -> None:
+        if not self._drawdowns_dirty:
+            return
+
+        quote = self.quote
+        max_quote = quote
+        self._max_drawdown = Decimal(0)
+        sum_drawdown = Decimal(0)
+        self._drawdowns.clear()
+        self._drawdowns.append(Decimal(0))
+        for i, pos in enumerate(self.positions):
+            quote += pos.profit
+            max_quote = max(max_quote, quote)
+            drawdown = Decimal(1) - quote / max_quote
+            self._drawdowns.append(drawdown)
+            sum_drawdown += drawdown
+            self._max_drawdown = max(self._max_drawdown, drawdown)
+        self._mean_drawdown = sum_drawdown / len(self._drawdowns)
+
+        self._drawdowns_dirty = False
 
 
 class TradingContext:
