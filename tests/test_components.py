@@ -19,7 +19,7 @@ from .utils import new_candle
     [3, 5, True, 2, 3],
     [0, 5, False, 0, 5],
 ])
-async def test_stream_candles(loop, start, end, closed, expected_from, expected_to):
+async def test_stream_candles(start, end, closed, expected_from, expected_to):
     candles = [
         new_candle(time=0),
         new_candle(time=1),
@@ -36,7 +36,7 @@ async def test_stream_candles(loop, start, end, closed, expected_from, expected_
 
 
 @pytest.mark.parametrize('exchange_fees_key', ['__all__', 'eth-btc'])
-async def test_get_fees(loop, exchange_fees_key):
+async def test_get_fees(exchange_fees_key):
     fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
     async with init_informant(fakes.Exchange(fees={exchange_fees_key: fees})) as informant:
         out_fees = informant.get_fees('exchange', 'eth-btc')
@@ -44,7 +44,7 @@ async def test_get_fees(loop, exchange_fees_key):
 
 
 @pytest.mark.parametrize('exchange_filters_key', ['__all__', 'eth-btc'])
-async def test_get_filters(loop, exchange_filters_key):
+async def test_get_filters(exchange_filters_key):
     filters = Filters(
         price=Price(min=Decimal(1), max=Decimal(1), step=Decimal(1)),
         size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1))
@@ -56,7 +56,7 @@ async def test_get_filters(loop, exchange_filters_key):
         assert out_filters == filters
 
 
-async def test_list_symbols(loop):
+async def test_list_symbols():
     symbols = ['eth-btc', 'ltc-btc']
     async with init_informant(
         fakes.Exchange(filters={s: Filters.none() for s in symbols})
@@ -65,7 +65,7 @@ async def test_list_symbols(loop):
         assert out_symbols == symbols
 
 
-async def test_list_asks_bids(loop):
+async def test_list_asks_bids():
     depths = [
         DepthUpdate(
             type=DepthUpdateType.SNAPSHOT,
@@ -81,7 +81,7 @@ async def test_list_asks_bids(loop):
     assert bids == [(Decimal(3), Decimal(1)), (Decimal(2), Decimal(1)), (Decimal(1), Decimal(1))]
 
 
-async def test_get_balance(loop):
+async def test_get_balance():
     balance = Balance(available=Decimal(1), hold=Decimal(0))
     async with init_wallet(fakes.Exchange(balances=[{'btc': balance}])) as wallet:
         out_balance = wallet.get_balance('exchange', 'btc')

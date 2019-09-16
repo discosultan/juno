@@ -59,7 +59,7 @@ filters = Filters(
         ),
     ]
 )
-async def test_find_order_asks(loop, quote, snapshot_asks, update_asks, expected_output):
+async def test_find_order_asks(quote, snapshot_asks, update_asks, expected_output):
     depths = [
         DepthUpdate(type=DepthUpdateType.SNAPSHOT, asks=snapshot_asks, bids=[]),
         DepthUpdate(type=DepthUpdateType.UPDATE, asks=update_asks, bids=[])
@@ -106,7 +106,7 @@ async def test_find_order_asks(loop, quote, snapshot_asks, update_asks, expected
         ),
     ],
 )
-async def test_find_order_bids(loop, base, snapshot_bids, update_bids, expected_output):
+async def test_find_order_bids(base, snapshot_bids, update_bids, expected_output):
     depths = [
         DepthUpdate(type=DepthUpdateType.SNAPSHOT, asks=[], bids=snapshot_bids),
         DepthUpdate(type=DepthUpdateType.UPDATE, asks=[], bids=update_bids)

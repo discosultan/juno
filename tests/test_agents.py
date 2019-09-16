@@ -12,7 +12,7 @@ from . import fakes
 from .utils import new_candle
 
 
-async def test_backtest(loop):
+async def test_backtest():
     informant = fakes.Informant(
         fees=Fees(Decimal(0), Decimal(0)),
         filters=Filters(
@@ -66,7 +66,7 @@ async def test_backtest(loop):
 # 1. was failing as quote was incorrectly calculated after closing a position.
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
-async def test_backtest_scenarios(loop, scenario_nr):
+async def test_backtest_scenarios(scenario_nr):
     path = f'./data/backtest_scenario{scenario_nr}_candles.json'
     informant = fakes.Informant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
@@ -102,7 +102,7 @@ async def test_backtest_scenarios(loop, scenario_nr):
     assert await Backtest(informant=informant).start(**agent_config)
 
 
-async def test_paper(loop):
+async def test_paper():
     informant = fakes.Informant(
         fees=Fees.none(),
         filters=Filters.none(),
@@ -149,7 +149,7 @@ async def test_paper(loop):
     assert len(orderbook_data[Side.SELL]) == 0
 
 
-async def test_live(loop):
+async def test_live():
     informant = fakes.Informant(
         fees=Fees.none(),
         filters=Filters.none(),

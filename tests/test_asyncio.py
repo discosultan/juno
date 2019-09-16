@@ -3,7 +3,7 @@ import asyncio
 from juno.asyncio import Barrier, Event, concat_async, list_async
 
 
-async def test_list_async(loop):
+async def test_list_async():
     async def gen():
         for i in range(3):
             yield i
@@ -11,7 +11,7 @@ async def test_list_async(loop):
     assert await list_async(gen()) == [0, 1, 2]
 
 
-async def test_concat_async(loop):
+async def test_concat_async():
     async def gen():
         yield 1
         yield 2
@@ -22,7 +22,7 @@ async def test_concat_async(loop):
         counter += 1
 
 
-async def test_barrier(loop):
+async def test_barrier():
     barrier = Barrier(2)
     event = asyncio.Event()
 
@@ -30,7 +30,7 @@ async def test_barrier(loop):
         await barrier.wait()
         event.set()
 
-    _process_event_task = loop.create_task(process_event())
+    _process_event_task = asyncio.create_task(process_event())
 
     barrier.release()
     await asyncio.sleep(0)
@@ -43,12 +43,12 @@ async def test_barrier(loop):
     assert _process_event_task.done()
 
 
-async def test_empty_barrier(loop):
+async def test_empty_barrier():
     barrier = Barrier(0)
     await asyncio.wait_for(barrier.wait(), timeout=0.001)
 
 
-async def test_event_multiple_receivers(loop):
+async def test_event_multiple_receivers():
     event = Event()
 
     t1 = event.wait()
@@ -63,7 +63,7 @@ async def test_event_multiple_receivers(loop):
     assert event.is_set()
 
 
-async def test_event_autoclear(loop):
+async def test_event_autoclear():
     event = Event(autoclear=True)
 
     t = event.wait()

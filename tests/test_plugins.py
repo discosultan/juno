@@ -12,7 +12,7 @@ from .utils import new_candle
 
 @pytest.mark.manual
 @pytest.mark.plugin
-async def test_discord(loop, request, config):
+async def test_discord(request, config):
     skip_non_configured(request, config)
 
     from juno.plugins import discord
