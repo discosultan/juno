@@ -56,6 +56,15 @@ async def test_get_filters(loop, exchange_filters_key):
         assert out_filters == filters
 
 
+async def test_list_symbols(loop):
+    symbols = ['eth-btc', 'ltc-btc']
+    async with init_informant(
+        fakes.Exchange(filters={s: Filters.none() for s in symbols})
+    ) as informant:
+        out_symbols = informant.list_symbols('exchange')
+        assert out_symbols == symbols
+
+
 async def test_list_asks_bids(loop):
     depths = [
         DepthUpdate(

@@ -52,11 +52,15 @@ class Informant:
     def get_filters(self, exchange: str, symbol: str) -> Filters:
         return self._get_data(exchange, symbol, Filters)
 
+    def list_symbols(self, exchange: str) -> List[str]:
+        # TODO: Assumes Filters is not using '__all__'.
+        return list(self._exchange_data[exchange][Filters])
+
     @backoff.on_exception(
         backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
     )
     def _get_data(self, exchange: str, symbol: str, type_: Type[T]) -> T:
-        # `__all__` is a special key which allows exchange to return same fee for any symbol.
+        # `__all__` is a special key which allows exchange to return same value for any symbol.
         data = self._exchange_data[exchange][type_].get('__all__')
         if not data:
             data = self._exchange_data[exchange][type_].get(symbol)
