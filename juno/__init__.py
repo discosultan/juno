@@ -1,7 +1,6 @@
 from juno.common import (
     Advice, Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate, DepthUpdateType,
-    Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Span, TimeInForce,
-    Trend
+    Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce, Trend
 )
 from juno.filters import Filters
 from juno.trading import Position, TradingContext, TradingSummary
@@ -14,7 +13,6 @@ __all__ = [
     'Balance',
     'Candle',
     'Fees',
-    'Span',
     'Advice',
     'Side',
     'OrderType',

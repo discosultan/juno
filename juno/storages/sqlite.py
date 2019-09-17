@@ -11,8 +11,8 @@ from typing import (
 import simplejson as json
 from aiosqlite import Connection, connect
 
-from juno import Candle, Span
-from juno.time import time_ms
+from juno import Candle
+from juno.time import strfspan, time_ms
 from juno.utils import home_path
 
 from .storage import Storage
@@ -47,17 +47,19 @@ class SQLite(Storage):
     def __init__(self) -> None:
         self._tables: Dict[Any, Set[type]] = defaultdict(set)
 
-    async def stream_candle_spans(self, key: Key, start: int, end: int) -> AsyncIterable[Span]:
-        _log.info(f'streaming candle span(s) between {Span(start, end)}')
+    async def stream_candle_spans(
+        self, key: Key, start: int, end: int
+    ) -> AsyncIterable[Tuple[int, int]]:
+        _log.info(f'streaming candle span(s) between {strfspan(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Span)
             query = f'SELECT * FROM {Span.__name__} WHERE start < ? AND end > ? ORDER BY start'
             async with db.execute(query, [end, start]) as cursor:
                 async for span_start, span_end in cursor:
-                    yield Span(max(span_start, start), min(span_end, end))
+                    yield max(span_start, start), min(span_end, end)
 
     async def stream_candles(self, key: Key, start: int, end: int) -> AsyncIterable[Candle]:
-        _log.info(f'streaming candle(s) between {Span(start, end)}')
+        _log.info(f'streaming candle(s) between {strfspan(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             query = f'SELECT * FROM {Candle.__name__} WHERE time >= ? AND time < ? ORDER BY time'
@@ -71,7 +73,7 @@ class SQLite(Storage):
         if start > candles[0].time or end <= candles[-1].time:
             raise ValueError('Invalid input')
 
-        _log.info(f'storing {len(candles)} candle(s) between {Span(start, end)}')
+        _log.info(f'storing {len(candles)} candle(s) between {strfspan(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             try:
@@ -203,3 +205,8 @@ class Bag:
     key: str
     value: str
     time: int
+
+
+class Span:
+    start: int
+    end: int

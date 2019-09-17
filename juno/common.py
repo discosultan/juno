@@ -99,17 +99,6 @@ class Side(Enum):
     SELL = 1
 
 
-class Span(NamedTuple):
-    start: int
-    end: int
-
-    def __repr__(self) -> str:
-        return (
-            f'{type(self).__name__}(start={datetime_utcfromtimestamp_ms(self.start)}, '
-            f'end={datetime_utcfromtimestamp_ms(self.end)})'
-        )
-
-
 class OrderResult(NamedTuple):
     status: OrderStatus
     fills: Fills

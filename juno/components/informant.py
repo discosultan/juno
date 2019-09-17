@@ -10,12 +10,12 @@ from typing import (
 import aiohttp
 import backoff
 
-from juno import Candle, Fees, Filters, Span
+from juno import Candle, Fees, Filters
 from juno.asyncio import cancel, cancelable, list_async
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.storages import Storage
-from juno.time import DAY_MS, strfinterval, strpinterval, time_ms
+from juno.time import DAY_MS, strfinterval, strfspan, strpinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import generate_missing_spans, merge_adjacent_spans
 
@@ -99,7 +99,7 @@ class Informant:
         spans.sort(key=lambda s: s[0])
 
         for span_start, span_end, exist_locally in spans:
-            period_msg = f'{Span(span_start, span_end)}'
+            period_msg = f'{strfspan(span_start, span_end)}'
             if exist_locally:
                 _log.info(f'local {candle_msg} exist between {period_msg}')
                 async for candle in self._storage.stream_candles(
