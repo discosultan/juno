@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import math
 import os
 
 import numpy as np
@@ -10,12 +11,9 @@ from juno.components import Informant
 from juno.exchanges import Binance
 from juno.math import floor_multiple
 from juno.storages import SQLite
-from juno.time import DAY_MS, MONTH_MS, YEAR_MS, time_ms
+from juno.time import MONTH_MS, YEAR_MS, time_ms
 
 exchange = 'binance'
-interval = DAY_MS
-end = floor_multiple(time_ms(), interval)
-start = end - MONTH_MS
 
 
 async def find_volatility_for_symbol(informant, exchange, symbol, interval, start, end):
@@ -29,7 +27,7 @@ async def find_volatility_for_symbol(informant, exchange, symbol, interval, star
     # Find volatility.
     volatility = df['log_ret'].std(ddof=0)
     annualized_volatility = volatility * ((YEAR_MS / interval)**0.5)
-    return symbol, annualized_volatility
+    return symbol, interval, annualized_volatility
 
 
 async def main():
@@ -40,20 +38,26 @@ async def main():
     informant = Informant(sqlite, [binance])
     async with binance, informant:
         symbols = informant.list_symbols(exchange)[:10]
+        intervals = informant.list_intervals(exchange)[:3]
+        now = time_ms()
         tasks = []
-        for symbol in symbols:
-            tasks.append(
-                find_volatility_for_symbol(informant, exchange, symbol, interval, start, end)
-            )
+        for interval in intervals:
+            end = floor_multiple(now, interval)
+            start = end - MONTH_MS
+            for symbol in symbols:
+                if symbol != 'bcc-btc':
+                    continue
+                tasks.append(
+                    find_volatility_for_symbol(informant, exchange, symbol, interval, start, end)
+                )
         results = await asyncio.gather(*tasks)
-
-        def by_volatility(value):
-            return value[1]
-
-        best = max(results, key=by_volatility)
         print(results)
+        results = [r for r in results if not math.isnan(r[2])]
+        print(results)
+
+        best = max(results, key=lambda v: v[2])  # By volatility.
         print(best)
 
 
-logging.basicConfig(level='WARNING')
+logging.basicConfig(level='INFO')
 asyncio.run(main())

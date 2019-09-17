@@ -15,7 +15,7 @@ from juno.asyncio import cancel, cancelable, list_async
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.storages import Storage
-from juno.time import DAY_MS, strfinterval, time_ms
+from juno.time import DAY_MS, strfinterval, strpinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import generate_missing_spans, merge_adjacent_spans
 
@@ -56,6 +56,14 @@ class Informant:
         # TODO: Assumes Filters is not using '__all__'.
         return list(self._exchange_data[exchange][Filters])
 
+    def list_intervals(self, exchange: str) -> List[int]:
+        # TODO: Assumes Binance.
+        intervals = [
+            '1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w',
+            '1M'
+        ]
+        return list(map(strpinterval, intervals))
+
     @backoff.on_exception(
         backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
     )
@@ -75,28 +83,32 @@ class Informant:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
         storage_key = (exchange, symbol, interval)
+        candle_msg = f'{symbol} {strfinterval(interval)} candles'
 
-        _log.info('checking for existing candles in local storage')
+        _log.info(f'checking for existing {candle_msg} in local storage')
         existing_spans = await list_async(
             self._storage.stream_candle_spans(storage_key, start, end)
         )
         merged_existing_spans = list(merge_adjacent_spans(existing_spans))
         missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
 
-        spans = ([(a, b, True) for a, b in merged_existing_spans] + [(a, b, False)
-                                                                     for a, b in missing_spans])
+        spans = (
+            [(a, b, True) for a, b in merged_existing_spans] +
+            [(a, b, False) for a, b in missing_spans]
+        )
         spans.sort(key=lambda s: s[0])
 
         for span_start, span_end, exist_locally in spans:
+            period_msg = f'{Span(span_start, span_end)}'
             if exist_locally:
-                _log.info(f'local candles exist between {Span(span_start, span_end)}')
+                _log.info(f'local {candle_msg} exist between {period_msg}')
                 async for candle in self._storage.stream_candles(
                     storage_key, span_start, span_end
                 ):
                     if not closed or candle.closed:
                         yield candle
             else:
-                _log.info(f'missing candles between {Span(span_start, span_end)}')
+                _log.info(f'missing {candle_msg} between {period_msg}')
                 async for candle in self._stream_and_store_exchange_candles(
                     exchange, symbol, interval, span_start, span_end
                 ):
@@ -127,6 +139,7 @@ class Informant:
                         del batch[:]
                 yield candle
 
+            # TODO: We may wanna put this into a finally block so we store stuff even on exception.
             if len(batch) > 0:
                 batch_end = min(end, floor_multiple(time_ms(), interval))
                 await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
