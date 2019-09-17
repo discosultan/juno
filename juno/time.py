@@ -65,7 +65,4 @@ def strpinterval(interval: str) -> int:
 
 
 def strfspan(start: int, end: int) -> str:
-    return (
-        f'Span(start={datetime_utcfromtimestamp_ms(start)}, '
-        f'end={datetime_utcfromtimestamp_ms(end)})'
-    )
+    return f'{datetime_utcfromtimestamp_ms(start)} - {datetime_utcfromtimestamp_ms(end)}'
