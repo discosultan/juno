@@ -45,13 +45,11 @@ async def main():
             end = floor_multiple(now, interval)
             start = end - MONTH_MS
             for symbol in symbols:
-                if symbol != 'bcc-btc':
-                    continue
                 tasks.append(
                     find_volatility_for_symbol(informant, exchange, symbol, interval, start, end)
                 )
         results = await asyncio.gather(*tasks)
-        print(results)
+
         results = [r for r in results if not math.isnan(r[2])]
         print(results)
 
