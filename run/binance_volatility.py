@@ -11,7 +11,7 @@ from juno.components import Informant
 from juno.exchanges import Binance
 from juno.math import floor_multiple
 from juno.storages import SQLite
-from juno.time import MONTH_MS, YEAR_MS, time_ms
+from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
 
 exchange = 'binance'
 
@@ -27,7 +27,7 @@ async def find_volatility_for_symbol(informant, exchange, symbol, interval, star
     # Find volatility.
     volatility = df['log_ret'].std(ddof=0)
     annualized_volatility = volatility * ((YEAR_MS / interval)**0.5)
-    return symbol, interval, annualized_volatility
+    return symbol, strfinterval(interval), annualized_volatility
 
 
 async def main():
