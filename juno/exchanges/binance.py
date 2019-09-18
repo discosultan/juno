@@ -20,7 +20,7 @@ from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, connect_refreshing_stream
 from juno.math import floor_multiple
-from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, time_ms
+from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, page
 
@@ -348,7 +348,7 @@ class Binance(Exchange):
                 '/api/v1/klines',
                 data={
                     'symbol': _http_symbol(symbol),
-                    'interval': _interval(interval),
+                    'interval': strfinterval(interval),
                     'startTime': page_start,
                     'endTime': page_end - 1,
                     'limit': MAX_CANDLES_PER_REQUEST
@@ -381,7 +381,7 @@ class Binance(Exchange):
                     break
 
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@kline_{_interval(interval)}',
+            url=f'/ws/{_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
             interval=12 * HOUR_SEC,
             name='candles'
         ) as ws:
@@ -499,27 +499,6 @@ def _from_symbol(symbol: str) -> str:
         quote = symbol[:split_index]
         base = symbol[split_index:]
     return f'{quote.lower()}-{base.lower()}'
-
-
-def _interval(interval: int) -> str:
-    return {
-        1000: '1s',
-        60_000: '1m',
-        180_000: '3m',
-        300_000: '5m',
-        900_000: '15m',
-        1_800_000: '30m',
-        3_600_000: '1h',
-        7_200_000: '2h',
-        14_400_000: '4h',
-        21_600_000: '6h',
-        28_800_000: '8h',
-        43_200_000: '12h',
-        86_400_000: '1d',
-        259_200_000: '3d',
-        604_800_000: '1w',
-        2_629_746_000: '1M',
-    }[interval]
 
 
 def _side(side: Side) -> str:
