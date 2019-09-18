@@ -45,11 +45,10 @@ class ClientSession:
         raise_for_status: Optional[bool] = None,
         **kwargs: Any
     ) -> AsyncIterator[aiohttp.ClientResponse]:
-        req = self._session.request(method, url, **kwargs)
         name = name or next(_random_words)
         _aiohttp_log.info(f'Req {name} {method} {url}')
         _aiohttp_log.debug(kwargs)
-        async with req as res:
+        async with self._session.request(method, url, **kwargs) as res:
             _aiohttp_log.info(f'Res {name} {res.status} {res.reason}')
             content = {'headers': res.headers, 'body': await res.text()}
             _aiohttp_log.debug(content)

@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import itertools
+import logging
 import math
 import random
 from collections import defaultdict
@@ -18,6 +19,8 @@ import simplejson as json
 from juno import Trend
 
 T = TypeVar('T')
+
+_log = logging.getLogger(__name__)
 
 
 def merge_adjacent_spans(spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
@@ -214,7 +217,9 @@ class LeakyBucket:
 
         while not self.has_capacity(amount):
             # Wait for the next drip to have left the bucket.
-            await asyncio.sleep(1.0 / self._rate_per_sec)
+            sleep_time = 1.0 / self._rate_per_sec
+            _log.info(f'rate limiter reached; sleeping for {sleep_time}s')
+            await asyncio.sleep(sleep_time)
 
         self._level += amount
 

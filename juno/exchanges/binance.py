@@ -62,7 +62,7 @@ class Binance(Exchange):
         self._balance_event: Event[Dict[str, Balance]] = Event(autoclear=True)
         self._order_event: Event[Any] = Event(autoclear=True)
 
-        self._session = ClientSession(raise_for_status=True)
+        self._session = ClientSession(raise_for_status=False)
         await self._session.__aenter__()
 
         return self
@@ -412,7 +412,7 @@ class Binance(Exchange):
         weight: int = 1,
         data: Optional[Any] = None,
         security: int = _SEC_NONE,
-        raise_for_status: Optional[bool] = None
+        raise_for_status: bool = True
     ) -> Any:
         if method == '/api/v3/order':
             await asyncio.gather(
@@ -445,9 +445,18 @@ class Binance(Exchange):
             kwargs['params' if method == 'GET' else 'data'] = data
 
         async with self._session.request(
-            method=method, url=_BASE_REST_URL + url, raise_for_status=raise_for_status, **kwargs
+            method=method, url=_BASE_REST_URL + url, **kwargs
         ) as res:
-            return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
+            if res.status in [418, 429]:
+                retry_after = res.headers['Retry-After']
+                _log.warning(f'received status {res.status}; retrying after {retry_after}s')
+                await asyncio.sleep(float(retry_after))
+            else:
+                if raise_for_status:
+                    res.raise_for_status()
+                return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
+
+        return await self._request(method, url, weight, data, security, raise_for_status)
 
     def _connect_refreshing_stream(self, url: str, interval: int, name: str,
                                    **kwargs: Any) -> AsyncContextManager[AsyncIterable[Any]]:
