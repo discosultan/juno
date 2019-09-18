@@ -3,10 +3,9 @@ import inspect
 import itertools
 import math
 import random
-from collections import OrderedDict, defaultdict
+from collections import defaultdict
 from os import path
 from pathlib import Path
-from time import time
 from types import ModuleType
 from typing import (
     Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, TypeVar,
@@ -188,12 +187,10 @@ class LeakyBucket:
         self._rate_per_sec = rate / period
         self._level = 0.0
         self._last_check = 0.0
-        # Queue of waiting futures to signal capacity to.
-        self._waiters: Dict[asyncio.Task, asyncio.Future] = OrderedDict()
 
     def _leak(self) -> None:
         """Drip out capacity from the bucket."""
-        now = time()
+        now = asyncio.get_running_loop().time()
         if self._level:
             # Drip out enough level for the elapsed time since we last checked.
             elapsed = now - self._last_check
@@ -204,14 +201,6 @@ class LeakyBucket:
     def has_capacity(self, amount: float = 1.0) -> bool:
         """Check if there is enough space remaining in the bucket."""
         self._leak()
-        requested = self._level + amount
-        # If there are tasks waiting for capacity, signal to the first there there may be some now
-        # (they won't wake up until this task yields with an await).
-        if requested < self._max_level:
-            for fut in self._waiters.values():
-                if not fut.done():
-                    fut.set_result(True)
-                    break
         return self._level + amount <= self._max_level
 
     async def acquire(self, amount: float = 1.0) -> None:
@@ -222,19 +211,9 @@ class LeakyBucket:
         if amount > self._max_level:
             raise ValueError("Can't acquire more than the bucket capacity")
 
-        task = asyncio.current_task()
-        assert task
         while not self.has_capacity(amount):
-            # Wait for the next drip to have left the bucket add a future to the _waiters map to be
-            # notified 'early' if capacity has come up.
-            fut = asyncio.get_running_loop().create_future()
-            self._waiters[task] = fut
-            try:
-                await asyncio.wait_for(asyncio.shield(fut), 1 / self._rate_per_sec * amount)
-            except asyncio.TimeoutError:
-                pass
-            fut.cancel()
-        self._waiters.pop(task, None)
+            # Wait for the next drip to have left the bucket.
+            await asyncio.sleep(1.0 / self._rate_per_sec)
 
         self._level += amount
 
