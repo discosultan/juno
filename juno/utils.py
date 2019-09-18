@@ -6,6 +6,7 @@ import random
 from collections import defaultdict
 from os import path
 from pathlib import Path
+from time import time
 from types import ModuleType
 from typing import (
     Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, TypeVar,
@@ -190,7 +191,7 @@ class LeakyBucket:
 
     def _leak(self) -> None:
         """Drip out capacity from the bucket."""
-        now = asyncio.get_running_loop().time()
+        now = time()
         if self._level:
             # Drip out enough level for the elapsed time since we last checked.
             elapsed = now - self._last_check
