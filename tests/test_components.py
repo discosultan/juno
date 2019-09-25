@@ -5,7 +5,7 @@ import pytest
 
 from juno import Balance, DepthUpdate, DepthUpdateType, Fees
 from juno.asyncio import list_async
-from juno.components import Informant, Orderbook, Wallet
+from juno.components import Chandler, Informant, Orderbook, Wallet
 from juno.filters import Filters, Price, Size
 from juno.storages import Memory
 
@@ -27,10 +27,10 @@ async def test_stream_candles(start, end, closed, expected_from, expected_to):
         new_candle(time=3),
         new_candle(time=4, closed=False),
     ]
-    async with init_informant(fakes.Exchange(candles=candles)) as informant:
+    async with init_chandler(fakes.Exchange(candles=candles)) as chandler:
         expected_candles = candles[expected_from:expected_to]
         candles = await list_async(
-            informant.stream_candles('exchange', 'eth-btc', 1, start, end, closed)
+            chandler.stream_candles('exchange', 'eth-btc', 1, start, end, closed)
         )
         assert candles == expected_candles
 
@@ -86,6 +86,12 @@ async def test_get_balance():
     async with init_wallet(fakes.Exchange(balances=[{'btc': balance}])) as wallet:
         out_balance = wallet.get_balance('exchange', 'btc')
         assert out_balance == balance
+
+
+@asynccontextmanager
+async def init_chandler(exchange):
+    async with Memory() as memory:
+        yield Chandler(storage=memory, exchanges=[exchange])
 
 
 @asynccontextmanager

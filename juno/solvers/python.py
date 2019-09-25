@@ -6,14 +6,15 @@ from juno import (
     Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingContext, TradingSummary
 )
 from juno.asyncio import list_async
-from juno.components import Informant
+from juno.components import Chandler, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.utils import unpack_symbol
 
 
 class Python(Solver):
-    def __init__(self, informant: Informant) -> None:
+    def __init__(self, chandler: Chandler, informant: Informant) -> None:
+        self.chandler = chandler
         self.informant = informant
 
     async def get(
@@ -21,7 +22,7 @@ class Python(Solver):
         end: int, quote: Decimal
     ) -> Callable[..., Any]:
         candles = await list_async(
-            self.informant.stream_candles(exchange, symbol, interval, start, end)
+            self.chandler.stream_candles(exchange, symbol, interval, start, end)
         )
         fees = self.informant.get_fees(exchange, symbol)
         filters = self.informant.get_filters(exchange, symbol)

@@ -1,22 +1,27 @@
 import asyncio
 import logging
 import os
-from contextlib import asynccontextmanager
 from datetime import datetime
 
 import plotly.graph_objs as go
 import plotly.offline as py
 from juno.asyncio import list_async
-from juno.components import Informant
-from juno.exchanges import Binance, Coinbase
-from juno.storages import Memory, SQLite
+from juno.components import Chandler
+from juno.exchanges import Binance
+from juno.storages import SQLite
 from juno.time import HOUR_MS, UTC, datetime_timestamp_ms, datetime_utcfromtimestamp_ms
 
 
 async def main():
-    async with new_informat() as informant:
+    sqlite = SQLite()
+    binance = Binance(
+        os.environ['JUNO__BINANCE__API_KEY'],
+        os.environ['JUNO__BINANCE__SECRET_KEY'],
+    )
+    chandler = Chandler(sqlite, [binance])
+    async with binance, chandler:
         candles = await list_async(
-            informant.stream_candles(
+            chandler.stream_candles(
                 'binance', 'eth-btc', HOUR_MS,
                 datetime_timestamp_ms(datetime(2017, 1, 1, tzinfo=UTC)),
                 datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
@@ -70,33 +75,6 @@ async def main():
     }
     data = [trace1, trace2, trace3]
     py.plot(data)
-
-
-@asynccontextmanager
-async def new_informat():
-    binance = Binance(
-        os.environ['JUNO__BINANCE__API_KEY'],
-        os.environ['JUNO__BINANCE__SECRET_KEY'],
-    )
-    coinbase = Coinbase(
-        os.environ['JUNO__COINBASE__API_KEY'],
-        os.environ['JUNO__COINBASE__SECRET_KEY'],
-        os.environ['JUNO__COINBASE__PASSPHRASE'],
-    )
-    sqlite = SQLite()
-    memory = Memory()
-    async with binance, coinbase, sqlite, memory:
-        services = {
-            'memory': memory,
-            'sqlite': sqlite,
-            'binance': binance,
-            'coinbase': coinbase,
-        }
-        config = {
-            'storage': 'sqlite',
-        }
-        async with Informant(services, config) as informant:
-            yield informant
 
 
 logging.basicConfig(level='INFO')

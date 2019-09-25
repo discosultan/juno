@@ -66,21 +66,25 @@ class Exchange(exchanges.Exchange):
         pass
 
 
+class Chandler:
+    def __init__(self, candles):
+        self.candles = candles
+
+    async def stream_candles(self, exchange, symbol, interval, start, end):
+        for candle in self.candles:
+            yield candle
+
+
 class Informant:
-    def __init__(self, fees, filters, candles):
+    def __init__(self, fees, filters):
         self.fees = fees
         self.filters = filters
-        self.candles = candles
 
     def get_fees(self, exchange, symbol):
         return self.fees
 
     def get_filters(self, exchange, symbol):
         return self.filters
-
-    async def stream_candles(self, exchange, symbol, interval, start, end):
-        for candle in self.candles:
-            yield candle
 
 
 class Orderbook(components.Orderbook):

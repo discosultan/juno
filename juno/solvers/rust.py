@@ -14,7 +14,7 @@ import cffi
 
 from .solver import Solver, SolverResult
 from juno.asyncio import list_async
-from juno.components import Informant
+from juno.components import Chandler, Informant
 from juno.strategies import Meta, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path
@@ -23,9 +23,9 @@ _log = logging.getLogger(__name__)
 
 
 class Rust(Solver):
-    def __init__(self, informant: Informant) -> None:
+    def __init__(self, chandler: Chandler, informant: Informant) -> None:
+        self.chandler = chandler
         self.informant = informant
-        self.solve_native: Any = None
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
@@ -72,7 +72,7 @@ class Rust(Solver):
         end: int, quote: Decimal
     ) -> Callable[..., Any]:
         candles = await list_async(
-            self.informant.stream_candles(exchange, symbol, interval, start, end)
+            self.chandler.stream_candles(exchange, symbol, interval, start, end)
         )
         fees = self.informant.get_fees(exchange, symbol)
         filters = self.informant.get_filters(exchange, symbol)

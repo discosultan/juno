@@ -13,12 +13,7 @@ from .utils import new_candle
 
 
 async def test_backtest():
-    informant = fakes.Informant(
-        fees=Fees(Decimal(0), Decimal(0)),
-        filters=Filters(
-            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
-            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))
-        ),
+    chandler = fakes.Chandler(
         candles=[
             new_candle(time=0, close=Decimal(5)),
             new_candle(time=1, close=Decimal(10)),
@@ -30,6 +25,13 @@ async def test_backtest():
             # Long. Size 5.
             new_candle(time=5, close=Decimal(10))
         ]
+    )
+    informant = fakes.Informant(
+        fees=Fees(Decimal(0), Decimal(0)),
+        filters=Filters(
+            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
+            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))
+        )
     )
     agent_config = {
         'exchange': 'dummy',
@@ -48,7 +50,7 @@ async def test_backtest():
         }
     }
 
-    res = await Backtest(informant=informant).start(**agent_config)
+    res = await Backtest(chandler=chandler, informant=informant).start(**agent_config)
 
     assert res.profit == -50
     assert res.potential_hodl_profit == 100
@@ -68,6 +70,9 @@ async def test_backtest():
 @pytest.mark.parametrize('scenario_nr', [1, 2])
 async def test_backtest_scenarios(scenario_nr):
     path = f'./data/backtest_scenario{scenario_nr}_candles.json'
+    chandler = fakes.Chandler(
+        candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(__file__, path)))
+    )
     informant = fakes.Informant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
         filters=Filters(
@@ -77,8 +82,7 @@ async def test_backtest_scenarios(scenario_nr):
                 max=Decimal('100000.00000000'),
                 step=Decimal('0.00100000')
             )
-        ),
-        candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(__file__, path)))
+        )
     )
     agent_config = {
         'name': 'backtest',
@@ -99,13 +103,11 @@ async def test_backtest_scenarios(scenario_nr):
         }
     }
 
-    assert await Backtest(informant=informant).start(**agent_config)
+    assert await Backtest(chandler=chandler, informant=informant).start(**agent_config)
 
 
 async def test_paper():
-    informant = fakes.Informant(
-        fees=Fees.none(),
-        filters=Filters.none(),
+    chandler = fakes.Chandler(
         candles=[
             new_candle(time=0, close=Decimal(5)),
             new_candle(time=1, close=Decimal(10)),
@@ -115,6 +117,7 @@ async def test_paper():
             # 2. Short. Size 4 + 2.
         ]
     )
+    informant = fakes.Informant(fees=Fees.none(), filters=Filters.none())
     orderbook_data = {
         Side.BUY: {
             Decimal(10): Decimal(5),  # 1.
@@ -144,15 +147,13 @@ async def test_paper():
         'get_time': fakes.Time()
     }
 
-    assert await Paper(informant=informant, broker=broker).start(**agent_config)
+    assert await Paper(chandler=chandler, informant=informant, broker=broker).start(**agent_config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0
 
 
 async def test_live():
-    informant = fakes.Informant(
-        fees=Fees.none(),
-        filters=Filters.none(),
+    chandler = fakes.Chandler(
         candles=[
             new_candle(time=0, close=Decimal(5)),
             new_candle(time=1, close=Decimal(10)),
@@ -162,6 +163,7 @@ async def test_live():
             # 2. Short. Size 4 + 2.
         ]
     )
+    informant = fakes.Informant(fees=Fees.none(), filters=Filters.none())
     orderbook_data = {
         Side.BUY: {
             Decimal(10): Decimal(5),  # 1.
@@ -191,6 +193,8 @@ async def test_live():
         'get_time': fakes.Time()
     }
 
-    assert await Live(informant=informant, wallet=wallet, broker=broker).start(**agent_config)
+    assert await Live(
+        chandler=chandler, informant=informant, wallet=wallet, broker=broker
+    ).start(**agent_config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0

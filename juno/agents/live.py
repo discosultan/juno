@@ -5,7 +5,7 @@ import simplejson as json
 
 from juno import Advice, Candle, OrderStatus, Position, TradingContext, TradingSummary
 from juno.brokers import Broker
-from juno.components import Informant, Wallet
+from juno.components import Chandler, Informant, Wallet
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
 from juno.time import MAX_TIME_MS, time_ms
@@ -17,8 +17,11 @@ _log = logging.getLogger(__name__)
 
 
 class Live(Agent):
-    def __init__(self, informant: Informant, wallet: Wallet, broker: Broker) -> None:
+    def __init__(
+        self, chandler: Chandler, informant: Informant, wallet: Wallet, broker: Broker
+    ) -> None:
         super().__init__()
+        self.chandler = chandler
         self.informant = informant
         self.wallet = wallet
         self.broker = broker
@@ -72,7 +75,7 @@ class Live(Agent):
                 )
                 start = now - strategy.req_history * interval
 
-            async for candle in self.informant.stream_candles(
+            async for candle in self.chandler.stream_candles(
                 exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
             ):
                 self.result.append_candle(candle)

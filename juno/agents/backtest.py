@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from juno import (
     Advice, Candle, Fill, Fills, Position, TradingContext, TradingSummary
 )
-from juno.components import Informant
+from juno.components import Chandler, Informant
 from juno.math import floor_multiple, round_half_up
 from juno.strategies import new_strategy
 from juno.time import time_ms
@@ -17,8 +17,9 @@ _log = logging.getLogger(__name__)
 
 
 class Backtest(Agent):
-    def __init__(self, informant: Informant) -> None:
+    def __init__(self, chandler: Chandler, informant: Informant) -> None:
         super().__init__()
+        self.chandler = chandler
         self.informant = informant
 
     async def run(
@@ -68,7 +69,7 @@ class Backtest(Agent):
                 )
                 start -= strategy.req_history * interval
 
-            async for candle in self.informant.stream_candles(
+            async for candle in self.chandler.stream_candles(
                 exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
             ):
                 self.result.append_candle(candle)

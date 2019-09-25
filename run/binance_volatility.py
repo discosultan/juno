@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from juno.asyncio import list_async
-from juno.components import Informant
+from juno.components import Chandler, Informant
 from juno.exchanges import Binance
 from juno.math import floor_multiple
 from juno.storages import SQLite
@@ -16,8 +16,8 @@ from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
 exchange = 'binance'
 
 
-async def find_volatility_for_symbol(informant, exchange, symbol, interval, start, end):
-    candles = await list_async(informant.stream_candles(exchange, symbol, interval, start, end))
+async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end):
+    candles = await list_async(chandler.stream_candles(exchange, symbol, interval, start, end))
     df = pd.DataFrame([float(c.close) for c in candles], columns=['price'])
     # Find returns.
     df['pct_chg'] = df['price'].pct_change()
@@ -35,8 +35,9 @@ async def main():
         os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
     )
     sqlite = SQLite()
+    chandler = Chandler(sqlite, [binance])
     informant = Informant(sqlite, [binance])
-    async with binance, informant:
+    async with binance, chandler, informant:
         symbols = informant.list_symbols(exchange)[:10]
         intervals = informant.list_intervals(exchange)[:3]
         now = time_ms()
