@@ -15,12 +15,14 @@ def test_datetime_utcfromtimestamp_ms():
     assert output == datetime(2000, 1, 1, tzinfo=time.UTC)
 
 
-@pytest.mark.parametrize('input,expected_output', [
-    [time.DAY_MS * 2, '2d'],
-    [123, '123ms'],
-    [1234, '1s234ms'],
-    [0, '0ms'],
-])
+@pytest.mark.parametrize(
+    'input,expected_output', [
+        [time.DAY_MS * 2, '2d'],
+        [123, '123ms'],
+        [1234, '1s234ms'],
+        [0, '0ms'],
+    ]
+)
 def test_strfinterval(input, expected_output):
     assert time.strfinterval(input) == expected_output
 

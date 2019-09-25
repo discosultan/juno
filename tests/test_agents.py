@@ -193,8 +193,7 @@ async def test_live():
         'get_time': fakes.Time()
     }
 
-    assert await Live(
-        chandler=chandler, informant=informant, wallet=wallet, broker=broker
-    ).start(**agent_config)
+    assert await Live(chandler=chandler, informant=informant, wallet=wallet,
+                      broker=broker).start(**agent_config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0

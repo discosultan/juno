@@ -2,12 +2,13 @@ import logging
 from decimal import Decimal
 from typing import List
 
-from .broker import Broker
 from juno import Fill, Fills, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.math import round_half_up
 from juno.utils import unpack_symbol
+
+from .broker import Broker
 
 _log = logging.getLogger(__name__)
 

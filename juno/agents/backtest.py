@@ -2,9 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from juno import (
-    Advice, Candle, Fill, Fills, Position, TradingContext, TradingSummary
-)
+from juno import Advice, Candle, Fill, Fills, Position, TradingContext, TradingSummary
 from juno.components import Chandler, Informant
 from juno.math import floor_multiple, round_half_up
 from juno.strategies import new_strategy

@@ -444,9 +444,7 @@ class Binance(Exchange):
         if data:
             kwargs['params' if method == 'GET' else 'data'] = data
 
-        async with self._session.request(
-            method=method, url=_BASE_REST_URL + url, **kwargs
-        ) as res:
+        async with self._session.request(method=method, url=_BASE_REST_URL + url, **kwargs) as res:
             if res.status in [418, 429]:
                 retry_after = res.headers['Retry-After']
                 _log.warning(f'received status {res.status}; retrying after {retry_after}s')

@@ -5,13 +5,14 @@ import uuid
 from decimal import Decimal
 from typing import List
 
-from .broker import Broker
 from juno import (
     CancelOrderStatus, Fill, Fills, OrderResult, OrderStatus, OrderType, Side, TimeInForce
 )
 from juno.asyncio import cancel, cancelable
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
+
+from .broker import Broker
 
 _log = logging.getLogger(__name__)
 

@@ -37,10 +37,8 @@ class Chandler:
         merged_existing_spans = list(merge_adjacent_spans(existing_spans))
         missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
 
-        spans = (
-            [(a, b, True) for a, b in merged_existing_spans] +
-            [(a, b, False) for a, b in missing_spans]
-        )
+        spans = ([(a, b, True) for a, b in merged_existing_spans] + [(a, b, False)
+                                                                     for a, b in missing_spans])
         spans.sort(key=lambda s: s[0])
 
         for span_start, span_end, exist_locally in spans:
@@ -84,8 +82,8 @@ class Chandler:
                         del batch[:]
                 yield candle
 
-            # TODO: We may wanna put this into a finally block so we store stuff even on exception.
-            if len(batch) > 0:
-                batch_end = min(end, floor_multiple(time_ms(), interval))
-                await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
-                                                           batch_start, batch_end)
+        # TODO: We may wanna put this into a finally block so we store stuff even on exception.
+        if len(batch) > 0:
+            batch_end = min(end, floor_multiple(time_ms(), interval))
+            await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
+                                                       batch_start, batch_end)

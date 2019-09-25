@@ -1,7 +1,6 @@
 from decimal import Decimal
 from typing import Any, Callable, Optional, Type
 
-from .solver import Solver, SolverResult
 from juno import (
     Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingContext, TradingSummary
 )
@@ -10,6 +9,8 @@ from juno.components import Chandler, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.utils import unpack_symbol
+
+from .solver import Solver, SolverResult
 
 
 class Python(Solver):
@@ -31,11 +32,7 @@ class Python(Solver):
         def backtest(*args: Any) -> SolverResult:
             ctx = TradingContext(quote)
             summary = TradingSummary(
-                interval=interval,
-                start=start,
-                quote=quote,
-                fees=fees,
-                filters=filters
+                interval=interval, start=start, quote=quote, fees=fees, filters=filters
             )
             restart_on_missed_candle = False
 

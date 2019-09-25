@@ -12,9 +12,8 @@ Key = Union[str, Tuple[Any, ...]]
 
 class Storage(ABC):
     @abstractmethod
-    async def stream_candle_spans(
-        self, key: Key, start: int, end: int
-    ) -> AsyncIterable[Tuple[int, int]]:
+    async def stream_candle_spans(self, key: Key, start: int,
+                                  end: int) -> AsyncIterable[Tuple[int, int]]:
         yield  # type: ignore
 
     @abstractmethod

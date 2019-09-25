@@ -47,9 +47,8 @@ class SQLite(Storage):
     def __init__(self) -> None:
         self._tables: Dict[Any, Set[type]] = defaultdict(set)
 
-    async def stream_candle_spans(
-        self, key: Key, start: int, end: int
-    ) -> AsyncIterable[Tuple[int, int]]:
+    async def stream_candle_spans(self, key: Key, start: int,
+                                  end: int) -> AsyncIterable[Tuple[int, int]]:
         _log.info(f'streaming candle span(s) between {strfspan(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Span)

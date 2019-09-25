@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import ROUND_HALF_UP, Decimal
 from random import Random
 from typing import Any, Callable, List, Tuple, TypeVar
 

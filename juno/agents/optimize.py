@@ -143,8 +143,7 @@ class Optimize(Agent):
 
         # Returns the final population and logbook with the statistics of the evolution.
         final_pop, stat = await asyncio.get_running_loop().run_in_executor(
-            None,
-            lambda: algorithms.eaMuPlusLambda(
+            None, lambda: algorithms.eaMuPlusLambda(
                 pop,
                 toolbox,
                 mu=toolbox.population_size,
@@ -163,16 +162,17 @@ class Optimize(Agent):
         best_args = list(flatten(hall[0]))
         best_result = solve(*best_args)
         self.result = OptimizationResult(
-            args=_output_as_strategy_args(strategy_type, best_args),
-            result=best_result
+            args=_output_as_strategy_args(strategy_type, best_args), result=best_result
         )
 
         # In case of using other than python solver, run the backtest with final args also with
         # Python solver to assert the equality of results.
         if self.solver != self.validating_solver:
             solver_name = type(self.solver).__name__.lower()
-            _log.info(f'validating {solver_name} solver result with best args against python '
-                      'solver')
+            _log.info(
+                f'validating {solver_name} solver result with best args against python '
+                'solver'
+            )
             validation_solve = await self.validating_solver.get(
                 strategy_type=strategy_type,
                 exchange=exchange,
@@ -195,9 +195,8 @@ class OptimizationResult(NamedTuple):
     result: Dict[str, Any]
 
 
-def _output_as_strategy_args(
-    strategy_type: Type[Strategy], best_args: List[Any]
-) -> Dict[str, Any]:
+def _output_as_strategy_args(strategy_type: Type[Strategy],
+                             best_args: List[Any]) -> Dict[str, Any]:
     strategy_config = {'name': strategy_type.__name__.lower()}
     for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args):
         strategy_config[key] = value

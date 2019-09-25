@@ -25,8 +25,14 @@ class MAMACX(Strategy):
     )
 
     def __init__(
-        self, short_period: int, long_period: int, neg_threshold: Decimal, pos_threshold: Decimal,
-        persistence: int, short_ma: str = 'ema', long_ma: str = 'ema'
+        self,
+        short_period: int,
+        long_period: int,
+        neg_threshold: Decimal,
+        pos_threshold: Decimal,
+        persistence: int,
+        short_ma: str = 'ema',
+        long_ma: str = 'ema'
     ) -> None:
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
@@ -49,8 +55,8 @@ class MAMACX(Strategy):
 
         trend = Trend.UNKNOWN
         if self._t == self._t1:
-            diff = 100 * (self._short_ma.value - self._long_ma.value
-                          ) / ((self._short_ma.value + self._long_ma.value) / 2)
+            diff = 100 * (self._short_ma.value -
+                          self._long_ma.value) / ((self._short_ma.value + self._long_ma.value) / 2)
 
             if diff > self._pos_threshold:
                 trend = Trend.UP

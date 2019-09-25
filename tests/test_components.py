@@ -13,12 +13,14 @@ from . import fakes
 from .utils import new_candle
 
 
-@pytest.mark.parametrize('start,end,closed,expected_from,expected_to', [
-    [0, 3, True, 0, 2],
-    [2, 3, True, 0, 0],
-    [3, 5, True, 2, 3],
-    [0, 5, False, 0, 5],
-])
+@pytest.mark.parametrize(
+    'start,end,closed,expected_from,expected_to', [
+        [0, 3, True, 0, 2],
+        [2, 3, True, 0, 0],
+        [3, 5, True, 2, 3],
+        [0, 5, False, 0, 5],
+    ]
+)
 async def test_stream_candles(start, end, closed, expected_from, expected_to):
     candles = [
         new_candle(time=0),
@@ -59,7 +61,8 @@ async def test_get_filters(exchange_filters_key):
 async def test_list_symbols():
     symbols = ['eth-btc', 'ltc-btc']
     async with init_informant(
-        fakes.Exchange(filters={s: Filters.none() for s in symbols})
+        fakes.Exchange(filters={s: Filters.none()
+                                for s in symbols})
     ) as informant:
         out_symbols = informant.list_symbols('exchange')
         assert out_symbols == symbols

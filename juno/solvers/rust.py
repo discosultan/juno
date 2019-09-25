@@ -12,12 +12,13 @@ from typing import Any, Callable, Type
 
 import cffi
 
-from .solver import Solver, SolverResult
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.strategies import Meta, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path
+
+from .solver import Solver, SolverResult
 
 _log = logging.getLogger(__name__)
 
@@ -54,10 +55,7 @@ class Rust(Solver):
             if proc.returncode != 0:
                 raise Exception(f'rust module compilation failed ({proc.returncode})')
             await asyncio.get_running_loop().run_in_executor(
-                None,
-                shutil.copy2,
-                str(compiled_path),
-                str(dst_path)
+                None, shutil.copy2, str(compiled_path), str(dst_path)
             )
 
         self.lib_path = dst_path
@@ -116,7 +114,8 @@ class Rust(Solver):
 
         def backtest(*args: Any) -> SolverResult:
             format_args = {
-                k: v for k, v in zip(meta.identifier_params, meta.get_identifier_args(args))
+                k: v
+                for k, v in zip(meta.identifier_params, meta.get_identifier_args(args))
             }
             fn_name = meta.identifier.format(**format_args)
             fn = getattr(libjuno, fn_name)
@@ -198,7 +197,8 @@ def _build_function_permutations(meta: Meta, custom_params: str) -> str:
         itertools.repeat(meta.identifier_params), itertools.product(*possible_values)
     ):
         format_args = {k: v for k, v in zip(keys, values)}
-        templates.append(f'''
+        templates.append(
+            f'''
 BacktestResult {meta.identifier.format(**format_args)}(
     const Candle *candles,
     uint32_t length,
@@ -209,7 +209,8 @@ BacktestResult {meta.identifier.format(**format_args)}(
     uint64_t end,
     double quote,
     {custom_params});
-        ''')
+        '''
+        )
     return '\n'.join(templates)
 
 

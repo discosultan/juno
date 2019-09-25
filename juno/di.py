@@ -27,9 +27,7 @@ class Container:
     async def __aenter__(self) -> Container:
         _log.info(f'created instances: {[i for i in self._singletons.values()]}')
         for deps in list_dependencies_in_init_order(map_dependencies(self._singletons)):
-            await asyncio.gather(
-                *(d.__aenter__() for d in deps if getattr(d, '__aenter__', None))
-            )
+            await asyncio.gather(*(d.__aenter__() for d in deps if getattr(d, '__aenter__', None)))
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:

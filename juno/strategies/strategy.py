@@ -10,7 +10,8 @@ from juno.utils import flatten
 
 class Meta:
     def __init__(
-        self, constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {},
+        self,
+        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {},
         identifier: Optional[str] = None
     ) -> None:
         self.constraints = constraints

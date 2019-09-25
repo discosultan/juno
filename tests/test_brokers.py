@@ -90,14 +90,20 @@ async def test_find_order_asks(quote, snapshot_asks, update_asks, expected_outpu
             Decimal(11),
             [(Decimal(1), Decimal(11))],
             [],
-            [(Decimal(1), Decimal(10), Decimal(1))]),
+            [(Decimal(1), Decimal(10), Decimal(1))],
+        ),
         (
             Decimal('1.23'),
             [(Decimal(1), Decimal(2))],
             [],
             [(Decimal(1), Decimal('1.2'), Decimal('0.12'))],
         ),
-        (Decimal(1), [(Decimal(2), Decimal(1))], [], [(Decimal(2), Decimal(1), Decimal('0.2'))]),
+        (
+            Decimal(1),
+            [(Decimal(2), Decimal(1))],
+            [],
+            [(Decimal(2), Decimal(1), Decimal('0.2'))],
+        ),
         (
             Decimal('3.1'),
             [(Decimal(1), Decimal(1)), (Decimal(2), Decimal(1))],
