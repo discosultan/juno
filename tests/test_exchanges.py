@@ -64,11 +64,29 @@ async def test_connect_stream_balances(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_connect_stream_candles(loop, request, exchange):
+async def test_stream_historical_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
     start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
-    async with exchange.connect_stream_candles(
+    stream = exchange.stream_historical_candles(
         symbol='eth-btc', interval=HOUR_MS, start=start, end=start + HOUR_MS
+    )
+    candle = await stream.__anext__()
+
+    assert isinstance(candle.time, int)
+    assert candle.time == start
+    assert isinstance(candle.close, Decimal)
+
+    with pytest.raises(StopAsyncIteration):
+        await stream.__anext__()
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_connect_stream_future_candles(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    async with exchange.connect_stream_future_candles(
+        symbol='eth-btc', interval=HOUR_MS
     ) as stream:
         candle = await stream.__anext__()
 

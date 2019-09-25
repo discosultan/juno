@@ -101,24 +101,8 @@ class Coinbase(Exchange):
         # TODO: Add support for future balance changes.
         yield inner()
 
-    @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str, interval: int, start: int,
-                                     end: int) -> AsyncIterator[AsyncIterable[Candle]]:
-        async def inner() -> AsyncIterable[Candle]:
-            current = floor_multiple(time_ms(), interval)
-            if start < current:
-                async for candle in self._stream_historical_candles(
-                    symbol, interval, start, min(end, current)
-                ):
-                    yield candle
-            if end > current:
-                async for candle in self._stream_future_candles(symbol, interval, end):
-                    yield candle
-
-        yield inner()
-
-    async def _stream_historical_candles(self, symbol: str, interval: int, start: int,
-                                         end: int) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
+                                        end: int) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
         url = f'/products/{_product(symbol)}/candles'
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
@@ -139,61 +123,67 @@ class Coinbase(Exchange):
                 yield Candle(c[0] * 1000, c[3], c[2], c[1], c[4], c[5], True)
 
     # TODO: First candle can be partial.
-    async def _stream_future_candles(self, symbol: str, interval: int,
-                                     end: int) -> AsyncIterable[Candle]:
-        self._ensure_stream_open()
-        if symbol not in self._stream_subscriptions.get('matches', []):
-            self._stream_subscription_queue.put_nowait({
-                'type': 'subscribe',
-                'product_ids': [_product(symbol)],
-                'channels': ['heartbeat', 'matches']
-            })
+    @asynccontextmanager
+    async def connect_stream_future_candles(self, symbol: str,
+                                            interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+        async def inner():
+            self._ensure_stream_open()
+            if symbol not in self._stream_subscriptions.get('matches', []):
+                self._stream_subscription_queue.put_nowait({
+                    'type': 'subscribe',
+                    'product_ids': [_product(symbol)],
+                    'channels': ['heartbeat', 'matches']
+                })
 
-        start = floor_multiple(time_ms(), interval)
-        trades_since_start = []
-        # TODO: pagination
-        latest_trades = await self._public_request('GET', f'/products/{_product(symbol)}/trades')
-        for trade in latest_trades:
-            trade['time'] = _from_datetime(trade['time'])
-            if trade['time'] < start:
-                break
-            trades_since_start.append(trade)
+            start = floor_multiple(time_ms(), interval)
+            trades_since_start = []
+            # TODO: pagination
+            latest_trades = await self._public_request(
+                'GET', f'/products/{_product(symbol)}/trades'
+            )
+            for trade in latest_trades:
+                trade['time'] = _from_datetime(trade['time'])
+                if trade['time'] < start:
+                    break
+                trades_since_start.append(trade)
 
-        candles: Dict[str, Dict[int, Candle]] = defaultdict(dict)
-        last_candle_map: Dict[str, Candle] = {}
-        while True:
-            data = await self._stream_match_event.wait()
-            if 'price' not in data or 'size' not in data:
-                continue
-            product_id = data['product_id']
-            price, size = Decimal(data['price']), Decimal(data['size'])
-            time = floor_multiple(_from_datetime(data['time']), interval)
-            current_candle = candles[product_id].get(time)
-            if not current_candle:
-                last_candle = last_candle_map.get(product_id)
-                if last_candle:
-                    del candles[product_id][last_candle.time]
-                    yield last_candle
-                candles[product_id][time] = Candle(
-                    time=time,
-                    open=price,
-                    high=price,
-                    low=price,
-                    close=price,
-                    volume=size,
-                    closed=True
-                )
-            else:
-                current_candle = Candle(
-                    time=current_candle.time,
-                    open=current_candle.open,
-                    high=max(price, current_candle.high),
-                    low=min(price, current_candle.low),
-                    close=price,
-                    volume=current_candle.volume + size,
-                    closed=True
-                )
-                last_candle_map[product_id] = current_candle
+            candles: Dict[str, Dict[int, Candle]] = defaultdict(dict)
+            last_candle_map: Dict[str, Candle] = {}
+            while True:
+                data = await self._stream_match_event.wait()
+                if 'price' not in data or 'size' not in data:
+                    continue
+                product_id = data['product_id']
+                price, size = Decimal(data['price']), Decimal(data['size'])
+                time = floor_multiple(_from_datetime(data['time']), interval)
+                current_candle = candles[product_id].get(time)
+                if not current_candle:
+                    last_candle = last_candle_map.get(product_id)
+                    if last_candle:
+                        del candles[product_id][last_candle.time]
+                        yield last_candle
+                    candles[product_id][time] = Candle(
+                        time=time,
+                        open=price,
+                        high=price,
+                        low=price,
+                        close=price,
+                        volume=size,
+                        closed=True
+                    )
+                else:
+                    current_candle = Candle(
+                        time=current_candle.time,
+                        open=current_candle.open,
+                        high=max(price, current_candle.high),
+                        low=min(price, current_candle.low),
+                        close=price,
+                        volume=current_candle.volume + size,
+                        closed=True
+                    )
+                    last_candle_map[product_id] = current_candle
+
+        yield inner()
 
     @asynccontextmanager
     async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:

@@ -68,22 +68,51 @@ class Chandler:
         batch = []
         batch_start = start
 
-        async with self._exchanges[exchange].connect_stream_candles(
-            symbol=symbol, interval=interval, start=start, end=end
-        ) as stream:
-            async for candle in stream:
-                if candle.closed:
-                    batch.append(candle)
-                    if len(batch) == BATCH_SIZE:
-                        batch_end = batch[-1].time + interval
-                        await self._storage.store_candles_and_span((exchange, symbol, interval),
-                                                                   batch, batch_start, batch_end)
-                        batch_start = batch_end
-                        del batch[:]
-                yield candle
+        async for candle in self._stream_exchange_candles(
+            exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
+        ):
+            if candle.closed:
+                batch.append(candle)
+                if len(batch) == BATCH_SIZE:
+                    batch_end = batch[-1].time + interval
+                    await self._storage.store_candles_and_span((exchange, symbol, interval),
+                                                               batch, batch_start, batch_end)
+                    batch_start = batch_end
+                    del batch[:]
+            yield candle
 
         # TODO: We may wanna put this into a finally block so we store stuff even on exception.
         if len(batch) > 0:
             batch_end = min(end, floor_multiple(time_ms(), interval))
             await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
                                                        batch_start, batch_end)
+
+    async def _stream_exchange_candles(self, exchange: str, symbol: str, interval: int, start: int,
+                                       end: int) -> AsyncIterable[Candle]:
+        exchange_instance = self._exchanges[exchange]
+
+        current = floor_multiple(time_ms(), interval)
+        future_stream = None
+
+        async def inner() -> AsyncIterable[Candle]:
+            if start < current:
+                async for candle in exchange_instance.stream_historical_candles(
+                    symbol, interval, start, min(end, current)
+                ):
+                    yield candle
+            if future_stream:
+                async for candle in future_stream:
+                    yield candle
+
+                    if candle.time >= end - interval and candle.closed:
+                        break
+
+        if end > current:
+            async with exchange_instance.connect_stream_future_candles(
+                symbol, interval, end
+            ) as future_stream:
+                async for candle in inner():
+                    yield candle
+        else:
+            async for candle in inner():
+                yield candle
