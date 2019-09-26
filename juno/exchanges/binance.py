@@ -19,7 +19,6 @@ from juno import (
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, connect_refreshing_stream
-from juno.math import floor_multiple
 from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, page
@@ -317,30 +316,8 @@ class Binance(Exchange):
             raise NotImplementedError(f'No handling for binance error: {res}')
         return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
 
-    @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str, interval: int, start: int,
-                                     end: int) -> AsyncIterator[AsyncIterable[Candle]]:
-        current = floor_multiple(time_ms(), interval)
-        future_stream = None
-
-        async def inner() -> AsyncIterable[Candle]:
-            if start < current:
-                async for candle in self._stream_historical_candles(
-                    symbol, interval, start, min(end, current)
-                ):
-                    yield candle
-            if future_stream:
-                async for candle in future_stream:
-                    yield candle
-
-        if end > current:
-            async with self._stream_future_candles(symbol, interval, end) as future_stream:
-                yield inner()
-        else:
-            yield inner()
-
-    async def _stream_historical_candles(self, symbol: str, interval: int, start: int,
-                                         end: int) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
+                                        end: int) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             res = await self._request(
@@ -361,8 +338,8 @@ class Binance(Exchange):
                 )
 
     @asynccontextmanager
-    async def _stream_future_candles(self, symbol: str, interval: int,
-                                     end: int) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_future_candles(self, symbol: str,
+                                            interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where
@@ -371,14 +348,10 @@ class Binance(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for data in ws:
                 c = data['k']
-                candle = Candle(
+                yield Candle(
                     c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']), Decimal(c['c']),
                     Decimal(c['v']), c['x']
                 )
-                yield candle
-
-                if candle.time >= end - interval and candle.closed:
-                    break
 
         async with self._connect_refreshing_stream(
             url=f'/ws/{_ws_symbol(symbol)}@kline_{strfinterval(interval)}',

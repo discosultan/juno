@@ -1,7 +1,7 @@
 from datetime import datetime
 from time import time
 
-import dateutil.tz
+from dateutil.tz import UTC
 
 SEC_MS = 1000
 MIN_MS = 60_000
@@ -15,8 +15,6 @@ MIN_SEC = 60
 HOUR_SEC = 3600
 
 MAX_TIME_MS = 3000000000000  # Year 2065.
-
-UTC = dateutil.tz.UTC
 
 
 def time_ms() -> int:

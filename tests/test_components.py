@@ -29,7 +29,7 @@ async def test_stream_candles(start, end, closed, expected_from, expected_to):
         new_candle(time=3),
         new_candle(time=4, closed=False),
     ]
-    async with init_chandler(fakes.Exchange(candles=candles)) as chandler:
+    async with init_chandler(fakes.Exchange(historical_candles=candles)) as chandler:
         expected_candles = candles[expected_from:expected_to]
         candles = await list_async(
             chandler.stream_candles('exchange', 'eth-btc', 1, start, end, closed)

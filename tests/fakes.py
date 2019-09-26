@@ -7,14 +7,16 @@ from juno import Fees, Filters, OrderResult, OrderStatus, Side, brokers, compone
 class Exchange(exchanges.Exchange):
     def __init__(
         self,
-        candles=[],
+        historical_candles=[],
+        future_candles=[],
         fees={'__all__': Fees.none()},
         filters={'__all__': Filters.none()},
         balances=[],
         depths=[],
         orders=[]
     ):
-        self.candles = candles
+        self.historical_candles = historical_candles
+        self.future_candles = future_candles
         self.fees = fees
         self.filters = filters
         self.balances = balances
@@ -35,10 +37,14 @@ class Exchange(exchanges.Exchange):
 
         yield inner()
 
+    async def stream_historical_candles(self, symbol, interval, start, end):
+        for c in (c for c in self.historical_candles if c.time >= start and c.time < end):
+            yield c
+
     @asynccontextmanager
-    async def connect_stream_candles(self, symbol, interval, start, end):
+    async def connect_stream_future_candles(self, symbol, interval):
         async def inner():
-            for c in (c for c in self.candles if c.time >= start and c.time < end):
+            for c in (c for c in self.future_candles):
                 yield c
 
         yield inner()
