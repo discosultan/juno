@@ -13,6 +13,7 @@ from time import time
 from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 import simplejson as json
+from dateutil.tz import UTC
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderType, Side, TimeInForce
@@ -303,4 +304,6 @@ def _datetime(timestamp: int) -> str:
 
 
 def _from_datetime(dt: str) -> int:
-    return datetime_timestamp_ms(datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%fZ'))
+    return datetime_timestamp_ms(
+        datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=UTC)
+    )

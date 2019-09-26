@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import logging
+import traceback
 from typing import Any, AsyncIterable, Awaitable, Generic, List, Optional, TypeVar, Union, cast
 
 T = TypeVar('T')
@@ -38,14 +39,15 @@ def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
             log.info(f'{coro.__qualname__} task cancelled')
         except Exception as exc:
             log = logging.getLogger(module.__name__)
-            log.error(f'unhandled exception in {coro.__qualname__} task ({exc})')
+            msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            log.error(f'unhandled exception in {coro.__qualname__} task ({msg})')
             raise
 
     return inner()
 
 
 async def cancel(*tasks: Optional[asyncio.Task]) -> None:
-    material_tasks = [task for task in tasks if task]
+    material_tasks = [task for task in tasks if task and not task.done()]
     for task in material_tasks:
         task.cancel()
     await asyncio.gather(*material_tasks)

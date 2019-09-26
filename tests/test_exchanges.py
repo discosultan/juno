@@ -10,7 +10,10 @@ from juno.config import load_instance
 from juno.exchanges import Binance, Coinbase
 from juno.time import HOUR_MS, UTC, datetime_timestamp_ms
 
-exchange_types = [Binance, Coinbase]
+exchange_types = [
+    Binance,
+    Coinbase,
+]
 exchanges = [pytest.lazy_fixture(e.__name__.lower()) for e in exchange_types]
 exchange_ids = [e.__name__ for e in exchange_types]
 
@@ -85,6 +88,7 @@ async def test_stream_historical_candles(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_future_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
+    skip_exchange(exchange, Coinbase)
     async with exchange.connect_stream_future_candles(
         symbol='eth-btc', interval=HOUR_MS
     ) as stream:
@@ -92,9 +96,6 @@ async def test_connect_stream_future_candles(loop, request, exchange):
 
     assert isinstance(candle.time, int)
     assert isinstance(candle.close, Decimal)
-
-    with pytest.raises(StopAsyncIteration):
-        await stream.__anext__()
 
 
 @pytest.mark.exchange

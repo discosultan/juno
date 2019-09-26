@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterable, List
+from typing import AsyncIterable, List, Optional
 
 import aiohttp
 import backoff
@@ -90,11 +90,9 @@ class Chandler:
     async def _stream_exchange_candles(self, exchange: str, symbol: str, interval: int, start: int,
                                        end: int) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
-
         current = floor_multiple(time_ms(), interval)
-        future_stream = None
 
-        async def inner() -> AsyncIterable[Candle]:
+        async def inner(future_stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
             if start < current:
                 async for candle in exchange_instance.stream_historical_candles(
                     symbol, interval, start, min(end, current)
@@ -109,10 +107,10 @@ class Chandler:
 
         if end > current:
             async with exchange_instance.connect_stream_future_candles(
-                symbol, interval, end
+                symbol, interval
             ) as future_stream:
-                async for candle in inner():
+                async for candle in inner(future_stream):
                     yield candle
         else:
-            async for candle in inner():
+            async for candle in inner(None):
                 yield candle

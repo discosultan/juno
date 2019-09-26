@@ -106,63 +106,68 @@ async def connect_refreshing_stream(
     """
     name2 = name or next(_random_words)
     counter = cycle(range(0, 10))
-
-    ctx = await _WSConnectionContext.connect(session, url, name2, counter)
+    ctx, to_close_ctx = None, None
+    timeout_task, receive_task = None, None
 
     async def inner() -> AsyncIterable[Any]:
-        nonlocal ctx
-        try:
+        nonlocal ctx, to_close_ctx
+        nonlocal timeout_task, receive_task
+        assert ctx
+        while True:
+            to_close_ctx = None
+            timeout_task = asyncio.create_task(cancelable(asyncio.sleep(interval)))
             while True:
-                to_close_ctx = None
-                timeout_task = asyncio.create_task(cancelable(asyncio.sleep(interval)))
-                while True:
-                    receive_task = asyncio.create_task(cancelable(_receive(ctx.ws)))
-                    done, _pending = await asyncio.wait([receive_task, timeout_task],
-                                                        return_when=asyncio.FIRST_COMPLETED)
+                receive_task = asyncio.create_task(cancelable(_receive(ctx.ws)))
+                done, _pending = await asyncio.wait([receive_task, timeout_task],
+                                                    return_when=asyncio.FIRST_COMPLETED)
 
-                    if timeout_task in done:
-                        _aiohttp_log.info(f'refreshing ws {ctx.name} connection')
-                        to_close_ctx = ctx
-                        ctx = await _WSConnectionContext.connect(session, url, name2, counter)
+                if timeout_task in done:
+                    _aiohttp_log.info(f'refreshing ws {ctx.name} connection')
+                    to_close_ctx = ctx
+                    ctx = await _WSConnectionContext.connect(session, url, name2, counter)
 
-                        if receive_task.done():
-                            new_msg = await _receive(ctx.ws)
-                            assert new_msg.type is aiohttp.WSMsgType.TEXT
-                            new_data = loads(new_msg.data)
-                            async for old_msg in concat_async(
-                                receive_task.result(), to_close_ctx.ws
-                            ):
-                                if old_msg.type is aiohttp.WSMsgType.CLOSED:
-                                    break
-                                old_data = loads(old_msg.data)
-                                if take_until(old_data, new_data):
-                                    yield old_data
-                                else:
-                                    break
-                            yield new_data
+                    if receive_task.done():
+                        new_msg = await _receive(ctx.ws)
+                        assert new_msg.type is aiohttp.WSMsgType.TEXT
+                        new_data = loads(new_msg.data)
+                        async for old_msg in concat_async(
+                            receive_task.result(), to_close_ctx.ws
+                        ):
+                            if old_msg.type is aiohttp.WSMsgType.CLOSED:
+                                break
+                            old_data = loads(old_msg.data)
+                            if take_until(old_data, new_data):
+                                yield old_data
+                            else:
+                                break
+                        yield new_data
 
-                        await to_close_ctx.close()
-                        break
+                    await to_close_ctx.close()
+                    break
 
-                    msg = receive_task.result()
-                    if msg.type is aiohttp.WSMsgType.CLOSED:
-                        _aiohttp_log.warning(
-                            f'server closed ws {ctx.name} connection; data: '
-                            f'{msg.data}; reconnecting'
-                        )
-                        await asyncio.gather(ctx.close(), cancel(timeout_task))
-                        ctx = await _WSConnectionContext.connect(session, url, name2, counter)
-                        break
+                msg = receive_task.result()
+                if msg.type is aiohttp.WSMsgType.CLOSED:
+                    _aiohttp_log.warning(
+                        f'server closed ws {ctx.name} connection; data: '
+                        f'{msg.data}; reconnecting'
+                    )
+                    await asyncio.gather(ctx.close(), cancel(timeout_task))
+                    ctx = await _WSConnectionContext.connect(session, url, name2, counter)
+                    break
 
-                    yield loads(msg.data)
-        except asyncio.CancelledError:
-            await cancel(receive_task, timeout_task)
-            raise
+                yield loads(msg.data)
 
     try:
+        ctx = await _WSConnectionContext.connect(session, url, name2, counter)
         yield inner()
+    except GeneratorExit:
+        pass
     finally:
-        await ctx.close()
+        await cancel(receive_task, timeout_task)
+        if ctx:
+            await ctx.close()
+        if to_close_ctx:
+            await to_close_ctx.close()
 
 
 async def _receive(ws: ClientWebSocketResponse) -> aiohttp.WSMessage:
