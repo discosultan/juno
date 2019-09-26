@@ -13,7 +13,7 @@ def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Han
     # We make a copy in order not to mutate the input.
     log_outputs = log_outputs[:]
 
-    handlers: List[logging.handler] = []
+    handlers: List[logging.Handler] = []
 
     if 'stdout' in log_outputs:
         handlers.append(logging.StreamHandler(stream=sys.stdout))
