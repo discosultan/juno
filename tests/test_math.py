@@ -48,7 +48,7 @@ def test_int_randomizer():
 @pytest.mark.manual
 @pytest.mark.chaos
 def test_int_pair_constraint():
-    assert_constraint_chaos(math.IntPair(-10, 10, operator.lt, 5, 20))
+    assert_constraint_chaos(math.Pair(math.Int(-10, 10), operator.lt, math.Int(5, 20)))
 
 
 @pytest.mark.manual

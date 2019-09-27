@@ -69,15 +69,15 @@ class Int(Constraint):
         return random.randrange(self.min, self.max)
 
 
-class IntPair(Constraint):
+class Pair(Constraint):
     def __init__(
-        self, amin: int, amax: int, op: Callable[[int, int], bool], bmin: int, bmax: int
+        self, a: Constraint, op: Callable[[Any, Any], bool], b: Constraint
     ) -> None:
-        self.a = Int(amin, amax)
+        self.a = a
         self.op = op
-        self.b = Int(bmin, bmax)
+        self.b = b
 
-    def validate(self, a: int, b: int) -> bool:
+    def validate(self, a: Any, b: Any) -> bool:
         return self.a.validate(a) and self.b.validate(b) and self.op(a, b)
 
     def random(self, random: Random) -> Tuple[int, int]:
