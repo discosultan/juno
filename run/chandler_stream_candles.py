@@ -23,20 +23,22 @@ async def main():
         stream = chandler.stream_candles('binance', 'eth-btc', MIN_MS, start, end, closed=False)
 
         # Historical.
-        candle = await stream.asend(None)
+        candle = await stream.__anext__()
         logging.info(f'candle1 {candle.time} == {start}')
         assert candle.closed
         assert candle.time == start
         # Historical.
-        candle = await stream.asend(None)
+        candle = await stream.__anext__()
         logging.info(f'candle2 {candle.time} == {start + 1 * MIN_MS}')
         assert candle.closed
         assert candle.time == start + 1 * MIN_MS
         # Future.
-        candle = await stream.asend(None)
+        candle = await stream.__anext__()
         logging.info(f'candle3 {candle.time} == {start + 2 * MIN_MS}')
         assert not candle.closed
         assert candle.time == start + 2 * MIN_MS
+
+        await stream.aclose()
         logging.info('all good')
 
 

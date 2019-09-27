@@ -160,8 +160,6 @@ async def connect_refreshing_stream(
     try:
         ctx = await _WSConnectionContext.connect(session, url, name2, counter)
         yield inner()
-    except GeneratorExit:
-        pass
     finally:
         await cancel(receive_task, timeout_task)
         if ctx:

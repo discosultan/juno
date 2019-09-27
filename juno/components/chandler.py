@@ -68,24 +68,24 @@ class Chandler:
         batch = []
         batch_start = start
 
-        async for candle in self._stream_exchange_candles(
-            exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
-        ):
-            if candle.closed:
-                batch.append(candle)
-                if len(batch) == BATCH_SIZE:
-                    batch_end = batch[-1].time + interval
-                    await self._storage.store_candles_and_span((exchange, symbol, interval),
-                                                               batch, batch_start, batch_end)
-                    batch_start = batch_end
-                    del batch[:]
-            yield candle
-
-        # TODO: We may wanna put this into a finally block so we store stuff even on exception.
-        if len(batch) > 0:
-            batch_end = min(end, floor_multiple(time_ms(), interval))
-            await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
-                                                       batch_start, batch_end)
+        try:
+            async for candle in self._stream_exchange_candles(
+                exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
+            ):
+                if candle.closed:
+                    batch.append(candle)
+                    if len(batch) == BATCH_SIZE:
+                        batch_end = batch[-1].time + interval
+                        await self._storage.store_candles_and_span((exchange, symbol, interval),
+                                                                   batch, batch_start, batch_end)
+                        batch_start = batch_end
+                        del batch[:]
+                yield candle
+        finally:
+            if len(batch) > 0:
+                batch_end = batch[-1].time + interval
+                await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
+                                                           batch_start, batch_end)
 
     async def _stream_exchange_candles(self, exchange: str, symbol: str, interval: int, start: int,
                                        end: int) -> AsyncIterable[Candle]:
