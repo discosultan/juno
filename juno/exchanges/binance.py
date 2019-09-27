@@ -47,6 +47,7 @@ class Binance(Exchange):
     async def __aenter__(self) -> Binance:
         # Rate limiters.
         self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)  # 1200 per min.
+        self._raw_reqs_limiter = LeakyBucket(rate=5000, period=300)  # 5000 raw reqs per 5 min.
         self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)  # 10 per sec.
         self._orders_per_day_limiter = LeakyBucket(rate=100_000, period=86_400)  # 100 000 per day.
 
@@ -387,14 +388,16 @@ class Binance(Exchange):
         security: int = _SEC_NONE,
         raise_for_status: bool = True
     ) -> Any:
+        limiters = [
+            self._raw_reqs_limiter.acquire(),
+            self._reqs_per_min_limiter.acquire(weight),
+        ]
         if method == '/api/v3/order':
-            await asyncio.gather(
-                self._reqs_per_min_limiter.acquire(weight),
+            limiters.extend((
                 self._orders_per_day_limiter.acquire(),
                 self._orders_per_sec_limiter.acquire(),
-            )
-        else:
-            await self._reqs_per_min_limiter.acquire(weight)
+            ))
+        await asyncio.gather(*limiters)
 
         kwargs: Dict[str, Any] = {}
 
