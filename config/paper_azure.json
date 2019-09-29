@@ -9,14 +9,14 @@
     "broker": "market",
     "agents": [
         {
-            "name": "paper",
+            "type": "paper",
             "exchange": "binance",
             "symbol": "eth-btc",
             "interval": "1h",
             "quote": "1.0",
             "restart_on_missed_candle": false,
             "strategy_config": {
-                "name": "mamacx",
+                "type": "mamacx",
                 "short_period": 18,
                 "long_period": 29,
                 "neg_threshold": "-0.1",

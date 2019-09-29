@@ -41,7 +41,7 @@ async def test_backtest():
         'end': 6,
         'quote': Decimal(100),
         'strategy_config': {
-            'name': 'mamacx',
+            'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
             'neg_threshold': Decimal(-1),
@@ -85,7 +85,7 @@ async def test_backtest_scenarios(scenario_nr):
         )
     )
     agent_config = {
-        'name': 'backtest',
+        'type': 'backtest',
         'exchange': 'binance',
         'symbol': 'eth-btc',
         'start': 1483225200000,
@@ -94,7 +94,7 @@ async def test_backtest_scenarios(scenario_nr):
         'quote': Decimal(100),
         'restart_on_missed_candle': False,
         'strategy_config': {
-            'name': 'mamacx',
+            'type': 'mamacx',
             'short_period': 18,
             'long_period': 29,
             'neg_threshold': Decimal('-0.25'),
@@ -137,7 +137,7 @@ async def test_paper():
         'end': 4,
         'quote': Decimal(100),
         'strategy_config': {
-            'name': 'mamacx',
+            'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
             'neg_threshold': Decimal(-1),
@@ -183,7 +183,7 @@ async def test_live():
         'interval': 1,
         'end': 4,
         'strategy_config': {
-            'name': 'mamacx',
+            'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
             'neg_threshold': Decimal(-1),

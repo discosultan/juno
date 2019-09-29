@@ -4,20 +4,23 @@
     "storage": "sqlite",
     "agents": [
         {
-            "name": "backtest",
+            "type": "backtest",
             "exchange": "binance",
             "symbol": "eth-btc",
-            "start": "2019-01-01",
+            "start": "2019-06-01",
+            "end": null,
             "interval": "1h",
             "quote": "10.0",
             "restart_on_missed_candle": false,
             "strategy_config": {
-                "name": "mamacx",
-                "short_period": 18,
-                "long_period": 29,
-                "neg_threshold": "-0.25",
-                "pos_threshold": "0.25",
-                "persistence": 4
+                "type": "mamacx",
+                "short_period": 12,
+                "long_period": 15,
+                "neg_threshold": "-0.111",
+                "pos_threshold": "0.331",
+                "persistence": 4,
+                "short_ma": "ema",
+                "long_ma": "sma"
             }
         }
     ]

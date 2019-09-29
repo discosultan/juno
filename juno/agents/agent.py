@@ -28,6 +28,8 @@ class Agent(EventEmitter):
         assert self.state is not AgentState.RUNNING
 
         self.config = agent_config
+        if 'name' in agent_config:
+            self.name = agent_config['name']
 
         await self.emit('starting')
 

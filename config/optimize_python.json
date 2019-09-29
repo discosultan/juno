@@ -5,7 +5,7 @@
     "solver": "python",
     "agents": [
         {
-            "name": "optimize",
+            "type": "optimize",
             "exchange": "binance",
             "symbol": "eth-btc",
             "start": "2019-04-01",

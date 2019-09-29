@@ -30,7 +30,9 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
 
         @agent.on('starting')
         async def on_starting() -> None:
-            msg = json.dumps(agent.config, indent=4)
+            _log.critical(agent.config)
+            msg = json.dumps(agent.config, indent=4, use_decimal=True)
+            _log.critical(msg)
             await client.send_message(format_message('starting with config', msg, lang='json'))
 
         @agent.on('position_opened')

@@ -67,7 +67,7 @@ async def main() -> None:
     # Load agents.
     agent_types = map_module_types(juno.agents)
     agent_config_map: Dict[Agent, Dict[str, Any]] = {
-        container.resolve(agent_types[c['name']]): c
+        container.resolve(agent_types[c['type']]): c
         for c in config['agents']
     }
 

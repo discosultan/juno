@@ -197,7 +197,7 @@ class OptimizationResult(NamedTuple):
 
 def _output_as_strategy_args(strategy_type: Type[Strategy],
                              best_args: List[Any]) -> Dict[str, Any]:
-    strategy_config = {'name': strategy_type.__name__.lower()}
+    strategy_config = {'type': strategy_type.__name__.lower()}
     for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args):
         strategy_config[key] = value
     return strategy_config

@@ -21,11 +21,11 @@ _strategies = {
 
 # TODO: use a more generalized approach
 def new_strategy(config: Dict[str, Any]) -> Strategy:
-    name = config['name']
-    strategy_cls = _strategies.get(name)
+    type_ = config['type']
+    strategy_cls = _strategies.get(type_)
     if strategy_cls is None:
-        raise ValueError(f'Strategy {name} not found')
-    return cast(Strategy, strategy_cls(**{k: v for k, v in config.items() if k != 'name'}))
+        raise ValueError(f'Strategy {type_} not found')
+    return cast(Strategy, strategy_cls(**{k: v for k, v in config.items() if k != 'type'}))
 
 
 def get_strategy_type(name: str) -> Type[Strategy]:

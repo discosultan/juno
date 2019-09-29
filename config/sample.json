@@ -13,7 +13,8 @@
     "storage": "sqlite",
     "agents": [
         {
-            "name": "backtest",
+            "name": "my_backtest_runner",
+            "type": "backtest",
             "exchange": "binance",
             "symbol": "eth-btc",
             "start": "2019-01-01",
@@ -22,7 +23,7 @@
             "quote": "100.0",
             "restart_on_missed_candle": true,
             "strategy_config": {
-                "name": "mamacx",
+                "type": "mamacx",
                 "short_period": 18,
                 "long_period": 29,
                 "neg_threshold": "-0.25",
@@ -34,7 +35,7 @@
             ]
         },
         {
-            "name": "optimize",
+            "type": "optimize",
             "exchange": "binance",
             "symbol": "eth-btc",
             "start": "2018-01-01",
