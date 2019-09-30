@@ -2,8 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
-import simplejson as json
-
+import juno.json as json
 from juno import Advice, Candle, OrderStatus, Position, TradingContext, TradingSummary
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
@@ -104,7 +103,7 @@ class Paper(Agent):
         if self.last_candle and self.ctx.open_position:
             _log.info('closing currently open position')
             await self._close_position(self.last_candle)
-        _log.info(json.dumps(self.result, default=lambda o: o.__dict__, use_decimal=True))
+        _log.info(json.dumps(self.result))
 
     async def _try_open_position(self, candle: Candle) -> Optional[Position]:
         res = await self.broker.buy(

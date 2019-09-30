@@ -4,8 +4,7 @@ from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from typing import List
 
-import simplejson as json
-
+import juno.json as json
 from juno.utils import home_path
 
 

@@ -7,8 +7,8 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict
 
 import discord
-import simplejson as json
 
+import juno.json as json
 from juno import Position
 from juno.agents import Agent
 from juno.asyncio import cancel, cancelable
@@ -16,16 +16,6 @@ from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import chunks
 
 _log = logging.getLogger(__name__)
-
-
-def default(obj):
-    _log.critical(obj)
-    _log.critical(type(obj))
-    from decimal import Decimal
-    if isinstance(obj, Decimal):
-        return str(obj)
-    else:
-        raise TypeError(obj)
 
 
 @asynccontextmanager
@@ -40,7 +30,7 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
 
         @agent.on('starting')
         async def on_starting() -> None:
-            msg = json.dumps(agent.config, indent=4, use_decimal=True, default=default)
+            msg = json.dumps(agent.config, indent=4)
             await client.send_message(format_message('starting with config', msg, lang='json'))
 
         @agent.on('position_opened')

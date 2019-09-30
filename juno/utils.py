@@ -14,8 +14,7 @@ from typing import (
     Union
 )
 
-import simplejson as json
-
+import juno.json as json
 from juno import Trend
 
 T = TypeVar('T')
@@ -109,7 +108,7 @@ def full_path(root: str, rel_path: str) -> str:
 
 def load_json_file(root: str, rel_path: str) -> Any:
     with open(full_path(root, rel_path)) as f:
-        return json.load(f, use_decimal=True)
+        return json.load(f)
 
 
 # TODO: Use `recursive_iter` instead?

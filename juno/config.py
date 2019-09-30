@@ -5,9 +5,9 @@ import sys
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
-import simplejson as json
 from dateutil.parser import isoparse  # type: ignore
 
+import juno.json as json
 from juno.time import UTC, datetime_timestamp_ms, strpinterval
 from juno.typing import filter_member_args
 from juno.utils import map_module_types, recursive_iter

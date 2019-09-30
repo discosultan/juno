@@ -1,7 +1,6 @@
 from decimal import Decimal
 
 import pytest
-import simplejson as json
 
 from juno import Fees, Fill, Fills, Filters, Position, TradingSummary
 from juno.time import HOUR_MS
@@ -18,8 +17,6 @@ def test_position():
         time=1,
         fills=Fills([Fill(price=Decimal(2), size=Decimal(2), fee=Decimal(1), fee_asset='eth')])
     )
-
-    json.dumps(pos, default=lambda o: o.__dict__, use_decimal=True)
 
     assert pos.cost == Decimal(12)  # 6 * 2
     assert pos.gain == Decimal(3)  # 2 * 2 - 1
@@ -48,8 +45,6 @@ def test_summary():
     ]
     for position in positions:
         summary.append_position(position)
-
-    json.dumps(summary, default=lambda o: o.__dict__, use_decimal=True)
 
     assert summary.cost == Decimal(100)
     assert summary.gain == Decimal('102.91')

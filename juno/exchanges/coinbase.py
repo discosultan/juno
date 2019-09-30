@@ -12,9 +12,9 @@ from decimal import Decimal
 from time import time
 from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 
-import simplejson as json
 from dateutil.tz import UTC
 
+import juno.json as json
 from juno import (
     Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderType, Side, TimeInForce
 )
@@ -264,7 +264,7 @@ class Coinbase(Exchange):
             if page_after is not None:
                 data['after'] = page_after
             async with self._session.request(method, url, params=data) as res:
-                yield await res.json(loads=lambda x: json.loads(x, use_decimal=True))
+                yield await res.json(loads=json.loads)
                 page_after = res.headers.get('CB-AFTER')
                 if page_after is None:
                     break
@@ -288,7 +288,7 @@ class Coinbase(Exchange):
         }
         url = _BASE_REST_URL + url
         async with self._session.request(method, url, headers=headers, data=body) as res:
-            return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
+            return await res.json(loads=json.loads)
 
 
 def _product(symbol: str) -> str:

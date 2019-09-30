@@ -10,8 +10,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional
 
-import simplejson as json
-
+import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate, DepthUpdateType, Fees,
     Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
@@ -428,7 +427,7 @@ class Binance(Exchange):
             else:
                 if raise_for_status:
                     res.raise_for_status()
-                return await res.json(loads=lambda x: json.loads(x, use_decimal=True))
+                return await res.json(loads=json.loads)
 
         return await self._request(method, url, weight, data, security, raise_for_status)
 

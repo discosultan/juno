@@ -8,9 +8,9 @@ from typing import (
     cast, get_type_hints
 )
 
-import simplejson as json
 from aiosqlite import Connection, connect
 
+import juno.json as json
 from juno import Candle
 from juno.time import strfspan, time_ms
 from juno.utils import home_path
@@ -101,7 +101,7 @@ class SQLite(Storage):
             if row:
                 return {
                     k: _load_type_from_string(type_, v)
-                    for k, v in json.loads(row[1], use_decimal=True).items()
+                    for k, v in json.loads(row[1]).items()
                 }, row[2]
             else:
                 return None, None
@@ -114,7 +114,7 @@ class SQLite(Storage):
             await db.execute(
                 f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)', [
                     'map_' + type_.__name__,
-                    json.dumps(items, default=lambda o: o.__dict__, use_decimal=True),
+                    json.dumps(items),
                     time_ms()
                 ]
             )
