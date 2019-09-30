@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import sys
-from decimal import Decimal
+# from decimal import Decimal
 from typing import List
 
 from juno import Side
@@ -10,13 +10,15 @@ from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
 from juno.storages import Memory, SQLite
+from juno.utils import unpack_symbol
 
-SIDE = Side.BUY
+SIDE = Side.SELL
 EXCHANGE = 'binance'
-SYMBOL = 'ada-btc'
+SYMBOL = 'bnb-btc'
+BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
 LOG_LEVEL = 'DEBUG'
-QUOTE = Decimal('0.0015')
-BASE = Decimal('150')
+# QUOTE = Decimal('0.0015')
+# BASE = Decimal('150')
 
 if len(sys.argv) > 1:
     SIDE = Side[sys.argv[1].upper()]
@@ -35,12 +37,15 @@ async def main() -> None:
     market = Market(informant, orderbook, exchanges)
     limit = Limit(informant, orderbook, exchanges)
     async with binance, memory, informant, orderbook, wallet:
+        base = wallet.get_balance(EXCHANGE, BASE_ASSET).available
+        quote = wallet.get_balance(EXCHANGE, QUOTE_ASSET).available
+        logging.info(f'base: {base} {BASE_ASSET}; quote: {quote} {QUOTE_ASSET}')
         if SIDE is Side.BUY:
-            market_fills = market.find_order_asks(exchange=EXCHANGE, symbol=SYMBOL, quote=QUOTE)
-            res = await limit.buy(exchange=EXCHANGE, symbol=SYMBOL, quote=QUOTE, test=False)
+            market_fills = market.find_order_asks(exchange=EXCHANGE, symbol=SYMBOL, quote=quote)
+            res = await limit.buy(exchange=EXCHANGE, symbol=SYMBOL, quote=quote, test=False)
         else:
-            market_fills = market.find_order_bids(exchange=EXCHANGE, symbol=SYMBOL, base=BASE)
-            res = await limit.sell(exchange=EXCHANGE, symbol=SYMBOL, base=BASE, test=False)
+            market_fills = market.find_order_bids(exchange=EXCHANGE, symbol=SYMBOL, base=base)
+            res = await limit.sell(exchange=EXCHANGE, symbol=SYMBOL, base=base, test=False)
 
         logging.info(res)
         logging.info(f'{SIDE} {SYMBOL}')
