@@ -2,9 +2,10 @@ import simplejson as json
 
 
 def _default(obj):
-    import logging
-    logging.critical(obj)
-    return obj.__dict__
+    internal_dict = getattr(obj, '__dict__', None)
+    if internal_dict is not None:
+        return internal_dict
+    raise TypeError(f'Object of type {type(obj).__name__} is not JSON serializable')
 
 
 def dumps(obj, indent=None):
