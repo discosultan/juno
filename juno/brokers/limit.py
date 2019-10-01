@@ -30,7 +30,7 @@ class Limit(Broker):
         assert not test
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
         res = await self._fill(exchange, symbol, Side.BUY, quote)
-        
+
         # Validate fee expectation.
         fees = self._informant.get_fees(exchange, symbol)
         filters = self._informant.get_filters(exchange, symbol)
@@ -79,14 +79,22 @@ class Limit(Broker):
                 if order.client_id != client_id:
                     continue
                 if order.symbol != symbol:
+                    _log.warning(f'order {client_id} symbol {order.symbol} != {symbol} ')
                     continue
-                if order.status not in [OrderStatus.CANCELED, OrderStatus.FILLED]:
-                    # TODO: temp logging
-                    _log.critical(f'order update with status {order.status}')
+                if order.status is OrderStatus.NEW:
+                    _log.debug(f'received new confirmation for order {client_id}')
+                    continue
+                if order.status not in [
+                    OrderStatus.CANCELED, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED
+                ]:
+                    _log.error(f'unexpected order update with status {order.status}')
                     continue
 
-                if order.status is OrderStatus.FILLED:
-                    _log.info(f'existing order {client_id} filled')
+                if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
+                    if order.status is OrderStatus.FILLED:
+                        _log.info(f'existing order {client_id} filled')
+                    else:  # PARTIALLY_FILLED
+                        _log.info(f'existing order {client_id} partially filled')
                     assert order.fee_asset
                     fills.append(
                         Fill(
