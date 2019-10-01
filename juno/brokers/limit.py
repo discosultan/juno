@@ -36,7 +36,10 @@ class Limit(Broker):
         filters = self._informant.get_filters(exchange, symbol)
         expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
         if res.fills.total_fee != expected_fee:
-            _log.warning(f'fee {res.fills.total_fee} != expected fee {expected_fee}')
+            # TODO: Python 3.8 debug strings.
+            _log.warning(f'fee {res.fills.total_fee} != expected fee {expected_fee} ('
+                         f'size={res.fills.total_size}, fee_pct={fees.maker}, '
+                         f'base_precision={filters.base_precision})')
 
         return res
 
@@ -50,7 +53,9 @@ class Limit(Broker):
         filters = self._informant.get_filters(exchange, symbol)
         expected_fee = round_half_up(res.fills.total_quote * fees.maker, filters.quote_precision)
         if res.fills.total_fee != expected_fee:
-            _log.warning(f'fee {res.fills.total_fee} != expected fee {expected_fee}')
+            _log.warning(f'fee {res.fills.total_fee} != expected fee {expected_fee} ('
+                         f'quote={res.fills.total_quote}, fee_pct={fees.maker}, '
+                         f'quote_precision={filters.quote_precision})')
 
         return res
 
