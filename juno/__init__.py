@@ -1,5 +1,5 @@
 from juno.common import (
-    Advice, Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate, DepthUpdateType,
+    Advice, Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate,
     Fees, Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce, Trend
 )
 from juno.filters import Filters
@@ -25,6 +25,6 @@ __all__ = [
     'CancelOrderResult',
     'CancelOrderStatus',
     'OrderUpdate',
+    'DepthSnapshot',
     'DepthUpdate',
-    'DepthUpdateType',
 ]

@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable, Dict, Tuple
 
 from juno.asyncio import empty_future
 from juno.typing import filter_member_args
-from juno.utils import EventEmitter, generate_random_words, replace_secrets
+from juno.utils import EventEmitter, generate_random_words
 
 _log = logging.getLogger(__name__)
 

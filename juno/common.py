@@ -48,15 +48,17 @@ class Candle(NamedTuple):
         )
 
 
-class DepthUpdate(NamedTuple):
-    type: DepthUpdateType
+class DepthSnapshot(NamedTuple):
     bids: List[Tuple[Decimal, Decimal]]
     asks: List[Tuple[Decimal, Decimal]]
+    last_id: int = 0
 
 
-class DepthUpdateType(Enum):
-    SNAPSHOT = 0
-    UPDATE = 1
+class DepthUpdate(NamedTuple):
+    bids: List[Tuple[Decimal, Decimal]]
+    asks: List[Tuple[Decimal, Decimal]]
+    first_id: int = 0
+    last_id: int = 0
 
 
 class Fees(NamedTuple):

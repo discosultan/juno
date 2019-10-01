@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, DepthUpdate, DepthUpdateType, Fees
+from juno import Balance, DepthSnapshot, Fees
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Orderbook, Wallet
 from juno.filters import Filters, Price, Size
@@ -69,14 +69,11 @@ async def test_list_symbols():
 
 
 async def test_list_asks_bids():
-    depths = [
-        DepthUpdate(
-            type=DepthUpdateType.SNAPSHOT,
-            asks=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
-            bids=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))]
-        )
-    ]
-    async with init_orderbook(fakes.Exchange(depths=depths)) as orderbook:
+    snapshot = DepthSnapshot(
+        asks=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
+        bids=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))]
+    )
+    async with init_orderbook(fakes.Exchange(depth_snapshot=snapshot)) as orderbook:
         asks = orderbook.list_asks(exchange='exchange', symbol='eth-btc')
         bids = orderbook.list_bids(exchange='exchange', symbol='eth-btc')
 

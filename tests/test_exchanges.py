@@ -101,6 +101,15 @@ async def test_connect_stream_future_candles(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_get_depth(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    skip_exchange(exchange, Coinbase)
+    await exchange.get_depth('eth-btc')
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_depth(loop, request, exchange):
     skip_non_configured(request, exchange)
     async with exchange.connect_stream_depth('eth-btc') as stream:
@@ -112,7 +121,7 @@ async def test_connect_stream_depth(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_place_order(loop, request, exchange):
     skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)
+    skip_exchange(exchange, Coinbase)  # TODO: implement
     await exchange.place_order(
         symbol='eth-btc', side=Side.BUY, type_=OrderType.MARKET, size=Decimal(1), test=True
     )
