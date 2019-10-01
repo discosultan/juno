@@ -28,6 +28,8 @@ _log = logging.getLogger(__name__)
 
 async def main() -> None:
     # Load config.
+    # NB: Careful with logging config. It contains sensitive data. Use
+    # `juno.utils.replace_secrets` to erase secrets from the output.
     config_name = sys.argv[1] if len(sys.argv) >= 2 else 'default'
     config = {}
     config.update(load_from_json_file(full_path(__file__, f'config/{config_name}.json')))

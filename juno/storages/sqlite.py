@@ -58,13 +58,18 @@ class SQLite(Storage):
                     yield max(span_start, start), min(span_end, end)
 
     async def stream_candles(self, key: Key, start: int, end: int) -> AsyncIterable[Candle]:
+        PAGE_SIZE = 1000
         _log.info(f'streaming candle(s) between {strfspan(start, end)}')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             query = f'SELECT * FROM {Candle.__name__} WHERE time >= ? AND time < ? ORDER BY time'
             async with db.execute(query, [start, end]) as cursor:
-                async for row in cursor:
-                    yield Candle(*row)
+                while True:
+                    rows = await cursor.fetchmany(PAGE_SIZE)
+                    for row in rows:
+                        yield Candle(*row)
+                    if len(rows) < PAGE_SIZE:
+                        break
 
     async def store_candles_and_span(
         self, key: Key, candles: List[Candle], start: int, end: int

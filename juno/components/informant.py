@@ -70,7 +70,6 @@ class Informant:
             data = self._exchange_data[exchange][type_].get(symbol)
         if not data:
             raise Exception(f'Exchange {exchange} does not support symbol {symbol} for {type_}')
-        _log.info(f'get {type_.__name__.lower()}: {data}')
         return cast(T, data)
 
     def _setup_sync_task(self, type_: type, fetch: FetchMap) -> None:
@@ -100,9 +99,9 @@ class Informant:
         data: Optional[Dict[str, T]]
         data, updated = await self._storage.get_map(exchange, type_)
         if not data or not updated or now >= updated + DAY_MS:
-            _log.info(f'fetching data for {type_name} from exchange')
+            _log.info(f'updating {type_name} data by fetching from exchange')
             data = await fetch(self._exchanges[exchange])
             await self._storage.set_map(exchange, type_, data)
         else:
-            _log.info(f'using data for {type_name} from storage')
+            _log.info(f'updating {type_name} data by fetching from storage')
         self._exchange_data[exchange][type_] = data

@@ -35,7 +35,7 @@ class Agent(EventEmitter):
 
         self.state = AgentState.RUNNING
         type_name = type(self).__name__.lower()
-        _log.info(f'running {self.name} ({type_name}): {replace_secrets(agent_config)}')
+        _log.info(f'running {self.name} ({type_name}): {agent_config}')
         try:
             await self.run(**filter_member_args(self.run, agent_config))
         except asyncio.CancelledError:
