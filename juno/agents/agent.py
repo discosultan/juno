@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable, Dict, Tuple
 
 from juno.asyncio import empty_future
 from juno.typing import filter_member_args
-from juno.utils import EventEmitter, generate_random_words
+from juno.utils import EventEmitter, generate_random_words, replace_secrets
 
 _log = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ class Agent(EventEmitter):
 
         self.state = AgentState.RUNNING
         type_name = type(self).__name__.lower()
-        _log.info(f'running {self.name} ({type_name}): {agent_config}')
+        _log.info(f'running {self.name} ({type_name}): {replace_secrets(agent_config)}')
         try:
             await self.run(**filter_member_args(self.run, agent_config))
         except asyncio.CancelledError:

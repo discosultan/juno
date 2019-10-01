@@ -4,7 +4,8 @@ import itertools
 import logging
 import math
 import random
-from collections import defaultdict
+from collections import defaultdict, MutableMapping, MutableSequence
+from copy import deepcopy
 from os import path
 from pathlib import Path
 from time import time
@@ -61,6 +62,30 @@ def page(start: int, end: int, interval: int, limit: int) -> Iterable[Tuple[int,
         page_start = start + i * max_count
         page_end = min(page_start + max_count, end)
         yield page_start, page_end
+
+
+def replace_secrets(obj: Dict[str, Any]) -> Dict[str, Any]:
+    # Do not mutate source obj.
+    obj = deepcopy(obj)
+
+    # Replace secret values.
+    stack = [obj]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, MutableMapping):  # Json object.
+            it = item.items()
+        elif isinstance(item, MutableSequence):  # Json array.
+            it = enumerate(item)
+        else:  # Scalar.
+            continue
+
+        for k, v in it:
+            if 'secret' in k and isinstance(v, str):
+                item[k] = '********'
+            else:
+                stack.append(v)
+
+    return obj
 
 
 # Ref: https://stackoverflow.com/a/38397347/1466456

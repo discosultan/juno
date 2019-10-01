@@ -52,6 +52,15 @@ def test_recursive_iter():
     assert output == expected_output
 
 
+def test_replace_secrets():
+    input = {'foo': 'hello', 'secret_bar': 'world'}
+    output = utils.replace_secrets(input)
+
+    assert all((k in output for k in input.keys()))
+    assert output['foo'] == 'hello'
+    assert output['secret_bar'] != input['secret_bar']
+
+
 def test_unpack_symbol():
     assert utils.unpack_symbol('eth-btc') == ('eth', 'btc')
 
