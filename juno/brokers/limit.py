@@ -169,6 +169,7 @@ class Limit(Broker):
                 raise NotImplementedError('size 0')
 
             if not filters.min_notional.valid(price=price, size=size):
+                # TODO: Implement. raise InsuficientBalance error.
                 raise NotImplementedError(
                     'min notional not valid: '
                     f'{price} * {size} != {filters.min_notional.min_notional}'
