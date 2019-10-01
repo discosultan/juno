@@ -2,7 +2,7 @@ import logging
 from typing import Any, Callable, Dict, Optional
 
 import juno.json as json
-from juno import Advice, Candle, OrderStatus, Position, TradingContext, TradingSummary
+from juno import Advice, Candle, Position, TradingContext, TradingSummary
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, Wallet
 from juno.math import floor_multiple
@@ -114,9 +114,6 @@ class Live(Agent):
         res = await self.broker.buy(
             exchange=self.exchange, symbol=self.symbol, quote=self.ctx.quote, test=False
         )
-
-        if res.status is OrderStatus.NOT_PLACED:
-            return None
 
         self.ctx.open_position = Position(candle.time, res.fills)
         self.ctx.quote -= res.fills.total_quote

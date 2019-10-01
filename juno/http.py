@@ -118,7 +118,7 @@ async def connect_refreshing_stream(
             timeout_task = asyncio.create_task(cancelable(asyncio.sleep(interval)))
             while True:
                 receive_task = asyncio.create_task(cancelable(_receive(ctx.ws)))
-                done, _pending = await asyncio.wait([receive_task, timeout_task],
+                done, _pending = await asyncio.wait((receive_task, timeout_task),
                                                     return_when=asyncio.FIRST_COMPLETED)
 
                 if timeout_task in done:

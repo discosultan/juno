@@ -3,10 +3,11 @@ import logging
 import operator
 import uuid
 from decimal import Decimal
-from typing import List
+from typing import AsyncIterable, List
 
 from juno import (
-    CancelOrderStatus, Fill, Fills, OrderResult, OrderStatus, OrderType, Side, TimeInForce
+    CancelOrderStatus, Fill, Fills, InsufficientBalance, OrderResult, OrderUpdate, OrderStatus,
+    OrderType, Side, TimeInForce
 )
 from juno.asyncio import cancel, cancelable
 from juno.components import Informant, Orderbook
@@ -63,7 +64,6 @@ class Limit(Broker):
         self, exchange: str, symbol: str, side: Side, available: Decimal
     ) -> OrderResult:
         client_id = str(uuid.uuid4())
-        fills = Fills()  # Fills from aggregated trades.
 
         async with self._exchanges[exchange].connect_stream_orders() as stream:
             # Keeps a limit order at spread.
@@ -80,52 +80,14 @@ class Limit(Broker):
             )
 
             # Listens for fill events for an existing order.
-            async for order in stream:
-                if order.client_id != client_id:
-                    continue
-                if order.symbol != symbol:
-                    _log.warning(f'order {client_id} symbol {order.symbol} != {symbol} ')
-                    continue
-                if order.status is OrderStatus.NEW:
-                    _log.debug(f'received new confirmation for order {client_id}')
-                    continue
-                if order.status not in [
-                    OrderStatus.CANCELED, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED
-                ]:
-                    _log.error(f'unexpected order update with status {order.status}')
-                    continue
+            track_fills_task = asyncio.create_task(
+                cancelable(self._track_fills(client_id=client_id, symbol=symbol, stream=stream,
+                           keep_limit_order_best_task=keep_limit_order_best_task))
+            )
 
-                if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
-                    if order.status is OrderStatus.FILLED:
-                        _log.info(f'existing order {client_id} filled')
-                    else:  # PARTIALLY_FILLED
-                        _log.info(f'existing order {client_id} partially filled')
-                    assert order.fee_asset
-                    fills.append(
-                        Fill(
-                            price=order.price,
-                            size=order.size,
-                            fee=order.fee,
-                            fee_asset=order.fee_asset
-                        )
-                    )
-                    break
-                else:  # CANCELED
-                    _log.info(f'existing order {client_id} canceled')
-                    if order.cumulative_filled_size > 0:
-                        assert order.fee_asset
-                        fills.append(
-                            Fill(
-                                price=order.price,
-                                size=order.cumulative_filled_size,
-                                fee=order.fee,
-                                fee_asset=order.fee_asset
-                            )
-                        )
+            await asyncio.gather(keep_limit_order_best_task, track_fills_task)
 
-            await cancel(keep_limit_order_best_task)
-
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return OrderResult(status=OrderStatus.FILLED, fills=track_fills_task.result())
 
     async def _keep_limit_order_best(
         self, exchange: str, symbol: str, client_id: str, side: Side, available: Decimal
@@ -179,14 +141,14 @@ class Limit(Broker):
             size = filters.size.round_down(size)
 
             if size == 0:
-                raise NotImplementedError('size 0')
+                _log.info('skipping order placement; size 0')
+                raise InsufficientBalance()
 
             if not filters.min_notional.valid(price=price, size=size):
                 # TODO: Implement. raise InsuficientBalance error.
-                raise NotImplementedError(
-                    'min notional not valid: '
-                    f'{price} * {size} != {filters.min_notional.min_notional}'
-                )
+                _log.info(f'min notional not satisfied: {price} * {size} != '
+                          f'{filters.min_notional.min_notional}')
+                raise InsufficientBalance()
 
             _log.info(f'placing limit order at price {price} for size {size}')
             res = await self._exchanges[exchange].place_order(
@@ -204,3 +166,43 @@ class Limit(Broker):
                 _log.info(f'new limit order {client_id} immediately filled {res.fills}')
                 break
             last_order_price = price
+
+    async def _track_fills(self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
+                           keep_limit_order_best_task: asyncio.Task):
+        fills = Fills()  # Fills from aggregated trades.
+
+        async for order in stream:
+            if order.client_id != client_id:
+                continue
+            if order.symbol != symbol:
+                _log.warning(f'order {client_id} symbol {order.symbol} != {symbol} ')
+                continue
+            if order.status is OrderStatus.NEW:
+                _log.debug(f'received new confirmation for order {client_id}')
+                continue
+            if order.status not in [
+                OrderStatus.CANCELED, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED
+            ]:
+                _log.error(f'unexpected order update with status {order.status}')
+                continue
+
+            if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
+                assert order.fee_asset
+                fills.append(
+                    Fill(
+                        price=order.price,
+                        size=order.size,
+                        fee=order.fee,
+                        fee_asset=order.fee_asset
+                    )
+                )
+                if order.status is OrderStatus.FILLED:
+                    _log.info(f'existing order {client_id} filled')
+                    break
+                else:  # PARTIALLY_FILLED
+                    _log.info(f'existing order {client_id} partially filled')
+            else:  # CANCELED
+                _log.info(f'existing order {client_id} canceled')
+
+        await cancel(keep_limit_order_best_task)
+        return fills

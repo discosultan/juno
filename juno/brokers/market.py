@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import List
 
-from juno import Fill, Fills, OrderResult, OrderStatus, OrderType, Side
+from juno import Fill, Fills, InsufficientBalance, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -79,7 +79,7 @@ class Market(Broker):
 
         if fills.total_size == 0:
             _log.info(f'skipping {order_log} placement; size zero')
-            return OrderResult.not_placed()
+            raise InsufficientBalance()
 
         _log.info(f'placing {order_log} of size {fills.total_size}')
         res = await self._exchanges[exchange].place_order(

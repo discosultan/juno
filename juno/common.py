@@ -96,9 +96,8 @@ class Fills(List[Fill]):
         return sum((f.fee for f in self), Decimal(0))
 
 
-class Side(Enum):
-    BUY = 0
-    SELL = 1
+class InsufficientBalance(Exception):
+    pass
 
 
 class OrderResult(NamedTuple):
@@ -137,6 +136,11 @@ class OrderUpdate(NamedTuple):
     cumulative_filled_size: Decimal
     fee: Decimal
     fee_asset: Optional[str]
+
+
+class Side(Enum):
+    BUY = 0
+    SELL = 1
 
 
 class TimeInForce(Enum):
