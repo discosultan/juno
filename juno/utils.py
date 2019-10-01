@@ -64,6 +64,7 @@ def page(start: int, end: int, interval: int, limit: int) -> Iterable[Tuple[int,
         yield page_start, page_end
 
 
+# TODO: Remove if not used.
 def replace_secrets(obj: Dict[str, Any]) -> Dict[str, Any]:
     # Do not mutate source obj.
     obj = deepcopy(obj)

@@ -11,6 +11,7 @@ from juno import (
 from juno.asyncio import cancel, cancelable
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
+from juno.math import round_half_up
 
 from .broker import Broker
 
@@ -29,17 +30,28 @@ class Limit(Broker):
         assert not test
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
         res = await self._fill(exchange, symbol, Side.BUY, quote)
-        # TODO: DEBUG. Doesn't exactly match as exchange performs rounding.
+        
+        # Validate fee expectation.
         fees = self._informant.get_fees(exchange, symbol)
-        _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_size} * {fees.maker}')
+        filters = self._informant.get_filters(exchange, symbol)
+        expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
+        if res.fills.total_fee != expected_fee:
+            _log.warning(f'fee {res.fills.total_fee} != expected fee {expected_fee}')
+
         return res
 
     async def sell(self, exchange: str, symbol: str, base: Decimal, test: bool) -> OrderResult:
         assert not test
         _log.info(f'filling {base} worth of base with limit orders at spread')
         res = await self._fill(exchange, symbol, Side.SELL, base)
+
+        # Validate fee expectation.
         fees = self._informant.get_fees(exchange, symbol)
-        _log.critical(f'total fee {res.fills.total_fee} == {res.fills.total_quote} * {fees.maker}')
+        filters = self._informant.get_filters(exchange, symbol)
+        expected_fee = round_half_up(res.fills.total_quote * fees.maker, filters.quote_precision)
+        if res.fills.total_fee != expected_fee:
+            _log.warning(f'fee {res.fills.total_fee} != expected fee {expected_fee}')
+
         return res
 
     async def _fill(
