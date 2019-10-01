@@ -12,15 +12,18 @@ class Exchange(exchanges.Exchange):
         fees={'__all__': Fees.none()},
         filters={'__all__': Filters.none()},
         balances=[],
-        depths=[],
+        depth_snapshot=None,
+        depth_updates=[],
         orders=[]
     ):
+        super().__init__()
         self.historical_candles = historical_candles
         self.future_candles = future_candles
         self.fees = fees
         self.filters = filters
         self.balances = balances
-        self.depths = depths
+        self.depth_snapshot = depth_snapshot
+        self.depth_updates = depth_updates
         self.orders = orders
 
     async def map_fees(self):
@@ -49,10 +52,13 @@ class Exchange(exchanges.Exchange):
 
         yield inner()
 
+    async def get_depth(self, symbol):
+        return self.depth_snapshot
+
     @asynccontextmanager
     async def connect_stream_depth(self, symbol):
         async def inner():
-            for depth in self.depths:
+            for depth in self.depth_updates:
                 yield depth
 
         yield inner()

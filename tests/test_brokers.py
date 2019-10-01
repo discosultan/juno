@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import DepthUpdate, DepthUpdateType, Fees
+from juno import DepthUpdate, DepthSnapshot, Fees
 from juno.brokers import Market
 from juno.components import Informant, Orderbook
 from juno.filters import Filters, Price, Size
@@ -60,12 +60,15 @@ filters = Filters(
     ]
 )
 async def test_find_order_asks(quote, snapshot_asks, update_asks, expected_output):
-    depths = [
-        DepthUpdate(type=DepthUpdateType.SNAPSHOT, asks=snapshot_asks, bids=[]),
-        DepthUpdate(type=DepthUpdateType.UPDATE, asks=update_asks, bids=[])
-    ]
+    snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
+    updates = [DepthUpdate(asks=update_asks, bids=[])]
     async with init_market_broker(
-        fakes.Exchange(depths=depths, fees={'__all__': fees}, filters={'__all__': filters})
+        fakes.Exchange(
+            depth_snapshot=snapshot,
+            depth_updates=updates,
+            fees={'__all__': fees},
+            filters={'__all__': filters}
+        )
     ) as broker:
         output = broker.find_order_asks(exchange='exchange', symbol='eth-btc', quote=quote)
         assert_fills(output, expected_output)
@@ -113,12 +116,15 @@ async def test_find_order_asks(quote, snapshot_asks, update_asks, expected_outpu
     ],
 )
 async def test_find_order_bids(base, snapshot_bids, update_bids, expected_output):
-    depths = [
-        DepthUpdate(type=DepthUpdateType.SNAPSHOT, asks=[], bids=snapshot_bids),
-        DepthUpdate(type=DepthUpdateType.UPDATE, asks=[], bids=update_bids)
-    ]
+    snapshot = DepthSnapshot(asks=[], bids=snapshot_bids)
+    updates = [DepthUpdate(asks=[], bids=update_bids)]
     async with init_market_broker(
-        fakes.Exchange(depths=depths, fees={'__all__': fees}, filters={'__all__': filters})
+        fakes.Exchange(
+            depth_snapshot=snapshot,
+            depth_updates=updates,
+            fees={'__all__': fees},
+            filters={'__all__': filters}
+        )
     ) as broker:
         output = broker.find_order_bids(exchange='exchange', symbol='eth-btc', base=base)
         assert_fills(output, expected_output)

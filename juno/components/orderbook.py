@@ -5,12 +5,12 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import Any, Dict, List, Tuple
+from typing import Any, AsyncIterable, Dict, List, Tuple, Union
 
 import aiohttp
 import backoff
 
-from juno import DepthUpdateType, Side
+from juno import DepthUpdate, DepthSnapshot, Side
 from juno.asyncio import Barrier, Event, cancel, cancelable
 from juno.config import list_names
 from juno.exchanges import Exchange
@@ -66,20 +66,56 @@ class Orderbook:
     )
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         orderbook = self._data[exchange][symbol]
-        async with self._exchanges[exchange].connect_stream_depth(symbol) as stream:
-            async for depth_update in stream:
-                if depth_update.type is DepthUpdateType.SNAPSHOT:
-                    orderbook[Side.BUY] = {k: v for k, v in depth_update.asks}
-                    orderbook[Side.SELL] = {k: v for k, v in depth_update.bids}
-                    orderbook.snapshot_received = True
-                    self._initial_orderbook_fetched.release()
-                elif depth_update.type is DepthUpdateType.UPDATE:
-                    assert orderbook.snapshot_received
-                    _update_orderbook_side(orderbook[Side.BUY], depth_update.asks)
-                    _update_orderbook_side(orderbook[Side.SELL], depth_update.bids)
-                else:
-                    raise NotImplementedError()
-                orderbook.updated.set()
+        async for depth in self._stream_depth(exchange, symbol):
+            if isinstance(depth, DepthSnapshot):
+                orderbook[Side.BUY] = {k: v for k, v in depth.asks}
+                orderbook[Side.SELL] = {k: v for k, v in depth.bids}
+                orderbook.snapshot_received = True
+                self._initial_orderbook_fetched.release()
+            elif isinstance(depth, DepthUpdate):
+                assert orderbook.snapshot_received
+                _update_orderbook_side(orderbook[Side.BUY], depth.asks)
+                _update_orderbook_side(orderbook[Side.SELL], depth.bids)
+            else:
+                raise NotImplementedError(depth)
+            orderbook.updated.set()
+
+    async def _stream_depth(
+        self, exchange: str, symbol: str
+    ) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
+        exchange_instance = self._exchanges[exchange]
+
+        async with exchange_instance.connect_stream_depth(symbol) as stream:
+            if exchange_instance.depth_ws_snapshot:
+                async for depth in stream:
+                    yield depth
+            else:
+                snapshot = await exchange_instance.get_depth(symbol)
+                yield snapshot
+
+                last_update_id = snapshot.last_id
+                is_first_update = True
+                async for update in stream:
+                    assert isinstance(update, DepthUpdate)
+
+                    if update.last_id <= last_update_id:
+                        continue
+
+                    if is_first_update:
+                        assert (update.first_id <= last_update_id + 1 and
+                                update.last_id >= last_update_id + 1)
+                        is_first_update = False
+                    elif update.first_id != last_update_id + 1:
+                        _log.warning(
+                            f'orderbook out of sync: update id {update.first_id} != last update id'
+                            f'{last_update_id} + 1; refetching snapshot'
+                        )
+                        async for data in self._stream_depth(exchange, symbol):
+                            yield data
+                        break
+
+                    yield update
+                    last_update_id = update.last_id
 
 
 def _update_orderbook_side(

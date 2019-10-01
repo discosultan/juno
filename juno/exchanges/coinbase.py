@@ -10,13 +10,14 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
 from time import time
-from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 
 from dateutil.tz import UTC
 
 import juno.json as json
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthUpdate, Fees, OrderType, Side, TimeInForce
+    Balance, CancelOrderResult, Candle, DepthUpdate, DepthSnapshot, Fees, OrderType, Side,
+    TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, Price, Size
@@ -36,6 +37,7 @@ _log = logging.getLogger(__name__)
 
 class Coinbase(Exchange):
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
+        super().__init__(depth_ws_snapshot=True)
         self._api_key = api_key
         self._secret_key_bytes = base64.b64decode(secret_key)
         self._passphrase = passphrase
@@ -187,7 +189,9 @@ class Coinbase(Exchange):
         yield inner()
 
     @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
+    async def connect_stream_depth(
+        self, symbol: str
+    ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
         # TODO: await till stream open
         self._ensure_stream_open()
         if symbol not in self._stream_subscriptions.get('level2', []):
@@ -201,19 +205,17 @@ class Coinbase(Exchange):
             while True:
                 data = await self._stream_depth_event.wait()
                 if data['type'] == 'snapshot':
-                    yield {
-                        'type': 'snapshot',
-                        'bids': [(Decimal(p), Decimal(s)) for p, s in data['bids']],
-                        'asks': [(Decimal(p), Decimal(s)) for p, s in data['asks']]
-                    }
+                    yield DepthSnapshot(
+                        bids=[(Decimal(p), Decimal(s)) for p, s in data['bids']],
+                        asks=[(Decimal(p), Decimal(s)) for p, s in data['asks']]
+                    )
                 elif data['type'] == 'l2update':
                     bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
                     asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
-                    yield {
-                        'type': 'update',
-                        'bids': [(Decimal(p), Decimal(s)) for p, s in bids],
-                        'asks': [(Decimal(p), Decimal(s)) for p, s in asks]
-                    }
+                    yield DepthUpdate(
+                        bids=[(Decimal(p), Decimal(s)) for p, s in bids],
+                        asks=[(Decimal(p), Decimal(s)) for p, s in asks]
+                    )
 
         yield inner()
 

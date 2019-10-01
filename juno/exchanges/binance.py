@@ -8,11 +8,11 @@ import math
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional, Union
 
 import juno.json as json
 from juno import (
-    Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthUpdate, DepthUpdateType, Fees,
+    Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees,
     Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
@@ -40,6 +40,7 @@ _log = logging.getLogger(__name__)
 
 class Binance(Exchange):
     def __init__(self, api_key: str, secret_key: str) -> None:
+        super().__init__()
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
 
@@ -150,49 +151,47 @@ class Binance(Exchange):
         await self._ensure_user_data_stream()
         yield inner()
 
+    async def get_depth(self, symbol: str) -> DepthSnapshot:
+        # TODO: We might wanna increase that and accept higher weight.
+        LIMIT = 100
+        LIMIT_TO_WEIGHT = {
+            5: 1,
+            10: 1,
+            20: 1,
+            50: 1,
+            100: 1,
+            500: 5,
+            1000: 10,
+            5000: 50,
+        }
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
+        result = await self._request(
+            'GET',
+            '/api/v1/depth',
+            weight=LIMIT_TO_WEIGHT[LIMIT],
+            data={
+                'limit': LIMIT,
+                'symbol': _http_symbol(symbol)
+            }
+        )
+        return DepthSnapshot(
+            bids=[(Decimal(x[0]), Decimal(x[1])) for x in result['bids']],
+            asks=[(Decimal(x[0]), Decimal(x[1])) for x in result['asks']],
+            last_id=result['lastUpdateId'],
+        )
+
     @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[DepthUpdate]]:
+    async def connect_stream_depth(
+        self, symbol: str
+    ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[DepthUpdate]:
-            # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-            result = await self._request(
-                'GET',
-                '/api/v1/depth',
-                weight=1,
-                data={
-                    'limit': 100,  # TODO: We might wanna increase that and accept higher weight.
-                    'symbol': _http_symbol(symbol)
-                }
-            )
-            yield DepthUpdate(
-                type=DepthUpdateType.SNAPSHOT,
-                bids=[(Decimal(x[0]), Decimal(x[1])) for x in result['bids']],
-                asks=[(Decimal(x[0]), Decimal(x[1])) for x in result['asks']]
-            )
-
-            last_update_id = result['lastUpdateId']
-            is_first_ws_message = True
             async for data in ws:
-                if data['u'] <= last_update_id:
-                    continue
-
-                if is_first_ws_message:
-                    assert data['U'] <= last_update_id + 1 and data['u'] >= last_update_id + 1
-                    is_first_ws_message = False
-                elif data['U'] != last_update_id + 1:
-                    _log.warning(
-                        f'orderbook out of sync: update id {data["U"]} != '
-                        f'last update id {last_update_id} + 1; refetching snapshot'
-                    )
-                    async for data2 in inner(ws):
-                        yield data2
-                    break
-
                 yield DepthUpdate(
-                    type=DepthUpdateType.UPDATE,
                     bids=[(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
-                    asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']]
+                    asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']],
+                    first_id=data['U'],
+                    last_id=data['u']
                 )
-                last_update_id = data['u']
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         async with self._connect_refreshing_stream(
