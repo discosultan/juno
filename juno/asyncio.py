@@ -7,8 +7,8 @@ from typing import Any, AsyncIterable, Awaitable, Generic, List, Optional, TypeV
 T = TypeVar('T')
 
 
-def empty_future():
-    future = asyncio.get_runnning_loop().create_future()
+def empty_future() -> asyncio.Future[None]:
+    future = asyncio.get_running_loop().create_future()
     future.set_result(None)
     return future
 
@@ -31,7 +31,7 @@ def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
     frame = inspect.stack()[1]
     module = inspect.getmodule(frame[0])
 
-    async def inner():
+    async def inner() -> Any:
         try:
             return await coro
         except asyncio.CancelledError:
@@ -46,7 +46,7 @@ def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
     return inner()
 
 
-async def cancel(*tasks: Optional[asyncio.Task]) -> None:
+async def cancel(*tasks: Optional[asyncio.Task[Any]]) -> None:
     material_tasks = [task for task in tasks if task and not task.done()]
     for task in material_tasks:
         task.cancel()
