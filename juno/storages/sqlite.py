@@ -117,11 +117,9 @@ class SQLite(Storage):
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             await db.execute(
-                f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)', [
-                    'map_' + type_.__name__,
-                    json.dumps(items),
-                    time_ms()
-                ]
+                f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
+                ['map_' + type_.__name__, json.dumps(items),
+                 time_ms()]
             )
             await db.commit()
 

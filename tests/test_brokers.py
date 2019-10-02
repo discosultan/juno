@@ -3,14 +3,13 @@ from decimal import Decimal
 
 import pytest
 
-from juno import DepthUpdate, DepthSnapshot, Fees
+from juno import DepthSnapshot, DepthUpdate, Fees
 from juno.brokers import Market
 from juno.components import Informant, Orderbook
 from juno.filters import Filters, Price, Size
 from juno.storages import Memory
 
 from . import fakes
-
 
 fees = Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))
 filters = Filters(

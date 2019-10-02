@@ -130,9 +130,7 @@ async def connect_refreshing_stream(
                         new_msg = await _receive(ctx.ws)
                         assert new_msg.type is aiohttp.WSMsgType.TEXT
                         new_data = loads(new_msg.data)
-                        async for old_msg in concat_async(
-                            receive_task.result(), to_close_ctx.ws
-                        ):
+                        async for old_msg in concat_async(receive_task.result(), to_close_ctx.ws):
                             if old_msg.type is aiohttp.WSMsgType.CLOSED:
                                 break
                             old_data = loads(old_msg.data)

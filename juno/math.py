@@ -70,9 +70,7 @@ class Int(Constraint):
 
 
 class Pair(Constraint):
-    def __init__(
-        self, a: Constraint, op: Callable[[Any, Any], bool], b: Constraint
-    ) -> None:
+    def __init__(self, a: Constraint, op: Callable[[Any, Any], bool], b: Constraint) -> None:
         self.a = a
         self.op = op
         self.b = b

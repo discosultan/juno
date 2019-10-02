@@ -4,7 +4,7 @@ import itertools
 import logging
 import math
 import random
-from collections import defaultdict, MutableMapping, MutableSequence
+from collections import MutableMapping, MutableSequence, defaultdict
 from copy import deepcopy
 from os import path
 from pathlib import Path

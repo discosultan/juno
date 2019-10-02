@@ -10,7 +10,6 @@ from juno import (
 
 
 class Exchange(ABC):
-
     def __init__(self, depth_ws_snapshot: bool = False) -> None:
         self.depth_ws_snapshot = depth_ws_snapshot
 

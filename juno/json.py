@@ -1,7 +1,7 @@
 from collections import MutableMapping, MutableSequence
 from copy import deepcopy
 from decimal import Decimal
-from typing import Any, IO, Iterable, Optional
+from typing import IO, Any, Iterable, Optional
 
 import simplejson as json
 

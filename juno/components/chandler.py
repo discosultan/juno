@@ -87,8 +87,9 @@ class Chandler:
                 await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
                                                            batch_start, batch_end)
 
-    async def _stream_exchange_candles(self, exchange: str, symbol: str, interval: int, start: int,
-                                       end: int) -> AsyncIterable[Candle]:
+    async def _stream_exchange_candles(
+        self, exchange: str, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
         current = floor_multiple(time_ms(), interval)
 

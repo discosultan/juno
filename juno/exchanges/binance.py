@@ -12,8 +12,8 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict,
 
 import juno.json as json
 from juno import (
-    Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees,
-    Fill, Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
+    Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
+    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size

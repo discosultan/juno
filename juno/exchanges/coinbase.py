@@ -16,7 +16,7 @@ from dateutil.tz import UTC
 
 import juno.json as json
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthUpdate, DepthSnapshot, Fees, OrderType, Side,
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, OrderType, Side,
     TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable

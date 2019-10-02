@@ -6,8 +6,8 @@ from decimal import Decimal
 from typing import AsyncIterable, List
 
 from juno import (
-    CancelOrderStatus, Fill, Fills, InsufficientBalance, OrderResult, OrderUpdate, OrderStatus,
-    OrderType, Side, TimeInForce
+    CancelOrderStatus, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus, OrderType,
+    OrderUpdate, Side, TimeInForce
 )
 from juno.asyncio import cancel, cancelable
 from juno.components import Informant, Orderbook
@@ -38,9 +38,11 @@ class Limit(Broker):
         expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
         if res.fills.total_fee != expected_fee:
             # TODO: Python 3.8 debug strings.
-            _log.warning(f'fee {res.fills.total_fee} != expected fee {expected_fee} ('
-                         f'size={res.fills.total_size}, fee_pct={fees.maker}, '
-                         f'base_precision={filters.base_precision})')
+            _log.warning(
+                f'fee {res.fills.total_fee} != expected fee {expected_fee} ('
+                f'size={res.fills.total_size}, fee_pct={fees.maker}, '
+                f'base_precision={filters.base_precision})'
+            )
 
         return res
 
@@ -54,9 +56,11 @@ class Limit(Broker):
         filters = self._informant.get_filters(exchange, symbol)
         expected_fee = round_half_up(res.fills.total_quote * fees.maker, filters.quote_precision)
         if res.fills.total_fee != expected_fee:
-            _log.warning(f'fee {res.fills.total_fee} != expected fee {expected_fee} ('
-                         f'quote={res.fills.total_quote}, fee_pct={fees.maker}, '
-                         f'quote_precision={filters.quote_precision})')
+            _log.warning(
+                f'fee {res.fills.total_fee} != expected fee {expected_fee} ('
+                f'quote={res.fills.total_quote}, fee_pct={fees.maker}, '
+                f'quote_precision={filters.quote_precision})'
+            )
 
         return res
 
@@ -81,8 +85,14 @@ class Limit(Broker):
 
             # Listens for fill events for an existing order.
             track_fills_task = asyncio.create_task(
-                cancelable(self._track_fills(client_id=client_id, symbol=symbol, stream=stream,
-                           keep_limit_order_best_task=keep_limit_order_best_task))
+                cancelable(
+                    self._track_fills(
+                        client_id=client_id,
+                        symbol=symbol,
+                        stream=stream,
+                        keep_limit_order_best_task=keep_limit_order_best_task
+                    )
+                )
             )
 
             await asyncio.gather(keep_limit_order_best_task, track_fills_task)
@@ -146,8 +156,10 @@ class Limit(Broker):
 
             if not filters.min_notional.valid(price=price, size=size):
                 # TODO: Implement. raise InsuficientBalance error.
-                _log.info(f'min notional not satisfied: {price} * {size} != '
-                          f'{filters.min_notional.min_notional}')
+                _log.info(
+                    f'min notional not satisfied: {price} * {size} != '
+                    f'{filters.min_notional.min_notional}'
+                )
                 raise InsufficientBalance()
 
             _log.info(f'placing limit order at price {price} for size {size}')
@@ -167,8 +179,10 @@ class Limit(Broker):
                 break
             last_order_price = price
 
-    async def _track_fills(self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
-                           keep_limit_order_best_task: asyncio.Task):
+    async def _track_fills(
+        self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
+        keep_limit_order_best_task: asyncio.Task
+    ):
         fills = Fills()  # Fills from aggregated trades.
 
         async for order in stream:

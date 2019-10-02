@@ -10,7 +10,7 @@ from typing import Any, AsyncIterable, Dict, List, Tuple, Union
 import aiohttp
 import backoff
 
-from juno import DepthUpdate, DepthSnapshot, Side
+from juno import DepthSnapshot, DepthUpdate, Side
 from juno.asyncio import Barrier, Event, cancel, cancelable
 from juno.config import list_names
 from juno.exchanges import Exchange
@@ -80,9 +80,8 @@ class Orderbook:
                 raise NotImplementedError(depth)
             orderbook.updated.set()
 
-    async def _stream_depth(
-        self, exchange: str, symbol: str
-    ) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
+    async def _stream_depth(self, exchange: str,
+                            symbol: str) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
         exchange_instance = self._exchanges[exchange]
 
         async with exchange_instance.connect_stream_depth(symbol) as stream:
@@ -102,8 +101,10 @@ class Orderbook:
                         continue
 
                     if is_first_update:
-                        assert (update.first_id <= last_update_id + 1 and
-                                update.last_id >= last_update_id + 1)
+                        assert (
+                            update.first_id <= last_update_id + 1
+                            and update.last_id >= last_update_id + 1
+                        )
                         is_first_update = False
                     elif update.first_id != last_update_id + 1:
                         _log.warning(
