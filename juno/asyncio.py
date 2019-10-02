@@ -7,7 +7,7 @@ from typing import Any, AsyncIterable, Awaitable, Generic, List, Optional, TypeV
 T = TypeVar('T')
 
 
-def empty_future() -> asyncio.Future[None]:
+def empty_future() -> asyncio.Future:
     future = asyncio.get_running_loop().create_future()
     future.set_result(None)
     return future
@@ -46,7 +46,7 @@ def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
     return inner()
 
 
-async def cancel(*tasks: Optional[asyncio.Task[Any]]) -> None:
+async def cancel(*tasks: Optional[asyncio.Task]) -> None:
     material_tasks = [task for task in tasks if task and not task.done()]
     for task in material_tasks:
         task.cancel()
