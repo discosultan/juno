@@ -155,7 +155,6 @@ class Limit(Broker):
                 raise InsufficientBalance()
 
             if not filters.min_notional.valid(price=price, size=size):
-                # TODO: Implement. raise InsuficientBalance error.
                 _log.info(
                     f'min notional not satisfied: {price} * {size} != '
                     f'{filters.min_notional.min_notional}'
