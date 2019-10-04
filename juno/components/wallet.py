@@ -32,7 +32,6 @@ class Wallet:
 
     def get_balance(self, exchange: str, asset: str) -> Balance:
         balance = self._exchange_balances[exchange][asset]
-        _log.info(f'Get balance: {balance}')
         return balance
 
     async def _sync_all_balances(self) -> None:
@@ -44,6 +43,7 @@ class Wallet:
     async def _sync_balances(self, exchange: str) -> None:
         async with self._exchanges[exchange].connect_stream_balances() as balances_stream:
             async for balances in balances_stream:
+                _log.info(f'received balance update from {exchange}')
                 self._exchange_balances[exchange] = balances
                 if not self._initial_balances_fetched.is_set():
                     self._initial_balances_fetched.set()

@@ -23,8 +23,7 @@ def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Han
         )
         log_outputs.remove('file')
     if len(log_outputs) > 0:
-        # TODO: Use Python 3.8 debug formatting.
-        raise NotImplementedError(f'log_outputs={log_outputs}')
+        raise NotImplementedError(f'{log_outputs=}')
 
     if log_format == 'default':
         pass
@@ -32,7 +31,7 @@ def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Han
         for handler in handlers:
             handler.setFormatter(AzureFormatter())
     else:
-        raise NotImplementedError(f'log_format={log_format}')
+        raise NotImplementedError(f'{log_format=}')
 
     return handlers
 

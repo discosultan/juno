@@ -64,8 +64,8 @@ class Paper(Agent):
                 # effective. Only do it on first run because subsequent runs mean missed candles
                 # and we don't want to fetch passed a missed candle.
                 _log.info(
-                    f'fetching {strategy.req_history} candle(s) before start time to '
-                    'warm-up strategy'
+                    f'fetching {strategy.req_history} candle(s) before start time to warm-up '
+                    'strategy'
                 )
                 start = now - strategy.req_history * interval
 
@@ -77,8 +77,8 @@ class Paper(Agent):
                 # Check if we have missed a candle.
                 if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
                     _log.warning(
-                        f'missed candle(s); last candle {self.last_candle}; current '
-                        f'candle {candle}'
+                        f'missed candle(s); last candle {self.last_candle}; current candle '
+                        f'{candle}'
                     )
                     if restart_on_missed_candle:
                         _log.info('restarting strategy')

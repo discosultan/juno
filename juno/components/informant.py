@@ -99,7 +99,7 @@ class Informant:
         data: Optional[Dict[str, T]]
         data, updated = await self._storage.get_map(exchange, type_)
         if not data or not updated or now >= updated + DAY_MS:
-            _log.info(f'updating {type_name} data by fetching from exchange')
+            _log.info(f'updating {type_name} data by fetching from {exchange}')
             data = await fetch(self._exchanges[exchange])
             await self._storage.set_map(exchange, type_, data)
         else:

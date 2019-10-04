@@ -108,8 +108,8 @@ class Orderbook:
                         is_first_update = False
                     elif update.first_id != last_update_id + 1:
                         _log.warning(
-                            f'orderbook out of sync: update id {update.first_id} != last update id'
-                            f'{last_update_id} + 1; refetching snapshot'
+                            f'orderbook out of sync: {update.first_id=} != {last_update_id=} + 1; '
+                            'refetching snapshot'
                         )
                         async for data in self._stream_depth(exchange, symbol):
                             yield data

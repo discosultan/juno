@@ -170,8 +170,7 @@ class Optimize(Agent):
         if self.solver != self.validating_solver:
             solver_name = type(self.solver).__name__.lower()
             _log.info(
-                f'validating {solver_name} solver result with best args against python '
-                'solver'
+                f'validating {solver_name} solver result with best args against python solver'
             )
             validation_solve = await self.validating_solver.get(
                 strategy_type=strategy_type,

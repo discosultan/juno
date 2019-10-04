@@ -46,10 +46,10 @@ class ClientSession:
         **kwargs: Any
     ) -> AsyncIterator[aiohttp.ClientResponse]:
         name = name or next(_random_words)
-        _aiohttp_log.info(f'Req {name} {method} {url}')
+        _aiohttp_log.info(f'req {name} {method} {url}')
         _aiohttp_log.debug(kwargs)
         async with self._session.request(method, url, **kwargs) as res:
-            _aiohttp_log.info(f'Res {name} {res.status} {res.reason}')
+            _aiohttp_log.info(f'res {name} {res.status} {res.reason}')
             content = {'headers': res.headers, 'body': await res.text()}
             _aiohttp_log.debug(content)
             if raise_for_status or (raise_for_status is None and self._raise_for_status):
@@ -146,8 +146,7 @@ async def connect_refreshing_stream(
                 msg = receive_task.result()
                 if msg.type is aiohttp.WSMsgType.CLOSED:
                     _aiohttp_log.warning(
-                        f'server closed ws {ctx.name} connection; data: '
-                        f'{msg.data}; reconnecting'
+                        f'server closed ws {ctx.name} connection; data: {msg.data}; reconnecting'
                     )
                     await asyncio.gather(ctx.close(), cancel(timeout_task))
                     ctx = await _WSConnectionContext.connect(session, url, name2, counter)

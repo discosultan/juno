@@ -75,8 +75,8 @@ class Backtest(Agent):
                 # Check if we have missed a candle.
                 if self.last_candle and candle.time - self.last_candle.time >= interval * 2:
                     _log.warning(
-                        f'missed candle(s); last candle {self.last_candle}; current '
-                        f'candle {candle}'
+                        f'missed candle(s); last candle {self.last_candle}; current candle'
+                        f'{candle}'
                     )
                     if restart_on_missed_candle:
                         _log.info('restarting strategy')
@@ -89,6 +89,7 @@ class Backtest(Agent):
                 advice = strategy.update(candle)
 
                 if not self.ctx.open_position and advice is Advice.BUY:
+                    # TODO: use InsufficientException instead
                     if not self._try_open_position(candle):
                         _log.warning(f'quote balance too low to open a position; stopping')
                         break
