@@ -272,7 +272,6 @@ class Coinbase(Exchange):
                     break
 
     async def _public_request(self, method, url, data={}):
-        # TODO: raises RuntimeError due to https://bugs.python.org/issue33786
         async for val in self._paginated_public_request(method, url, data):
             return val  # Return only first.
 

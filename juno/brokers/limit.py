@@ -38,11 +38,9 @@ class Limit(Broker):
         filters = self._informant.get_filters(exchange, symbol)
         expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
         if res.fills.total_fee != expected_fee:
-            # TODO: Python 3.8 debug strings.
             _log.warning(
-                f'fee {res.fills.total_fee} != expected fee {expected_fee} ('
-                f'size={res.fills.total_size}, fee_pct={fees.maker}, '
-                f'base_precision={filters.base_precision})'
+                f'{res.fills.total_fee=} != {expected_fee=} ({res.fills.total_size=}, '
+                f'{fees.maker=}, {filters.base_precision=})'
             )
 
         return res
@@ -58,9 +56,8 @@ class Limit(Broker):
         expected_fee = round_half_up(res.fills.total_quote * fees.maker, filters.quote_precision)
         if res.fills.total_fee != expected_fee:
             _log.warning(
-                f'fee {res.fills.total_fee} != expected fee {expected_fee} ('
-                f'quote={res.fills.total_quote}, fee_pct={fees.maker}, '
-                f'quote_precision={filters.quote_precision})'
+                f'{res.fills.total_fee=} != {expected_fee=} ({res.fills.total_quote=}, '
+                f'{fees.maker=}, {filters.quote_precision=})'
             )
 
         return res
@@ -118,8 +115,8 @@ class Limit(Broker):
 
             if len(ob_side) == 0:
                 raise NotImplementedError(
-                    f'no existing {"bids" if side is Side.BUY else "asks"} in orderbook! what '
-                    'is optimal price?'
+                    f'no existing {"bids" if side is Side.BUY else "asks"} in orderbook! what is '
+                    'optimal price?'
                 )
 
             if len(ob_other_side) == 0:
@@ -137,8 +134,7 @@ class Limit(Broker):
             if last_order_price not in [0, Decimal('Inf')]:
                 # Cancel prev order.
                 _log.info(
-                    f'cancelling previous limit order {client_id} at price '
-                    f'{last_order_price}'
+                    f'cancelling previous limit order {client_id} at price {last_order_price}'
                 )
                 cancel_res = await self._exchanges[exchange].cancel_order(
                     symbol=symbol, client_id=client_id
@@ -189,7 +185,7 @@ class Limit(Broker):
             if order.client_id != client_id:
                 continue
             if order.symbol != symbol:
-                _log.warning(f'order {client_id} symbol {order.symbol} != {symbol} ')
+                _log.warning(f'order {client_id} symbol {order.symbol} != {symbol}')
                 continue
             if order.status is OrderStatus.NEW:
                 _log.debug(f'received new confirmation for order {client_id}')
