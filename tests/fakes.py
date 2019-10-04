@@ -14,7 +14,8 @@ class Exchange(exchanges.Exchange):
         balances=[],
         depth_snapshot=None,
         depth_updates=[],
-        orders=[]
+        orders=[],
+        place_order_result=None,
     ):
         super().__init__()
         self.historical_candles = historical_candles
@@ -25,6 +26,7 @@ class Exchange(exchanges.Exchange):
         self.depth_snapshot = depth_snapshot
         self.depth_updates = depth_updates
         self.orders = orders
+        self.place_order_result = place_order_result
 
     async def map_fees(self):
         return self.fees
@@ -72,7 +74,7 @@ class Exchange(exchanges.Exchange):
         yield inner()
 
     async def place_order(self, *args, **kwargs):
-        pass
+        return self.place_order_result
 
     async def cancel_order(self, *args, **kwargs):
         pass

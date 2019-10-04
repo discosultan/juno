@@ -133,7 +133,7 @@ class OrderUpdate(NamedTuple):
     client_id: str
     price: Decimal
     size: Decimal
-    cumulative_filled_size: Decimal
+    # cumulative_filled_size: Decimal
     fee: Decimal
     fee_asset: Optional[str]
 

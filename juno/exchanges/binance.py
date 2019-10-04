@@ -219,7 +219,7 @@ class Binance(Exchange):
                     client_id=data['c'],
                     price=Decimal(data['p']),
                     size=Decimal(data['q']),
-                    cumulative_filled_size=Decimal(data['z']),
+                    # cumulative_filled_size=Decimal(data['z']),
                     # 'size': Decimal(data['q']),
                     # 'fills': fills,
                     fee=Decimal(data['n']),

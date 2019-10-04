@@ -1,9 +1,13 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 
-from juno import DepthSnapshot, DepthUpdate, Fees, InsufficientBalance
+from juno import (
+    DepthSnapshot, DepthUpdate, Fees, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus,
+    OrderUpdate
+)
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook
 from juno.filters import Filters, Price, Size
@@ -16,6 +20,7 @@ filters = Filters(
     price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
     size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1'))
 )
+order_client_id = str(uuid4())
 
 
 @pytest.mark.parametrize(
@@ -144,14 +149,53 @@ async def test_market_insufficient_balance():
             await broker.buy('exchange', 'eth-btc', Decimal('0.5'), True)
 
 
-async def test_limit():
-    snapshot = DepthSnapshot(asks=[], bids=[(Decimal(1), Decimal(1))])
+async def test_limit_fill_immediately():
+    snapshot = DepthSnapshot(asks=[], bids=[(Decimal(1) - filters.price.step, Decimal(1))])
     async with init_limit_broker(
         fakes.Exchange(
             depth_snapshot=snapshot,
             depth_updates=[],
             fees={'__all__': fees},
-            filters={'__all__': filters}
+            filters={'__all__': filters},
+            place_order_result=OrderResult(status=OrderStatus.FILLED, fills=Fills(
+                Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
+            ))
+        )
+    ) as broker:
+        await broker.buy('exchange', 'eth-btc', Decimal(1), False)
+
+
+async def test_limit_fill_partially():
+    snapshot = DepthSnapshot(asks=[], bids=[(Decimal(1) - filters.price.step, Decimal(1))])
+    async with init_limit_broker(
+        fakes.Exchange(
+            depth_snapshot=snapshot,
+            depth_updates=[],
+            fees={'__all__': fees},
+            filters={'__all__': filters},
+            place_order_result=OrderResult(status=OrderStatus.NEW, fills=Fills()),
+            orders=[
+                OrderUpdate(
+                    symbol='eth-btc',
+                    status=OrderStatus.PARTIALLY_FILLED,
+                    client_id=order_client_id,
+                    price=Decimal(1),
+                    size=Decimal('0.5'),
+                    # cumulative_filled_size=Decimal(0),
+                    fee=Decimal(0),
+                    fee_asset='eth'
+                ),
+                OrderUpdate(
+                    symbol='eth-btc',
+                    status=OrderStatus.FILLED,
+                    client_id=order_client_id,
+                    price=Decimal(1),
+                    size=Decimal('0.5'),
+                    # cumulative_filled_size=Decimal(0),
+                    fee=Decimal(0),
+                    fee_asset='eth'
+                ),
+            ]
         )
     ) as broker:
         await broker.buy('exchange', 'eth-btc', Decimal(1), False)
@@ -188,7 +232,7 @@ async def init_limit_broker(*exchanges):
     informant = Informant(memory, exchanges)
     orderbook = Orderbook(exchanges, config={'symbol': 'eth-btc'})
     async with memory, informant, orderbook:
-        broker = Limit(informant, orderbook, exchanges)
+        broker = Limit(informant, orderbook, exchanges, get_client_id=lambda: order_client_id)
         yield broker
 
 

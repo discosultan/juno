@@ -3,7 +3,7 @@ import logging
 import operator
 import uuid
 from decimal import Decimal
-from typing import AsyncIterable, List
+from typing import AsyncIterable, Callable, List
 
 from juno import (
     CancelOrderStatus, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus, OrderType,
@@ -21,7 +21,8 @@ _log = logging.getLogger(__name__)
 
 class Limit(Broker):
     def __init__(
-        self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
+        self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange],
+        get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
