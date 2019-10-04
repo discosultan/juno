@@ -32,15 +32,16 @@ def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
     module = inspect.getmodule(frame[0])
 
     async def inner() -> Any:
+        assert module
         try:
             return await coro
         except asyncio.CancelledError:
             log = logging.getLogger(module.__name__)
-            log.info(f'{coro.__qualname__} task cancelled')
+            log.info(f'{coro.__qualname__} task cancelled')  # type: ignore
         except Exception as exc:
             log = logging.getLogger(module.__name__)
             msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-            log.error(f'unhandled exception in {coro.__qualname__} task ({msg})')
+            log.error(f'unhandled exception in {coro.__qualname__} task ({msg})')  # type: ignore
             raise
 
     return inner()
