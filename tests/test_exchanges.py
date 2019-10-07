@@ -7,15 +7,18 @@ import pytest
 
 from juno import OrderType, Side
 from juno.config import load_instance
-from juno.exchanges import Binance, Coinbase
+from juno.exchanges import Binance, Coinbase, Kraken
 from juno.time import HOUR_MS, UTC, datetime_timestamp_ms
 
 exchange_types = [
     Binance,
     Coinbase,
+    Kraken,
 ]
 exchanges = [pytest.lazy_fixture(e.__name__.lower()) for e in exchange_types]
 exchange_ids = [e.__name__ for e in exchange_types]
+
+# TODO: implement missing exchange methods.
 
 
 # We use a session-scoped loop for shared rate-limiting.
@@ -40,19 +43,11 @@ async def coinbase(loop, config):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_map_fees(loop, request, exchange):
+async def test_map_symbols(loop, request, exchange):
     skip_non_configured(request, exchange)
-    res = await exchange.map_fees()
-    assert res
-
-
-@pytest.mark.exchange
-@pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_map_filters(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    res = await exchange.map_filters()
-    assert len(res) > 0
+    res = await exchange.map_symbols()
+    assert len(res.fees) > 0
+    assert len(res.filters) > 0
 
 
 @pytest.mark.exchange
@@ -60,6 +55,7 @@ async def test_map_filters(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_balances(loop, request, exchange):
     skip_non_configured(request, exchange)
+    skip_exchange(exchange, Kraken)
     async with exchange.connect_stream_balances() as stream:
         await stream.__anext__()
 
@@ -69,6 +65,7 @@ async def test_connect_stream_balances(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_historical_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
+    skip_exchange(exchange, Kraken)
     start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
     stream = exchange.stream_historical_candles(
         symbol='eth-btc', interval=HOUR_MS, start=start, end=start + HOUR_MS
@@ -88,7 +85,7 @@ async def test_stream_historical_candles(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_future_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)
+    skip_exchange(exchange, Coinbase, Kraken)
     async with exchange.connect_stream_future_candles(
         symbol='eth-btc', interval=HOUR_MS
     ) as stream:
@@ -103,7 +100,7 @@ async def test_connect_stream_future_candles(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_get_depth(loop, request, exchange):
     skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)
+    skip_exchange(exchange, Coinbase, Kraken)
     await exchange.get_depth('eth-btc')
 
 
@@ -112,6 +109,7 @@ async def test_get_depth(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_depth(loop, request, exchange):
     skip_non_configured(request, exchange)
+    skip_exchange(exchange, Kraken)
     async with exchange.connect_stream_depth('eth-btc') as stream:
         assert await stream.__anext__()
 
@@ -121,7 +119,7 @@ async def test_connect_stream_depth(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_place_order(loop, request, exchange):
     skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)  # TODO: implement
+    skip_exchange(exchange, Coinbase, Kraken)
     await exchange.place_order(
         symbol='eth-btc', side=Side.BUY, type_=OrderType.MARKET, size=Decimal(1), test=True
     )

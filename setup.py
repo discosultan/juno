@@ -24,6 +24,7 @@ setup(
             'pytest',
             'pytest-aiohttp',
             'pytest-lazy-fixture',
+            'rope',
             'yapf',
         ],
         'discord': [
