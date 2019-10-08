@@ -43,12 +43,7 @@ class Container:
         self._singleton_types[type_] = factory
 
     def resolve(self, type_: Type[T]) -> T:
-        kwargs = {}
-        for dep_name, dep_type in get_input_type_hints(type_.__init__).items():
-            kwargs[dep_name] = self._resolve_dep(dep_type)
-        return self._resolve_dep(type_)
-
-    def _resolve_dep(self, type_: type) -> Any:
+        # import pdb; pdb.set_trace()
         instance = self._singletons.get(type_)
         if instance:
             return instance
@@ -62,16 +57,24 @@ class Container:
             if type_factory:
                 instance_type = type_factory()
 
-            kwargs = {}
+            kwargs: Dict[str, Any] = {}
+            _log.critical(f'resolveing {type_}')
             for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
                                                            ).items():
-                kwargs[dep_name] = self._resolve_dep(dep_type)
+                try:
+                    kwargs[dep_name] = self.resolve(dep_type)
+                except TypeError:
+                    # Go with default if any.
+                    pass
+
             try:
-                instance = instance_type(**kwargs)
-                self._singletons[instance_type] = instance
+                instance = instance_type(**kwargs)  # type: ignore
             except TypeError:
                 _log.exception(f'unable to construct {instance_type} as {type_}')
                 raise
+            else:
+                self._singletons[instance_type] = instance
+
         self._singletons[type_] = instance
         return instance
 

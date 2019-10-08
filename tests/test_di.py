@@ -1,4 +1,5 @@
 import itertools
+from typing import Callable
 
 from juno import di
 
@@ -70,13 +71,20 @@ def test_list_dependencies_in_init_order():
     ]
 
 
-async def test_no_duplicates_when_same_abstract_and_concrete():
+def test_no_duplicates_when_same_abstract_and_concrete():
     container = di.Container()
     container.add_singleton_type(Foo, lambda: Foo2)
     result1 = container.resolve(Foo)
     result2 = container.resolve(Foo2)
     assert isinstance(result1, Foo2)
     assert result1 == result2
+
+
+def test_dependency_with_default_value():
+    container = di.Container()
+    result = container.resolve(Qux)
+    assert isinstance(result, Qux)
+    assert result.factory() == 1
 
 
 class Foo:
@@ -87,6 +95,10 @@ class Foo:
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         pass
+
+
+class Foo2(Foo):
+    pass
 
 
 class Bar:
@@ -108,5 +120,6 @@ class Baz:
         self.bar = bar
 
 
-class Foo2(Foo):
-    pass
+class Qux:
+    def __init__(self, factory: Callable[[], int] = lambda: 1) -> None:
+        self.factory = factory
