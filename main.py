@@ -30,9 +30,9 @@ async def main() -> None:
     # Load config.
     # NB: Careful with logging config. It contains sensitive data. Use
     # `juno.utils.replace_secrets` to erase secrets from the output.
-    config_name = sys.argv[1] if len(sys.argv) >= 2 else 'default'
+    rel_config_path = sys.argv[1] if len(sys.argv) >= 2 else 'config/default.json'
     config = {}
-    config.update(load_from_json_file(full_path(__file__, f'config/{config_name}.json')))
+    config.update(load_from_json_file(full_path(__file__, rel_config_path)))
     config.update(load_from_env())
 
     # Configure logging.

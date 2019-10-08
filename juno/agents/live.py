@@ -32,7 +32,7 @@ class Live(Agent):
         interval: int,
         strategy_config: Dict[str, Any],
         end: int = MAX_TIME_MS,
-        restart_on_missed_candle: bool = True,
+        restart_on_missed_candle: bool = False,
         get_time: Optional[Callable[[], int]] = None
     ) -> None:
         if not get_time:

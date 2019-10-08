@@ -2,9 +2,10 @@
     "log_format": "azure",
     "log_level": "debug",
     "storage": "sqlite",
-    "broker": "market",
+    "broker": "limit",
     "agents": [
         {
+            "name": "testing_live",
             "type": "live",
             "exchange": "binance",
             "symbol": "eth-btc",
