@@ -17,9 +17,9 @@ class Exchange(ABC):
     async def get_symbols_info(self) -> SymbolsInfo:
         pass
 
-    # @abstractmethod
-    # async def get_balances(self) -> Dict[str, Balance]:
-    #     pass
+    @abstractmethod
+    async def get_balances(self) -> Dict[str, Balance]:
+        pass
 
     @abstractmethod
     @asynccontextmanager
