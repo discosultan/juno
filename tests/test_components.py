@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, DepthSnapshot, Fees, SymbolInfo
+from juno import Balance, DepthSnapshot, Fees, SymbolsInfo
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Orderbook, Wallet
 from juno.filters import Filters, Price, Size
@@ -44,7 +44,7 @@ async def test_get_fees_filters(exchange_key):
         price=Price(min=Decimal(1), max=Decimal(1), step=Decimal(1)),
         size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1))
     )
-    async with init_informant(fakes.Exchange(symbol_info=SymbolInfo(
+    async with init_informant(fakes.Exchange(symbol_info=SymbolsInfo(
         fees={exchange_key: fees},
         filters={exchange_key: filters}
     ))) as informant:
@@ -56,7 +56,7 @@ async def test_get_fees_filters(exchange_key):
 async def test_list_symbols():
     symbols = ['eth-btc', 'ltc-btc']
     async with init_informant(
-        fakes.Exchange(symbol_info=SymbolInfo(
+        fakes.Exchange(symbol_info=SymbolsInfo(
             fees=Fees.none(),
             filters={s: Filters.none() for s in symbols}
         ))

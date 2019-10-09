@@ -6,7 +6,7 @@ import pytest
 
 from juno import (
     DepthSnapshot, DepthUpdate, Fees, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus,
-    OrderUpdate, SymbolInfo
+    OrderUpdate, SymbolsInfo
 )
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook
@@ -19,7 +19,7 @@ filters = Filters(
     price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
     size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1'))
 )
-symbol_info = SymbolInfo(
+symbol_info = SymbolsInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
     filters={'__all__': filters}
 )

@@ -7,7 +7,7 @@ from typing import Awaitable, Callable, Dict, List, Tuple, TypeVar
 import aiohttp
 import backoff
 
-from juno import Fees, Filters, SymbolInfo
+from juno import Fees, Filters, SymbolsInfo
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
 from juno.storages import Storage
@@ -18,7 +18,7 @@ _log = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
-FetchMap = Callable[[Exchange], Awaitable[SymbolInfo]]
+FetchMap = Callable[[Exchange], Awaitable[SymbolsInfo]]
 
 
 class Informant:
@@ -27,7 +27,7 @@ class Informant:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
     async def __aenter__(self) -> Informant:
-        self._symbol_infos: Dict[str, SymbolInfo] = {}
+        self._symbols_infos: Dict[str, SymbolsInfo] = {}
         self._initial_sync_event = asyncio.Event()
         self._sync_task = asyncio.create_task(cancelable(
             self._sync_all_symbols(self._initial_sync_event)
@@ -39,13 +39,13 @@ class Informant:
         await cancel(self._sync_task)
 
     def get_fees_filters(self, exchange: str, symbol: str) -> Tuple[Fees, Filters]:
-        symbol_info = self._symbol_infos[exchange]
+        symbol_info = self._symbols_infos[exchange]
         fees = symbol_info.fees.get('__all__') or symbol_info.fees[symbol]
         filters = symbol_info.filters.get('__all__') or symbol_info.filters[symbol]
         return fees, filters
 
     def list_symbols(self, exchange: str) -> List[str]:
-        return list(self._symbol_infos[exchange].filters.keys())
+        return list(self._symbols_infos[exchange].filters.keys())
 
     def list_intervals(self, exchange: str) -> List[int]:
         # TODO: Assumes Binance.
@@ -70,11 +70,11 @@ class Informant:
     )
     async def _sync_symbols(self, exchange: str) -> None:
         now = time_ms()
-        symbol_infos, updated = await self._storage.get(exchange, SymbolInfo)
-        if not symbol_infos or not updated or now >= updated + DAY_MS:
+        symbols_info, updated = await self._storage.get(exchange, SymbolsInfo)
+        if not symbols_info or not updated or now >= updated + DAY_MS:
             _log.info(f'updating symbol info by fetching from {exchange}')
-            symbol_infos = await self._exchanges[exchange].get_symbol_info()
-            await self._storage.set(exchange, SymbolInfo, symbol_infos)
+            symbols_info = await self._exchanges[exchange].get_symbols_info()
+            await self._storage.set(exchange, SymbolsInfo, symbols_info)
         else:
             _log.info(f'updating symbol info by fetching from storage')
-        self._symbol_infos[exchange] = symbol_infos
+        self._symbols_infos[exchange] = symbols_info

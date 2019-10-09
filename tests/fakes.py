@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 
 from juno import (
-    Fees, Filters, OrderResult, OrderStatus, Side, SymbolInfo, brokers, components, exchanges
+    Fees, Filters, OrderResult, OrderStatus, Side, SymbolsInfo, brokers, components, exchanges
 )
 
 
@@ -11,7 +11,7 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
-        symbol_info=SymbolInfo(
+        symbol_info=SymbolsInfo(
             fees={'__all__': Fees.none()},
             filters={'__all__': Filters.none()}
         ),
@@ -31,7 +31,7 @@ class Exchange(exchanges.Exchange):
         self.orders = orders
         self.place_order_result = place_order_result
 
-    async def get_symbol_info(self):
+    async def get_symbols_info(self):
         return self.symbol_info
 
     @asynccontextmanager

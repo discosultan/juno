@@ -144,13 +144,13 @@ class Side(Enum):
     SELL = 1
 
 
-class SymbolInfo(NamedTuple):
+class SymbolsInfo(NamedTuple):
     fees: Dict[str, Fees]
     filters: Dict[str, Filters]
 
     @staticmethod
-    def none() -> SymbolInfo:
-        return SymbolInfo(
+    def none() -> SymbolsInfo:
+        return SymbolsInfo(
             fees={'__all__': Fees.none()},
             filters={'__all__': Filters.none()}
         )

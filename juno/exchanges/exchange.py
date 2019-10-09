@@ -5,7 +5,7 @@ from typing import AsyncIterable, AsyncIterator, Dict, Optional, Union
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, OrderResult, OrderType,
-    OrderUpdate, Side, SymbolInfo, TimeInForce
+    OrderUpdate, Side, SymbolsInfo, TimeInForce
 )
 
 
@@ -14,8 +14,12 @@ class Exchange(ABC):
         self.depth_ws_snapshot = depth_ws_snapshot
 
     @abstractmethod
-    async def get_symbol_info(self) -> SymbolInfo:
+    async def get_symbols_info(self) -> SymbolsInfo:
         pass
+
+    # @abstractmethod
+    # async def get_balances(self) -> Dict[str, Balance]:
+    #     pass
 
     @abstractmethod
     @asynccontextmanager
