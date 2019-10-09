@@ -43,7 +43,6 @@ class Container:
         self._singleton_types[type_] = factory
 
     def resolve(self, type_: Type[T]) -> T:
-        # import pdb; pdb.set_trace()
         instance = self._singletons.get(type_)
         if instance:
             return instance
