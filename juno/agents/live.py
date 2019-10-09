@@ -47,8 +47,7 @@ class Live(Agent):
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         quote = self.wallet.get_balance(exchange, self.quote_asset).available
 
-        fees = self.informant.get_fees(exchange, symbol)
-        filters = self.informant.get_filters(exchange, symbol)
+        fees, filters = self.informant.get_fees_filters(exchange, symbol)
 
         assert quote > filters.price.min
 

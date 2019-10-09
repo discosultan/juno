@@ -13,7 +13,7 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict,
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
-    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
+    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, SymbolInfo, TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -73,17 +73,17 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def map_fees(self) -> Dict[str, Fees]:
-        res = await self._request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA)
-        return {
+    async def get_symbol_info(self) -> SymbolInfo:
+        fees_res, filters_res = await asyncio.gather(
+            self._request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
+            self._request('GET', '/api/v1/exchangeInfo'),
+        )
+        fees = {
             _from_symbol(fee['symbol']): Fees(maker=fee['maker'], taker=fee['taker'])
-            for fee in res['tradeFee']
+            for fee in fees_res['tradeFee']
         }
-
-    async def map_filters(self) -> Dict[str, Filters]:
-        res = await self._request('GET', '/api/v1/exchangeInfo')
-        result = {}
-        for symbol in res['symbols']:
+        filters = {}
+        for symbol in filters_res['symbols']:
             for f in symbol['filters']:
                 t = f['filterType']
                 if t == 'PRICE_FILTER':
@@ -96,7 +96,7 @@ class Binance(Exchange):
                     min_notional = f
             assert all((price, percent_price, lot_size, min_notional))
 
-            result[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
+            filters[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
                 base_precision=symbol['baseAssetPrecision'],
                 quote_precision=symbol['quotePrecision'],
                 price=Price(
@@ -120,7 +120,7 @@ class Binance(Exchange):
                     avg_price_period=percent_price['avgPriceMins'] * MIN_MS
                 )
             )
-        return result
+        return SymbolInfo(fees=fees, filters=filters)
 
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:

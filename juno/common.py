@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import Enum
-from typing import List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
+from juno.filters import Filters
 from juno.time import datetime_utcfromtimestamp_ms
 
 
@@ -141,6 +142,18 @@ class OrderUpdate(NamedTuple):
 class Side(Enum):
     BUY = 0
     SELL = 1
+
+
+class SymbolInfo(NamedTuple):
+    fees: Dict[str, Fees]
+    filters: Dict[str, Filters]
+
+    @staticmethod
+    def none() -> SymbolInfo:
+        return SymbolInfo(
+            fees={'__all__': Fees.none()},
+            filters={'__all__': Filters.none()}
+        )
 
 
 class TimeInForce(Enum):

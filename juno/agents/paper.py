@@ -39,8 +39,7 @@ class Paper(Agent):
         now = floor_multiple(get_time(), interval)
         assert end > now
 
-        fees = self.informant.get_fees(exchange, symbol)
-        filters = self.informant.get_filters(exchange, symbol)
+        fees, filters = self.informant.get_fees_filters(exchange, symbol)
 
         assert quote > filters.price.min
 

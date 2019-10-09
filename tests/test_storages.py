@@ -32,8 +32,17 @@ async def test_memory_store_candles(loop, memory):
     assert candles == candles
 
 
+async def test_memory_store_get(loop, memory):
+    candle = new_candle(time=1, close=Decimal(1))
+
+    await memory.set(key='key', type_=Candle, item=candle)
+    out_candle, _ = await memory.get(key='key', type_=Candle)
+
+    assert out_candle == candle
+
+
 async def test_memory_store_get_map(loop, memory):
-    candle = {'foo': new_candle(time=1, close=DECIMAL_TOO_PRECISE_FOR_FLOAT)}
+    candle = {'foo': new_candle(time=1, close=Decimal(1))}
 
     await memory.set_map(key='key', type_=Candle, items=candle)
     out_candle, _ = await memory.get_map(key='key', type_=Candle)

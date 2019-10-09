@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections import defaultdict
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Type, TypeVar, cast
+from typing import Awaitable, Callable, Dict, List, Tuple, TypeVar
 
 import aiohttp
 import backoff
 
-from juno import Fees, Filters
+from juno import Fees, Filters, SymbolInfo
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
 from juno.storages import Storage
@@ -19,7 +18,7 @@ _log = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
-FetchMap = Callable[[Exchange], Awaitable[Dict[str, Any]]]
+FetchMap = Callable[[Exchange], Awaitable[SymbolInfo]]
 
 
 class Informant:
@@ -27,30 +26,26 @@ class Informant:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
-        self._exchange_data: Dict[str, Dict[Type[Any], Dict[str, Any]]] = (
-            defaultdict(lambda: defaultdict(dict))
-        )
-        self._sync_tasks: List[asyncio.Task[None]] = []
-        self._initial_sync_events: List[asyncio.Event] = []
-
     async def __aenter__(self) -> Informant:
-        self._setup_sync_task(Fees, lambda e: e.map_fees())
-        self._setup_sync_task(Filters, lambda e: e.map_filters())
-        await asyncio.gather(*(e.wait() for e in self._initial_sync_events))
+        self._symbol_infos: Dict[str, SymbolInfo] = {}
+        self._initial_sync_event = asyncio.Event()
+        self._sync_task = asyncio.create_task(cancelable(
+            self._sync_all_symbols(self._initial_sync_event)
+        ))
+        await self._initial_sync_event.wait()
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(*self._sync_tasks)
+        await cancel(self._sync_task)
 
-    def get_fees(self, exchange: str, symbol: str) -> Fees:
-        return self._get_data(exchange, symbol, Fees)
-
-    def get_filters(self, exchange: str, symbol: str) -> Filters:
-        return self._get_data(exchange, symbol, Filters)
+    def get_fees_filters(self, exchange: str, symbol: str) -> Tuple[Fees, Filters]:
+        symbol_info = self._symbol_infos[exchange]
+        fees = symbol_info.fees.get('__all__') or symbol_info.fees[symbol]
+        filters = symbol_info.filters.get('__all__') or symbol_info.filters[symbol]
+        return fees, filters
 
     def list_symbols(self, exchange: str) -> List[str]:
-        # TODO: Assumes Filters is not using '__all__'.
-        return list(self._exchange_data[exchange][Filters])
+        return list(self._symbol_infos[exchange].filters.keys())
 
     def list_intervals(self, exchange: str) -> List[int]:
         # TODO: Assumes Binance.
@@ -60,48 +55,26 @@ class Informant:
         ]
         return list(map(strpinterval, intervals))
 
-    @backoff.on_exception(
-        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
-    )
-    def _get_data(self, exchange: str, symbol: str, type_: Type[T]) -> T:
-        # `__all__` is a special key which allows exchange to return same value for any symbol.
-        data = self._exchange_data[exchange][type_].get('__all__')
-        if not data:
-            data = self._exchange_data[exchange][type_].get(symbol)
-        if not data:
-            raise Exception(f'Exchange {exchange} does not support symbol {symbol} for {type_}')
-        return cast(T, data)
-
-    def _setup_sync_task(self, type_: type, fetch: FetchMap) -> None:
-        initial_sync_event = asyncio.Event()
-        self._initial_sync_events.append(initial_sync_event)
-        self._sync_tasks.append(
-            asyncio.create_task(cancelable(self._sync_all_data(type_, fetch, initial_sync_event)))
-        )
-
-    async def _sync_all_data(
-        self, type_: type, fetch: FetchMap, initial_sync_event: asyncio.Event
-    ) -> None:
+    async def _sync_all_symbols(self, initial_sync_event: asyncio.Event) -> None:
         period = DAY_MS
-        type_name = type_.__name__.lower()
-        _log.info(f'starting periodic sync of {type_name} every {strfinterval(period)}')
+        _log.info(f'starting periodic sync of symbol info for {", ".join(self._exchanges.keys())} '
+                  f'every {strfinterval(period)}')
         while True:
-            await asyncio.gather(
-                *(self._sync_data(e, type_, fetch) for e in self._exchanges.keys())
-            )
+            await asyncio.gather(*(self._sync_symbols(e) for e in self._exchanges.keys()))
             if not initial_sync_event.is_set():
                 initial_sync_event.set()
             await asyncio.sleep(period / 1000.0)
 
-    async def _sync_data(self, exchange: str, type_: Type[T], fetch: FetchMap) -> None:
+    @backoff.on_exception(
+        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
+    )
+    async def _sync_symbols(self, exchange: str) -> None:
         now = time_ms()
-        type_name = type_.__name__.lower()
-        data: Optional[Dict[str, T]]
-        data, updated = await self._storage.get_map(exchange, type_)
-        if not data or not updated or now >= updated + DAY_MS:
-            _log.info(f'updating {type_name} data by fetching from {exchange}')
-            data = await fetch(self._exchanges[exchange])
-            await self._storage.set_map(exchange, type_, data)
+        symbol_infos, updated = await self._storage.get(exchange, SymbolInfo)
+        if not symbol_infos or not updated or now >= updated + DAY_MS:
+            _log.info(f'updating symbol info by fetching from {exchange}')
+            symbol_infos = await self._exchanges[exchange].get_symbol_info()
+            await self._storage.set(exchange, SymbolInfo, symbol_infos)
         else:
-            _log.info(f'updating {type_name} data by fetching from storage')
-        self._exchange_data[exchange][type_] = data
+            _log.info(f'updating symbol info by fetching from storage')
+        self._symbol_infos[exchange] = symbol_infos

@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, DepthSnapshot, Fees
+from juno import Balance, DepthSnapshot, Fees, SymbolInfo
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Orderbook, Wallet
 from juno.filters import Filters, Price, Size
@@ -37,32 +37,29 @@ async def test_stream_candles(start, end, closed, expected_from, expected_to):
         assert candles == expected_candles
 
 
-@pytest.mark.parametrize('exchange_fees_key', ['__all__', 'eth-btc'])
-async def test_get_fees(exchange_fees_key):
+@pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])
+async def test_get_fees_filters(exchange_key):
     fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
-    async with init_informant(fakes.Exchange(fees={exchange_fees_key: fees})) as informant:
-        out_fees = informant.get_fees('exchange', 'eth-btc')
-        assert out_fees == fees
-
-
-@pytest.mark.parametrize('exchange_filters_key', ['__all__', 'eth-btc'])
-async def test_get_filters(exchange_filters_key):
     filters = Filters(
         price=Price(min=Decimal(1), max=Decimal(1), step=Decimal(1)),
         size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1))
     )
-    async with init_informant(
-        fakes.Exchange(filters={exchange_filters_key: filters})
-    ) as informant:
-        out_filters = informant.get_filters('exchange', 'eth-btc')
+    async with init_informant(fakes.Exchange(symbol_info=SymbolInfo(
+        fees={exchange_key: fees},
+        filters={exchange_key: filters}
+    ))) as informant:
+        out_fees, out_filters = informant.get_fees_filters('exchange', 'eth-btc')
+        assert out_fees == fees
         assert out_filters == filters
 
 
 async def test_list_symbols():
     symbols = ['eth-btc', 'ltc-btc']
     async with init_informant(
-        fakes.Exchange(filters={s: Filters.none()
-                                for s in symbols})
+        fakes.Exchange(symbol_info=SymbolInfo(
+            fees=Fees.none(),
+            filters={s: Filters.none() for s in symbols}
+        ))
     ) as informant:
         out_symbols = informant.list_symbols('exchange')
         assert out_symbols == symbols

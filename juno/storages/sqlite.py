@@ -93,6 +93,31 @@ class SQLite(Storage):
             await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
             await db.commit()
 
+    async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:
+        _log.info(f'getting {key} of type {type_.__name__}')
+        async with self._connect(key) as db:
+            await self._ensure_table(db, Bag)
+            cursor = await db.execute(
+                f'SELECT * FROM {Bag.__name__} WHERE key=?', [type_.__name__]
+            )
+            row = await cursor.fetchone()
+            await cursor.close()
+            if row:
+                return _load_type_from_string(type_, json.loads(row[1])), row[2]
+            else:
+                return None, None
+
+    async def set(self, key: Key, type_: Type[T], item: T) -> None:
+        _log.info(f'setting {key} of type {type_.__name__}')
+        async with self._connect(key) as db:
+            await self._ensure_table(db, Bag)
+            await db.execute(
+                f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
+                [type_.__name__, json.dumps(item),
+                 time_ms()]
+            )
+            await db.commit()
+
     async def get_map(self, key: Key,
                       type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
         _log.info(f'getting map of {type_.__name__}')

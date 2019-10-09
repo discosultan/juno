@@ -16,11 +16,11 @@ from dateutil.tz import UTC
 
 import juno.json as json
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, OrderType, Side,
-    TimeInForce
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderType,
+    Side, SymbolInfo, TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
-from juno.filters import Filters, Price, Size
+from juno.filters import Price, Size
 from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms
@@ -71,16 +71,15 @@ class Coinbase(Exchange):
         await cancel(self._stream_task)
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def map_fees(self) -> Dict[str, Fees]:
+    async def get_symbol_info(self) -> SymbolInfo:
         # TODO: Fetch from exchange API if possible? Also has a more complex structure.
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
-        return {'__all__': Fees(maker=Decimal('0.0015'), taker=Decimal('0.0025'))}
+        fees = {'__all__': Fees(maker=Decimal('0.0015'), taker=Decimal('0.0025'))}
 
-    async def map_filters(self) -> Dict[str, Filters]:
         res = await self._public_request('GET', '/products')
-        result = {}
+        filters = {}
         for product in res:
-            result[product['id'].lower()] = Filters(
+            filters[product['id'].lower()] = Filters(
                 price=Price(step=Decimal(product['quote_increment'])),
                 size=Size(
                     min=Decimal(product['base_min_size']),
@@ -88,7 +87,8 @@ class Coinbase(Exchange):
                     step=Decimal(product['base_increment'])
                 )
             )
-        return result
+
+        return SymbolInfo(fees=fees, filters=filters)
 
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:

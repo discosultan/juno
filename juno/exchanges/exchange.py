@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, Optional, Union
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderResult,
-    OrderType, OrderUpdate, Side, TimeInForce
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, OrderResult, OrderType,
+    OrderUpdate, Side, SymbolInfo, TimeInForce
 )
 
 
@@ -14,11 +14,7 @@ class Exchange(ABC):
         self.depth_ws_snapshot = depth_ws_snapshot
 
     @abstractmethod
-    async def map_fees(self) -> Dict[str, Fees]:
-        pass
-
-    @abstractmethod
-    async def map_filters(self) -> Dict[str, Filters]:
+    async def get_symbol_info(self) -> SymbolInfo:
         pass
 
     @abstractmethod
