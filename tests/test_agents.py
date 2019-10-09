@@ -117,7 +117,7 @@ async def test_paper():
             # 2. Short. Size 4 + 2.
         ]
     )
-    informant = fakes.Informant(fees=Fees.none(), filters=Filters.none())
+    informant = fakes.Informant()
     orderbook_data = {
         Side.BUY: {
             Decimal(10): Decimal(5),  # 1.
@@ -163,7 +163,7 @@ async def test_live():
             # 2. Short. Size 4 + 2.
         ]
     )
-    informant = fakes.Informant(fees=Fees.none(), filters=Filters.none())
+    informant = fakes.Informant()
     orderbook_data = {
         Side.BUY: {
             Decimal(10): Decimal(5),  # 1.

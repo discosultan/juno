@@ -40,12 +40,18 @@ async def coinbase(loop, config):
         yield exchange
 
 
+@pytest.fixture(scope='session')
+async def kraken(loop, config):
+    async with try_init_exchange(Kraken, config) as exchange:
+        yield exchange
+
+
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_map_symbols(loop, request, exchange):
+async def test_get_symbol_info(loop, request, exchange):
     skip_non_configured(request, exchange)
-    res = await exchange.map_symbols()
+    res = await exchange.get_symbol_info()
     assert len(res.fees) > 0
     assert len(res.filters) > 0
 

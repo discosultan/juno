@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
-from juno import Fees, Filters, OrderResult, OrderStatus, Side, brokers, components, exchanges
+from juno import (
+    Fees, Filters, OrderResult, OrderStatus, Side, SymbolInfo, brokers, components, exchanges
+)
 
 
 class Exchange(exchanges.Exchange):
@@ -9,8 +11,10 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
-        fees={'__all__': Fees.none()},
-        filters={'__all__': Filters.none()},
+        symbol_info=SymbolInfo(
+            fees={'__all__': Fees.none()},
+            filters={'__all__': Filters.none()}
+        ),
         balances=[],
         depth_snapshot=None,
         depth_updates=[],
@@ -20,19 +24,15 @@ class Exchange(exchanges.Exchange):
         super().__init__()
         self.historical_candles = historical_candles
         self.future_candles = future_candles
-        self.fees = fees
-        self.filters = filters
+        self.symbol_info = symbol_info
         self.balances = balances
         self.depth_snapshot = depth_snapshot
         self.depth_updates = depth_updates
         self.orders = orders
         self.place_order_result = place_order_result
 
-    async def map_fees(self):
-        return self.fees
-
-    async def map_filters(self):
-        return self.filters
+    async def get_symbol_info(self):
+        return self.symbol_info
 
     @asynccontextmanager
     async def connect_stream_balances(self):
@@ -90,15 +90,12 @@ class Chandler:
 
 
 class Informant:
-    def __init__(self, fees, filters):
+    def __init__(self, fees=Fees.none(), filters=Filters.none()):
         self.fees = fees
         self.filters = filters
 
-    def get_fees(self, exchange, symbol):
-        return self.fees
-
-    def get_filters(self, exchange, symbol):
-        return self.filters
+    def get_fees_filters(self, exchange, symbol):
+        return self.fees, self.filters
 
 
 class Orderbook(components.Orderbook):

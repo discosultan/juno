@@ -42,8 +42,7 @@ class Backtest(Agent):
 
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
 
-        self.fees = self.informant.get_fees(exchange, symbol)
-        self.filters = self.informant.get_filters(exchange, symbol)
+        self.fees, self.filters = self.informant.get_fees_filters(exchange, symbol)
 
         self.ctx = TradingContext(quote)
         self.result = TradingSummary(

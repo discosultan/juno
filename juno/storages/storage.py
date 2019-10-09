@@ -27,6 +27,14 @@ class Storage(ABC):
         pass
 
     @abstractmethod
+    async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:
+        pass
+
+    @abstractmethod
+    async def set(self, key: Key, type_: Type[T], item: T) -> None:
+        pass
+
+    @abstractmethod
     async def get_map(self, key: Key,
                       type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
         pass

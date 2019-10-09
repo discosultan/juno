@@ -34,8 +34,7 @@ class Limit(Broker):
         res = await self._fill(exchange, symbol, Side.BUY, quote)
 
         # Validate fee expectation.
-        fees = self._informant.get_fees(exchange, symbol)
-        filters = self._informant.get_filters(exchange, symbol)
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
         expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
         if res.fills.total_fee != expected_fee:
             _log.warning(
@@ -51,8 +50,7 @@ class Limit(Broker):
         res = await self._fill(exchange, symbol, Side.SELL, base)
 
         # Validate fee expectation.
-        fees = self._informant.get_fees(exchange, symbol)
-        filters = self._informant.get_filters(exchange, symbol)
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
         expected_fee = round_half_up(res.fills.total_quote * fees.maker, filters.quote_precision)
         if res.fills.total_fee != expected_fee:
             _log.warning(
@@ -101,7 +99,7 @@ class Limit(Broker):
         self, exchange: str, symbol: str, client_id: str, side: Side, available: Decimal
     ) -> None:
         orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
-        filters = self._informant.get_filters(exchange, symbol)
+        _, filters = self._informant.get_fees_filters(exchange, symbol)
         last_order_price = Decimal(0) if side is Side.BUY else Decimal('Inf')
         while True:
             await orderbook_updated.wait()

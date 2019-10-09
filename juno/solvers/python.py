@@ -25,8 +25,7 @@ class Python(Solver):
         candles = await list_async(
             self.chandler.stream_candles(exchange, symbol, interval, start, end)
         )
-        fees = self.informant.get_fees(exchange, symbol)
-        filters = self.informant.get_filters(exchange, symbol)
+        fees, filters = self.informant.get_fees_filters(exchange, symbol)
         base_asset, quote_asset = unpack_symbol(symbol)
 
         def backtest(*args: Any) -> SolverResult:

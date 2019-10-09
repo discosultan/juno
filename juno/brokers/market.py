@@ -35,8 +35,7 @@ class Market(Broker):
 
     def find_order_asks(self, exchange: str, symbol: str, quote: Decimal) -> Fills:
         result = Fills()
-        fees = self._informant.get_fees(exchange, symbol)
-        filters = self._informant.get_filters(exchange, symbol)
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
         for aprice, asize in self._orderbook.list_asks(exchange, symbol):
             aquote = aprice * asize
             base_asset, quote_asset = unpack_symbol(symbol)
@@ -55,8 +54,7 @@ class Market(Broker):
 
     def find_order_bids(self, exchange: str, symbol: str, base: Decimal) -> Fills:
         result = Fills()
-        fees = self._informant.get_fees(exchange, symbol)
-        filters = self._informant.get_filters(exchange, symbol)
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
         for bprice, bsize in self._orderbook.list_bids(exchange, symbol):
             base_asset, quote_asset = unpack_symbol(symbol)
             if bsize >= base:

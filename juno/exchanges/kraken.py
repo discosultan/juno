@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 import simplejson as json
 
-from juno import Fees, Filters, Symbols
+from juno import Fees, Filters, SymbolInfo
 from juno.http import ClientSession
 from juno.typing import ExcType, ExcValue, Traceback
 
@@ -27,7 +27,7 @@ class Kraken(Exchange):
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def map_symbols(self) -> Symbols:
+    async def get_symbol_info(self) -> SymbolInfo:
         res = await self._request('GET', '/0/public/AssetPairs')
         fees, filters = {}, {}
         for val in res['result'].values():
@@ -40,7 +40,7 @@ class Kraken(Exchange):
                 base_precision=val['lot_decimals'],
                 quote_precision=val['pair_decimals'],
             )
-        return Symbols(fees=fees, filters=filters)
+        return SymbolInfo(fees=fees, filters=filters)
 
     # def _query(self, urlpath, data, headers=None, timeout=None):
     #     """ Low-level query handling.

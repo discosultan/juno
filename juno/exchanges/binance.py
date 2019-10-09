@@ -13,7 +13,7 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict,
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
-    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Symbols, TimeInForce
+    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, SymbolInfo, TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -73,7 +73,7 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def map_symbols(self) -> Symbols:
+    async def get_symbol_info(self) -> SymbolInfo:
         fees_res, filters_res = await asyncio.gather(
             self._request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
             self._request('GET', '/api/v1/exchangeInfo'),
@@ -120,7 +120,7 @@ class Binance(Exchange):
                     avg_price_period=percent_price['avgPriceMins'] * MIN_MS
                 )
             )
-        return Symbols(fees=fees, filters=filters)
+        return SymbolInfo(fees=fees, filters=filters)
 
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:

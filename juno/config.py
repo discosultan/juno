@@ -116,7 +116,7 @@ def load_type(type_: type, config: Dict[str, Any]) -> Any:
     if not inspect.isabstract(type_):
         raise ValueError()
     module_type_map = _map_type_parent_module_types(type_)
-    return module_type_map[config[type_.__name__.lower()]]
+    return module_type_map[config.get(type_.__name__.lower(), {})]
 
 
 def _map_type_parent_module_types(type_: type) -> Dict[str, type]:
