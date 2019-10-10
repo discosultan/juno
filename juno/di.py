@@ -57,7 +57,6 @@ class Container:
                 instance_type = type_factory()
 
             kwargs: Dict[str, Any] = {}
-            _log.critical(f'resolveing {type_}')
             for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
                                                            ).items():
                 try:
