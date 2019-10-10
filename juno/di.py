@@ -43,6 +43,11 @@ class Container:
         self._singleton_types[type_] = factory
 
     def resolve(self, type_: Type[T]) -> T:
+        resolved = self._resolve(type_, raise_on_type_error=True)
+        assert resolved
+        return resolved
+
+    def _resolve(self, type_: Type[T], raise_on_type_error: bool) -> Optional[T]:
         instance = self._singletons.get(type_)
         if instance:
             return instance
@@ -59,17 +64,17 @@ class Container:
             kwargs: Dict[str, Any] = {}
             for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
                                                            ).items():
-                try:
-                    kwargs[dep_name] = self.resolve(dep_type)
-                except TypeError:
-                    # Go with default if any.
-                    pass
+                resolved = self._resolve(dep_type, raise_on_type_error=False)
+                if resolved is not None:
+                    kwargs[dep_name] = resolved
 
             try:
                 instance = instance_type(**kwargs)  # type: ignore
             except TypeError:
-                _log.exception(f'unable to construct {instance_type} as {type_}')
-                raise
+                if raise_on_type_error:
+                    _log.exception(f'unable to construct {instance_type} as {type_}')
+                    raise
+                return None
             else:
                 self._singletons[instance_type] = instance
 
