@@ -336,8 +336,8 @@ class Binance(Exchange):
                 )
 
     @asynccontextmanager
-    async def connect_stream_future_candles(self, symbol: str,
-                                            interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str,
+                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where

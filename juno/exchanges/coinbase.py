@@ -130,8 +130,8 @@ class Coinbase(Exchange):
 
     # TODO: First candle can be partial.
     @asynccontextmanager
-    async def connect_stream_future_candles(self, symbol: str,
-                                            interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str,
+                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
         async def inner():
             self._ensure_stream_open()
             if symbol not in self._stream_subscriptions.get('matches', []):

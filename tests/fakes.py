@@ -52,7 +52,7 @@ class Exchange(exchanges.Exchange):
             yield c
 
     @asynccontextmanager
-    async def connect_stream_future_candles(self, symbol, interval):
+    async def connect_stream_candles(self, symbol, interval):
         async def inner():
             for c in (c for c in self.future_candles):
                 yield c

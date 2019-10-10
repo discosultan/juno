@@ -107,7 +107,7 @@ class Chandler:
                         break
 
         if end > current:
-            async with exchange_instance.connect_stream_future_candles(
+            async with exchange_instance.connect_stream_candles(
                 symbol, interval
             ) as future_stream:
                 async for candle in inner(future_stream):

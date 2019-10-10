@@ -33,8 +33,8 @@ class Exchange(ABC):
 
     @abstractmethod
     @asynccontextmanager
-    async def connect_stream_future_candles(self, symbol: str,
-                                            interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str,
+                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
         yield  # type: ignore
 
     async def get_depth(self, symbol: str) -> DepthSnapshot:

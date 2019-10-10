@@ -88,10 +88,10 @@ async def test_stream_historical_candles(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_connect_stream_future_candles(loop, request, exchange):
+async def test_connect_stream_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Coinbase, Kraken)
-    async with exchange.connect_stream_future_candles(
+    async with exchange.connect_stream_candles(
         symbol='eth-btc', interval=HOUR_MS
     ) as stream:
         candle = await stream.__anext__()
