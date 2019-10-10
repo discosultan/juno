@@ -71,8 +71,8 @@ async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expecte
     updates = [DepthUpdate(asks=update_asks, bids=[])]
     async with init_market_broker(
         fakes.Exchange(
-            depth_snapshot=snapshot,
-            depth_updates=updates,
+            depth=snapshot,
+            future_depths=updates,
             symbol_info=symbol_info
         )
     ) as broker:
@@ -126,8 +126,8 @@ async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected
     updates = [DepthUpdate(asks=[], bids=update_bids)]
     async with init_market_broker(
         fakes.Exchange(
-            depth_snapshot=snapshot,
-            depth_updates=updates,
+            depth=snapshot,
+            future_depths=updates,
             symbol_info=symbol_info
         )
     ) as broker:
@@ -139,8 +139,7 @@ async def test_market_insufficient_balance():
     snapshot = DepthSnapshot(asks=[(Decimal(1), Decimal(1))], bids=[])
     async with init_market_broker(
         fakes.Exchange(
-            depth_snapshot=snapshot,
-            depth_updates=[],
+            depth=snapshot,
             symbol_info=symbol_info
         )
     ) as broker:
@@ -153,8 +152,7 @@ async def test_limit_fill_immediately():
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal(1) - filters.price.step, Decimal(1))])
     async with init_limit_broker(
         fakes.Exchange(
-            depth_snapshot=snapshot,
-            depth_updates=[],
+            depth=snapshot,
             symbol_info=symbol_info,
             place_order_result=OrderResult(status=OrderStatus.FILLED, fills=Fills(
                 Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
@@ -168,11 +166,10 @@ async def test_limit_fill_partially():
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal(1) - filters.price.step, Decimal(1))])
     async with init_limit_broker(
         fakes.Exchange(
-            depth_snapshot=snapshot,
-            depth_updates=[],
+            depth=snapshot,
             symbol_info=symbol_info,
             place_order_result=OrderResult(status=OrderStatus.NEW, fills=Fills()),
-            orders=[
+            future_orders=[
                 OrderUpdate(
                     symbol='eth-btc',
                     status=OrderStatus.PARTIALLY_FILLED,
@@ -203,8 +200,7 @@ async def test_limit_insufficient_balance():
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal(1), Decimal(1))])
     async with init_limit_broker(
         fakes.Exchange(
-            depth_snapshot=snapshot,
-            depth_updates=[],
+            depth=snapshot,
             symbol_info=symbol_info
         )
     ) as broker:

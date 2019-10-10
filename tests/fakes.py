@@ -15,10 +15,11 @@ class Exchange(exchanges.Exchange):
             fees={'__all__': Fees.none()},
             filters={'__all__': Filters.none()}
         ),
-        balances=[],
-        depth_snapshot=None,
-        depth_updates=[],
-        orders=[],
+        balances=None,
+        future_balances=[],
+        depth=None,
+        future_depths=[],
+        future_orders=[],
         place_order_result=None,
     ):
         super().__init__()
@@ -26,18 +27,22 @@ class Exchange(exchanges.Exchange):
         self.future_candles = future_candles
         self.symbol_info = symbol_info
         self.balances = balances
-        self.depth_snapshot = depth_snapshot
-        self.depth_updates = depth_updates
-        self.orders = orders
+        self.future_balances = future_balances
+        self.depth = depth
+        self.future_depths = future_depths
+        self.future_orders = future_orders
         self.place_order_result = place_order_result
 
     async def get_symbols_info(self):
         return self.symbol_info
 
+    async def get_balances(self):
+        return self.balances
+
     @asynccontextmanager
     async def connect_stream_balances(self):
         async def inner():
-            for balance in self.balances:
+            for balance in self.future_balances:
                 yield balance
 
         yield inner()
@@ -55,12 +60,12 @@ class Exchange(exchanges.Exchange):
         yield inner()
 
     async def get_depth(self, symbol):
-        return self.depth_snapshot
+        return self.depth
 
     @asynccontextmanager
     async def connect_stream_depth(self, symbol):
         async def inner():
-            for depth in self.depth_updates:
+            for depth in self.future_depths:
                 yield depth
 
         yield inner()
@@ -68,7 +73,7 @@ class Exchange(exchanges.Exchange):
     @asynccontextmanager
     async def connect_stream_orders(self):
         async def inner():
-            for order in self.orders:
+            for order in self.future_orders:
                 yield order
 
         yield inner()

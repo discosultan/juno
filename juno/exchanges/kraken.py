@@ -50,6 +50,9 @@ class Kraken(Exchange):
             )
         return SymbolsInfo(fees=fees, filters=filters)
 
+    async def get_balances(self) -> Dict[str, Balance]:
+        pass
+
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
