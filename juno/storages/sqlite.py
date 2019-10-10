@@ -218,6 +218,7 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
 def _load_type_from_string(type_: Type[Any], values: Dict[str, Any]) -> Any:
     annotations = get_type_hints(type_)
     for key, attr_type in annotations.items():
+        _log.critical(attr_type)
         if _isnamedtuple(attr_type):
             # Materialize it.
             values[key] = _load_type_from_string(attr_type, values[key])

@@ -85,8 +85,16 @@ async def main() -> None:
             stack.enter_async_context(container), *(stack.enter_async_context(p) for p in plugins)
         )
 
+        agent_run_tasks = [a.start(**c) for a, c in agent_config_map.items()]
+
+        # Configure loop exception handler to stop agents on any unhandled exception.
+        def custom_exception_handler(loop, context):
+            loop.default_exception_handler(context)
+            for task in (task for task in agent_run_tasks if not task.done()):
+                task.cancel()
+
         # Run agents.
-        await asyncio.gather(*(a.start(**c) for a, c in agent_config_map.items()))
+        await asyncio.gather(*agent_run_tasks)
 
     _log.info('main finished')
 
