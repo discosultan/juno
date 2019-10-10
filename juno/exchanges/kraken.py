@@ -1,16 +1,24 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+import logging
+from contextlib import asynccontextmanager
+from decimal import Decimal
+from typing import Any, AsyncIterator, AsyncIterable, Dict, Optional, Union
 
 import simplejson as json
 
-from juno import Fees, Filters, SymbolsInfo
+from juno import (
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderResult,
+    OrderType, OrderUpdate, Side, SymbolsInfo, TimeInForce
+)
 from juno.http import ClientSession
 from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
 
 _BASE_URL = 'https://api.kraken.com'
+
+_log = logging.getLogger(__name__)
 
 
 class Kraken(Exchange):
@@ -31,7 +39,7 @@ class Kraken(Exchange):
         res = await self._request('GET', '/0/public/AssetPairs')
         fees, filters = {}, {}
         for val in res['result'].values():
-            name = _from_wsname(val['wsname'])
+            name = f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}'
             # TODO: Take into account different fee levels. Currently only worst level.
             taker_fee = val['fees'][0][1]
             maker_fees = val.get('fees_maker')
@@ -41,6 +49,48 @@ class Kraken(Exchange):
                 quote_precision=val['pair_decimals'],
             )
         return SymbolsInfo(fees=fees, filters=filters)
+
+    @asynccontextmanager
+    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+        yield  # type: ignore
+
+    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
+                                        end: int) -> AsyncIterable[Candle]:
+        yield  # type: ignore
+
+    @asynccontextmanager
+    async def connect_stream_future_candles(self, symbol: str,
+                                            interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+        yield  # type: ignore
+
+    async def get_depth(self, symbol: str) -> DepthSnapshot:
+        raise NotImplementedError()
+
+    @asynccontextmanager
+    async def connect_stream_depth(
+        self, symbol: str
+    ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
+        yield  # type: ignore
+
+    @asynccontextmanager
+    async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
+        yield  # type: ignore
+
+    async def place_order(
+        self,
+        symbol: str,
+        side: Side,
+        type_: OrderType,
+        size: Decimal,
+        price: Optional[Decimal] = None,
+        time_in_force: Optional[TimeInForce] = None,
+        client_id: Optional[str] = None,
+        test: bool = True
+    ) -> OrderResult:
+        pass
+
+    async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
+        pass
 
     # def _query(self, urlpath, data, headers=None, timeout=None):
     #     """ Low-level query handling.
@@ -156,7 +206,3 @@ class Kraken(Exchange):
     #     sigdigest = base64.b64encode(signature.digest())
 
     #     return sigdigest.decode()
-
-
-def _from_wsname(wsname: str) -> str:
-    return '-'.join(wsname.split('/')).lower()

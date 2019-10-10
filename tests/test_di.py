@@ -1,6 +1,8 @@
 import itertools
 from typing import Callable
 
+import pytest
+
 from juno import di
 
 counter = itertools.count(start=1)
@@ -80,6 +82,12 @@ def test_no_duplicates_when_same_abstract_and_concrete():
     assert result1 == result2
 
 
+def test_type_error_on_missing_dep():
+    container = di.Container()
+    with pytest.raises(TypeError):
+        container.resolve(Quux)
+
+
 def test_dependency_with_default_value():
     container = di.Container()
     result = container.resolve(Qux)
@@ -122,4 +130,9 @@ class Baz:
 
 class Qux:
     def __init__(self, factory: Callable[[], int] = lambda: 1) -> None:
+        self.factory = factory
+
+
+class Quux:
+    def __init__(self, factory: Callable[[], int]) -> None:
         self.factory = factory
