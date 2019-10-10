@@ -90,18 +90,21 @@ class Coinbase(Exchange):
 
         return SymbolsInfo(fees=fees, filters=filters)
 
+    async def get_balances(self) -> Dict[str, Balance]:
+        res = await self._private_request('GET', '/accounts')
+        result = {}
+        for balance in res:
+            result[balance['currency'].lower()] = Balance(
+                available=Decimal(balance['available']), hold=Decimal(balance['hold'])
+            )
+        return result
+
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner() -> AsyncIterable[Dict[str, Balance]]:
-            res = await self._private_request('GET', '/accounts')
-            result = {}
-            for balance in res:
-                result[balance['currency'].lower()] = Balance(
-                    available=Decimal(balance['available']), hold=Decimal(balance['hold'])
-                )
-            yield result
+            # TODO: Add support for future balance changes.
+            yield {}
 
-        # TODO: Add support for future balance changes.
         yield inner()
 
     async def stream_historical_candles(self, symbol: str, interval: int, start: int,

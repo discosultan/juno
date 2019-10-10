@@ -59,7 +59,7 @@ class Binance(Exchange):
         self._listen_key_lock = asyncio.Lock()
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
-        self._balance_event: Event[Dict[str, Balance]] = Event(autoclear=True)
+        self._balance_event: Event[Dict[str, Any]] = Event(autoclear=True)
         self._order_event: Event[Any] = Event(autoclear=True)
 
         self._session = ClientSession(raise_for_status=False)
@@ -122,19 +122,18 @@ class Binance(Exchange):
             )
         return SymbolsInfo(fees=fees, filters=filters)
 
+    async def get_balances(self) -> Dict[str, Balance]:
+        res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
+        result = {}
+        for balance in res['balances']:
+            result[
+                balance['asset'].lower()
+            ] = Balance(available=Decimal(balance['free']), hold=Decimal(balance['locked']))
+        return result
+
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner() -> AsyncIterable[Dict[str, Balance]]:
-            # Get initial status from REST API.
-            res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
-            result = {}
-            for balance in res['balances']:
-                result[
-                    balance['asset'].lower()
-                ] = Balance(available=Decimal(balance['free']), hold=Decimal(balance['locked']))
-            yield result
-
-            # Stream future updates over WS.
             # TODO: Note that someone else might consume the event data while we do the initial
             # fetch request. This might require a more sophisticated tracking impl.
             # For example, instead of pub/sub events, keep a queue of messages and deliver them

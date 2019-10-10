@@ -59,11 +59,10 @@ async def test_get_symbols_info(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_connect_stream_balances(loop, request, exchange):
+async def test_get_balances(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Kraken)
-    async with exchange.connect_stream_balances() as stream:
-        await stream.__anext__()
+    await exchange.get_balances()
 
 
 @pytest.mark.exchange

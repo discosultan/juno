@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Dict, List
+from typing import AsyncIterable, Dict, List
 
 import aiohttp
 import backoff
@@ -41,9 +41,19 @@ class Wallet:
         backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
     )
     async def _sync_balances(self, exchange: str) -> None:
-        async with self._exchanges[exchange].connect_stream_balances() as balances_stream:
-            async for balances in balances_stream:
-                _log.info(f'received balance update from {exchange}')
-                self._exchange_balances[exchange] = balances
-                if not self._initial_balances_fetched.is_set():
-                    self._initial_balances_fetched.set()
+        async for balances in self._stream_balances(exchange):
+            _log.info(f'received balance update from {exchange}')
+            self._exchange_balances[exchange] = balances
+            if not self._initial_balances_fetched.is_set():
+                self._initial_balances_fetched.set()
+
+    async def _stream_balances(self, exchange: str) -> AsyncIterable[Dict[str, Balance]]:
+        exchange_instance = self._exchanges[exchange]
+
+        async with exchange_instance.connect_stream_balances() as stream:
+            # Get initial status from REST API.
+            yield await exchange_instance.get_balances()
+
+            # Stream future updates over WS.
+            async for balances in stream:
+                yield balances

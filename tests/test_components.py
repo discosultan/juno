@@ -70,7 +70,7 @@ async def test_list_asks_bids():
         asks=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
         bids=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))]
     )
-    async with init_orderbook(fakes.Exchange(depth_snapshot=snapshot)) as orderbook:
+    async with init_orderbook(fakes.Exchange(depth=snapshot)) as orderbook:
         asks = orderbook.list_asks(exchange='exchange', symbol='eth-btc')
         bids = orderbook.list_bids(exchange='exchange', symbol='eth-btc')
 
@@ -80,7 +80,7 @@ async def test_list_asks_bids():
 
 async def test_get_balance():
     balance = Balance(available=Decimal(1), hold=Decimal(0))
-    async with init_wallet(fakes.Exchange(balances=[{'btc': balance}])) as wallet:
+    async with init_wallet(fakes.Exchange(balances={'btc': balance})) as wallet:
         out_balance = wallet.get_balance('exchange', 'btc')
         assert out_balance == balance
 
