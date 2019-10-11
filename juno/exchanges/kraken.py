@@ -115,6 +115,8 @@ class Kraken(Exchange):
         nonce = time_ms()
         data['nonce'] = nonce
         # TODO: support OTP
+        # if enabled:
+        #   data['otp] = 'password'
 
         querystr = urllib.parse.urlencode(data)
         encoded = (str(nonce) + querystr).encode()
