@@ -16,7 +16,7 @@ class Advice(Enum):
 
 class Balance(NamedTuple):
     available: Decimal
-    hold: Decimal
+    hold: Decimal  #  TODO: Do we need it? Kraken doesn't provide that data, for example.
 
 
 class CancelOrderResult(NamedTuple):

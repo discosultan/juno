@@ -61,7 +61,6 @@ async def test_get_symbols_info(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_get_balances(loop, request, exchange):
     skip_non_configured(request, exchange)
-    skip_exchange(exchange, Kraken)
     await exchange.get_balances()
 
 
