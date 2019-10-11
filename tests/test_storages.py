@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, Filters
+from juno import Candle, Fees, Filters, SymbolsInfo
 from juno.asyncio import list_async
 from juno.storages import Memory
 
@@ -32,16 +32,20 @@ async def test_memory_store_candles(loop, memory):
     assert candles == candles
 
 
-async def test_memory_store_get(loop, memory):
-    candle = new_candle(time=1, close=Decimal(1))
+@pytest.mark.parametrize('item', [
+    new_candle(time=1, close=Decimal(1)),
+    SymbolsInfo.none(),
+])
+async def test_memory_set_get(loop, memory, item):
+    item_type = type(item)
 
-    await memory.set(key='key', type_=Candle, item=candle)
-    out_candle, _ = await memory.get(key='key', type_=Candle)
+    await memory.set(key='key', type_=item_type, item=item)
+    out_item, _ = await memory.get(key='key', type_=item_type)
 
-    assert out_candle == candle
+    assert out_item == item
 
 
-async def test_memory_store_get_map(loop, memory):
+async def test_memory_set_get_map(loop, memory):
     candle = {'foo': new_candle(time=1, close=Decimal(1))}
 
     await memory.set_map(key='key', type_=Candle, items=candle)
