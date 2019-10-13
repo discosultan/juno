@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Fees, Fill, Fills, Filters, Position, TradingSummary
+from juno import Fill, Fills, Position, TradingSummary
 from juno.time import HOUR_MS
 
 from .utils import new_candle, new_closed_position
@@ -30,9 +30,7 @@ def test_position():
 
 
 def test_summary():
-    summary = TradingSummary(
-        interval=HOUR_MS, start=0, quote=Decimal(100), fees=Fees.none(), filters=Filters.none()
-    )
+    summary = TradingSummary(interval=HOUR_MS, start=0, quote=Decimal(100))
     summary.append_candle(new_candle())
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
@@ -53,9 +51,7 @@ def test_summary():
 
 
 def test_empty_summary():
-    summary = TradingSummary(
-        interval=HOUR_MS, start=0, quote=Decimal(100), fees=Fees.none(), filters=Filters.none()
-    )
+    summary = TradingSummary(interval=HOUR_MS, start=0, quote=Decimal(100))
     assert summary.cost == Decimal(100)
     assert summary.gain == Decimal(100)
     assert summary.profit == Decimal(0)

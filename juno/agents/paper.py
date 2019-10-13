@@ -46,9 +46,7 @@ class Paper(Agent):
         self.exchange = exchange
         self.symbol = symbol
 
-        self.result = TradingSummary(
-            interval=interval, start=now, quote=quote, fees=fees, filters=filters
-        )
+        self.result = TradingSummary(interval=interval, start=now, quote=quote)
         self.ctx = TradingContext(quote)
         restart_count = 0
 

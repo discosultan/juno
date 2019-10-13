@@ -13,6 +13,11 @@ from .utils import new_candle
 
 
 async def test_backtest():
+    fees = Fees(Decimal(0), Decimal(0))
+    filters = Filters(
+        price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
+        size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))
+    )
     chandler = fakes.Chandler(
         candles=[
             new_candle(time=0, close=Decimal(5)),
@@ -26,13 +31,7 @@ async def test_backtest():
             new_candle(time=5, close=Decimal(10))
         ]
     )
-    informant = fakes.Informant(
-        fees=Fees(Decimal(0), Decimal(0)),
-        filters=Filters(
-            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
-            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))
-        )
-    )
+    informant = fakes.Informant(fees=fees, filters=filters)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -53,7 +52,7 @@ async def test_backtest():
     res = await Backtest(chandler=chandler, informant=informant).start(**agent_config)
 
     assert res.profit == -50
-    assert res.potential_hodl_profit == 100
+    assert res.potential_hodl_profit(fees, filters) == 100
     assert res.duration == 6
     assert res.roi == Decimal('-0.5')
     assert res.annualized_roi == Decimal(-1)

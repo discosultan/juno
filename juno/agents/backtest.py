@@ -45,9 +45,7 @@ class Backtest(Agent):
         self.fees, self.filters = self.informant.get_fees_filters(exchange, symbol)
 
         self.ctx = TradingContext(quote)
-        self.result = TradingSummary(
-            interval=interval, start=start, quote=quote, fees=self.fees, filters=self.filters
-        )
+        self.result = TradingSummary(interval=interval, start=start, quote=quote)
         restart_count = 0
 
         while True:

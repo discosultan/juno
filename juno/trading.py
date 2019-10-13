@@ -100,13 +100,11 @@ class Position:
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
     def __init__(
-        self, interval: int, start: int, quote: Decimal, fees: Fees, filters: Filters
+        self, interval: int, start: int, quote: Decimal
     ) -> None:
         self.interval = interval
         self.start = start
         self.quote = quote
-        self.fees = fees
-        self.filters = filters
 
         # self.candles: List[Candle] = []
         self.positions: List[Position] = []
@@ -133,7 +131,6 @@ class TradingSummary:
             f'Cost: {self.cost}\n'
             f'Gain: {self.gain}\n'
             f'Profit: {self.profit}\n'
-            f'Potential hodl profit: {self.potential_hodl_profit}\n'
             f'ROI: {self.roi:.0%}\n'
             f'Annualized ROI: {self.annualized_roi:.0%}\n'
             f'Duration: {strfinterval(self.duration)}\n'
@@ -178,14 +175,13 @@ class TradingSummary:
             return Decimal(0)
         return (1 + self.roi)**(1 / n) - 1
 
-    @property
-    def potential_hodl_profit(self) -> Decimal:
+    def potential_hodl_profit(self, fees: Fees, filters: Filters) -> Decimal:
         if not self.first_candle or not self.last_candle:
             return Decimal(0)
-        base_hodl = self.filters.size.round_down(self.quote / self.first_candle.close)
-        base_hodl -= round_half_up(base_hodl * self.fees.taker, self.filters.base_precision)
-        quote_hodl = self.filters.size.round_down(base_hodl) * self.last_candle.close
-        quote_hodl -= round_half_up(quote_hodl * self.fees.taker, self.filters.quote_precision)
+        base_hodl = filters.size.round_down(self.quote / self.first_candle.close)
+        base_hodl -= round_half_up(base_hodl * fees.taker, filters.base_precision)
+        quote_hodl = filters.size.round_down(base_hodl) * self.last_candle.close
+        quote_hodl -= round_half_up(quote_hodl * fees.taker, filters.quote_precision)
         return quote_hodl - self.quote
 
     @property

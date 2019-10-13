@@ -30,9 +30,7 @@ class Python(Solver):
 
         def backtest(*args: Any) -> SolverResult:
             ctx = TradingContext(quote)
-            summary = TradingSummary(
-                interval=interval, start=start, quote=quote, fees=fees, filters=filters
-            )
+            summary = TradingSummary(interval=interval, start=start, quote=quote)
             restart_on_missed_candle = False
 
             while True:

@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Fees, Fill, Fills, Filters, Position, TradingSummary
+from juno import Fill, Fills, Position, TradingSummary
 from juno.agents import Agent
 from juno.time import DAY_MS
 from juno.utils import full_path
@@ -53,9 +53,7 @@ def skip_non_configured(request, config):
 
 
 def get_dummy_trading_summary(quote=Decimal(1), interval=1):
-    return TradingSummary(
-        interval=interval, start=0, quote=quote, fees=Fees.none(), filters=Filters.none()
-    )
+    return TradingSummary(interval=interval, start=0, quote=quote)
 
 
 class Dummy(Agent):
