@@ -20,7 +20,7 @@ class Python(Solver):
 
     async def get(
         self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
-        end: int, quote: Decimal
+        end: int, quote: Decimal, restart_on_missed_candle: bool
     ) -> Callable[..., Any]:
         candles = await list_async(
             self.chandler.stream_candles(exchange, symbol, interval, start, end)
@@ -36,9 +36,8 @@ class Python(Solver):
             restart_on_missed_candle = False
 
             while True:
-                last_candle = None
                 restart = False
-
+                last_candle = None
                 strategy = strategy_type(*args)  # type: ignore
 
                 for candle in candles:

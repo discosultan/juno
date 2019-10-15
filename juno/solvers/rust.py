@@ -67,7 +67,7 @@ class Rust(Solver):
 
     async def get(
         self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
-        end: int, quote: Decimal
+        end: int, quote: Decimal, restart_on_missed_candle: bool
     ) -> Callable[..., Any]:
         candles = await list_async(
             self.chandler.stream_candles(exchange, symbol, interval, start, end)
@@ -119,8 +119,16 @@ class Rust(Solver):
             fn_name = meta.identifier.format(**format_args)
             fn = getattr(libjuno, fn_name)
             result = fn(
-                c_candles, len(candles), c_fees, c_filters, interval, start, end, float(quote),
-                *meta.get_non_identifier_args(args)
+                c_candles,
+                len(candles),
+                c_fees,
+                c_filters,
+                interval,
+                start,
+                end,
+                float(quote),
+                restart_on_missed_candle,
+                *meta.get_non_identifier_args(args),
             )
             return SolverResult(
                 result.profit,
@@ -207,6 +215,7 @@ BacktestResult {meta.identifier.format(**format_args)}(
     uint64_t start,
     uint64_t end,
     double quote,
+    bool restart_on_missed_candle,
     {custom_params});
         '''
         )
