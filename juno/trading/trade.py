@@ -30,6 +30,7 @@ class TradingLoop:
         event: EventEmitter = EventEmitter(),
         log: logging.Logger = logging.getLogger(__name__),
         restart_on_missed_candle: bool = False,
+        adjust_start: bool = True,
         test: bool = True
     ) -> None:
         self.chandler = chandler
@@ -45,6 +46,7 @@ class TradingLoop:
         self.event = event
         self.log = log
         self.restart_on_missed_candle = restart_on_missed_candle
+        self.adjust_start = adjust_start
         self.test = test
 
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
@@ -63,7 +65,7 @@ class TradingLoop:
                 last_candle = None
                 strategy = self.new_strategy()
 
-                if restart_count == 0:
+                if self.adjust_start and restart_count == 0:
                     # Adjust start to accommodate for the required history before a strategy
                     # becomes effective. Only do it on first run because subsequent runs mean
                     # missed candles and we don't want to fetch passed a missed candle.

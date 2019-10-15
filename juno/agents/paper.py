@@ -30,6 +30,7 @@ class Paper(Agent):
         strategy_config: Dict[str, Any],
         end: int = MAX_TIME_MS,
         restart_on_missed_candle: bool = False,
+        adjust_start: bool = True,
         get_time: Optional[Callable[[], int]] = None
     ) -> None:
         if not get_time:
@@ -56,6 +57,7 @@ class Paper(Agent):
             event=self,
             log=_log,
             restart_on_missed_candle=restart_on_missed_candle,
+            adjust_start=adjust_start,
             test=True
         )
         self.result = trading_loop.summary

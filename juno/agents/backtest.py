@@ -29,6 +29,7 @@ class Backtest(Agent):
         strategy_config: Dict[str, Any],
         end: Optional[int] = None,
         restart_on_missed_candle: bool = False,
+        adjust_start: bool = True,
     ) -> None:
         now = time_ms()
 
@@ -53,6 +54,7 @@ class Backtest(Agent):
             event=self,
             log=_log,
             restart_on_missed_candle=restart_on_missed_candle,
+            adjust_start=adjust_start,
             test=True
         )
         self.result = trading_loop.summary
