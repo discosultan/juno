@@ -10,7 +10,7 @@ class Solver(ABC):
     @abstractmethod
     async def get(
         self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
-        end: int, quote: Decimal
+        end: int, quote: Decimal, restart_on_missed_candle: bool
     ) -> Callable[..., Any]:
         pass
 

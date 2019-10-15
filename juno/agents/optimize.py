@@ -125,7 +125,8 @@ class Optimize(Agent):
             interval=interval,
             start=start,
             end=end,
-            quote=quote
+            quote=quote,
+            restart_on_missed_candle=restart_on_missed_candle
         )
         toolbox.register('evaluate', lambda ind: solve(*flatten(ind)))
 
@@ -179,7 +180,8 @@ class Optimize(Agent):
                 interval=interval,
                 start=start,
                 end=end,
-                quote=quote
+                quote=quote,
+                restart_on_missed_candle=restart_on_missed_candle
             )
             validation_result = validation_solve(*best_args)
             if not _isclose(validation_result, best_result):

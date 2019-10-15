@@ -13,9 +13,8 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     start: u64,
     end: u64,
     quote: f64,
+    restart_on_missed_candle: bool,
 ) -> BacktestResult {
-    let restart_on_missed_candle = false;
-
     let mut result = TradingSummary::new(start, end, quote, fees, filters);
     let mut ctx = TradingContext::new(quote);
     let mut last_candle: Option<&Candle>;
@@ -23,7 +22,6 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     loop {
         let mut restart = false;
         last_candle = None;
-
         let mut strategy = strategy_factory();
 
         for candle in candles {
