@@ -60,8 +60,8 @@ class TradingLoop:
         try:
             while True:
                 restart = False
-                strategy = self.new_strategy()
                 last_candle = None
+                strategy = self.new_strategy()
 
                 if restart_count == 0:
                     # Adjust start to accommodate for the required history before a strategy

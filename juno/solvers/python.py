@@ -36,9 +36,8 @@ class Python(Solver):
             restart_on_missed_candle = False
 
             while True:
-                last_candle = None
                 restart = False
-
+                last_candle = None
                 strategy = strategy_type(*args)  # type: ignore
 
                 for candle in candles:
