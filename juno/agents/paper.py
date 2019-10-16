@@ -31,7 +31,8 @@ class Paper(Agent):
         end: int = MAX_TIME_MS,
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
-        get_time: Optional[Callable[[], int]] = None
+        trailing_stop: Optional[Decimal] = None,
+        get_time: Optional[Callable[[], int]] = None,
     ) -> None:
         if not get_time:
             get_time = time_ms
@@ -54,11 +55,12 @@ class Paper(Agent):
             quote=quote,
             new_strategy=lambda: new_strategy(strategy_config),
             broker=self.broker,
+            test=True,
             event=self,
             log=_log,
             restart_on_missed_candle=restart_on_missed_candle,
             adjust_start=adjust_start,
-            test=True
+            trailing_stop=trailing_stop,
         )
         self.result = trading_loop.summary
         await trading_loop.run()

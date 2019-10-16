@@ -14,8 +14,9 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     end: u64,
     quote: f64,
     restart_on_missed_candle: bool,
+    trailing_stop: f64,
 ) -> BacktestResult {
-    let mut result = TradingSummary::new(start, end, quote, fees, filters);
+    let mut summary = TradingSummary::new(start, end, quote, fees, filters);
     let mut ctx = TradingContext::new(quote);
     let mut last_candle: Option<&Candle>;
 
@@ -23,9 +24,10 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
         let mut restart = false;
         last_candle = None;
         let mut strategy = strategy_factory();
+        let mut highest_close_since_position = 0.0;
 
         for candle in candles {
-            result.append_candle(candle);
+            summary.append_candle(candle);
 
             if let Some(last_candle) = last_candle {
                 if restart_on_missed_candle && candle.time - last_candle.time >= interval * 2 {
@@ -41,8 +43,16 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
                 if !try_open_position(&mut ctx, fees, filters, candle) {
                     break;
                 }
+                highest_close_since_position = candle.close
             } else if ctx.open_position.is_some() && advice == Advice::Sell {
-                close_position(&mut ctx, &mut result, fees, filters, candle);
+                close_position(&mut ctx, &mut summary, fees, filters, candle);
+            } else if trailing_stop != 0.0 && ctx.open_position.is_some() {
+                highest_close_since_position = f64::max(
+                    highest_close_since_position, candle.close);
+                let trailing_factor = 1.0 - trailing_stop;
+                if candle.close <= highest_close_since_position * trailing_factor {
+                    close_position(&mut ctx, &mut summary, fees, filters, candle);
+                }
             }
         }
 
@@ -53,17 +63,17 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
 
     if let Some(last_candle) = last_candle {
         if ctx.open_position.is_some() {
-            close_position(&mut ctx, &mut result, fees, filters, last_candle);
+            close_position(&mut ctx, &mut summary, fees, filters, last_candle);
         }
     }
 
-    result.calculate();
+    summary.calculate();
     (
-        result.profit,
-        result.mean_drawdown,
-        result.max_drawdown,
-        result.mean_position_profit,
-        result.mean_position_duration,
+        summary.profit,
+        summary.mean_drawdown,
+        summary.max_drawdown,
+        summary.mean_position_profit,
+        summary.mean_position_duration,
     )
 }
 

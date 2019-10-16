@@ -16,7 +16,7 @@
             "strategy": "mamacx",
             "population_size": 50,
             "max_generations": 100,
-            "seed": null
+            "seed": 42
         }
     ]
 }

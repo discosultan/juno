@@ -19,8 +19,16 @@ class Python(Solver):
         self.informant = informant
 
     async def get(
-        self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
-        end: int, quote: Decimal, restart_on_missed_candle: bool
+        self,
+        strategy_type: Type[Strategy],
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int,
+        quote: Decimal,
+        restart_on_missed_candle: bool,
+        trailing_stop: Optional[Decimal],
     ) -> Callable[..., Any]:
         candles = await list_async(
             self.chandler.stream_candles(exchange, symbol, interval, start, end)
@@ -57,8 +65,15 @@ class Python(Solver):
                     if not ctx.open_position and advice is Advice.BUY:
                         if not _try_open_position(ctx, base_asset, fees, filters, candle):
                             break
+                        highest_close_since_position = candle.close
                     elif ctx.open_position and advice is Advice.SELL:
                         _close_position(ctx, summary, quote_asset, fees, filters, candle)
+                    elif trailing_stop is not None and ctx.open_position:
+                        highest_close_since_position = max(highest_close_since_position,
+                                                           candle.close)
+                        trailing_factor = Decimal(1) - trailing_stop
+                        if candle.close <= highest_close_since_position * trailing_factor:
+                            _close_position(ctx, summary, quote_asset, fees, filters, candle)
 
                 if not restart:
                     break

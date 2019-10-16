@@ -37,6 +37,7 @@ class Optimize(Agent):
         strategy: str,
         end: Optional[int] = None,
         restart_on_missed_candle: bool = False,
+        trailing_stop: Optional[Decimal] = None,
         population_size: int = 50,
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
@@ -126,7 +127,8 @@ class Optimize(Agent):
             start=start,
             end=end,
             quote=quote,
-            restart_on_missed_candle=restart_on_missed_candle
+            restart_on_missed_candle=restart_on_missed_candle,
+            trailing_stop=trailing_stop,
         )
         toolbox.register('evaluate', lambda ind: solve(*flatten(ind)))
 
@@ -181,7 +183,8 @@ class Optimize(Agent):
                 start=start,
                 end=end,
                 quote=quote,
-                restart_on_missed_candle=restart_on_missed_candle
+                restart_on_missed_candle=restart_on_missed_candle,
+                trailing_stop=trailing_stop,
             )
             validation_result = validation_solve(*best_args)
             if not _isclose(validation_result, best_result):

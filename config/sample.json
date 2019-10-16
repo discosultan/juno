@@ -21,7 +21,9 @@
             "end": "2019-01-02",
             "interval": "1h",
             "quote": "100.0",
-            "restart_on_missed_candle": true,
+            "restart_on_missed_candle": false,
+            "adjust_start": true,
+            "trailing_stop": "0.1",
             "strategy_config": {
                 "type": "mamacx",
                 "short_period": 18,

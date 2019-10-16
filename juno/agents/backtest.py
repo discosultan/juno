@@ -30,6 +30,7 @@ class Backtest(Agent):
         end: Optional[int] = None,
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
+        trailing_stop: Optional[Decimal] = None,
     ) -> None:
         now = time_ms()
 
@@ -51,11 +52,12 @@ class Backtest(Agent):
             quote=quote,
             new_strategy=lambda: new_strategy(strategy_config),
             broker=None,
+            test=True,
             event=self,
             log=_log,
             restart_on_missed_candle=restart_on_missed_candle,
             adjust_start=adjust_start,
-            test=True
+            trailing_stop=trailing_stop,
         )
         self.result = trading_loop.summary
         await trading_loop.run()

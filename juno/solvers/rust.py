@@ -8,7 +8,7 @@ import platform
 import shutil
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable, Type
+from typing import Any, Callable, Optional, Type
 
 import cffi
 
@@ -66,8 +66,16 @@ class Rust(Solver):
         pass
 
     async def get(
-        self, strategy_type: Type[Strategy], exchange: str, symbol: str, interval: int, start: int,
-        end: int, quote: Decimal, restart_on_missed_candle: bool
+        self,
+        strategy_type: Type[Strategy],
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int,
+        quote: Decimal,
+        restart_on_missed_candle: bool,
+        trailing_stop: Optional[Decimal],
     ) -> Callable[..., Any]:
         candles = await list_async(
             self.chandler.stream_candles(exchange, symbol, interval, start, end)
@@ -128,6 +136,7 @@ class Rust(Solver):
                 end,
                 float(quote),
                 restart_on_missed_candle,
+                0 if trailing_stop is None else trailing_stop,
                 *meta.get_non_identifier_args(args),
             )
             return SolverResult(
@@ -216,6 +225,7 @@ BacktestResult {meta.identifier.format(**format_args)}(
     uint64_t end,
     double quote,
     bool restart_on_missed_candle,
+    double trailing_stop,
     {custom_params});
         '''
         )
