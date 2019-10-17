@@ -2,7 +2,7 @@ import asyncio
 import logging
 import traceback
 from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, Tuple
+from typing import Any, Awaitable, Callable, Dict, List
 
 from juno.asyncio import empty_future
 from juno.typing import filter_member_args
@@ -57,7 +57,7 @@ class Agent(EventEmitter):
     async def finalize(self) -> None:
         pass
 
-    async def emit(self, event: str, *args: Any) -> Tuple[Any, ...]:
+    async def emit(self, event: str, *args: Any) -> List[Any]:
         results = await super().emit(event, *args)
         for e in (r for r in results if isinstance(r, Exception)):
             _log.error(''.join(traceback.format_exception(type(e), e, e.__traceback__)))
