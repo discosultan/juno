@@ -196,7 +196,7 @@ class EventEmitter:
 
         return _on
 
-    async def emit(self, event: str, *args: Any) -> Tuple[Any, ...]:
+    async def emit(self, event: str, *args: Any) -> List[Any]:
         return await asyncio.gather(
             *(x(*args) for x in self._handlers[event]), return_exceptions=True
         )
