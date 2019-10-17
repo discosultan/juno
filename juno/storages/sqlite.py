@@ -3,9 +3,10 @@ import sqlite3
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import (
+# TODO: mypy fails to recognise stdlib attributes get_args, get_origin. remove ignore when fixed
+from typing import (  # type: ignore
     Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union,
-    cast, get_type_hints
+    cast, get_args, get_origin, get_type_hints
 )
 
 from aiosqlite import Connection, connect
@@ -218,8 +219,8 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
 def _load_type_from_string(type_: Type[Any], values: Dict[str, Any]) -> Any:
     annotations = get_type_hints(type_)
     for key, attr_type in annotations.items():
-        if 'typing.Dict' in str(attr_type):
-            sub_type = attr_type.__args__[1]
+        if get_origin(attr_type) is dict:
+            sub_type = get_args(attr_type)[1]
             sub = values[key]
             for dk, dv in sub.items():
                 sub[dk] = _load_type_from_string(sub_type, dv)
