@@ -76,7 +76,7 @@ class Binance(Exchange):
     async def get_symbols_info(self) -> SymbolsInfo:
         fees_res, filters_res = await asyncio.gather(
             self._request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
-            self._request('GET', '/api/v1/exchangeInfo'),
+            self._request('GET', '/api/v3/exchangeInfo'),
         )
         fees = {
             _from_symbol(fee['symbol']): Fees(maker=fee['maker'], taker=fee['taker'])
@@ -166,7 +166,7 @@ class Binance(Exchange):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
         result = await self._request(
             'GET',
-            '/api/v1/depth',
+            '/api/v3/depth',
             weight=LIMIT_TO_WEIGHT[LIMIT],
             data={
                 'limit': LIMIT,
@@ -236,7 +236,7 @@ class Binance(Exchange):
             user_stream_connected = asyncio.Event()
 
             listen_key = (
-                await self._request('POST', '/api/v1/userDataStream', security=_SEC_USER_STREAM)
+                await self._request('POST', '/api/v3/userDataStream', security=_SEC_USER_STREAM)
             )['listenKey']
             self._listen_key_refresh_task = asyncio.create_task(
                 cancelable(self._periodic_listen_key_refresh(listen_key))
@@ -320,7 +320,7 @@ class Binance(Exchange):
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             res = await self._request(
                 'GET',
-                '/api/v1/klines',
+                '/api/v3/klines',
                 data={
                     'symbol': _http_symbol(symbol),
                     'interval': strfinterval(interval),
@@ -364,14 +364,14 @@ class Binance(Exchange):
                 await asyncio.sleep(30 * MIN_SEC)
                 await self._request(
                     'PUT',
-                    '/api/v1/userDataStream',
+                    '/api/v3/userDataStream',
                     data={'listenKey': listen_key},
                     security=_SEC_USER_STREAM
                 )
         finally:
             await self._request(
                 'DELETE',
-                '/api/v1/userDataStream',
+                '/api/v3/userDataStream',
                 data={'listenKey': listen_key},
                 security=_SEC_USER_STREAM
             )
@@ -443,7 +443,7 @@ class Binance(Exchange):
     async def _sync_clock(self) -> None:
         _log.info('syncing clock with Binance')
         before = time_ms()
-        server_time = (await self._request('GET', '/api/v1/time'))['serverTime']
+        server_time = (await self._request('GET', '/api/v3/time'))['serverTime']
         after = time_ms()
         # Assume response time is same as request time.
         delay = (after - before) // 2
