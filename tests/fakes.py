@@ -142,6 +142,14 @@ class Market(brokers.Market):
                 del orderbook_side[fill.price]
 
 
+class Strategy:
+    def __init__(self, *advices):
+        self.advices = list(reversed(advices))
+
+    def update(self, candle):
+        return self.advices.pop()
+
+
 def Time():
     time = -1
 
