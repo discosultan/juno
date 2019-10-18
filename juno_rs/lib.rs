@@ -35,6 +35,7 @@ macro_rules! mamacx {
                 end: u64,
                 quote: f64,
                 restart_on_missed_candle: bool,
+                trailing_stop: f64,
                 short_period: u32,
                 long_period: u32,
                 neg_threshold: f64,
@@ -61,6 +62,7 @@ macro_rules! mamacx {
                     end,
                     quote,
                     restart_on_missed_candle,
+                    trailing_stop,
                 )
             }
         }
@@ -95,6 +97,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     end: u64,
     quote: f64,
     restart_on_missed_candle: bool,
+    trailing_stop: f64,
 ) -> BacktestResult {
     // Turn unsafe ptrs to safe references.
     let candles = slice::from_raw_parts(candles, length as usize);
@@ -114,5 +117,6 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         end,
         quote,
         restart_on_missed_candle,
+        trailing_stop,
     )
 }

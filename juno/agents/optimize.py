@@ -4,7 +4,7 @@ import math
 import sys
 from decimal import Decimal
 from functools import partial
-from random import Random, randrange
+import random
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
@@ -37,6 +37,7 @@ class Optimize(Agent):
         strategy: str,
         end: Optional[int] = None,
         restart_on_missed_candle: bool = False,
+        trailing_stop: Optional[Decimal] = None,
         population_size: int = 50,
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
@@ -52,9 +53,14 @@ class Optimize(Agent):
         assert quote > 0
 
         if seed is None:
-            seed = randrange(sys.maxsize)
+            seed = random.randrange(sys.maxsize)
         _log.info(f'randomizer seed ({seed})')
-        random = Random(seed)
+        # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
+        # algorithms for mutation, crossover, selection. These algos are using the random module
+        # directly and we have not way to pass our randomizer in. Hence we seend the random
+        # module directly.
+        # random = Random(seed)  # <-- Don't do this!
+        random.seed(seed)
 
         strategy_type = get_strategy_type(strategy)
 
@@ -126,7 +132,8 @@ class Optimize(Agent):
             start=start,
             end=end,
             quote=quote,
-            restart_on_missed_candle=restart_on_missed_candle
+            restart_on_missed_candle=restart_on_missed_candle,
+            trailing_stop=trailing_stop,
         )
         toolbox.register('evaluate', lambda ind: solve(*flatten(ind)))
 
@@ -154,7 +161,7 @@ class Optimize(Agent):
                 stats=None,
                 ngen=toolbox.max_generations,
                 halloffame=hall,
-                verbose=False
+                verbose=False,
             )
         )
 
@@ -181,7 +188,8 @@ class Optimize(Agent):
                 start=start,
                 end=end,
                 quote=quote,
-                restart_on_missed_candle=restart_on_missed_candle
+                restart_on_missed_candle=restart_on_missed_candle,
+                trailing_stop=trailing_stop,
             )
             validation_result = validation_solve(*best_args)
             if not _isclose(validation_result, best_result):

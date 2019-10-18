@@ -1,5 +1,5 @@
 from .common import Position, TradingContext, TradingSummary
-from .trade import TradingLoop
+from .loop import TradingLoop
 
 __all__ = [
     'Position',

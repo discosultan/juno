@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
 from juno.brokers import Broker
@@ -33,6 +34,7 @@ class Live(Agent):
         end: int = MAX_TIME_MS,
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
+        trailing_stop: Optional[Decimal] = None,
         get_time: Optional[Callable[[], int]] = None
     ) -> None:
         if not get_time:
@@ -58,11 +60,12 @@ class Live(Agent):
             quote=quote,
             new_strategy=lambda: new_strategy(strategy_config),
             broker=self.broker,
+            test=False,
             event=self,
             log=_log,
             restart_on_missed_candle=restart_on_missed_candle,
             adjust_start=adjust_start,
-            test=False
+            trailing_stop=trailing_stop,
         )
         self.result = trading_loop.summary
         await trading_loop.run()

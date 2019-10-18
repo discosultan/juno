@@ -27,12 +27,18 @@ class TradingLoop:
         quote: Decimal,
         new_strategy: Callable[[], Strategy],
         broker: Optional[Broker] = None,
+        test: bool = True,  # No effect if broker is None
         event: EventEmitter = EventEmitter(),
         log: logging.Logger = logging.getLogger(__name__),
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
-        test: bool = True
+        trailing_stop: Optional[Decimal] = None,
     ) -> None:
+        assert start >= 0
+        assert end > 0
+        assert end > start
+        assert not trailing_stop or Decimal(1) > trailing_stop or trailing_stop > Decimal(0)
+
         self.chandler = chandler
         self.informant = informant
         self.exchange = exchange
@@ -43,11 +49,12 @@ class TradingLoop:
         self.quote = quote
         self.new_strategy = new_strategy
         self.broker = broker
+        self.test = test
         self.event = event
         self.log = log
         self.restart_on_missed_candle = restart_on_missed_candle
         self.adjust_start = adjust_start
-        self.test = test
+        self.trailing_stop = trailing_stop
 
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         fees, filters = informant.get_fees_filters(exchange, symbol)
@@ -99,8 +106,16 @@ class TradingLoop:
 
                     if not self.ctx.open_position and advice is Advice.BUY:
                         await self._open_position(candle=candle)
+                        self.highest_close_since_position = candle.close
                     elif self.ctx.open_position and advice is Advice.SELL:
                         await self._close_position(candle=candle)
+                    elif self.trailing_stop is not None and self.ctx.open_position:
+                        self.highest_close_since_position = max(self.highest_close_since_position,
+                                                                candle.close)
+                        trailing_factor = Decimal(1) - self.trailing_stop
+                        if candle.close <= self.highest_close_since_position * trailing_factor:
+                            self.log.info(f'trailing stop hit at {self.trailing_stop}; selling')
+                            await self._close_position(candle=candle)
 
                 if not restart:
                     break
