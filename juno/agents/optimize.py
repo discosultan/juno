@@ -4,7 +4,7 @@ import math
 import sys
 from decimal import Decimal
 from functools import partial
-from random import Random, randrange
+import random
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
@@ -53,9 +53,14 @@ class Optimize(Agent):
         assert quote > 0
 
         if seed is None:
-            seed = randrange(sys.maxsize)
+            seed = random.randrange(sys.maxsize)
         _log.info(f'randomizer seed ({seed})')
-        random = Random(seed)
+        # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
+        # algorithms for mutation, crossover, selection. These algos are using the random module
+        # directly and we have not way to pass our randomizer in. Hence we seend the random
+        # module directly.
+        # random = Random(seed)  # <-- Don't do this!
+        random.seed(seed)
 
         strategy_type = get_strategy_type(strategy)
 
@@ -156,7 +161,7 @@ class Optimize(Agent):
                 stats=None,
                 ngen=toolbox.max_generations,
                 halloffame=hall,
-                verbose=False
+                verbose=False,
             )
         )
 
