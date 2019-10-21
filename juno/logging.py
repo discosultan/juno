@@ -4,6 +4,8 @@ from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 from typing import List
 
+from colorlog import ColoredFormatter
+
 import juno.json as json
 from juno.utils import home_path
 
@@ -25,13 +27,28 @@ def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Han
     if len(log_outputs) > 0:
         raise NotImplementedError(f'{log_outputs=}')
 
+    formatter = None
     if log_format == 'default':
         pass
+    elif log_format == 'colored':
+        formatter = ColoredFormatter(
+            fmt='%(log_color)s%(levelname)s:%(name)s:%(reset)s%(message)s',
+            log_colors={
+                'DEBUG': 'cyan',
+                'INFO': 'green',
+                'WARNING': 'yellow',
+                'ERROR': 'red',
+                'CRITICAL': 'red',
+            }
+        )
     elif log_format == 'azure':
-        for handler in handlers:
-            handler.setFormatter(AzureFormatter())
+        formatter = AzureFormatter()
     else:
         raise NotImplementedError(f'{log_format=}')
+
+    if formatter:
+        for handler in handlers:
+            handler.setFormatter(formatter)
 
     return handlers
 

@@ -10,6 +10,7 @@ setup(
         'aiosqlite',
         'backoff',
         'cffi',
+        'colorlog',
         'deap',
         'numpy',  # Also implicitly required by deap.
         'pandas',
