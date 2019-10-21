@@ -30,7 +30,7 @@ class Backtest(Agent):
         end: Optional[int] = None,
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
-        trailing_stop: Optional[Decimal] = None,
+        trailing_stop: Decimal = Decimal(1),
     ) -> None:
         now = time_ms()
 
