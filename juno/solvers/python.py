@@ -43,12 +43,14 @@ class Python(Solver):
             summary = TradingSummary(
                 interval=interval, start=start, quote=quote, fees=fees, filters=filters
             )
+            i = 0
             while True:
                 restart = False
                 last_candle = None
                 strategy = strategy_type(*args)  # type: ignore
 
-                for candle in candles:
+                for candle in candles[i:]:
+                    i += 1
                     if not candle.closed:
                         continue
 
@@ -68,7 +70,7 @@ class Python(Solver):
                         highest_close_since_position = candle.close
                     elif ctx.open_position and advice is Advice.SELL:
                         _close_position(ctx, summary, quote_asset, fees, filters, candle)
-                    elif trailing_stop is not None and ctx.open_position:
+                    elif trailing_stop != 0 and ctx.open_position:
                         highest_close_since_position = max(highest_close_since_position,
                                                            candle.close)
                         trailing_factor = Decimal(1) - trailing_stop

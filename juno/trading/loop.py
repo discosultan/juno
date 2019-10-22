@@ -37,7 +37,7 @@ class TradingLoop:
         assert start >= 0
         assert end > 0
         assert end > start
-        assert Decimal(1) > trailing_stop >= Decimal(0)
+        assert Decimal(0) <= trailing_stop < Decimal(1)
 
         self.chandler = chandler
         self.informant = informant

@@ -45,6 +45,7 @@ class Optimize(Agent):
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
         seed: Optional[int] = None,
+        verbose: bool = False,
     ) -> None:
         now = time_ms()
 
@@ -171,7 +172,7 @@ class Optimize(Agent):
                 stats=None,
                 ngen=toolbox.max_generations,
                 halloffame=hall,
-                verbose=False,
+                verbose=verbose,
             )
         )
 
@@ -215,9 +216,13 @@ class OptimizationResult(NamedTuple):
 def _output_as_strategy_args(strategy_type: Type[Strategy],
                              best_args: List[Any]) -> Dict[str, Any]:
     strategy_config = {'type': strategy_type.__name__.lower()}
-    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args):
+    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args[2:]):
         strategy_config[key] = value
-    return strategy_config
+    return {
+        'restart_on_missed_candle': best_args[0],
+        'trailing_stop': best_args[1],
+        'strategy_config': strategy_config,
+    }
 
 
 def _isclose(a: Tuple[Decimal, ...], b: Tuple[Decimal, ...]) -> bool:
