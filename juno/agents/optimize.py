@@ -9,7 +9,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
-from juno.math import Choice, Uniform, floor_multiple
+from juno.math import Choice, Constant, Uniform, floor_multiple
 from juno.solvers import Python, Solver
 from juno.strategies import Strategy, get_strategy_type
 from juno.time import strfinterval, time_ms
@@ -21,7 +21,10 @@ from . import Agent
 _log = logging.getLogger(__name__)
 
 _restart_on_missed_candle_constraint = Choice([True, False])
-_trailing_stop_constraint = Uniform(Decimal('0.0001'), Decimal('0.9999'))
+_trailing_stop_constraint = Choice([
+    Constant(Decimal(0)),
+    Uniform(Decimal('0.0001'), Decimal('0.9999')),
+])
 
 
 class Optimize(Agent):
@@ -87,7 +90,7 @@ class Optimize(Agent):
                 if restart_on_missed_candle is None else (lambda: restart_on_missed_candle)
             ),
             (
-                (lambda: _trailing_stop_constraint.random(random))  # type: ignore
+                (lambda: _trailing_stop_constraint.random(random).random(random))  # type: ignore
                 if trailing_stop is None else (lambda: trailing_stop)  # type: ignore
             )
         ] + [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
