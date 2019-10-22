@@ -35,13 +35,25 @@ def test_round_half_up():
 
 @pytest.mark.manual
 @pytest.mark.chaos
-def test_uniform_randomizer():
+def test_constant_constraint():
+    assert_constraint_chaos(math.Constant('foo'))
+
+
+@pytest.mark.manual
+@pytest.mark.chaos
+def test_choice_constraint():
+    assert_constraint_chaos(math.Choice(['foo', 'bar']))
+
+
+@pytest.mark.manual
+@pytest.mark.chaos
+def test_uniform_constraint():
     assert_constraint_chaos(math.Uniform(Decimal('-0.10'), Decimal('2.00')))
 
 
 @pytest.mark.manual
 @pytest.mark.chaos
-def test_int_randomizer():
+def test_int_constraint():
     assert_constraint_chaos(math.Int(-10, 10))
 
 
@@ -49,12 +61,6 @@ def test_int_randomizer():
 @pytest.mark.chaos
 def test_int_pair_constraint():
     assert_constraint_chaos(math.Pair(math.Int(-10, 10), operator.lt, math.Int(5, 20)))
-
-
-@pytest.mark.manual
-@pytest.mark.chaos
-def test_choice_randomizer():
-    assert_constraint_chaos(math.Choice(['foo', 'bar']))
 
 
 def assert_constraint_chaos(randomizer):

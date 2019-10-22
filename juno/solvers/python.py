@@ -27,8 +27,6 @@ class Python(Solver):
         start: int,
         end: int,
         quote: Decimal,
-        restart_on_missed_candle: bool,
-        trailing_stop: Optional[Decimal],
     ) -> Callable[..., Any]:
         candles = await list_async(
             self.chandler.stream_candles(exchange, symbol, interval, start, end)
@@ -36,19 +34,23 @@ class Python(Solver):
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
         base_asset, quote_asset = unpack_symbol(symbol)
 
-        def backtest(*args: Any) -> SolverResult:
+        def backtest(
+            restart_on_missed_candle: bool,
+            trailing_stop: Decimal,
+            *args: Any,
+        ) -> SolverResult:
             ctx = TradingContext(quote)
             summary = TradingSummary(
                 interval=interval, start=start, quote=quote, fees=fees, filters=filters
             )
-            restart_on_missed_candle = False
-
+            i = 0
             while True:
                 restart = False
                 last_candle = None
                 strategy = strategy_type(*args)  # type: ignore
 
-                for candle in candles:
+                for candle in candles[i:]:
+                    i += 1
                     if not candle.closed:
                         continue
 
@@ -68,7 +70,7 @@ class Python(Solver):
                         highest_close_since_position = candle.close
                     elif ctx.open_position and advice is Advice.SELL:
                         _close_position(ctx, summary, quote_asset, fees, filters, candle)
-                    elif trailing_stop is not None and ctx.open_position:
+                    elif trailing_stop != 0 and ctx.open_position:
                         highest_close_since_position = max(highest_close_since_position,
                                                            candle.close)
                         trailing_factor = Decimal(1) - trailing_stop

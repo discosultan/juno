@@ -19,14 +19,15 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     let mut summary = TradingSummary::new(start, end, quote, fees, filters);
     let mut ctx = TradingContext::new(quote);
     let mut last_candle: Option<&Candle>;
-
+    let mut i = 0;
     loop {
         let mut restart = false;
         last_candle = None;
         let mut strategy = strategy_factory();
         let mut highest_close_since_position = 0.0;
 
-        for candle in candles {
+        for candle in candles[i..candles.len()].iter() {
+            i += 1;
             summary.append_candle(candle);
 
             if let Some(last_candle) = last_candle {

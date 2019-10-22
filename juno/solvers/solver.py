@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Callable, NamedTuple, Optional, Type
+from typing import Any, Callable, NamedTuple, Type
 
 from juno.strategies import Strategy
 from juno.time import strfinterval
@@ -17,8 +17,6 @@ class Solver(ABC):
         start: int,
         end: int,
         quote: Decimal,
-        restart_on_missed_candle: bool,
-        trailing_stop: Optional[Decimal],
     ) -> Callable[..., Any]:
         pass
 

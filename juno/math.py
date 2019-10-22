@@ -28,6 +28,28 @@ class Constraint(ABC):
         pass
 
 
+class Constant(Constraint):
+    def __init__(self, value: Any) -> None:
+        self.value = value
+
+    def validate(self, value: Any) -> bool:
+        return value == self.value
+
+    def random(self, random: Random) -> Any:
+        return self.value
+
+
+class Choice(Constraint):
+    def __init__(self, choices: List[Any]) -> None:
+        self.choices = choices
+
+    def validate(self, value: Any) -> bool:
+        return value in self.choices
+
+    def random(self, random: Random) -> Any:
+        return random.choice(self.choices)
+
+
 class Uniform(Constraint):
     def __init__(self, min_: Decimal, max_: Decimal) -> None:
         self.min = min_
@@ -85,14 +107,3 @@ class Pair(Constraint):
             if self.validate(a, b):
                 break
         return a, b
-
-
-class Choice(Constraint):
-    def __init__(self, choices: List[Any]) -> None:
-        self.choices = choices
-
-    def validate(self, value: Any) -> bool:
-        return value in self.choices
-
-    def random(self, random: Random) -> Any:
-        return random.choice(self.choices)

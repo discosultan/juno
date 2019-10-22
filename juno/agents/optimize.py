@@ -9,7 +9,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
-from juno.math import floor_multiple
+from juno.math import Choice, Constant, Uniform, floor_multiple
 from juno.solvers import Python, Solver
 from juno.strategies import Strategy, get_strategy_type
 from juno.time import strfinterval, time_ms
@@ -19,6 +19,12 @@ from juno.utils import flatten
 from . import Agent
 
 _log = logging.getLogger(__name__)
+
+_restart_on_missed_candle_constraint = Choice([True, False])
+_trailing_stop_constraint = Choice([
+    Constant(Decimal(0)),
+    Uniform(Decimal('0.0001'), Decimal('0.9999')),
+])
 
 
 class Optimize(Agent):
@@ -36,12 +42,13 @@ class Optimize(Agent):
         quote: Decimal,
         strategy: str,
         end: Optional[int] = None,
-        restart_on_missed_candle: bool = False,
-        trailing_stop: Optional[Decimal] = None,
+        restart_on_missed_candle: Optional[bool] = False,
+        trailing_stop: Optional[Decimal] = Decimal(0),
         population_size: int = 50,
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
         seed: Optional[int] = None,
+        verbose: bool = False,
     ) -> None:
         now = time_ms()
 
@@ -77,7 +84,16 @@ class Optimize(Agent):
         toolbox = base.Toolbox()
 
         # Initialization.
-        attrs = [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
+        attrs = [
+            (
+                (lambda: _restart_on_missed_candle_constraint.random(random))  # type: ignore
+                if restart_on_missed_candle is None else (lambda: restart_on_missed_candle)
+            ),
+            (
+                (lambda: _trailing_stop_constraint.random(random).random(random))  # type: ignore
+                if trailing_stop is None else (lambda: trailing_stop)  # type: ignore
+            )
+        ] + [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
             'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
@@ -132,8 +148,6 @@ class Optimize(Agent):
             start=start,
             end=end,
             quote=quote,
-            restart_on_missed_candle=restart_on_missed_candle,
-            trailing_stop=trailing_stop,
         )
         toolbox.register('evaluate', lambda ind: solve(*flatten(ind)))
 
@@ -161,7 +175,7 @@ class Optimize(Agent):
                 stats=None,
                 ngen=toolbox.max_generations,
                 halloffame=hall,
-                verbose=False,
+                verbose=verbose,
             )
         )
 
@@ -188,8 +202,6 @@ class Optimize(Agent):
                 start=start,
                 end=end,
                 quote=quote,
-                restart_on_missed_candle=restart_on_missed_candle,
-                trailing_stop=trailing_stop,
             )
             validation_result = validation_solve(*best_args)
             if not _isclose(validation_result, best_result):
@@ -207,9 +219,13 @@ class OptimizationResult(NamedTuple):
 def _output_as_strategy_args(strategy_type: Type[Strategy],
                              best_args: List[Any]) -> Dict[str, Any]:
     strategy_config = {'type': strategy_type.__name__.lower()}
-    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args):
+    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args[2:]):
         strategy_config[key] = value
-    return strategy_config
+    return {
+        'restart_on_missed_candle': best_args[0],
+        'trailing_stop': best_args[1],
+        'strategy_config': strategy_config,
+    }
 
 
 def _isclose(a: Tuple[Decimal, ...], b: Tuple[Decimal, ...]) -> bool:
