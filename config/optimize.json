@@ -13,6 +13,7 @@
             "interval": "1h",
             "quote": "1.0",
             "restart_on_missed_candle": false,
+            "trailing_stop": "0.0",
             "strategy": "mamacx",
             "population_size": 50,
             "max_generations": 100,

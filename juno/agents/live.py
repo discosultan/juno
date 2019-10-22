@@ -34,7 +34,7 @@ class Live(Agent):
         end: int = MAX_TIME_MS,
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
-        trailing_stop: Decimal = Decimal(1),
+        trailing_stop: Decimal = Decimal(0),
         get_time: Optional[Callable[[], int]] = None
     ) -> None:
         if not get_time:

@@ -40,7 +40,7 @@ class Optimize(Agent):
         strategy: str,
         end: Optional[int] = None,
         restart_on_missed_candle: Optional[bool] = False,
-        trailing_stop: Optional[Decimal] = Decimal(1),
+        trailing_stop: Optional[Decimal] = Decimal(0),
         population_size: int = 50,
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
@@ -80,7 +80,16 @@ class Optimize(Agent):
         toolbox = base.Toolbox()
 
         # Initialization.
-        attrs = [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
+        attrs = [
+            (
+                (lambda: _restart_on_missed_candle_constraint.random(random))  # type: ignore
+                if restart_on_missed_candle is None else (lambda: restart_on_missed_candle)
+            ),
+            (
+                (lambda: _trailing_stop_constraint.random(random))  # type: ignore
+                if trailing_stop is None else (lambda: trailing_stop)  # type: ignore
+            )
+        ] + [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
             'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
@@ -135,8 +144,6 @@ class Optimize(Agent):
             start=start,
             end=end,
             quote=quote,
-            restart_on_missed_candle=restart_on_missed_candle,
-            trailing_stop=trailing_stop,
         )
         toolbox.register('evaluate', lambda ind: solve(*flatten(ind)))
 
@@ -191,8 +198,6 @@ class Optimize(Agent):
                 start=start,
                 end=end,
                 quote=quote,
-                restart_on_missed_candle=restart_on_missed_candle,
-                trailing_stop=trailing_stop,
             )
             validation_result = validation_solve(*best_args)
             if not _isclose(validation_result, best_result):

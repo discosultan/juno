@@ -8,7 +8,7 @@ import platform
 import shutil
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, Type
 
 import cffi
 
@@ -74,8 +74,6 @@ class Rust(Solver):
         start: int,
         end: int,
         quote: Decimal,
-        restart_on_missed_candle: bool,
-        trailing_stop: Optional[Decimal],
     ) -> Callable[..., Any]:
         candles = await list_async(
             self.chandler.stream_candles(exchange, symbol, interval, start, end)
@@ -119,7 +117,11 @@ class Rust(Solver):
 
         meta = strategy_type.meta
 
-        def backtest(*args: Any) -> SolverResult:
+        def backtest(
+            restart_on_missed_candle: bool,
+            trailing_stop: Decimal,
+            *args: Any,
+        ) -> SolverResult:
             format_args = {
                 k: v
                 for k, v in zip(meta.identifier_params, meta.get_identifier_args(args))
@@ -136,7 +138,7 @@ class Rust(Solver):
                 end,
                 float(quote),
                 restart_on_missed_candle,
-                0 if trailing_stop is None else trailing_stop,
+                trailing_stop,
                 *meta.get_non_identifier_args(args),
             )
             return SolverResult(

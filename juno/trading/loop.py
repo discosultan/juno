@@ -27,17 +27,17 @@ class TradingLoop:
         quote: Decimal,
         new_strategy: Callable[[], Strategy],
         broker: Optional[Broker] = None,
-        test: bool = True,  # No effect if broker is None
+        test: bool = True,  # No effect if broker is None.
         event: EventEmitter = EventEmitter(),
         log: logging.Logger = logging.getLogger(__name__),
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
-        trailing_stop: Decimal = Decimal(1),  # 1 means disabled
+        trailing_stop: Decimal = Decimal(0),  # 0 means disabled.
     ) -> None:
         assert start >= 0
         assert end > 0
         assert end > start
-        assert Decimal(1) >= trailing_stop > Decimal(0)
+        assert Decimal(1) > trailing_stop >= Decimal(0)
 
         self.chandler = chandler
         self.informant = informant
@@ -109,7 +109,7 @@ class TradingLoop:
                         self.highest_close_since_position = candle.close
                     elif self.ctx.open_position and advice is Advice.SELL:
                         await self._close_position(candle=candle)
-                    elif self.trailing_stop != 1 and self.ctx.open_position:
+                    elif self.trailing_stop != 0 and self.ctx.open_position:
                         self.highest_close_since_position = max(self.highest_close_since_position,
                                                                 candle.close)
                         trailing_factor = Decimal(1) - self.trailing_stop

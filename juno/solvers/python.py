@@ -27,8 +27,6 @@ class Python(Solver):
         start: int,
         end: int,
         quote: Decimal,
-        restart_on_missed_candle: bool,
-        trailing_stop: Optional[Decimal],
     ) -> Callable[..., Any]:
         candles = await list_async(
             self.chandler.stream_candles(exchange, symbol, interval, start, end)
@@ -36,13 +34,15 @@ class Python(Solver):
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
         base_asset, quote_asset = unpack_symbol(symbol)
 
-        def backtest(*args: Any) -> SolverResult:
+        def backtest(
+            restart_on_missed_candle: bool,
+            trailing_stop: Decimal,
+            *args: Any,
+        ) -> SolverResult:
             ctx = TradingContext(quote)
             summary = TradingSummary(
                 interval=interval, start=start, quote=quote, fees=fees, filters=filters
             )
-            restart_on_missed_candle = False
-
             while True:
                 restart = False
                 last_candle = None
