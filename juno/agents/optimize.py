@@ -247,6 +247,8 @@ def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
     for aval, bval in zip(a, b):
         if isinstance(aval, Decimal):
             isclose = isclose and math.isclose(aval, bval, rel_tol=Decimal('1e-13'))
+        elif isinstance(aval, float):
+            isclose = isclose and math.isclose(aval, bval, rel_tol=1e-13)
         else:
             isclose = isclose and aval == bval
     return isclose
