@@ -51,8 +51,6 @@ class Backtest(Agent):
             end=end,
             quote=quote,
             new_strategy=lambda: new_strategy(strategy_config),
-            broker=None,
-            test=True,
             event=self,
             log=_log,
             restart_on_missed_candle=restart_on_missed_candle,

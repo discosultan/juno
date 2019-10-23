@@ -38,8 +38,6 @@ async def test_trailing_stop_loss():
         end=4,
         quote=Decimal(10),
         new_strategy=new_strategy,
-        broker=None,
-        test=True,
         restart_on_missed_candle=False,
         adjust_start=False,
         trailing_stop=Decimal('0.1'),

@@ -83,13 +83,7 @@ class Python(Solver):
             if last_candle and ctx.open_position:
                 _close_position(ctx, summary, quote_asset, fees, filters, last_candle)
 
-            return SolverResult(
-                float(summary.profit),
-                float(summary.mean_drawdown),
-                float(summary.max_drawdown),
-                float(summary.mean_position_profit),
-                summary.mean_position_duration,
-            )
+            return SolverResult.from_trading_summary(summary)
 
         return backtest
 
