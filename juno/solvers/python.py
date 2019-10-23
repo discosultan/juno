@@ -39,15 +39,15 @@ class Python(Solver):
             trailing_stop: Decimal,
             *args: Any,
         ) -> SolverResult:
-            ctx = TradingContext(quote)
             summary = TradingSummary(
                 interval=interval, start=start, quote=quote, fees=fees, filters=filters
             )
+            ctx = TradingContext(quote)
+            last_candle = None
+            strategy = strategy_type(*args)  # type: ignore
             i = 0
             while True:
                 restart = False
-                last_candle = None
-                strategy = strategy_type(*args)  # type: ignore
 
                 for candle in candles[i:]:
                     i += 1
@@ -59,13 +59,13 @@ class Python(Solver):
                     if last_candle and candle.time - last_candle.time >= interval * 2:
                         if restart_on_missed_candle:
                             restart = True
-                            break
+                            strategy = strategy_type(*args)  # type: ignore
 
-                    last_candle = candle
                     advice = strategy.update(candle)
 
                     if not ctx.open_position and advice is Advice.BUY:
                         if not _try_open_position(ctx, base_asset, fees, filters, candle):
+                            restart = False
                             break
                         highest_close_since_position = candle.close
                     elif ctx.open_position and advice is Advice.SELL:
@@ -76,6 +76,11 @@ class Python(Solver):
                         trailing_factor = Decimal(1) - trailing_stop
                         if candle.close <= highest_close_since_position * trailing_factor:
                             _close_position(ctx, summary, quote_asset, fees, filters, candle)
+
+                    last_candle = candle
+
+                    if restart:
+                        break
 
                 if not restart:
                     break
