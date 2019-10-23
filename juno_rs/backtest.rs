@@ -18,13 +18,12 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
 ) -> BacktestResult {
     let mut summary = TradingSummary::new(start, end, quote, fees, filters);
     let mut ctx = TradingContext::new(quote);
-    let mut last_candle: Option<&Candle>;
+    let mut last_candle: Option<&Candle> = None;
+    let mut strategy = strategy_factory();
+    let mut highest_close_since_position = 0.0;
     let mut i = 0;
     loop {
         let mut restart = false;
-        last_candle = None;
-        let mut strategy = strategy_factory();
-        let mut highest_close_since_position = 0.0;
 
         for candle in candles[i..candles.len()].iter() {
             i += 1;
@@ -33,11 +32,10 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
             if let Some(last_candle) = last_candle {
                 if restart_on_missed_candle && candle.time - last_candle.time >= interval * 2 {
                     restart = true;
-                    break;
+                    strategy = strategy_factory();
                 }
             }
 
-            last_candle = Some(candle);
             let advice = strategy.update(candle);
 
             if ctx.open_position.is_none() && advice == Advice::Buy {
@@ -54,6 +52,12 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
                 if candle.close <= highest_close_since_position * trailing_factor {
                     close_position(&mut ctx, &mut summary, fees, filters, candle);
                 }
+            }
+
+            last_candle = Some(candle);
+
+            if restart {
+                break;
             }
         }
 

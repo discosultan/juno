@@ -1,5 +1,5 @@
 {
-    "log_format": "default",
+    "log_format": "colored",
     "log_level": "info",
     "storage": "sqlite",
     "solver": "rust",
@@ -17,7 +17,7 @@
             "strategy": "mamacx",
             "population_size": 50,
             "max_generations": 100,
-            "seed": null,
+            "seed": 2858120065740733535,
             "verbose": false
         }
     ]

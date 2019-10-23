@@ -9,10 +9,14 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
+from juno import InsufficientBalance
+from juno.components import Chandler, Informant
+from juno.logging import disabled_log
 from juno.math import Choice, Constant, Uniform, floor_multiple
-from juno.solvers import Python, Solver
-from juno.strategies import Strategy, get_strategy_type
+from juno.solvers import Solver, SolverResult
+from juno.strategies import Strategy, get_strategy_type, new_strategy
 from juno.time import strfinterval, time_ms
+from juno.trading import TradingLoop
 from juno.typing import get_input_type_hints
 from juno.utils import flatten
 
@@ -28,10 +32,11 @@ _trailing_stop_constraint = Choice([
 
 
 class Optimize(Agent):
-    def __init__(self, solver: Solver, validating_solver: Python) -> None:
+    def __init__(self, solver: Solver, chandler: Chandler, informant: Informant) -> None:
         super().__init__()
         self.solver = solver
-        self.validating_solver = validating_solver
+        self.chandler = chandler
+        self.informant = informant
 
     async def run(
         self,
@@ -184,52 +189,66 @@ class Optimize(Agent):
         best_args = list(flatten(hall[0]))
         best_result = solve(*best_args)
         self.result = OptimizationResult(
-            args=_output_as_strategy_args(strategy_type, best_args), result=best_result
+            restart_on_missed_candle=best_args[0],
+            trailing_stop=best_args[1],
+            strategy_config=_output_as_strategy_config(strategy_type, best_args[2:]),
+            result=best_result,
         )
 
-        # In case of using other than python solver, run the backtest with final args also with
-        # Python solver to assert the equality of results.
-        if self.solver != self.validating_solver:
-            solver_name = type(self.solver).__name__.lower()
-            _log.info(
-                f'validating {solver_name} solver result with best args against python solver'
+        # Validate our results by running a backtest in actual trading loop to ensure correctness.
+        solver_name = type(self.solver).__name__.lower()
+        _log.info(
+            f'validating {solver_name} solver result with best args against actual trading loop'
+        )
+        loop = TradingLoop(
+            chandler=self.chandler,
+            informant=self.informant,
+            exchange=exchange,
+            symbol=symbol,
+            interval=interval,
+            start=start,
+            end=end,
+            quote=quote,
+            new_strategy=lambda: new_strategy(self.result.strategy_config),
+            log=disabled_log,
+            restart_on_missed_candle=self.result.restart_on_missed_candle,
+            trailing_stop=self.result.trailing_stop,
+            adjust_start=False,
+        )
+        try:
+            await loop.run()
+        except InsufficientBalance:
+            pass
+        validation_result = SolverResult.from_trading_summary(loop.summary)
+        if not _isclose(validation_result, best_result):
+            raise Exception(
+                f'Optimizer results differ for input {self.result} between trading loop and '
+                f'{solver_name} solver:\n{validation_result}\n{best_result}'
             )
-            validation_solve = await self.validating_solver.get(
-                strategy_type=strategy_type,
-                exchange=exchange,
-                symbol=symbol,
-                interval=interval,
-                start=start,
-                end=end,
-                quote=quote,
-            )
-            validation_result = validation_solve(*best_args)
-            if not _isclose(validation_result, best_result):
-                raise Exception(
-                    f'Optimizer results differ for input {self.result} between python and '
-                    f'{solver_name} solvers:\n{validation_result}\n{best_result}'
-                )
 
 
 class OptimizationResult(NamedTuple):
-    args: Dict[str, Any]
+    restart_on_missed_candle: bool
+    trailing_stop: Decimal
+    strategy_config: Dict[str, Any]
     result: Dict[str, Any]
 
 
-def _output_as_strategy_args(strategy_type: Type[Strategy],
-                             best_args: List[Any]) -> Dict[str, Any]:
+def _output_as_strategy_config(strategy_type: Type[Strategy],
+                               strategy_args: List[Any]) -> Dict[str, Any]:
     strategy_config = {'type': strategy_type.__name__.lower()}
-    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), best_args[2:]):
+    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), strategy_args):
         strategy_config[key] = value
-    return {
-        'restart_on_missed_candle': best_args[0],
-        'trailing_stop': best_args[1],
-        'strategy_config': strategy_config,
-    }
+    return strategy_config
 
 
-def _isclose(a: Tuple[Decimal, ...], b: Tuple[Decimal, ...]) -> bool:
+def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
     isclose = True
-    for i in range(0, len(a)):
-        isclose = isclose and math.isclose(a[i], b[i], rel_tol=Decimal('1e-13'))
+    for aval, bval in zip(a, b):
+        if isinstance(aval, Decimal):
+            isclose = isclose and math.isclose(aval, bval, rel_tol=Decimal('1e-13'))
+        elif isinstance(aval, float):
+            isclose = isclose and math.isclose(aval, bval, rel_tol=1e-13)
+        else:
+            isclose = isclose and aval == bval
     return isclose

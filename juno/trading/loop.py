@@ -96,9 +96,9 @@ class TradingLoop:
                         if self.restart_on_missed_candle:
                             self.log.info('restarting strategy')
                             restart = True
+                            strategy = self.new_strategy()
                             start = candle.time + self.interval
                             restart_count += 1
-                            strategy = self.new_strategy()
 
                     advice = strategy.update(candle)
 

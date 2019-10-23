@@ -9,6 +9,9 @@ from colorlog import ColoredFormatter
 import juno.json as json
 from juno.utils import home_path
 
+disabled_log = logging.Logger(name='disabled')
+disabled_log.disabled = True
+
 
 def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Handler]:
     # We make a copy in order not to mutate the input.
