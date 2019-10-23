@@ -90,8 +90,8 @@ class Chandler:
         self.candles = candles
 
     async def stream_candles(self, exchange, symbol, interval, start, end):
-        for candle in self.candles:
-            yield candle
+        for c in (c for c in self.candles if c.time >= start and c.time < end):
+            yield c
 
 
 class Informant:

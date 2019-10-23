@@ -66,11 +66,11 @@ class TradingLoop:
     async def run(self) -> None:
         start = self.start
         restart_count = 0
+        last_candle = None
+        strategy = self.new_strategy()
         try:
             while True:
                 restart = False
-                last_candle = None
-                strategy = self.new_strategy()
 
                 if self.adjust_start and restart_count == 0:
                     # Adjust start to accommodate for the required history before a strategy
@@ -96,12 +96,10 @@ class TradingLoop:
                         if self.restart_on_missed_candle:
                             self.log.info('restarting strategy')
                             restart = True
-                            # start = candle.time + self.interval
-                            start = candle.time
+                            start = candle.time + self.interval
                             restart_count += 1
-                            break
+                            strategy = self.new_strategy()
 
-                    last_candle = candle
                     advice = strategy.update(candle)
 
                     if not self.ctx.open_position and advice is Advice.BUY:
@@ -116,6 +114,11 @@ class TradingLoop:
                         if candle.close <= self.highest_close_since_position * trailing_factor:
                             self.log.info(f'trailing stop hit at {self.trailing_stop}; selling')
                             await self._close_position(candle=candle)
+
+                    last_candle = candle
+
+                    if restart:
+                        break
 
                 if not restart:
                     break
