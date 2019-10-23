@@ -27,6 +27,12 @@ def test_strfinterval(input, expected_output):
     assert time.strfinterval(input) == expected_output
 
 
-def test_strpinterval():
-    output = time.strpinterval('2d')
-    assert output == time.DAY_MS * 2
+@pytest.mark.parametrize(
+    'input,expected_output', [
+        ['1d', time.DAY_MS],
+        ['2d', time.DAY_MS * 2],
+    ]
+)
+def test_strpinterval(input, expected_output):
+    output = time.strpinterval(input)
+    assert output == expected_output
