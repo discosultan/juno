@@ -95,9 +95,9 @@ class TradingLoop:
                         )
                         if self.restart_on_missed_candle:
                             self.log.info('restarting strategy')
-                            start = candle.time
-                            strategy = self.new_strategy()
                             restart = True
+                            # start = candle.time + self.interval
+                            start = candle.time
                             restart_count += 1
                             break
 
@@ -168,7 +168,7 @@ class TradingLoop:
         else:
             price = candle.close
             fees, filters = self.informant.get_fees_filters(self.exchange, self.symbol)
-            size = filters.size.round_down(pos.total_size - pos.fills.total_fee)
+            size = filters.size.round_down(pos.fills.total_size - pos.fills.total_fee)
 
             quote = size * price
             fee = round_half_up(quote * fees.taker, filters.quote_precision)

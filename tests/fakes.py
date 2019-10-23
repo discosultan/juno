@@ -145,8 +145,10 @@ class Market(brokers.Market):
 class Strategy:
     def __init__(self, *advices):
         self.advices = list(reversed(advices))
+        self.updates = []
 
     def update(self, candle):
+        self.updates.append(candle)
         return self.advices.pop()
 
 
