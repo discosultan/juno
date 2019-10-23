@@ -8,6 +8,7 @@ def test_transform():
         'name': 'foo',
         'timestamp': '2000-01-01T00:00:00+00:00',
         'interval': '1h',
+        'long_interval': '1d',
         'decimal': '1.5',
         'list': [],
         'dict': {}
@@ -16,6 +17,7 @@ def test_transform():
         'name': 'foo',
         'timestamp': 946_684_800_000,
         'interval': 3_600_000,
+        'long_interval': 86_400_000,
         'decimal': Decimal('1.5'),
         'list': [],
         'dict': {}

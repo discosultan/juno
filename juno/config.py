@@ -51,7 +51,7 @@ def transform(value: Any) -> Any:
     elif isinstance(value, str):
         if re.match(r'-?\d+\.\d+', value):  # Decimal
             return Decimal(value)
-        elif re.match(r'\d+(s|m|h)', value):  # Interval
+        elif re.match(r'\d+(ms|s|m|h|d|w|M|y)', value):  # Interval
             return strpinterval(value)
         elif re.match(r'\d+-\d+-\d+', value):  # Timestamp
             # Naive is handled as UTC.
