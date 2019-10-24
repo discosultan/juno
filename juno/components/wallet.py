@@ -5,7 +5,6 @@ import logging
 from collections import defaultdict
 from typing import AsyncIterable, Dict, List
 
-import aiohttp
 import backoff
 
 from juno import Balance
@@ -37,9 +36,7 @@ class Wallet:
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(*(self._sync_balances(e) for e in self._exchanges.keys()))
 
-    @backoff.on_exception(
-        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
-    )
+    @backoff.on_exception(backoff.expo, (Exception,), max_tries=3)
     async def _sync_balances(self, exchange: str) -> None:
         async for balances in self._stream_balances(exchange):
             _log.info(f'received balance update from {exchange}')

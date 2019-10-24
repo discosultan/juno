@@ -4,7 +4,6 @@ import asyncio
 import logging
 from typing import Awaitable, Callable, Dict, List, Tuple, TypeVar
 
-import aiohttp
 import backoff
 
 from juno import Fees, Filters, SymbolsInfo
@@ -65,9 +64,7 @@ class Informant:
                 initial_sync_event.set()
             await asyncio.sleep(period / 1000.0)
 
-    @backoff.on_exception(
-        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
-    )
+    @backoff.on_exception(backoff.expo, (Exception,), max_tries=3)
     async def _sync_symbols(self, exchange: str) -> None:
         now = time_ms()
         symbols_info, updated = await self._storage.get(exchange, SymbolsInfo)

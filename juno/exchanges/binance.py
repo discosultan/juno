@@ -34,6 +34,7 @@ _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
 _ERR_CANCEL_REJECTED = -2011
+_ERR_INVALID_TIMESTAMP = -1021
 
 _log = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ class Binance(Exchange):
         # Clock synchronization.
         self._time_diff = 0
         self._sync_clock_task: Optional[asyncio.Task[None]] = None
+        self._initial_sync = asyncio.Event()
 
         # User data stream.
         self._listen_key_lock = asyncio.Lock()
@@ -75,7 +77,7 @@ class Binance(Exchange):
 
     async def get_symbols_info(self) -> SymbolsInfo:
         fees_res, filters_res = await asyncio.gather(
-            self._request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
+            self._wapi_request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
             self._request('GET', '/api/v3/exchangeInfo'),
         )
         fees = {
@@ -376,6 +378,50 @@ class Binance(Exchange):
                 security=_SEC_USER_STREAM
             )
 
+    async def _wapi_request(
+        self,
+        method: str,
+        url: str,
+        weight: int = 1,
+        data: Optional[Any] = None,
+        security: int = _SEC_NONE,
+        raise_for_status=True
+    ) -> Any:
+        result = await self._request(
+            method=method,
+            url=url,
+            weight=weight,
+            data=data,
+            security=security,
+            raise_for_status=raise_for_status,
+        )
+        if not result['success']:
+            await self._sync_clock()
+            raise Exception(result['msg'])
+        return result
+
+    async def _api_request(
+        self,
+        method: str,
+        url: str,
+        weight: int = 1,
+        data: Optional[Any] = None,
+        security: int = _SEC_NONE,
+        raise_for_status=True,
+    ) -> Any:
+        result = await self._request(
+            method=method,
+            url=url,
+            weight=weight,
+            data=data,
+            security=security,
+            raise_for_status=raise_for_status,
+        )
+        if result.get('code') == _ERR_INVALID_TIMESTAMP:
+            await self._sync_clock()
+            raise Exception('Incorrect timestamp')
+        return result
+
     async def _request(
         self,
         method: str,
@@ -405,8 +451,8 @@ class Binance(Exchange):
             # Synchronize clock. Note that we may want to do this periodically instead of only
             # initially.
             if not self._sync_clock_task:
-                self._sync_clock_task = asyncio.create_task(cancelable(self._sync_clock()))
-            await self._sync_clock_task
+                self._sync_clock_task = asyncio.create_task(cancelable(self._periodic_sync()))
+            await self._initial_sync.wait()
 
             data = data or {}
             data['timestamp'] = time_ms() + self._time_diff
@@ -422,12 +468,11 @@ class Binance(Exchange):
                 retry_after = res.headers['Retry-After']
                 _log.warning(f'received status {res.status}; retrying after {retry_after}s')
                 await asyncio.sleep(float(retry_after))
+                raise Exception('Retry after')
             else:
                 if raise_for_status:
                     res.raise_for_status()
                 return await res.json(loads=json.loads)
-
-        return await self._request(method, url, weight, data, security, raise_for_status)
 
     def _connect_refreshing_stream(self, url: str, interval: int, name: str,
                                    **kwargs: Any) -> AsyncContextManager[AsyncIterable[Any]]:
@@ -440,6 +485,11 @@ class Binance(Exchange):
             name=name
         )
 
+    async def _periodic_sync(self) -> None:
+        while True:
+            await self._sync_clock()
+            await asyncio.sleep(HOUR_SEC * 12)
+
     async def _sync_clock(self) -> None:
         _log.info('syncing clock with Binance')
         before = time_ms()
@@ -451,8 +501,7 @@ class Binance(Exchange):
         # Adjustment required converting from local time to server time.
         self._time_diff = server_time - local_time
         _log.info(f'found {self._time_diff}ms time difference')
-        # TODO: If we want to sync periodically, we should schedule a task on the event loop
-        # to set self.sync_clock to None after a period of time. This will force re-sync.
+        self._initial_sync.set()
 
 
 def _http_symbol(symbol: str) -> str:
@@ -467,7 +516,7 @@ def _from_symbol(symbol: str) -> str:
     # TODO: May be incorrect! We can't systematically know which part is base and which is quote
     # since there is no separator used. We simply map based on known base currencies.
     known_base_assets = [
-        'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD'
+        'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN'
     ]
     for known_base_asset in known_base_assets:
         if symbol.endswith(known_base_asset):

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from typing import AsyncIterable, List, Optional
 
-import aiohttp
 import backoff
 
 from juno import Candle
@@ -58,9 +57,7 @@ class Chandler:
                     if not closed or candle.closed:
                         yield candle
 
-    @backoff.on_exception(
-        backoff.expo, (aiohttp.ClientConnectionError, aiohttp.ClientResponseError), max_tries=3
-    )
+    @backoff.on_exception(backoff.expo, (Exception,), max_tries=3)
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
