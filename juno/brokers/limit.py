@@ -19,6 +19,11 @@ from .broker import Broker
 _log = logging.getLogger(__name__)
 
 
+class _Context:
+    def __init__(self, available: Decimal) -> None:
+        self.available = available
+
+
 class Limit(Broker):
     def __init__(
         self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange],
@@ -64,6 +69,7 @@ class Limit(Broker):
         self, exchange: str, symbol: str, side: Side, available: Decimal
     ) -> OrderResult:
         client_id = str(uuid.uuid4())
+        ctx = _Context(available)
 
         async with self._exchanges[exchange].connect_stream_orders() as stream:
             # Keeps a limit order at spread.
@@ -74,7 +80,7 @@ class Limit(Broker):
                         symbol=symbol,
                         client_id=client_id,
                         side=side,
-                        available=available
+                        ctx=ctx,
                     )
                 )
             )
@@ -86,7 +92,9 @@ class Limit(Broker):
                         client_id=client_id,
                         symbol=symbol,
                         stream=stream,
-                        keep_limit_order_best_task=keep_limit_order_best_task
+                        keep_limit_order_best_task=keep_limit_order_best_task,
+                        side=side,
+                        ctx=ctx,
                     )
                 )
             )
@@ -96,7 +104,7 @@ class Limit(Broker):
         return OrderResult(status=OrderStatus.FILLED, fills=track_fills_task.result())
 
     async def _keep_limit_order_best(
-        self, exchange: str, symbol: str, client_id: str, side: Side, available: Decimal
+        self, exchange: str, symbol: str, client_id: str, side: Side, ctx: _Context
     ) -> None:
         orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -142,7 +150,7 @@ class Limit(Broker):
                     break
 
             # No need to round price as we take it from existing orders.
-            size = available / price if side is Side.BUY else available
+            size = ctx.available / price if side is Side.BUY else ctx.available
             size = filters.size.round_down(size)
 
             if size == 0:
@@ -175,7 +183,7 @@ class Limit(Broker):
 
     async def _track_fills(
         self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
-        keep_limit_order_best_task: asyncio.Task
+        keep_limit_order_best_task: asyncio.Task, side: Side, ctx: _Context
     ):
         fills = Fills()  # Fills from aggregated trades.
 
@@ -196,14 +204,14 @@ class Limit(Broker):
 
             if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
                 assert order.fee_asset
-                fills.append(
-                    Fill(
-                        price=order.price,
-                        size=order.size,
-                        fee=order.fee,
-                        fee_asset=order.fee_asset
-                    )
-                )
+                deduct = order.size * order.price if side is Side.BUY else order.size
+                ctx.available -= deduct
+                fills.append(Fill(
+                    price=order.price,
+                    size=order.size,
+                    fee=order.fee,
+                    fee_asset=order.fee_asset
+                ))
                 if order.status is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
                     break

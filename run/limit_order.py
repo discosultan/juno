@@ -14,9 +14,9 @@ from juno.utils import unpack_symbol
 
 SIDE = Side.SELL
 EXCHANGE = 'binance'
-SYMBOL = 'bnb-btc'
+SYMBOL = 'eth-btc'
 BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
-LOG_LEVEL = 'DEBUG'
+LOG_LEVEL = 'INFO'
 # QUOTE = Decimal('0.0015')
 # BASE = Decimal('150')
 
