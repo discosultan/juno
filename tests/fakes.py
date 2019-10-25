@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from decimal import Decimal
 
@@ -29,8 +30,12 @@ class Exchange(exchanges.Exchange):
         self.balances = balances
         self.future_balances = future_balances
         self.depth = depth
-        self.future_depths = future_depths
-        self.future_orders = future_orders
+        self.depth_queue = asyncio.Queue()
+        for future_depth in future_depths:
+            self.depth_queue.put_nowait(future_depth)
+        self.orders_queue = asyncio.Queue()
+        for future_order in future_orders:
+            self.orders_queue.put_nowait(future_order)
         self.place_order_result = place_order_result
 
     async def get_symbols_info(self):
@@ -65,24 +70,25 @@ class Exchange(exchanges.Exchange):
     @asynccontextmanager
     async def connect_stream_depth(self, symbol):
         async def inner():
-            for depth in self.future_depths:
-                yield depth
+            while True:
+                yield await self.depth_queue.get()
 
         yield inner()
 
     @asynccontextmanager
     async def connect_stream_orders(self):
         async def inner():
-            for order in self.future_orders:
-                yield order
+            while True:
+                yield await self.orders_queue.get()
 
         yield inner()
 
     async def place_order(self, *args, **kwargs):
+        await asyncio.sleep(0)
         return self.place_order_result
 
     async def cancel_order(self, *args, **kwargs):
-        pass
+        await asyncio.sleep(0)
 
 
 class Chandler:

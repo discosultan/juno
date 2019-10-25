@@ -32,6 +32,7 @@ class Limit(Broker):
         self._informant = informant
         self._orderbook = orderbook
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_client_id = get_client_id
 
     async def buy(self, exchange: str, symbol: str, quote: Decimal, test: bool) -> OrderResult:
         assert not test
@@ -68,7 +69,7 @@ class Limit(Broker):
     async def _fill(
         self, exchange: str, symbol: str, side: Side, available: Decimal
     ) -> OrderResult:
-        client_id = str(uuid.uuid4())
+        client_id = self._get_client_id()
         ctx = _Context(available)
 
         async with self._exchanges[exchange].connect_stream_orders() as stream:
@@ -99,7 +100,11 @@ class Limit(Broker):
                 )
             )
 
+        try:
             await asyncio.gather(keep_limit_order_best_task, track_fills_task)
+        except InsufficientBalance:
+            await cancel(keep_limit_order_best_task, track_fills_task)
+            raise
 
         return OrderResult(status=OrderStatus.FILLED, fills=track_fills_task.result())
 
@@ -165,7 +170,7 @@ class Limit(Broker):
                 raise InsufficientBalance()
 
             _log.info(f'placing limit order at price {price} for size {size}')
-            res = await self._exchanges[exchange].place_order(
+            await self._exchanges[exchange].place_order(
                 symbol=symbol,
                 side=side,
                 type_=OrderType.LIMIT,
@@ -176,9 +181,6 @@ class Limit(Broker):
                 test=False
             )
 
-            if res.status is OrderStatus.FILLED:
-                _log.info(f'new limit order {client_id} immediately filled {res.fills}')
-                break
             last_order_price = price
 
     async def _track_fills(
@@ -186,7 +188,6 @@ class Limit(Broker):
         keep_limit_order_best_task: asyncio.Task, side: Side, ctx: _Context
     ):
         fills = Fills()  # Fills from aggregated trades.
-
         async for order in stream:
             if order.client_id != client_id:
                 continue
@@ -204,8 +205,8 @@ class Limit(Broker):
 
             if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
                 assert order.fee_asset
-                deduct = order.size * order.price if side is Side.BUY else order.size
-                ctx.available -= deduct
+                # deduct = order.size * order.price if side is Side.BUY else order.size
+                # ctx.available -= deduct
                 fills.append(Fill(
                     price=order.price,
                     size=order.size,

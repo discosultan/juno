@@ -50,14 +50,14 @@ class Candle(NamedTuple):
 
 
 class DepthSnapshot(NamedTuple):
-    bids: List[Tuple[Decimal, Decimal]]
-    asks: List[Tuple[Decimal, Decimal]]
+    bids: List[Tuple[Decimal, Decimal]] = []
+    asks: List[Tuple[Decimal, Decimal]] = []
     last_id: int = 0
 
 
 class DepthUpdate(NamedTuple):
-    bids: List[Tuple[Decimal, Decimal]]
-    asks: List[Tuple[Decimal, Decimal]]
+    bids: List[Tuple[Decimal, Decimal]] = []
+    asks: List[Tuple[Decimal, Decimal]] = []
     first_id: int = 0
     last_id: int = 0
 

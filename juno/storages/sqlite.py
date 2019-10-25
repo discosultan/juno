@@ -50,7 +50,7 @@ class SQLite(Storage):
 
     async def stream_candle_spans(self, key: Key, start: int,
                                   end: int) -> AsyncIterable[Tuple[int, int]]:
-        _log.info(f'streaming candle span(s) between {strfspan(start, end)}')
+        _log.info(f'streaming candle span(s) between {strfspan(start, end)} from {key} db')
         async with self._connect(key) as db:
             await self._ensure_table(db, Span)
             query = f'SELECT * FROM {Span.__name__} WHERE start < ? AND end > ? ORDER BY start'
@@ -60,7 +60,7 @@ class SQLite(Storage):
 
     async def stream_candles(self, key: Key, start: int, end: int) -> AsyncIterable[Candle]:
         PAGE_SIZE = 1000
-        _log.info(f'streaming candle(s) between {strfspan(start, end)}')
+        _log.info(f'streaming candle(s) between {strfspan(start, end)} from {key} db')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             query = f'SELECT * FROM {Candle.__name__} WHERE time >= ? AND time < ? ORDER BY time'
@@ -78,7 +78,7 @@ class SQLite(Storage):
         if start > candles[0].time or end <= candles[-1].time:
             raise ValueError('Invalid input')
 
-        _log.info(f'storing {len(candles)} candle(s) between {strfspan(start, end)}')
+        _log.info(f'storing {len(candles)} candle(s) between {strfspan(start, end)} to {key} db')
         async with self._connect(key) as db:
             await self._ensure_table(db, Candle)
             try:
@@ -95,7 +95,7 @@ class SQLite(Storage):
             await db.commit()
 
     async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:
-        _log.info(f'getting {key} of type {type_.__name__}')
+        _log.info(f'getting value of type {type_.__name__} from {key} db')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             cursor = await db.execute(
@@ -109,7 +109,7 @@ class SQLite(Storage):
                 return None, None
 
     async def set(self, key: Key, type_: Type[T], item: T) -> None:
-        _log.info(f'setting {key} of type {type_.__name__}')
+        _log.info(f'setting value of type {type_.__name__} to {key} db')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             await db.execute(
@@ -121,7 +121,7 @@ class SQLite(Storage):
 
     async def get_map(self, key: Key,
                       type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
-        _log.info(f'getting map of {type_.__name__}')
+        _log.info(f'getting map of items of type {type_.__name__} from {key} db')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             cursor = await db.execute(
@@ -139,7 +139,7 @@ class SQLite(Storage):
 
     # TODO: Generic type
     async def set_map(self, key: Key, type_: Type[T], items: Dict[str, T]) -> None:
-        _log.info(f'setting map of {len(items)} {type_.__name__}')
+        _log.info(f'setting map of {len(items)} items of type  {type_.__name__} to {key} db')
         async with self._connect(key) as db:
             await self._ensure_table(db, Bag)
             await db.execute(
@@ -152,8 +152,8 @@ class SQLite(Storage):
     @asynccontextmanager
     async def _connect(self, key: Key) -> AsyncIterator[Connection]:
         name = self._normalize_key(key)
-        _log.info(f'connecting to {key}')
         name = str(home_path('data') / f'v{_VERSION}_{name}.db')
+        _log.debug(f'opening {name}')
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 

@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from uuid import uuid4
@@ -5,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from juno import (
-    DepthSnapshot, DepthUpdate, Fees, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus,
+    DepthSnapshot, DepthUpdate, Fees, Fills, InsufficientBalance, OrderResult, OrderStatus,
     OrderUpdate, SymbolsInfo
 )
 from juno.brokers import Limit, Market
@@ -154,9 +155,17 @@ async def test_limit_fill_immediately():
         fakes.Exchange(
             depth=snapshot,
             symbol_info=symbol_info,
-            place_order_result=OrderResult(status=OrderStatus.FILLED, fills=Fills(
-                Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
-            ))
+            future_orders=[
+              OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.FILLED,
+                client_id=order_client_id,
+                price=Decimal(1),
+                size=Decimal(1),
+                fee=Decimal('0.1'),
+                fee_asset='eth',
+              )
+            ]
         )
     ) as broker:
         await broker.buy('exchange', 'eth-btc', Decimal(1), False)
@@ -176,8 +185,7 @@ async def test_limit_fill_partially():
                     client_id=order_client_id,
                     price=Decimal(1),
                     size=Decimal('0.5'),
-                    # cumulative_filled_size=Decimal(0),
-                    fee=Decimal(0),
+                    fee=Decimal('0.05'),
                     fee_asset='eth'
                 ),
                 OrderUpdate(
@@ -186,8 +194,7 @@ async def test_limit_fill_partially():
                     client_id=order_client_id,
                     price=Decimal(1),
                     size=Decimal('0.5'),
-                    # cumulative_filled_size=Decimal(0),
-                    fee=Decimal(0),
+                    fee=Decimal('0.05'),
                     fee_asset='eth'
                 ),
             ]
@@ -207,6 +214,57 @@ async def test_limit_insufficient_balance():
         # Should raise because size filter min is 1.
         with pytest.raises(InsufficientBalance):
             await broker.buy('exchange', 'eth-btc', Decimal('0.5'), False)
+
+
+async def test_limit_partial_fill_adjust_fill():
+    snapshot = DepthSnapshot(
+        asks=[(Decimal(5), Decimal(1))],
+        bids=[(Decimal(1) - filters.price.step, Decimal(1))],
+    )
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        symbol_info=symbol_info,
+        place_order_result=OrderResult(status=OrderStatus.NEW, fills=Fills()),
+        future_orders=[
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.PARTIALLY_FILLED,
+                client_id=order_client_id,
+                price=Decimal(1),
+                size=Decimal(1),
+                fee=Decimal('0.1'),
+                fee_asset='eth'
+            ),
+        ]
+    )
+    async with init_limit_broker(exchange) as broker:
+        task = asyncio.create_task(broker.buy('exchange', 'eth-btc', Decimal(2), False))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await exchange.depth_queue.put(DepthUpdate(
+            bids=[(Decimal(2) - filters.price.step, Decimal(1))]
+        ))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await exchange.orders_queue.put(OrderUpdate(
+            symbol='eth-btc',
+            status=OrderStatus.FILLED,
+            client_id=order_client_id,
+            price=Decimal(2),
+            size=Decimal('0.5'),
+            fee=Decimal('0.05'),
+            fee_asset='eth'
+        ))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        # assert task.done()
+        result = await task
+        assert result.status is OrderStatus.FILLED
+        assert result.fills.total_quote == Decimal(2)
+        assert result.fills.total_size == Decimal('1.5')
 
 
 @asynccontextmanager
