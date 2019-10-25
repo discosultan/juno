@@ -103,7 +103,7 @@ class InsufficientBalance(Exception):
 
 class OrderResult(NamedTuple):
     status: OrderStatus
-    fills: Fills
+    fills: Fills = Fills()
 
     @staticmethod
     def not_placed() -> OrderResult:

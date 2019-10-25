@@ -81,39 +81,50 @@ class Orderbook:
                             symbol: str) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
         exchange_instance = self._exchanges[exchange]
 
-        async with exchange_instance.connect_stream_depth(symbol) as stream:
-            if exchange_instance.depth_ws_snapshot:
-                async for depth in stream:
-                    yield depth
-            else:
-                snapshot = await exchange_instance.get_depth(symbol)
-                yield snapshot
+        while True:
+            restart = False
 
-                last_update_id = snapshot.last_id
-                is_first_update = True
-                async for update in stream:
-                    assert isinstance(update, DepthUpdate)
+            async with exchange_instance.connect_stream_depth(symbol) as stream:
+                if exchange_instance.depth_ws_snapshot:
+                    async for depth in stream:
+                        yield depth
+                else:
+                    snapshot = await exchange_instance.get_depth(symbol)
+                    yield snapshot
 
-                    if update.last_id <= last_update_id:
-                        continue
+                    last_update_id = snapshot.last_id
+                    is_first_update = True
+                    async for update in stream:
+                        assert isinstance(update, DepthUpdate)
 
-                    if is_first_update:
-                        assert (
-                            update.first_id <= last_update_id + 1
-                            and update.last_id >= last_update_id + 1
-                        )
-                        is_first_update = False
-                    elif update.first_id != last_update_id + 1:
-                        _log.warning(
-                            f'orderbook out of sync: {update.first_id=} != {last_update_id=} + 1; '
-                            'refetching snapshot'
-                        )
-                        async for data in self._stream_depth(exchange, symbol):
-                            yield data
-                        break
+                        if last_update_id == 0 and update.first_id == 0 and update.last_id == 0:
+                            yield update
+                            continue
 
-                    yield update
-                    last_update_id = update.last_id
+                        if update.last_id <= last_update_id:
+                            _log.debug(f'skipping depth update; {update.last_id=} <= '
+                                       f'{last_update_id=}')
+                            continue
+
+                        if is_first_update:
+                            assert (
+                                update.first_id <= last_update_id + 1
+                                and update.last_id >= last_update_id + 1
+                            )
+                            is_first_update = False
+                        elif update.first_id != last_update_id + 1:
+                            _log.warning(
+                                f'orderbook out of sync: {update.first_id=} != {last_update_id=} '
+                                '+ 1; refetching snapshot'
+                            )
+                            restart = True
+                            break
+
+                        yield update
+                        last_update_id = update.last_id
+
+            if not restart:
+                break
 
 
 def _update_orderbook_side(

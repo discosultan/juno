@@ -2,7 +2,8 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from juno import (
-    Fees, Filters, OrderResult, OrderStatus, Side, SymbolsInfo, brokers, components, exchanges
+    CancelOrderResult, CancelOrderStatus, Fees, Filters, OrderResult, OrderStatus, Side,
+    SymbolsInfo, brokers, components, exchanges
 )
 
 
@@ -20,26 +21,37 @@ class Exchange(exchanges.Exchange):
         depth=None,
         future_depths=[],
         future_orders=[],
-        place_order_result=None,
+        place_order_result=OrderResult(status=OrderStatus.NEW),
+        cancel_order_result=CancelOrderResult(status=CancelOrderStatus.SUCCESS),
     ):
         super().__init__()
+
         self.historical_candles = historical_candles
         self.candle_queue = asyncio.Queue()
         for future_candle in future_candles:
             self.candle_queue.put_nowait(future_candle)
+
         self.symbol_info = symbol_info
+
         self.balances = balances
         self.balance_queue = asyncio.Queue
         for future_balance in future_balances:
             self.balance_queue.put_nowait(future_balance)
+
         self.depth = depth
         self.depth_queue = asyncio.Queue()
         for future_depth in future_depths:
             self.depth_queue.put_nowait(future_depth)
+
         self.orders_queue = asyncio.Queue()
         for future_order in future_orders:
             self.orders_queue.put_nowait(future_order)
+
         self.place_order_result = place_order_result
+        self.place_order_call_count = 0
+
+        self.cancel_order_result = cancel_order_result
+        self.cancel_order_call_count = 0
 
     async def get_symbols_info(self):
         return self.symbol_info
@@ -88,10 +100,13 @@ class Exchange(exchanges.Exchange):
 
     async def place_order(self, *args, **kwargs):
         await asyncio.sleep(0)
+        self.place_order_call_count += 1
         return self.place_order_result
 
     async def cancel_order(self, *args, **kwargs):
         await asyncio.sleep(0)
+        self.cancel_order_call_count += 1
+        return self.cancel_order_result
 
 
 class Chandler:

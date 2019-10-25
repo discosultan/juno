@@ -224,7 +224,6 @@ async def test_limit_partial_fill_adjust_fill():
     exchange = fakes.Exchange(
         depth=snapshot,
         symbol_info=symbol_info,
-        place_order_result=OrderResult(status=OrderStatus.NEW, fills=Fills()),
         future_orders=[
             OrderUpdate(
                 symbol='eth-btc',
@@ -240,11 +239,10 @@ async def test_limit_partial_fill_adjust_fill():
     async with init_limit_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy('exchange', 'eth-btc', Decimal(2), False))
         await asyncio.sleep(0)
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
         await exchange.depth_queue.put(DepthUpdate(
             bids=[(Decimal(2) - filters.price.step, Decimal(1))]
         ))
+        # TODO: Wait for req event instead of mindless sleep.
         await asyncio.sleep(0)
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -257,14 +255,12 @@ async def test_limit_partial_fill_adjust_fill():
             fee=Decimal('0.05'),
             fee_asset='eth'
         ))
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-        # assert task.done()
-        result = await task
+        result = await asyncio.wait_for(task, timeout=1)
         assert result.status is OrderStatus.FILLED
         assert result.fills.total_quote == Decimal(2)
         assert result.fills.total_size == Decimal('1.5')
+        assert exchange.place_order_call_count == 2
+        assert exchange.cancel_order_call_count == 1
 
 
 @asynccontextmanager
