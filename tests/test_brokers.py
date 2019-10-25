@@ -261,6 +261,7 @@ async def test_limit_partial_fill_adjust_fill():
         assert result.fills.total_size == Decimal('1.5')
         assert exchange.place_order_call_count == 2
         assert exchange.cancel_order_call_count == 1
+        # TODO: Also assert that orders placed are of correct size.
 
 
 @asynccontextmanager
