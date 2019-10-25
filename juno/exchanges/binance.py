@@ -396,6 +396,7 @@ class Binance(Exchange):
             raise_for_status=raise_for_status,
         )
         if not result['success']:
+            _log.warning(f'received error {result["msg"]}; syncing clock before exc')
             await self._sync_clock()
             raise Exception(result['msg'])
         return result
@@ -418,6 +419,7 @@ class Binance(Exchange):
             raise_for_status=raise_for_status,
         )
         if result.get('code') == _ERR_INVALID_TIMESTAMP:
+            _log.warning(f'received invalid timestamp; syncing clock before exc')
             await self._sync_clock()
             raise Exception('Incorrect timestamp')
         return result
@@ -466,7 +468,7 @@ class Binance(Exchange):
         async with self._session.request(method=method, url=_BASE_REST_URL + url, **kwargs) as res:
             if res.status in [418, 429]:
                 retry_after = res.headers['Retry-After']
-                _log.warning(f'received status {res.status}; retrying after {retry_after}s')
+                _log.warning(f'received status {res.status}; sleeping {retry_after}s before exc')
                 await asyncio.sleep(float(retry_after))
                 raise Exception('Retry after')
             else:
