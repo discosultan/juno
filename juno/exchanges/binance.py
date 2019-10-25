@@ -78,7 +78,7 @@ class Binance(Exchange):
     async def get_symbols_info(self) -> SymbolsInfo:
         fees_res, filters_res = await asyncio.gather(
             self._wapi_request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
-            self._request('GET', '/api/v3/exchangeInfo'),
+            self._api_request('GET', '/api/v3/exchangeInfo'),
         )
         fees = {
             _from_symbol(fee['symbol']): Fees(maker=fee['maker'], taker=fee['taker'])
@@ -125,7 +125,7 @@ class Binance(Exchange):
         return SymbolsInfo(fees=fees, filters=filters)
 
     async def get_balances(self) -> Dict[str, Balance]:
-        res = await self._request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
+        res = await self._api_request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
         result = {}
         for balance in res['balances']:
             result[
@@ -166,7 +166,7 @@ class Binance(Exchange):
             5000: 50,
         }
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-        result = await self._request(
+        result = await self._api_request(
             'GET',
             '/api/v3/depth',
             weight=LIMIT_TO_WEIGHT[LIMIT],
@@ -237,9 +237,9 @@ class Binance(Exchange):
 
             user_stream_connected = asyncio.Event()
 
-            listen_key = (
-                await self._request('POST', '/api/v3/userDataStream', security=_SEC_USER_STREAM)
-            )['listenKey']
+            listen_key = (await self._api_request(
+                'POST', '/api/v3/userDataStream', security=_SEC_USER_STREAM
+            ))['listenKey']
             self._listen_key_refresh_task = asyncio.create_task(
                 cancelable(self._periodic_listen_key_refresh(listen_key))
             )
@@ -289,7 +289,7 @@ class Binance(Exchange):
         if client_id is not None:
             data['newClientOrderId'] = client_id
         url = f'/api/v3/order{"/test" if test else ""}'
-        res = await self._request('POST', url, data=data, security=_SEC_TRADE)
+        res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
         if test:
             return OrderResult.not_placed()
         return OrderResult(
@@ -306,7 +306,7 @@ class Binance(Exchange):
 
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         data = {'symbol': _http_symbol(symbol), 'origClientOrderId': client_id}
-        res = await self._request(
+        res = await self._api_request(
             'DELETE', '/api/v3/order', data=data, security=_SEC_TRADE, raise_for_status=False
         )
         binance_error = res.get('code')
@@ -320,7 +320,7 @@ class Binance(Exchange):
                                         end: int) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 1000
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            res = await self._request(
+            res = await self._api_request(
                 'GET',
                 '/api/v3/klines',
                 data={
@@ -364,14 +364,14 @@ class Binance(Exchange):
         try:
             while True:
                 await asyncio.sleep(30 * MIN_SEC)
-                await self._request(
+                await self._api_request(
                     'PUT',
                     '/api/v3/userDataStream',
                     data={'listenKey': listen_key},
                     security=_SEC_USER_STREAM
                 )
         finally:
-            await self._request(
+            await self._api_request(
                 'DELETE',
                 '/api/v3/userDataStream',
                 data={'listenKey': listen_key},
@@ -396,6 +396,9 @@ class Binance(Exchange):
             raise_for_status=raise_for_status,
         )
         if not result['success']:
+            # There's no error code in this response to figure out whether it's a timestamp issue.
+            # We could look it up from the message, but currently just assume that is the case
+            # always.
             _log.warning(f'received error {result["msg"]}; syncing clock before exc')
             await self._sync_clock()
             raise Exception(result['msg'])
@@ -418,7 +421,7 @@ class Binance(Exchange):
             security=security,
             raise_for_status=raise_for_status,
         )
-        if result.get('code') == _ERR_INVALID_TIMESTAMP:
+        if isinstance(result, dict) and result.get('code') == _ERR_INVALID_TIMESTAMP:
             _log.warning(f'received invalid timestamp; syncing clock before exc')
             await self._sync_clock()
             raise Exception('Incorrect timestamp')
@@ -495,7 +498,7 @@ class Binance(Exchange):
     async def _sync_clock(self) -> None:
         _log.info('syncing clock with Binance')
         before = time_ms()
-        server_time = (await self._request('GET', '/api/v3/time'))['serverTime']
+        server_time = (await self._api_request('GET', '/api/v3/time'))['serverTime']
         after = time_ms()
         # Assume response time is same as request time.
         delay = (after - before) // 2
