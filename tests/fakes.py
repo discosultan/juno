@@ -1,6 +1,5 @@
 import asyncio
 from contextlib import asynccontextmanager
-from decimal import Decimal
 
 from juno import (
     Fees, Filters, OrderResult, OrderStatus, Side, SymbolsInfo, brokers, components, exchanges
@@ -25,10 +24,14 @@ class Exchange(exchanges.Exchange):
     ):
         super().__init__()
         self.historical_candles = historical_candles
-        self.future_candles = future_candles
+        self.candle_queue = asyncio.Queue()
+        for future_candle in future_candles:
+            self.candle_queue.put_nowait(future_candle)
         self.symbol_info = symbol_info
         self.balances = balances
-        self.future_balances = future_balances
+        self.balance_queue = asyncio.Queue
+        for future_balance in future_balances:
+            self.balance_queue.put_nowait(future_balance)
         self.depth = depth
         self.depth_queue = asyncio.Queue()
         for future_depth in future_depths:
@@ -47,8 +50,8 @@ class Exchange(exchanges.Exchange):
     @asynccontextmanager
     async def connect_stream_balances(self):
         async def inner():
-            for balance in self.future_balances:
-                yield balance
+            while True:
+                yield await self.balance_queue.get()
 
         yield inner()
 
@@ -59,8 +62,8 @@ class Exchange(exchanges.Exchange):
     @asynccontextmanager
     async def connect_stream_candles(self, symbol, interval):
         async def inner():
-            for c in (c for c in self.future_candles):
-                yield c
+            while True:
+                yield await self.candle_queue.get()
 
         yield inner()
 
@@ -144,7 +147,7 @@ class Market(brokers.Market):
         orderbook_side = self._orderbook._data[exchange][symbol][side]
         for fill in fills:
             orderbook_side[fill.price] -= fill.size
-            if orderbook_side[fill.price] == Decimal(0):
+            if orderbook_side[fill.price] == 0:
                 del orderbook_side[fill.price]
 
 
