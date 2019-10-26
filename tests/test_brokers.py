@@ -253,14 +253,11 @@ async def test_limit_partial_fill_adjust_fill():
     )
     async with init_limit_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy('exchange', 'eth-btc', Decimal(2), False))
-        await asyncio.sleep(0)
+        await yield_control()
         await exchange.depth_queue.put(DepthUpdate(
             bids=[(Decimal(2) - filters.price.step, Decimal(1))]
         ))
-        # TODO: Wait for req event instead of mindless sleep.
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        await yield_control()
         await exchange.orders_queue.put(OrderUpdate(
             symbol='eth-btc',
             status=OrderStatus.CANCELED,
@@ -271,8 +268,7 @@ async def test_limit_partial_fill_adjust_fill():
             fee=Decimal('0.1'),
             fee_asset='eth',
         ))
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        await yield_control()
         await exchange.orders_queue.put(OrderUpdate(
             symbol='eth-btc',
             status=OrderStatus.NEW,
@@ -280,8 +276,7 @@ async def test_limit_partial_fill_adjust_fill():
             price=Decimal(2),
             size=Decimal('0.5'),
         ))
-        await asyncio.sleep(0)
-        await asyncio.sleep(0)
+        await yield_control()
         await exchange.orders_queue.put(OrderUpdate(
             symbol='eth-btc',
             status=OrderStatus.FILLED,
@@ -331,3 +326,8 @@ def assert_fills(output, expected_output):
         assert o.price == eoprice
         assert o.size == eosize
         assert o.fee == eofee
+
+
+async def yield_control():
+    for i in range(0, 10):
+        await asyncio.sleep(0)
