@@ -45,6 +45,7 @@ class Limit(Broker):
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
+        # TODO: Fees dont match up on binance :( is last_executed_quantity correct??
         if res.fills.total_fee != expected_fee:
             _log.warning(
                 f'{res.fills.total_fee=} != {expected_fee=} ({res.fills.total_size=}, '
@@ -157,6 +158,7 @@ class Limit(Broker):
                     _log.warning(f'failed to cancel order {client_id}; probably got filled')
                     break
                 _log.info(f'waiting for order {client_id} to be cancelled')
+                # TODO: Can hang here. But why? Never received CANCEL event :( yet was canceled
                 await ctx.cancelled_event.wait()
 
             # No need to round price as we take it from existing orders.
@@ -203,7 +205,7 @@ class Limit(Broker):
                 _log.warning(f'order {client_id} symbol {order.symbol=} != {symbol=}')
                 continue
             if order.status is OrderStatus.NEW:
-                _log.debug(f'received new confirmation for order {client_id}')
+                _log.info(f'received new confirmation for order {client_id}')
                 deduct = order.size * order.price if side is Side.BUY else order.size
                 ctx.available -= deduct
                 ctx.new_event.set()

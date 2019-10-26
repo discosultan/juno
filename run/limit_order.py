@@ -2,13 +2,14 @@ import asyncio
 import logging
 import os
 import sys
-from decimal import Decimal
+# from decimal import Decimal
 from typing import List
 
 from juno import Side
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
+from juno.logging import create_handlers
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
@@ -17,10 +18,10 @@ EXCHANGE = 'binance'
 SYMBOL = 'eth-btc'
 BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
 LOG_LEVEL = 'INFO'
-QUOTE = Decimal('0.008')
-# QUOTE = None
-BASE = Decimal('0.4')
-# BASE = None
+# QUOTE = Decimal('0.008')
+QUOTE = None
+# BASE = Decimal('0.4')
+BASE = None
 
 if len(sys.argv) > 1:
     SIDE = Side[sys.argv[1].upper()]
@@ -59,5 +60,8 @@ async def main() -> None:
     logging.info('Done!')
 
 
-logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level=LOG_LEVEL)
+logging.basicConfig(
+    handlers=create_handlers('colored', ['stdout']),
+    level=LOG_LEVEL
+)
 asyncio.run(main())

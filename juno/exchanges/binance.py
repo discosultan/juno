@@ -213,6 +213,7 @@ class Binance(Exchange):
                 #         size=fill_size,
                 #         fee=Decimal(data['n']),
                 #         fee_asset=data['N'].lower()))
+                _log.critical(json.dumps(data, indent=4))  # TODO: DEBUG
                 yield OrderUpdate(
                     symbol=_from_symbol(data['s']),
                     # 'status': data['x'],
