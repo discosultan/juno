@@ -220,8 +220,8 @@ class Binance(Exchange):
                     client_id=data['c'],
                     price=Decimal(data['p']),
                     size=Decimal(data['q']),
-                    # cumulative_filled_size=Decimal(data['z']),
-                    # 'size': Decimal(data['q']),
+                    last_filled_size=Decimal(data['l']),
+                    filled_size=Decimal(data['z']),
                     # 'fills': fills,
                     fee=Decimal(data['n']),
                     fee_asset=data['N'].lower() if data['N'] else None

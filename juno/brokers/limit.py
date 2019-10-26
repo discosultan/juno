@@ -193,6 +193,7 @@ class Limit(Broker):
         self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
         keep_limit_order_best_task: asyncio.Task, side: Side, ctx: _Context
     ):
+        last_fee = Decimal(0)
         fills = Fills()  # Fills from aggregated trades.
         async for order in stream:
             if order.client_id != client_id:
@@ -205,7 +206,6 @@ class Limit(Broker):
                 _log.debug(f'received new confirmation for order {client_id}')
                 deduct = order.size * order.price if side is Side.BUY else order.size
                 ctx.available -= deduct
-                ctx.hold += deduct
                 ctx.new_event.set()
                 continue
             if order.status not in [
@@ -216,13 +216,13 @@ class Limit(Broker):
 
             if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
                 assert order.fee_asset
-                # TODO: Fix for partial fills. Need to add back cumulative.
                 fills.append(Fill(
                     price=order.price,
-                    size=order.size,
-                    fee=order.fee,
+                    size=order.last_filled_size,
+                    fee=order.fee - last_fee,
                     fee_asset=order.fee_asset
                 ))
+                last_fee = order.fee
                 if order.status is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
                     break
@@ -230,8 +230,10 @@ class Limit(Broker):
                     _log.info(f'existing order {client_id} partially filled')
             else:  # CANCELED
                 _log.info(f'existing order {client_id} canceled')
-                ctx.available += ctx.hold
-                ctx.hold = Decimal(0)
+                last_fee = Decimal(0)
+                add_back_size = order.size - order.filled_size
+                add_back = add_back_size * order.price if side is Side.BUY else add_back_size
+                ctx.available += add_back
                 ctx.cancelled_event.set()
 
         await cancel(keep_limit_order_best_task)

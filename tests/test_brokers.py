@@ -17,8 +17,8 @@ from juno.storages import Memory
 from . import fakes
 
 filters = Filters(
-    price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
-    size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1'))
+    price=Price(min=Decimal('0.2'), max=Decimal(10), step=Decimal('0.1')),
+    size=Size(min=Decimal('0.2'), max=Decimal(10), step=Decimal('0.1'))
 )
 symbol_info = SymbolsInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
@@ -144,9 +144,9 @@ async def test_market_insufficient_balance():
             symbol_info=symbol_info
         )
     ) as broker:
-        # Should raise because size filter min is 1.
+        # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
-            await broker.buy('exchange', 'eth-btc', Decimal('0.5'), True)
+            await broker.buy('exchange', 'eth-btc', Decimal('0.1'), True)
 
 
 async def test_limit_fill_immediately():
@@ -162,6 +162,8 @@ async def test_limit_fill_immediately():
                 client_id=order_client_id,
                 price=Decimal(1),
                 size=Decimal(1),
+                last_filled_size=Decimal(1),
+                filled_size=Decimal(1),
                 fee=Decimal('0.1'),
                 fee_asset='eth',
               )
@@ -184,7 +186,9 @@ async def test_limit_fill_partially():
                     status=OrderStatus.PARTIALLY_FILLED,
                     client_id=order_client_id,
                     price=Decimal(1),
-                    size=Decimal('0.5'),
+                    size=Decimal(1),
+                    last_filled_size=Decimal('0.5'),
+                    filled_size=Decimal('0.5'),
                     fee=Decimal('0.05'),
                     fee_asset='eth'
                 ),
@@ -193,8 +197,10 @@ async def test_limit_fill_partially():
                     status=OrderStatus.FILLED,
                     client_id=order_client_id,
                     price=Decimal(1),
-                    size=Decimal('0.5'),
-                    fee=Decimal('0.05'),
+                    size=Decimal(1),
+                    last_filled_size=Decimal('0.5'),
+                    filled_size=Decimal(1),
+                    fee=Decimal('0.1'),
                     fee_asset='eth'
                 ),
             ]
@@ -211,9 +217,9 @@ async def test_limit_insufficient_balance():
             symbol_info=symbol_info
         )
     ) as broker:
-        # Should raise because size filter min is 1.
+        # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
-            await broker.buy('exchange', 'eth-btc', Decimal('0.5'), False)
+            await broker.buy('exchange', 'eth-btc', Decimal('0.1'), False)
 
 
 async def test_limit_partial_fill_adjust_fill():
@@ -238,9 +244,10 @@ async def test_limit_partial_fill_adjust_fill():
                 client_id=order_client_id,
                 price=Decimal(1),
                 size=Decimal(2),
-                # TODO: Add cumulative size
+                last_filled_size=Decimal(1),
+                filled_size=Decimal(1),
                 fee=Decimal('0.1'),
-                fee_asset='eth'
+                fee_asset='eth',
             ),
         ]
     )
@@ -260,9 +267,18 @@ async def test_limit_partial_fill_adjust_fill():
             client_id=order_client_id,
             price=Decimal(1),
             size=Decimal(2),
-            # TODO: Add cumulative size
+            filled_size=Decimal(1),
             fee=Decimal('0.1'),
             fee_asset='eth',
+        ))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await exchange.orders_queue.put(OrderUpdate(
+            symbol='eth-btc',
+            status=OrderStatus.NEW,
+            client_id=order_client_id,
+            price=Decimal(2),
+            size=Decimal('0.5'),
         ))
         await asyncio.sleep(0)
         await asyncio.sleep(0)
@@ -272,14 +288,16 @@ async def test_limit_partial_fill_adjust_fill():
             client_id=order_client_id,
             price=Decimal(2),
             size=Decimal('0.5'),
-            # TODO: Add cumulative size
+            last_filled_size=Decimal('0.5'),
+            filled_size=Decimal('0.5'),
             fee=Decimal('0.05'),
-            fee_asset='eth'
+            fee_asset='eth',
         ))
         result = await asyncio.wait_for(task, timeout=1)
         assert result.status is OrderStatus.FILLED
         assert result.fills.total_quote == Decimal(2)
         assert result.fills.total_size == Decimal('1.5')
+        assert result.fills.total_fee == Decimal('0.15')
         assert len(exchange.place_order_calls) == 2
         assert exchange.place_order_calls[0]['price'] == 1
         assert exchange.place_order_calls[0]['size'] == 2
