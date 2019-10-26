@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 import sys
-# from decimal import Decimal
+from decimal import Decimal
 from typing import List
 
 from juno import Side
@@ -17,8 +17,10 @@ EXCHANGE = 'binance'
 SYMBOL = 'eth-btc'
 BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
 LOG_LEVEL = 'INFO'
-# QUOTE = Decimal('0.0015')
-# BASE = Decimal('150')
+QUOTE = Decimal('0.008')
+# QUOTE = None
+BASE = Decimal('0.4')
+# BASE = None
 
 if len(sys.argv) > 1:
     SIDE = Side[sys.argv[1].upper()]
@@ -37,8 +39,8 @@ async def main() -> None:
     market = Market(informant, orderbook, exchanges)
     limit = Limit(informant, orderbook, exchanges)
     async with binance, memory, informant, orderbook, wallet:
-        base = wallet.get_balance(EXCHANGE, BASE_ASSET).available
-        quote = wallet.get_balance(EXCHANGE, QUOTE_ASSET).available
+        base = BASE if BASE is not None else wallet.get_balance(EXCHANGE, BASE_ASSET).available
+        quote = QUOTE if QUOTE is not None else wallet.get_balance(EXCHANGE, QUOTE_ASSET).available
         logging.info(f'base: {base} {BASE_ASSET}; quote: {quote} {QUOTE_ASSET}')
         if SIDE is Side.BUY:
             market_fills = market.find_order_asks(exchange=EXCHANGE, symbol=SYMBOL, quote=quote)

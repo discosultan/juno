@@ -227,10 +227,18 @@ async def test_limit_partial_fill_adjust_fill():
         future_orders=[
             OrderUpdate(
                 symbol='eth-btc',
+                status=OrderStatus.NEW,
+                client_id=order_client_id,
+                price=Decimal(1),
+                size=Decimal(2),
+            ),
+            OrderUpdate(
+                symbol='eth-btc',
                 status=OrderStatus.PARTIALLY_FILLED,
                 client_id=order_client_id,
                 price=Decimal(1),
-                size=Decimal(1),
+                size=Decimal(2),
+                # TODO: Add cumulative size
                 fee=Decimal('0.1'),
                 fee_asset='eth'
             ),
@@ -248,10 +256,23 @@ async def test_limit_partial_fill_adjust_fill():
         await asyncio.sleep(0)
         await exchange.orders_queue.put(OrderUpdate(
             symbol='eth-btc',
+            status=OrderStatus.CANCELED,
+            client_id=order_client_id,
+            price=Decimal(1),
+            size=Decimal(2),
+            # TODO: Add cumulative size
+            fee=Decimal('0.1'),
+            fee_asset='eth',
+        ))
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+        await exchange.orders_queue.put(OrderUpdate(
+            symbol='eth-btc',
             status=OrderStatus.FILLED,
             client_id=order_client_id,
             price=Decimal(2),
             size=Decimal('0.5'),
+            # TODO: Add cumulative size
             fee=Decimal('0.05'),
             fee_asset='eth'
         ))
@@ -259,9 +280,12 @@ async def test_limit_partial_fill_adjust_fill():
         assert result.status is OrderStatus.FILLED
         assert result.fills.total_quote == Decimal(2)
         assert result.fills.total_size == Decimal('1.5')
-        assert exchange.place_order_call_count == 2
-        assert exchange.cancel_order_call_count == 1
-        # TODO: Also assert that orders placed are of correct size.
+        assert len(exchange.place_order_calls) == 2
+        assert exchange.place_order_calls[0]['price'] == 1
+        assert exchange.place_order_calls[0]['size'] == 2
+        assert exchange.place_order_calls[1]['price'] == 2
+        assert exchange.place_order_calls[1]['size'] == Decimal('0.5')
+        assert len(exchange.cancel_order_calls) == 1
 
 
 @asynccontextmanager

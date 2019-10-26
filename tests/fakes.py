@@ -48,10 +48,10 @@ class Exchange(exchanges.Exchange):
             self.orders_queue.put_nowait(future_order)
 
         self.place_order_result = place_order_result
-        self.place_order_call_count = 0
+        self.place_order_calls = []
 
         self.cancel_order_result = cancel_order_result
-        self.cancel_order_call_count = 0
+        self.cancel_order_calls = []
 
     async def get_symbols_info(self):
         return self.symbol_info
@@ -100,12 +100,13 @@ class Exchange(exchanges.Exchange):
 
     async def place_order(self, *args, **kwargs):
         await asyncio.sleep(0)
-        self.place_order_call_count += 1
+        # TODO: We are ignore *args
+        self.place_order_calls.append({**kwargs})
         return self.place_order_result
 
     async def cancel_order(self, *args, **kwargs):
         await asyncio.sleep(0)
-        self.cancel_order_call_count += 1
+        self.cancel_order_calls.append({**kwargs})
         return self.cancel_order_result
 
 

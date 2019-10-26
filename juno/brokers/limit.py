@@ -9,7 +9,7 @@ from juno import (
     CancelOrderStatus, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus, OrderType,
     OrderUpdate, Side, TimeInForce
 )
-from juno.asyncio import cancel, cancelable
+from juno.asyncio import Event, cancel, cancelable
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -22,6 +22,9 @@ _log = logging.getLogger(__name__)
 class _Context:
     def __init__(self, available: Decimal) -> None:
         self.available = available
+        self.hold = Decimal(0)
+        self.new_event: Event[None] = Event(autoclear=True)
+        self.cancelled_event: Event[None] = Event(autoclear=True)
 
 
 class Limit(Broker):
@@ -153,6 +156,8 @@ class Limit(Broker):
                 if cancel_res.status is CancelOrderStatus.REJECTED:
                     _log.warning(f'failed to cancel order {client_id}; probably got filled')
                     break
+                _log.info(f'waiting for order {client_id} to be cancelled')
+                await ctx.cancelled_event.wait()
 
             # No need to round price as we take it from existing orders.
             size = ctx.available / price if side is Side.BUY else ctx.available
@@ -180,6 +185,7 @@ class Limit(Broker):
                 client_id=client_id,
                 test=False
             )
+            await ctx.new_event.wait()
 
             last_order_price = price
 
@@ -190,12 +196,17 @@ class Limit(Broker):
         fills = Fills()  # Fills from aggregated trades.
         async for order in stream:
             if order.client_id != client_id:
+                _log.debug(f'skipping order tracking; {order.client_id=} != {client_id=}')
                 continue
             if order.symbol != symbol:
-                _log.warning(f'order {client_id} symbol {order.symbol} != {symbol}')
+                _log.warning(f'order {client_id} symbol {order.symbol=} != {symbol=}')
                 continue
             if order.status is OrderStatus.NEW:
                 _log.debug(f'received new confirmation for order {client_id}')
+                deduct = order.size * order.price if side is Side.BUY else order.size
+                ctx.available -= deduct
+                ctx.hold += deduct
+                ctx.new_event.set()
                 continue
             if order.status not in [
                 OrderStatus.CANCELED, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED
@@ -205,8 +216,7 @@ class Limit(Broker):
 
             if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
                 assert order.fee_asset
-                # deduct = order.size * order.price if side is Side.BUY else order.size
-                # ctx.available -= deduct
+                # TODO: Fix for partial fills. Need to add back cumulative.
                 fills.append(Fill(
                     price=order.price,
                     size=order.size,
@@ -220,6 +230,9 @@ class Limit(Broker):
                     _log.info(f'existing order {client_id} partially filled')
             else:  # CANCELED
                 _log.info(f'existing order {client_id} canceled')
+                ctx.available += ctx.hold
+                ctx.hold = Decimal(0)
+                ctx.cancelled_event.set()
 
         await cancel(keep_limit_order_best_task)
         return fills
