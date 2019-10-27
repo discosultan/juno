@@ -22,7 +22,6 @@ _log = logging.getLogger(__name__)
 class _Context:
     def __init__(self, available: Decimal) -> None:
         self.available = available
-        self.hold = Decimal(0)
         self.new_event: Event[None] = Event(autoclear=True)
         self.cancelled_event: Event[None] = Event(autoclear=True)
 
