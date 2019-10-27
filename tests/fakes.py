@@ -1,8 +1,9 @@
+import asyncio
 from contextlib import asynccontextmanager
-from decimal import Decimal
 
 from juno import (
-    Fees, Filters, OrderResult, OrderStatus, Side, SymbolsInfo, brokers, components, exchanges
+    CancelOrderResult, CancelOrderStatus, Fees, Filters, OrderResult, OrderStatus, Side,
+    SymbolsInfo, brokers, components, exchanges
 )
 
 
@@ -20,18 +21,37 @@ class Exchange(exchanges.Exchange):
         depth=None,
         future_depths=[],
         future_orders=[],
-        place_order_result=None,
+        place_order_result=OrderResult(status=OrderStatus.NEW),
+        cancel_order_result=CancelOrderResult(status=CancelOrderStatus.SUCCESS),
     ):
         super().__init__()
+
         self.historical_candles = historical_candles
-        self.future_candles = future_candles
+        self.candle_queue = asyncio.Queue()
+        for future_candle in future_candles:
+            self.candle_queue.put_nowait(future_candle)
+
         self.symbol_info = symbol_info
+
         self.balances = balances
-        self.future_balances = future_balances
+        self.balance_queue = asyncio.Queue
+        for future_balance in future_balances:
+            self.balance_queue.put_nowait(future_balance)
+
         self.depth = depth
-        self.future_depths = future_depths
-        self.future_orders = future_orders
+        self.depth_queue = asyncio.Queue()
+        for future_depth in future_depths:
+            self.depth_queue.put_nowait(future_depth)
+
+        self.orders_queue = asyncio.Queue()
+        for future_order in future_orders:
+            self.orders_queue.put_nowait(future_order)
+
         self.place_order_result = place_order_result
+        self.place_order_calls = []
+
+        self.cancel_order_result = cancel_order_result
+        self.cancel_order_calls = []
 
     async def get_symbols_info(self):
         return self.symbol_info
@@ -42,8 +62,8 @@ class Exchange(exchanges.Exchange):
     @asynccontextmanager
     async def connect_stream_balances(self):
         async def inner():
-            for balance in self.future_balances:
-                yield balance
+            while True:
+                yield await self.balance_queue.get()
 
         yield inner()
 
@@ -54,8 +74,8 @@ class Exchange(exchanges.Exchange):
     @asynccontextmanager
     async def connect_stream_candles(self, symbol, interval):
         async def inner():
-            for c in (c for c in self.future_candles):
-                yield c
+            while True:
+                yield await self.candle_queue.get()
 
         yield inner()
 
@@ -65,24 +85,29 @@ class Exchange(exchanges.Exchange):
     @asynccontextmanager
     async def connect_stream_depth(self, symbol):
         async def inner():
-            for depth in self.future_depths:
-                yield depth
+            while True:
+                yield await self.depth_queue.get()
 
         yield inner()
 
     @asynccontextmanager
     async def connect_stream_orders(self):
         async def inner():
-            for order in self.future_orders:
-                yield order
+            while True:
+                yield await self.orders_queue.get()
 
         yield inner()
 
     async def place_order(self, *args, **kwargs):
+        await asyncio.sleep(0)
+        # TODO: We are ignore *args
+        self.place_order_calls.append({**kwargs})
         return self.place_order_result
 
     async def cancel_order(self, *args, **kwargs):
-        pass
+        await asyncio.sleep(0)
+        self.cancel_order_calls.append({**kwargs})
+        return self.cancel_order_result
 
 
 class Chandler:
@@ -138,7 +163,7 @@ class Market(brokers.Market):
         orderbook_side = self._orderbook._data[exchange][symbol][side]
         for fill in fills:
             orderbook_side[fill.price] -= fill.size
-            if orderbook_side[fill.price] == Decimal(0):
+            if orderbook_side[fill.price] == 0:
                 del orderbook_side[fill.price]
 
 

@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from uuid import uuid4
@@ -5,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from juno import (
-    DepthSnapshot, DepthUpdate, Fees, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus,
+    DepthSnapshot, DepthUpdate, Fees, Fills, InsufficientBalance, OrderResult, OrderStatus,
     OrderUpdate, SymbolsInfo
 )
 from juno.brokers import Limit, Market
@@ -16,8 +17,8 @@ from juno.storages import Memory
 from . import fakes
 
 filters = Filters(
-    price=Price(min=Decimal(1), max=Decimal(10), step=Decimal('0.1')),
-    size=Size(min=Decimal(1), max=Decimal(10), step=Decimal('0.1'))
+    price=Price(min=Decimal('0.2'), max=Decimal(10), step=Decimal('0.1')),
+    size=Size(min=Decimal('0.2'), max=Decimal(10), step=Decimal('0.1'))
 )
 symbol_info = SymbolsInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
@@ -143,9 +144,9 @@ async def test_market_insufficient_balance():
             symbol_info=symbol_info
         )
     ) as broker:
-        # Should raise because size filter min is 1.
+        # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
-            await broker.buy('exchange', 'eth-btc', Decimal('0.5'), True)
+            await broker.buy('exchange', 'eth-btc', Decimal('0.1'), True)
 
 
 async def test_limit_fill_immediately():
@@ -154,9 +155,19 @@ async def test_limit_fill_immediately():
         fakes.Exchange(
             depth=snapshot,
             symbol_info=symbol_info,
-            place_order_result=OrderResult(status=OrderStatus.FILLED, fills=Fills(
-                Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
-            ))
+            future_orders=[
+              OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.FILLED,
+                client_id=order_client_id,
+                price=Decimal(1),
+                size=Decimal(1),
+                filled_size=Decimal(1),
+                cumulative_filled_size=Decimal(1),
+                fee=Decimal('0.1'),
+                fee_asset='eth',
+              )
+            ]
         )
     ) as broker:
         await broker.buy('exchange', 'eth-btc', Decimal(1), False)
@@ -175,9 +186,10 @@ async def test_limit_fill_partially():
                     status=OrderStatus.PARTIALLY_FILLED,
                     client_id=order_client_id,
                     price=Decimal(1),
-                    size=Decimal('0.5'),
-                    # cumulative_filled_size=Decimal(0),
-                    fee=Decimal(0),
+                    size=Decimal(1),
+                    filled_size=Decimal('0.5'),
+                    cumulative_filled_size=Decimal('0.5'),
+                    fee=Decimal('0.05'),
                     fee_asset='eth'
                 ),
                 OrderUpdate(
@@ -185,9 +197,10 @@ async def test_limit_fill_partially():
                     status=OrderStatus.FILLED,
                     client_id=order_client_id,
                     price=Decimal(1),
-                    size=Decimal('0.5'),
-                    # cumulative_filled_size=Decimal(0),
-                    fee=Decimal(0),
+                    size=Decimal(1),
+                    filled_size=Decimal('0.5'),
+                    cumulative_filled_size=Decimal(1),
+                    fee=Decimal('0.05'),
                     fee_asset='eth'
                 ),
             ]
@@ -204,9 +217,86 @@ async def test_limit_insufficient_balance():
             symbol_info=symbol_info
         )
     ) as broker:
-        # Should raise because size filter min is 1.
+        # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
-            await broker.buy('exchange', 'eth-btc', Decimal('0.5'), False)
+            await broker.buy('exchange', 'eth-btc', Decimal('0.1'), False)
+
+
+async def test_limit_partial_fill_adjust_fill():
+    snapshot = DepthSnapshot(
+        asks=[(Decimal(5), Decimal(1))],
+        bids=[(Decimal(1) - filters.price.step, Decimal(1))],
+    )
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        symbol_info=symbol_info,
+        future_orders=[
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.NEW,
+                client_id=order_client_id,
+                price=Decimal(1),
+                size=Decimal(2),
+            ),
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.PARTIALLY_FILLED,
+                client_id=order_client_id,
+                price=Decimal(1),
+                size=Decimal(2),
+                filled_size=Decimal(1),
+                cumulative_filled_size=Decimal(1),
+                fee=Decimal('0.1'),
+                fee_asset='eth',
+            ),
+        ]
+    )
+    async with init_limit_broker(exchange) as broker:
+        task = asyncio.create_task(broker.buy('exchange', 'eth-btc', Decimal(2), False))
+        await yield_control()
+        await exchange.depth_queue.put(DepthUpdate(
+            bids=[(Decimal(2) - filters.price.step, Decimal(1))]
+        ))
+        await yield_control()
+        await exchange.orders_queue.put(OrderUpdate(
+            symbol='eth-btc',
+            status=OrderStatus.CANCELED,
+            client_id=order_client_id,
+            price=Decimal(1),
+            size=Decimal(2),
+            cumulative_filled_size=Decimal(1),
+        ))
+        await yield_control()
+        await exchange.orders_queue.put(OrderUpdate(
+            symbol='eth-btc',
+            status=OrderStatus.NEW,
+            client_id=order_client_id,
+            price=Decimal(2),
+            size=Decimal('0.5'),
+        ))
+        await yield_control()
+        await exchange.orders_queue.put(OrderUpdate(
+            symbol='eth-btc',
+            status=OrderStatus.FILLED,
+            client_id=order_client_id,
+            price=Decimal(2),
+            size=Decimal('0.5'),
+            filled_size=Decimal('0.5'),
+            cumulative_filled_size=Decimal('0.5'),
+            fee=Decimal('0.05'),
+            fee_asset='eth',
+        ))
+        result = await asyncio.wait_for(task, timeout=1)
+        assert result.status is OrderStatus.FILLED
+        assert result.fills.total_quote == Decimal(2)
+        assert result.fills.total_size == Decimal('1.5')
+        assert result.fills.total_fee == Decimal('0.15')
+        assert len(exchange.place_order_calls) == 2
+        assert exchange.place_order_calls[0]['price'] == 1
+        assert exchange.place_order_calls[0]['size'] == 2
+        assert exchange.place_order_calls[1]['price'] == 2
+        assert exchange.place_order_calls[1]['size'] == Decimal('0.5')
+        assert len(exchange.cancel_order_calls) == 1
 
 
 @asynccontextmanager
@@ -234,3 +324,8 @@ def assert_fills(output, expected_output):
         assert o.price == eoprice
         assert o.size == eosize
         assert o.fee == eofee
+
+
+async def yield_control():
+    for i in range(0, 10):
+        await asyncio.sleep(0)

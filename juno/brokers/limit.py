@@ -9,7 +9,7 @@ from juno import (
     CancelOrderStatus, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus, OrderType,
     OrderUpdate, Side, TimeInForce
 )
-from juno.asyncio import cancel, cancelable
+from juno.asyncio import Event, cancel, cancelable
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -17,6 +17,13 @@ from juno.math import round_half_up
 from .broker import Broker
 
 _log = logging.getLogger(__name__)
+
+
+class _Context:
+    def __init__(self, available: Decimal) -> None:
+        self.available = available
+        self.new_event: Event[None] = Event(autoclear=True)
+        self.cancelled_event: Event[None] = Event(autoclear=True)
 
 
 class Limit(Broker):
@@ -27,6 +34,7 @@ class Limit(Broker):
         self._informant = informant
         self._orderbook = orderbook
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_client_id = get_client_id
 
     async def buy(self, exchange: str, symbol: str, quote: Decimal, test: bool) -> OrderResult:
         assert not test
@@ -35,6 +43,7 @@ class Limit(Broker):
 
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        # TODO: Our rounding still seems incorrect. Binance is always rounding up? Not half up??
         expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
         if res.fills.total_fee != expected_fee:
             _log.warning(
@@ -63,7 +72,8 @@ class Limit(Broker):
     async def _fill(
         self, exchange: str, symbol: str, side: Side, available: Decimal
     ) -> OrderResult:
-        client_id = str(uuid.uuid4())
+        client_id = self._get_client_id()
+        ctx = _Context(available)
 
         async with self._exchanges[exchange].connect_stream_orders() as stream:
             # Keeps a limit order at spread.
@@ -74,7 +84,7 @@ class Limit(Broker):
                         symbol=symbol,
                         client_id=client_id,
                         side=side,
-                        available=available
+                        ctx=ctx,
                     )
                 )
             )
@@ -86,17 +96,23 @@ class Limit(Broker):
                         client_id=client_id,
                         symbol=symbol,
                         stream=stream,
-                        keep_limit_order_best_task=keep_limit_order_best_task
+                        keep_limit_order_best_task=keep_limit_order_best_task,
+                        side=side,
+                        ctx=ctx,
                     )
                 )
             )
 
+        try:
             await asyncio.gather(keep_limit_order_best_task, track_fills_task)
+        except InsufficientBalance:
+            await cancel(keep_limit_order_best_task, track_fills_task)
+            raise
 
         return OrderResult(status=OrderStatus.FILLED, fills=track_fills_task.result())
 
     async def _keep_limit_order_best(
-        self, exchange: str, symbol: str, client_id: str, side: Side, available: Decimal
+        self, exchange: str, symbol: str, client_id: str, side: Side, ctx: _Context
     ) -> None:
         orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -140,9 +156,11 @@ class Limit(Broker):
                 if cancel_res.status is CancelOrderStatus.REJECTED:
                     _log.warning(f'failed to cancel order {client_id}; probably got filled')
                     break
+                _log.info(f'waiting for order {client_id} to be cancelled')
+                await ctx.cancelled_event.wait()
 
             # No need to round price as we take it from existing orders.
-            size = available / price if side is Side.BUY else available
+            size = ctx.available / price if side is Side.BUY else ctx.available
             size = filters.size.round_down(size)
 
             if size == 0:
@@ -157,7 +175,7 @@ class Limit(Broker):
                 raise InsufficientBalance()
 
             _log.info(f'placing limit order at price {price} for size {size}')
-            res = await self._exchanges[exchange].place_order(
+            await self._exchanges[exchange].place_order(
                 symbol=symbol,
                 side=side,
                 type_=OrderType.LIMIT,
@@ -167,26 +185,27 @@ class Limit(Broker):
                 client_id=client_id,
                 test=False
             )
+            await ctx.new_event.wait()
 
-            if res.status is OrderStatus.FILLED:
-                _log.info(f'new limit order {client_id} immediately filled {res.fills}')
-                break
             last_order_price = price
 
     async def _track_fills(
         self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
-        keep_limit_order_best_task: asyncio.Task
+        keep_limit_order_best_task: asyncio.Task, side: Side, ctx: _Context
     ):
         fills = Fills()  # Fills from aggregated trades.
-
         async for order in stream:
             if order.client_id != client_id:
+                _log.debug(f'skipping order tracking; {order.client_id=} != {client_id=}')
                 continue
             if order.symbol != symbol:
-                _log.warning(f'order {client_id} symbol {order.symbol} != {symbol}')
+                _log.warning(f'order {client_id} symbol {order.symbol=} != {symbol=}')
                 continue
             if order.status is OrderStatus.NEW:
-                _log.debug(f'received new confirmation for order {client_id}')
+                _log.info(f'received new confirmation for order {client_id}')
+                deduct = order.size * order.price if side is Side.BUY else order.size
+                ctx.available -= deduct
+                ctx.new_event.set()
                 continue
             if order.status not in [
                 OrderStatus.CANCELED, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED
@@ -196,14 +215,12 @@ class Limit(Broker):
 
             if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
                 assert order.fee_asset
-                fills.append(
-                    Fill(
-                        price=order.price,
-                        size=order.size,
-                        fee=order.fee,
-                        fee_asset=order.fee_asset
-                    )
-                )
+                fills.append(Fill(
+                    price=order.price,
+                    size=order.filled_size,
+                    fee=order.fee,
+                    fee_asset=order.fee_asset
+                ))
                 if order.status is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
                     break
@@ -211,6 +228,10 @@ class Limit(Broker):
                     _log.info(f'existing order {client_id} partially filled')
             else:  # CANCELED
                 _log.info(f'existing order {client_id} canceled')
+                add_back_size = order.size - order.cumulative_filled_size
+                add_back = add_back_size * order.price if side is Side.BUY else add_back_size
+                ctx.available += add_back
+                ctx.cancelled_event.set()
 
         await cancel(keep_limit_order_best_task)
         return fills

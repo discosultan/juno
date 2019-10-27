@@ -213,15 +213,18 @@ class Binance(Exchange):
                 #         size=fill_size,
                 #         fee=Decimal(data['n']),
                 #         fee_asset=data['N'].lower()))
+                _log.critical(json.dumps(data, indent=4))  # TODO: DEBUG
                 yield OrderUpdate(
                     symbol=_from_symbol(data['s']),
                     # 'status': data['x'],
                     status=_from_order_status(data['X']),
-                    client_id=data['c'],
+                    # 'c' is client order id, 'C' is original client order id. 'C' is usually null
+                    # except for when an order gets cancelled; in that case 'c' has a new value.
+                    client_id=data['c'] if data['C'] == 'null' else data['C'],
                     price=Decimal(data['p']),
                     size=Decimal(data['q']),
-                    # cumulative_filled_size=Decimal(data['z']),
-                    # 'size': Decimal(data['q']),
+                    filled_size=Decimal(data['l']),
+                    cumulative_filled_size=Decimal(data['z']),
                     # 'fills': fills,
                     fee=Decimal(data['n']),
                     fee_asset=data['N'].lower() if data['N'] else None

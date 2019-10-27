@@ -2,23 +2,26 @@ import asyncio
 import logging
 import os
 import sys
-# from decimal import Decimal
-from typing import List
+from decimal import Decimal
+from typing import List, Optional
 
 from juno import Side
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
+from juno.logging import create_handlers
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
 SIDE = Side.SELL
 EXCHANGE = 'binance'
-SYMBOL = 'bnb-btc'
+SYMBOL = 'eth-btc'
 BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
-LOG_LEVEL = 'DEBUG'
-# QUOTE = Decimal('0.0015')
-# BASE = Decimal('150')
+LOG_LEVEL = 'INFO'
+QUOTE: Optional[Decimal] = Decimal('0.005')
+QUOTE = None
+BASE: Optional[Decimal] = Decimal('0.2')
+BASE = None
 
 if len(sys.argv) > 1:
     SIDE = Side[sys.argv[1].upper()]
@@ -37,8 +40,8 @@ async def main() -> None:
     market = Market(informant, orderbook, exchanges)
     limit = Limit(informant, orderbook, exchanges)
     async with binance, memory, informant, orderbook, wallet:
-        base = wallet.get_balance(EXCHANGE, BASE_ASSET).available
-        quote = wallet.get_balance(EXCHANGE, QUOTE_ASSET).available
+        base = BASE if BASE is not None else wallet.get_balance(EXCHANGE, BASE_ASSET).available
+        quote = QUOTE if QUOTE is not None else wallet.get_balance(EXCHANGE, QUOTE_ASSET).available
         logging.info(f'base: {base} {BASE_ASSET}; quote: {quote} {QUOTE_ASSET}')
         if SIDE is Side.BUY:
             market_fills = market.find_order_asks(exchange=EXCHANGE, symbol=SYMBOL, quote=quote)
@@ -57,5 +60,8 @@ async def main() -> None:
     logging.info('Done!')
 
 
-logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level=LOG_LEVEL)
+logging.basicConfig(
+    handlers=create_handlers('colored', ['stdout']),
+    level=LOG_LEVEL
+)
 asyncio.run(main())

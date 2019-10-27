@@ -50,14 +50,14 @@ class Candle(NamedTuple):
 
 
 class DepthSnapshot(NamedTuple):
-    bids: List[Tuple[Decimal, Decimal]]
-    asks: List[Tuple[Decimal, Decimal]]
+    bids: List[Tuple[Decimal, Decimal]] = []
+    asks: List[Tuple[Decimal, Decimal]] = []
     last_id: int = 0
 
 
 class DepthUpdate(NamedTuple):
-    bids: List[Tuple[Decimal, Decimal]]
-    asks: List[Tuple[Decimal, Decimal]]
+    bids: List[Tuple[Decimal, Decimal]] = []
+    asks: List[Tuple[Decimal, Decimal]] = []
     first_id: int = 0
     last_id: int = 0
 
@@ -103,7 +103,7 @@ class InsufficientBalance(Exception):
 
 class OrderResult(NamedTuple):
     status: OrderStatus
-    fills: Fills
+    fills: Fills = Fills()
 
     @staticmethod
     def not_placed() -> OrderResult:
@@ -132,11 +132,12 @@ class OrderUpdate(NamedTuple):
     symbol: str
     status: OrderStatus
     client_id: str
-    price: Decimal
-    size: Decimal
-    # cumulative_filled_size: Decimal
-    fee: Decimal
-    fee_asset: Optional[str]
+    price: Decimal  # Original.
+    size: Decimal  # Original.
+    filled_size: Decimal = Decimal(0)  # Last.
+    cumulative_filled_size: Decimal = Decimal(0)  # Cumulative.
+    fee: Decimal = Decimal(0)  # Last.
+    fee_asset: Optional[str] = None  # Last.
 
 
 class Side(Enum):

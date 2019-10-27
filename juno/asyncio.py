@@ -77,14 +77,21 @@ class Barrier:
 
 
 class Event(Generic[T]):
-    """Abstraction over `asyncio.Event` which adds passing values to waiters and auto clearing."""
+    """Abstraction over `asyncio.Event` which adds additional capabilities:
+
+    - passing data through set
+    - autoclear after wait
+    - timeout on wait"""
     def __init__(self, autoclear: bool = False) -> None:
         self._autoclear = autoclear
         self._event = asyncio.Event()
         self._event_data: Optional[T] = None
 
-    async def wait(self) -> T:
-        await self._event.wait()
+    async def wait(self, timeout: Optional[float] = None) -> T:
+        if timeout is not None:
+            await asyncio.wait_for(self._event.wait(), timeout)
+        else:
+            await self._event.wait()
         if self._autoclear:
             self.clear()
         # Ugly but we can't really express ourselves clearly to the type system.
