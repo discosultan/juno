@@ -1,10 +1,10 @@
 import asyncio
 import logging
 import math
+import random
 import sys
 from decimal import Decimal
 from functools import partial
-import random
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
@@ -90,14 +90,11 @@ class Optimize(Agent):
 
         # Initialization.
         attrs = [
-            (
-                (lambda: _restart_on_missed_candle_constraint.random(random))  # type: ignore
-                if restart_on_missed_candle is None else (lambda: restart_on_missed_candle)
-            ),
-            (
-                (lambda: _trailing_stop_constraint.random(random).random(random))  # type: ignore
-                if trailing_stop is None else (lambda: trailing_stop)  # type: ignore
-            )
+            ((lambda: _restart_on_missed_candle_constraint.random(random))  # type: ignore
+             if restart_on_missed_candle is None else (lambda: restart_on_missed_candle)),
+            ((lambda: _trailing_stop_constraint.random(random).random(random))  # type: ignore
+             if trailing_stop is None else (lambda: trailing_stop)  # type: ignore
+             )
         ] + [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(

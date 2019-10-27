@@ -28,9 +28,9 @@ class Informant:
     async def __aenter__(self) -> Informant:
         self._symbols_infos: Dict[str, SymbolsInfo] = {}
         self._initial_sync_event = asyncio.Event()
-        self._sync_task = asyncio.create_task(cancelable(
-            self._sync_all_symbols(self._initial_sync_event)
-        ))
+        self._sync_task = asyncio.create_task(
+            cancelable(self._sync_all_symbols(self._initial_sync_event))
+        )
         await self._initial_sync_event.wait()
         return self
 
@@ -56,15 +56,17 @@ class Informant:
 
     async def _sync_all_symbols(self, initial_sync_event: asyncio.Event) -> None:
         period = DAY_MS
-        _log.info(f'starting periodic sync of symbol info for {", ".join(self._exchanges.keys())} '
-                  f'every {strfinterval(period)}')
+        _log.info(
+            f'starting periodic sync of symbol info for {", ".join(self._exchanges.keys())} '
+            f'every {strfinterval(period)}'
+        )
         while True:
             await asyncio.gather(*(self._sync_symbols(e) for e in self._exchanges.keys()))
             if not initial_sync_event.is_set():
                 initial_sync_event.set()
             await asyncio.sleep(period / 1000.0)
 
-    @backoff.on_exception(backoff.expo, (Exception,), max_tries=3)
+    @backoff.on_exception(backoff.expo, (Exception, ), max_tries=3)
     async def _sync_symbols(self, exchange: str) -> None:
         now = time_ms()
         symbols_info, updated = await self._storage.get(exchange, SymbolsInfo)

@@ -151,10 +151,7 @@ class SymbolsInfo(NamedTuple):
 
     @staticmethod
     def none() -> SymbolsInfo:
-        return SymbolsInfo(
-            fees={'__all__': Fees.none()},
-            filters={'__all__': Filters.none()}
-        )
+        return SymbolsInfo(fees={'__all__': Fees.none()}, filters={'__all__': Filters.none()})
 
 
 class TimeInForce(Enum):

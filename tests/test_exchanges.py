@@ -90,9 +90,7 @@ async def test_stream_historical_candles(loop, request, exchange):
 async def test_connect_stream_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Coinbase, Kraken)
-    async with exchange.connect_stream_candles(
-        symbol='eth-btc', interval=HOUR_MS
-    ) as stream:
+    async with exchange.connect_stream_candles(symbol='eth-btc', interval=HOUR_MS) as stream:
         candle = await stream.__anext__()
 
     assert isinstance(candle.time, int)

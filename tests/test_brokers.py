@@ -71,11 +71,7 @@ async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expecte
     snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
     updates = [DepthUpdate(asks=update_asks, bids=[])]
     async with init_market_broker(
-        fakes.Exchange(
-            depth=snapshot,
-            future_depths=updates,
-            symbol_info=symbol_info
-        )
+        fakes.Exchange(depth=snapshot, future_depths=updates, symbol_info=symbol_info)
     ) as broker:
         output = broker.find_order_asks(exchange='exchange', symbol='eth-btc', quote=quote)
         assert_fills(output, expected_output)
@@ -126,11 +122,7 @@ async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected
     snapshot = DepthSnapshot(asks=[], bids=snapshot_bids)
     updates = [DepthUpdate(asks=[], bids=update_bids)]
     async with init_market_broker(
-        fakes.Exchange(
-            depth=snapshot,
-            future_depths=updates,
-            symbol_info=symbol_info
-        )
+        fakes.Exchange(depth=snapshot, future_depths=updates, symbol_info=symbol_info)
     ) as broker:
         output = broker.find_order_bids(exchange='exchange', symbol='eth-btc', base=base)
         assert_fills(output, expected_output)
@@ -139,10 +131,7 @@ async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected
 async def test_market_insufficient_balance():
     snapshot = DepthSnapshot(asks=[(Decimal(1), Decimal(1))], bids=[])
     async with init_market_broker(
-        fakes.Exchange(
-            depth=snapshot,
-            symbol_info=symbol_info
-        )
+        fakes.Exchange(depth=snapshot, symbol_info=symbol_info)
     ) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
@@ -156,17 +145,17 @@ async def test_limit_fill_immediately():
             depth=snapshot,
             symbol_info=symbol_info,
             future_orders=[
-              OrderUpdate(
-                symbol='eth-btc',
-                status=OrderStatus.FILLED,
-                client_id=order_client_id,
-                price=Decimal(1),
-                size=Decimal(1),
-                filled_size=Decimal(1),
-                cumulative_filled_size=Decimal(1),
-                fee=Decimal('0.1'),
-                fee_asset='eth',
-              )
+                OrderUpdate(
+                    symbol='eth-btc',
+                    status=OrderStatus.FILLED,
+                    client_id=order_client_id,
+                    price=Decimal(1),
+                    size=Decimal(1),
+                    filled_size=Decimal(1),
+                    cumulative_filled_size=Decimal(1),
+                    fee=Decimal('0.1'),
+                    fee_asset='eth',
+                )
             ]
         )
     ) as broker:
@@ -212,10 +201,7 @@ async def test_limit_fill_partially():
 async def test_limit_insufficient_balance():
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal(1), Decimal(1))])
     async with init_limit_broker(
-        fakes.Exchange(
-            depth=snapshot,
-            symbol_info=symbol_info
-        )
+        fakes.Exchange(depth=snapshot, symbol_info=symbol_info)
     ) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
@@ -254,38 +240,44 @@ async def test_limit_partial_fill_adjust_fill():
     async with init_limit_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy('exchange', 'eth-btc', Decimal(2), False))
         await yield_control()
-        await exchange.depth_queue.put(DepthUpdate(
-            bids=[(Decimal(2) - filters.price.step, Decimal(1))]
-        ))
+        await exchange.depth_queue.put(
+            DepthUpdate(bids=[(Decimal(2) - filters.price.step, Decimal(1))])
+        )
         await yield_control()
-        await exchange.orders_queue.put(OrderUpdate(
-            symbol='eth-btc',
-            status=OrderStatus.CANCELED,
-            client_id=order_client_id,
-            price=Decimal(1),
-            size=Decimal(2),
-            cumulative_filled_size=Decimal(1),
-        ))
+        await exchange.orders_queue.put(
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.CANCELED,
+                client_id=order_client_id,
+                price=Decimal(1),
+                size=Decimal(2),
+                cumulative_filled_size=Decimal(1),
+            )
+        )
         await yield_control()
-        await exchange.orders_queue.put(OrderUpdate(
-            symbol='eth-btc',
-            status=OrderStatus.NEW,
-            client_id=order_client_id,
-            price=Decimal(2),
-            size=Decimal('0.5'),
-        ))
+        await exchange.orders_queue.put(
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.NEW,
+                client_id=order_client_id,
+                price=Decimal(2),
+                size=Decimal('0.5'),
+            )
+        )
         await yield_control()
-        await exchange.orders_queue.put(OrderUpdate(
-            symbol='eth-btc',
-            status=OrderStatus.FILLED,
-            client_id=order_client_id,
-            price=Decimal(2),
-            size=Decimal('0.5'),
-            filled_size=Decimal('0.5'),
-            cumulative_filled_size=Decimal('0.5'),
-            fee=Decimal('0.05'),
-            fee_asset='eth',
-        ))
+        await exchange.orders_queue.put(
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.FILLED,
+                client_id=order_client_id,
+                price=Decimal(2),
+                size=Decimal('0.5'),
+                filled_size=Decimal('0.5'),
+                cumulative_filled_size=Decimal('0.5'),
+                fee=Decimal('0.05'),
+                fee_asset='eth',
+            )
+        )
         result = await asyncio.wait_for(task, timeout=1)
         assert result.status is OrderStatus.FILLED
         assert result.fills.total_quote == Decimal(2)

@@ -5,8 +5,21 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 # TODO: mypy fails to recognise stdlib attributes get_args, get_origin. remove ignore when fixed
 from typing import (  # type: ignore
-    Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union,
-    cast, get_args, get_origin, get_type_hints
+    Any,
+    AsyncIterable,
+    AsyncIterator,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints
 )
 
 from aiosqlite import Connection, connect
@@ -114,8 +127,7 @@ class SQLite(Storage):
             await self._ensure_table(db, Bag)
             await db.execute(
                 f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                [type_.__name__, json.dumps(item),
-                 time_ms()]
+                [type_.__name__, json.dumps(item), time_ms()]
             )
             await db.commit()
 

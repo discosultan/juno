@@ -60,8 +60,5 @@ async def main() -> None:
     logging.info('Done!')
 
 
-logging.basicConfig(
-    handlers=create_handlers('colored', ['stdout']),
-    level=LOG_LEVEL
-)
+logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level=LOG_LEVEL)
 asyncio.run(main())

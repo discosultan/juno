@@ -13,8 +13,7 @@ class Exchange(exchanges.Exchange):
         historical_candles=[],
         future_candles=[],
         symbol_info=SymbolsInfo(
-            fees={'__all__': Fees.none()},
-            filters={'__all__': Filters.none()}
+            fees={'__all__': Fees.none()}, filters={'__all__': Filters.none()}
         ),
         balances=None,
         future_balances=[],

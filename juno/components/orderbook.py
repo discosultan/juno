@@ -60,7 +60,7 @@ class Orderbook:
     async def _sync_orderbooks(self) -> None:
         await asyncio.gather(*(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
 
-    @backoff.on_exception(backoff.expo, (Exception,), max_tries=3)
+    @backoff.on_exception(backoff.expo, (Exception, ), max_tries=3)
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         orderbook = self._data[exchange][symbol]
         async for depth in self._stream_depth(exchange, symbol):
@@ -102,8 +102,10 @@ class Orderbook:
                             continue
 
                         if update.last_id <= last_update_id:
-                            _log.debug(f'skipping depth update; {update.last_id=} <= '
-                                       f'{last_update_id=}')
+                            _log.debug(
+                                f'skipping depth update; {update.last_id=} <= '
+                                f'{last_update_id=}'
+                            )
                             continue
 
                         if is_first_update:

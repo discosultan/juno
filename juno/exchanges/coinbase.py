@@ -16,8 +16,8 @@ from dateutil.tz import UTC
 
 import juno.json as json
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderType,
-    Side, SymbolsInfo, TimeInForce
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderType, Side,
+    SymbolsInfo, TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Price, Size
@@ -94,9 +94,9 @@ class Coinbase(Exchange):
         res = await self._private_request('GET', '/accounts')
         result = {}
         for balance in res:
-            result[balance['currency'].lower()] = Balance(
-                available=Decimal(balance['available']), hold=Decimal(balance['hold'])
-            )
+            result[
+                balance['currency'].lower()
+            ] = Balance(available=Decimal(balance['available']), hold=Decimal(balance['hold']))
         return result
 
     @asynccontextmanager

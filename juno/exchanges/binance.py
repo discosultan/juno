@@ -240,9 +240,10 @@ class Binance(Exchange):
 
             user_stream_connected = asyncio.Event()
 
-            listen_key = (await self._api_request(
-                'POST', '/api/v3/userDataStream', security=_SEC_USER_STREAM
-            ))['listenKey']
+            listen_key = (
+                await
+                self._api_request('POST', '/api/v3/userDataStream', security=_SEC_USER_STREAM)
+            )['listenKey']
             self._listen_key_refresh_task = asyncio.create_task(
                 cancelable(self._periodic_listen_key_refresh(listen_key))
             )

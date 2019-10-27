@@ -2,9 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Callable, Optional
 
-from juno import (
-    Advice, Candle, Fill, Fills, InsufficientBalance
-)
+from juno import Advice, Candle, Fill, Fills, InsufficientBalance
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
@@ -83,8 +81,11 @@ class TradingLoop:
                     start -= strategy.req_history * self.interval
 
                 async for candle in self.chandler.stream_candles(
-                    exchange=self.exchange, symbol=self.symbol, interval=self.interval,
-                    start=start, end=self.end
+                    exchange=self.exchange,
+                    symbol=self.symbol,
+                    interval=self.interval,
+                    start=start,
+                    end=self.end
                 ):
                     self.summary.append_candle(candle)
 
@@ -108,8 +109,9 @@ class TradingLoop:
                     elif self.ctx.open_position and advice is Advice.SELL:
                         await self._close_position(candle=candle)
                     elif self.trailing_stop != 0 and self.ctx.open_position:
-                        self.highest_close_since_position = max(self.highest_close_since_position,
-                                                                candle.close)
+                        self.highest_close_since_position = max(
+                            self.highest_close_since_position, candle.close
+                        )
                         trailing_factor = Decimal(1) - self.trailing_stop
                         if candle.close <= self.highest_close_since_position * trailing_factor:
                             self.log.info(f'trailing stop hit at {self.trailing_stop}; selling')

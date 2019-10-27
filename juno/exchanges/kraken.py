@@ -7,7 +7,7 @@ import logging
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterator, AsyncIterable, Dict, Optional, Union
+from typing import Any, AsyncIterable, AsyncIterator, Dict, Optional, Union
 
 import simplejson as json
 

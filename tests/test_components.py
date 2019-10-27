@@ -44,10 +44,11 @@ async def test_get_fees_filters(exchange_key):
         price=Price(min=Decimal(1), max=Decimal(1), step=Decimal(1)),
         size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1))
     )
-    async with init_informant(fakes.Exchange(symbol_info=SymbolsInfo(
-        fees={exchange_key: fees},
-        filters={exchange_key: filters}
-    ))) as informant:
+    async with init_informant(
+        fakes.Exchange(
+            symbol_info=SymbolsInfo(fees={exchange_key: fees}, filters={exchange_key: filters})
+        )
+    ) as informant:
         out_fees, out_filters = informant.get_fees_filters('exchange', 'eth-btc')
         assert out_fees == fees
         assert out_filters == filters
@@ -56,10 +57,12 @@ async def test_get_fees_filters(exchange_key):
 async def test_list_symbols():
     symbols = ['eth-btc', 'ltc-btc']
     async with init_informant(
-        fakes.Exchange(symbol_info=SymbolsInfo(
-            fees=Fees.none(),
-            filters={s: Filters.none() for s in symbols}
-        ))
+        fakes.Exchange(
+            symbol_info=SymbolsInfo(
+                fees=Fees.none(), filters={s: Filters.none()
+                                           for s in symbols}
+            )
+        )
     ) as informant:
         out_symbols = informant.list_symbols('exchange')
         assert out_symbols == symbols

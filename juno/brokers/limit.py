@@ -28,7 +28,10 @@ class _Context:
 
 class Limit(Broker):
     def __init__(
-        self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange],
+        self,
+        informant: Informant,
+        orderbook: Orderbook,
+        exchanges: List[Exchange],
         get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
     ) -> None:
         self._informant = informant
@@ -215,12 +218,14 @@ class Limit(Broker):
 
             if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
                 assert order.fee_asset
-                fills.append(Fill(
-                    price=order.price,
-                    size=order.filled_size,
-                    fee=order.fee,
-                    fee_asset=order.fee_asset
-                ))
+                fills.append(
+                    Fill(
+                        price=order.price,
+                        size=order.filled_size,
+                        fee=order.fee,
+                        fee_asset=order.fee_asset
+                    )
+                )
                 if order.status is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
                     break
