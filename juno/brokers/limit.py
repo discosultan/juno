@@ -44,8 +44,8 @@ class Limit(Broker):
 
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        # TODO: Our rounding still seems incorrect. Binance is always rounding up? Not half up??
         expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
-        # TODO: Fees dont match up on binance :( is last_executed_quantity correct??
         if res.fills.total_fee != expected_fee:
             _log.warning(
                 f'{res.fills.total_fee=} != {expected_fee=} ({res.fills.total_size=}, '
@@ -158,7 +158,6 @@ class Limit(Broker):
                     _log.warning(f'failed to cancel order {client_id}; probably got filled')
                     break
                 _log.info(f'waiting for order {client_id} to be cancelled')
-                # TODO: Can hang here. But why? Never received CANCEL event :( yet was canceled
                 await ctx.cancelled_event.wait()
 
             # No need to round price as we take it from existing orders.
@@ -195,7 +194,6 @@ class Limit(Broker):
         self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
         keep_limit_order_best_task: asyncio.Task, side: Side, ctx: _Context
     ):
-        last_fee = Decimal(0)
         fills = Fills()  # Fills from aggregated trades.
         async for order in stream:
             if order.client_id != client_id:
@@ -220,11 +218,10 @@ class Limit(Broker):
                 assert order.fee_asset
                 fills.append(Fill(
                     price=order.price,
-                    size=order.last_filled_size,
-                    fee=order.fee - last_fee,
+                    size=order.filled_size,
+                    fee=order.fee,
                     fee_asset=order.fee_asset
                 ))
-                last_fee = order.fee
                 if order.status is OrderStatus.FILLED:
                     _log.info(f'existing order {client_id} filled')
                     break
@@ -232,8 +229,7 @@ class Limit(Broker):
                     _log.info(f'existing order {client_id} partially filled')
             else:  # CANCELED
                 _log.info(f'existing order {client_id} canceled')
-                last_fee = Decimal(0)
-                add_back_size = order.size - order.filled_size
+                add_back_size = order.size - order.cumulative_filled_size
                 add_back = add_back_size * order.price if side is Side.BUY else add_back_size
                 ctx.available += add_back
                 ctx.cancelled_event.set()

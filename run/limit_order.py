@@ -2,8 +2,8 @@ import asyncio
 import logging
 import os
 import sys
-# from decimal import Decimal
-from typing import List
+from decimal import Decimal
+from typing import List, Optional
 
 from juno import Side
 from juno.brokers import Limit, Market
@@ -18,9 +18,9 @@ EXCHANGE = 'binance'
 SYMBOL = 'eth-btc'
 BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
 LOG_LEVEL = 'INFO'
-# QUOTE = Decimal('0.008')
+QUOTE: Optional[Decimal] = Decimal('0.005')
 QUOTE = None
-# BASE = Decimal('0.4')
+BASE: Optional[Decimal] = Decimal('0.2')
 BASE = None
 
 if len(sys.argv) > 1:

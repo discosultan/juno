@@ -162,8 +162,8 @@ async def test_limit_fill_immediately():
                 client_id=order_client_id,
                 price=Decimal(1),
                 size=Decimal(1),
-                last_filled_size=Decimal(1),
                 filled_size=Decimal(1),
+                cumulative_filled_size=Decimal(1),
                 fee=Decimal('0.1'),
                 fee_asset='eth',
               )
@@ -187,8 +187,8 @@ async def test_limit_fill_partially():
                     client_id=order_client_id,
                     price=Decimal(1),
                     size=Decimal(1),
-                    last_filled_size=Decimal('0.5'),
                     filled_size=Decimal('0.5'),
+                    cumulative_filled_size=Decimal('0.5'),
                     fee=Decimal('0.05'),
                     fee_asset='eth'
                 ),
@@ -198,9 +198,9 @@ async def test_limit_fill_partially():
                     client_id=order_client_id,
                     price=Decimal(1),
                     size=Decimal(1),
-                    last_filled_size=Decimal('0.5'),
-                    filled_size=Decimal(1),
-                    fee=Decimal('0.1'),
+                    filled_size=Decimal('0.5'),
+                    cumulative_filled_size=Decimal(1),
+                    fee=Decimal('0.05'),
                     fee_asset='eth'
                 ),
             ]
@@ -244,8 +244,8 @@ async def test_limit_partial_fill_adjust_fill():
                 client_id=order_client_id,
                 price=Decimal(1),
                 size=Decimal(2),
-                last_filled_size=Decimal(1),
                 filled_size=Decimal(1),
+                cumulative_filled_size=Decimal(1),
                 fee=Decimal('0.1'),
                 fee_asset='eth',
             ),
@@ -264,9 +264,7 @@ async def test_limit_partial_fill_adjust_fill():
             client_id=order_client_id,
             price=Decimal(1),
             size=Decimal(2),
-            filled_size=Decimal(1),
-            fee=Decimal('0.1'),
-            fee_asset='eth',
+            cumulative_filled_size=Decimal(1),
         ))
         await yield_control()
         await exchange.orders_queue.put(OrderUpdate(
@@ -283,8 +281,8 @@ async def test_limit_partial_fill_adjust_fill():
             client_id=order_client_id,
             price=Decimal(2),
             size=Decimal('0.5'),
-            last_filled_size=Decimal('0.5'),
             filled_size=Decimal('0.5'),
+            cumulative_filled_size=Decimal('0.5'),
             fee=Decimal('0.05'),
             fee_asset='eth',
         ))

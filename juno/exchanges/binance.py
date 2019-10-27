@@ -218,11 +218,13 @@ class Binance(Exchange):
                     symbol=_from_symbol(data['s']),
                     # 'status': data['x'],
                     status=_from_order_status(data['X']),
-                    client_id=data['c'],
+                    # 'c' is client order id, 'C' is original client order id. 'C' is usually null
+                    # except for when an order gets cancelled; in that case 'c' has a new value.
+                    client_id=data['c'] if data['C'] == 'null' else data['C'],
                     price=Decimal(data['p']),
                     size=Decimal(data['q']),
-                    last_filled_size=Decimal(data['l']),
-                    filled_size=Decimal(data['z']),
+                    filled_size=Decimal(data['l']),
+                    cumulative_filled_size=Decimal(data['z']),
                     # 'fills': fills,
                     fee=Decimal(data['n']),
                     fee_asset=data['N'].lower() if data['N'] else None

@@ -134,10 +134,10 @@ class OrderUpdate(NamedTuple):
     client_id: str
     price: Decimal  # Original.
     size: Decimal  # Original.
-    last_filled_size: Decimal = Decimal(0)
-    filled_size: Decimal = Decimal(0)  # Cumulative.
-    fee: Decimal = Decimal(0)  # Cumulative.
-    fee_asset: Optional[str] = None  # Cumulative.
+    filled_size: Decimal = Decimal(0)  # Last.
+    cumulative_filled_size: Decimal = Decimal(0)  # Cumulative.
+    fee: Decimal = Decimal(0)  # Last.
+    fee_asset: Optional[str] = None  # Last.
 
 
 class Side(Enum):
