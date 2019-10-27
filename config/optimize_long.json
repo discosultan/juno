@@ -8,15 +8,17 @@
             "type": "optimize",
             "exchange": "binance",
             "symbol": "eth-btc",
-            "start": "2017-09-08",
+            "start": "2017-07-14T04:00:00Z",
             "end": null,
             "interval": "1h",
             "quote": "1.0",
-            "restart_on_missed_candle": false,
+            "restart_on_missed_candle": null,
+            "trailing_stop": null,
             "strategy": "mamacx",
-            "population_size": 100,
-            "max_generations": 2000,
-            "seed": null
+            "population_size": 200,
+            "max_generations": 10000,
+            "seed": null,
+            "verbose": true
         }
     ]
 }

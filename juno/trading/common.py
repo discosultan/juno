@@ -142,6 +142,8 @@ class TradingSummary:
             f'Max drawdown: {self.max_drawdown:.0%}\n'
             f'Mean drawdown: {self.mean_drawdown:.0%}\n'
             f'Positions taken: {len(self.positions)}\n'
+            f'Positions in profit: {len([p for p in self.positions if p.profit >= 0])}'
+            f'Positions in loss: {len([p for p in self.positions if p.profit < 0])}'
             f'Mean profit per position: {self.mean_position_profit}\n'
             f'Mean duration per position: {strfinterval(self.mean_position_duration)}'
         )

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
+import juno.json as json
 from juno import InsufficientBalance
 from juno.components import Chandler, Informant
 from juno.logging import disabled_log
@@ -222,6 +223,8 @@ class Optimize(Agent):
                 f'Optimizer results differ for input {self.result} between trading loop and '
                 f'{solver_name} solver:\n{validation_result}\n{best_result}'
             )
+
+        _log.info(json.dumps(self.result, indent=4))
 
 
 class OptimizationResult(NamedTuple):
