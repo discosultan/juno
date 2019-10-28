@@ -2,10 +2,10 @@ import statistics
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Candle, Fees, Fills
+from juno import Candle, Fees, Fills, Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_half_up
-from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
+from juno.time import YEAR_MS
 
 
 # TODO: Add support for external token fees (i.e BNB)
@@ -16,35 +16,10 @@ class Position:
         self.closing_time = 0
         self.closing_fills: Optional[Fills] = None
 
-    def __str__(self) -> str:
-        res = (
-            f'Start: {datetime_utcfromtimestamp_ms(self.start)}'
-            f'\nCost: {self.cost}'
-            f'\nBase fee: {self.fills.total_fee}'
-            '\n'
-        )
-        for i, fill in enumerate(self.fills, 1):
-            res += f'\nTrade {i}: (price: {fill.price}, size: {fill.size})'
-        if self.closing_fills:
-            res += (
-                f'\nGain: {self.gain}'
-                f'\nProfit: {self.profit}'
-                f'\nROI: {self.roi:.0%}'
-                f'\nAnnualized ROI: {self.annualized_roi:.0%}'
-                f'\nDust: {self.dust}'
-                f'\nQuote fee: {self.closing_fills.total_fee}'
-                f'\nEnd: {datetime_utcfromtimestamp_ms(self.end)}'
-                f'\nDuration: {strfinterval(self.duration)}'
-                '\n'
-            )
-            for i, fill in enumerate(self.closing_fills, 1):
-                res += f'\nTrade {i}: (price: {fill.price}, size: {fill.size})'
-        return res
-
     def close(self, time: int, fills: Fills) -> None:
         assert fills.total_size <= self.fills.total_size - self.fills.total_fee
 
-        self.closing_time = time
+        self.closing_time = Timestamp(time)
         self.closing_fills = fills
 
     @property
@@ -52,8 +27,8 @@ class Position:
         return self.fills.total_size
 
     @property
-    def start(self) -> int:
-        return self.time
+    def start(self) -> Timestamp:
+        return Timestamp(self.time)
 
     @property
     def cost(self) -> Decimal:
@@ -61,40 +36,47 @@ class Position:
 
     @property
     def gain(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         return self.closing_fills.total_quote - self.closing_fills.total_fee
 
     @property
     def profit(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         return self.gain - self.cost
 
     @property
     def roi(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         return self.profit / self.cost
 
     # Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
     @property
     def annualized_roi(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         n = Decimal(self.duration) / YEAR_MS
         return (1 + self.roi)**(1 / n) - 1
 
     @property
     def dust(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         return self.fills.total_size - self.fills.total_fee - self.closing_fills.total_size
 
     @property
-    def end(self) -> int:
-        assert self.closing_fills
-        return self.closing_time
+    def end(self) -> Timestamp:
+        if not self.closing_fills:
+            return Timestamp(0)
+        return Timestamp(self.closing_time)
 
     @property
-    def duration(self) -> int:
-        assert self.closing_fills
-        return self.closing_time - self.time
+    def duration(self) -> Interval:
+        if not self.closing_fills:
+            return Interval(0)
+        return Interval(self.closing_time - self.time)
 
 
 # TODO: both positions and candles could theoretically grow infinitely
@@ -103,7 +85,7 @@ class TradingSummary:
         self, interval: int, start: int, quote: Decimal, fees: Fees, filters: Filters
     ) -> None:
         self.interval = interval
-        self.start = start
+        self._start = start
         self.quote = quote
         self.fees = fees
         self.filters = filters
@@ -126,34 +108,13 @@ class TradingSummary:
         self.positions.append(pos)
         self._drawdowns_dirty = True
 
-    def __str__(self) -> str:
-        return (
-            f'{datetime_utcfromtimestamp_ms(self.start)} - '
-            f'{datetime_utcfromtimestamp_ms(self.end)}\n'
-            f'Cost: {self.cost}\n'
-            f'Gain: {self.gain}\n'
-            f'Profit: {self.profit}\n'
-            f'Potential hodl profit: {self.potential_hodl_profit}\n'
-            f'ROI: {self.roi:.0%}\n'
-            f'Annualized ROI: {self.annualized_roi:.0%}\n'
-            f'Duration: {strfinterval(self.duration)}\n'
-            f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
-            f'{datetime_utcfromtimestamp_ms(self.end)}\n'
-            f'Max drawdown: {self.max_drawdown:.0%}\n'
-            f'Mean drawdown: {self.mean_drawdown:.0%}\n'
-            f'Positions taken: {len(self.positions)}\n'
-            f'Mean profit per position: {self.mean_position_profit}\n'
-            f'Mean duration per position: {strfinterval(self.mean_position_duration)}'
-        )
-
-    def __repr__(self) -> str:
-        return f'{type(self).__name__} {self.__dict__}'
+    @property
+    def start(self) -> Timestamp:
+        return Timestamp(self._start)
 
     @property
-    def end(self) -> int:
-        if self.last_candle:
-            return self.last_candle.time + self.interval
-        return 0
+    def end(self) -> Timestamp:
+        return Timestamp(self.last_candle.time + self.interval if self.last_candle else 0)
 
     @property
     def cost(self) -> Decimal:
@@ -189,8 +150,20 @@ class TradingSummary:
         return quote_hodl - self.quote
 
     @property
-    def duration(self) -> int:
-        return self.end - self.start if self.end > 0 else 0
+    def duration(self) -> Interval:
+        return Interval(self.end - self.start if self.end > 0 else 0)
+
+    @property
+    def positions_taken(self) -> int:
+        return len(self.positions)
+
+    @property
+    def positions_taken_in_profit(self) -> int:
+        return sum((1 for p in self.positions if p.profit >= 0))
+
+    @property
+    def positions_taken_in_loss(self) -> int:
+        return sum((1 for p in self.positions if p.profit < 0))
 
     @property
     def mean_position_profit(self) -> Decimal:
@@ -204,10 +177,10 @@ class TradingSummary:
             return 0
         return int(statistics.mean((x.duration for x in self.positions)))
 
-    @property
-    def drawdowns(self) -> List[Decimal]:
-        self._calc_drawdowns_if_stale()
-        return self._drawdowns
+    # @property
+    # def drawdowns(self) -> List[Decimal]:
+    #     self._calc_drawdowns_if_stale()
+    #     return self._drawdowns
 
     @property
     def max_drawdown(self) -> Decimal:

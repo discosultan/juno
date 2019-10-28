@@ -6,7 +6,7 @@ from typing import Any, Awaitable, Callable, Dict, List
 
 from juno.asyncio import empty_future
 from juno.typing import filter_member_args
-from juno.utils import EventEmitter, generate_random_words
+from juno.utils import EventEmitter, format_attrs_as_json, generate_random_words
 
 _log = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class Agent(EventEmitter):
         await self.finalize()
 
         self.state = AgentState.STOPPED
-        _log.info(f'{self.name} ({type_name}) finished: {self.result}')
+        _log.info(f'{self.name} ({type_name}) finished:\n{format_attrs_as_json(self.result)}')
         await self.emit('finished')
 
         return self.result

@@ -403,7 +403,7 @@ class Binance(Exchange):
             # There's no error code in this response to figure out whether it's a timestamp issue.
             # We could look it up from the message, but currently just assume that is the case
             # always.
-            _log.warning(f'received error {result["msg"]}; syncing clock before exc')
+            _log.warning(f'received error: {result["msg"]}; syncing clock before exc')
             await self._sync_clock()
             raise Exception(result['msg'])
         return result
