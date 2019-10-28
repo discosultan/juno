@@ -1,7 +1,8 @@
 import statistics
 from decimal import Decimal
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
+import juno.json as json
 from juno import Candle, Fees, Fills
 from juno.filters import Filters
 from juno.math import round_half_up
@@ -15,31 +16,6 @@ class Position:
         self.fills = fills
         self.closing_time = 0
         self.closing_fills: Optional[Fills] = None
-
-    def __str__(self) -> str:
-        res = (
-            f'Start: {datetime_utcfromtimestamp_ms(self.start)}'
-            f'\nCost: {self.cost}'
-            f'\nBase fee: {self.fills.total_fee}'
-            '\n'
-        )
-        for i, fill in enumerate(self.fills, 1):
-            res += f'\nTrade {i}: (price: {fill.price}, size: {fill.size})'
-        if self.closing_fills:
-            res += (
-                f'\nGain: {self.gain}'
-                f'\nProfit: {self.profit}'
-                f'\nROI: {self.roi:.0%}'
-                f'\nAnnualized ROI: {self.annualized_roi:.0%}'
-                f'\nDust: {self.dust}'
-                f'\nQuote fee: {self.closing_fills.total_fee}'
-                f'\nEnd: {datetime_utcfromtimestamp_ms(self.end)}'
-                f'\nDuration: {strfinterval(self.duration)}'
-                '\n'
-            )
-            for i, fill in enumerate(self.closing_fills, 1):
-                res += f'\nTrade {i}: (price: {fill.price}, size: {fill.size})'
-        return res
 
     def close(self, time: int, fills: Fills) -> None:
         assert fills.total_size <= self.fills.total_size - self.fills.total_fee
@@ -96,6 +72,40 @@ class Position:
         assert self.closing_fills
         return self.closing_time - self.time
 
+    def as_formattable(self) -> Dict[str, Any]:
+        res: Dict[str, Any] = {
+            'Start': f'{datetime_utcfromtimestamp_ms(self.start)}',
+            'Cost': self.cost,
+            'Base fee': self.fills.total_fee,
+            'Fills': [],
+        }
+        for fill in self.fills:
+            res['Fills'].append({
+                'Price': fill.price,
+                'Size': fill.size,
+            })
+        if self.closing_fills:
+            res.update({
+                'Gain': self.gain,
+                'Profit': self.profit,
+                'ROI': f'{self.roi:.0%}',
+                'Annuaized ROI': f'{self.annualized_roi:.0%}',
+                'Dust': self.dust,
+                'Quote fee': self.closing_fills.total_fee,
+                'End': f'{datetime_utcfromtimestamp_ms(self.end)}',
+                'Duration': strfinterval(self.duration),
+                'Closing fills': []
+            })
+            for fill in self.closing_fills:
+                res['Closing fills'].append({
+                    'Price': fill.price,
+                    'Size': fill.size
+                })
+        return res
+
+    def __str__(self) -> str:
+        return json.dumps(self.as_formattable(), indent=4)
+
 
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
@@ -125,31 +135,6 @@ class TradingSummary:
     def append_position(self, pos: Position) -> None:
         self.positions.append(pos)
         self._drawdowns_dirty = True
-
-    def __str__(self) -> str:
-        return (
-            f'{datetime_utcfromtimestamp_ms(self.start)} - '
-            f'{datetime_utcfromtimestamp_ms(self.end)}\n'
-            f'Cost: {self.cost}\n'
-            f'Gain: {self.gain}\n'
-            f'Profit: {self.profit}\n'
-            f'Potential hodl profit: {self.potential_hodl_profit}\n'
-            f'ROI: {self.roi:.0%}\n'
-            f'Annualized ROI: {self.annualized_roi:.0%}\n'
-            f'Duration: {strfinterval(self.duration)}\n'
-            f'Between: {datetime_utcfromtimestamp_ms(self.start)} - '
-            f'{datetime_utcfromtimestamp_ms(self.end)}\n'
-            f'Max drawdown: {self.max_drawdown:.0%}\n'
-            f'Mean drawdown: {self.mean_drawdown:.0%}\n'
-            f'Positions taken: {len(self.positions)}\n'
-            f'Positions in profit: {len([p for p in self.positions if p.profit >= 0])}'
-            f'Positions in loss: {len([p for p in self.positions if p.profit < 0])}'
-            f'Mean profit per position: {self.mean_position_profit}\n'
-            f'Mean duration per position: {strfinterval(self.mean_position_duration)}'
-        )
-
-    def __repr__(self) -> str:
-        return f'{type(self).__name__} {self.__dict__}'
 
     @property
     def end(self) -> int:
@@ -241,6 +226,29 @@ class TradingSummary:
         self._mean_drawdown = sum_drawdown / len(self._drawdowns)
 
         self._drawdowns_dirty = False
+
+    def as_formattable(self) -> Dict[str, Any]:
+        return {
+            'Start': f'{datetime_utcfromtimestamp_ms(self.start)}',
+            'End': f'{datetime_utcfromtimestamp_ms(self.end)}',
+            'Cost': self.cost,
+            'Gain': self.gain,
+            'Profit': self.profit,
+            'Potential hodl profit': self.potential_hodl_profit,
+            'ROI': f'{self.roi:.0%}',
+            'Annualized ROI': f'{self.annualized_roi:.0%}',
+            'Duration': strfinterval(self.duration),
+            'Max drawdown': f'{self.max_drawdown:.0%}',
+            'Mean drawdown': f'{self.mean_drawdown:.0%}',
+            'Positions taken': len(self.positions),
+            'Positions in profit': len([p for p in self.positions if p.profit >= 0]),
+            'Positions in loss': len([p for p in self.positions if p.profit < 0]),
+            'Mean profit per position': self.mean_position_profit,
+            'Mean duration per position': strfinterval(self.mean_position_duration),
+        }
+
+    def __str__(self) -> str:
+        return json.dumps(self.as_formattable(), indent=4)
 
 
 class TradingContext:
