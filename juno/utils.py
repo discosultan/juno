@@ -11,12 +11,13 @@ from pathlib import Path
 from time import time
 from types import ModuleType
 from typing import (
-    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, TypeVar,
-    Union
+    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, Type,
+    TypeVar, Union, get_type_hints
 )
 
 import juno.json as json
-from juno import Trend
+from juno import Interval, Timestamp, Trend
+from juno.time import datetime_utcfromtimestamp_ms, strfinterval
 
 T = TypeVar('T')
 
@@ -162,6 +163,37 @@ def chunks(l: str, n: int) -> Iterable[str]:
     else:
         for i in range(0, length, n):
             yield l[i:i + n]
+
+
+def format_attrs_as_json(obj: Any) -> str:
+    output = {}
+    type_ = type(obj)
+
+    # Fields.
+    fields = [(n, v) for (n, v) in get_type_hints(type_).items() if not n.startswith('_')]
+    for name, field_type in fields:
+        output[name] = _get_transform(field_type)(getattr(obj, name))  # type: ignore
+
+    # Properties.
+    props = [(n, v) for (n, v) in inspect.getmembers(type_, _isprop) if not n.startswith('_')]
+    # Inspect orders members alphabetically. We want to preserve source ordering.
+    props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
+    for name, prop in props:
+        prop_type = get_type_hints(prop.fget)['return']
+        output[name] = _get_transform(prop_type)(prop.fget(obj))
+
+    return json.dumps(output, indent=4)
+
+
+def _get_transform(type_: Type[Any]) -> Callable[[Any], Any]:
+    return {
+        Interval: strfinterval,
+        Timestamp: lambda v: str(datetime_utcfromtimestamp_ms(v))
+    }.get(type_, lambda v: v)
+
+
+def _isprop(v: object) -> bool:
+    return isinstance(v, property)
 
 
 class CircularBuffer(Generic[T]):

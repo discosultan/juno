@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, NewType, Optional, Tuple
 
 from juno.filters import Filters
 from juno.time import datetime_utcfromtimestamp_ms
+
+Interval = NewType('Interval', int)
+Timestamp = NewType('Timestamp', int)
 
 
 class Advice(Enum):

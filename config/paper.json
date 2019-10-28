@@ -1,5 +1,5 @@
 {
-    "log_format": "default",
+    "log_format": "colored",
     "log_level": "info",
     "storage": "sqlite",
     "broker": "market",

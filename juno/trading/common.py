@@ -1,12 +1,11 @@
 import statistics
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
-import juno.json as json
-from juno import Candle, Fees, Fills
+from juno import Candle, Fees, Fills, Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_half_up
-from juno.time import YEAR_MS, datetime_utcfromtimestamp_ms, strfinterval
+from juno.time import YEAR_MS
 
 
 # TODO: Add support for external token fees (i.e BNB)
@@ -20,7 +19,7 @@ class Position:
     def close(self, time: int, fills: Fills) -> None:
         assert fills.total_size <= self.fills.total_size - self.fills.total_fee
 
-        self.closing_time = time
+        self.closing_time = Timestamp(time)
         self.closing_fills = fills
 
     @property
@@ -28,8 +27,8 @@ class Position:
         return self.fills.total_size
 
     @property
-    def start(self) -> int:
-        return self.time
+    def start(self) -> Timestamp:
+        return Timestamp(self.time)
 
     @property
     def cost(self) -> Decimal:
@@ -37,74 +36,47 @@ class Position:
 
     @property
     def gain(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         return self.closing_fills.total_quote - self.closing_fills.total_fee
 
     @property
     def profit(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         return self.gain - self.cost
 
     @property
     def roi(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         return self.profit / self.cost
 
     # Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
     @property
     def annualized_roi(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         n = Decimal(self.duration) / YEAR_MS
         return (1 + self.roi)**(1 / n) - 1
 
     @property
     def dust(self) -> Decimal:
-        assert self.closing_fills
+        if not self.closing_fills:
+            return Decimal(0)
         return self.fills.total_size - self.fills.total_fee - self.closing_fills.total_size
 
     @property
-    def end(self) -> int:
-        assert self.closing_fills
-        return self.closing_time
+    def end(self) -> Timestamp:
+        if not self.closing_fills:
+            return Timestamp(0)
+        return Timestamp(self.closing_time)
 
     @property
-    def duration(self) -> int:
-        assert self.closing_fills
-        return self.closing_time - self.time
-
-    def as_formattable(self) -> Dict[str, Any]:
-        res: Dict[str, Any] = {
-            'Start': f'{datetime_utcfromtimestamp_ms(self.start)}',
-            'Cost': self.cost,
-            'Base fee': self.fills.total_fee,
-            'Fills': [],
-        }
-        for fill in self.fills:
-            res['Fills'].append({
-                'Price': fill.price,
-                'Size': fill.size,
-            })
-        if self.closing_fills:
-            res.update({
-                'Gain': self.gain,
-                'Profit': self.profit,
-                'ROI': f'{self.roi:.0%}',
-                'Annuaized ROI': f'{self.annualized_roi:.0%}',
-                'Dust': self.dust,
-                'Quote fee': self.closing_fills.total_fee,
-                'End': f'{datetime_utcfromtimestamp_ms(self.end)}',
-                'Duration': strfinterval(self.duration),
-                'Closing fills': []
-            })
-            for fill in self.closing_fills:
-                res['Closing fills'].append({
-                    'Price': fill.price,
-                    'Size': fill.size
-                })
-        return res
-
-    def __str__(self) -> str:
-        return json.dumps(self.as_formattable(), indent=4)
+    def duration(self) -> Interval:
+        if not self.closing_fills:
+            return Interval(0)
+        return Interval(self.closing_time - self.time)
 
 
 # TODO: both positions and candles could theoretically grow infinitely
@@ -113,7 +85,7 @@ class TradingSummary:
         self, interval: int, start: int, quote: Decimal, fees: Fees, filters: Filters
     ) -> None:
         self.interval = interval
-        self.start = start
+        self._start = start
         self.quote = quote
         self.fees = fees
         self.filters = filters
@@ -137,10 +109,12 @@ class TradingSummary:
         self._drawdowns_dirty = True
 
     @property
-    def end(self) -> int:
-        if self.last_candle:
-            return self.last_candle.time + self.interval
-        return 0
+    def start(self) -> Timestamp:
+        return Timestamp(self._start)
+
+    @property
+    def end(self) -> Timestamp:
+        return Timestamp(self.last_candle.time + self.interval if self.last_candle else 0)
 
     @property
     def cost(self) -> Decimal:
@@ -176,8 +150,20 @@ class TradingSummary:
         return quote_hodl - self.quote
 
     @property
-    def duration(self) -> int:
-        return self.end - self.start if self.end > 0 else 0
+    def duration(self) -> Interval:
+        return Interval(self.end - self.start if self.end > 0 else 0)
+
+    @property
+    def positions_taken(self) -> int:
+        return len(self.positions)
+
+    @property
+    def positions_taken_in_profit(self) -> int:
+        return sum((1 for p in self.positions if p.profit >= 0))
+
+    @property
+    def positions_taken_in_loss(self) -> int:
+        return sum((1 for p in self.positions if p.profit < 0))
 
     @property
     def mean_position_profit(self) -> Decimal:
@@ -191,10 +177,10 @@ class TradingSummary:
             return 0
         return int(statistics.mean((x.duration for x in self.positions)))
 
-    @property
-    def drawdowns(self) -> List[Decimal]:
-        self._calc_drawdowns_if_stale()
-        return self._drawdowns
+    # @property
+    # def drawdowns(self) -> List[Decimal]:
+    #     self._calc_drawdowns_if_stale()
+    #     return self._drawdowns
 
     @property
     def max_drawdown(self) -> Decimal:
@@ -226,29 +212,6 @@ class TradingSummary:
         self._mean_drawdown = sum_drawdown / len(self._drawdowns)
 
         self._drawdowns_dirty = False
-
-    def as_formattable(self) -> Dict[str, Any]:
-        return {
-            'Start': f'{datetime_utcfromtimestamp_ms(self.start)}',
-            'End': f'{datetime_utcfromtimestamp_ms(self.end)}',
-            'Cost': self.cost,
-            'Gain': self.gain,
-            'Profit': self.profit,
-            'Potential hodl profit': self.potential_hodl_profit,
-            'ROI': f'{self.roi:.0%}',
-            'Annualized ROI': f'{self.annualized_roi:.0%}',
-            'Duration': strfinterval(self.duration),
-            'Max drawdown': f'{self.max_drawdown:.0%}',
-            'Mean drawdown': f'{self.mean_drawdown:.0%}',
-            'Positions taken': len(self.positions),
-            'Positions in profit': len([p for p in self.positions if p.profit >= 0]),
-            'Positions in loss': len([p for p in self.positions if p.profit < 0]),
-            'Mean profit per position': self.mean_position_profit,
-            'Mean duration per position': strfinterval(self.mean_position_duration),
-        }
-
-    def __str__(self) -> str:
-        return json.dumps(self.as_formattable(), indent=4)
 
 
 class TradingContext:
