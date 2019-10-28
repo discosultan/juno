@@ -1,7 +1,9 @@
-FROM python:3.7.4-alpine
+FROM python:3.8.0-alpine
 
-# `apk add` is required for numpy.
-RUN apk --no-cache add musl-dev linux-headers g++ && \
+# `apk add` first line is required for cffi, second for numpy.
+RUN apk --no-cache add \
+        libffi-dev \
+        musl-dev linux-headers g++ && \
     pip install --upgrade pip && \
     python --version && \
     pip --version
