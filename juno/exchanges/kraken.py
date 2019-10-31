@@ -93,19 +93,22 @@ class Kraken(Exchange):
                 c = msg[0]
                 # TODO: Kraken doesn't publish candles for intervals where there are no trades.
                 # We should fill those caps ourselves.
+                # They also send multiple candles per interval. We need to determine when a candle
+                # is closed ourselves. Trickier than with Binance.
                 yield Candle(
-                    time=int(divmod(Decimal(c[0]) * 1000, 1)),  # TODO: WTF is happenign here?
+                    # They provide end and not start time, hence we subtract interval.
+                    time=int(divmod(Decimal(c[1]) * 1000, 1)[0]) - interval,
                     open=Decimal(c[2]),
                     high=Decimal(c[3]),
                     low=Decimal(c[4]),
                     close=Decimal(c[5]),
-                    volume=Decimal(c[7]),  # TODO: THIS IS DAILY VOLUME AND NOT FOR PAST INTERVAL
+                    volume=Decimal(c[7]),
                     closed=True,
                 )
 
         async with self._public_ws.subscribe([_symbol(symbol)], {
             'name': 'ohlc',
-            'interval': interval / MIN_MS
+            'interval': interval // MIN_MS
         }) as ws:
             yield inner(ws)
 
@@ -266,6 +269,7 @@ class KrakenTopic:
         assert self.ws
         async for msg in self.ws:
             data = json.loads(msg.data)
+            _log.critical(data)
             if isinstance(data, dict):
                 if data['event'] == 'subscriptionStatus':
                     subscribed = self.subscriptions[data['reqid']]
