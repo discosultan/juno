@@ -111,7 +111,6 @@ async def test_get_depth(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_depth(loop, request, exchange):
     skip_non_configured(request, exchange)
-    skip_exchange(exchange, Kraken)
     async with exchange.connect_stream_depth('eth-btc') as stream:
         assert await stream.__anext__()
 

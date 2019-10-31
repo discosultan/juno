@@ -37,7 +37,7 @@ _log = logging.getLogger(__name__)
 
 class Kraken(Exchange):
     def __init__(self, api_key: str, secret_key: str) -> None:
-        super().__init__()
+        super().__init__(depth_ws_snapshot=True)
         self._api_key = api_key
         self._decoded_secret_key = base64.b64decode(secret_key)
 
@@ -100,8 +100,21 @@ class Kraken(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Any]:
             async for msg in ws:
                 for val in msg:
-                    _log.critical(msg)
-                    yield True
+                    # _log.critical(val)
+                    if 'as' in val or 'bs' in val:
+                        bids = val.get('bs', [])
+                        asks = val.get('as', [])
+                        yield DepthSnapshot(
+                            bids=[(Decimal(u[0]), Decimal(u[1])) for u in bids],
+                            asks=[(Decimal(u[0]), Decimal(u[1])) for u in asks],
+                        )
+                    else:
+                        bids = val.get('b', [])
+                        asks = val.get('a', [])
+                        yield DepthUpdate(
+                            bids=[(Decimal(u[0]), Decimal(u[1])) for u in bids],
+                            asks=[(Decimal(u[0]), Decimal(u[1])) for u in asks],
+                        )
 
         async with self._public_ws.subscribe([_symbol(symbol)], {
             'name': 'book',
