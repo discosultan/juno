@@ -97,7 +97,7 @@ class Kraken(Exchange):
                 # is closed ourselves. Trickier than with Binance.
                 yield Candle(
                     # They provide end and not start time, hence we subtract interval.
-                    time=int(divmod(Decimal(c[1]) * 1000, 1)[0]) - interval,
+                    time=int(Decimal(c[1]) * 1000) - interval,
                     open=Decimal(c[2]),
                     high=Decimal(c[3]),
                     low=Decimal(c[4]),
