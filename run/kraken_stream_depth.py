@@ -14,5 +14,5 @@ async def main():
                 logging.info(balance)
 
 
-logging.basicConfig(level='DEBUG')
+logging.basicConfig(level='INFO')
 asyncio.run(main())

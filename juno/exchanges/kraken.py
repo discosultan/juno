@@ -99,8 +99,9 @@ class Kraken(Exchange):
     ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Any]:
             async for msg in ws:
-                _log.critical(msg)
-                yield True
+                for val in msg:
+                    _log.critical(msg)
+                    yield True
 
         async with self._public_ws.subscribe([_symbol(symbol)], {
             'name': 'book',
@@ -235,16 +236,17 @@ class KrakenTopic:
         assert self.ws
         async for msg in self.ws:
             data = json.loads(msg.data)
-            _log.critical(data)
-            _log.critical(type(data))
             if isinstance(data, dict):
                 if data['event'] == 'subscriptionStatus':
                     subscribed = self.subscriptions[data['reqid']]
                     received = self.channels[data['channelID']]
                     subscribed.set(received)
             else:  # List.
-                channel_id, data, type_, pair = data  # type: ignore
-                self.channels[channel_id].set(data)  # type: ignore
+                channel_id = data[0]
+                type_data = data[1:len(data)-2]
+                # type_ = data[-2]
+                # pair = data[-1]
+                self.channels[channel_id].set(type_data)  # type: ignore
 
 
 def _symbol(symbol: str) -> str:
