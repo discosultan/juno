@@ -20,7 +20,7 @@ from juno import (
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
-from juno.time import time_ms
+from juno.time import time_ms, MIN_MS
 from juno.typing import ExcType, ExcValue, Traceback
 
 from .exchange import Exchange
@@ -88,19 +88,36 @@ class Kraken(Exchange):
     @asynccontextmanager
     async def connect_stream_candles(self, symbol: str,
                                      interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
-        yield  # type: ignore
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
+            async for msg in ws:
+                c = msg[0]
+                # TODO: Kraken doesn't publish candles for intervals where there are no trades.
+                # We should fill those caps ourselves.
+                yield Candle(
+                    time=int(divmod(Decimal(c[0]) * 1000, 1)),  # TODO: WTF is happenign here?
+                    open=Decimal(c[2]),
+                    high=Decimal(c[3]),
+                    low=Decimal(c[4]),
+                    close=Decimal(c[5]),
+                    volume=Decimal(c[7]),  # TODO: THIS IS DAILY VOLUME AND NOT FOR PAST INTERVAL
+                    closed=True,
+                )
 
-    async def get_depth(self, symbol: str) -> DepthSnapshot:
-        raise NotImplementedError()
+        async with self._public_ws.subscribe([_symbol(symbol)], {
+            'name': 'ohlc',
+            'interval': interval / MIN_MS
+        }) as ws:
+            yield inner(ws)
 
     @asynccontextmanager
     async def connect_stream_depth(
         self, symbol: str
     ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Any]:
+        async def inner(
+            ws: AsyncIterable[Any]
+        ) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
             async for msg in ws:
                 for val in msg:
-                    # _log.critical(val)
                     if 'as' in val or 'bs' in val:
                         bids = val.get('bs', [])
                         asks = val.get('as', [])
