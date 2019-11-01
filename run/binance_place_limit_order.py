@@ -28,7 +28,7 @@ async def main() -> None:
     orderbook = Orderbook(exchanges=[binance], config={'symbol': SYMBOL})
     wallet = Wallet(exchanges=[binance])
     async with binance, memory, informant, orderbook, wallet:
-        filters = informant.get_filters(EXCHANGE, SYMBOL)
+        _fees, filters = informant.get_fees_filters(EXCHANGE, SYMBOL)
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         asks = orderbook.list_asks(EXCHANGE, SYMBOL)

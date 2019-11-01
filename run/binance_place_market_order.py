@@ -29,7 +29,7 @@ async def main() -> None:
     wallet = Wallet(exchanges=exchanges)
     market = Market(informant, orderbook, exchanges)
     async with binance, memory, informant, orderbook, wallet:
-        filters = informant.get_filters(EXCHANGE, SYMBOL)
+        _fees, filters = informant.get_fees_filters(EXCHANGE, SYMBOL)
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         if SIDE is Side.BUY:
