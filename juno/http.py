@@ -101,7 +101,7 @@ async def connect_refreshing_stream(
     take_until: Callable[[Any, Any], bool],
     name: Optional[str] = None
 ) -> AsyncIterator[AsyncIterable[Any]]:
-    """Streams messages over WebSocket. The connection is restarted every `interval` milliseconds.
+    """Streams messages over WebSocket. The connection is restarted every `interval` seconds.
     Ensures no data is lost during restart when switching from one connection to another.
     """
     name2 = name or next(_random_words)
