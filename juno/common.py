@@ -36,12 +36,12 @@ class CancelOrderStatus(Enum):
 # values for SQLIte insertion. Dataclasses miss that functionality but offer comparisons, etc.
 # out of the box.
 class Candle(NamedTuple):
-    time: int
+    time: int  # Interval start time.
     open: Decimal
     high: Decimal
     low: Decimal
     close: Decimal
-    volume: Decimal
+    volume: Decimal  # Within interval.
     closed: bool
 
     def __repr__(self) -> str:
