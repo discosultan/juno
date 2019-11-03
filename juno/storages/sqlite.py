@@ -59,7 +59,7 @@ sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
 
 class SQLite(Storage):
     def __init__(self) -> None:
-        self._tables: Dict[Any, Set[type]] = defaultdict(set)
+        self._tables: Dict[Any, Set[str]] = defaultdict(set)
 
     async def stream_candle_spans(self, key: Key, start: int,
                                   end: int) -> AsyncIterable[Tuple[int, int]]:
@@ -169,12 +169,14 @@ class SQLite(Storage):
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 
-    async def _ensure_table(self, db: Any, type_: Type[Any]) -> None:
+    async def _ensure_table(self, db: Any, type_: Type[Any], name: Optional[str] = None) -> None:
+        if name is None:
+            name = type_.__name__
         tables = self._tables[db]
-        if type_ not in tables:
-            await _create_table(db, type_)
+        if name not in tables:
+            await _create_table(db, type_, name)
             await db.commit()
-            tables.add(type_)
+            tables.add(name)
 
     def _normalize_key(self, key: Key) -> str:
         key_type = type(key)
@@ -186,7 +188,7 @@ class SQLite(Storage):
             raise NotImplementedError()
 
 
-async def _create_table(db: Any, type_: Type[Any]) -> None:
+async def _create_table(db: Any, type_: Type[Any], name: str) -> None:
     annotations = get_type_hints(type_)
     col_names = list(annotations.keys())
     col_types = [_type_to_sql_type(t) for t in annotations.values()]
@@ -194,7 +196,7 @@ async def _create_table(db: Any, type_: Type[Any]) -> None:
     for i in range(0, len(col_names)):
         col_constrain = 'PRIMARY KEY' if i == 0 else 'NOT NULL'
         cols.append(f'{col_names[i]} {col_types[i]} {col_constrain}')
-    await db.execute(f'CREATE TABLE IF NOT EXISTS {type_.__name__} ({", ".join(cols)})')
+    await db.execute(f'CREATE TABLE IF NOT EXISTS {name} ({", ".join(cols)})')
 
     # TODO: Use typing instead based on NewType()?
     VIEW_COL_NAMES = ['time', 'start', 'end']
@@ -209,8 +211,8 @@ async def _create_table(db: Any, type_: Type[Any]) -> None:
                 view_cols.append(col)
 
         await db.execute(
-            f'CREATE VIEW IF NOT EXISTS {type_.__name__}View AS '
-            f'SELECT {", ".join(view_cols)} FROM {type_.__name__}'
+            f'CREATE VIEW IF NOT EXISTS {name}View AS '
+            f'SELECT {", ".join(view_cols)} FROM {name}'
         )
 
 
