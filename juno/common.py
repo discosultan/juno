@@ -170,7 +170,7 @@ class TimeInForce(Enum):
 
 
 class Trade(NamedTuple):
-    time: int
+    time: int  # TODO: Do any of the exchanges have 2+ trades at the same time?
     price: Decimal
     size: Decimal
 

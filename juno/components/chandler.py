@@ -31,7 +31,7 @@ class Chandler:
 
         _log.info(f'checking for existing {candle_msg} in local storage')
         existing_spans = await list_async(
-            self._storage.stream_candle_spans(storage_key, start, end)
+            self._storage.stream_object_spans(storage_key, Candle, start, end)
         )
         merged_existing_spans = list(merge_adjacent_spans(existing_spans))
         missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
@@ -44,8 +44,8 @@ class Chandler:
             period_msg = f'{strfspan(span_start, span_end)}'
             if exist_locally:
                 _log.info(f'local {candle_msg} exist between {period_msg}')
-                async for candle in self._storage.stream_candles(
-                    storage_key, span_start, span_end
+                async for candle in self._storage.stream_objects(
+                    storage_key, Candle, span_start, span_end
                 ):
                     if not closed or candle.closed:
                         yield candle
@@ -73,16 +73,18 @@ class Chandler:
                     batch.append(candle)
                     if len(batch) == BATCH_SIZE:
                         batch_end = batch[-1].time + interval
-                        await self._storage.store_candles_and_span((exchange, symbol, interval),
-                                                                   batch, batch_start, batch_end)
+                        await self._storage.store_objects_and_span(
+                            (exchange, symbol, interval), Candle, batch, batch_start, batch_end
+                        )
                         batch_start = batch_end
                         del batch[:]
                 yield candle
         finally:
             if len(batch) > 0:
                 batch_end = batch[-1].time + interval
-                await self._storage.store_candles_and_span((exchange, symbol, interval), batch,
-                                                           batch_start, batch_end)
+                await self._storage.store_objects_and_span(
+                    (exchange, symbol, interval), Candle, batch, batch_start, batch_end
+                )
 
     async def _stream_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int

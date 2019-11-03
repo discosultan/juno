@@ -25,7 +25,6 @@ from typing import (  # type: ignore
 from aiosqlite import Connection, connect
 
 import juno.json as json
-from juno import Candle
 from juno.time import strfspan, time_ms
 from juno.utils import home_path
 
@@ -34,7 +33,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 12
+_VERSION = 13
 
 T = TypeVar('T')
 
@@ -61,50 +60,57 @@ class SQLite(Storage):
     def __init__(self) -> None:
         self._tables: Dict[Any, Set[str]] = defaultdict(set)
 
-    async def stream_candle_spans(self, key: Key, start: int,
+    async def stream_object_spans(self, key: Key, type: Type[T], start: int,
                                   end: int) -> AsyncIterable[Tuple[int, int]]:
-        _log.info(f'streaming candle span(s) between {strfspan(start, end)} from {key} db')
+        _log.info(
+            f'streaming {type.__name__} span(s) between {strfspan(start, end)} from {key} db'
+        )
         async with self._connect(key) as db:
-            await self._ensure_table(db, Span)
-            query = f'SELECT * FROM {Span.__name__} WHERE start < ? AND end > ? ORDER BY start'
+            span_table_name = f'{type.__name__}{Span.__name__}'
+            await self._ensure_table(db, Span, span_table_name)
+            query = f'SELECT * FROM {span_table_name} WHERE start < ? AND end > ? ORDER BY start'
             async with db.execute(query, [end, start]) as cursor:
                 async for span_start, span_end in cursor:
                     yield max(span_start, start), min(span_end, end)
 
-    async def stream_candles(self, key: Key, start: int, end: int) -> AsyncIterable[Candle]:
+    async def stream_objects(self, key: Key, type: Type[T], start: int,
+                             end: int) -> AsyncIterable[T]:
         PAGE_SIZE = 1000
-        _log.info(f'streaming candle(s) between {strfspan(start, end)} from {key} db')
+        _log.info(f'streaming {type.__name__}(s) between {strfspan(start, end)} from {key} db')
         async with self._connect(key) as db:
-            await self._ensure_table(db, Candle)
-            query = f'SELECT * FROM {Candle.__name__} WHERE time >= ? AND time < ? ORDER BY time'
+            await self._ensure_table(db, type)
+            query = f'SELECT * FROM {type.__name__} WHERE time >= ? AND time < ? ORDER BY time'
             async with db.execute(query, [start, end]) as cursor:
                 while True:
                     rows = await cursor.fetchmany(PAGE_SIZE)
                     for row in rows:
-                        yield Candle(*row)
+                        yield type(*row)
                     if len(rows) < PAGE_SIZE:
                         break
 
-    async def store_candles_and_span(
-        self, key: Key, candles: List[Candle], start: int, end: int
+    async def store_objects_and_span(
+        self, key: Key, type: Type[Any], objects: List[Any], start: int, end: int
     ) -> None:
-        if start > candles[0].time or end <= candles[-1].time:
+        if start > objects[0].time or end <= objects[-1].time:
             raise ValueError('Invalid input')
 
-        _log.info(f'storing {len(candles)} candle(s) between {strfspan(start, end)} to {key} db')
+        _log.info(
+            f'storing {len(objects)} {type.__name__}(s) between {strfspan(start, end)} to {key} db'
+        )
         async with self._connect(key) as db:
-            await self._ensure_table(db, Candle)
+            await self._ensure_table(db, type)
             try:
                 await db.executemany(
-                    f"INSERT INTO {Candle.__name__} "
-                    f"VALUES ({', '.join(['?'] * len(get_type_hints(Candle)))})", candles
+                    f"INSERT INTO {type.__name__} "
+                    f"VALUES ({', '.join(['?'] * len(get_type_hints(type)))})", objects
                 )
             except sqlite3.IntegrityError as err:
                 # TODO: Can we relax this constraint?
                 _log.error(f'{err} {key}')
                 raise
-            await self._ensure_table(db, Span)
-            await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
+            span_table_name = f'{type.__name__}{Span.__name__}'
+            await self._ensure_table(db, Span, span_table_name)
+            await db.execute(f'INSERT INTO {span_table_name} VALUES (?, ?)', [start, end])
             await db.commit()
 
     async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:

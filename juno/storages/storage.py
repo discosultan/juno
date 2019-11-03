@@ -3,8 +3,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
-from juno import Candle
-
 T = TypeVar('T')
 
 Key = Union[str, Tuple[Any, ...]]
@@ -12,17 +10,18 @@ Key = Union[str, Tuple[Any, ...]]
 
 class Storage(ABC):
     @abstractmethod
-    async def stream_candle_spans(self, key: Key, start: int,
+    async def stream_object_spans(self, key: Key, type: Type[T], start: int,
                                   end: int) -> AsyncIterable[Tuple[int, int]]:
         yield  # type: ignore
 
     @abstractmethod
-    async def stream_candles(self, key: Key, start: int, end: int) -> AsyncIterable[Candle]:
+    async def stream_objects(self, key: Key, type: Type[T], start: int,
+                             end: int) -> AsyncIterable[T]:
         yield  # type: ignore
 
     @abstractmethod
-    async def store_candles_and_span(
-        self, key: Key, candles: List[Candle], start: int, end: int
+    async def store_objects_and_span(
+        self, key: Key, type: Type[Any], objects: List[Any], start: int, end: int
     ) -> None:
         pass
 
