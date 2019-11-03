@@ -8,7 +8,7 @@ from typing import AsyncIterable, Dict, List
 import backoff
 
 from juno import Balance
-from juno.asyncio import cancel, cancelable
+from juno.asyncio import Barrier, cancel, cancelable
 from juno.exchanges import Exchange
 from juno.typing import ExcType, ExcValue, Traceback
 
@@ -21,7 +21,7 @@ class Wallet:
         self._exchange_balances: Dict[str, Dict[str, Balance]] = defaultdict(dict)
 
     async def __aenter__(self) -> Wallet:
-        self._initial_balances_fetched = asyncio.Event()
+        self._initial_balances_fetched = Barrier(len(self._exchanges))
         self._sync_all_balances_task = asyncio.create_task(cancelable(self._sync_all_balances()))
         await self._initial_balances_fetched.wait()
         return self
@@ -38,11 +38,13 @@ class Wallet:
 
     @backoff.on_exception(backoff.expo, (Exception, ), max_tries=3)
     async def _sync_balances(self, exchange: str) -> None:
+        is_first = True
         async for balances in self._stream_balances(exchange):
             _log.info(f'received balance update from {exchange}')
             self._exchange_balances[exchange] = balances
-            if not self._initial_balances_fetched.is_set():
-                self._initial_balances_fetched.set()
+            if is_first:
+                is_first = False
+                self._initial_balances_fetched.release()
 
     async def _stream_balances(self, exchange: str) -> AsyncIterable[Dict[str, Balance]]:
         exchange_instance = self._exchanges[exchange]
