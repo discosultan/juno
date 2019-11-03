@@ -126,6 +126,24 @@ async def test_place_order(loop, request, exchange):
     )
 
 
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_stream_historical_trades(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    skip_exchange(exchange, Binance, Coinbase)
+    start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
+
+    stream = exchange.stream_historical_trades(
+        symbol='eth-btc', start=start, end=start + HOUR_MS
+    )
+    trade = await stream.__anext__()
+
+    assert isinstance(trade.time, int)
+    assert isinstance(trade.price, Decimal)
+    assert isinstance(trade.size, Decimal)
+
+
 def skip_non_configured(request, exchange):
     markers = ['exchange', 'manual']
     if request.config.option.markexpr not in markers:

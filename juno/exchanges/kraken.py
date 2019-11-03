@@ -22,6 +22,7 @@ from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import time_ms, MIN_MS
 from juno.typing import ExcType, ExcValue, Traceback
+from juno.utils import unpack_symbol
 
 from .exchange import Exchange
 
@@ -115,7 +116,7 @@ class Kraken(Exchange):
         async with self._public_ws.subscribe({
             'name': 'ohlc',
             'interval': interval // MIN_MS
-        }, [_symbol(symbol)]) as ws:
+        }, [_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -144,7 +145,7 @@ class Kraken(Exchange):
         async with self._public_ws.subscribe({
             'name': 'book',
             'depth': 10,
-        }, [_symbol(symbol)]) as subscription:
+        }, [_ws_symbol(symbol)]) as subscription:
             yield inner(subscription)
 
     @asynccontextmanager
@@ -177,7 +178,25 @@ class Kraken(Exchange):
 
     async def stream_historical_trades(self, symbol: str, start: int,
                                        end: int) -> AsyncIterable[Trade]:
-        yield  # type: ignore
+        since = _time(start)
+        while True:
+            res = await self._request_public(
+                'GET',
+                '/0/public/Trades',
+                {'pair': _symbol(symbol), 'since': since}
+            )
+            result = res['result']
+            since = result['last']
+            _, trades = next(iter(result.items()))
+            for trade in trades:
+                time = _from_time(trade[2])
+                if time >= end:
+                    return
+                yield Trade(
+                    time=time,
+                    price=Decimal(trade[0]),
+                    size=Decimal(trade[1]),
+                )
 
     async def _get_websockets_token(self) -> str:
         res = await self._request_private('/0/private/GetWebSocketsToken')
@@ -209,9 +228,13 @@ class Kraken(Exchange):
     async def _request(
         self, method: str, url: str, data: Dict[str, Any], headers: Dict[str, str] = {}
     ):
-        async with self._session.request(
-            method=method, url=_API_URL + url, data=data, headers=headers
-        ) as res:
+        kwargs = {
+            'method': method,
+            'url': _API_URL + url,
+            'headers': headers,
+        }
+        kwargs['params' if method == 'GET' else 'data'] = data
+        async with self._session.request(**kwargs) as res:
             result = await res.json(loads=json.loads)
             errors = result['error']
             if len(errors) > 0:
@@ -297,7 +320,6 @@ class KrakenPublicTopic:
         assert self.ws
         async for msg in self.ws:
             data = json.loads(msg.data)
-            _log.critical(data)
             self._process_message(data)
 
     def _process_message(self, data: Any) -> None:
@@ -349,5 +371,27 @@ class KrakenPrivateTopic(KrakenPublicTopic):
             self.channels[channel_id].set(data[0])  # type: ignore
 
 
-def _symbol(symbol: str) -> str:
+def _from_time(time: int) -> int:
+    # Convert seconds to milliseconds.
+    return int(time * 1000)
+
+
+def _time(time: int) -> int:
+    # Convert milliseconds to nanoseconds.
+    return time * 1000
+
+
+def _ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '/').upper()
+
+
+def _symbol(symbol: str) -> str:
+    base, quote = unpack_symbol(symbol)
+    return f'{_substitute_alias(base)}{_substitute_alias(quote)}'
+
+
+def _substitute_alias(asset: str) -> str:
+    return {
+        'btc': 'xbt',
+        'doge': 'xdg',
+    }.get(asset, asset)
