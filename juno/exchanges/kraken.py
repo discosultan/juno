@@ -16,7 +16,7 @@ from typing import (
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderResult,
-    OrderType, OrderUpdate, Side, SymbolsInfo, TimeInForce
+    OrderType, OrderUpdate, Side, SymbolsInfo, TimeInForce, Trade
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -174,6 +174,10 @@ class Kraken(Exchange):
 
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         pass
+
+    async def stream_historical_trades(self, symbol: str, start: int,
+                                       end: int) -> AsyncIterable[Trade]:
+        yield  # type: ignore
 
     async def _get_websockets_token(self) -> str:
         res = await self._request_private('/0/private/GetWebSocketsToken')

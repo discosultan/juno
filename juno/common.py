@@ -169,6 +169,12 @@ class TimeInForce(Enum):
     FOK = 2
 
 
+class Trade(NamedTuple):
+    time: int
+    price: Decimal
+    size: Decimal
+
+
 class Trend(Enum):
     UNKNOWN = 0
     UP = 1

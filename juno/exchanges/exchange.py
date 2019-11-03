@@ -5,7 +5,7 @@ from typing import AsyncIterable, AsyncIterator, Dict, Optional, Union
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, OrderResult, OrderType,
-    OrderUpdate, Side, SymbolsInfo, TimeInForce
+    OrderUpdate, Side, SymbolsInfo, TimeInForce, Trade
 )
 
 
@@ -69,3 +69,7 @@ class Exchange(ABC):
     @abstractmethod
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         pass
+
+    async def stream_historical_trades(self, symbol: str, start: int,
+                                       end: int) -> AsyncIterable[Trade]:
+        yield  # type: ignore
