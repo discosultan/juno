@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
+from typing import get_type_hints
 
 import aiohttp
 import pytest
@@ -76,9 +77,8 @@ async def test_stream_historical_candles(loop, request, exchange):
     )
     candle = await stream.__anext__()
 
-    assert isinstance(candle.time, int)
+    assert types_match(candle)
     assert candle.time == start
-    assert isinstance(candle.close, Decimal)
 
     with pytest.raises(StopAsyncIteration):
         await stream.__anext__()
@@ -93,8 +93,7 @@ async def test_connect_stream_candles(loop, request, exchange):
     async with exchange.connect_stream_candles(symbol='eth-btc', interval=HOUR_MS) as stream:
         candle = await stream.__anext__()
 
-    assert isinstance(candle.time, int)
-    assert isinstance(candle.close, Decimal)
+    assert types_match(candle)
 
 
 @pytest.mark.exchange
@@ -139,17 +138,28 @@ async def test_stream_historical_trades(loop, request, exchange):
     )
     trade = await stream.__anext__()
 
-    assert isinstance(trade.time, int)
-    assert isinstance(trade.price, Decimal)
-    assert isinstance(trade.size, Decimal)
+    assert types_match(trade)
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_connect_stream_trades(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    skip_exchange(exchange, Binance, Coinbase)
+    symbol = 'btc-eur' if isinstance(exchange, Kraken) else 'eth-btc'
+    async with exchange.connect_stream_trades(symbol=symbol) as stream:
+        trade = await stream.__anext__()
+
+    assert types_match(trade)
 
 
 def skip_non_configured(request, exchange):
     markers = ['exchange', 'manual']
     if request.config.option.markexpr not in markers:
-        pytest.skip(f"Specify {' or '.join(markers)} marker to run!")
+        pytest.skip(f'Specify {"" or "".join(markers)} marker to run!')
     if not exchange:
-        pytest.skip("Exchange params not configured")
+        pytest.skip('Exchange params not configured')
 
 
 def skip_exchange(exchange, *skip_exchange_types):
@@ -165,3 +175,8 @@ async def try_init_exchange(type_, config):
             yield exchange
     except TypeError:
         yield None
+
+
+def types_match(obj):
+    # Works only for named tuples.
+    return all((isinstance(obj[i], t) for i, t in enumerate(get_type_hints(type(obj)).values())))

@@ -94,7 +94,7 @@ class Fills(List[Fill]):
     def total_fee(self) -> Decimal:
         # Note that we may easily have different fee assets per order when utility tokens such as
         # BNB are used.
-        if len(set((f.fee_asset for f in self))) > 1:
+        if len({f.fee_asset for f in self}) > 1:
             raise NotImplementedError('implement support for different fee assets')
 
         return sum((f.fee for f in self), Decimal(0))
