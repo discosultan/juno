@@ -18,7 +18,7 @@ async def memory(request):
         yield storage
 
 
-@pytest.mark.parametrize('objects', [
+@pytest.mark.parametrize('items', [
     [
         new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT),
         new_candle(time=1),
@@ -30,21 +30,21 @@ async def memory(request):
         Trade(time=6, price=Decimal(7), size=Decimal(8)),
     ],
 ])
-async def test_memory_store_objects_and_span(loop, memory, objects):
-    type_ = type(objects[0])
-    start = objects[0].time
-    end = objects[-1].time + 1
+async def test_memory_store_objects_and_span(loop, memory, items):
+    type_ = type(items[0])
+    start = items[0].time
+    end = items[-1].time + 1
 
-    await memory.store_objects_and_span(
-        key='key', type=type_, objects=objects, start=start, end=end
+    await memory.store_time_series_and_span(
+        key='key', type=type_, items=items, start=start, end=end
     )
-    output_spans, output_objects = await asyncio.gather(
-        list_async(memory.stream_object_spans('key', type_, start, end)),
-        list_async(memory.stream_objects('key', type_, start, end))
+    output_spans, output_items = await asyncio.gather(
+        list_async(memory.stream_time_series_spans('key', type_, start, end)),
+        list_async(memory.stream_time_series('key', type_, start, end))
     )
 
     assert output_spans == [(start, end)]
-    assert output_objects == objects
+    assert output_items == items
 
 
 @pytest.mark.parametrize('item', [

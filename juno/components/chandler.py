@@ -31,7 +31,7 @@ class Chandler:
 
         _log.info(f'checking for existing {candle_msg} in local storage')
         existing_spans = await list_async(
-            self._storage.stream_object_spans(storage_key, Candle, start, end)
+            self._storage.stream_time_series_spans(storage_key, Candle, start, end)
         )
         merged_existing_spans = list(merge_adjacent_spans(existing_spans))
         missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
@@ -44,7 +44,7 @@ class Chandler:
             period_msg = f'{strfspan(span_start, span_end)}'
             if exist_locally:
                 _log.info(f'local {candle_msg} exist between {period_msg}')
-                async for candle in self._storage.stream_objects(
+                async for candle in self._storage.stream_time_series(
                     storage_key, Candle, span_start, span_end
                 ):
                     if not closed or candle.closed:
@@ -73,7 +73,7 @@ class Chandler:
                     batch.append(candle)
                     if len(batch) == BATCH_SIZE:
                         batch_end = batch[-1].time + interval
-                        await self._storage.store_objects_and_span(
+                        await self._storage.store_time_series_and_span(
                             (exchange, symbol, interval), Candle, batch, batch_start, batch_end
                         )
                         batch_start = batch_end
@@ -82,7 +82,7 @@ class Chandler:
         finally:
             if len(batch) > 0:
                 batch_end = batch[-1].time + interval
-                await self._storage.store_objects_and_span(
+                await self._storage.store_time_series_and_span(
                     (exchange, symbol, interval), Candle, batch, batch_start, batch_end
                 )
 
