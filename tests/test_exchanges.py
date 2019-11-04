@@ -151,7 +151,8 @@ async def test_stream_historical_trades(loop, request, exchange):
 async def test_connect_stream_trades(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Binance, Coinbase)
-    async with exchange.connect_stream_trades(symbol='eth-btc') as stream:
+    symbol = 'btc-eur' if isinstance(exchange, Kraken) else 'eth-btc'
+    async with exchange.connect_stream_trades(symbol=symbol) as stream:
         trade = await stream.__anext__()
 
     assert isinstance(trade.time, int)
@@ -162,9 +163,9 @@ async def test_connect_stream_trades(loop, request, exchange):
 def skip_non_configured(request, exchange):
     markers = ['exchange', 'manual']
     if request.config.option.markexpr not in markers:
-        pytest.skip(f"Specify {' or '.join(markers)} marker to run!")
+        pytest.skip(f'Specify {"" or "".join(markers)} marker to run!')
     if not exchange:
-        pytest.skip("Exchange params not configured")
+        pytest.skip('Exchange params not configured')
 
 
 def skip_exchange(exchange, *skip_exchange_types):
