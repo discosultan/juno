@@ -59,6 +59,6 @@ def test_list_names():
             'bar': 'e'
         }],
     }
-    expected_output = set(('a', 'b', 'c', 'e'))
+    expected_output = {'a', 'b', 'c', 'e'}
     output = config.list_names(input, 'bar')
     assert output == expected_output
