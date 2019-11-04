@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
+from typing import get_type_hints
 
 import aiohttp
 import pytest
@@ -144,6 +145,20 @@ async def test_stream_historical_trades(loop, request, exchange):
     assert isinstance(trade.size, Decimal)
 
 
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_connect_stream_trades(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    skip_exchange(exchange, Binance, Coinbase)
+    async with exchange.connect_stream_trades(symbol='eth-btc') as stream:
+        trade = await stream.__anext__()
+
+    assert isinstance(trade.time, int)
+    assert isinstance(trade.price, Decimal)
+    assert isinstance(trade.size, Decimal)
+
+
 def skip_non_configured(request, exchange):
     markers = ['exchange', 'manual']
     if request.config.option.markexpr not in markers:
@@ -165,3 +180,8 @@ async def try_init_exchange(type_, config):
             yield exchange
     except TypeError:
         yield None
+
+
+def assert_typings(obj):
+    for attr, type_ in get_type_hints(obj).items():
+        assert isinstance(obj[attr], type_)
