@@ -209,7 +209,7 @@ class Kraken(Exchange):
             async for trades in ws:
                 for trade in trades:
                     yield Trade(
-                        time=_from_time(trade[2]),
+                        time=_from_ws_time(trade[2]),
                         price=Decimal(trade[0]),
                         size=Decimal(trade[1]),
                     )
@@ -390,9 +390,14 @@ class KrakenPrivateTopic(KrakenPublicTopic):
             self.channels[channel_id].set(data[0])  # type: ignore
 
 
-def _from_time(time: int) -> int:
+def _from_time(time: Decimal) -> int:
     # Convert seconds to milliseconds.
     return int(time * 1000)
+
+
+def _from_ws_time(time: str) -> int:
+    # Convert seconds to milliseconds.
+    return int(Decimal(time) * 1000)
 
 
 def _time(time: int) -> int:

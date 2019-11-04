@@ -77,9 +77,8 @@ async def test_stream_historical_candles(loop, request, exchange):
     )
     candle = await stream.__anext__()
 
-    assert isinstance(candle.time, int)
+    assert types_match(candle)
     assert candle.time == start
-    assert isinstance(candle.close, Decimal)
 
     with pytest.raises(StopAsyncIteration):
         await stream.__anext__()
@@ -94,8 +93,7 @@ async def test_connect_stream_candles(loop, request, exchange):
     async with exchange.connect_stream_candles(symbol='eth-btc', interval=HOUR_MS) as stream:
         candle = await stream.__anext__()
 
-    assert isinstance(candle.time, int)
-    assert isinstance(candle.close, Decimal)
+    assert types_match(candle)
 
 
 @pytest.mark.exchange
@@ -140,9 +138,7 @@ async def test_stream_historical_trades(loop, request, exchange):
     )
     trade = await stream.__anext__()
 
-    assert isinstance(trade.time, int)
-    assert isinstance(trade.price, Decimal)
-    assert isinstance(trade.size, Decimal)
+    assert types_match(trade)
 
 
 @pytest.mark.exchange
@@ -155,9 +151,7 @@ async def test_connect_stream_trades(loop, request, exchange):
     async with exchange.connect_stream_trades(symbol=symbol) as stream:
         trade = await stream.__anext__()
 
-    assert isinstance(trade.time, int)
-    assert isinstance(trade.price, Decimal)
-    assert isinstance(trade.size, Decimal)
+    assert types_match(trade)
 
 
 def skip_non_configured(request, exchange):
@@ -183,6 +177,6 @@ async def try_init_exchange(type_, config):
         yield None
 
 
-def assert_typings(obj):
-    for attr, type_ in get_type_hints(obj).items():
-        assert isinstance(obj[attr], type_)
+def types_match(obj):
+    # Works only for named tuples.
+    return all((isinstance(obj[i], t) for i, t in enumerate(get_type_hints(type(obj)).values())))
