@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, Filters, SymbolsInfo
+from juno import Candle, Fees, Filters, SymbolsInfo, Trade
 from juno.asyncio import list_async
 from juno.storages import Memory
 
@@ -18,18 +18,33 @@ async def memory(request):
         yield storage
 
 
-async def test_memory_store_candles(loop, memory):
-    candles = [new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT), new_candle(time=1)]
-    start, end = 0, 2
+@pytest.mark.parametrize('items', [
+    [
+        new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT),
+        new_candle(time=1),
+        new_candle(time=3),
+    ],
+    [
+        Trade(time=0, price=Decimal(1), size=Decimal(2)),
+        Trade(time=3, price=Decimal(4), size=Decimal(5)),
+        Trade(time=6, price=Decimal(7), size=Decimal(8)),
+    ],
+])
+async def test_memory_store_objects_and_span(loop, memory, items):
+    type_ = type(items[0])
+    start = items[0].time
+    end = items[-1].time + 1
 
-    await memory.store_candles_and_span(key='key', candles=candles, start=start, end=end)
-    spans, candles = await asyncio.gather(
-        list_async(memory.stream_candle_spans('key', 0, 2)),
-        list_async(memory.stream_candles('key', 0, 2))
+    await memory.store_time_series_and_span(
+        key='key', type=type_, items=items, start=start, end=end
+    )
+    output_spans, output_items = await asyncio.gather(
+        list_async(memory.stream_time_series_spans('key', type_, start, end)),
+        list_async(memory.stream_time_series('key', type_, start, end))
     )
 
-    assert spans == [(start, end)]
-    assert candles == candles
+    assert output_spans == [(start, end)]
+    assert output_items == items
 
 
 @pytest.mark.parametrize('item', [

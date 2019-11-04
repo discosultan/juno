@@ -25,7 +25,6 @@ from typing import (  # type: ignore
 from aiosqlite import Connection, connect
 
 import juno.json as json
-from juno import Candle
 from juno.time import strfspan, time_ms
 from juno.utils import home_path
 
@@ -34,7 +33,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 12
+_VERSION = 13
 
 T = TypeVar('T')
 
@@ -59,52 +58,61 @@ sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
 
 class SQLite(Storage):
     def __init__(self) -> None:
-        self._tables: Dict[Any, Set[type]] = defaultdict(set)
+        self._tables: Dict[Any, Set[str]] = defaultdict(set)
 
-    async def stream_candle_spans(self, key: Key, start: int,
-                                  end: int) -> AsyncIterable[Tuple[int, int]]:
-        _log.info(f'streaming candle span(s) between {strfspan(start, end)} from {key} db')
+    async def stream_time_series_spans(
+        self, key: Key, type: Type[T], start: int, end: int
+    ) -> AsyncIterable[Tuple[int, int]]:
+        _log.info(
+            f'streaming {type.__name__} span(s) between {strfspan(start, end)} from {key} db'
+        )
         async with self._connect(key) as db:
-            await self._ensure_table(db, Span)
-            query = f'SELECT * FROM {Span.__name__} WHERE start < ? AND end > ? ORDER BY start'
+            span_table_name = f'{type.__name__}{Span.__name__}'
+            await self._ensure_table(db, Span, span_table_name)
+            query = f'SELECT * FROM {span_table_name} WHERE start < ? AND end > ? ORDER BY start'
             async with db.execute(query, [end, start]) as cursor:
                 async for span_start, span_end in cursor:
                     yield max(span_start, start), min(span_end, end)
 
-    async def stream_candles(self, key: Key, start: int, end: int) -> AsyncIterable[Candle]:
+    async def stream_time_series(
+        self, key: Key, type: Type[T], start: int, end: int
+    ) -> AsyncIterable[T]:
         PAGE_SIZE = 1000
-        _log.info(f'streaming candle(s) between {strfspan(start, end)} from {key} db')
+        _log.info(f'streaming {type.__name__}(s) between {strfspan(start, end)} from {key} db')
         async with self._connect(key) as db:
-            await self._ensure_table(db, Candle)
-            query = f'SELECT * FROM {Candle.__name__} WHERE time >= ? AND time < ? ORDER BY time'
+            await self._ensure_table(db, type)
+            query = f'SELECT * FROM {type.__name__} WHERE time >= ? AND time < ? ORDER BY time'
             async with db.execute(query, [start, end]) as cursor:
                 while True:
                     rows = await cursor.fetchmany(PAGE_SIZE)
                     for row in rows:
-                        yield Candle(*row)
+                        yield type(*row)
                     if len(rows) < PAGE_SIZE:
                         break
 
-    async def store_candles_and_span(
-        self, key: Key, candles: List[Candle], start: int, end: int
+    async def store_time_series_and_span(
+        self, key: Key, type: Type[Any], items: List[Any], start: int, end: int
     ) -> None:
-        if start > candles[0].time or end <= candles[-1].time:
+        if start > items[0].time or end <= items[-1].time:
             raise ValueError('Invalid input')
 
-        _log.info(f'storing {len(candles)} candle(s) between {strfspan(start, end)} to {key} db')
+        _log.info(
+            f'storing {len(items)} {type.__name__}(s) between {strfspan(start, end)} to {key} db'
+        )
         async with self._connect(key) as db:
-            await self._ensure_table(db, Candle)
+            await self._ensure_table(db, type)
             try:
                 await db.executemany(
-                    f"INSERT INTO {Candle.__name__} "
-                    f"VALUES ({', '.join(['?'] * len(get_type_hints(Candle)))})", candles
+                    f"INSERT INTO {type.__name__} "
+                    f"VALUES ({', '.join(['?'] * len(get_type_hints(type)))})", items
                 )
             except sqlite3.IntegrityError as err:
                 # TODO: Can we relax this constraint?
                 _log.error(f'{err} {key}')
                 raise
-            await self._ensure_table(db, Span)
-            await db.execute(f'INSERT INTO {Span.__name__} VALUES (?, ?)', [start, end])
+            span_table_name = f'{type.__name__}{Span.__name__}'
+            await self._ensure_table(db, Span, span_table_name)
+            await db.execute(f'INSERT INTO {span_table_name} VALUES (?, ?)', [start, end])
             await db.commit()
 
     async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:
@@ -169,12 +177,14 @@ class SQLite(Storage):
         async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 
-    async def _ensure_table(self, db: Any, type_: Type[Any]) -> None:
+    async def _ensure_table(self, db: Any, type_: Type[Any], name: Optional[str] = None) -> None:
+        if name is None:
+            name = type_.__name__
         tables = self._tables[db]
-        if type_ not in tables:
-            await _create_table(db, type_)
+        if name not in tables:
+            await _create_table(db, type_, name)
             await db.commit()
-            tables.add(type_)
+            tables.add(name)
 
     def _normalize_key(self, key: Key) -> str:
         key_type = type(key)
@@ -186,7 +196,7 @@ class SQLite(Storage):
             raise NotImplementedError()
 
 
-async def _create_table(db: Any, type_: Type[Any]) -> None:
+async def _create_table(db: Any, type_: Type[Any], name: str) -> None:
     annotations = get_type_hints(type_)
     col_names = list(annotations.keys())
     col_types = [_type_to_sql_type(t) for t in annotations.values()]
@@ -194,7 +204,7 @@ async def _create_table(db: Any, type_: Type[Any]) -> None:
     for i in range(0, len(col_names)):
         col_constrain = 'PRIMARY KEY' if i == 0 else 'NOT NULL'
         cols.append(f'{col_names[i]} {col_types[i]} {col_constrain}')
-    await db.execute(f'CREATE TABLE IF NOT EXISTS {type_.__name__} ({", ".join(cols)})')
+    await db.execute(f'CREATE TABLE IF NOT EXISTS {name} ({", ".join(cols)})')
 
     # TODO: Use typing instead based on NewType()?
     VIEW_COL_NAMES = ['time', 'start', 'end']
@@ -209,8 +219,8 @@ async def _create_table(db: Any, type_: Type[Any]) -> None:
                 view_cols.append(col)
 
         await db.execute(
-            f'CREATE VIEW IF NOT EXISTS {type_.__name__}View AS '
-            f'SELECT {", ".join(view_cols)} FROM {type_.__name__}'
+            f'CREATE VIEW IF NOT EXISTS {name}View AS '
+            f'SELECT {", ".join(view_cols)} FROM {name}'
         )
 
 
