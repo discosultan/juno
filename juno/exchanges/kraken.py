@@ -89,13 +89,15 @@ class Kraken(Exchange):
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
 
-    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
-                                        end: int) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(
+        self, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
         yield  # type: ignore
 
     @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str,
-                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(
+        self, symbol: str, interval: int
+    ) -> AsyncIterator[AsyncIterable[Candle]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for c in ws:
                 # TODO: Kraken doesn't publish candles for intervals where there are no trades.
@@ -176,8 +178,9 @@ class Kraken(Exchange):
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         pass
 
-    async def stream_historical_trades(self, symbol: str, start: int,
-                                       end: int) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(
+        self, symbol: str, start: int, end: int
+    ) -> AsyncIterable[Trade]:
         since = _time(start)
         while True:
             res = await self._request_public(
@@ -197,6 +200,22 @@ class Kraken(Exchange):
                     price=Decimal(trade[0]),
                     size=Decimal(trade[1]),
                 )
+
+    @asynccontextmanager
+    async def connect_stream_trades(
+        self, symbol: str
+    ) -> AsyncIterator[AsyncIterable[Trade]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
+            async for trades in ws:
+                for trade in trades:
+                    yield Trade(
+                        time=_from_ws_time(trade[2]),
+                        price=Decimal(trade[0]),
+                        size=Decimal(trade[1]),
+                    )
+
+        async with self._public_ws.subscribe({'name': 'trade'}, [_ws_symbol(symbol)]) as ws:
+            yield inner(ws)
 
     async def _get_websockets_token(self) -> str:
         res = await self._request_private('/0/private/GetWebSocketsToken')
@@ -371,9 +390,14 @@ class KrakenPrivateTopic(KrakenPublicTopic):
             self.channels[channel_id].set(data[0])  # type: ignore
 
 
-def _from_time(time: int) -> int:
+def _from_time(time: Decimal) -> int:
     # Convert seconds to milliseconds.
     return int(time * 1000)
+
+
+def _from_ws_time(time: str) -> int:
+    # Convert seconds to milliseconds.
+    return int(Decimal(time) * 1000)
 
 
 def _time(time: int) -> int:
