@@ -139,6 +139,7 @@ async def test_stream_historical_trades(loop, request, exchange):
     trade = await stream.__anext__()
 
     assert types_match(trade)
+    assert trade.time >= start
 
 
 @pytest.mark.exchange

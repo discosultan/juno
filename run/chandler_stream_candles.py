@@ -2,25 +2,31 @@ import asyncio
 import logging
 import os
 
+from juno import exchanges
 from juno.components import Chandler
-from juno.exchanges import Binance
+from juno.logging import create_handlers
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import HOUR_MS, MIN_MS, time_ms
 
+EXCHANGE_TYPE = exchanges.Binance
+SYMBOL = 'eth-btc'
+
 
 async def main():
+    name = EXCHANGE_TYPE.__name__.upper()
     sqlite = SQLite()
-    binance = Binance(
-        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
+    client = EXCHANGE_TYPE(
+        os.environ[f'JUNO__{name}__API_KEY'], os.environ[f'JUNO__{name}__SECRET_KEY']
     )
-    chandler = Chandler(sqlite, [binance])
-    async with binance:
+    name = name.lower()
+    chandler = Chandler(sqlite, [client])
+    async with client:
         # Should fetch 2 historical and rest future.
         start = floor_multiple(time_ms(), MIN_MS) - 2 * MIN_MS
         end = start + HOUR_MS
         logging.info(f'start {start}')
-        stream = chandler.stream_candles('binance', 'eth-btc', MIN_MS, start, end, closed=False)
+        stream = chandler.stream_candles(name, SYMBOL, MIN_MS, start, end, closed=False)
 
         # Historical.
         candle = await stream.__anext__()
@@ -42,5 +48,5 @@ async def main():
         logging.info('all good')
 
 
-logging.basicConfig(level='DEBUG')
+logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())

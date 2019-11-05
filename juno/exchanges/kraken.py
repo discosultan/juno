@@ -187,7 +187,7 @@ class Kraken(Exchange):
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
-        since = _time(start)
+        since = _time(start) - 1  # Exclusive.
         while True:
             res = await self._request_public(
                 'GET',
@@ -364,6 +364,7 @@ class KrakenPublicTopic:
     def _process_message(self, data: Any) -> None:
         if isinstance(data, dict):
             if data['event'] == 'subscriptionStatus':
+                _validate_subscription_status(data)
                 subscribed = self.subscriptions[data['reqid']]
                 received = self.channels[data['channelID']]
                 subscribed.set(received)
@@ -402,12 +403,18 @@ class KrakenPrivateTopic(KrakenPublicTopic):
     def _process_message(self, data: Any) -> None:
         if isinstance(data, dict):
             if data['event'] == 'subscriptionStatus':
+                _validate_subscription_status(data)
                 subscribed = self.subscriptions[data['reqid']]
                 received = self.channels[data['channelName']]
                 subscribed.set(received)
         else:  # List.
             channel_id = data[1]
             self.channels[channel_id].set(data[0])  # type: ignore
+
+
+def _validate_subscription_status(data: Any):
+    if data['status'] == 'error':
+        raise Exception(data['errorMessage'])
 
 
 def _from_time(time: Decimal) -> int:
@@ -422,7 +429,7 @@ def _from_ws_time(time: str) -> int:
 
 def _time(time: int) -> int:
     # Convert milliseconds to nanoseconds.
-    return time * 1000
+    return time * 1_000_000
 
 
 def _ws_symbol(symbol: str) -> str:
