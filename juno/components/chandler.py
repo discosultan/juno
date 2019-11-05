@@ -95,15 +95,15 @@ class Chandler:
         exchange_instance = self._exchanges[exchange]
         current = floor_multiple(time_ms(), interval)
 
-        async def inner(future_stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
-            if start < current:
+        async def inner(stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
+            if start < current:  # Historical.
                 # TODO: Construct
                 async for candle in exchange_instance.stream_historical_candles(
                     symbol, interval, start, min(end, current)
                 ):
                     yield candle
-            if future_stream:
-                async for candle in future_stream:
+            if stream:  # Future.
+                async for candle in stream:
                     yield candle
 
                     if candle.time >= end - interval and candle.closed:
@@ -111,11 +111,11 @@ class Chandler:
 
         if end > current:
             if exchange_instance.can_stream_candles:
-                future_stream = exchange_instance.connect_stream_candles(symbol, interval)
+                stream_ctx = exchange_instance.connect_stream_candles(symbol, interval)
             else:
-                future_stream = self._connect_stream_construct_candles(exchange, symbol, interval)
-            async with future_stream:
-                async for candle in inner(future_stream):
+                stream_ctx = self._connect_stream_construct_candles(exchange, symbol, interval)
+            async with stream_ctx as stream:
+                async for candle in inner(stream):
                     yield candle
         else:
             async for candle in inner(None):
@@ -126,4 +126,4 @@ class Chandler:
         self, exchange: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[Candle]]:
         raise NotImplementedError()
-        yield
+        yield  # type: ignore
