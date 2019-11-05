@@ -93,8 +93,11 @@ class SQLite(Storage):
     async def store_time_series_and_span(
         self, key: Key, type: Type[Any], items: List[Any], start: int, end: int
     ) -> None:
-        if start > items[0].time or end <= items[-1].time:
-            raise ValueError('Invalid input')
+        if start > items[0].time:
+            raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
+        if end <= items[-1].time:
+            raise ValueError(f'Span end {end} smaller than or equal to last item time '
+                             f'{items[-1].time}')
 
         _log.info(
             f'storing {len(items)} {type.__name__}(s) between {strfspan(start, end)} to {key} db'
