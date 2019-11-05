@@ -5,6 +5,7 @@ from typing import AsyncIterable, List, Optional
 
 import backoff
 
+from .trades import Trades
 from juno import Candle
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
@@ -17,7 +18,8 @@ _log = logging.getLogger(__name__)
 
 
 class Chandler:
-    def __init__(self, storage: Storage, exchanges: List[Exchange]) -> None:
+    def __init__(self, trades: Trades, storage: Storage, exchanges: List[Exchange]) -> None:
+        self._trades = trades
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 

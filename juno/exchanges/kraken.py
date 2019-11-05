@@ -38,8 +38,12 @@ _log = logging.getLogger(__name__)
 
 
 class Kraken(Exchange):
+    # Capabilities.
+    can_stream_depth_snapshot: bool = True
+    can_stream_historical_candles: bool = False
+    can_stream_candles: bool = False
+
     def __init__(self, api_key: str, secret_key: str) -> None:
-        super().__init__(depth_ws_snapshot=True)
         self._api_key = api_key
         self._decoded_secret_key = base64.b64decode(secret_key)
 

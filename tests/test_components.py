@@ -106,7 +106,8 @@ async def test_get_balance():
 @asynccontextmanager
 async def init_chandler(exchange):
     async with Memory() as memory:
-        yield Chandler(storage=memory, exchanges=[exchange])
+        trades = Trades(storage=memory, exchanges=[exchange])
+        yield Chandler(trades=trades, storage=memory, exchanges=[exchange])
 
 
 @asynccontextmanager

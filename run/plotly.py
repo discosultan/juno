@@ -6,7 +6,7 @@ from datetime import datetime
 import plotly.graph_objs as go
 import plotly.offline as py
 from juno.asyncio import list_async
-from juno.components import Chandler
+from juno.components import Chandler, Trades
 from juno.exchanges import Binance
 from juno.storages import SQLite
 from juno.time import HOUR_MS, UTC, datetime_timestamp_ms, datetime_utcfromtimestamp_ms
@@ -18,7 +18,8 @@ async def main():
         os.environ['JUNO__BINANCE__API_KEY'],
         os.environ['JUNO__BINANCE__SECRET_KEY'],
     )
-    chandler = Chandler(sqlite, [binance])
+    trades = Trades(sqlite, [binance])
+    chandler = Chandler(trades, sqlite, [binance])
     async with binance, chandler:
         candles = await list_async(
             chandler.stream_candles(

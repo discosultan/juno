@@ -3,7 +3,7 @@ import logging
 import os
 
 from juno import exchanges
-from juno.components import Chandler
+from juno.components import Chandler, Trades
 from juno.logging import create_handlers
 from juno.math import floor_multiple
 from juno.storages import SQLite
@@ -20,7 +20,8 @@ async def main():
         os.environ[f'JUNO__{name}__API_KEY'], os.environ[f'JUNO__{name}__SECRET_KEY']
     )
     name = name.lower()
-    chandler = Chandler(sqlite, [client])
+    trades = Trades(sqlite, [client])
+    chandler = Chandler(trades, sqlite, [client])
     async with client:
         # Should fetch 2 historical and rest future.
         start = floor_multiple(time_ms(), MIN_MS) - 2 * MIN_MS
