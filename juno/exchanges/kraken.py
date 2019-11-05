@@ -22,7 +22,7 @@ from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import time_ms, MIN_MS
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import unpack_symbol
+from juno.utils import LeakyBucket, unpack_symbol
 
 from .exchange import Exchange
 
@@ -44,6 +44,11 @@ class Kraken(Exchange):
         self._decoded_secret_key = base64.b64decode(secret_key)
 
     async def __aenter__(self) -> Kraken:
+        # Rate limiters.
+        # TODO: This is Starter rate. The rate differs for Intermediate and Pro users.
+        self._reqs_limiter = LeakyBucket(rate=15, period=45)
+        self._order_placing_limiter = LeakyBucket(rate=1, period=1)
+
         self._session = ClientSession(raise_for_status=True)
         self._public_ws = KrakenPublicTopic(_PUBLIC_WS_URL)
         self._private_ws = KrakenPrivateTopic(_PRIVATE_WS_URL, self)
@@ -173,6 +178,7 @@ class Kraken(Exchange):
         client_id: Optional[str] = None,
         test: bool = True
     ) -> OrderResult:
+        # TODO: use order placing limiter instead of default.
         pass
 
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
@@ -186,7 +192,8 @@ class Kraken(Exchange):
             res = await self._request_public(
                 'GET',
                 '/0/public/Trades',
-                {'pair': _symbol(symbol), 'since': since}
+                {'pair': _symbol(symbol), 'since': since},
+                cost=2,
             )
             result = res['result']
             since = result['last']
@@ -221,11 +228,17 @@ class Kraken(Exchange):
         res = await self._request_private('/0/private/GetWebSocketsToken')
         return res['result']['token']
 
-    def _request_public(self, method: str, url: str, data: Optional[Any] = None):
+    def _request_public(self, method: str, url: str, data: Optional[Any] = None, cost: int = 1):
         data = data or {}
-        return self._request(method, url, data)
+        return self._request(method, url, data, {}, self._reqs_limiter, cost)
 
-    def _request_private(self, url: str, data: Optional[Any] = None):
+    def _request_private(
+        self, url: str, data: Optional[Any] = None, cost: int = 1,
+        limiter: Optional[LeakyBucket] = None
+    ):
+        if limiter is None:
+            limiter = self._reqs_limiter
+
         data = data or {}
         nonce = time_ms()
         data['nonce'] = nonce
@@ -242,17 +255,24 @@ class Kraken(Exchange):
             'API-Key': self._api_key,
             'API-Sign': base64.b64encode(signature.digest()).decode()
         }
-        return self._request('POST', url, data, headers)
+        return self._request('POST', url, data, headers, limiter, cost)
 
     async def _request(
-        self, method: str, url: str, data: Dict[str, Any], headers: Dict[str, str] = {}
+        self, method: str, url: str, data: Dict[str, Any], headers: Dict[str, str],
+        limiter: LeakyBucket, cost: int
     ):
+        if limiter is None:
+            limiter = self._reqs_limiter
+        if cost > 0:
+            await limiter.acquire(cost)
+
         kwargs = {
             'method': method,
             'url': _API_URL + url,
             'headers': headers,
         }
         kwargs['params' if method == 'GET' else 'data'] = data
+
         async with self._session.request(**kwargs) as res:
             result = await res.json(loads=json.loads)
             errors = result['error']
