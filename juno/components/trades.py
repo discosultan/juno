@@ -49,7 +49,7 @@ class Trades:
                     yield trade
             else:
                 _log.info(f'missing {trade_msg} between {period_msg}')
-                async for candle in self._stream_and_store_exchange_trades(
+                async for trade in self._stream_and_store_exchange_trades(
                     exchange, symbol, span_start, span_end
                 ):
                     yield trade

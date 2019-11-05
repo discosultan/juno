@@ -3,9 +3,9 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, DepthSnapshot, Fees, SymbolsInfo
+from juno import Balance, DepthSnapshot, Fees, SymbolsInfo, Trade
 from juno.asyncio import list_async
-from juno.components import Chandler, Informant, Orderbook, Wallet
+from juno.components import Chandler, Informant, Orderbook, Trades, Wallet
 from juno.filters import Filters, Price, Size
 from juno.storages import Memory
 
@@ -31,10 +31,25 @@ async def test_stream_candles(start, end, closed, expected_from, expected_to):
     ]
     async with init_chandler(fakes.Exchange(historical_candles=candles)) as chandler:
         expected_candles = candles[expected_from:expected_to]
-        candles = await list_async(
+        output_candles = await list_async(
             chandler.stream_candles('exchange', 'eth-btc', 1, start, end, closed)
         )
-        assert candles == expected_candles
+        assert output_candles == expected_candles
+
+
+async def test_stream_trades():
+    trades = [
+        Trade(time=0, price=Decimal(1), size=Decimal(1)),
+        Trade(time=1, price=Decimal(2), size=Decimal(2)),
+        Trade(time=3, price=Decimal(3), size=Decimal(3)),
+        Trade(time=4, price=Decimal(4), size=Decimal(4)),
+    ]
+    async with init_trades(fakes.Exchange(historical_trades=trades)) as trades_component:
+        expected_trades = trades[1:3]
+        output_trades = await list_async(
+            trades_component.stream_trades('exchange', 'eth-btc', 1, 4)
+        )
+        assert output_trades == expected_trades
 
 
 @pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])
@@ -92,6 +107,12 @@ async def test_get_balance():
 async def init_chandler(exchange):
     async with Memory() as memory:
         yield Chandler(storage=memory, exchanges=[exchange])
+
+
+@asynccontextmanager
+async def init_trades(exchange):
+    async with Memory() as memory:
+        yield Trades(storage=memory, exchanges=[exchange])
 
 
 @asynccontextmanager

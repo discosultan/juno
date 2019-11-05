@@ -22,6 +22,8 @@ class Exchange(exchanges.Exchange):
         future_orders=[],
         place_order_result=OrderResult(status=OrderStatus.NEW),
         cancel_order_result=CancelOrderResult(status=CancelOrderStatus.SUCCESS),
+        historical_trades=[],
+        future_trades=[],
     ):
         super().__init__()
 
@@ -51,6 +53,11 @@ class Exchange(exchanges.Exchange):
 
         self.cancel_order_result = cancel_order_result
         self.cancel_order_calls = []
+
+        self.historical_trades = historical_trades
+        self.trade_queue = asyncio.Queue()
+        for future_trade in future_trades:
+            self.trade_queue.put_nowait(future_trade)
 
     async def get_symbols_info(self):
         return self.symbol_info
@@ -107,6 +114,17 @@ class Exchange(exchanges.Exchange):
         await asyncio.sleep(0)
         self.cancel_order_calls.append({**kwargs})
         return self.cancel_order_result
+
+    async def stream_historical_trades(self, symbol, start, end):
+        for t in (t for t in self.historical_trades if t.time >= start and t.time < end):
+            yield t
+
+    async def connect_stream_trades(self, symbol):
+        async def inner():
+            while True:
+                yield await self.trade_queue.get()
+
+        yield inner()
 
 
 class Chandler:
