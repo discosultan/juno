@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterable, List, Optional
+from contextlib import asynccontextmanager
+from typing import AsyncIterable, AsyncIterator, List, Optional
 
 import backoff
 
@@ -96,6 +97,7 @@ class Chandler:
 
         async def inner(future_stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
             if start < current:
+                # TODO: Construct
                 async for candle in exchange_instance.stream_historical_candles(
                     symbol, interval, start, min(end, current)
                 ):
@@ -108,9 +110,20 @@ class Chandler:
                         break
 
         if end > current:
-            async with exchange_instance.connect_stream_candles(symbol, interval) as future_stream:
+            if exchange_instance.can_stream_candles:
+                future_stream = exchange_instance.connect_stream_candles(symbol, interval)
+            else:
+                future_stream = self._connect_stream_construct_candles(exchange, symbol, interval)
+            async with future_stream:
                 async for candle in inner(future_stream):
                     yield candle
         else:
             async for candle in inner(None):
                 yield candle
+
+    @asynccontextmanager
+    async def _connect_stream_construct_candles(
+        self, exchange: str, symbol: str
+    ) -> AsyncIterator[AsyncIterable[Candle]]:
+        raise NotImplementedError()
+        yield
