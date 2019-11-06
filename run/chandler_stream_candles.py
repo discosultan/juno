@@ -9,8 +9,8 @@ from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import HOUR_MS, MIN_MS, time_ms
 
-EXCHANGE_TYPE = exchanges.Binance
-SYMBOL = 'eth-btc'
+EXCHANGE_TYPE = exchanges.Kraken
+SYMBOL = 'btc-eur'
 
 
 async def main():
@@ -31,23 +31,22 @@ async def main():
 
         # Historical.
         candle = await stream.__anext__()
-        logging.info(f'candle1 {candle.time} == {start}')
+        logging.info(f'historical candle 1: {candle}')
         assert candle.closed
         assert candle.time == start
         # Historical.
         candle = await stream.__anext__()
-        logging.info(f'candle2 {candle.time} == {start + 1 * MIN_MS}')
+        logging.info(f'historical candle 2: {candle}')
         assert candle.closed
         assert candle.time == start + 1 * MIN_MS
         # Future.
         candle = await stream.__anext__()
-        logging.info(f'candle3 {candle.time} == {start + 2 * MIN_MS}')
-        assert not candle.closed
+        logging.info(f'future candle 1: {candle}')
         assert candle.time == start + 2 * MIN_MS
 
         await stream.aclose()
         logging.info('all good')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
+logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='DEBUG')
 asyncio.run(main())

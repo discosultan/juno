@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
-from contextlib import asynccontextmanager
-from typing import AsyncIterable, AsyncIterator, List, Optional
+import sys
+from decimal import Decimal
+from typing import AsyncIterable, List, Optional
 
 import backoff
 
@@ -97,11 +98,17 @@ class Chandler:
 
         async def inner(stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
             if start < current:  # Historical.
-                # TODO: Construct
-                async for candle in exchange_instance.stream_historical_candles(
-                    symbol, interval, start, min(end, current)
-                ):
-                    yield candle
+                historical_end = min(end, current)
+                if exchange_instance.can_stream_historical_candles:
+                    async for candle in exchange_instance.stream_historical_candles(
+                        symbol, interval, start, historical_end
+                    ):
+                        yield candle
+                else:
+                    async for candle in self._stream_construct_candles(
+                        exchange, symbol, interval, start, historical_end
+                    ):
+                        yield candle
             if stream:  # Future.
                 async for candle in stream:
                     yield candle
@@ -111,19 +118,62 @@ class Chandler:
 
         if end > current:
             if exchange_instance.can_stream_candles:
-                stream_ctx = exchange_instance.connect_stream_candles(symbol, interval)
+                async with exchange_instance.connect_stream_candles(symbol, interval) as stream:
+                    async for candle in inner(stream):
+                        yield candle
             else:
-                stream_ctx = self._connect_stream_construct_candles(exchange, symbol, interval)
-            async with stream_ctx as stream:
+                stream = self._stream_construct_candles(exchange, symbol, interval, current, end)
                 async for candle in inner(stream):
                     yield candle
         else:
             async for candle in inner(None):
                 yield candle
 
-    @asynccontextmanager
-    async def _connect_stream_construct_candles(
-        self, exchange: str, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Candle]]:
-        raise NotImplementedError()
-        yield  # type: ignore
+    async def _stream_construct_candles(
+        self, exchange: str, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
+        current = start
+        next_ = current + interval
+        open_ = Decimal(0)
+        high = Decimal(0)
+        low = Decimal(sys.maxsize)
+        close = Decimal(0)
+        volume = Decimal(0)
+        is_first = True
+        async for trade in self._trades.stream_trades(exchange, symbol, start, end):
+            if trade.time >= next_:
+                assert not is_first
+                yield Candle(
+                    time=current,
+                    open=open_,
+                    high=high,
+                    low=low,
+                    close=close,
+                    volume=volume,
+                    closed=True)
+                current = next_
+                next_ = current + interval
+                open_ = Decimal(0)
+                high = Decimal(0)
+                low = Decimal(sys.maxsize)
+                close = Decimal(0)
+                volume = Decimal(0)
+                is_first = True
+
+            if is_first:
+                open_ = trade.price
+                is_first = False
+            high = max(high, trade.price)
+            low = min(low, trade.price)
+            close = trade.price
+            volume += trade.size
+
+        if not is_first:
+            yield Candle(
+                time=current,
+                open=open_,
+                high=high,
+                low=low,
+                close=close,
+                volume=volume,
+                closed=True)
