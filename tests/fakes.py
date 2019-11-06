@@ -119,6 +119,7 @@ class Exchange(exchanges.Exchange):
         for t in (t for t in self.historical_trades if t.time >= start and t.time < end):
             yield t
 
+    @asynccontextmanager
     async def connect_stream_trades(self, symbol):
         async def inner():
             while True:
@@ -195,8 +196,8 @@ class Strategy:
 
 
 class Time:
-    def __init__(self):
-        self.time = 0
+    def __init__(self, time=0):
+        self.time = time
 
     def get_time(self):
         time = self.time

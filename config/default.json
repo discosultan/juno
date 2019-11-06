@@ -1,6 +1,6 @@
 {
     "log_format": "colored",
-    "log_level": "info",
+    "log_level": "debug",
     "storage": "sqlite",
     "agents": [
         {

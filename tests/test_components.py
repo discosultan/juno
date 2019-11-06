@@ -1,9 +1,9 @@
-from contextlib import asynccontextmanager
+import asyncio
 from decimal import Decimal
 
 import pytest
 
-from juno import Balance, DepthSnapshot, Fees, SymbolsInfo, Trade
+from juno import Balance, Candle, DepthSnapshot, Fees, SymbolsInfo, Trade
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Orderbook, Trades, Wallet
 from juno.filters import Filters, Price, Size
@@ -21,46 +21,98 @@ async def memory(loop):
 
 @pytest.mark.parametrize(
     'start,end,closed,expected_from,expected_to', [
-        [0, 3, True, 0, 2],
-        [2, 3, True, 0, 0],
-        [3, 5, True, 2, 3],
-        [0, 5, False, 0, 5],
+        [0, 3, True, 0, 2],  # Skips skipped candle at the end.
+        [2, 3, True, 0, 0],  # Empty if only skipped candle.
+        [3, 5, True, 2, 5],  # Filters out closed candle.
+        [0, 5, False, 0, 5],  # Includes closed candle.
+        [0, 6, True, 0, 6],  # Includes future candle.
+        [5, 6, False, 5, 6],  # Only future candle.
     ]
 )
 async def test_stream_candles(memory, start, end, closed, expected_from, expected_to):
-    candles = [
+    exchange = 'exchange'
+    symbol = 'eth-btc'
+    interval = 1
+    historical_candles = [
         new_candle(time=0),
         new_candle(time=1),
         # Deliberately skipped candle.
         new_candle(time=3),
         new_candle(time=4, closed=False),
+        new_candle(time=4),
     ]
-    expected_candles = candles[expected_from:expected_to]
-    exchange = fakes.Exchange(historical_candles=candles)
-    trades = Trades(storage=memory, exchanges=[exchange])
-    chandler = Chandler(trades=trades, storage=memory, exchanges=[exchange])
+    future_candles = [
+        new_candle(time=5),
+    ]
+    expected_candles = (historical_candles + future_candles)[expected_from:expected_to]
+    if closed:
+        expected_candles = [c for c in expected_candles if c.closed]
+    time = fakes.Time(5)
+    exchange_instance = fakes.Exchange(
+        historical_candles=historical_candles,
+        future_candles=future_candles,
+    )
+    trades = Trades(storage=memory, exchanges=[exchange_instance])
+    chandler = Chandler(
+        trades=trades, storage=memory, exchanges=[exchange_instance], get_time=time.get_time
+    )
 
     output_candles = await list_async(
-        chandler.stream_candles('exchange', 'eth-btc', 1, start, end, closed)
+        chandler.stream_candles(exchange, symbol, interval, start, end, closed)
+    )
+    db_key = (exchange, symbol, interval)
+    stored_spans, stored_candles = await asyncio.gather(
+        list_async(memory.stream_time_series_spans(db_key, Candle, start, end)),
+        list_async(memory.stream_time_series(db_key, Candle, start, end)),
     )
 
     assert output_candles == expected_candles
+    assert stored_candles == [c for c in output_candles if c.closed]
+    if len(output_candles) > 1:
+        assert len(stored_spans) == 1
+        assert stored_spans[0] == (start, end)
 
 
-async def test_stream_trades(memory):
-    trades = [
+@pytest.mark.parametrize(
+    'start,end,expected_from,expected_to', [
+        [1, 5, 1, 3],  # Middle trades.
+        [0, 7, 0, 5],  # Includes future trade.
+        [0, 4, 0, 2],  # Middle trades with cap at the end.
+    ]
+)
+async def test_stream_trades(memory, start, end, expected_from, expected_to):
+    exchange = 'exchange'
+    symbol = 'eth-btc'
+    historical_trades = [
         Trade(time=0, price=Decimal(1), size=Decimal(1)),
         Trade(time=1, price=Decimal(2), size=Decimal(2)),
-        Trade(time=3, price=Decimal(3), size=Decimal(3)),
-        Trade(time=4, price=Decimal(4), size=Decimal(4)),
+        Trade(time=4, price=Decimal(3), size=Decimal(3)),
+        Trade(time=5, price=Decimal(4), size=Decimal(4)),
     ]
-    expected_trades = trades[1:3]
-    exchange = fakes.Exchange(historical_trades=trades)
-    trades_component = Trades(storage=memory, exchanges=[exchange])
+    future_trades = [
+        Trade(time=6, price=Decimal(1), size=Decimal(1)),
+    ]
+    expected_trades = (historical_trades + future_trades)[expected_from:expected_to]
+    time = fakes.Time(6)
+    exchange_instance = fakes.Exchange(
+        historical_trades=historical_trades,
+        future_trades=future_trades,
+    )
+    trades_component = Trades(
+        storage=memory, exchanges=[exchange_instance], get_time=time.get_time
+    )
 
-    output_trades = await list_async(trades_component.stream_trades('exchange', 'eth-btc', 1, 4))
+    output_trades = await list_async(trades_component.stream_trades(exchange, symbol, start, end))
+    db_key = (exchange, symbol)
+    stored_spans, stored_trades = await asyncio.gather(
+        list_async(memory.stream_time_series_spans(db_key, Trade, start, end)),
+        list_async(memory.stream_time_series(db_key, Trade, start, end)),
+    )
 
     assert output_trades == expected_trades
+    if len(output_trades) > 1:
+        assert len(stored_spans) == 1
+        assert stored_spans[0] == (start, end)
 
 
 @pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])

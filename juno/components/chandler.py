@@ -72,15 +72,17 @@ class Chandler:
         BATCH_SIZE = 1000
         batch = []
         batch_start = start
+        current = floor_multiple(self._get_time(), interval)
 
         try:
             async for candle in self._stream_exchange_candles(
-                exchange=exchange, symbol=symbol, interval=interval, start=start, end=end
+                exchange=exchange, symbol=symbol, interval=interval, start=start, end=end,
+                current=current
             ):
                 if candle.closed:
                     batch.append(candle)
                     if len(batch) == BATCH_SIZE:
-                        batch_end = batch[-1].time + interval
+                        batch_end = _get_span_end(end, current, interval, batch)
                         await self._storage.store_time_series_and_span(
                             (exchange, symbol, interval), Candle, batch, batch_start, batch_end
                         )
@@ -89,16 +91,15 @@ class Chandler:
                 yield candle
         finally:
             if len(batch) > 0:
-                batch_end = batch[-1].time + interval
+                batch_end = _get_span_end(end, current, interval, batch)
                 await self._storage.store_time_series_and_span(
                     (exchange, symbol, interval), Candle, batch, batch_start, batch_end
                 )
 
     async def _stream_exchange_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int
+        self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int
     ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
-        current = floor_multiple(self._get_time(), interval)
 
         async def inner(stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
             if start < current:  # Historical.
@@ -181,3 +182,7 @@ class Chandler:
                 close=close,
                 volume=volume,
                 closed=True)
+
+
+def _get_span_end(end: int, current: int, interval: int, batch: List[Candle]) -> int:
+    return batch[-1].time + interval if end > current else end
