@@ -22,12 +22,15 @@ _log = logging.getLogger(__name__)
 class Chandler:
     def __init__(
         self, trades: Trades, storage: Storage, exchanges: List[Exchange],
-        get_time: Optional[Callable[[], int]] = None
+        get_time: Optional[Callable[[], int]] = None, storage_batch_size: int = 1000
     ) -> None:
+        assert storage_batch_size > 0
+
         self._trades = trades
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time = get_time or time_ms
+        self._storage_batch_size = storage_batch_size
 
     async def stream_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True
@@ -69,7 +72,6 @@ class Chandler:
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
-        BATCH_SIZE = 1000
         batch = []
         batch_start = start
         current = floor_multiple(self._get_time(), interval)
@@ -81,10 +83,14 @@ class Chandler:
             ):
                 if candle.closed:
                     batch.append(candle)
-                    if len(batch) == BATCH_SIZE:
+                    if len(batch) == self._storage_batch_size:
                         batch_end = _get_span_end(end, current, interval, batch)
                         await self._storage.store_time_series_and_span(
-                            (exchange, symbol, interval), Candle, batch, batch_start, batch_end
+                            key=(exchange, symbol, interval),
+                            type=Candle,
+                            items=batch,
+                            start=batch_start,
+                            end=batch_end,
                         )
                         batch_start = batch_end
                         del batch[:]
@@ -93,7 +99,11 @@ class Chandler:
             if len(batch) > 0:
                 batch_end = _get_span_end(end, current, interval, batch)
                 await self._storage.store_time_series_and_span(
-                    (exchange, symbol, interval), Candle, batch, batch_start, batch_end
+                    key=(exchange, symbol, interval),
+                    type=Candle,
+                    items=batch,
+                    start=batch_start,
+                    end=batch_end,
                 )
 
     async def _stream_exchange_candles(

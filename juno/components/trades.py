@@ -18,11 +18,12 @@ _log = logging.getLogger(__name__)
 class Trades:
     def __init__(
         self, storage: Storage, exchanges: List[Exchange],
-        get_time: Optional[Callable[[], int]] = None
+        get_time: Optional[Callable[[], int]] = None, storage_batch_size: int = 1000
     ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._get_time = get_time or time_ms
+        self._get_time = get_time or time_ms,
+        self._storage_batch_size = storage_batch_size
 
     async def stream_trades(
         self, exchange: str, symbol: str, start: int, end: int
@@ -62,7 +63,6 @@ class Trades:
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
-        BATCH_SIZE = 1000
         batch = []
         batch_start = start
         current = self._get_time()
@@ -72,10 +72,14 @@ class Trades:
                 exchange=exchange, symbol=symbol, start=start, end=end, current=current
             ):
                 batch.append(trade)
-                if len(batch) == BATCH_SIZE:
+                if len(batch) == self._storage_batch_size:
                     batch_end = _get_span_end(end, current, batch)
                     await self._storage.store_time_series_and_span(
-                        (exchange, symbol), Trade, batch, batch_start, batch_end
+                        key=(exchange, symbol),
+                        type=Trade,
+                        items=batch,
+                        start=batch_start,
+                        end=batch_end,
                     )
                     batch_start = batch_end
                     del batch[:]
@@ -84,7 +88,11 @@ class Trades:
             if len(batch) > 0:
                 batch_end = _get_span_end(end, current, batch)
                 await self._storage.store_time_series_and_span(
-                    (exchange, symbol), Trade, batch, batch_start, batch_end
+                    key=(exchange, symbol),
+                    type=Trade,
+                    items=batch,
+                    start=batch_start,
+                    end=batch_end,
                 )
 
     async def _stream_exchange_trades(
