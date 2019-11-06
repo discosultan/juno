@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterable, List, Optional
+from typing import AsyncIterable, Callable, List, Optional
 
 import backoff
 
@@ -16,9 +16,13 @@ _log = logging.getLogger(__name__)
 
 
 class Trades:
-    def __init__(self, storage: Storage, exchanges: List[Exchange]) -> None:
+    def __init__(
+        self, storage: Storage, exchanges: List[Exchange],
+        get_time: Optional[Callable[[], int]] = None
+    ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_time = get_time or time_ms
 
     async def stream_trades(
         self, exchange: str, symbol: str, start: int, end: int
@@ -86,7 +90,7 @@ class Trades:
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
         exchange_instance = self._exchanges[exchange]
-        current = time_ms()
+        current = self._get_time()
 
         async def inner(future_stream: Optional[AsyncIterable[Trade]]) -> AsyncIterable[Trade]:
             if start < current:

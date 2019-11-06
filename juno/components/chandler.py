@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 from decimal import Decimal
-from typing import AsyncIterable, List, Optional
+from typing import AsyncIterable, Callable, List, Optional
 
 import backoff
 
@@ -20,10 +20,14 @@ _log = logging.getLogger(__name__)
 
 
 class Chandler:
-    def __init__(self, trades: Trades, storage: Storage, exchanges: List[Exchange]) -> None:
+    def __init__(
+        self, trades: Trades, storage: Storage, exchanges: List[Exchange],
+        get_time: Optional[Callable[[], int]] = None
+    ) -> None:
         self._trades = trades
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_time = get_time or time_ms
 
     async def stream_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True
@@ -94,7 +98,7 @@ class Chandler:
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
-        current = floor_multiple(time_ms(), interval)
+        current = floor_multiple(self._get_time(), interval)
 
         async def inner(stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
             if start < current:  # Historical.
