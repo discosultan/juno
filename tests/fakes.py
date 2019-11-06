@@ -194,12 +194,11 @@ class Strategy:
         return self.advices.pop()
 
 
-def Time():
-    time = -1
+class Time:
+    def __init__(self):
+        self.time = 0
 
-    def get_time():
-        nonlocal time
-        time += 1
+    def get_time(self):
+        time = self.time
+        self.time += 1
         return time
-
-    return get_time
