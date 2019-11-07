@@ -84,7 +84,7 @@ class Chandler:
                 if candle.closed:
                     batch.append(candle)
                     if len(batch) == self._storage_batch_size:
-                        batch_end = _get_span_end(end, current, interval, batch)
+                        batch_end = _get_span_end(batch, interval)
                         await self._storage.store_time_series_and_span(
                             key=(exchange, symbol, interval),
                             type=Candle,
@@ -97,13 +97,12 @@ class Chandler:
                 yield candle
         finally:
             if len(batch) > 0:
-                batch_end = _get_span_end(end, current, interval, batch)
                 await self._storage.store_time_series_and_span(
                     key=(exchange, symbol, interval),
                     type=Candle,
                     items=batch,
                     start=batch_start,
-                    end=batch_end,
+                    end=_get_span_end(batch, interval),
                 )
 
     async def _stream_exchange_candles(
@@ -194,5 +193,7 @@ class Chandler:
                 closed=True)
 
 
-def _get_span_end(end: int, current: int, interval: int, batch: List[Candle]) -> int:
-    return batch[-1].time + interval if end > current else end
+def _get_span_end(batch: List[Candle], interval: int) -> int:
+    # We could optimize it to historically also extend the end period in case of missed candles.
+    # However, the impact is negligible and not worth the complexity.
+    return batch[-1].time + interval

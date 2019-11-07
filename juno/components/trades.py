@@ -22,7 +22,7 @@ class Trades:
     ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._get_time = get_time or time_ms,
+        self._get_time = get_time or time_ms
         self._storage_batch_size = storage_batch_size
 
     async def stream_trades(
