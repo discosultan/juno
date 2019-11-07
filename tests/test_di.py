@@ -1,5 +1,5 @@
 import itertools
-from typing import Callable
+from typing import Callable, Optional
 
 import pytest
 
@@ -82,17 +82,19 @@ def test_no_duplicates_when_same_abstract_and_concrete():
     assert result1 == result2
 
 
-def test_type_error_on_missing_dep():
-    container = di.Container()
-    with pytest.raises(TypeError):
-        container.resolve(Quux)
-
-
-def test_dependency_with_default_value():
+def test_dependency_with_default_values():
     container = di.Container()
     result = container.resolve(Qux)
     assert isinstance(result, Qux)
     assert result.factory() == 1
+    assert result.number == 1
+    assert result.missing is None
+
+
+def test_type_error_on_missing_dep():
+    container = di.Container()
+    with pytest.raises(TypeError):
+        container.resolve(Quux)
 
 
 class Foo:
@@ -129,8 +131,15 @@ class Baz:
 
 
 class Qux:
-    def __init__(self, factory: Callable[[], int] = lambda: 1) -> None:
+    def __init__(
+        self,
+        factory: Callable[[], int] = lambda: 1,
+        number: int = 1,
+        missing: Optional[int] = None,
+    ) -> None:
         self.factory = factory
+        self.number = number
+        self.missing = missing
 
 
 class Quux:

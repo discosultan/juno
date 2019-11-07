@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
@@ -42,12 +43,14 @@ class Container:
     def add_singleton_type(self, type_: Type[Any], factory: Callable[[], Type[Any]]) -> None:
         self._singleton_types[type_] = factory
 
-    def resolve(self, type_: Type[T]) -> T:
-        resolved = self._resolve(type_, raise_on_type_error=True)
-        assert resolved
-        return resolved
+    def resolve(self, type_: Type[T], default: T = inspect.Parameter.empty) -> T:
+        # Resolution priority:
+        # 1. singleton
+        # 2. instance factory
+        # 3. type factory
+        # 4. default value
+        # 5. construct implicitly
 
-    def _resolve(self, type_: Type[T], raise_on_type_error: bool) -> Optional[T]:
         instance = self._singletons.get(type_)
         if instance:
             return instance
@@ -56,25 +59,26 @@ class Container:
         if instance_factory:
             instance = instance_factory()
         else:
-            instance_type = type_
             type_factory = self._singleton_types.get(type_)
             if type_factory:
                 instance_type = type_factory()
+            elif default is not inspect.Parameter.empty:
+                return default
+            else:
+                instance_type = type_
 
             kwargs: Dict[str, Any] = {}
+            signature = inspect.signature(instance_type.__init__)
             for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
                                                            ).items():
-                resolved = self._resolve(dep_type, raise_on_type_error=False)
-                if resolved is not None:
-                    kwargs[dep_name] = resolved
+                resolved = self.resolve(dep_type, default=signature.parameters[dep_name].default)
+                kwargs[dep_name] = resolved
 
             try:
                 instance = instance_type(**kwargs)  # type: ignore
             except TypeError:
-                if raise_on_type_error:
-                    _log.exception(f'unable to construct {instance_type} as {type_}')
-                    raise
-                return None
+                _log.exception(f'unable to construct {instance_type} as {type_}')
+                raise
             else:
                 self._singletons[instance_type] = instance
 
