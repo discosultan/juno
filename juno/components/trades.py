@@ -73,7 +73,7 @@ class Trades:
             ):
                 batch.append(trade)
                 if len(batch) == self._storage_batch_size:
-                    batch_end = _get_span_end(end, current, batch)
+                    batch_end = _get_span_end(batch)
                     await self._storage.store_time_series_and_span(
                         key=(exchange, symbol),
                         type=Trade,
@@ -86,7 +86,7 @@ class Trades:
                 yield trade
         finally:
             if len(batch) > 0:
-                batch_end = _get_span_end(end, current, batch)
+                batch_end = _get_span_end(batch)
                 await self._storage.store_time_series_and_span(
                     key=(exchange, symbol),
                     type=Trade,
@@ -123,6 +123,6 @@ class Trades:
                 yield trade
 
 
-def _get_span_end(end: int, current: int, batch: List[Trade]) -> int:
+def _get_span_end(batch: List[Trade]) -> int:
     # TODO: Also assumes not two trade at same time?
-    return batch[-1].time + 1 if end > current else end
+    return batch[-1].time + 1

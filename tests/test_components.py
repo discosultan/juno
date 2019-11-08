@@ -78,15 +78,15 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     'start,end,efrom,eto,espans', [
         [1, 5, 1, 3, [(1, 5)]],  # Middle trades.
         [2, 4, 0, 0, []],  # Empty if no trades.
-        [0, 7, 0, 5, [(0, 7)]],  # Includes future trade.
-        [0, 4, 0, 2, [(0, 4)]],  # Middle trades with cap at the end.
+        [0, 7, 0, 5, [(0, 2), (2, 6), (6, 7)]],  # Includes future trade.
+        [0, 4, 0, 2, [(0, 2)]],  # Middle trades with cap at the end.
     ]
 )
 async def test_stream_trades(memory, start, end, efrom, eto, espans):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     CURRENT = 6
-    # STORAGE_BATCH_SIZE = 2  # TODO <<<---------
+    STORAGE_BATCH_SIZE = 2
     historical_trades = [
         Trade(time=0, price=Decimal(1), size=Decimal(1)),
         Trade(time=1, price=Decimal(2), size=Decimal(2)),
@@ -103,7 +103,8 @@ async def test_stream_trades(memory, start, end, efrom, eto, espans):
         future_trades=future_trades,
     )
     trades = Trades(
-        storage=memory, exchanges=[exchange], get_time=time.get_time
+        storage=memory, exchanges=[exchange], get_time=time.get_time,
+        storage_batch_size=STORAGE_BATCH_SIZE
     )
 
     output_trades = await list_async(trades.stream_trades(EXCHANGE, SYMBOL, start, end))
