@@ -26,6 +26,7 @@ from aiosqlite import Connection, connect
 
 import juno.json as json
 from juno.time import strfspan, time_ms
+from juno.typing import isnamedtuple
 from juno.utils import home_path
 
 from .storage import Storage
@@ -33,7 +34,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 20
+_VERSION = 21
 
 T = TypeVar('T')
 
@@ -249,14 +250,10 @@ def _load_type_from_string(type_: Type[Any], values: Dict[str, Any]) -> Any:
             sub = values[key]
             for dk, dv in sub.items():
                 sub[dk] = _load_type_from_string(sub_type, dv)
-        elif _isnamedtuple(attr_type):
+        elif isnamedtuple(attr_type):
             # Materialize it.
             values[key] = _load_type_from_string(attr_type, values[key])
     return type_(**values)
-
-
-def _isnamedtuple(type_: Type[Any]) -> bool:
-    return issubclass(type_, tuple) and bool(getattr(type_, '_fields', False))
 
 
 class Bag:

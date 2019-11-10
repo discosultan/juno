@@ -1,4 +1,6 @@
 from decimal import Decimal
+# TODO: Fix in 3.8.1
+from typing import get_origin, get_type_hints  # type: ignore
 
 from juno import Candle, Fill, Fills, Position
 
@@ -30,3 +32,11 @@ def new_closed_position(profit):
     pos = Position(time=0, fills=Fills([new_fill(price=0, size=size)]))
     pos.close(time=1, fills=Fills([new_fill(price=price, size=size)]))
     return pos
+
+
+def types_match(obj):
+    # Works only for named tuples.
+    field_types = get_type_hints(type(obj)).values()
+    return all(
+        (isinstance(obj[i], get_origin(t) or t) for i, t in enumerate(field_types))
+    )

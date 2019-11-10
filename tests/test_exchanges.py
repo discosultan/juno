@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
-from typing import get_type_hints
 
 import aiohttp
 import pytest
@@ -10,6 +9,8 @@ from juno import OrderType, Side
 from juno.config import load_instance
 from juno.exchanges import Binance, Coinbase, Kraken
 from juno.time import HOUR_MS, UTC, datetime_timestamp_ms
+
+from .utils import types_match
 
 exchange_types = [
     Binance,
@@ -54,7 +55,11 @@ async def test_get_symbols_info(loop, request, exchange):
     skip_non_configured(request, exchange)
     res = await exchange.get_symbols_info()
     assert len(res.fees) > 0
+    if '__all__' not in res.fees:
+        assert res.fees['eth-btc']
     assert len(res.filters) > 0
+    if '__all__' not in res.filters:
+        assert res.filters['eth-btc']
 
 
 @pytest.mark.exchange
@@ -176,8 +181,3 @@ async def try_init_exchange(type_, config):
             yield exchange
     except TypeError:
         yield None
-
-
-def types_match(obj):
-    # Works only for named tuples.
-    return all((isinstance(obj[i], t) for i, t in enumerate(get_type_hints(type(obj)).values())))

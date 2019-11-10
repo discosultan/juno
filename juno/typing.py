@@ -19,3 +19,7 @@ def get_input_type_hints(obj: Any) -> Dict[str, type]:
 def filter_member_args(obj: Any, dict_: Dict[str, Any]) -> Dict[str, Any]:
     keys = set(get_input_type_hints(obj).keys())
     return {k: v for k, v in dict_.items() if k in keys}
+
+
+def isnamedtuple(type_: Type[Any]) -> bool:
+    return issubclass(type_, tuple) and bool(getattr(type_, '_fields', False))

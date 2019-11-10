@@ -5,10 +5,10 @@
     "agents": [
         {
             "type": "backtest",
-            "exchange": "binance",
+            "exchange": "kraken",
             "symbol": "eth-btc",
             "start": "2019-01-01",
-            "end": "2019-05-01",
+            "end": "2019-02-01",
             "interval": "1h",
             "quote": "10.0",
             "restart_on_missed_candle": false,

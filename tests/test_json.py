@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import NamedTuple
 
 import pytest
 
@@ -10,14 +11,18 @@ class Complex:
         self.value = value
 
 
+class MyNamedTuple(NamedTuple):
+    value: Decimal
+
+
 @pytest.mark.parametrize(
     'input,expected_output', [
         (Decimal('0.1'), '0.1'),
-        (Complex(Complex('0.1')), '{"value": {"value": "0.1"}}'),
-        ({
-            'value': Decimal('0.1')
-        }, '{"value": "0.1"}'),
+        (Complex(Complex(Decimal('0.1'))), '{"value": {"value": "0.1"}}'),
+        ({'value': Decimal('0.1')}, '{"value": "0.1"}'),
         ([Decimal('0.1')], '["0.1"]'),
+        (Decimal(0), '0'),
+        (MyNamedTuple(value=Decimal(1)), '["1"]'),
     ]
 )
 def test_dumps(input, expected_output):
@@ -41,10 +46,9 @@ def test_dumps_complicated():
 @pytest.mark.parametrize(
     'input,expected_output', [
         ('0.1', Decimal('0.1')),
-        ('{"value": "0.1"}', {
-            'value': '0.1'
-        }),
-        ('["0.1"]', ['0.1']),
+        ('{"value": "0.1"}', {'value': Decimal('0.1')}),
+        ('["0.1"]', [Decimal('0.1')]),
+        ('0', Decimal(0)),
     ]
 )
 def test_loads(input, expected_output):

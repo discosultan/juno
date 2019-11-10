@@ -74,7 +74,7 @@ class Kraken(Exchange):
         res = await self._request_public('GET', '/0/public/AssetPairs')
         fees, filters = {}, {}
         for val in res['result'].values():
-            name = f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}'
+            name = _from_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
             # TODO: Take into account different fee levels. Currently only worst level.
             taker_fee = val['fees'][0][1]
             maker_fees = val.get('fees_maker')
@@ -440,13 +440,18 @@ def _ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '/').upper()
 
 
+ASSET_ALIAS_MAP = {
+    'btc': 'xbt',
+    'doge': 'xdg',
+}
+REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in ASSET_ALIAS_MAP.items()}
+
+
 def _symbol(symbol: str) -> str:
     base, quote = unpack_symbol(symbol)
-    return f'{_substitute_alias(base)}{_substitute_alias(quote)}'
+    return f'{ASSET_ALIAS_MAP.get(base, base)}{ASSET_ALIAS_MAP.get(quote, quote)}'
 
 
-def _substitute_alias(asset: str) -> str:
-    return {
-        'btc': 'xbt',
-        'doge': 'xdg',
-    }.get(asset, asset)
+def _from_symbol(symbol: str) -> str:
+    base, quote = unpack_symbol(symbol)
+    return f'{REVERSE_ASSET_ALIAS_MAP.get(base, base)}-{REVERSE_ASSET_ALIAS_MAP.get(quote, quote)}'
