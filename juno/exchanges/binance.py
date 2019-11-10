@@ -41,7 +41,6 @@ _log = logging.getLogger(__name__)
 
 class Binance(Exchange):
     def __init__(self, api_key: str, secret_key: str) -> None:
-        super().__init__()
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterable, List, Optional
+from typing import AsyncIterable, Callable, List, Optional
 
 import backoff
 
@@ -16,9 +16,14 @@ _log = logging.getLogger(__name__)
 
 
 class Trades:
-    def __init__(self, storage: Storage, exchanges: List[Exchange]) -> None:
+    def __init__(
+        self, storage: Storage, exchanges: List[Exchange],
+        get_time: Optional[Callable[[], int]] = None, storage_batch_size: int = 1000
+    ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_time = get_time or time_ms
+        self._storage_batch_size = storage_batch_size
 
     async def stream_trades(
         self, exchange: str, symbol: str, start: int, end: int
@@ -58,53 +63,66 @@ class Trades:
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
-        BATCH_SIZE = 1000
         batch = []
         batch_start = start
+        current = self._get_time()
 
         try:
             async for trade in self._stream_exchange_trades(
-                exchange=exchange, symbol=symbol, start=start, end=end
+                exchange=exchange, symbol=symbol, start=start, end=end, current=current
             ):
                 batch.append(trade)
-                if len(batch) == BATCH_SIZE:
-                    batch_end = batch[-1].time + 1
+                if len(batch) == self._storage_batch_size:
+                    batch_end = _get_span_end(batch)
                     await self._storage.store_time_series_and_span(
-                        (exchange, symbol), Trade, batch, batch_start, batch_end
+                        key=(exchange, symbol),
+                        type=Trade,
+                        items=batch,
+                        start=batch_start,
+                        end=batch_end,
                     )
                     batch_start = batch_end
                     del batch[:]
                 yield trade
         finally:
             if len(batch) > 0:
-                batch_end = batch[-1].time + 1
+                batch_end = _get_span_end(batch)
                 await self._storage.store_time_series_and_span(
-                    (exchange, symbol), Trade, batch, batch_start, batch_end
+                    key=(exchange, symbol),
+                    type=Trade,
+                    items=batch,
+                    start=batch_start,
+                    end=batch_end,
                 )
 
     async def _stream_exchange_trades(
-        self, exchange: str, symbol: str, start: int, end: int
+        self, exchange: str, symbol: str, start: int, end: int, current: int
     ) -> AsyncIterable[Trade]:
         exchange_instance = self._exchanges[exchange]
-        current = time_ms()
 
-        async def inner(future_stream: Optional[AsyncIterable[Trade]]) -> AsyncIterable[Trade]:
-            if start < current:
+        async def inner(stream: Optional[AsyncIterable[Trade]]) -> AsyncIterable[Trade]:
+            if start < current:  # Historical.
                 async for trade in exchange_instance.stream_historical_trades(
                     symbol, start, min(end, current)
                 ):
                     yield trade
-            if future_stream:
-                async for trade in future_stream:
+            if stream:  # Future.
+                async for trade in stream:
                     yield trade
 
-                    if trade.time >= end:
+                    # TODO: Assumes no two trade are at the same time.
+                    if trade.time >= end - 1:
                         break
 
         if end > current:
-            async with exchange_instance.connect_stream_trades(symbol) as future_stream:
-                async for trade in inner(future_stream):
+            async with exchange_instance.connect_stream_trades(symbol) as stream:
+                async for trade in inner(stream):
                     yield trade
         else:
             async for trade in inner(None):
                 yield trade
+
+
+def _get_span_end(batch: List[Trade]) -> int:
+    # TODO: Also assumes not two trade at same time?
+    return batch[-1].time + 1

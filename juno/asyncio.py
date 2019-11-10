@@ -2,7 +2,9 @@ import asyncio
 import inspect
 import logging
 import traceback
-from typing import Any, AsyncIterable, Awaitable, Generic, List, Optional, TypeVar, Union, cast
+from typing import (
+    Any, AsyncIterable, Awaitable, Generic, List, Optional, Tuple, TypeVar, Union, cast
+)
 
 T = TypeVar('T')
 
@@ -25,6 +27,15 @@ async def concat_async(*args: Union[T, AsyncIterable[T]]) -> AsyncIterable[T]:
                 yield val
         else:
             yield arg  # type: ignore
+
+
+async def enumerate_async(
+    iterable: AsyncIterable[T], start: int = 0
+) -> AsyncIterable[Tuple[int, T]]:
+    i = start
+    async for item in iterable:
+        yield i, item
+        i += 1
 
 
 def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:

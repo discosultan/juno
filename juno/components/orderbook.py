@@ -85,7 +85,7 @@ class Orderbook:
             restart = False
 
             async with exchange_instance.connect_stream_depth(symbol) as stream:
-                if exchange_instance.depth_ws_snapshot:
+                if exchange_instance.can_stream_depth_snapshot:
                     async for depth in stream:
                         yield depth
                 else:

@@ -70,10 +70,18 @@ class Informant:
     async def _sync_symbols(self, exchange: str) -> None:
         now = time_ms()
         symbols_info, updated = await self._storage.get(exchange, SymbolsInfo)
-        if not symbols_info or not updated or now >= updated + DAY_MS:
-            _log.info(f'updating symbol info by fetching from {exchange}')
-            symbols_info = await self._exchanges[exchange].get_symbols_info()
-            await self._storage.set(exchange, SymbolsInfo, symbols_info)
+        if not symbols_info or not updated:
+            _log.info(f'local {exchange} symbols info missing; updating by fetching from exchange')
+            symbols_info = await self._refetch_symbols(exchange)
+        elif now >= updated + DAY_MS:
+            _log.info(f'local {exchange} symbols info out-of-date; updating by fetching from '
+                      'exchange')
+            symbols_info = await self._refetch_symbols(exchange)
         else:
-            _log.info(f'updating symbol info by fetching from storage')
+            _log.info(f'updating {exchange} symbols info by fetching from storage')
         self._symbols_infos[exchange] = symbols_info
+
+    async def _refetch_symbols(self, exchange: str) -> SymbolsInfo:
+        symbols_info = await self._exchanges[exchange].get_symbols_info()
+        await self._storage.set(exchange, SymbolsInfo, symbols_info)
+        return symbols_info

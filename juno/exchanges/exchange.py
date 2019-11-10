@@ -10,8 +10,10 @@ from juno import (
 
 
 class Exchange(ABC):
-    def __init__(self, depth_ws_snapshot: bool = False) -> None:
-        self.depth_ws_snapshot = depth_ws_snapshot
+    # Capabilities.
+    can_stream_depth_snapshot: bool = False
+    can_stream_historical_candles: bool = True
+    can_stream_candles: bool = True
 
     @abstractmethod
     async def get_symbols_info(self) -> SymbolsInfo:

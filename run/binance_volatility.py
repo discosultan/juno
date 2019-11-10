@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from juno.asyncio import list_async
-from juno.components import Chandler, Informant
+from juno.components import Chandler, Informant, Trades
 from juno.exchanges import Binance
 from juno.math import floor_multiple
 from juno.storages import SQLite
@@ -35,7 +35,8 @@ async def main():
         os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
     )
     sqlite = SQLite()
-    chandler = Chandler(sqlite, [binance])
+    trades = Trades(sqlite, [binance])
+    chandler = Chandler(trades, sqlite, [binance])
     informant = Informant(sqlite, [binance])
     async with binance, chandler, informant:
         symbols = informant.list_symbols(exchange)[:10]

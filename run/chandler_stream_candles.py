@@ -3,7 +3,7 @@ import logging
 import os
 
 from juno import exchanges
-from juno.components import Chandler
+from juno.components import Chandler, Trades
 from juno.logging import create_handlers
 from juno.math import floor_multiple
 from juno.storages import SQLite
@@ -20,7 +20,8 @@ async def main():
         os.environ[f'JUNO__{name}__API_KEY'], os.environ[f'JUNO__{name}__SECRET_KEY']
     )
     name = name.lower()
-    chandler = Chandler(sqlite, [client])
+    trades = Trades(sqlite, [client])
+    chandler = Chandler(trades, sqlite, [client])
     async with client:
         # Should fetch 2 historical and rest future.
         start = floor_multiple(time_ms(), MIN_MS) - 2 * MIN_MS
@@ -30,23 +31,22 @@ async def main():
 
         # Historical.
         candle = await stream.__anext__()
-        logging.info(f'candle1 {candle.time} == {start}')
+        logging.info(f'historical candle 1: {candle}')
         assert candle.closed
         assert candle.time == start
         # Historical.
         candle = await stream.__anext__()
-        logging.info(f'candle2 {candle.time} == {start + 1 * MIN_MS}')
+        logging.info(f'historical candle 2: {candle}')
         assert candle.closed
         assert candle.time == start + 1 * MIN_MS
         # Future.
         candle = await stream.__anext__()
-        logging.info(f'candle3 {candle.time} == {start + 2 * MIN_MS}')
-        assert not candle.closed
+        logging.info(f'future candle 1: {candle}')
         assert candle.time == start + 2 * MIN_MS
 
         await stream.aclose()
         logging.info('all good')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
-asyncio.run(main())
+logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='DEBUG')
+asyncio.run(main(), debug=True)
