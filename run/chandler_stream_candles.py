@@ -9,8 +9,8 @@ from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import HOUR_MS, MIN_MS, time_ms
 
-EXCHANGE_TYPE = exchanges.Kraken
-SYMBOL = 'btc-eur'
+EXCHANGE_TYPE = exchanges.Binance
+SYMBOL = 'eth-btc'
 
 
 async def main():
@@ -49,4 +49,4 @@ async def main():
 
 
 logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='DEBUG')
-asyncio.run(main())
+asyncio.run(main(), debug=True)

@@ -3,6 +3,7 @@ import logging
 import os
 
 from juno import exchanges
+from juno.asyncio import enumerate_async
 from juno.logging import create_handlers
 from juno.time import time_ms, MIN_MS, SEC_MS
 
@@ -17,10 +18,10 @@ async def main():
     ) as client:
         start = time_ms() - MIN_MS
         end = start + MIN_MS + SEC_MS
-        i = 0
-        async for val in client.stream_historical_trades(symbol=SYMBOL, start=start, end=end):
+        async for i, val in enumerate_async(
+            client.stream_historical_trades(symbol=SYMBOL, start=start, end=end)
+        ):
             logging.info(val)
-            i += 1
             if i == 2:
                 break
 

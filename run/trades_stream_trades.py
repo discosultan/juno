@@ -3,6 +3,7 @@ import logging
 import os
 
 from juno import exchanges
+from juno.asyncio import enumerate_async
 from juno.components import Trades
 from juno.logging import create_handlers
 from juno.storages import SQLite
@@ -24,15 +25,14 @@ async def main():
         start = time_ms() - MIN_MS
         end = start + MIN_MS + SEC_MS
         logging.info(f'start {start}')
-        stream = trades.stream_trades(name, SYMBOL, start, end)
 
-        for i in range(0, 2):
-            trade = await stream.__anext__()
+        async for i, trade in enumerate_async(trades.stream_trades(name, SYMBOL, start, end)):
             logging.info(f'trade[{i}]: {trade}')
+            if i == 2:
+                break
 
-        await stream.aclose()
         logging.info('done')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
-asyncio.run(main())
+logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='DEBUG')
+asyncio.run(main(), debug=True)
