@@ -44,7 +44,7 @@ async def test_barrier():
         await barrier.wait()
         event.set()
 
-    _process_event_task = asyncio.create_task(process_event())
+    process_event_task = asyncio.create_task(process_event())
 
     barrier.release()
     await asyncio.sleep(0)
@@ -54,7 +54,7 @@ async def test_barrier():
     await asyncio.sleep(0)
     assert event.is_set()
 
-    assert _process_event_task.done()
+    assert process_event_task.done()
 
 
 async def test_empty_barrier():
