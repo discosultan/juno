@@ -33,7 +33,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 20
+_VERSION = 22
 
 T = TypeVar('T')
 
@@ -241,22 +241,23 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
     raise NotImplementedError(f'Missing conversion for type {type_}')
 
 
-def _load_type_from_string(type_: Type[Any], values: Dict[str, Any]) -> Any:
+def _isnamedtuple(type_: Type[Any]) -> bool:
+    return issubclass(type_, tuple) and bool(getattr(type_, '_fields', False))
+
+
+def _load_type_from_string(type_: Type[Any], values: Union[Dict[str, Any], tuple]) -> Any:
     annotations = get_type_hints(type_)
-    for key, attr_type in annotations.items():
+    for i, (key, attr_type) in enumerate(annotations.items()):
+        index = i if _isnamedtuple(type_) else key
         if get_origin(attr_type) is dict:
             sub_type = get_args(attr_type)[1]
-            sub = values[key]
+            sub = values[index]  # type: ignore
             for dk, dv in sub.items():
                 sub[dk] = _load_type_from_string(sub_type, dv)
         elif _isnamedtuple(attr_type):
             # Materialize it.
-            values[key] = _load_type_from_string(attr_type, values[key])
-    return type_(**values)
-
-
-def _isnamedtuple(type_: Type[Any]) -> bool:
-    return issubclass(type_, tuple) and bool(getattr(type_, '_fields', False))
+            values[index] = _load_type_from_string(attr_type, values[index])  # type: ignore
+    return type_(*values) if _isnamedtuple(type_) else type_(**values)
 
 
 class Bag:

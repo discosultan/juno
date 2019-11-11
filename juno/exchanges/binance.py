@@ -80,8 +80,9 @@ class Binance(Exchange):
             self._api_request('GET', '/api/v3/exchangeInfo'),
         )
         fees = {
-            _from_symbol(fee['symbol']): Fees(maker=fee['maker'], taker=fee['taker'])
-            for fee in fees_res['tradeFee']
+            _from_symbol(fee['symbol']): Fees(
+                maker=Decimal(fee['maker']), taker=Decimal(fee['taker'])
+            ) for fee in fees_res['tradeFee']
         }
         filters = {}
         for symbol in filters_res['symbols']:
@@ -479,7 +480,7 @@ class Binance(Exchange):
             else:
                 if raise_for_status:
                     res.raise_for_status()
-                return await res.json(loads=json.loads)
+                return await res.json(loads=lambda body: json.loads(body, use_decimal=False))
 
     def _connect_refreshing_stream(self, url: str, interval: int, name: str,
                                    **kwargs: Any) -> AsyncContextManager[AsyncIterable[Any]]:
@@ -487,7 +488,7 @@ class Binance(Exchange):
             self._session,
             url=_BASE_WS_URL + url,
             interval=interval,
-            loads=json.loads,
+            loads=lambda body: json.loads(body, use_decimal=False),
             take_until=lambda old, new: old['E'] < new['E'],
             name=name
         )

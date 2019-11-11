@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import NamedTuple
 
 import pytest
 
@@ -10,14 +11,21 @@ class Complex:
         self.value = value
 
 
+class MyNamedTuple(NamedTuple):
+    value: Decimal
+
+
 @pytest.mark.parametrize(
     'input,expected_output', [
-        (Decimal('0.1'), '0.1'),
-        (Complex(Complex('0.1')), '{"value": {"value": "0.1"}}'),
-        ({
-            'value': Decimal('0.1')
-        }, '{"value": "0.1"}'),
+        (Decimal('0.1'), '"0.1"'),
+        (Complex(Complex(Decimal('0.1'))), '{"value": {"value": "0.1"}}'),
+        ({'value': Decimal('0.1')}, '{"value": "0.1"}'),
         ([Decimal('0.1')], '["0.1"]'),
+        (Decimal(0), '"0"'),
+        (MyNamedTuple(value=Decimal(1)), '["1"]'),
+        (Decimal('Infinity'), '"Infinity"'),
+        (Decimal('-Infinity'), '"-Infinity"'),
+        ('foo', '"foo"'),
     ]
 )
 def test_dumps(input, expected_output):
@@ -40,12 +48,16 @@ def test_dumps_complicated():
 
 @pytest.mark.parametrize(
     'input,expected_output', [
-        ('0.1', Decimal('0.1')),
-        ('{"value": "0.1"}', {
-            'value': '0.1'
-        }),
-        ('["0.1"]', ['0.1']),
+        ('"0.1"', Decimal('0.1')),
+        ('{"value": "0.1"}', {'value': Decimal('0.1')}),
+        ('["0.1"]', [Decimal('0.1')]),
+        ('"0"', Decimal(0)),
+        ('"Infinity"', Decimal('Infinity')),
+        ('"-Infinity"', Decimal('-Infinity')),
+        ('"foo"', 'foo'),
     ]
 )
 def test_loads(input, expected_output):
-    assert json.loads(input) == expected_output
+    res = json.loads(input)
+    assert type(res) == type(expected_output)
+    assert res == expected_output

@@ -129,7 +129,8 @@ class Coinbase(Exchange):
                 # currently use Coinbase for paper or live trading, we simply throw an exception.
                 if None in c:
                     raise Exception(f'missing data for candle {c}; please re-run the command')
-                yield Candle(c[0] * 1000, c[3], c[2], c[1], c[4], c[5], True)
+                yield Candle(c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]),
+                             Decimal(c[4]), Decimal(c[5]), True)
 
     # TODO: First candle can be partial.
     @asynccontextmanager
@@ -255,7 +256,7 @@ class Coinbase(Exchange):
             for _ in range(0, self._stream_subscription_queue.qsize()):
                 await ws.send_json(self._stream_subscription_queue.get_nowait())
             async for msg in ws:
-                data = json.loads(msg.data)
+                data = json.loads(msg.data, use_decimal=False)
                 if data['type'] == 'subscriptions':
                     self._stream_subscriptions = {
                         c['name']: [s.lower() for s in c['product_ids']]
@@ -272,7 +273,7 @@ class Coinbase(Exchange):
             if page_after is not None:
                 data['after'] = page_after
             async with self._session.request(method, url, params=data) as res:
-                yield await res.json(loads=json.loads)
+                yield await res.json(loads=lambda body: json.loads(body, use_decimal=False))
                 page_after = res.headers.get('CB-AFTER')
                 if page_after is None:
                     break
@@ -295,7 +296,7 @@ class Coinbase(Exchange):
         }
         url = _BASE_REST_URL + url
         async with self._session.request(method, url, headers=headers, data=body) as res:
-            return await res.json(loads=json.loads)
+            return await res.json(loads=lambda body: json.loads(body, use_decimal=False))
 
 
 def _product(symbol: str) -> str:

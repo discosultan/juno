@@ -7,7 +7,7 @@ from juno import Candle, Fees, Filters, SymbolsInfo, Trade
 from juno.asyncio import list_async
 from juno.storages import Memory
 
-from .utils import new_candle
+from .utils import new_candle, types_match
 
 DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal('0.1234567890123456789012345678901234567890123456789')
 
@@ -58,6 +58,7 @@ async def test_memory_set_get(loop, memory, item):
     out_item, _ = await memory.get(key='key', type_=item_type)
 
     assert out_item == item
+    assert types_match(out_item)
 
 
 async def test_memory_set_get_map(loop, memory):
