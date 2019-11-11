@@ -78,7 +78,10 @@ class Kraken(Exchange):
             # TODO: Take into account different fee levels. Currently only worst level.
             taker_fee = val['fees'][0][1]
             maker_fees = val.get('fees_maker')
-            fees[name] = Fees(maker=maker_fees[0][1] if maker_fees else taker_fee, taker=taker_fee)
+            fees[name] = Fees(
+                maker=Decimal(maker_fees[0][1]) if maker_fees else Decimal(taker_fee),
+                taker=Decimal(taker_fee)
+            )
             filters[name] = Filters(
                 base_precision=val['lot_decimals'],
                 quote_precision=val['pair_decimals'],
@@ -278,7 +281,7 @@ class Kraken(Exchange):
         kwargs['params' if method == 'GET' else 'data'] = data
 
         async with self._session.request(**kwargs) as res:
-            result = await res.json(loads=json.loads)
+            result = await res.json(loads=lambda body: json.loads(body, use_decimal=False))
             errors = result['error']
             if len(errors) > 0:
                 raise Exception(errors)
@@ -362,7 +365,7 @@ class KrakenPublicTopic:
     async def _stream_messages(self) -> None:
         assert self.ws
         async for msg in self.ws:
-            data = json.loads(msg.data)
+            data = json.loads(msg.data, use_decimal=False)
             self._process_message(data)
 
     def _process_message(self, data: Any) -> None:
