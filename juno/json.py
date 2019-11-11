@@ -89,7 +89,7 @@ def dumps(obj: Any, indent: Optional[int] = None, use_decimal=True) -> str:
 
 
 def load(fp: IO, use_decimal: bool = True) -> Any:
-    res = json.load(fp, use_decimal=True)
+    res = json.load(fp, use_decimal=use_decimal)
     res = _prepare_load(res, use_decimal=use_decimal)
     return res
 
