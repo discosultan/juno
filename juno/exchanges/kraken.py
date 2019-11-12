@@ -205,34 +205,15 @@ class Kraken(Exchange):
             result = res['result']
             since = result['last']
             _, trades = next(iter(result.items()))
-
-            # Aggregate trades at the same time.
-            indices: Dict[int, int] = {}
-            transformed_trades: List[Trade] = []
             for trade in trades:
                 time = _from_time(trade[2])
                 if time >= end:
                     break
-                price = Decimal(trade[0])
-                size = Decimal(trade[1])
-                i = indices.get(time)
-                if i is not None:
-                    existing_trade = transformed_trades[i]
-                    transformed_trades[i] = Trade(
-                        time=time,
-                        price=existing_trade.price + price,
-                        size=existing_trade.size + size,
-                    )
-                else:
-                    transformed_trades.append(Trade(
-                        time=time,
-                        price=price,
-                        size=size,
-                    ))
-                    indices[time] = len(transformed_trades) - 1
-
-            for trade in transformed_trades:
-                yield trade
+                yield Trade(
+                    time=time,
+                    price=Decimal(trade[0]),
+                    size=Decimal(trade[1]),
+                )
 
     @asynccontextmanager
     async def connect_stream_trades(

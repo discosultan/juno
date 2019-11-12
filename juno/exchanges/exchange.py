@@ -77,7 +77,6 @@ class Exchange(ABC):
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
-        # Aggregated trades.
         yield  # type: ignore
 
     @asynccontextmanager
