@@ -13,12 +13,12 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict,
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
-    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, SymbolsInfo, TimeInForce
+    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, SymbolsInfo, TimeInForce, Trade
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, connect_refreshing_stream
-from juno.time import HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
+from juno.time import HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, page
 
@@ -362,6 +362,33 @@ class Binance(Exchange):
             name='candles'
         ) as ws:
             yield inner(ws)
+
+    async def stream_historical_trades(
+        self, symbol: str, start: int, end: int
+    ) -> AsyncIterable[Trade]:
+        batch_start = start
+        payload: Dict[str, Any] = {
+            'symbol': _http_symbol(symbol),
+        }
+        while True:
+            batch_end = batch_start + HOUR_MS
+            payload['startTime'] = batch_start
+            payload['endTime'] = batch_end - 1  # Inclusive.
+
+            time = None
+
+            trades = await self._api_request('GET', '/api/v3/aggTrades', data=payload)
+            for t in trades:
+                time = t['T']
+                assert time < end
+                yield Trade(
+                    time=time,
+                    price=Decimal(t['p']),
+                    size=Decimal(t['q']),
+                )
+            batch_start = time + 1 if time is not None else batch_end
+            if batch_start >= end:
+                break
 
     async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
         try:
