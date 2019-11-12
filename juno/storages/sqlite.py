@@ -218,7 +218,6 @@ async def _create_table(db: Any, type_: Type[Any], name: str) -> None:
             if c == 'index':
                 await db.execute(f'CREATE INDEX IF NOT EXISTS {name}Index ON {name}({n})')
             elif c == 'unique':
-                _log.critical("CREATING UNIQUE")
                 await db.execute(
                     f'CREATE UNIQUE INDEX IF NOT EXISTS {name}UniqueIndex ON {name}({n})'
                 )
