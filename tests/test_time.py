@@ -36,3 +36,7 @@ def test_strfinterval(input, expected_output):
 def test_strpinterval(input, expected_output):
     output = time.strpinterval(input)
     assert output == expected_output
+
+
+def test_strptimestamp():
+    assert time.strptimestamp('2019-01-01') == 1546300800000

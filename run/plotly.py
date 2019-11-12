@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-from datetime import datetime
 
 import plotly.graph_objs as go
 import plotly.offline as py
@@ -9,7 +8,7 @@ from juno.asyncio import list_async
 from juno.components import Chandler, Trades
 from juno.exchanges import Binance
 from juno.storages import SQLite
-from juno.time import HOUR_MS, UTC, datetime_timestamp_ms, datetime_utcfromtimestamp_ms
+from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strpinterval
 
 
 async def main():
@@ -23,9 +22,11 @@ async def main():
     async with binance, chandler:
         candles = await list_async(
             chandler.stream_candles(
-                'binance', 'eth-btc', HOUR_MS,
-                datetime_timestamp_ms(datetime(2017, 1, 1, tzinfo=UTC)),
-                datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
+                exchange='binance',
+                symbol='eth-btc',
+                interval=HOUR_MS,
+                start=strpinterval('2017-01-01'),
+                end=strpinterval('2018-01-01'),
             )
         )
 

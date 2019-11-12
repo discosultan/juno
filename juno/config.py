@@ -5,10 +5,8 @@ import sys
 from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
-from dateutil.parser import isoparse  # type: ignore
-
 import juno.json as json
-from juno.time import UTC, datetime_timestamp_ms, strpinterval
+from juno.time import strpinterval, strptimestamp
 from juno.typing import filter_member_args
 from juno.utils import map_module_types, recursive_iter
 
@@ -54,13 +52,7 @@ def transform(value: Any) -> Any:
         elif re.match(r'\d+(ms|s|m|h|d|w|M|y)', value):  # Interval
             return strpinterval(value)
         elif re.match(r'\d+-\d+-\d+', value):  # Timestamp
-            # Naive is handled as UTC.
-            dt = isoparse(value)
-            if dt.tzinfo:
-                dt = dt.astimezone(UTC)
-            else:
-                dt = dt.replace(tzinfo=UTC)
-            return datetime_timestamp_ms(dt)
+            return strptimestamp(value)
     return value
 
 

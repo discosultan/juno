@@ -1,5 +1,4 @@
 from contextlib import asynccontextmanager
-from datetime import datetime
 from decimal import Decimal
 from typing import Dict
 
@@ -9,7 +8,7 @@ import pytest
 from juno import Balance, OrderType, Side
 from juno.config import load_instance
 from juno.exchanges import Binance, Coinbase, Kraken
-from juno.time import HOUR_MS, UTC, datetime_timestamp_ms
+from juno.time import HOUR_MS, strptimestamp
 
 from .utils import types_match
 
@@ -87,7 +86,8 @@ async def test_get_balances(loop, request, exchange):
 async def test_stream_historical_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Kraken)
-    start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
+    start = strptimestamp('2018-01-01')
+
     stream = exchange.stream_historical_candles(
         symbol='eth-btc', interval=HOUR_MS, start=start, end=start + HOUR_MS
     )
@@ -157,7 +157,7 @@ async def test_place_order(loop, request, exchange):
 async def test_stream_historical_trades(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Coinbase)
-    start = datetime_timestamp_ms(datetime(2018, 1, 1, tzinfo=UTC))
+    start = strptimestamp('2018-01-01')
 
     stream = exchange.stream_historical_trades(
         symbol='eth-btc', start=start, end=start + HOUR_MS

@@ -1,6 +1,7 @@
 from datetime import datetime
 from time import time
 
+from dateutil.parser import isoparse
 from dateutil.tz import UTC
 
 SEC_MS = 1000
@@ -64,3 +65,13 @@ def strpinterval(interval: str) -> int:
 
 def strfspan(start: int, end: int) -> str:
     return f'{datetime_utcfromtimestamp_ms(start)} - {datetime_utcfromtimestamp_ms(end)}'
+
+
+def strptimestamp(timestamp: str) -> int:
+    # Naive is handled as UTC.
+    dt = isoparse(timestamp)
+    if dt.tzinfo:
+        dt = dt.astimezone(UTC)
+    else:
+        dt = dt.replace(tzinfo=UTC)
+    return datetime_timestamp_ms(dt)
