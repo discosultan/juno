@@ -51,7 +51,7 @@ class Coinbase(Exchange):
         self._priv_limiter = LeakyBucket(rate=5, period=1)  # They advertise 5 per sec.
 
         # Stream.
-        self._stream_task = None
+        self._stream_task: Optional[asyncio.Task] = None
         self._stream_subscriptions: Dict[str, List[str]] = {}
         self._stream_subscription_queue: asyncio.Queue[Any] = asyncio.Queue()
         # TODO: Most probably require `autoclear=True`.
@@ -247,11 +247,11 @@ class Coinbase(Exchange):
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         raise NotImplementedError()
 
-    def _ensure_stream_open(self):
+    def _ensure_stream_open(self) -> None:
         if not self._stream_task:
             self._stream_task = asyncio.create_task(cancelable(self._stream()))
 
-    async def _stream(self):
+    async def _stream(self) -> None:
         async with self._session.ws_connect(_BASE_WS_URL) as ws:
             for _ in range(0, self._stream_subscription_queue.qsize()):
                 await ws.send_json(self._stream_subscription_queue.get_nowait())
@@ -265,7 +265,9 @@ class Coinbase(Exchange):
                 else:
                     self._stream_consumer_events[data['type']].set(data)
 
-    async def _paginated_public_request(self, method, url, data={}):
+    async def _paginated_public_request(
+        self, method: str, url: str, data: Dict[str, Any] = {}
+    ) -> AsyncIterable[Any]:
         url = _BASE_REST_URL + url
         page_after = None
         while True:
@@ -278,14 +280,14 @@ class Coinbase(Exchange):
                 if page_after is None:
                     break
 
-    async def _public_request(self, method, url, data={}):
+    async def _public_request(self, method: str, url: str, data: Dict[str, Any] = {}) -> Any:
         async for val in self._paginated_public_request(method, url, data):
             return val  # Return only first.
 
-    async def _private_request(self, method, url, body=''):
+    async def _private_request(self, method: str, url: str, data: str = '') -> Any:
         await self._priv_limiter.acquire()
         timestamp = str(time())
-        message = (timestamp + method + url + body).encode('ascii')
+        message = (timestamp + method + url + data).encode('ascii')
         signature_hash = hmac.new(self._secret_key_bytes, message, hashlib.sha256).digest()
         signature = base64.b64encode(signature_hash).decode('ascii')
         headers = {
@@ -295,7 +297,7 @@ class Coinbase(Exchange):
             'CB-ACCESS-PASSPHRASE': self._passphrase
         }
         url = _BASE_REST_URL + url
-        async with self._session.request(method, url, headers=headers, data=body) as res:
+        async with self._session.request(method, url, headers=headers, data=data) as res:
             return await res.json(loads=lambda body: json.loads(body, use_decimal=False))
 
 
