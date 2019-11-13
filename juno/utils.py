@@ -10,9 +10,10 @@ from os import path
 from pathlib import Path
 from time import time
 from types import ModuleType
-from typing import (
+# TODO: Fix in 3.8.1
+from typing import (  # type: ignore
     Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, Type,
-    TypeVar, Union, get_type_hints
+    TypeVar, Union, get_origin, get_type_hints
 )
 
 import juno.json as json
@@ -166,6 +167,10 @@ def chunks(l: str, n: int) -> Iterable[str]:
 
 
 def format_attrs_as_json(obj: Any) -> str:
+    return json.dumps(_get_attrs(obj), indent=4)
+
+
+def _get_attrs(obj: Any) -> Dict[str, Any]:
     output = {}
     type_ = type(obj)
 
@@ -182,10 +187,18 @@ def format_attrs_as_json(obj: Any) -> str:
         prop_type = get_type_hints(prop.fget)['return']
         output[name] = _get_transform(prop_type)(prop.fget(obj))
 
-    return json.dumps(output, indent=4)
+    return output
 
 
 def _get_transform(type_: Type[Any]) -> Callable[[Any], Any]:
+    type_ = get_origin(type_) or type_
+    if issubclass(type_, dict):
+        return lambda v: v
+
+    # NamedTuple.
+    if issubclass(type_, tuple) and get_type_hints(type_):
+        return _get_attrs
+
     return {
         Interval: strfinterval,
         Timestamp: lambda v: str(datetime_utcfromtimestamp_ms(v))

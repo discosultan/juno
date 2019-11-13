@@ -106,7 +106,7 @@ class Exchange(exchanges.Exchange):
 
     async def place_order(self, *args, **kwargs):
         await asyncio.sleep(0)
-        # TODO: We are ignore *args
+        # TODO: We are ignoring *args
         self.place_order_calls.append({**kwargs})
         return self.place_order_result
 

@@ -8,7 +8,7 @@ import platform
 import shutil
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable, Type
+from typing import Any, Callable, Type, get_type_hints
 
 import cffi
 
@@ -141,13 +141,7 @@ class Rust(Solver):
                 trailing_stop,
                 *meta.get_non_identifier_args(args),
             )
-            return SolverResult(
-                result.profit,
-                result.mean_drawdown,
-                result.max_drawdown,
-                result.mean_position_profit,
-                result.mean_position_duration,
-            )
+            return SolverResult.from_object(result)
 
         return backtest
 
@@ -193,15 +187,21 @@ typedef struct {{
     Size size;
 }} Filters;
 
-typedef struct {{
-    double profit;
-    double mean_drawdown;
-    double max_drawdown;
-    double mean_position_profit;
-    uint64_t mean_position_duration;
-}} BacktestResult;
+{_build_backtest_result()}
 
 {_build_function_permutations(meta, custom_params)}
+    '''
+
+
+def _build_backtest_result() -> str:
+    fields = "\n    ".join(
+        (f"{_map_type(v, prefer_int64=True)} {k};" for k, v
+         in get_type_hints(SolverResult).items())
+    )
+    return f'''
+typedef struct {{
+    {fields}
+}} BacktestResult;
     '''
 
 
@@ -234,9 +234,9 @@ BacktestResult {meta.identifier.format(**format_args)}(
     return '\n'.join(templates)
 
 
-def _map_type(type_: type) -> str:
+def _map_type(type_: type, prefer_int64: bool = False) -> str:
     result = {
-        int: 'uint32_t',
+        int: 'uint64_t' if prefer_int64 else 'uint32_t',
         float: 'double',
         Decimal: 'double',
     }.get(type_)

@@ -68,6 +68,9 @@ pub struct TradingSummary<'a> {
     pub drawdowns: Vec<f64>,
     pub max_drawdown: f64,
     pub mean_drawdown: f64,
+    pub num_positions: u64,
+    pub num_positions_in_profit: u64,
+    pub num_positions_in_loss: u64,
 }
 
 impl<'a> TradingSummary<'a> {
@@ -89,6 +92,9 @@ impl<'a> TradingSummary<'a> {
             drawdowns: Vec::new(),
             max_drawdown: 0.0,
             mean_drawdown: 0.0,
+            num_positions: 0,
+            num_positions_in_profit: 0,
+            num_positions_in_loss: 0,
         }
     }
 
@@ -104,7 +110,39 @@ impl<'a> TradingSummary<'a> {
     }
 
     pub fn calculate(&mut self) {
-        self.profit = self.positions.iter().map(|p| p.profit).sum();
+        let mut quote = self.cost;
+        let mut max_quote = quote;
+        self.max_drawdown = 0.0;
+        self.drawdowns.resize(self.positions.len() + 1, 0.0);
+        self.drawdowns[0] = 0.0;
+
+        for (i, pos) in self.positions.iter().enumerate() {
+            self.profit += pos.profit;
+
+            if pos.profit >= 0.0 {
+                self.num_positions_in_profit += 1;
+            } else {
+                self.num_positions_in_loss += 1;
+            }
+
+            self.mean_position_profit += pos.profit;
+            self.mean_position_duration += pos.duration;
+
+            quote += pos.profit;
+            max_quote = f64::max(max_quote, quote);
+            let drawdown = 1.0 - quote / max_quote;
+            self.drawdowns[i + 1] = drawdown;
+            self.mean_drawdown += drawdown;
+            self.max_drawdown = f64::max(self.max_drawdown, drawdown);
+        }
+
+        self.num_positions = self.positions.len() as u64;
+        if self.num_positions > 0 {
+            self.mean_position_profit /= self.num_positions as f64;
+            self.mean_position_duration /= self.num_positions;
+            self.mean_drawdown /= self.drawdowns.len() as f64;
+        }
+
         self.gain = self.cost + self.profit;
         self.roi = self.profit / self.cost;
 
@@ -114,31 +152,6 @@ impl<'a> TradingSummary<'a> {
             self.annualized_roi = 0.0;
         } else {
             self.annualized_roi = (1.0 + self.roi).powf(1.0 / n) - 1.0;
-        }
-
-        let pos_len = self.positions.len();
-        if pos_len > 0 {
-            self.mean_position_profit =
-                self.positions.iter().map(|p| p.profit).sum::<f64>() / pos_len as f64;
-            self.mean_position_duration =
-                self.positions.iter().map(|p| p.duration).sum::<u64>() / pos_len as u64;
-
-            // Drawdowns.
-            let mut quote = self.cost;
-            let mut max_quote = quote;
-            self.max_drawdown = 0.0;
-            let mut sum_drawdown = 0.0;
-            self.drawdowns.resize(pos_len + 1, 0.0);
-            self.drawdowns[0] = 0.0;
-            for (i, pos) in self.positions.iter().enumerate() {
-                quote += pos.profit;
-                max_quote = f64::max(max_quote, quote);
-                let drawdown = 1.0 - quote / max_quote;
-                self.drawdowns[i + 1] = drawdown;
-                sum_drawdown += drawdown;
-                self.max_drawdown = f64::max(self.max_drawdown, drawdown);
-            }
-            self.mean_drawdown = sum_drawdown / self.drawdowns.len() as f64;
         }
     }
 }

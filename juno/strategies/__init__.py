@@ -19,7 +19,6 @@ _strategies = {
 }
 
 
-# TODO: use a more generalized approach
 def new_strategy(config: Dict[str, Any]) -> Strategy:
     type_ = config['type']
     strategy_cls = _strategies.get(type_)
