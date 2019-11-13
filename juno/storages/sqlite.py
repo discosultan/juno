@@ -33,7 +33,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 25
+_VERSION = 26
 
 T = TypeVar('T')
 
@@ -281,7 +281,20 @@ class Bag:
     value: str
     time: int
 
+    @staticmethod
+    def meta() -> Dict[str, str]:
+        return {
+            'key': 'unique',
+        }
+
 
 class Span:
     start: int
     end: int
+
+    @staticmethod
+    def meta() -> Dict[str, str]:
+        return {
+            'start': 'unique',
+            'end': 'unique',
+        }

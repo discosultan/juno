@@ -54,7 +54,7 @@ class Candle(NamedTuple):
     @staticmethod
     def meta() -> Dict[str, str]:
         return {
-            'time': 'unique'
+            'time': 'unique',
         }
 
 
@@ -183,7 +183,7 @@ class Trade(NamedTuple):
     @staticmethod
     def meta() -> Dict[str, str]:
         return {
-            'time': 'index'
+            'time': 'index',
         }
 
 
