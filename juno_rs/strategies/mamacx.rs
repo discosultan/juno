@@ -55,6 +55,6 @@ impl<TShort: MA, TLong: MA> Strategy for MAMACX<TShort, TLong> {
 
         self.t = min(self.t + 1, self.t1);
 
-        return advice(self.persistence.update(trend));
+        advice(self.persistence.update(trend))
     }
 }

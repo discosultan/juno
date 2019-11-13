@@ -5,7 +5,6 @@ from decimal import Decimal
 from typing import Any, Callable, NamedTuple, Type
 
 from juno.strategies import Strategy
-from juno.time import strfinterval
 from juno.trading import TradingSummary
 
 
@@ -30,14 +29,8 @@ class SolverResult(NamedTuple):
     max_drawdown: float
     mean_position_profit: float
     mean_position_duration: int
-
-    def __repr__(self) -> str:
-        return (
-            f'{type(self).__name__}(profit={self.profit}, mean_drawdown={self.mean_drawdown:.1%}, '
-            f'max_drawdown={self.max_drawdown:.1%}, '
-            f'mean_position_profit={self.mean_position_profit}, '
-            f'mean_position_duration={strfinterval(self.mean_position_duration)})'
-        )
+    num_positions_in_profit: int
+    num_positions_in_loss: int
 
     @staticmethod
     def from_trading_summary(summary: TradingSummary) -> SolverResult:
@@ -47,4 +40,6 @@ class SolverResult(NamedTuple):
             float(summary.max_drawdown),
             float(summary.mean_position_profit),
             summary.mean_position_duration,
+            summary.num_positions_in_profit,
+            summary.num_positions_in_loss,
         )

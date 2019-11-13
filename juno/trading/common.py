@@ -154,15 +154,15 @@ class TradingSummary:
         return Interval(self.end - self.start if self.end > 0 else 0)
 
     @property
-    def positions_taken(self) -> int:
+    def num_positions(self) -> int:
         return len(self.positions)
 
     @property
-    def positions_taken_in_profit(self) -> int:
+    def num_positions_in_profit(self) -> int:
         return sum((1 for p in self.positions if p.profit >= 0))
 
     @property
-    def positions_taken_in_loss(self) -> int:
+    def num_positions_in_loss(self) -> int:
         return sum((1 for p in self.positions if p.profit < 0))
 
     @property

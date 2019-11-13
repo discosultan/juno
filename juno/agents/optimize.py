@@ -18,7 +18,7 @@ from juno.strategies import Strategy, get_strategy_type, new_strategy
 from juno.time import strfinterval, time_ms
 from juno.trading import TradingLoop
 from juno.typing import get_input_type_hints
-from juno.utils import flatten
+from juno.utils import flatten, format_attrs_as_json
 
 from . import Agent
 
@@ -82,7 +82,9 @@ class Optimize(Agent):
         #   - min max drawdown
         #   - max mean position profit
         #   - min mean position duration
-        weights = (1.0, -1.0, -1.0, 1.0, -1.0)
+        #   - max positions taken in profit
+        #   - min positions taken in loss
+        weights = (1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0)
         creator.create('FitnessMulti', base.Fitness, weights=weights)
         creator.create('Individual', list, fitness=creator.FitnessMulti)
 
@@ -220,7 +222,8 @@ class Optimize(Agent):
         if not _isclose(validation_result, best_result):
             raise Exception(
                 f'Optimizer results differ for input {self.result} between trading loop and '
-                f'{solver_name} solver:\n{validation_result}\n{best_result}'
+                f'{solver_name} solver:\n{format_attrs_as_json(validation_result)}'
+                f'\n{format_attrs_as_json(best_result)}'
             )
 
 
@@ -228,7 +231,7 @@ class OptimizationResult(NamedTuple):
     restart_on_missed_candle: bool
     trailing_stop: Decimal
     strategy_config: Dict[str, Any]
-    result: Dict[str, Any]
+    result: Dict[str, Any]  # TODO: OPTIMIZER format with keys; currently list instead
 
 
 def _output_as_strategy_config(strategy_type: Type[Strategy],

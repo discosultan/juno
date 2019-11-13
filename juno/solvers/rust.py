@@ -141,12 +141,15 @@ class Rust(Solver):
                 trailing_stop,
                 *meta.get_non_identifier_args(args),
             )
+            # TODO: OPTIMIZER Dynamically
             return SolverResult(
                 result.profit,
                 result.mean_drawdown,
                 result.max_drawdown,
                 result.mean_position_profit,
                 result.mean_position_duration,
+                result.num_positions_in_profit,
+                result.num_positions_in_loss,
             )
 
         return backtest
@@ -159,6 +162,7 @@ def _build_cdef(strategy_type: Type[Strategy]) -> str:
         (f'{_map_type(v)} {k}' for k, v in type_hints.items() if k in meta.non_identifier_params)
     )
 
+    # TODO: OPTIMIZER BacktestResult dynamically from SolverResult.
     return f'''
 typedef struct {{
     uint64_t time;
@@ -199,6 +203,8 @@ typedef struct {{
     double max_drawdown;
     double mean_position_profit;
     uint64_t mean_position_duration;
+    uint64_t num_positions_in_profit;
+    uint64_t num_positions_in_loss;
 }} BacktestResult;
 
 {_build_function_permutations(meta, custom_params)}
