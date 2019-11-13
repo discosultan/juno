@@ -153,7 +153,6 @@ def _build_cdef(strategy_type: Type[Strategy]) -> str:
         (f'{_map_type(v)} {k}' for k, v in type_hints.items() if k in meta.non_identifier_params)
     )
 
-    # TODO: OPTIMIZER BacktestResult dynamically from SolverResult.
     return f'''
 typedef struct {{
     uint64_t time;
