@@ -185,24 +185,29 @@ def _get_attrs(obj: Any) -> Dict[str, Any]:
     props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
     for name, prop in props:
         prop_type = get_type_hints(prop.fget)['return']
+        print(name)
         output[name] = _get_transform(prop_type)(prop.fget(obj))
 
     return output
 
 
 def _get_transform(type_: Type[Any]) -> Callable[[Any], Any]:
-    type_ = get_origin(type_) or type_
-    if issubclass(type_, dict):
+    # NewTypes.
+    if type_ is Interval:
+        return strfinterval
+    if type_ is Timestamp:
+        return lambda v: str(datetime_utcfromtimestamp_ms(v))
+
+    # Dict.
+    origin = get_origin(type_)
+    if origin and issubclass(origin, dict):
         return lambda v: v
 
     # NamedTuple.
     if issubclass(type_, tuple) and get_type_hints(type_):
         return _get_attrs
 
-    return {
-        Interval: strfinterval,
-        Timestamp: lambda v: str(datetime_utcfromtimestamp_ms(v))
-    }.get(type_, lambda v: v)
+    return lambda v: v
 
 
 def _isprop(v: object) -> bool:
