@@ -231,7 +231,7 @@ class OptimizationResult(NamedTuple):
     restart_on_missed_candle: bool
     trailing_stop: Decimal
     strategy_config: Dict[str, Any]
-    result: Dict[str, Any]  # TODO: OPTIMIZER format with keys; currently list instead
+    result: SolverResult
 
 
 def _output_as_strategy_config(strategy_type: Type[Strategy],

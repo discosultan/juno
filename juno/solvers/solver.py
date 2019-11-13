@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Callable, NamedTuple, Type
+from typing import Any, Callable, NamedTuple, Type, get_type_hints
 
 from juno.strategies import Strategy
 from juno.trading import TradingSummary
@@ -43,3 +43,12 @@ class SolverResult(NamedTuple):
             summary.num_positions_in_profit,
             summary.num_positions_in_loss,
         )
+
+    @staticmethod
+    def from_object(obj: Any) -> SolverResult:
+        return SolverResult(
+            *(getattr(obj, k) for k in _SOLVER_RESULT_KEYS)
+        )
+
+
+_SOLVER_RESULT_KEYS = list(get_type_hints(SolverResult).keys())
