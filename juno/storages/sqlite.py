@@ -33,7 +33,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 22
+_VERSION = 26
 
 T = TypeVar('T')
 
@@ -203,12 +203,28 @@ async def _create_table(db: Any, type_: Type[Any], name: str) -> None:
     annotations = get_type_hints(type_)
     col_names = list(annotations.keys())
     col_types = [_type_to_sql_type(t) for t in annotations.values()]
+
+    # Create table.
     cols = []
-    for i in range(0, len(col_names)):
-        col_constrain = 'PRIMARY KEY' if i == 0 else 'NOT NULL'
-        cols.append(f'{col_names[i]} {col_types[i]} {col_constrain}')
+    for col_name, col_type in zip(col_names, col_types):
+        cols.append(f'{col_name} {col_type} NOT NULL')
     await db.execute(f'CREATE TABLE IF NOT EXISTS {name} ({", ".join(cols)})')
 
+    # Add indices.
+    meta_getter = getattr(type_, 'meta', None)
+    meta = meta_getter() if meta_getter else None
+    if meta:
+        for n, c in meta.items():
+            if c == 'index':
+                await db.execute(f'CREATE INDEX IF NOT EXISTS {name}Index ON {name}({n})')
+            elif c == 'unique':
+                await db.execute(
+                    f'CREATE UNIQUE INDEX IF NOT EXISTS {name}UniqueIndex ON {name}({n})'
+                )
+            else:
+                raise NotImplementedError()
+
+    # Create debug views.
     # TODO: Use typing instead based on NewType()?
     VIEW_COL_NAMES = ['time', 'start', 'end']
     if any((n for n in col_names if n in VIEW_COL_NAMES)):
@@ -265,7 +281,20 @@ class Bag:
     value: str
     time: int
 
+    @staticmethod
+    def meta() -> Dict[str, str]:
+        return {
+            'key': 'unique',
+        }
+
 
 class Span:
     start: int
     end: int
+
+    @staticmethod
+    def meta() -> Dict[str, str]:
+        return {
+            'start': 'unique',
+            'end': 'unique',
+        }

@@ -51,6 +51,12 @@ class Candle(NamedTuple):
             f'volume={self.volume}, closed={self.closed})'
         )
 
+    @staticmethod
+    def meta() -> Dict[str, str]:
+        return {
+            'time': 'unique',
+        }
+
 
 class DepthSnapshot(NamedTuple):
     bids: List[Tuple[Decimal, Decimal]] = []
@@ -170,9 +176,15 @@ class TimeInForce(Enum):
 
 
 class Trade(NamedTuple):
-    time: int  # TODO: Do any of the exchanges have 2+ trades at the same time?
+    time: int  # Can have multiple trades at same time.
     price: Decimal
     size: Decimal
+
+    @staticmethod
+    def meta() -> Dict[str, str]:
+        return {
+            'time': 'index',
+        }
 
 
 class Trend(Enum):

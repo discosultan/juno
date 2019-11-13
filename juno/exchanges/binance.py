@@ -366,6 +366,8 @@ class Binance(Exchange):
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
+        # Aggregated trades. This means trades executed at the same time, same price and as part of
+        # the same order will be aggregated by summing their size.
         batch_start = start
         payload: Dict[str, Any] = {
             'symbol': _http_symbol(symbol),
