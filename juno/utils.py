@@ -185,7 +185,6 @@ def _get_attrs(obj: Any) -> Dict[str, Any]:
     props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
     for name, prop in props:
         prop_type = get_type_hints(prop.fget)['return']
-        print(name)
         output[name] = _get_transform(prop_type)(prop.fget(obj))
 
     return output

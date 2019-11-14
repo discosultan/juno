@@ -95,6 +95,7 @@ async def test_stream_trades(memory, start, end, efrom, eto, espans):
     ]
     future_trades = [
         Trade(time=6, price=Decimal(1), size=Decimal(1)),
+        Trade(time=7, price=Decimal(1), size=Decimal(1)),
     ]
     expected_trades = (historical_trades + future_trades)[efrom:eto]
     time = fakes.Time(CURRENT)

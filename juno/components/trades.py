@@ -63,6 +63,7 @@ class Trades:
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
+        add_back: List[Trade] = []
         batch = []
         batch_start = start
         current = self._get_time()
@@ -72,7 +73,19 @@ class Trades:
                 exchange=exchange, symbol=symbol, start=start, end=end, current=current
             ):
                 batch.append(trade)
-                if len(batch) == self._storage_batch_size:
+                # We go over limit with +1 because we never take the last trade of the batch
+                # because multiple trades can happen at the same time. We need our time span to be
+                # correct.
+                if len(batch) == self._storage_batch_size + 1:
+                    del add_back[:]
+                    last = batch[-1]
+
+                    for i in range(len(batch) - 1, -1, -1):
+                        if batch[i].time != last.time:
+                            break
+                        add_back.append(batch[i])  # Note we are adding in reverse direction.
+                        del batch[i]
+
                     batch_end = _get_span_end(batch)
                     await self._storage.store_time_series_and_span(
                         key=(exchange, symbol),
@@ -81,8 +94,10 @@ class Trades:
                         start=batch_start,
                         end=batch_end,
                     )
+
                     batch_start = batch_end
                     del batch[:]
+                    batch.extend(add_back)
                 yield trade
         finally:
             if len(batch) > 0:
@@ -108,11 +123,12 @@ class Trades:
                     yield trade
             if stream:  # Future.
                 async for trade in stream:
-                    yield trade
-
-                    # TODO: Assumes no two trade are at the same time.
-                    if trade.time >= end - 1:
+                    # TODO: Can we improve? We may potentially wait for a long time before a trade
+                    # past the end time occurs.
+                    if trade.time >= end:
                         break
+
+                    yield trade
 
         if end > current:
             async with exchange_instance.connect_stream_trades(symbol) as stream:
@@ -124,5 +140,4 @@ class Trades:
 
 
 def _get_span_end(batch: List[Trade]) -> int:
-    # TODO: Also assumes not two trade at same time?
     return batch[-1].time + 1
