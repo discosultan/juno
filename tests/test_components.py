@@ -20,7 +20,8 @@ async def memory(loop):
 
 
 @pytest.mark.parametrize(
-    'start,end,closed,efrom,eto,espans', [
+    'start,end,closed,efrom,eto,espans',
+    [
         [0, 3, True, 0, 2, [(0, 2)]],  # Skips skipped candle at the end.
         [2, 3, True, 0, 0, []],  # Empty if only skipped candle.
         [3, 5, True, 2, 5, [(3, 5)]],  # Filters out closed candle.
@@ -56,7 +57,10 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     )
     trades = Trades(storage=memory, exchanges=[exchange])
     chandler = Chandler(
-        trades=trades, storage=memory, exchanges=[exchange], get_time=time.get_time,
+        trades=trades,
+        storage=memory,
+        exchanges=[exchange],
+        get_time=time.get_time,
         storage_batch_size=STORAGE_BATCH_SIZE
     )
 
@@ -75,7 +79,8 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
 
 
 @pytest.mark.parametrize(
-    'start,end,efrom,eto,espans', [
+    'start,end,efrom,eto,espans',
+    [
         [1, 5, 1, 3, [(1, 5)]],  # Middle trades.
         [2, 4, 0, 0, []],  # Empty if no trades.
         [0, 7, 0, 5, [(0, 2), (2, 6), (6, 7)]],  # Includes future trade.
@@ -104,7 +109,9 @@ async def test_stream_trades(memory, start, end, efrom, eto, espans):
         future_trades=future_trades,
     )
     trades = Trades(
-        storage=memory, exchanges=[exchange], get_time=time.get_time,
+        storage=memory,
+        exchanges=[exchange],
+        get_time=time.get_time,
         storage_batch_size=STORAGE_BATCH_SIZE
     )
 
@@ -141,7 +148,8 @@ async def test_get_fees_filters(memory, exchange_key):
 async def test_list_symbols(memory):
     symbols = ['eth-btc', 'ltc-btc']
     exchange = fakes.Exchange(
-        symbol_info=SymbolsInfo(fees=Fees.none(), filters={s: Filters.none() for s in symbols})
+        symbol_info=SymbolsInfo(fees=Fees.none(), filters={s: Filters.none()
+                                                           for s in symbols})
     )
 
     async with Informant(storage=memory, exchanges=[exchange]) as informant:

@@ -74,8 +74,10 @@ class Informant:
             _log.info(f'local {exchange} symbols info missing; updating by fetching from exchange')
             symbols_info = await self._refetch_symbols(exchange)
         elif now >= updated + DAY_MS:
-            _log.info(f'local {exchange} symbols info out-of-date; updating by fetching from '
-                      'exchange')
+            _log.info(
+                f'local {exchange} symbols info out-of-date; updating by fetching from '
+                'exchange'
+            )
             symbols_info = await self._refetch_symbols(exchange)
         else:
             _log.info(f'updating {exchange} symbols info by fetching from storage')

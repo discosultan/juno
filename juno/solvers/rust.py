@@ -194,10 +194,9 @@ typedef struct {{
 
 
 def _build_backtest_result() -> str:
-    fields = "\n    ".join(
-        (f"{_map_type(v, prefer_int64=True)} {k};" for k, v
-         in get_type_hints(SolverResult).items())
-    )
+    fields = "\n    ".join((
+        f"{_map_type(v, prefer_int64=True)} {k};" for k, v in get_type_hints(SolverResult).items()
+    ))
     return f'''
 typedef struct {{
     {fields}

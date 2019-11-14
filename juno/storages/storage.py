@@ -10,15 +10,13 @@ Key = Union[str, Tuple[Any, ...]]
 
 class Storage(ABC):
     @abstractmethod
-    async def stream_time_series_spans(
-        self, key: Key, type: Type[T], start: int, end: int
-    ) -> AsyncIterable[Tuple[int, int]]:
+    async def stream_time_series_spans(self, key: Key, type: Type[T], start: int,
+                                       end: int) -> AsyncIterable[Tuple[int, int]]:
         yield  # type: ignore
 
     @abstractmethod
-    async def stream_time_series(
-        self, key: Key, type: Type[T], start: int, end: int
-    ) -> AsyncIterable[T]:
+    async def stream_time_series(self, key: Key, type: Type[T], start: int,
+                                 end: int) -> AsyncIterable[T]:
         yield  # type: ignore
 
     @abstractmethod

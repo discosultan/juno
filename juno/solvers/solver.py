@@ -46,9 +46,7 @@ class SolverResult(NamedTuple):
 
     @staticmethod
     def from_object(obj: Any) -> SolverResult:
-        return SolverResult(
-            *(getattr(obj, k) for k in _SOLVER_RESULT_KEYS)
-        )
+        return SolverResult(*(getattr(obj, k) for k in _SOLVER_RESULT_KEYS))
 
 
 _SOLVER_RESULT_KEYS = list(get_type_hints(SolverResult).keys())

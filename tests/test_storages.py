@@ -18,18 +18,20 @@ async def memory(request):
         yield storage
 
 
-@pytest.mark.parametrize('items', [
-    [
-        new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT),
-        new_candle(time=1),
-        new_candle(time=3),
-    ],
-    [
-        Trade(time=0, price=Decimal(1), size=Decimal(2)),
-        Trade(time=3, price=Decimal(4), size=Decimal(5)),
-        Trade(time=6, price=Decimal(7), size=Decimal(8)),
-    ],
-])
+@pytest.mark.parametrize(
+    'items', [
+        [
+            new_candle(time=0, close=DECIMAL_TOO_PRECISE_FOR_FLOAT),
+            new_candle(time=1),
+            new_candle(time=3),
+        ],
+        [
+            Trade(time=0, price=Decimal(1), size=Decimal(2)),
+            Trade(time=3, price=Decimal(4), size=Decimal(5)),
+            Trade(time=6, price=Decimal(7), size=Decimal(8)),
+        ],
+    ]
+)
 async def test_memory_store_objects_and_span(loop, memory, items):
     type_ = type(items[0])
     start = items[0].time

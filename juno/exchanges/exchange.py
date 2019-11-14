@@ -29,16 +29,14 @@ class Exchange(ABC):
         yield  # type: ignore
 
     @abstractmethod
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
+                                        end: int) -> AsyncIterable[Candle]:
         yield  # type: ignore
 
     @abstractmethod
     @asynccontextmanager
-    async def connect_stream_candles(
-        self, symbol: str, interval: int
-    ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str,
+                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
         yield  # type: ignore
 
     async def get_depth(self, symbol: str) -> DepthSnapshot:
@@ -74,13 +72,10 @@ class Exchange(ABC):
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         pass
 
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(self, symbol: str, start: int,
+                                       end: int) -> AsyncIterable[Trade]:
         yield  # type: ignore
 
     @asynccontextmanager
-    async def connect_stream_trades(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Trade]]:
+    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
         yield  # type: ignore

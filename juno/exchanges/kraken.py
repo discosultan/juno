@@ -20,7 +20,7 @@ from juno import (
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
-from juno.time import time_ms, MIN_MS
+from juno.time import MIN_MS, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, unpack_symbol
 
@@ -101,15 +101,13 @@ class Kraken(Exchange):
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
 
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
+                                        end: int) -> AsyncIterable[Candle]:
         yield  # type: ignore
 
     @asynccontextmanager
-    async def connect_stream_candles(
-        self, symbol: str, interval: int
-    ) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(self, symbol: str,
+                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for c in ws:
                 # TODO: Kraken doesn't publish candles for intervals where there are no trades.
@@ -137,9 +135,8 @@ class Kraken(Exchange):
     async def connect_stream_depth(
         self, symbol: str
     ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
-        async def inner(
-            ws: AsyncIterable[Any]
-        ) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
+        async def inner(ws: AsyncIterable[Any]
+                        ) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
             async for val in ws:
                 if 'as' in val or 'bs' in val:
                     bids = val.get('bs', [])
@@ -164,9 +161,7 @@ class Kraken(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
-        async def inner(
-            ws: AsyncIterable[Any]
-        ) -> AsyncIterable[OrderUpdate]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate]:
             async for o in ws:
                 # TODO: map
                 yield o
@@ -191,15 +186,17 @@ class Kraken(Exchange):
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         pass
 
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(self, symbol: str, start: int,
+                                       end: int) -> AsyncIterable[Trade]:
         since = _time(start) - 1  # Exclusive.
         while True:
             res = await self._request_public(
                 'GET',
                 '/0/public/Trades',
-                {'pair': _symbol(symbol), 'since': since},
+                {
+                    'pair': _symbol(symbol),
+                    'since': since
+                },
                 cost=2,
             )
             result = res['result']
@@ -216,9 +213,7 @@ class Kraken(Exchange):
                 )
 
     @asynccontextmanager
-    async def connect_stream_trades(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Trade]]:
+    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for trades in ws:
                 for trade in trades:
@@ -240,7 +235,10 @@ class Kraken(Exchange):
         return self._request(method, url, data, {}, self._reqs_limiter, cost)
 
     def _request_private(
-        self, url: str, data: Optional[Any] = None, cost: int = 1,
+        self,
+        url: str,
+        data: Optional[Any] = None,
+        cost: int = 1,
         limiter: Optional[LeakyBucket] = None
     ):
         if limiter is None:
@@ -317,9 +315,8 @@ class KrakenPublicTopic:
         await self.session.__aexit__(exc_type, exc, tb)
 
     @asynccontextmanager
-    async def subscribe(
-        self, subscription: Any, pairs: Optional[List[str]] = None
-    ) -> AsyncIterator[AsyncIterable[Any]]:
+    async def subscribe(self, subscription: Any,
+                        pairs: Optional[List[str]] = None) -> AsyncIterator[AsyncIterable[Any]]:
         await self._ensure_connection()
 
         reqid = self.reqid
@@ -381,7 +378,7 @@ class KrakenPublicTopic:
             if len(data) > 4:
                 # Consolidate.
                 val: Any = {}
-                for consolidate in data[1:len(data)-2]:
+                for consolidate in data[1:len(data) - 2]:
                     val.update(consolidate)
             else:
                 val = data[1]
@@ -397,10 +394,7 @@ class KrakenPrivateTopic(KrakenPublicTopic):
         self.kraken = kraken
 
     async def _connect(self) -> None:
-        _, token = await asyncio.gather(
-            super()._connect(),
-            self.kraken._get_websockets_token()
-        )
+        _, token = await asyncio.gather(super()._connect(), self.kraken._get_websockets_token())
         self.token = token
 
     async def _send(self, payload: Any) -> None:

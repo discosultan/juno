@@ -4,14 +4,14 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 # TODO: mypy fails to recognise stdlib attributes get_args, get_origin. remove ignore when fixed
-from typing import (  # type: ignore
+from typing import (
     Any,
     AsyncIterable,
     AsyncIterator,
     Dict,
     List,
     Optional,
-    Set,
+    Set,  # type: ignore
     Tuple,
     Type,
     TypeVar,
@@ -60,9 +60,8 @@ class SQLite(Storage):
     def __init__(self) -> None:
         self._tables: Dict[Any, Set[str]] = defaultdict(set)
 
-    async def stream_time_series_spans(
-        self, key: Key, type: Type[T], start: int, end: int
-    ) -> AsyncIterable[Tuple[int, int]]:
+    async def stream_time_series_spans(self, key: Key, type: Type[T], start: int,
+                                       end: int) -> AsyncIterable[Tuple[int, int]]:
         _log.info(
             f'streaming {type.__name__} span(s) between {strfspan(start, end)} from {key} db'
         )
@@ -74,9 +73,8 @@ class SQLite(Storage):
                 async for span_start, span_end in cursor:
                     yield max(span_start, start), min(span_end, end)
 
-    async def stream_time_series(
-        self, key: Key, type: Type[T], start: int, end: int
-    ) -> AsyncIterable[T]:
+    async def stream_time_series(self, key: Key, type: Type[T], start: int,
+                                 end: int) -> AsyncIterable[T]:
         PAGE_SIZE = 1000
         _log.info(f'streaming {type.__name__}(s) between {strfspan(start, end)} from {key} db')
         async with self._connect(key) as db:
@@ -96,8 +94,10 @@ class SQLite(Storage):
         if start > items[0].time:
             raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
         if end <= items[-1].time:
-            raise ValueError(f'Span end {end} smaller than or equal to last item time '
-                             f'{items[-1].time}')
+            raise ValueError(
+                f'Span end {end} smaller than or equal to last item time '
+                f'{items[-1].time}'
+            )
 
         _log.info(
             f'storing {len(items)} {type.__name__}(s) between {strfspan(start, end)} to {key} db'

@@ -80,9 +80,9 @@ class Binance(Exchange):
             self._api_request('GET', '/api/v3/exchangeInfo'),
         )
         fees = {
-            _from_symbol(fee['symbol']): Fees(
-                maker=Decimal(fee['maker']), taker=Decimal(fee['taker'])
-            ) for fee in fees_res['tradeFee']
+            _from_symbol(fee['symbol']):
+            Fees(maker=Decimal(fee['maker']), taker=Decimal(fee['taker']))
+            for fee in fees_res['tradeFee']
         }
         filters = {}
         for symbol in filters_res['symbols']:
@@ -363,9 +363,8 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(self, symbol: str, start: int,
+                                       end: int) -> AsyncIterable[Trade]:
         # Aggregated trades. This means trades executed at the same time, same price and as part of
         # the same order will be aggregated by summing their size.
         batch_start = start

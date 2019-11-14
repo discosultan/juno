@@ -7,7 +7,6 @@ from typing import AsyncIterable, Callable, List, Optional
 
 import backoff
 
-from .trades import Trades
 from juno import Candle
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
@@ -16,13 +15,19 @@ from juno.storages import Storage
 from juno.time import strfinterval, strfspan, time_ms
 from juno.utils import generate_missing_spans, merge_adjacent_spans
 
+from .trades import Trades
+
 _log = logging.getLogger(__name__)
 
 
 class Chandler:
     def __init__(
-        self, trades: Trades, storage: Storage, exchanges: List[Exchange],
-        get_time: Optional[Callable[[], int]] = None, storage_batch_size: int = 1000
+        self,
+        trades: Trades,
+        storage: Storage,
+        exchanges: List[Exchange],
+        get_time: Optional[Callable[[], int]] = None,
+        storage_batch_size: int = 1000
     ) -> None:
         assert storage_batch_size > 0
 
@@ -78,7 +83,11 @@ class Chandler:
 
         try:
             async for candle in self._stream_exchange_candles(
-                exchange=exchange, symbol=symbol, interval=interval, start=start, end=end,
+                exchange=exchange,
+                symbol=symbol,
+                interval=interval,
+                start=start,
+                end=end,
                 current=current
             ):
                 if candle.closed:
@@ -167,7 +176,8 @@ class Chandler:
                     low=low,
                     close=close,
                     volume=volume,
-                    closed=True)
+                    closed=True
+                )
                 current = next_
                 next_ = current + interval
                 open_ = Decimal(0)
@@ -193,7 +203,8 @@ class Chandler:
                 low=low,
                 close=close,
                 volume=volume,
-                closed=True)
+                closed=True
+            )
 
 
 def _get_span_end(batch: List[Candle], interval: int) -> int:

@@ -159,9 +159,7 @@ async def test_stream_historical_trades(loop, request, exchange):
     skip_exchange(exchange, Coinbase)
     start = strptimestamp('2018-01-01')
 
-    stream = exchange.stream_historical_trades(
-        symbol='eth-btc', start=start, end=start + HOUR_MS
-    )
+    stream = exchange.stream_historical_trades(symbol='eth-btc', start=start, end=start + HOUR_MS)
     trade = await stream.__anext__()
     await stream.aclose()
 

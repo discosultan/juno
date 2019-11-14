@@ -5,7 +5,7 @@ import os
 from juno import exchanges
 from juno.asyncio import enumerate_async
 from juno.logging import create_handlers
-from juno.time import time_ms, MIN_MS, SEC_MS
+from juno.time import MIN_MS, SEC_MS, time_ms
 
 EXCHANGE_TYPE = exchanges.Kraken
 SYMBOL = 'btc-eur'

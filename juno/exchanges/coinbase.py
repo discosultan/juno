@@ -129,8 +129,10 @@ class Coinbase(Exchange):
                 # currently use Coinbase for paper or live trading, we simply throw an exception.
                 if None in c:
                     raise Exception(f'missing data for candle {c}; please re-run the command')
-                yield Candle(c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]),
-                             Decimal(c[4]), Decimal(c[5]), True)
+                yield Candle(
+                    c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]), Decimal(c[4]),
+                    Decimal(c[5]), True
+                )
 
     # TODO: First candle can be partial.
     @asynccontextmanager
@@ -265,9 +267,8 @@ class Coinbase(Exchange):
                 else:
                     self._stream_consumer_events[data['type']].set(data)
 
-    async def _paginated_public_request(
-        self, method: str, url: str, data: Dict[str, Any] = {}
-    ) -> AsyncIterable[Any]:
+    async def _paginated_public_request(self, method: str, url: str,
+                                        data: Dict[str, Any] = {}) -> AsyncIterable[Any]:
         url = _BASE_REST_URL + url
         page_after = None
         while True:

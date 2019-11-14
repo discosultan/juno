@@ -41,9 +41,7 @@ def types_match(obj, type_=None):
 
     if isinstance(obj, tuple):
         field_types = get_type_hints(type_).values()
-        return all(
-            (isinstance(obj[i], get_origin(t) or t) for i, t in enumerate(field_types))
-        )
+        return all((isinstance(obj[i], get_origin(t) or t) for i, t in enumerate(field_types)))
     elif isinstance(obj, dict):
         key_type, value_type = get_args(type_)
         for k, v in obj.items():

@@ -29,9 +29,8 @@ async def concat_async(*args: Union[T, AsyncIterable[T]]) -> AsyncIterable[T]:
             yield arg  # type: ignore
 
 
-async def enumerate_async(
-    iterable: AsyncIterable[T], start: int = 0
-) -> AsyncIterable[Tuple[int, T]]:
+async def enumerate_async(iterable: AsyncIterable[T],
+                          start: int = 0) -> AsyncIterable[Tuple[int, T]]:
     i = start
     async for item in iterable:
         yield i, item
