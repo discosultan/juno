@@ -78,6 +78,25 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     assert stored_spans == espans
 
 
+async def test_stream_candles_construct_from_trades(memory):
+    exchange = fakes.Exchange()
+    exchange.can_stream_historical_candles = False
+    exchange.can_stream_candles = False
+
+    trades = fakes.Trades(trades=[
+        
+    ])
+    chandler = Chandler(
+        trades=trades,
+        storage=memory,
+        exchanges=[exchange]
+    )
+
+    output_candles = await list_async(
+        chandler.stream_candles()
+    )
+
+
 @pytest.mark.parametrize(
     'start,end,efrom,eto,espans',
     [

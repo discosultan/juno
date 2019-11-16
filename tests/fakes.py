@@ -137,6 +137,15 @@ class Chandler:
             yield c
 
 
+class Trades:
+    def __init__(self, trades):
+        self.trades = trades
+
+    async def stream_trades(self, exchange, symbol, start, end):
+        for t in (t for t in self.trades if c.time >= start and t.time < end):
+            yield t
+
+
 class Informant:
     def __init__(self, fees=Fees.none(), filters=Filters.none()):
         self.fees = fees

@@ -11,14 +11,14 @@ from pathlib import Path
 from time import time
 from types import ModuleType
 # TODO: Fix in 3.8.1
-from typing import (
+from typing import (  # type: ignore
     Any,
     Awaitable,
     Callable,
     Dict,
     Generic,
     Iterable,
-    Iterator,  # type: ignore
+    Iterator,
     List,
     Optional,
     Tuple,
