@@ -142,7 +142,7 @@ class Trades:
         self.trades = trades
 
     async def stream_trades(self, exchange, symbol, start, end):
-        for t in (t for t in self.trades if c.time >= start and t.time < end):
+        for t in (t for t in self.trades if t.time >= start and t.time < end):
             yield t
 
 

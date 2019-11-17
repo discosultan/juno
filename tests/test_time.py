@@ -27,6 +27,10 @@ def test_strfinterval(input, expected_output):
     assert time.strfinterval(input) == expected_output
 
 
+def test_strftimestamp():
+    assert time.strftimestamp(1546300800000) == '2019-01-01 00:00:00+00:00'
+
+
 @pytest.mark.parametrize(
     'input,expected_output', [
         ['1d', time.DAY_MS],

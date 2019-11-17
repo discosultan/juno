@@ -67,6 +67,10 @@ def strfspan(start: int, end: int) -> str:
     return f'{datetime_utcfromtimestamp_ms(start)} - {datetime_utcfromtimestamp_ms(end)}'
 
 
+def strftimestamp(timestamp: int) -> str:
+    return str(datetime_utcfromtimestamp_ms(timestamp))
+
+
 def strptimestamp(timestamp: str) -> int:
     # Naive is handled as UTC.
     dt = isoparse(timestamp)

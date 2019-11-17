@@ -29,6 +29,22 @@ def test_position():
     assert pos.annualized_roi == Decimal(-1)
 
 
+def test_position_annualized_roi_overflow():
+    pos = Position(
+        time=0,
+        fills=Fills([
+            Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='eth')
+        ]))
+    pos.close(
+        time=2,
+        fills=Fills([
+            Fill(price=Decimal(2), size=Decimal(1), fee=Decimal(0), fee_asset='btc')
+        ])
+    )
+
+    assert pos.annualized_roi == Decimal('Inf')
+
+
 def test_summary():
     summary = TradingSummary(
         interval=HOUR_MS, start=0, quote=Decimal(100), fees=Fees.none(), filters=Filters.none()

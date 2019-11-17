@@ -1,5 +1,5 @@
 import statistics
-from decimal import Decimal
+from decimal import Decimal, Overflow
 from typing import List, Optional
 
 from juno import Candle, Fees, Fills, Interval, Timestamp
@@ -58,7 +58,10 @@ class Position:
         if not self.closing_fills:
             return Decimal(0)
         n = Decimal(self.duration) / YEAR_MS
-        return (1 + self.roi)**(1 / n) - 1
+        try:
+            return (1 + self.roi)**(1 / n) - 1
+        except Overflow:
+            return Decimal('Inf')
 
     @property
     def dust(self) -> Decimal:

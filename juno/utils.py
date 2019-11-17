@@ -31,7 +31,7 @@ from typing import (  # type: ignore
 
 import juno.json as json
 from juno import Interval, Timestamp, Trend
-from juno.time import datetime_utcfromtimestamp_ms, strfinterval
+from juno.time import strfinterval, strftimestamp
 
 T = TypeVar('T')
 
@@ -208,7 +208,7 @@ def _get_transform(type_: Type[Any]) -> Callable[[Any], Any]:
     if type_ is Interval:
         return strfinterval
     if type_ is Timestamp:
-        return lambda v: str(datetime_utcfromtimestamp_ms(v))
+        return strftimestamp
 
     # Dict.
     origin = get_origin(type_)
