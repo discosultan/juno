@@ -47,6 +47,7 @@ def transform(value: Any) -> Any:
     elif isinstance(value, list):
         return [transform(v) for v in value]
     elif isinstance(value, str):
+        # TODO: remove?
         if re.match(r'-?\d+\.\d+', value):  # Decimal
             return Decimal(value)
         elif re.match(r'\d+(ms|s|m|h|d|w|M|y)', value):  # Interval

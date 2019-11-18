@@ -119,7 +119,7 @@ class Limit(Broker):
     ) -> None:
         orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
-        last_order_price = Decimal(0) if side is Side.BUY else Decimal('Inf')
+        last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
         while True:
             await orderbook_updated.wait()
 

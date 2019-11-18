@@ -17,8 +17,8 @@ from juno.storages import Memory
 from . import fakes
 
 filters = Filters(
-    price=Price(min=Decimal('0.2'), max=Decimal(10), step=Decimal('0.1')),
-    size=Size(min=Decimal('0.2'), max=Decimal(10), step=Decimal('0.1'))
+    price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
+    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
 )
 symbol_info = SymbolsInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},

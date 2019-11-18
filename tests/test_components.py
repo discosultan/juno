@@ -111,14 +111,14 @@ async def test_stream_trades(memory, start, end, efrom, eto, espans):
     CURRENT = 6
     STORAGE_BATCH_SIZE = 2
     historical_trades = [
-        Trade(time=0, price=Decimal(1), size=Decimal(1)),
-        Trade(time=1, price=Decimal(2), size=Decimal(2)),
-        Trade(time=4, price=Decimal(3), size=Decimal(3)),
-        Trade(time=5, price=Decimal(4), size=Decimal(4)),
+        Trade(time=0, price=Decimal('1.0'), size=Decimal('1.0')),
+        Trade(time=1, price=Decimal('2.0'), size=Decimal('2.0')),
+        Trade(time=4, price=Decimal('3.0'), size=Decimal('3.0')),
+        Trade(time=5, price=Decimal('4.0'), size=Decimal('4.0')),
     ]
     future_trades = [
-        Trade(time=6, price=Decimal(1), size=Decimal(1)),
-        Trade(time=7, price=Decimal(1), size=Decimal(1)),
+        Trade(time=6, price=Decimal('1.0'), size=Decimal('1.0')),
+        Trade(time=7, price=Decimal('1.0'), size=Decimal('1.0')),
     ]
     expected_trades = (historical_trades + future_trades)[efrom:eto]
     time = fakes.Time(CURRENT)
@@ -149,8 +149,8 @@ async def test_stream_trades(memory, start, end, efrom, eto, espans):
 async def test_get_fees_filters(memory, exchange_key):
     fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
     filters = Filters(
-        price=Price(min=Decimal(1), max=Decimal(1), step=Decimal(1)),
-        size=Size(min=Decimal(1), max=Decimal(1), step=Decimal(1))
+        price=Price(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0')),
+        size=Size(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0'))
     )
     exchange = fakes.Exchange(
         symbol_info=SymbolsInfo(fees={exchange_key: fees}, filters={exchange_key: filters})
@@ -178,8 +178,16 @@ async def test_list_symbols(memory):
 
 async def test_list_asks_bids(memory):
     snapshot = DepthSnapshot(
-        asks=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))],
-        bids=[(Decimal(1), Decimal(1)), (Decimal(3), Decimal(1)), (Decimal(2), Decimal(1))]
+        asks=[
+            (Decimal('1.0'), Decimal('1.0')),
+            (Decimal('3.0'), Decimal('1.0')),
+            (Decimal('2.0'), Decimal('1.0')),
+        ],
+        bids=[
+            (Decimal('1.0'), Decimal('1.0')),
+            (Decimal('3.0'), Decimal('1.0')),
+            (Decimal('2.0'), Decimal('1.0')),
+        ]
     )
     exchange = fakes.Exchange(depth=snapshot)
 
@@ -187,12 +195,20 @@ async def test_list_asks_bids(memory):
         asks = orderbook.list_asks(exchange='exchange', symbol='eth-btc')
         bids = orderbook.list_bids(exchange='exchange', symbol='eth-btc')
 
-    assert asks == [(Decimal(1), Decimal(1)), (Decimal(2), Decimal(1)), (Decimal(3), Decimal(1))]
-    assert bids == [(Decimal(3), Decimal(1)), (Decimal(2), Decimal(1)), (Decimal(1), Decimal(1))]
+    assert asks == [
+        (Decimal('1.0'), Decimal('1.0')),
+        (Decimal('2.0'), Decimal('1.0')),
+        (Decimal('3.0'), Decimal('1.0')),
+    ]
+    assert bids == [
+        (Decimal('3.0'), Decimal('1.0')),
+        (Decimal('2.0'), Decimal('1.0')),
+        (Decimal('1.0'), Decimal('1.0')),
+    ]
 
 
 async def test_get_balance():
-    balance = Balance(available=Decimal(1), hold=Decimal(0))
+    balance = Balance(available=Decimal('1.0'), hold=Decimal('0.0'))
     exchange = fakes.Exchange(balances={'btc': balance})
 
     async with Wallet(exchanges=[exchange]) as wallet:

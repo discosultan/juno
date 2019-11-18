@@ -76,10 +76,10 @@ class Kraken(Exchange):
         for val in res['result'].values():
             name = _from_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
             # TODO: Take into account different fee levels. Currently only worst level.
-            taker_fee = Decimal(val['fees'][0][1]) / 100
+            taker_fee = val['fees'][0][1] / 100
             maker_fees = val.get('fees_maker')
             fees[name] = Fees(
-                maker=Decimal(maker_fees[0][1]) / 100 if maker_fees else taker_fee,
+                maker=maker_fees[0][1] / 100 if maker_fees else taker_fee,
                 taker=taker_fee
             )
             filters[name] = Filters(
@@ -94,7 +94,7 @@ class Kraken(Exchange):
         for asset, available in res['result'].items():
             if len(asset) == 4 and asset[0] in ['X', 'Z']:
                 asset = asset[1:]
-            result[asset.lower()] = Balance(available=Decimal(available), hold=Decimal(0))
+            result[asset.lower()] = Balance(available=Decimal(available), hold=Decimal('0.0'))
         return result
 
     @asynccontextmanager
@@ -279,7 +279,7 @@ class Kraken(Exchange):
         kwargs['params' if method == 'GET' else 'data'] = data
 
         async with self._session.request(**kwargs) as res:
-            result = await res.json(loads=lambda body: json.loads(body, use_decimal=True))
+            result = await res.json(loads=json.loads)
             errors = result['error']
             if len(errors) > 0:
                 raise Exception(errors)
@@ -362,7 +362,7 @@ class KrakenPublicTopic:
     async def _stream_messages(self) -> None:
         assert self.ws
         async for msg in self.ws:
-            data = json.loads(msg.data, use_decimal=False)
+            data = json.loads(msg.data)
             self._process_message(data)
 
     def _process_message(self, data: Any) -> None:

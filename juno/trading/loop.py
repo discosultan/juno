@@ -30,12 +30,12 @@ class TradingLoop:
         log: logging.Logger = logging.getLogger(__name__),
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
-        trailing_stop: Decimal = Decimal(0),  # 0 means disabled.
+        trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
     ) -> None:
         assert start >= 0
         assert end > 0
         assert end > start
-        assert Decimal(0) <= trailing_stop < Decimal(1)
+        assert 0 <= trailing_stop < 1
 
         self.chandler = chandler
         self.informant = informant
@@ -115,7 +115,7 @@ class TradingLoop:
                         self.highest_close_since_position = max(
                             self.highest_close_since_position, candle.close
                         )
-                        trailing_factor = Decimal(1) - self.trailing_stop
+                        trailing_factor = 1 - self.trailing_stop
                         if candle.close <= self.highest_close_since_position * trailing_factor:
                             self.log.info(f'trailing stop hit at {self.trailing_stop}; selling')
                             await self._close_position(candle=candle)

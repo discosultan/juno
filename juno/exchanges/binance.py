@@ -508,7 +508,7 @@ class Binance(Exchange):
             else:
                 if raise_for_status:
                     res.raise_for_status()
-                return await res.json(loads=lambda body: json.loads(body, use_decimal=False))
+                return await res.json(loads=json.loads)
 
     def _connect_refreshing_stream(self, url: str, interval: int, name: str,
                                    **kwargs: Any) -> AsyncContextManager[AsyncIterable[Any]]:
@@ -516,7 +516,7 @@ class Binance(Exchange):
             self._session,
             url=_BASE_WS_URL + url,
             interval=interval,
-            loads=lambda body: json.loads(body, use_decimal=False),
+            loads=json.loads,
             take_until=lambda old, new: old['E'] < new['E'],
             name=name
         )

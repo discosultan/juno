@@ -8,13 +8,13 @@ from typing import NamedTuple
 
 
 class Price(NamedTuple):
-    min: Decimal = Decimal(0)  # 0 means disabled.
-    max: Decimal = Decimal(0)  # 0 means disabled.
-    step: Decimal = Decimal(0)  # 0 means disabled.
+    min: Decimal = Decimal('0.0')  # 0 means disabled.
+    max: Decimal = Decimal('0.0')  # 0 means disabled.
+    step: Decimal = Decimal('0.0')  # 0 means disabled.
 
     def round_down(self, price: Decimal) -> Decimal:
         if price < self.min:
-            return Decimal(0)
+            return Decimal('0.0')
         if self.max:
             price = min(price, self.max)
         return price.quantize(self.step.normalize(), rounding=ROUND_DOWN)
@@ -41,7 +41,7 @@ class PercentPrice(NamedTuple):
 
     @staticmethod
     def none() -> PercentPrice:
-        return PercentPrice(multiplier_up=Decimal('Inf'), multiplier_down=Decimal(0))
+        return PercentPrice(multiplier_up=Decimal('Inf'), multiplier_down=Decimal('0.0'))
 
 
 class Size(NamedTuple):
@@ -57,7 +57,7 @@ class Size(NamedTuple):
 
     def _round(self, size: Decimal, rounding: str) -> Decimal:
         if size < self.min:
-            return Decimal(0)
+            return Decimal('0.0')
         size = min(size, self.max)
         return size.quantize(self.step.normalize(), rounding=rounding)
 
@@ -66,7 +66,7 @@ class Size(NamedTuple):
 
     @staticmethod
     def none() -> Size:
-        return Size(min=Decimal(0), max=Decimal('Inf'), step=Decimal(0))
+        return Size(min=Decimal('0.0'), max=Decimal('Inf'), step=Decimal('0.0'))
 
 
 class MinNotional(NamedTuple):
@@ -83,7 +83,7 @@ class MinNotional(NamedTuple):
 
     @staticmethod
     def none() -> MinNotional:
-        return MinNotional(min_notional=Decimal(0), apply_to_market=False)
+        return MinNotional(min_notional=Decimal('0.0'), apply_to_market=False)
 
 
 class Filters(NamedTuple):

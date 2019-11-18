@@ -31,7 +31,7 @@ class MyNamedTuple(NamedTuple):
     ]
 )
 def test_dumps(input, expected_output):
-    assert json.dumps(input) == expected_output
+    assert json.dumps(input, use_str_decimal=True) == expected_output
 
 
 def test_dumps_complicated():
@@ -45,7 +45,7 @@ def test_dumps_complicated():
         },
     }
     expected_output = '{"foo": "0.1", "bar": "hello", "baz": 1, "qux": [1], "quux": {"corge": 1}}'
-    assert json.dumps(input) == expected_output
+    assert json.dumps(input, use_str_decimal=True) == expected_output
 
 
 @pytest.mark.parametrize(
@@ -62,6 +62,6 @@ def test_dumps_complicated():
     ]
 )
 def test_loads(input, expected_output):
-    res = json.loads(input)
+    res = json.loads(input, use_str_decimal=True)
     assert type(res) == type(expected_output)
     assert res == expected_output

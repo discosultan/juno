@@ -26,7 +26,7 @@ _log = logging.getLogger(__name__)
 
 _restart_on_missed_candle_constraint = Choice([True, False])
 _trailing_stop_constraint = Choice([
-    Constant(Decimal(0)),
+    Constant(Decimal('0.0')),
     Uniform(Decimal('0.0001'), Decimal('0.9999')),
 ])
 
@@ -48,7 +48,7 @@ class Optimize(Agent):
         strategy: str,
         end: Optional[int] = None,
         restart_on_missed_candle: Optional[bool] = False,
-        trailing_stop: Optional[Decimal] = Decimal(0),
+        trailing_stop: Optional[Decimal] = Decimal('0.0'),
         population_size: int = 50,
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
@@ -174,7 +174,7 @@ class Optimize(Agent):
                 toolbox,
                 mu=toolbox.population_size,
                 lambda_=toolbox.population_size,
-                cxpb=Decimal(1) - toolbox.mutation_probability,
+                cxpb=Decimal('1.0') - toolbox.mutation_probability,
                 mutpb=toolbox.mutation_probability,
                 stats=None,
                 ngen=toolbox.max_generations,

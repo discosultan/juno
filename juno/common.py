@@ -77,7 +77,7 @@ class Fees(NamedTuple):
 
     @staticmethod
     def none() -> Fees:
-        return Fees(maker=Decimal(0), taker=Decimal(0))
+        return Fees(maker=Decimal('0.0'), taker=Decimal('0.0'))
 
 
 class Fill(NamedTuple):
@@ -90,11 +90,11 @@ class Fill(NamedTuple):
 class Fills(List[Fill]):
     @property
     def total_size(self) -> Decimal:
-        return sum((f.size for f in self), Decimal(0))
+        return sum((f.size for f in self), Decimal('0.0'))
 
     @property
     def total_quote(self) -> Decimal:
-        return sum((f.size * f.price for f in self), Decimal(0))
+        return sum((f.size * f.price for f in self), Decimal('0.0'))
 
     @property
     def total_fee(self) -> Decimal:
@@ -103,7 +103,7 @@ class Fills(List[Fill]):
         if len({f.fee_asset for f in self}) > 1:
             raise NotImplementedError('implement support for different fee assets')
 
-        return sum((f.fee for f in self), Decimal(0))
+        return sum((f.fee for f in self), Decimal('0.0'))
 
 
 class InsufficientBalance(Exception):
@@ -143,9 +143,9 @@ class OrderUpdate(NamedTuple):
     client_id: str
     price: Decimal  # Original.
     size: Decimal  # Original.
-    filled_size: Decimal = Decimal(0)  # Last.
-    cumulative_filled_size: Decimal = Decimal(0)  # Cumulative.
-    fee: Decimal = Decimal(0)  # Last.
+    filled_size: Decimal = Decimal('0.0')  # Last.
+    cumulative_filled_size: Decimal = Decimal('0.0')  # Cumulative.
+    fee: Decimal = Decimal('0.0')  # Last.
     fee_asset: Optional[str] = None  # Last.
 
 

@@ -10,12 +10,12 @@ from typing import IO, Any, Iterable, Optional
 import simplejson as json
 
 
-def _prepare_dump(obj: Any, use_decimal: bool) -> Any:
+def _prepare_dump(obj: Any, use_str_decimal: bool) -> Any:
     # Unwrap complex types to their dict representations.
     # Convert tuples to lists.
     # Convert decimals to strings.
 
-    if use_decimal and isinstance(obj, Decimal):
+    if use_str_decimal and isinstance(obj, Decimal):
         return str(obj)
 
     if isinstance(obj, tuple):
@@ -35,7 +35,7 @@ def _prepare_dump(obj: Any, use_decimal: bool) -> Any:
             continue
 
         for k, v in it:
-            if use_decimal and isinstance(v, Decimal):
+            if use_str_decimal and isinstance(v, Decimal):
                 item[k] = str(v)
             elif isinstance(v, tuple):
                 item[k] = list(v)
@@ -53,11 +53,11 @@ def _isdecimalformat(val: str) -> bool:
     return val in ['Infinity', '-Infinity'] or val.replace('.', '', 1).isdigit()
 
 
-def _prepare_load(obj: Any, use_decimal: bool) -> Any:
+def _prepare_load(obj: Any, use_str_decimal: bool) -> Any:
     # Convert any decimal strings to decimals.
 
     if isinstance(obj, str):
-        if use_decimal and _isdecimalformat(obj):
+        if use_str_decimal and _isdecimalformat(obj):
             return Decimal(obj)
         return obj
 
@@ -73,7 +73,7 @@ def _prepare_load(obj: Any, use_decimal: bool) -> Any:
             continue
 
         for k, v in it:
-            if use_decimal and isinstance(v, str) and _isdecimalformat(v):
+            if use_str_decimal and isinstance(v, str) and _isdecimalformat(v):
                 item[k] = Decimal(v)
             else:
                 stack.append(v)
@@ -81,20 +81,21 @@ def _prepare_load(obj: Any, use_decimal: bool) -> Any:
     return obj
 
 
-def dumps(obj: Any, indent: Optional[int] = None, use_decimal=True) -> str:
+def dumps(obj: Any, indent: Optional[int] = None, use_decimal=True,
+          use_str_decimal: bool = False) -> str:
     # Make a deep copy so we don't accidentally mutate source obj.
     obj = deepcopy(obj)
-    obj = _prepare_dump(obj, use_decimal=use_decimal)
+    obj = _prepare_dump(obj, use_str_decimal=use_str_decimal)
     return json.dumps(obj, indent=indent, use_decimal=use_decimal)
 
 
-def load(fp: IO, use_decimal: bool = True) -> Any:
+def load(fp: IO, use_decimal: bool = True, use_str_decimal: bool = False) -> Any:
     res = json.load(fp, use_decimal=use_decimal)
-    res = _prepare_load(res, use_decimal=use_decimal)
+    res = _prepare_load(res, use_str_decimal=use_str_decimal)
     return res
 
 
-def loads(s: str, use_decimal: bool = True) -> Any:
+def loads(s: str, use_decimal: bool = True, use_str_decimal: bool = False) -> Any:
     res = json.loads(s, use_decimal=use_decimal)
-    res = _prepare_load(res, use_decimal=use_decimal)
+    res = _prepare_load(res, use_str_decimal=use_str_decimal)
     return res

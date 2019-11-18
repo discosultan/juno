@@ -11,11 +11,11 @@ class Stoch:
         if k_period < 1:
             raise ValueError(f'Invalid period ({k_period})')
 
-        self.k = Decimal(0)
-        self.d = Decimal(0)
+        self.k = Decimal('0.0')
+        self.d = Decimal('0.0')
 
-        self._k_high_window = CircularBuffer(k_period, Decimal(0))
-        self._k_low_window = CircularBuffer(k_period, Decimal(0))
+        self._k_high_window = CircularBuffer(k_period, Decimal('0.0'))
+        self._k_low_window = CircularBuffer(k_period, Decimal('0.0'))
 
         self._k_sma = Sma(k_sma_period)
         self._d_sma = Sma(d_sma_period)

@@ -74,7 +74,7 @@ class Python(Solver):
                         highest_close_since_position = max(
                             highest_close_since_position, candle.close
                         )
-                        trailing_factor = Decimal(1) - trailing_stop
+                        trailing_factor = 1 - trailing_stop
                         if candle.close <= highest_close_since_position * trailing_factor:
                             _close_position(ctx, summary, quote_asset, fees, filters, candle)
 

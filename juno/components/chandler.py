@@ -160,11 +160,11 @@ class Chandler:
     ) -> AsyncIterable[Candle]:
         current = start
         next_ = current + interval
-        open_ = Decimal(0)
-        high = Decimal(0)
-        low = Decimal(sys.maxsize)
-        close = Decimal(0)
-        volume = Decimal(0)
+        open_ = Decimal('0.0')
+        high = Decimal('0.0')
+        low = Decimal(f'{sys.maxsize}.0')
+        close = Decimal('0.0')
+        volume = Decimal('0.0')
         is_first = True
         async for trade in self._trades.stream_trades(exchange, symbol, start, end):
             if trade.time >= next_:
@@ -180,11 +180,11 @@ class Chandler:
                 )
                 current = next_
                 next_ = current + interval
-                open_ = Decimal(0)
-                high = Decimal(0)
-                low = Decimal(sys.maxsize)
-                close = Decimal(0)
-                volume = Decimal(0)
+                open_ = Decimal('0.0')
+                high = Decimal('0.0')
+                low = Decimal(f'{sys.maxsize}.0')
+                close = Decimal('0.0')
+                volume = Decimal('0.0')
                 is_first = True
 
             if is_first:

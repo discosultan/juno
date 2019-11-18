@@ -11,7 +11,7 @@ class Ema:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')
 
-        self.value = Decimal(0)
+        self.value = Decimal('0.0')
         self._a = Decimal(2) / (period + 1)  # Smoothing factor.
         self._t = 0
 

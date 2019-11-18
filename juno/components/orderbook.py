@@ -28,7 +28,7 @@ class Orderbook:
         #   "binance": {
         #     "eth-btc": {
         #       "asks": {
-        #         Decimal(1): Decimal(2)
+        #         Decimal('1.0'): Decimal('2.0')
         #       },
         #       "bids": {
         #       }

@@ -9,7 +9,7 @@ from juno import filters
     'price,min_,max_,step,expected_output', [(
         Decimal('0.000005540'), Decimal('1E-8'), Decimal('100000.00000000'), Decimal('1E-8'),
         Decimal('0.00000554')
-    ), (Decimal(1), Decimal(0), Decimal(0), Decimal(0), Decimal(1))]
+    ), (Decimal('1.0'), Decimal('0.0'), Decimal('0.0'), Decimal('0.0'), Decimal('1.0'))]
 )
 def test_price_round_down(price, min_, max_, step, expected_output):
     filter_ = filters.Price(min=min_, max=max_, step=step)

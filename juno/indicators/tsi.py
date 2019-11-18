@@ -7,12 +7,12 @@ class Tsi:
 
     # Common long: 25, short: 13
     def __init__(self, long_period: int, short_period: int) -> None:
-        self.value = Decimal(0)
+        self.value = Decimal('0.0')
         self._pc_ema_smoothed = Ema(long_period)
         self._pc_ema_dbl_smoothed = Ema(short_period)
         self._abs_pc_ema_smoothed = Ema(long_period)
         self._abs_pc_ema_dbl_smoothed = Ema(short_period)
-        self._last_price = Decimal(0)
+        self._last_price = Decimal('0.0')
         self._t = 0
         self._t1 = 1
         self._t2 = self._t1 + long_period - 1
