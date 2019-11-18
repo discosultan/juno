@@ -76,11 +76,11 @@ class Kraken(Exchange):
         for val in res['result'].values():
             name = _from_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
             # TODO: Take into account different fee levels. Currently only worst level.
-            taker_fee = val['fees'][0][1]
+            taker_fee = Decimal(val['fees'][0][1]) / 100
             maker_fees = val.get('fees_maker')
             fees[name] = Fees(
-                maker=Decimal(maker_fees[0][1]) if maker_fees else Decimal(taker_fee),
-                taker=Decimal(taker_fee)
+                maker=Decimal(maker_fees[0][1]) / 100 if maker_fees else taker_fee,
+                taker=taker_fee
             )
             filters[name] = Filters(
                 base_precision=val['lot_decimals'],
@@ -279,7 +279,7 @@ class Kraken(Exchange):
         kwargs['params' if method == 'GET' else 'data'] = data
 
         async with self._session.request(**kwargs) as res:
-            result = await res.json(loads=lambda body: json.loads(body, use_decimal=False))
+            result = await res.json(loads=lambda body: json.loads(body, use_decimal=True))
             errors = result['error']
             if len(errors) > 0:
                 raise Exception(errors)

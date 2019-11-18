@@ -57,7 +57,10 @@ async def test_get_symbols_info(loop, request, exchange):
     res = await exchange.get_symbols_info()
 
     assert len(res.fees) > 0
-    assert types_match(next(iter(res.fees.values())))
+    first_fees = next(iter(res.fees.values()))
+    assert types_match(first_fees)
+    assert 0 <= first_fees.taker <= Decimal('0.1')
+    assert 0 <= first_fees.maker <= Decimal('0.1')
     if '__all__' not in res.fees:
         assert res.fees['eth-btc']
 
