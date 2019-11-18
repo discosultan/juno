@@ -11,7 +11,7 @@
             "start": "2017-07-14T04:00:00Z",
             "end": null,
             "interval": "1h",
-            "quote": "1.0",
+            "quote": 1.0,
             "restart_on_missed_candle": null,
             "trailing_stop": null,
             "strategy": "mamacx",
