@@ -11,7 +11,7 @@
             "start": "2019-04-01",
             "end": null,
             "interval": "1h",
-            "quote": "10.0",
+            "quote": 10.0,
             "restart_on_missed_candle": false,
             "strategy": "mamacx",
             "population_size": 50,

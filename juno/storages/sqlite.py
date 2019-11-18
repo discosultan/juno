@@ -4,14 +4,14 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 # TODO: mypy fails to recognise stdlib attributes get_args, get_origin. remove ignore when fixed
-from typing import (
+from typing import (  # type: ignore
     Any,
     AsyncIterable,
     AsyncIterator,
     Dict,
     List,
     Optional,
-    Set,  # type: ignore
+    Set,
     Tuple,
     Type,
     TypeVar,

@@ -15,22 +15,22 @@ from .utils import new_candle
 async def test_backtest():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0, close=Decimal(5)),
-            new_candle(time=1, close=Decimal(10)),
+            new_candle(time=0, close=Decimal('5.0')),
+            new_candle(time=1, close=Decimal('10.0')),
             # Long. Size 10.
-            new_candle(time=2, close=Decimal(30)),
-            new_candle(time=3, close=Decimal(20)),
+            new_candle(time=2, close=Decimal('30.0')),
+            new_candle(time=3, close=Decimal('20.0')),
             # Short.
-            new_candle(time=4, close=Decimal(40)),
+            new_candle(time=4, close=Decimal('40.0')),
             # Long. Size 5.
-            new_candle(time=5, close=Decimal(10))
+            new_candle(time=5, close=Decimal('10.0'))
         ]
     )
     informant = fakes.Informant(
-        fees=Fees(Decimal(0), Decimal(0)),
+        fees=Fees(Decimal('0.0'), Decimal('0.0')),
         filters=Filters(
-            price=Price(min=Decimal(1), max=Decimal(10000), step=Decimal(1)),
-            size=Size(min=Decimal(1), max=Decimal(10000), step=Decimal(1))
+            price=Price(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0')),
+            size=Size(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0'))
         )
     )
     agent_config = {
@@ -39,13 +39,13 @@ async def test_backtest():
         'interval': 1,
         'start': 0,
         'end': 6,
-        'quote': Decimal(100),
+        'quote': Decimal('100.0'),
         'strategy_config': {
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
-            'neg_threshold': Decimal(-1),
-            'pos_threshold': Decimal(1),
+            'neg_threshold': Decimal('-1.0'),
+            'pos_threshold': Decimal('1.0'),
             'persistence': 0
         }
     }
@@ -56,7 +56,7 @@ async def test_backtest():
     assert res.potential_hodl_profit == 100
     assert res.duration == 6
     assert res.roi == Decimal('-0.5')
-    assert res.annualized_roi == Decimal(-1)
+    assert res.annualized_roi == -1
     assert res.max_drawdown == Decimal('0.75')
     assert res.mean_drawdown == Decimal('0.25')
     assert res.mean_position_profit == -25
@@ -91,7 +91,7 @@ async def test_backtest_scenarios(scenario_nr):
         'start': 1483225200000,
         'end': 1514761200000,
         'interval': HOUR_MS,
-        'quote': Decimal(100),
+        'quote': Decimal('100.0'),
         'restart_on_missed_candle': False,
         'strategy_config': {
             'type': 'mamacx',
@@ -109,23 +109,23 @@ async def test_backtest_scenarios(scenario_nr):
 async def test_paper():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0, close=Decimal(5)),
-            new_candle(time=1, close=Decimal(10)),
+            new_candle(time=0, close=Decimal('5.0')),
+            new_candle(time=1, close=Decimal('10.0')),
             # 1. Long. Size 5 + 1.
-            new_candle(time=2, close=Decimal(30)),
-            new_candle(time=3, close=Decimal(20)),
+            new_candle(time=2, close=Decimal('30.0')),
+            new_candle(time=3, close=Decimal('20.0')),
             # 2. Short. Size 4 + 2.
         ]
     )
     informant = fakes.Informant()
     orderbook_data = {
         Side.BUY: {
-            Decimal(10): Decimal(5),  # 1.
-            Decimal(50): Decimal(1),  # 1.
+            Decimal('10.0'): Decimal('5.0'),  # 1.
+            Decimal('50.0'): Decimal('1.0'),  # 1.
         },
         Side.SELL: {
-            Decimal(20): Decimal(4),  # 2.
-            Decimal(10): Decimal(2),  # 2.
+            Decimal('20.0'): Decimal('4.0'),  # 2.
+            Decimal('10.0'): Decimal('2.0'),  # 2.
         }
     }
     orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}}, )
@@ -135,13 +135,13 @@ async def test_paper():
         'symbol': 'eth-btc',
         'interval': 1,
         'end': 4,
-        'quote': Decimal(100),
+        'quote': Decimal('100.0'),
         'strategy_config': {
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
-            'neg_threshold': Decimal(-1),
-            'pos_threshold': Decimal(1),
+            'neg_threshold': Decimal('-1.0'),
+            'pos_threshold': Decimal('1.0'),
             'persistence': 0
         },
         'get_time': fakes.Time().get_time
@@ -155,27 +155,29 @@ async def test_paper():
 async def test_live():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0, close=Decimal(5)),
-            new_candle(time=1, close=Decimal(10)),
+            new_candle(time=0, close=Decimal('5.0')),
+            new_candle(time=1, close=Decimal('10.0')),
             # 1. Long. Size 5 + 1.
-            new_candle(time=2, close=Decimal(30)),
-            new_candle(time=3, close=Decimal(20)),
+            new_candle(time=2, close=Decimal('30.0')),
+            new_candle(time=3, close=Decimal('20.0')),
             # 2. Short. Size 4 + 2.
         ]
     )
     informant = fakes.Informant()
     orderbook_data = {
         Side.BUY: {
-            Decimal(10): Decimal(5),  # 1.
-            Decimal(50): Decimal(1),  # 1.
+            Decimal('10.0'): Decimal('5.0'),  # 1.
+            Decimal('50.0'): Decimal('1.0'),  # 1.
         },
         Side.SELL: {
-            Decimal(20): Decimal(4),  # 2.
-            Decimal(10): Decimal(2),  # 2.
+            Decimal('20.0'): Decimal('4.0'),  # 2.
+            Decimal('10.0'): Decimal('2.0'),  # 2.
         }
     }
     orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
-    wallet = fakes.Wallet({'dummy': {'btc': Balance(available=Decimal(100), hold=Decimal(50))}})
+    wallet = fakes.Wallet({'dummy': {
+        'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0')),
+    }})
     broker = fakes.Market(informant, orderbook, update_orderbook=True)
     agent_config = {
         'exchange': 'dummy',
@@ -186,8 +188,8 @@ async def test_live():
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
-            'neg_threshold': Decimal(-1),
-            'pos_threshold': Decimal(1),
+            'neg_threshold': Decimal('-1.0'),
+            'pos_threshold': Decimal('1.0'),
             'persistence': 0
         },
         'get_time': fakes.Time().get_time

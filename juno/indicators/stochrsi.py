@@ -13,11 +13,11 @@ class StochRsi:
         if period < 2:
             raise ValueError(f'Invalid period ({period})')
 
-        self.value = Decimal(0)
+        self.value = Decimal('0.0')
         self._rsi = Rsi(period)
-        self._min = Decimal(0)
-        self._max = Decimal(0)
-        self._rsi_values = CircularBuffer(period, Decimal(0))
+        self._min = Decimal('0.0')
+        self._max = Decimal('0.0')
+        self._rsi_values = CircularBuffer(period, Decimal('0.0'))
         self._t = 0
         self._t1 = period
         self._t2 = period * 2 - 1
@@ -36,8 +36,8 @@ class StochRsi:
             self._min = min(self._rsi_values)
             self._max = max(self._rsi_values)
             diff = self._max - self._min
-            if diff == Decimal(0):
-                self.value = Decimal(0)
+            if diff == 0:
+                self.value = Decimal('0.0')
             else:
                 self.value = (self._rsi.value - self._min) / diff
 

@@ -18,20 +18,26 @@ async def test_discord(request, config):
     from juno.plugins import discord
 
     agent = Dummy()
-    agent.result = get_dummy_trading_summary(quote=Decimal(1), interval=DAY_MS)
+    agent.result = get_dummy_trading_summary(quote=Decimal('1.0'), interval=DAY_MS)
     async with discord.activate(agent, config['discord']):
-        candle = new_candle(time=0, close=Decimal(1), volume=Decimal(10))
+        candle = new_candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
         agent.result.append_candle(candle)
         pos = Position(
             time=candle.time,
-            fills=Fills([Fill(price=Decimal(1), size=Decimal(1), fee=Decimal(0), fee_asset='btc')])
+            fills=Fills([
+                Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
+                     fee_asset='btc')
+            ])
         )
         await agent.emit('position_opened', pos)
-        candle = new_candle(time=DAY_MS, close=Decimal(2), volume=Decimal(10))
+        candle = new_candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
         agent.result.append_candle(candle)
         pos.close(
             time=candle.time,
-            fills=Fills([Fill(price=Decimal(2), size=Decimal(1), fee=Decimal(0), fee_asset='eth')])
+            fills=Fills([
+                Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
+                     fee_asset='eth')
+            ])
         )
         agent.result.append_position(pos)
         await agent.emit('position_closed', pos)
@@ -52,7 +58,7 @@ def skip_non_configured(request, config):
         pytest.skip("Discord params not configured")
 
 
-def get_dummy_trading_summary(quote=Decimal(1), interval=1):
+def get_dummy_trading_summary(quote, interval):
     return TradingSummary(
         interval=interval, start=0, quote=quote, fees=Fees.none(), filters=Filters.none()
     )

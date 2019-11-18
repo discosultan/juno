@@ -57,7 +57,12 @@ async def test_get_symbols_info(loop, request, exchange):
     res = await exchange.get_symbols_info()
 
     assert len(res.fees) > 0
-    assert types_match(next(iter(res.fees.values())))
+    first_fees = next(iter(res.fees.values()))
+    assert types_match(first_fees)
+    assert 0 <= first_fees.taker <= Decimal('0.1')
+    assert 0 <= first_fees.maker <= Decimal('0.1')
+    assert -4 <= first_fees.taker.as_tuple().exponent <= -1
+    assert -4 <= first_fees.maker.as_tuple().exponent <= -1
     if '__all__' not in res.fees:
         assert res.fees['eth-btc']
 
@@ -147,7 +152,7 @@ async def test_place_order(loop, request, exchange):
     skip_exchange(exchange, Coinbase, Kraken)
 
     await exchange.place_order(
-        symbol='eth-btc', side=Side.BUY, type_=OrderType.MARKET, size=Decimal(1), test=True
+        symbol='eth-btc', side=Side.BUY, type_=OrderType.MARKET, size=Decimal('1.0'), test=True
     )
 
 

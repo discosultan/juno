@@ -258,7 +258,7 @@ class Coinbase(Exchange):
             for _ in range(0, self._stream_subscription_queue.qsize()):
                 await ws.send_json(self._stream_subscription_queue.get_nowait())
             async for msg in ws:
-                data = json.loads(msg.data, use_decimal=False)
+                data = json.loads(msg.data)
                 if data['type'] == 'subscriptions':
                     self._stream_subscriptions = {
                         c['name']: [s.lower() for s in c['product_ids']]
@@ -276,7 +276,7 @@ class Coinbase(Exchange):
             if page_after is not None:
                 data['after'] = page_after
             async with self._session.request(method, url, params=data) as res:
-                yield await res.json(loads=lambda body: json.loads(body, use_decimal=False))
+                yield await res.json(loads=json.loads)
                 page_after = res.headers.get('CB-AFTER')
                 if page_after is None:
                     break
@@ -299,7 +299,7 @@ class Coinbase(Exchange):
         }
         url = _BASE_REST_URL + url
         async with self._session.request(method, url, headers=headers, data=data) as res:
-            return await res.json(loads=lambda body: json.loads(body, use_decimal=False))
+            return await res.json(loads=json.loads)
 
 
 def _product(symbol: str) -> str:

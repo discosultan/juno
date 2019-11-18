@@ -7,7 +7,7 @@ from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.utils import EventEmitter, unpack_symbol
+from juno.utils import EventEmitter, format_attrs_as_json, unpack_symbol
 
 from .common import Position, TradingContext, TradingSummary
 
@@ -30,12 +30,12 @@ class TradingLoop:
         log: logging.Logger = logging.getLogger(__name__),
         restart_on_missed_candle: bool = False,
         adjust_start: bool = True,
-        trailing_stop: Decimal = Decimal(0),  # 0 means disabled.
+        trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
     ) -> None:
         assert start >= 0
         assert end > 0
         assert end > start
-        assert Decimal(0) <= trailing_stop < Decimal(1)
+        assert 0 <= trailing_stop < 1
 
         self.chandler = chandler
         self.informant = informant
@@ -91,8 +91,11 @@ class TradingLoop:
 
                     # Check if we have missed a candle.
                     if last_candle and candle.time - last_candle.time >= self.interval * 2:
+                        # TODO: python 3.8 assignment expression
+                        num_missed = (candle.time - last_candle.time) // self.interval - 1
                         self.log.warning(
-                            f'missed candle(s); last candle {last_candle}; current candle {candle}'
+                            f'missed {num_missed} candle(s); last candle {last_candle}; current '
+                            f'candle {candle}'
                         )
                         if self.restart_on_missed_candle:
                             self.log.info('restarting strategy')
@@ -112,7 +115,7 @@ class TradingLoop:
                         self.highest_close_since_position = max(
                             self.highest_close_since_position, candle.close
                         )
-                        trailing_factor = Decimal(1) - self.trailing_stop
+                        trailing_factor = 1 - self.trailing_stop
                         if candle.close <= self.highest_close_since_position * trailing_factor:
                             self.log.info(f'trailing stop hit at {self.trailing_stop}; selling')
                             await self._close_position(candle=candle)
@@ -126,7 +129,7 @@ class TradingLoop:
                     break
         finally:
             if last_candle and self.ctx.open_position:
-                self.log.info('closing currently open position')
+                self.log.info('ending trade loop but position open; closing')
                 await self._close_position(candle=candle)
 
     async def _open_position(self, candle: Candle) -> None:
@@ -154,6 +157,8 @@ class TradingLoop:
 
             self.ctx.quote -= size * price
 
+        self.log.info(f'position opened at candle: {candle}')
+        self.log.debug(format_attrs_as_json(self.ctx.open_position))
         await self.event.emit('position_opened', self.ctx.open_position)
 
     async def _close_position(self, candle: Candle) -> None:
@@ -187,4 +192,6 @@ class TradingLoop:
 
         self.summary.append_position(pos)
         self.ctx.open_position = None
+        self.log.info(f'position closed at candle: {candle}')
+        self.log.debug(format_attrs_as_json(pos))
         await self.event.emit('position_closed', pos)

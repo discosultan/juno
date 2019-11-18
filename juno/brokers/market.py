@@ -41,12 +41,12 @@ class Market(Broker):
             base_asset, quote_asset = unpack_symbol(symbol)
             if aquote >= quote:
                 size = filters.size.round_down(quote / aprice)
-                if size != Decimal(0):
+                if size != 0:
                     fee = round_half_up(size * fees.taker, filters.base_precision)
                     result.append(Fill(price=aprice, size=size, fee=fee, fee_asset=base_asset))
                 break
             else:
-                assert asize != Decimal(0)
+                assert asize != 0
                 fee = round_half_up(asize * fees.taker, filters.base_precision)
                 result.append(Fill(price=aprice, size=asize, fee=fee, fee_asset=base_asset))
                 quote -= aquote
@@ -59,12 +59,12 @@ class Market(Broker):
             base_asset, quote_asset = unpack_symbol(symbol)
             if bsize >= base:
                 size = filters.size.round_down(base)
-                if size != Decimal(0):
+                if size != 0:
                     fee = round_half_up(bprice * size * fees.taker, filters.quote_precision)
                     result.append(Fill(price=bprice, size=size, fee=fee, fee_asset=quote_asset))
                 break
             else:
-                assert bsize != Decimal(0)
+                assert bsize != 0
                 fee = round_half_up(bprice * bsize * fees.taker, filters.quote_precision)
                 result.append(Fill(price=bprice, size=bsize, fee=fee, fee_asset=quote_asset))
                 base -= bsize

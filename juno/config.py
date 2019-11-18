@@ -2,7 +2,6 @@ import inspect
 import os
 import re
 import sys
-from decimal import Decimal
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
 import juno.json as json
@@ -47,9 +46,7 @@ def transform(value: Any) -> Any:
     elif isinstance(value, list):
         return [transform(v) for v in value]
     elif isinstance(value, str):
-        if re.match(r'-?\d+\.\d+', value):  # Decimal
-            return Decimal(value)
-        elif re.match(r'\d+(ms|s|m|h|d|w|M|y)', value):  # Interval
+        if re.match(r'\d+(ms|s|m|h|d|w|M|y)', value):  # Interval
             return strpinterval(value)
         elif re.match(r'\d+-\d+-\d+', value):  # Timestamp
             return strptimestamp(value)

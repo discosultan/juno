@@ -14,9 +14,9 @@ class Macd:
                 f'than or equal to short period ({short_period})'
             )
 
-        self.value = Decimal(0)
-        self.signal = Decimal(0)
-        self.divergence = Decimal(0)
+        self.value = Decimal('0.0')
+        self.signal = Decimal('0.0')
+        self.divergence = Decimal('0.0')
 
         # A bit hacky but is what is usually expected.
         if short_period == 12 and long_period == 26:

@@ -26,9 +26,9 @@ async def memory(request):
             new_candle(time=3),
         ],
         [
-            Trade(time=0, price=Decimal(1), size=Decimal(2)),
-            Trade(time=3, price=Decimal(4), size=Decimal(5)),
-            Trade(time=6, price=Decimal(7), size=Decimal(8)),
+            Trade(time=0, price=Decimal('1.0'), size=Decimal('2.0')),
+            Trade(time=3, price=Decimal('4.0'), size=Decimal('5.0')),
+            Trade(time=6, price=Decimal('7.0'), size=Decimal('8.0')),
         ],
     ]
 )
@@ -50,7 +50,7 @@ async def test_memory_store_objects_and_span(loop, memory, items):
 
 
 @pytest.mark.parametrize('item', [
-    new_candle(time=1, close=Decimal(1)),
+    new_candle(time=1, close=Decimal('1.0')),
     SymbolsInfo.none(),
 ])
 async def test_memory_set_get(loop, memory, item):
@@ -64,7 +64,7 @@ async def test_memory_set_get(loop, memory, item):
 
 
 async def test_memory_set_get_map(loop, memory):
-    candle = {'foo': new_candle(time=1, close=Decimal(1))}
+    candle = {'foo': new_candle(time=1, close=Decimal('1.0'))}
 
     await memory.set_map(key='key', type_=Candle, items=candle)
     out_candle, _ = await memory.get_map(key='key', type_=Candle)

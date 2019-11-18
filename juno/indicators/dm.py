@@ -8,15 +8,15 @@ class DM:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')
 
-        self.plus_value = Decimal(0)
-        self.minus_value = Decimal(0)
+        self.plus_value = Decimal('0.0')
+        self.minus_value = Decimal('0.0')
 
         self._per = (period - 1) / Decimal(period)
 
-        self._dmup = Decimal(0)
-        self._dmdown = Decimal(0)
-        self._prev_high = Decimal(0)
-        self._prev_low = Decimal(0)
+        self._dmup = Decimal('0.0')
+        self._dmdown = Decimal('0.0')
+        self._prev_high = Decimal('0.0')
+        self._prev_low = Decimal('0.0')
 
         self._t = 0
         self._t1 = 1
@@ -54,13 +54,13 @@ def _calc_direction(prev_high: Decimal, prev_low: Decimal, high: Decimal,
     down = prev_low - low
 
     if up < 0:
-        up = Decimal(0)
+        up = Decimal('0.0')
     elif up > down:
-        down = Decimal(0)
+        down = Decimal('0.0')
 
     if down < 0:
-        down = Decimal(0)
+        down = Decimal('0.0')
     elif down > up:
-        up = Decimal(0)
+        up = Decimal('0.0')
 
     return up, down

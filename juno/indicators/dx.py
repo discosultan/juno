@@ -6,7 +6,7 @@ from .di import DI
 # Directional Movement Index
 class DX:
     def __init__(self, period: int) -> None:
-        self.value = Decimal(0)
+        self.value = Decimal('0.0')
         self._di = DI(period)
         self._t = 0
         self._t1 = period - 1

@@ -6,14 +6,14 @@ from .dm import DM
 # Directional Indicator
 class DI:
     def __init__(self, period: int) -> None:
-        self.plus_value = Decimal(0)
-        self.minus_value = Decimal(0)
+        self.plus_value = Decimal('0.0')
+        self.minus_value = Decimal('0.0')
 
         self._dm = DM(period)
-        self._atr = Decimal(0)
+        self._atr = Decimal('0.0')
         self._per = (period - 1) / Decimal(period)
 
-        self._prev_close = Decimal(0)
+        self._prev_close = Decimal('0.0')
 
         self._t = 0
         self._t1 = 1

@@ -5,20 +5,20 @@
     "agents": [
         {
             "type": "backtest",
-            "exchange": "kraken",
+            "exchange": "binance",
             "symbol": "eth-btc",
             "start": "2019-01-01",
             "end": "2019-07-01",
             "interval": "1h",
-            "quote": "1.0",
+            "quote": 1.0,
             "restart_on_missed_candle": false,
-            "trailing_stop": "0.0827",
+            "trailing_stop": 0.0827,
             "strategy_config": {
                 "type": "mamacx",
                 "short_period": 3,
                 "long_period": 73,
-                "neg_threshold": "-0.102",
-                "pos_threshold": "0.239",
+                "neg_threshold": -0.102,
+                "pos_threshold": 0.239,
                 "persistence": 4,
                 "short_ma": "sma",
                 "long_ma": "smma"

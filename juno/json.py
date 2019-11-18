@@ -1,6 +1,5 @@
 # Adds the following capabilities to base JSON module:
 # - Handles dumping classes by unwrapping their internal __dict__.
-# - Handles nested Decimals on dumping and loading by converting between numeric strings.
 
 from collections import MutableMapping, MutableSequence
 from copy import deepcopy
@@ -10,13 +9,9 @@ from typing import IO, Any, Iterable, Optional
 import simplejson as json
 
 
-def _prepare_dump(obj: Any, use_decimal: bool) -> Any:
+def _prepare_dump(obj: Any) -> Any:
     # Unwrap complex types to their dict representations.
     # Convert tuples to lists.
-    # Convert decimals to strings.
-
-    if use_decimal and isinstance(obj, Decimal):
-        return str(obj)
 
     if isinstance(obj, tuple):
         obj = list(obj)
@@ -35,9 +30,7 @@ def _prepare_dump(obj: Any, use_decimal: bool) -> Any:
             continue
 
         for k, v in it:
-            if use_decimal and isinstance(v, Decimal):
-                item[k] = str(v)
-            elif isinstance(v, tuple):
+            if isinstance(v, tuple):
                 item[k] = list(v)
                 stack.append(item[k])
             elif hasattr(v, '__dict__'):
@@ -53,13 +46,14 @@ def _isdecimalformat(val: str) -> bool:
     return val in ['Infinity', '-Infinity'] or val.replace('.', '', 1).isdigit()
 
 
-def _prepare_load(obj: Any, use_decimal: bool) -> Any:
-    # Convert any decimal strings to decimals.
+def _prepare_load(obj: Any) -> Any:
+    # Convert infinity to Decimal (originally float, even with use_decimal=True).
 
-    if isinstance(obj, str):
-        if use_decimal and _isdecimalformat(obj):
-            return Decimal(obj)
-        return obj
+    if isinstance(obj, float):
+        if obj == float('inf'):
+            return Decimal('Infinity')
+        elif obj == float('-inf'):
+            return Decimal('-Infinity')
 
     stack = [obj]
     while stack:
@@ -73,8 +67,11 @@ def _prepare_load(obj: Any, use_decimal: bool) -> Any:
             continue
 
         for k, v in it:
-            if use_decimal and isinstance(v, str) and _isdecimalformat(v):
-                item[k] = Decimal(v)
+            if isinstance(v, float):
+                if v == float('inf'):
+                    item[k] = Decimal('Infinity')
+                elif v == float('-inf'):
+                    item[k] = Decimal('-Infinity')
             else:
                 stack.append(v)
 
@@ -84,17 +81,17 @@ def _prepare_load(obj: Any, use_decimal: bool) -> Any:
 def dumps(obj: Any, indent: Optional[int] = None, use_decimal=True) -> str:
     # Make a deep copy so we don't accidentally mutate source obj.
     obj = deepcopy(obj)
-    obj = _prepare_dump(obj, use_decimal=use_decimal)
+    obj = _prepare_dump(obj)
     return json.dumps(obj, indent=indent, use_decimal=use_decimal)
 
 
 def load(fp: IO, use_decimal: bool = True) -> Any:
     res = json.load(fp, use_decimal=use_decimal)
-    res = _prepare_load(res, use_decimal=use_decimal)
+    res = _prepare_load(res)
     return res
 
 
 def loads(s: str, use_decimal: bool = True) -> Any:
     res = json.loads(s, use_decimal=use_decimal)
-    res = _prepare_load(res, use_decimal=use_decimal)
+    res = _prepare_load(res)
     return res

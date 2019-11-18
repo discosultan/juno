@@ -10,10 +10,10 @@ from .utils import new_candle
 async def test_trailing_stop_loss():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0, close=Decimal(10)),  # Buy.
-            new_candle(time=1, close=Decimal(20)),
-            new_candle(time=2, close=Decimal(18)),  # Trigger trailing stop (10%).
-            new_candle(time=3, close=Decimal(10)),  # Sell (do not act).
+            new_candle(time=0, close=Decimal('10.0')),  # Buy.
+            new_candle(time=1, close=Decimal('20.0')),
+            new_candle(time=2, close=Decimal('18.0')),  # Trigger trailing stop (10%).
+            new_candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
         ]
     )
     loop = TradingLoop(
@@ -24,7 +24,7 @@ async def test_trailing_stop_loss():
         interval=1,
         start=0,
         end=4,
-        quote=Decimal(10),
+        quote=Decimal('10.0'),
         new_strategy=lambda: fakes.Strategy(Advice.BUY, Advice.NONE, Advice.NONE, Advice.SELL),
         restart_on_missed_candle=False,
         adjust_start=False,
@@ -60,11 +60,11 @@ async def test_restart_on_missed_candle():
         interval=1,
         start=0,
         end=6,
-        quote=Decimal(10),
+        quote=Decimal('10.0'),
         new_strategy=lambda: strategy_stack.pop(),
         restart_on_missed_candle=True,
         adjust_start=False,
-        trailing_stop=Decimal(0),
+        trailing_stop=Decimal('0.0'),
     )
 
     await loop.run()
