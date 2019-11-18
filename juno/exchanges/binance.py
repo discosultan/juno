@@ -217,9 +217,9 @@ class Binance(Exchange):
                     symbol=_from_symbol(data['s']),
                     # 'status': data['x'],
                     status=_from_order_status(data['X']),
-                    # 'c' is client order id, 'C' is original client order id. 'C' is usually null
+                    # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
-                    client_id=data['c'] if data['C'] == 'null' else data['C'],
+                    client_id=data['C'] if data['C'] else data['c'],
                     price=Decimal(data['p']),
                     size=Decimal(data['q']),
                     filled_size=Decimal(data['l']),
