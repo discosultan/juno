@@ -12,7 +12,7 @@ class Ema:
             raise ValueError(f'Invalid period ({period})')
 
         self.value = Decimal('0.0')
-        self._a = Decimal(2) / (period + 1)  # Smoothing factor.
+        self._a = Decimal('2.0') / (period + 1)  # Smoothing factor.
         self._t = 0
 
     @property

@@ -6,7 +6,7 @@ from .ema import Ema
 # Double Exponential Moving Average
 class Dema:
     def __init__(self, period: int) -> None:
-        self.value = Decimal(0)
+        self.value = Decimal('0.0')
         self._ema1 = Ema(period)
         self._ema2 = Ema(period)
         self._t = 0
@@ -26,6 +26,6 @@ class Dema:
         if self._t >= self._t1:
             self._ema2.update(self._ema1.value)
             if self._t == self._t2:
-                self.value = self._ema1.value * Decimal(2) - self._ema2.value
+                self.value = self._ema1.value * Decimal('2.0') - self._ema2.value
 
         self._t = min(self._t + 1, self._t2)
