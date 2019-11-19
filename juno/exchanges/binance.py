@@ -8,7 +8,9 @@ import math
 import urllib.parse
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional, Union
+from typing import (
+    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
+)
 
 import juno.json as json
 from juno import (
@@ -43,6 +45,8 @@ class Binance(Exchange):
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
+        self._clock = Clock(self)
+        self._user_data_stream = UserDataStream(self)
 
     async def __aenter__(self) -> Binance:
         # Rate limiters.
@@ -51,17 +55,8 @@ class Binance(Exchange):
         self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)  # 10 per sec.
         self._orders_per_day_limiter = LeakyBucket(rate=100_000, period=86_400)  # 100 000 per day.
 
-        # Clock synchronization.
-        self._time_diff = 0
-        self._sync_clock_task: Optional[asyncio.Task[None]] = None
-        self._initial_sync = asyncio.Event()
-
-        # User data stream.
-        self._listen_key_lock = asyncio.Lock()
-        self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
-        self._stream_user_data_task: Optional[asyncio.Task[None]] = None
-        self._balance_event: Event[Dict[str, Any]] = Event(autoclear=True)
-        self._order_event: Event[Any] = Event(autoclear=True)
+        await self._clock.__aenter__()
+        await self._user_data_stream.__aenter__()
 
         self._session = ClientSession(raise_for_status=False)
         await self._session.__aenter__()
@@ -69,8 +64,9 @@ class Binance(Exchange):
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(
-            self._sync_clock_task, self._listen_key_refresh_task, self._stream_user_data_task
+        await asyncio.gather(
+            self._clock.__aexit__(exc_type, exc, tb),
+            self._user_data_stream.__aexit__(exc_type, exc, tb),
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
@@ -232,42 +228,6 @@ class Binance(Exchange):
         await self._ensure_user_data_stream()
         yield inner()
 
-    async def _ensure_user_data_stream(self) -> None:
-        async with self._listen_key_lock:
-            if self._listen_key_refresh_task:
-                return
-
-            user_stream_connected = asyncio.Event()
-
-            listen_key = (
-                await
-                self._api_request('POST', '/api/v3/userDataStream', security=_SEC_USER_STREAM)
-            )['listenKey']
-            self._listen_key_refresh_task = asyncio.create_task(
-                cancelable(self._periodic_listen_key_refresh(listen_key))
-            )
-            self._stream_user_data_task = asyncio.create_task(
-                cancelable(self._stream_user_data(listen_key, user_stream_connected))
-            )
-
-            await user_stream_connected.wait()
-
-    async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
-        bal_time, order_time = 0, 0
-        # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
-        async with self._connect_refreshing_stream(
-            url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user'
-        ) as ws:
-            connected.set()
-            async for data in ws:
-                # The data can come out of sync. Make sure to discard old updates.
-                if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
-                    bal_time = data['E']
-                    self._balance_event.set(data)
-                elif data['e'] == 'executionReport' and data['E'] >= order_time:
-                    order_time = data['E']
-                    self._order_event.set(data)
-
     async def place_order(
         self,
         symbol: str,
@@ -391,24 +351,6 @@ class Binance(Exchange):
             if batch_start >= end:
                 break
 
-    async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
-        try:
-            while True:
-                await asyncio.sleep(30 * MIN_SEC)
-                await self._api_request(
-                    'PUT',
-                    '/api/v3/userDataStream',
-                    data={'listenKey': listen_key},
-                    security=_SEC_USER_STREAM
-                )
-        finally:
-            await self._api_request(
-                'DELETE',
-                '/api/v3/userDataStream',
-                data={'listenKey': listen_key},
-                security=_SEC_USER_STREAM
-            )
-
     async def _wapi_request(
         self,
         method: str,
@@ -431,7 +373,7 @@ class Binance(Exchange):
             # We could look it up from the message, but currently just assume that is the case
             # always.
             _log.warning(f'received error: {result["msg"]}; syncing clock before exc')
-            await self._sync_clock()
+            self._clock.clear()
             raise Exception(result['msg'])
         return result
 
@@ -454,7 +396,7 @@ class Binance(Exchange):
         )
         if isinstance(result, dict) and result.get('code') == _ERR_INVALID_TIMESTAMP:
             _log.warning(f'received invalid timestamp; syncing clock before exc')
-            await self._sync_clock()
+            self._clock.clear()
             raise Exception('Incorrect timestamp')
         return result
 
@@ -484,14 +426,10 @@ class Binance(Exchange):
             kwargs['headers'] = {'X-MBX-APIKEY': self._api_key}
 
         if security in [_SEC_TRADE, _SEC_USER_DATA]:
-            # Synchronize clock. Note that we may want to do this periodically instead of only
-            # initially.
-            if not self._sync_clock_task:
-                self._sync_clock_task = asyncio.create_task(cancelable(self._periodic_sync()))
-            await self._initial_sync.wait()
+            await self._clock.wait()
 
             data = data or {}
-            data['timestamp'] = time_ms() + self._time_diff
+            data['timestamp'] = time_ms() + self._clock.time_diff
             query_str_bytes = urllib.parse.urlencode(data).encode('utf-8')
             signature = hmac.new(self._secret_key_bytes, query_str_bytes, hashlib.sha256)
             data['signature'] = signature.hexdigest()
@@ -521,23 +459,126 @@ class Binance(Exchange):
             name=name
         )
 
+
+class Clock:
+    def __init__(self, binance: Binance) -> None:
+        self.time_diff = 0
+        self._binance = binance
+        self._synced = asyncio.Event()
+        self._sync_clock_task: Optional[asyncio.Task[None]] = None
+        self._old_sync_tasks: List[asyncio.Task[None]] = []
+
+    async def __aenter__(self) -> Clock:
+        return self
+
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        await cancel(self._sync_clock_task)
+
+    async def wait(self) -> None:
+        if len(self._old_sync_tasks) > 0:
+            to_wait = self._old_sync_tasks[:]
+            self._old_sync_tasks.clear()
+            await asyncio.gather(*to_wait)
+        if not self._sync_clock_task:
+            self._synced.clear()
+            self._sync_clock_task = asyncio.create_task(cancelable(self._periodic_sync()))
+        await self._synced.wait()
+
+    def clear(self) -> None:
+        if self._sync_clock_task:
+            self._old_sync_tasks.append(self._sync_clock_task)
+            self._sync_clock_task = None
+
     async def _periodic_sync(self) -> None:
         while True:
             await self._sync_clock()
             await asyncio.sleep(HOUR_SEC * 12)
 
+    # TODO: backoff
     async def _sync_clock(self) -> None:
         _log.info('syncing clock with Binance')
         before = time_ms()
-        server_time = (await self._api_request('GET', '/api/v3/time'))['serverTime']
+        server_time = (await self._binance._api_request('GET', '/api/v3/time'))['serverTime']
         after = time_ms()
         # Assume response time is same as request time.
         delay = (after - before) // 2
         local_time = before + delay
         # Adjustment required converting from local time to server time.
-        self._time_diff = server_time - local_time
-        _log.info(f'found {self._time_diff}ms time difference')
-        self._initial_sync.set()
+        self.time_diff = server_time - local_time
+        _log.info(f'found {self.time_diff}ms time difference')
+        self._synced.set()
+
+
+class UserDataStream:
+    def __init__(self, binance: Binance) -> None:
+        self._binance = binance
+        self._listen_key_lock = asyncio.Lock()
+        self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
+        self._stream_user_data_task: Optional[asyncio.Task[None]] = None
+        # TODO: generalize
+        self._balance_event: Event[Dict[str, Any]] = Event(autoclear=True)
+        self._order_event: Event[Any] = Event(autoclear=True)
+
+    async def __aenter__(self) -> UserDataStream:
+        return self
+
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        await cancel(self._listen_key_refresh_task, self._stream_user_data_task)
+
+    async def _ensure_user_data_stream(self) -> None:
+        async with self._listen_key_lock:
+            if self._listen_key_refresh_task:
+                return
+
+            user_stream_connected = asyncio.Event()
+
+            listen_key = (
+                await
+                self._api_request('POST', '/api/v3/userDataStream', security=_SEC_USER_STREAM)
+            )['listenKey']
+            self._listen_key_refresh_task = asyncio.create_task(
+                cancelable(self._periodic_listen_key_refresh(listen_key))
+            )
+            self._stream_user_data_task = asyncio.create_task(
+                cancelable(self._stream_user_data(listen_key, user_stream_connected))
+            )
+
+            await user_stream_connected.wait()
+
+    async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
+        bal_time, order_time = 0, 0
+        # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
+        async with self._connect_refreshing_stream(
+            url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user'
+        ) as ws:
+            connected.set()
+            async for data in ws:
+                # The data can come out of sync. Make sure to discard old updates.
+                if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
+                    bal_time = data['E']
+                    self._balance_event.set(data)
+                elif data['e'] == 'executionReport' and data['E'] >= order_time:
+                    order_time = data['E']
+                    self._order_event.set(data)
+
+    # TODO: backoff
+    async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
+        try:
+            while True:
+                await asyncio.sleep(30 * MIN_SEC)
+                await self._api_request(
+                    'PUT',
+                    '/api/v3/userDataStream',
+                    data={'listenKey': listen_key},
+                    security=_SEC_USER_STREAM
+                )
+        finally:
+            await self._api_request(
+                'DELETE',
+                '/api/v3/userDataStream',
+                data={'listenKey': listen_key},
+                security=_SEC_USER_STREAM
+            )
 
 
 def _http_symbol(symbol: str) -> str:
