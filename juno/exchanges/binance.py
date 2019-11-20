@@ -6,6 +6,7 @@ import hmac
 import logging
 import math
 import urllib.parse
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import (
@@ -131,13 +132,10 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
-        async def inner() -> AsyncIterable[Dict[str, Balance]]:
-            # TODO: Note that someone else might consume the event data while we do the initial
-            # fetch request. This might require a more sophisticated tracking impl.
-            # For example, instead of pub/sub events, keep a queue of messages and deliver them
-            # based on timestamps.
-            while True:
-                data = await self._balance_event.wait()
+        async def inner(
+            stream: AsyncIterable[Dict[str, Any]]
+        ) -> AsyncIterable[Dict[str, Balance]]:
+            async for data in stream:
                 result = {}
                 for balance in data['B']:
                     result[
@@ -145,8 +143,8 @@ class Binance(Exchange):
                     ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
                 yield result
 
-        await self._ensure_user_data_stream()
-        yield inner()
+        async with self._user_data_stream.subscribe('outboundAccountInfo') as stream:
+            yield inner(stream)
 
     async def get_depth(self, symbol: str) -> DepthSnapshot:
         # TODO: We might wanna increase that and accept higher weight.
@@ -198,9 +196,8 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
-        async def inner() -> AsyncIterable[OrderUpdate]:
-            while True:
-                data = await self._order_event.wait()
+        async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate]:
+            async for data in stream:
                 # fills = Fills()
                 # fill_size = Decimal(data['l'])
                 # if fill_size > 0:
@@ -225,8 +222,8 @@ class Binance(Exchange):
                     fee_asset=data['N'].lower() if data['N'] else None
                 )
 
-        await self._ensure_user_data_stream()
-        yield inner()
+        async with self._user_data_stream.subscribe('executionReport') as stream:
+            yield inner(stream)
 
     async def place_order(
         self,
@@ -515,9 +512,7 @@ class UserDataStream:
         self._listen_key_lock = asyncio.Lock()
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
-        # TODO: generalize
-        self._balance_event: Event[Dict[str, Any]] = Event(autoclear=True)
-        self._order_event: Event[Any] = Event(autoclear=True)
+        self._events: Dict[str, Event[Any]] = defaultdict(lambda: Event(autoclear=True))
 
     async def __aenter__(self) -> UserDataStream:
         return self
@@ -525,7 +520,27 @@ class UserDataStream:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(self._listen_key_refresh_task, self._stream_user_data_task)
 
-    async def _ensure_user_data_stream(self) -> None:
+    @asynccontextmanager
+    async def subscribe(self, event_type: str) -> AsyncIterator[AsyncIterable[Any]]:
+        # TODO: Note that someone else might consume the event data while we do the initial
+        # fetch request. This might require a more sophisticated tracking impl.
+        # For example, instead of pub/sub events, keep a queue of messages and deliver them
+        # based on timestamps.
+        await self._ensure_connection()
+
+        event = self._events[event_type]
+
+        async def inner(event: Event[Any]) -> AsyncIterable[Any]:
+            while True:
+                yield await event.wait()
+
+        try:
+            yield inner(event)
+        finally:
+            # TODO: unsubscribe if no other consumers?
+            pass
+
+    async def _ensure_connection(self) -> None:
         async with self._listen_key_lock:
             if self._listen_key_refresh_task:
                 return
@@ -534,7 +549,8 @@ class UserDataStream:
 
             listen_key = (
                 await
-                self._api_request('POST', '/api/v3/userDataStream', security=_SEC_USER_STREAM)
+                self._binance._api_request('POST', '/api/v3/userDataStream',
+                                           security=_SEC_USER_STREAM)
             )['listenKey']
             self._listen_key_refresh_task = asyncio.create_task(
                 cancelable(self._periodic_listen_key_refresh(listen_key))
@@ -546,34 +562,27 @@ class UserDataStream:
             await user_stream_connected.wait()
 
     async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
-        bal_time, order_time = 0, 0
         # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
-        async with self._connect_refreshing_stream(
+        async with self._binance._connect_refreshing_stream(
             url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user'
         ) as ws:
             connected.set()
             async for data in ws:
-                # The data can come out of sync. Make sure to discard old updates.
-                if data['e'] == 'outboundAccountInfo' and data['E'] >= bal_time:
-                    bal_time = data['E']
-                    self._balance_event.set(data)
-                elif data['e'] == 'executionReport' and data['E'] >= order_time:
-                    order_time = data['E']
-                    self._order_event.set(data)
+                self._events[data['e']].set(data)
 
     # TODO: backoff
     async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
         try:
             while True:
                 await asyncio.sleep(30 * MIN_SEC)
-                await self._api_request(
+                await self._binance._api_request(
                     'PUT',
                     '/api/v3/userDataStream',
                     data={'listenKey': listen_key},
                     security=_SEC_USER_STREAM
                 )
         finally:
-            await self._api_request(
+            await self._binance._api_request(
                 'DELETE',
                 '/api/v3/userDataStream',
                 data={'listenKey': listen_key},
