@@ -13,6 +13,8 @@ from typing import (
     Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 )
 
+import backoff
+
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
@@ -491,7 +493,7 @@ class Clock:
             await self._sync_clock()
             await asyncio.sleep(HOUR_SEC * 12)
 
-    # TODO: backoff
+    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
     async def _sync_clock(self) -> None:
         _log.info('syncing clock with Binance')
         before = time_ms()
@@ -547,11 +549,7 @@ class UserDataStream:
 
             user_stream_connected = asyncio.Event()
 
-            listen_key = (
-                await
-                self._binance._api_request('POST', '/api/v3/userDataStream',
-                                           security=_SEC_USER_STREAM)
-            )['listenKey']
+            listen_key = await self._create_listen_key()
             self._listen_key_refresh_task = asyncio.create_task(
                 cancelable(self._periodic_listen_key_refresh(listen_key))
             )
@@ -562,7 +560,6 @@ class UserDataStream:
             await user_stream_connected.wait()
 
     async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
-        # TODO: since binance may send out of sync, we need a better sln here for `take_until`.
         async with self._binance._connect_refreshing_stream(
             url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user'
         ) as ws:
@@ -570,24 +567,39 @@ class UserDataStream:
             async for data in ws:
                 self._events[data['e']].set(data)
 
-    # TODO: backoff
     async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
         try:
             while True:
                 await asyncio.sleep(30 * MIN_SEC)
-                await self._binance._api_request(
-                    'PUT',
-                    '/api/v3/userDataStream',
-                    data={'listenKey': listen_key},
-                    security=_SEC_USER_STREAM
-                )
+                await self._update_listen_key(listen_key)
         finally:
-            await self._binance._api_request(
-                'DELETE',
-                '/api/v3/userDataStream',
-                data={'listenKey': listen_key},
-                security=_SEC_USER_STREAM
-            )
+            await self._delete_listen_key(listen_key)
+
+    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    async def _create_listen_key(self) -> str:
+        return (await self._binance._api_request(
+            'POST',
+            '/api/v3/userDataStream',
+            security=_SEC_USER_STREAM
+        ))['listenKey']
+
+    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    async def _update_listen_key(self, listen_key: str) -> None:
+        await self._binance._api_request(
+            'PUT',
+            '/api/v3/userDataStream',
+            data={'listenKey': listen_key},
+            security=_SEC_USER_STREAM
+        )
+
+    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    async def _delete_listen_key(self, listen_key: str) -> None:
+        await self._binance._api_request(
+            'DELETE',
+            '/api/v3/userDataStream',
+            data={'listenKey': listen_key},
+            security=_SEC_USER_STREAM
+        )
 
 
 def _http_symbol(symbol: str) -> str:

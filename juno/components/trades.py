@@ -61,7 +61,7 @@ class Trades:
                 ):
                     yield trade
 
-    @backoff.on_exception(backoff.expo, (Exception, ), max_tries=3)
+    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:

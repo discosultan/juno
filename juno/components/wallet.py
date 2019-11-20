@@ -36,7 +36,7 @@ class Wallet:
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(*(self._sync_balances(e) for e in self._exchanges.keys()))
 
-    @backoff.on_exception(backoff.expo, (Exception, ), max_tries=3)
+    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
     async def _sync_balances(self, exchange: str) -> None:
         is_first = True
         async for balances in self._stream_balances(exchange):
