@@ -76,16 +76,8 @@ class Optimize(Agent):
 
         strategy_type = get_strategy_type(strategy)
 
-        # Objectives:
-        #   - max profit
-        #   - min mean drawdown
-        #   - min max drawdown
-        #   - max mean position profit
-        #   - min mean position duration
-        #   - max positions taken in profit
-        #   - min positions taken in loss
-        weights = (1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0)
-        creator.create('FitnessMulti', base.Fitness, weights=weights)
+        # Objectives.
+        creator.create('FitnessMulti', base.Fitness, weights=SolverResult.weights())
         creator.create('Individual', list, fitness=creator.FitnessMulti)
 
         toolbox = base.Toolbox()

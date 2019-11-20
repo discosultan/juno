@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Callable, NamedTuple, Type, get_type_hints
+from typing import Any, Callable, List, NamedTuple, Type, get_type_hints
 
 from juno.strategies import Strategy
 from juno.trading import TradingSummary
@@ -31,6 +31,21 @@ class SolverResult(NamedTuple):
     mean_position_duration: int
     num_positions_in_profit: int
     num_positions_in_loss: int
+
+    @staticmethod
+    def weights() -> List[float]:
+        # We try to maximize properties with positive weight, minimize properties with negative
+        # weight.
+        MAP = {
+            'profit': 1.0,
+            'mean_drawdown': -1.0,
+            'max_drawdown': -1.0,
+            'mean_position_profit': 1.0,
+            'mean_position_duration': -1.0,
+            'num_positions_in_profit': 1.0,
+            'num_positions_in_loss': -1.0,
+        }
+        return [MAP[k] for k in get_type_hints(SolverResult).keys()]
 
     @staticmethod
     def from_trading_summary(summary: TradingSummary) -> SolverResult:
