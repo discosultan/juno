@@ -145,6 +145,7 @@ async def connect_refreshing_stream(
 
                 msg = receive_task.result()
                 if msg.type is aiohttp.WSMsgType.CLOSED:
+                    # TODO: Should we raise here or at least provide an option?
                     _aiohttp_log.warning(
                         f'server closed ws {ctx.name} connection; data: {msg.data}; reconnecting'
                     )

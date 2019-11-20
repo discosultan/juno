@@ -63,6 +63,7 @@ class Orderbook:
     @backoff.on_exception(backoff.expo, (Exception, ), max_tries=3)
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         orderbook = self._data[exchange][symbol]
+        orderbook.snapshot_received = False
         async for depth in self._stream_depth(exchange, symbol):
             if isinstance(depth, DepthSnapshot):
                 orderbook[Side.BUY] = {k: v for k, v in depth.asks}
