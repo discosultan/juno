@@ -11,7 +11,9 @@ setup(
         'backoff',
         'cffi',
         'colorlog',
-        'deap',
+        # A release has not been made for a long time. We pull straight from master for Python 3.8
+        # support.
+        'deap @ git+ssh://git@github.com/DEAP/deap@master#egg=deap',
         'numpy',  # Also implicitly required by deap.
         'pandas',
         'python-dateutil',
