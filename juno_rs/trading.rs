@@ -68,9 +68,9 @@ pub struct TradingSummary<'a> {
     pub drawdowns: Vec<f64>,
     pub max_drawdown: f64,
     pub mean_drawdown: f64,
-    pub num_positions: u64,
-    pub num_positions_in_profit: u64,
-    pub num_positions_in_loss: u64,
+    pub num_positions: u32,
+    pub num_positions_in_profit: u32,
+    pub num_positions_in_loss: u32,
 }
 
 impl<'a> TradingSummary<'a> {
@@ -136,10 +136,10 @@ impl<'a> TradingSummary<'a> {
             self.max_drawdown = f64::max(self.max_drawdown, drawdown);
         }
 
-        self.num_positions = self.positions.len() as u64;
+        self.num_positions = self.positions.len() as u32;
         if self.num_positions > 0 {
             self.mean_position_profit /= self.num_positions as f64;
-            self.mean_position_duration /= self.num_positions;
+            self.mean_position_duration /= self.num_positions as u64;
             self.mean_drawdown /= self.drawdowns.len() as f64;
         }
 

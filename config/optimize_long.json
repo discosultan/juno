@@ -1,5 +1,5 @@
 {
-    "log_format": "default",
+    "log_format": "colored",
     "log_level": "info",
     "storage": "sqlite",
     "solver": "rust",
@@ -15,8 +15,8 @@
             "restart_on_missed_candle": null,
             "trailing_stop": null,
             "strategy": "mamacx",
-            "population_size": 200,
-            "max_generations": 10000,
+            "population_size": 100,
+            "max_generations": 1000,
             "seed": null,
             "verbose": true
         }
