@@ -2,7 +2,7 @@ use crate::strategies::Strategy;
 use crate::{Advice, Candle, Fees, Filters, Position, TradingContext, TradingSummary};
 use crate::math::round_half_up;
 
-pub type BacktestResult = (f64, f64, f64, f64, u64, u64, u64);
+pub type BacktestResult = (f64, f64, f64, f64, u64, u32, u32);
 
 pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     strategy_factory: TF,

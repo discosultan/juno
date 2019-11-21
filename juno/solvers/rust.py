@@ -8,7 +8,7 @@ import platform
 import shutil
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable, Type, get_type_hints
+from typing import Any, Callable, Type
 
 import cffi
 
@@ -194,11 +194,9 @@ typedef struct {{
 
 
 def _build_backtest_result() -> str:
-    # Assumes all values 64 bit. Otherwise we need a different implementation.
-    type_hints = get_type_hints(SolverResult)
     fields = "\n    ".join(
-        (f"{_map_type(type_hints.get(k, int), prefer_int64=True)} {k};"
-         for k in SolverResult.weights().keys())
+        (f"{_map_meta_type(t)} {k};"
+         for k, (t, _) in SolverResult.meta(include_disabled=True).items())
     )
     return f'''
 typedef struct {{
@@ -236,9 +234,23 @@ BacktestResult {meta.identifier.format(**format_args)}(
     return '\n'.join(templates)
 
 
-def _map_type(type_: type, prefer_int64: bool = False) -> str:
+# TODO: Consolidate mappings below? Use NewType? Use meta only?
+
+
+def _map_meta_type(type_: str) -> str:
     result = {
-        int: 'uint64_t' if prefer_int64 else 'uint32_t',
+        'u32': 'uint32_t',
+        'u64': 'uint64_t',
+        'f64': 'double',
+    }.get(type_)
+    if not result:
+        raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')
+    return result
+
+
+def _map_type(type_: type) -> str:
+    result = {
+        int: 'uint32_t',
         float: 'double',
         Decimal: 'double',
     }.get(type_)
