@@ -24,13 +24,13 @@ class Solver(ABC):
 
 
 class SolverResult(NamedTuple):
-    profit: float
-    mean_drawdown: float
-    max_drawdown: float
-    mean_position_profit: float
-    mean_position_duration: int
-    num_positions_in_profit: int
-    num_positions_in_loss: int
+    profit: float = 0.0
+    mean_drawdown: float = 0.0
+    max_drawdown: float = 0.0
+    mean_position_profit: float = 0.0
+    mean_position_duration: int = 0
+    num_positions_in_profit: int = 0
+    num_positions_in_loss: int = 0
 
     @staticmethod
     def meta(include_disabled: bool = False) -> Dict[str, Tuple[str, float]]:

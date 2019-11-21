@@ -18,8 +18,8 @@ from juno.config import (
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.logging import create_handlers
+from juno.optimization import Solver
 from juno.plugins import list_plugins
-from juno.solvers import Solver
 from juno.storages import Storage
 from juno.utils import full_path, map_module_types
 
