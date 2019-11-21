@@ -77,7 +77,7 @@ class Optimize(Agent):
         strategy_type = get_strategy_type(strategy)
 
         # Objectives.
-        creator.create('FitnessMulti', base.Fitness, weights=SolverResult.weights())
+        creator.create('FitnessMulti', base.Fitness, weights=list(SolverResult.weights().values()))
         creator.create('Individual', list, fitness=creator.FitnessMulti)
 
         toolbox = base.Toolbox()

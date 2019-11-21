@@ -194,9 +194,12 @@ typedef struct {{
 
 
 def _build_backtest_result() -> str:
-    fields = "\n    ".join((
-        f"{_map_type(v, prefer_int64=True)} {k};" for k, v in get_type_hints(SolverResult).items()
-    ))
+    # Assumes all values 64 bit. Otherwise we need a different implementation.
+    type_hints = get_type_hints(SolverResult)
+    fields = "\n    ".join(
+        (f"{_map_type(type_hints.get(k, int), prefer_int64=True)} {k};"
+         for k in SolverResult.weights().keys())
+    )
     return f'''
 typedef struct {{
     {fields}
