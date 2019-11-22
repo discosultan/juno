@@ -6,7 +6,7 @@ from juno.components import Chandler, Informant
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
 from juno.time import time_ms
-from juno.trading import TradingLoop
+from juno.trading import Trader
 
 from .agent import Agent
 
@@ -41,7 +41,7 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
-        trading_loop = TradingLoop(
+        trading_loop = Trader(
             chandler=self.chandler,
             informant=self.informant,
             exchange=exchange,

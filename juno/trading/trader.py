@@ -12,9 +12,7 @@ from juno.utils import EventEmitter, format_attrs_as_json, unpack_symbol
 from .common import Position, TradingContext, TradingSummary
 
 
-# TODO: rename Trader
-# TODO: move None end logic here
-class TradingLoop:
+class Trader:
     def __init__(
         self,
         chandler: Chandler,

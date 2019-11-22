@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from juno import Advice
-from juno.trading import TradingLoop
+from juno.trading import Trader
 
 from . import fakes
 from .utils import new_candle
@@ -16,7 +16,7 @@ async def test_trailing_stop_loss():
             new_candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
         ]
     )
-    loop = TradingLoop(
+    loop = Trader(
         chandler=chandler,
         informant=fakes.Informant(),
         exchange='dummy',
@@ -52,7 +52,7 @@ async def test_restart_on_missed_candle():
     strategy2 = fakes.Strategy(Advice.NONE, Advice.NONE, Advice.NONE)
     strategy_stack = [strategy2, strategy1]
 
-    loop = TradingLoop(
+    loop = Trader(
         chandler=chandler,
         informant=fakes.Informant(),
         exchange='dummy',

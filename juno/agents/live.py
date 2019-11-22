@@ -7,7 +7,7 @@ from juno.components import Chandler, Informant, Wallet
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
 from juno.time import MAX_TIME_MS, time_ms
-from juno.trading import TradingLoop
+from juno.trading import Trader
 from juno.utils import unpack_symbol
 
 from .agent import Agent
@@ -49,7 +49,7 @@ class Live(Agent):
         _, filters = self.informant.get_fees_filters(exchange, symbol)
         assert quote > filters.price.min
 
-        trading_loop = TradingLoop(
+        trading_loop = Trader(
             chandler=self.chandler,
             informant=self.informant,
             exchange=exchange,

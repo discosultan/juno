@@ -1,9 +1,9 @@
 from .common import Position, TradingContext, TradingSummary
-from .loop import TradingLoop
+from .trader import Trader
 
 __all__ = [
     'Position',
     'TradingContext',
-    'TradingLoop',
+    'Trader',
     'TradingSummary',
 ]

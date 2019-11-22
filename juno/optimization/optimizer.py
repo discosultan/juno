@@ -15,7 +15,7 @@ from juno.logging import disabled_log
 from juno.math import Choice, Constant, Uniform, floor_multiple
 from juno.strategies import Strategy, get_strategy_type, new_strategy
 from juno.time import strfinterval, time_ms
-from juno.trading import TradingLoop
+from juno.trading import Trader
 from juno.typing import get_input_type_hints
 from juno.utils import flatten, format_attrs_as_json
 
@@ -212,7 +212,7 @@ class Optimizer:
         self.log.info(
             f'validating {solver_name} solver result with best args against actual trading loop'
         )
-        loop = TradingLoop(
+        loop = Trader(
             chandler=self.chandler,
             informant=self.informant,
             exchange=self.exchange,

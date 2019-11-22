@@ -7,7 +7,7 @@ from juno.components import Chandler, Informant
 from juno.math import floor_multiple
 from juno.strategies import new_strategy
 from juno.time import MAX_TIME_MS, time_ms
-from juno.trading import TradingLoop
+from juno.trading import Trader
 
 from .agent import Agent
 
@@ -44,7 +44,7 @@ class Paper(Agent):
 
         assert quote > filters.price.min
 
-        trading_loop = TradingLoop(
+        trading_loop = Trader(
             chandler=self.chandler,
             informant=self.informant,
             exchange=exchange,
