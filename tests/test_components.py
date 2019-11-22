@@ -23,7 +23,7 @@ async def memory(loop):
     'start,end,closed,efrom,eto,espans',
     [
         [0, 3, True, 0, 2, [(0, 2)]],  # Skips skipped candle at the end.
-        [2, 3, True, 0, 0, []],  # Empty if only skipped candle.
+        [2, 3, True, 0, 0, [(2, 3)]],  # Empty if only skipped candle.
         [3, 5, True, 2, 5, [(3, 5)]],  # Filters out closed candle.
         [0, 5, False, 0, 5, [(0, 2), (2, 5)]],  # Includes closed candle.
         [0, 6, True, 0, 6, [(0, 2), (2, 5), (5, 6)]],  # Includes future candle.
@@ -76,6 +76,10 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     assert output_candles == expected_candles
     assert stored_candles == [c for c in output_candles if c.closed]
     assert stored_spans == espans
+
+
+async def test_stream_future_candles_exception_range_not_stored():
+    pass
 
 
 # async def test_stream_candles_construct_from_trades(memory):
