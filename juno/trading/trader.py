@@ -129,7 +129,7 @@ class Trader:
                     break
         finally:
             if last_candle and self.ctx.open_position:
-                self.log.info('ending trade loop but position open; closing')
+                self.log.info('ending trading but position open; closing')
                 await self._close_position(candle=candle)
 
     async def _open_position(self, candle: Candle) -> None:

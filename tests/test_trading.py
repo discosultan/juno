@@ -2,9 +2,11 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Fees, Fill, Fills, Filters, Position, TradingSummary
+from juno import Advice, Fees, Fill, Fills, Filters
 from juno.time import HOUR_MS
+from juno.trading import Position, Trader, TradingSummary
 
+from . import fakes
 from .utils import new_candle, new_closed_position
 
 
@@ -49,7 +51,7 @@ def test_position_annualized_roi_overflow():
     assert pos.annualized_roi == Decimal('Inf')
 
 
-def test_summary():
+def test_trading_summary():
     summary = TradingSummary(
         interval=HOUR_MS, start=0, quote=Decimal('100.0'), fees=Fees.none(), filters=Filters.none()
     )
@@ -72,7 +74,7 @@ def test_summary():
     assert summary.max_drawdown == pytest.approx(Decimal('0.1495'), Decimal('0.001'))
 
 
-def test_empty_summary():
+def test_empty_trading_summary():
     summary = TradingSummary(
         interval=HOUR_MS, start=0, quote=Decimal('100.0'), fees=Fees.none(), filters=Filters.none()
     )
@@ -80,3 +82,75 @@ def test_empty_summary():
     assert summary.gain == 100
     assert summary.profit == 0
     assert summary.max_drawdown == 0
+
+
+async def test_trader_trailing_stop_loss():
+    chandler = fakes.Chandler(
+        candles=[
+            new_candle(time=0, close=Decimal('10.0')),  # Buy.
+            new_candle(time=1, close=Decimal('20.0')),
+            new_candle(time=2, close=Decimal('18.0')),  # Trigger trailing stop (10%).
+            new_candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
+        ]
+    )
+    loop = Trader(
+        chandler=chandler,
+        informant=fakes.Informant(),
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=4,
+        quote=Decimal('10.0'),
+        new_strategy=lambda: fakes.Strategy(Advice.BUY, Advice.NONE, Advice.NONE, Advice.SELL),
+        restart_on_missed_candle=False,
+        adjust_start=False,
+        trailing_stop=Decimal('0.1'),
+    )
+
+    await loop.run()
+    res = loop.summary
+
+    assert res.profit == 8
+
+
+async def test_trader_restart_on_missed_candle():
+    chandler = fakes.Chandler(
+        candles=[
+            new_candle(time=0),
+            new_candle(time=1),
+            # 1 candle skipped.
+            new_candle(time=3),  # Trigger restart.
+            new_candle(time=4),
+            new_candle(time=5),
+        ]
+    )
+    strategy1 = fakes.Strategy(Advice.NONE, Advice.NONE)
+    strategy2 = fakes.Strategy(Advice.NONE, Advice.NONE, Advice.NONE)
+    strategy_stack = [strategy2, strategy1]
+
+    loop = Trader(
+        chandler=chandler,
+        informant=fakes.Informant(),
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=6,
+        quote=Decimal('10.0'),
+        new_strategy=lambda: strategy_stack.pop(),
+        restart_on_missed_candle=True,
+        adjust_start=False,
+        trailing_stop=Decimal('0.0'),
+    )
+
+    await loop.run()
+
+    assert len(strategy1.updates) == 2
+    assert strategy1.updates[0].time == 0
+    assert strategy1.updates[1].time == 1
+
+    assert len(strategy2.updates) == 3
+    assert strategy2.updates[0].time == 3
+    assert strategy2.updates[1].time == 4
+    assert strategy2.updates[2].time == 5

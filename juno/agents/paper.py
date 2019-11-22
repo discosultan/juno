@@ -44,7 +44,7 @@ class Paper(Agent):
 
         assert quote > filters.price.min
 
-        trading_loop = Trader(
+        trader = Trader(
             chandler=self.chandler,
             informant=self.informant,
             exchange=exchange,
@@ -62,5 +62,5 @@ class Paper(Agent):
             adjust_start=adjust_start,
             trailing_stop=trailing_stop,
         )
-        self.result = trading_loop.summary
-        await trading_loop.run()
+        self.result = trader.summary
+        await trader.run()

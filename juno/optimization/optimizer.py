@@ -207,12 +207,12 @@ class Optimizer:
             result=best_result,
         )
 
-        # Validate our results by running a backtest in actual trading loop to ensure correctness.
+        # Validate our results by running a backtest in actual trader to ensure correctness.
         solver_name = type(self.solver).__name__.lower()
         self.log.info(
-            f'validating {solver_name} solver result with best args against actual trading loop'
+            f'validating {solver_name} solver result with best args against actual trader'
         )
-        loop = Trader(
+        trader = Trader(
             chandler=self.chandler,
             informant=self.informant,
             exchange=self.exchange,
@@ -228,13 +228,13 @@ class Optimizer:
             adjust_start=False,
         )
         try:
-            await loop.run()
+            await trader.run()
         except InsufficientBalance:
             pass
-        validation_result = SolverResult.from_trading_summary(loop.summary)
+        validation_result = SolverResult.from_trading_summary(trader.summary)
         if not _isclose(validation_result, best_result):
             raise Exception(
-                f'Optimizer results differ for input {self.result} between trading loop and '
+                f'Optimizer results differ for input {self.result} between trader and '
                 f'{solver_name} solver:\n{format_attrs_as_json(validation_result)}'
                 f'\n{format_attrs_as_json(best_result)}'
             )
