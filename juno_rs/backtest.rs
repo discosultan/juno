@@ -35,8 +35,18 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
                     ctx.strategy = strategy_factory();
                 } else if missed_candle_policy == 2 && diff >= two_interval {
                     let num_missed = (diff / interval) - 1;
-                    for _ in 0..num_missed {
-                        if !tick(&mut ctx, &mut summary, &fees, &filters, trailing_stop, candle) {
+                    for i in 1..=num_missed {
+                        let missed_candle = Candle {
+                            time: last_candle.time + i * interval,
+                            open: last_candle.open,
+                            high: last_candle.high,
+                            low: last_candle.low,
+                            close: last_candle.close,
+                            volume: last_candle.volume,
+                        };
+                        if !tick(
+                            &mut ctx, &mut summary, &fees, &filters, trailing_stop, &missed_candle
+                        ) {
                             exit = true;
                             break;
                         }
@@ -65,7 +75,7 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
 
     if let Some(last_candle) = ctx.last_candle {
         if ctx.open_position.is_some() {
-            close_position(&mut ctx, &mut summary, fees, filters, last_candle);
+            close_position(&mut ctx, &mut summary, fees, filters, &last_candle);
         }
     }
 
@@ -81,13 +91,13 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     )
 }
 
-fn tick<'a, T: Strategy>(
-    mut ctx: &mut TradingContext<'a, T>,
+fn tick<T: Strategy>(
+    mut ctx: &mut TradingContext<T>,
     mut summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
     trailing_stop: f64,
-    candle: &'a Candle,
+    candle: &Candle,
 ) -> bool {
     let advice = ctx.strategy.update(&candle);
 
@@ -107,7 +117,7 @@ fn tick<'a, T: Strategy>(
         }
     }
 
-    ctx.last_candle = Some(candle);
+    ctx.last_candle = Some(*candle);
     true
 }
 

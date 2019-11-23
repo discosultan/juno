@@ -61,7 +61,7 @@ class Python(Solver):
                                 ctx.strategy = strategy_type(*args)
                             elif missed_candle_policy == 2:  # 'assume_same_as_last'
                                 num_missed = (candle.time - ctx.last_candle.time) // interval - 1
-                                for i in range(0, num_missed):
+                                for i in range(1, num_missed + 1):
                                     missed_candle = Candle(
                                         time=ctx.last_candle.time + i * interval,
                                         open=ctx.last_candle.open,

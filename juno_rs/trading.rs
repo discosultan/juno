@@ -156,16 +156,16 @@ impl<'a> TradingSummary<'a> {
     }
 }
 
-pub struct TradingContext<'a, T: Strategy> {
+pub struct TradingContext<T: Strategy> {
     pub strategy: T,
     pub quote: f64,
     pub open_position: Option<Position>,
-    pub last_candle: Option<&'a Candle>,
+    pub last_candle: Option<Candle>,
     pub highest_close_since_position: f64,
 
 }
 
-impl<'a, T: Strategy> TradingContext<'_, T> {
+impl<T: Strategy> TradingContext<T> {
     pub fn new(strategy: T, quote: f64) -> Self {
         Self {
             strategy,

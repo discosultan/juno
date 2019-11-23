@@ -72,7 +72,7 @@ async def test_memory_store_and_stream_empty_series(memory):
 
 @pytest.mark.parametrize('item', [
     Candle(time=1, close=Decimal('1.0')),
-    SymbolsInfo.none(),
+    SymbolsInfo(),
 ])
 async def test_memory_set_get(memory, item):
     item_type = type(item)

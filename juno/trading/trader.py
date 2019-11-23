@@ -102,7 +102,7 @@ class Trader:
                             restart_count += 1
                         elif self.missed_candle_policy == 'assume_same_as_last':
                             self.log.info('replaying missed candles with last candle values')
-                            for i in range(0, num_missed):
+                            for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
                                     time=ctx.last_candle.time + i * self.interval,
                                     open=ctx.last_candle.open,

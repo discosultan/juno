@@ -5,7 +5,7 @@ pub enum Advice {
     Sell,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Candle {
     pub time: u64,
     pub open: f64,
@@ -19,15 +19,6 @@ pub struct Candle {
 pub struct Fees {
     pub maker: f64,
     pub taker: f64,
-}
-
-impl Fees {
-    pub fn none() -> Self {
-        Fees {
-            maker: 0.0,
-            taker: 0.0,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
