@@ -36,7 +36,7 @@ class Trader:
         assert end > 0
         assert end > start
         assert 0 <= trailing_stop < 1
-        assert missed_candle_policy in ['ignore', 'restart', 'assume_same_as_last']
+        assert missed_candle_policy in ['ignore', 'restart', 'last']
 
         self.chandler = chandler
         self.informant = informant
@@ -101,7 +101,7 @@ class Trader:
                             ctx.strategy = self.new_strategy()
                             start = candle.time + self.interval
                             restart_count += 1
-                        elif self.missed_candle_policy == 'assume_same_as_last':
+                        elif self.missed_candle_policy == 'last':
                             self.log.info('replaying missed candles with last candle values')
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(

@@ -59,7 +59,7 @@ class Python(Solver):
                             if missed_candle_policy == 1:  # 'restart'
                                 restart = True
                                 ctx.strategy = strategy_type(*args)
-                            elif missed_candle_policy == 2:  # 'assume_same_as_last'
+                            elif missed_candle_policy == 2:  # 'last'
                                 num_missed = (candle.time - ctx.last_candle.time) // interval - 1
                                 for i in range(1, num_missed + 1):
                                     missed_candle = Candle(

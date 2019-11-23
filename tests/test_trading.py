@@ -177,7 +177,7 @@ async def test_trader_assume_same_as_last_on_missed_candle():
         end=4,
         quote=Decimal('10.0'),
         new_strategy=lambda: strategy,
-        missed_candle_policy='assume_same_as_last',
+        missed_candle_policy='last',
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
     )

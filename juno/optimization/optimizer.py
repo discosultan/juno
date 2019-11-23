@@ -25,7 +25,7 @@ from .solver import Solver, SolverResult
 _missed_candle_policy_constraint = Choice([
     0,  # 'ignore'
     1,  # 'restart'
-    2,  # 'assume_same_as_last'
+    2,  # 'last'
 ])
 _trailing_stop_constraint = Choice([
     Constant(Decimal('0.0')),
@@ -270,6 +270,6 @@ def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
 _MISSED_CANDLE_POLICY_MAP = {
     'ignore': 0,
     'restart': 1,
-    'assume_same_as_last': 2,
+    'last': 2,
 }
 _REVERSE_MISSED_CANDLE_POLICY_MAP = {v: k for k, v in _MISSED_CANDLE_POLICY_MAP.items()}
