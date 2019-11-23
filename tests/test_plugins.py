@@ -2,12 +2,11 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Fees, Fill, Fills, Filters, Position, TradingSummary
+from juno import Candle, Fees, Fill, Fills, Filters
 from juno.agents import Agent
 from juno.time import DAY_MS
+from juno.trading import Position, TradingSummary
 from juno.utils import full_path
-
-from .utils import new_candle
 
 
 @pytest.mark.manual
@@ -20,7 +19,7 @@ async def test_discord(request, config):
     agent = Dummy()
     agent.result = get_dummy_trading_summary(quote=Decimal('1.0'), interval=DAY_MS)
     async with discord.activate(agent, config['discord']):
-        candle = new_candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
+        candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
         agent.result.append_candle(candle)
         pos = Position(
             time=candle.time,
@@ -30,7 +29,7 @@ async def test_discord(request, config):
             ])
         )
         await agent.emit('position_opened', pos)
-        candle = new_candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
+        candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
         agent.result.append_candle(candle)
         pos.close(
             time=candle.time,
@@ -60,7 +59,7 @@ def skip_non_configured(request, config):
 
 def get_dummy_trading_summary(quote, interval):
     return TradingSummary(
-        interval=interval, start=0, quote=quote, fees=Fees.none(), filters=Filters.none()
+        interval=interval, start=0, quote=quote, fees=Fees(), filters=Filters()
     )
 
 

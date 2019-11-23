@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import AsyncIterable, Callable, List, Optional
 
@@ -69,6 +70,7 @@ class Trades:
         batch = []
         batch_start = start
         current = self._get_time()
+        storage_key = (exchange, symbol)
 
         try:
             async for trade in self._stream_exchange_trades(
@@ -88,9 +90,9 @@ class Trades:
                         add_back.append(batch[i])  # Note we are adding in reverse direction.
                         del batch[i]
 
-                    batch_end = _get_span_end(batch)
+                    batch_end = batch[-1].time + 1
                     await self._storage.store_time_series_and_span(
-                        key=(exchange, symbol),
+                        key=storage_key,
                         type=Trade,
                         items=batch,
                         start=batch_start,
@@ -101,16 +103,24 @@ class Trades:
                     del batch[:]
                     batch.extend(add_back)
                 yield trade
-        finally:
+        except asyncio.CancelledError:
             if len(batch) > 0:
-                batch_end = _get_span_end(batch)
                 await self._storage.store_time_series_and_span(
-                    key=(exchange, symbol),
+                    key=storage_key,
                     type=Trade,
                     items=batch,
                     start=batch_start,
-                    end=batch_end,
+                    end=batch[-1].time + 1,
                 )
+        else:
+            current = self._get_time()
+            await self._storage.store_time_series_and_span(
+                key=storage_key,
+                type=Trade,
+                items=batch,
+                start=batch_start,
+                end=min(current, end),
+            )
 
     async def _stream_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int, current: int

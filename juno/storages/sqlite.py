@@ -33,7 +33,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 26
+_VERSION = 29
 
 T = TypeVar('T')
 
@@ -91,28 +91,31 @@ class SQLite(Storage):
     async def store_time_series_and_span(
         self, key: Key, type: Type[Any], items: List[Any], start: int, end: int
     ) -> None:
-        if start > items[0].time:
-            raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
-        if end <= items[-1].time:
-            raise ValueError(
-                f'Span end {end} smaller than or equal to last item time '
-                f'{items[-1].time}'
-            )
+        if len(items) > 0:
+            if start > items[0].time:
+                raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
+            if end <= items[-1].time:
+                raise ValueError(
+                    f'Span end {end} smaller than or equal to last item time '
+                    f'{items[-1].time}'
+                )
 
         _log.info(
             f'storing {len(items)} {type.__name__}(s) between {strfspan(start, end)} to {key} db'
         )
         async with self._connect(key) as db:
-            await self._ensure_table(db, type)
-            try:
-                await db.executemany(
-                    f"INSERT INTO {type.__name__} "
-                    f"VALUES ({', '.join(['?'] * len(get_type_hints(type)))})", items
-                )
-            except sqlite3.IntegrityError as err:
-                # TODO: Can we relax this constraint?
-                _log.error(f'{err} {key}')
-                raise
+            if len(items) > 0:
+                await self._ensure_table(db, type)
+                try:
+                    await db.executemany(
+                        f"INSERT INTO {type.__name__} "
+                        f"VALUES ({', '.join(['?'] * len(get_type_hints(type)))})", items
+                    )
+                except sqlite3.IntegrityError as err:
+                    # TODO: Can we relax this constraint?
+                    _log.error(f'{err} {key}')
+                    raise
+
             span_table_name = f'{type.__name__}{Span.__name__}'
             await self._ensure_table(db, Span, span_table_name)
             await db.execute(f'INSERT INTO {span_table_name} VALUES (?, ?)', [start, end])

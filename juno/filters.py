@@ -23,14 +23,10 @@ class Price(NamedTuple):
         return ((not self.min or price >= self.min) and (not self.max or price <= self.max)
                 and (not self.step or (price - self.min) % self.step == 0))
 
-    @staticmethod
-    def none() -> Price:
-        return Price()
-
 
 class PercentPrice(NamedTuple):
-    multiplier_up: Decimal
-    multiplier_down: Decimal
+    multiplier_up: Decimal = Decimal('Inf')
+    multiplier_down: Decimal = Decimal('0.0')
     avg_price_period: int = 0  # 0 means the last price is used.
 
     def valid(self, price: Decimal, weighted_average_price: Decimal) -> bool:
@@ -39,15 +35,11 @@ class PercentPrice(NamedTuple):
             and price >= weighted_average_price * self.multiplier_down
         )
 
-    @staticmethod
-    def none() -> PercentPrice:
-        return PercentPrice(multiplier_up=Decimal('Inf'), multiplier_down=Decimal('0.0'))
-
 
 class Size(NamedTuple):
-    min: Decimal
-    max: Decimal
-    step: Decimal
+    min: Decimal = Decimal('0.0')
+    max: Decimal = Decimal('Inf')
+    step: Decimal = Decimal('0.0')
 
     def round_down(self, size: Decimal) -> Decimal:
         return self._round(size, ROUND_DOWN)
@@ -64,14 +56,10 @@ class Size(NamedTuple):
     def valid(self, size: Decimal) -> bool:
         return (size >= self.min and size <= self.max and (size - self.min) % self.step == 0)
 
-    @staticmethod
-    def none() -> Size:
-        return Size(min=Decimal('0.0'), max=Decimal('Inf'), step=Decimal('0.0'))
-
 
 class MinNotional(NamedTuple):
-    min_notional: Decimal
-    apply_to_market: bool
+    min_notional: Decimal = Decimal('0.0')
+    apply_to_market: bool = False
     avg_price_period: int = 0  # 0 means the last price is used.
 
     def valid(self, price: Decimal, size: Decimal) -> bool:
@@ -81,20 +69,12 @@ class MinNotional(NamedTuple):
     def min_size_for_price(self, price: Decimal) -> Decimal:
         return self.min_notional / price
 
-    @staticmethod
-    def none() -> MinNotional:
-        return MinNotional(min_notional=Decimal('0.0'), apply_to_market=False)
-
 
 class Filters(NamedTuple):
     base_precision: int = 8
     quote_precision: int = 8
 
-    price: Price = Price.none()
-    percent_price: PercentPrice = PercentPrice.none()
-    size: Size = Size.none()
-    min_notional: MinNotional = MinNotional.none()
-
-    @staticmethod
-    def none() -> Filters:
-        return Filters()
+    price: Price = Price()
+    percent_price: PercentPrice = PercentPrice()
+    size: Size = Size()
+    min_notional: MinNotional = MinNotional()

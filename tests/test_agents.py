@@ -9,21 +9,20 @@ from juno.time import HOUR_MS
 from juno.utils import load_json_file
 
 from . import fakes
-from .utils import new_candle
 
 
 async def test_backtest():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0, close=Decimal('5.0')),
-            new_candle(time=1, close=Decimal('10.0')),
+            Candle(time=0, close=Decimal('5.0')),
+            Candle(time=1, close=Decimal('10.0')),
             # Long. Size 10.
-            new_candle(time=2, close=Decimal('30.0')),
-            new_candle(time=3, close=Decimal('20.0')),
+            Candle(time=2, close=Decimal('30.0')),
+            Candle(time=3, close=Decimal('20.0')),
             # Short.
-            new_candle(time=4, close=Decimal('40.0')),
+            Candle(time=4, close=Decimal('40.0')),
             # Long. Size 5.
-            new_candle(time=5, close=Decimal('10.0'))
+            Candle(time=5, close=Decimal('10.0'))
         ]
     )
     informant = fakes.Informant(
@@ -109,11 +108,11 @@ async def test_backtest_scenarios(scenario_nr):
 async def test_paper():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0, close=Decimal('5.0')),
-            new_candle(time=1, close=Decimal('10.0')),
+            Candle(time=0, close=Decimal('5.0')),
+            Candle(time=1, close=Decimal('10.0')),
             # 1. Long. Size 5 + 1.
-            new_candle(time=2, close=Decimal('30.0')),
-            new_candle(time=3, close=Decimal('20.0')),
+            Candle(time=2, close=Decimal('30.0')),
+            Candle(time=3, close=Decimal('20.0')),
             # 2. Short. Size 4 + 2.
         ]
     )
@@ -155,11 +154,11 @@ async def test_paper():
 async def test_live():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0, close=Decimal('5.0')),
-            new_candle(time=1, close=Decimal('10.0')),
+            Candle(time=0, close=Decimal('5.0')),
+            Candle(time=1, close=Decimal('10.0')),
             # 1. Long. Size 5 + 1.
-            new_candle(time=2, close=Decimal('30.0')),
-            new_candle(time=3, close=Decimal('20.0')),
+            Candle(time=2, close=Decimal('30.0')),
+            Candle(time=3, close=Decimal('20.0')),
             # 2. Short. Size 4 + 2.
         ]
     )
