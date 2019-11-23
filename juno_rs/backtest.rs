@@ -13,62 +13,69 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     start: u64,
     end: u64,
     quote: f64,
-    restart_on_missed_candle: bool,
+    missed_candle_policy: u32,
     trailing_stop: f64,
 ) -> BacktestResult {
+    let two_interval = interval * 2;
     let mut summary = TradingSummary::new(start, end, quote, fees, filters);
-    let mut ctx = TradingContext::new(quote);
-    let mut last_candle: Option<&Candle> = None;
-    let mut strategy = strategy_factory();
-    let mut highest_close_since_position = 0.0;
+    let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
     loop {
         let mut restart = false;
+        let mut exit = false;
 
         for candle in candles[i..candles.len()].iter() {
             i += 1;
             summary.append_candle(candle);
 
-            if let Some(last_candle) = last_candle {
-                if restart_on_missed_candle && candle.time - last_candle.time >= interval * 2 {
+            if let Some(last_candle) = ctx.last_candle {
+                let diff = candle.time - last_candle.time;
+                if missed_candle_policy == 1 && diff >= two_interval {
                     restart = true;
-                    strategy = strategy_factory();
+                    ctx.strategy = strategy_factory();
+                } else if missed_candle_policy == 2 && diff >= two_interval {
+                    let num_missed = (diff / interval) - 1;
+                    for i in 1..=num_missed {
+                        let missed_candle = Candle {
+                            time: last_candle.time + i * interval,
+                            open: last_candle.open,
+                            high: last_candle.high,
+                            low: last_candle.low,
+                            close: last_candle.close,
+                            volume: last_candle.volume,
+                        };
+                        if !tick(
+                            &mut ctx, &mut summary, &fees, &filters, trailing_stop, &missed_candle
+                        ) {
+                            exit = true;
+                            break;
+                        }
+                    }
                 }
             }
 
-            let advice = strategy.update(candle);
-
-            if ctx.open_position.is_none() && advice == Advice::Buy {
-                if !try_open_position(&mut ctx, fees, filters, candle) {
-                    break;
-                }
-                highest_close_since_position = candle.close
-            } else if ctx.open_position.is_some() && advice == Advice::Sell {
-                close_position(&mut ctx, &mut summary, fees, filters, candle);
-            } else if trailing_stop != 0.0 && ctx.open_position.is_some() {
-                highest_close_since_position = f64::max(
-                    highest_close_since_position, candle.close);
-                let trailing_factor = 1.0 - trailing_stop;
-                if candle.close <= highest_close_since_position * trailing_factor {
-                    close_position(&mut ctx, &mut summary, fees, filters, candle);
-                }
+            if exit {
+                break;
             }
 
-            last_candle = Some(candle);
+            if !tick(&mut ctx, &mut summary, &fees, &filters, trailing_stop, candle) {
+                exit = true;
+                break;
+            }
 
             if restart {
                 break;
             }
         }
 
-        if !restart {
+        if exit || !restart {
             break;
         }
     }
 
-    if let Some(last_candle) = last_candle {
+    if let Some(last_candle) = ctx.last_candle {
         if ctx.open_position.is_some() {
-            close_position(&mut ctx, &mut summary, fees, filters, last_candle);
+            close_position(&mut ctx, &mut summary, fees, filters, &last_candle);
         }
     }
 
@@ -84,8 +91,38 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     )
 }
 
-fn try_open_position(
-    ctx: &mut TradingContext,
+fn tick<T: Strategy>(
+    mut ctx: &mut TradingContext<T>,
+    mut summary: &mut TradingSummary,
+    fees: &Fees,
+    filters: &Filters,
+    trailing_stop: f64,
+    candle: &Candle,
+) -> bool {
+    let advice = ctx.strategy.update(&candle);
+
+    if ctx.open_position.is_none() && advice == Advice::Buy {
+        if !try_open_position(&mut ctx, fees, filters, &candle) {
+            return false;
+        }
+        ctx.highest_close_since_position = candle.close
+    } else if ctx.open_position.is_some() && advice == Advice::Sell {
+        close_position(&mut ctx, &mut summary, fees, filters, &candle);
+    } else if trailing_stop != 0.0 && ctx.open_position.is_some() {
+        ctx.highest_close_since_position = f64::max(
+            ctx.highest_close_since_position, candle.close);
+        let trailing_factor = 1.0 - trailing_stop;
+        if candle.close <= ctx.highest_close_since_position * trailing_factor {
+            close_position(&mut ctx, &mut summary, fees, filters, &candle);
+        }
+    }
+
+    ctx.last_candle = Some(*candle);
+    true
+}
+
+fn try_open_position<T: Strategy>(
+    ctx: &mut TradingContext<T>,
     fees: &Fees,
     filters: &Filters,
     candle: &Candle,
@@ -104,8 +141,8 @@ fn try_open_position(
     true
 }
 
-fn close_position(
-    ctx: &mut TradingContext,
+fn close_position<T: Strategy>(
+    ctx: &mut TradingContext<T>,
     summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,

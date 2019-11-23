@@ -34,7 +34,7 @@ macro_rules! mamacx {
                 start: u64,
                 end: u64,
                 quote: f64,
-                restart_on_missed_candle: bool,
+                missed_candle_policy: u32,
                 trailing_stop: f64,
                 short_period: u32,
                 long_period: u32,
@@ -61,7 +61,7 @@ macro_rules! mamacx {
                     start,
                     end,
                     quote,
-                    restart_on_missed_candle,
+                    missed_candle_policy,
                     trailing_stop,
                 )
             }
@@ -96,7 +96,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     start: u64,
     end: u64,
     quote: f64,
-    restart_on_missed_candle: bool,
+    missed_candle_policy: u32,
     trailing_stop: f64,
 ) -> BacktestResult {
     // Turn unsafe ptrs to safe references.
@@ -116,7 +116,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         start,
         end,
         quote,
-        restart_on_missed_candle,
+        missed_candle_policy,
         trailing_stop,
     )
 }

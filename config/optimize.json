@@ -12,12 +12,12 @@
             "end": "2019-10-01",
             "interval": "1h",
             "quote": 1.0,
-            "restart_on_missed_candle": null,
+            "missed_candle_policy": null,
             "trailing_stop": null,
             "strategy": "mamacx",
             "population_size": 50,
             "max_generations": 100,
-            "seed": 2858120065740733535,
+            "seed": null,
             "verbose": false
         }
     ]

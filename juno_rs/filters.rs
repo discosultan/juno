@@ -22,14 +22,6 @@ impl Price {
             && (self.max == 0.0 || price <= self.max)
             && (self.step == 0.0 || (price - self.min) % self.step == 0.0))
     }
-
-    pub fn none() -> Self {
-        Price {
-            min: 0.0,
-            max: 0.0,
-            step: 0.0,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -61,14 +53,6 @@ impl Size {
     pub fn valid(&self, size: f64) -> bool {
         size >= self.min && size <= self.max && (size - self.min) % self.step == 0.0
     }
-
-    pub fn none() -> Self {
-        Size {
-            min: 0.0,
-            max: 0.0,
-            step: 0.0,
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -78,15 +62,4 @@ pub struct Filters {
     pub quote_precision: u32,
     pub price: Price,
     pub size: Size,
-}
-
-impl Filters {
-    pub fn none() -> Self {
-        Filters {
-            base_precision: 8,
-            quote_precision: 8,
-            price: Price::none(),
-            size: Size::none(),
-        }
-    }
 }

@@ -151,12 +151,8 @@ class Side(Enum):
 
 
 class SymbolsInfo(NamedTuple):
-    fees: Dict[str, Fees]
-    filters: Dict[str, Filters]
-
-    @staticmethod
-    def none() -> SymbolsInfo:
-        return SymbolsInfo(fees={'__all__': Fees()}, filters={'__all__': Filters()})
+    fees: Dict[str, Fees] = {'__all__': Fees()}
+    filters: Dict[str, Filters] = {'__all__': Filters()}
 
 
 class TimeInForce(Enum):
