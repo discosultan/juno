@@ -18,7 +18,7 @@
             "population_size": 50,
             "max_generations": 500,
             "seed": null,
-            "verbose": false
+            "verbose": true
         }
     ]
 }

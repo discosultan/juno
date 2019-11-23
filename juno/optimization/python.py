@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Callable, Optional, Type
+from typing import Any, Callable, Type
 
 from juno import Advice, Candle, Fees, Fill, Fills, Filters, InsufficientBalance
 from juno.asyncio import list_async

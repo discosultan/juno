@@ -19,6 +19,7 @@ from juno.trading import Trader
 from juno.typing import get_input_type_hints
 from juno.utils import flatten, format_attrs_as_json
 
+from . import tools as juno_tools
 from .solver import Solver, SolverResult
 
 _missed_candle_policy_constraint = Choice([
@@ -143,42 +144,17 @@ class Optimizer:
 
         # Operators.
 
-        def mut_individual(individual: list, indpb: float) -> Tuple[list]:
-            for i, attr in enumerate(attrs):
-                if random.random() < indpb:
-                    individual[i] = attr()
-            return individual,
-
-        def cx_individual(ind1: list, ind2: list) -> Tuple[list, list]:
-            stop = len(ind1)
-
-            # Variant A.
-            cxpoint1, cxpoint2 = 0, -1
-            while cxpoint2 < cxpoint1:
-                cxpoint1 = random.randrange(0, stop)
-                cxpoint2 = random.randrange(0, stop)
-
-            # Variant B.
-            # cxpoint1 = random.randrange(0, stop)
-            # cxpoint2 = random.randrange(cxpoint1, stop)
-
-            cxpoint2 += 1
-
-            ind1[cxpoint1:cxpoint2], ind2[cxpoint1:cxpoint2] = (
-                ind2[cxpoint1:cxpoint2], ind1[cxpoint1:cxpoint2]
-            )
-
-            return ind1, ind2
+        indpb = 1.0 / len(attrs)
 
         # eta - Crowding degree of the crossover. A high eta will produce children resembling to
         # their parents, while a small eta will produce solutions much more different.
 
         # toolbox.register('mate', tools.tools.cxSimulatedBinaryBounded, low=BOUND_LOW,
         #                  up=BOUND_UP, eta=20.0)
-        toolbox.register('mate', cx_individual)
+        toolbox.register('mate', tools.cxUniform, indpb=indpb)
         # toolbox.register('mutate', tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP,
         #                  eta=20.0, indpb=1.0 / NDIM)
-        toolbox.register('mutate', mut_individual, indpb=1.0 / len(attrs))
+        toolbox.register('mutate', juno_tools.mut_individual, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
         solve = await self.solver.get(
@@ -283,9 +259,9 @@ def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
     isclose = True
     for aval, bval in zip(a, b):
         if isinstance(aval, Decimal):
-            isclose = isclose and math.isclose(aval, bval, rel_tol=Decimal('1e-13'))
+            isclose = isclose and math.isclose(aval, bval, rel_tol=Decimal('1e-7'))
         elif isinstance(aval, float):
-            isclose = isclose and math.isclose(aval, bval, rel_tol=1e-13)
+            isclose = isclose and math.isclose(aval, bval, rel_tol=1e-7)
         else:
             isclose = isclose and aval == bval
     return isclose
