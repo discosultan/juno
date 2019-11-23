@@ -36,6 +36,7 @@ class Trader:
         assert end > 0
         assert end > start
         assert 0 <= trailing_stop < 1
+        assert missed_candle_policy in ['ignore', 'restart', 'assume_same_as_last']
 
         self.chandler = chandler
         self.informant = informant

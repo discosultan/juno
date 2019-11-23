@@ -93,7 +93,7 @@ async def test_trader_trailing_stop_loss():
             Candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
         ]
     )
-    loop = Trader(
+    trader = Trader(
         chandler=chandler,
         informant=fakes.Informant(),
         exchange='dummy',
@@ -108,8 +108,8 @@ async def test_trader_trailing_stop_loss():
         trailing_stop=Decimal('0.1'),
     )
 
-    await loop.run()
-    res = loop.summary
+    await trader.run()
+    res = trader.summary
 
     assert res.profit == 8
 
@@ -129,7 +129,7 @@ async def test_trader_restart_on_missed_candle():
     strategy2 = fakes.Strategy(Advice.NONE, Advice.NONE, Advice.NONE)
     strategy_stack = [strategy2, strategy1]
 
-    loop = Trader(
+    trader = Trader(
         chandler=chandler,
         informant=fakes.Informant(),
         exchange='dummy',
@@ -144,7 +144,7 @@ async def test_trader_restart_on_missed_candle():
         trailing_stop=Decimal('0.0'),
     )
 
-    await loop.run()
+    await trader.run()
 
     assert len(strategy1.updates) == 2
     assert strategy1.updates[0].time == 0
@@ -154,3 +154,38 @@ async def test_trader_restart_on_missed_candle():
     assert strategy2.updates[0].time == 3
     assert strategy2.updates[1].time == 4
     assert strategy2.updates[2].time == 5
+
+
+async def test_trader_assume_same_as_last_on_missed_candle():
+    chandler = fakes.Chandler(
+        candles=[
+            Candle(time=0),
+            Candle(time=1),
+            # 1 candle skipped.
+            Candle(time=3),  # Generate new candle with previous data.
+        ]
+    )
+    strategy = fakes.Strategy(Advice.NONE, Advice.NONE, Advice.NONE, Advice.NONE)
+
+    trader = Trader(
+        chandler=chandler,
+        informant=fakes.Informant(),
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=4,
+        quote=Decimal('10.0'),
+        new_strategy=lambda: strategy,
+        missed_candle_policy='assume_same_as_last',
+        adjust_start=False,
+        trailing_stop=Decimal('0.0'),
+    )
+
+    await trader.run()
+
+    assert len(strategy.updates) == 4
+    assert strategy.updates[0].time == 0
+    assert strategy.updates[1].time == 1
+    assert strategy.updates[2].time == 2
+    assert strategy.updates[3].time == 3

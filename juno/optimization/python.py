@@ -100,15 +100,12 @@ def _tick(
     advice = ctx.strategy.update(candle)
 
     if not ctx.open_position and advice is Advice.BUY:
-        if not _try_open_position(ctx, base_asset, fees, filters, candle):
-            raise InsufficientBalance()
+        _try_open_position(ctx, base_asset, fees, filters, candle)
         ctx.highest_close_since_position = candle.close
     elif ctx.open_position and advice is Advice.SELL:
         _close_position(ctx, summary, quote_asset, fees, filters, candle)
     elif trailing_stop != 0 and ctx.open_position:
-        ctx.highest_close_since_position = max(
-            ctx.highest_close_since_position, candle.close
-        )
+        ctx.highest_close_since_position = max(ctx.highest_close_since_position, candle.close)
         trailing_factor = 1 - trailing_stop
         if candle.close <= ctx.highest_close_since_position * trailing_factor:
             _close_position(ctx, summary, quote_asset, fees, filters, candle)
@@ -118,12 +115,12 @@ def _tick(
 
 def _try_open_position(
     ctx: TradingContext, base_asset: str, fees: Fees, filters: Filters, candle: Candle
-) -> Optional[Position]:
+) -> None:
     price = candle.close
 
     size = filters.size.round_down(ctx.quote / price)
     if size == 0:
-        return None
+        raise InsufficientBalance()
 
     fee = round_half_up(size * fees.taker, filters.base_precision)
 
@@ -134,13 +131,11 @@ def _try_open_position(
 
     ctx.quote -= size * price
 
-    return ctx.open_position
-
 
 def _close_position(
     ctx: TradingContext, summary: TradingSummary, quote_asset: str, fees: Fees, filters: Filters,
     candle: Candle
-) -> Position:
+) -> None:
     pos = ctx.open_position
     assert pos
 
@@ -160,4 +155,3 @@ def _close_position(
     ctx.quote += quote - fee
 
     ctx.open_position = None
-    return pos

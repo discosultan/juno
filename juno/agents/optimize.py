@@ -54,5 +54,5 @@ class Optimize(Agent):
             seed=seed,
             verbose=verbose,
         )
-        self.result = optimizer.result
         await optimizer.run()
+        self.result = optimizer.result

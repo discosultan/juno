@@ -108,26 +108,26 @@ class Optimizer:
 
         # Initialization.
         if self.missed_candle_policy is None:
-            def get_random_missed_candle_policy():
+            def get_random_missed_candle_policy() -> int:
                 return _missed_candle_policy_constraint.random(random)  # type: ignore
 
             missed_candle_policy_attr = get_random_missed_candle_policy
         else:
             missed_candle_policy = _MISSED_CANDLE_POLICY_MAP[self.missed_candle_policy]
 
-            def get_missed_candle_policy():
+            def get_missed_candle_policy() -> int:
                 return missed_candle_policy
 
             missed_candle_policy_attr = get_missed_candle_policy
 
         if self.trailing_stop is None:
-            def get_random_trailing_stop():
+            def get_random_trailing_stop() -> Decimal:
                 return _trailing_stop_constraint.random(random).random(random)  # type: ignore
 
             trailing_stop_attr = get_random_trailing_stop
         else:
-            def get_trailing_stop():
-                return self.trailing_stop
+            def get_trailing_stop() -> Decimal:
+                return self.trailing_stop  # type: ignore
 
             trailing_stop_attr = get_trailing_stop
 
