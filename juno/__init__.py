@@ -4,7 +4,6 @@ from juno.common import (
     OrderUpdate, Side, SymbolsInfo, TimeInForce, Timestamp, Trade, Trend
 )
 from juno.filters import Filters
-from juno.trading import Position, TradingContext, TradingSummary
 
 __all__ = [
     'Advice',
@@ -24,13 +23,10 @@ __all__ = [
     'OrderStatus',
     'OrderType',
     'OrderUpdate',
-    'Position',
     'Side',
     'SymbolsInfo',
     'TimeInForce',
     'Timestamp',
-    'TradingContext',
-    'TradingSummary',
     'Trade',
     'Trend',
 ]

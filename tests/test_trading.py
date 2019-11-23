@@ -2,12 +2,12 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Advice, Fees, Fill, Fills, Filters
+from juno import Advice, Candle, Fees, Fill, Fills, Filters
 from juno.time import HOUR_MS
 from juno.trading import Position, Trader, TradingSummary
 
 from . import fakes
-from .utils import new_candle, new_closed_position
+from .utils import new_closed_position
 
 
 def test_position():
@@ -53,9 +53,9 @@ def test_position_annualized_roi_overflow():
 
 def test_trading_summary():
     summary = TradingSummary(
-        interval=HOUR_MS, start=0, quote=Decimal('100.0'), fees=Fees.none(), filters=Filters.none()
+        interval=HOUR_MS, start=0, quote=Decimal('100.0'), fees=Fees(), filters=Filters()
     )
-    summary.append_candle(new_candle())
+    summary.append_candle(Candle())
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
     positions = [
@@ -76,7 +76,7 @@ def test_trading_summary():
 
 def test_empty_trading_summary():
     summary = TradingSummary(
-        interval=HOUR_MS, start=0, quote=Decimal('100.0'), fees=Fees.none(), filters=Filters.none()
+        interval=HOUR_MS, start=0, quote=Decimal('100.0'), fees=Fees(), filters=Filters()
     )
     assert summary.cost == 100
     assert summary.gain == 100
@@ -87,10 +87,10 @@ def test_empty_trading_summary():
 async def test_trader_trailing_stop_loss():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0, close=Decimal('10.0')),  # Buy.
-            new_candle(time=1, close=Decimal('20.0')),
-            new_candle(time=2, close=Decimal('18.0')),  # Trigger trailing stop (10%).
-            new_candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
+            Candle(time=0, close=Decimal('10.0')),  # Buy.
+            Candle(time=1, close=Decimal('20.0')),
+            Candle(time=2, close=Decimal('18.0')),  # Trigger trailing stop (10%).
+            Candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
         ]
     )
     loop = Trader(
@@ -117,12 +117,12 @@ async def test_trader_trailing_stop_loss():
 async def test_trader_restart_on_missed_candle():
     chandler = fakes.Chandler(
         candles=[
-            new_candle(time=0),
-            new_candle(time=1),
+            Candle(time=0),
+            Candle(time=1),
             # 1 candle skipped.
-            new_candle(time=3),  # Trigger restart.
-            new_candle(time=4),
-            new_candle(time=5),
+            Candle(time=3),  # Trigger restart.
+            Candle(time=4),
+            Candle(time=5),
         ]
     )
     strategy1 = fakes.Strategy(Advice.NONE, Advice.NONE)

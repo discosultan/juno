@@ -13,7 +13,7 @@ class Exchange(exchanges.Exchange):
         historical_candles=[],
         future_candles=[],
         symbol_info=SymbolsInfo(
-            fees={'__all__': Fees.none()}, filters={'__all__': Filters.none()}
+            fees={'__all__': Fees()}, filters={'__all__': Filters()}
         ),
         balances=None,
         future_balances=[],
@@ -147,7 +147,7 @@ class Trades:
 
 
 class Informant:
-    def __init__(self, fees=Fees.none(), filters=Filters.none()):
+    def __init__(self, fees=Fees(), filters=Filters()):
         self.fees = fees
         self.filters = filters
 

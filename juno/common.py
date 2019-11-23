@@ -36,13 +36,13 @@ class CancelOrderStatus(Enum):
 # values for SQLIte insertion. Dataclasses miss that functionality but offer comparisons, etc.
 # out of the box.
 class Candle(NamedTuple):
-    time: int  # Interval start time.
-    open: Decimal
-    high: Decimal
-    low: Decimal
-    close: Decimal
-    volume: Decimal  # Within interval.
-    closed: bool
+    time: int = 0  # Interval start time.
+    open: Decimal = Decimal('0.0')
+    high: Decimal = Decimal('0.0')
+    low: Decimal = Decimal('0.0')
+    close: Decimal = Decimal('0.0')
+    volume: Decimal = Decimal('0.0')  # Within interval.
+    closed: bool = True
 
     def __repr__(self) -> str:
         return (
@@ -72,19 +72,15 @@ class DepthUpdate(NamedTuple):
 
 
 class Fees(NamedTuple):
-    maker: Decimal
-    taker: Decimal
-
-    @staticmethod
-    def none() -> Fees:
-        return Fees(maker=Decimal('0.0'), taker=Decimal('0.0'))
+    maker: Decimal = Decimal('0.0')
+    taker: Decimal = Decimal('0.0')
 
 
 class Fill(NamedTuple):
-    price: Decimal
-    size: Decimal
-    fee: Decimal
-    fee_asset: str
+    price: Decimal = Decimal('0.0')
+    size: Decimal = Decimal('0.0')
+    fee: Decimal = Decimal('0.0')
+    fee_asset: str = 'btc'
 
 
 class Fills(List[Fill]):
@@ -160,7 +156,7 @@ class SymbolsInfo(NamedTuple):
 
     @staticmethod
     def none() -> SymbolsInfo:
-        return SymbolsInfo(fees={'__all__': Fees.none()}, filters={'__all__': Filters.none()})
+        return SymbolsInfo(fees={'__all__': Fees()}, filters={'__all__': Filters()})
 
 
 class TimeInForce(Enum):
@@ -176,9 +172,9 @@ class TimeInForce(Enum):
 
 
 class Trade(NamedTuple):
-    time: int  # Can have multiple trades at same time.
-    price: Decimal
-    size: Decimal
+    time: int = 0  # Can have multiple trades at same time.
+    price: Decimal = Decimal('0.0')
+    size: Decimal = Decimal('0.0')
 
     @staticmethod
     def meta() -> Dict[str, str]:

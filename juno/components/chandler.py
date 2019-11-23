@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import sys
 from decimal import Decimal
@@ -80,6 +81,7 @@ class Chandler:
         batch = []
         batch_start = start
         current = floor_multiple(self._get_time(), interval)
+        storage_key = (exchange, symbol, interval)
 
         try:
             async for candle in self._stream_exchange_candles(
@@ -93,9 +95,9 @@ class Chandler:
                 if candle.closed:
                     batch.append(candle)
                     if len(batch) == self._storage_batch_size:
-                        batch_end = _get_span_end(batch, interval)
+                        batch_end = batch[-1].time + interval
                         await self._storage.store_time_series_and_span(
-                            key=(exchange, symbol, interval),
+                            key=storage_key,
                             type=Candle,
                             items=batch,
                             start=batch_start,
@@ -104,15 +106,24 @@ class Chandler:
                         batch_start = batch_end
                         del batch[:]
                 yield candle
-        finally:
+        except asyncio.CancelledError:
             if len(batch) > 0:
                 await self._storage.store_time_series_and_span(
-                    key=(exchange, symbol, interval),
+                    key=storage_key,
                     type=Candle,
                     items=batch,
                     start=batch_start,
-                    end=_get_span_end(batch, interval),
+                    end=batch[-1].time + interval,
                 )
+        else:
+            current = floor_multiple(self._get_time(), interval)
+            await self._storage.store_time_series_and_span(
+                key=storage_key,
+                type=Candle,
+                items=batch,
+                start=batch_start,
+                end=min(current, end),
+            )
 
     async def _stream_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int
@@ -205,9 +216,3 @@ class Chandler:
                 volume=volume,
                 closed=True
             )
-
-
-def _get_span_end(batch: List[Candle], interval: int) -> int:
-    # We could optimize it to historically also extend the end period in case of missed candles.
-    # However, the impact is negligible and not worth the complexity.
-    return batch[-1].time + interval

@@ -1,13 +1,12 @@
 from decimal import Decimal
 from typing import Any, Callable, Optional, Type
 
-from juno import (
-    Advice, Candle, Fees, Fill, Fills, Filters, Position, TradingContext, TradingSummary
-)
+from juno import Advice, Candle, Fees, Fill, Fills, Filters
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
+from juno.trading import Position, TradingContext, TradingSummary
 from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
