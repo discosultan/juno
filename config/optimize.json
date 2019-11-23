@@ -16,8 +16,8 @@
             "trailing_stop": null,
             "strategy": "mamacx",
             "population_size": 50,
-            "max_generations": 100,
-            "seed": 2858120065740733535,
+            "max_generations": 500,
+            "seed": null,
             "verbose": false
         }
     ]

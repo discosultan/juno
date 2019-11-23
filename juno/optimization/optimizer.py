@@ -150,17 +150,17 @@ class Optimizer:
             return individual,
 
         def cx_individual(ind1: list, ind2: list) -> Tuple[list, list]:
-            end = len(ind1) - 1
+            stop = len(ind1)
 
             # Variant A.
             cxpoint1, cxpoint2 = 0, -1
             while cxpoint2 < cxpoint1:
-                cxpoint1 = random.randint(0, end)
-                cxpoint2 = random.randint(0, end)
+                cxpoint1 = random.randrange(0, stop)
+                cxpoint2 = random.randrange(0, stop)
 
             # Variant B.
-            # cxpoint1 = random.randint(0, end)
-            # cxpoint2 = random.randint(cxpoint1, end)
+            # cxpoint1 = random.randrange(0, stop)
+            # cxpoint2 = random.randrange(cxpoint1, stop)
 
             cxpoint2 += 1
 
