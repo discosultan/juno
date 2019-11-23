@@ -48,28 +48,30 @@ class Binance(Exchange):
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
-        self._clock = Clock(self)
-        self._user_data_stream = UserDataStream(self)
 
-    async def __aenter__(self) -> Binance:
+        self._session = ClientSession(raise_for_status=False)
+
         # Rate limiters.
         self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)  # 1200 per min.
         self._raw_reqs_limiter = LeakyBucket(rate=5000, period=300)  # 5000 raw reqs per 5 min.
         self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)  # 10 per sec.
         self._orders_per_day_limiter = LeakyBucket(rate=100_000, period=86_400)  # 100 000 per day.
 
-        await self._clock.__aenter__()
-        await self._user_data_stream.__aenter__()
+        self._clock = Clock(self)
+        self._user_data_stream = UserDataStream(self)
 
-        self._session = ClientSession(raise_for_status=False)
+    async def __aenter__(self) -> Binance:
         await self._session.__aenter__()
-
+        await asyncio.gather(
+            self._clock.__aenter__(),
+            self._user_data_stream.__aenter__(),
+        )
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await asyncio.gather(
-            self._clock.__aexit__(exc_type, exc, tb),
             self._user_data_stream.__aexit__(exc_type, exc, tb),
+            self._clock.__aexit__(exc_type, exc, tb),
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
@@ -200,17 +202,8 @@ class Binance(Exchange):
     async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate]:
             async for data in stream:
-                # fills = Fills()
-                # fill_size = Decimal(data['l'])
-                # if fill_size > 0:
-                #     fills.append(Fill(
-                #         price=Decimal(data['L']),
-                #         size=fill_size,
-                #         fee=Decimal(data['n']),
-                #         fee_asset=data['N'].lower()))
                 yield OrderUpdate(
                     symbol=_from_symbol(data['s']),
-                    # 'status': data['x'],
                     status=_from_order_status(data['X']),
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
@@ -219,7 +212,6 @@ class Binance(Exchange):
                     size=Decimal(data['q']),
                     filled_size=Decimal(data['l']),
                     cumulative_filled_size=Decimal(data['z']),
-                    # 'fills': fills,
                     fee=Decimal(data['n']),
                     fee_asset=data['N'].lower() if data['N'] else None
                 )
