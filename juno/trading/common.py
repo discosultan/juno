@@ -5,6 +5,7 @@ from typing import List, Optional
 from juno import Candle, Fees, Fills, Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_half_up
+from juno.strategies import Strategy
 from juno.time import YEAR_MS
 
 
@@ -218,6 +219,9 @@ class TradingSummary:
 
 
 class TradingContext:
-    def __init__(self, quote: Decimal) -> None:
+    def __init__(self, strategy: Strategy, quote: Decimal) -> None:
+        self.strategy = strategy
         self.quote = quote
         self.open_position: Optional[Position] = None
+        self.last_candle: Optional[Candle] = None
+        self.highest_close_since_position = Decimal('0.0')

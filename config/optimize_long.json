@@ -12,7 +12,7 @@
             "end": null,
             "interval": "1h",
             "quote": 1.0,
-            "restart_on_missed_candle": null,
+            "missed_candle_policy": null,
             "trailing_stop": null,
             "strategy": "mamacx",
             "population_size": 100,

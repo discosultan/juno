@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, Callable, Optional, Type
 
-from juno import Advice, Candle, Fees, Fill, Fills, Filters
+from juno import Advice, Candle, Fees, Fill, Fills, Filters, InsufficientBalance
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
@@ -34,63 +34,86 @@ class Python(Solver):
         base_asset, quote_asset = unpack_symbol(symbol)
 
         def backtest(
-            restart_on_missed_candle: bool,
+            missed_candle_policy: int,
             trailing_stop: Decimal,
             *args: Any,
         ) -> SolverResult:
             summary = TradingSummary(
                 interval=interval, start=start, quote=quote, fees=fees, filters=filters
             )
-            ctx = TradingContext(quote)
-            last_candle = None
-            strategy = strategy_type(*args)  # type: ignore
-            i = 0
-            while True:
-                restart = False
+            ctx = TradingContext(strategy_type(*args), quote)
+            try:
+                i = 0
+                while True:
+                    restart = False
 
-                for candle in candles[i:]:
-                    i += 1
-                    if not candle.closed:
-                        continue
+                    for candle in candles[i:]:
+                        i += 1
+                        if not candle.closed:
+                            continue
 
-                    summary.append_candle(candle)
+                        summary.append_candle(candle)
 
-                    if last_candle and candle.time - last_candle.time >= interval * 2:
-                        if restart_on_missed_candle:
-                            restart = True
-                            strategy = strategy_type(*args)  # type: ignore
+                        # TODO: python 3.8 assignment expression
+                        if ctx.last_candle and candle.time - ctx.last_candle.time >= interval * 2:
+                            if missed_candle_policy == 1:  # 'restart'
+                                restart = True
+                                ctx.strategy = strategy_type(*args)
+                            elif missed_candle_policy == 2:  # 'assume_same_as_last'
+                                num_missed = (candle.time - ctx.last_candle.time) // interval - 1
+                                for i in range(0, num_missed):
+                                    missed_candle = Candle(
+                                        time=ctx.last_candle.time + i * interval,
+                                        open=ctx.last_candle.open,
+                                        high=ctx.last_candle.high,
+                                        low=ctx.last_candle.low,
+                                        close=ctx.last_candle.close,
+                                        volume=ctx.last_candle.volume,
+                                        closed=ctx.last_candle.closed
+                                    )
+                                    _tick(ctx, summary, base_asset, quote_asset, fees, filters,
+                                          trailing_stop, missed_candle)
 
-                    advice = strategy.update(candle)
+                        _tick(ctx, summary, base_asset, quote_asset, fees, filters, trailing_stop,
+                              candle)
 
-                    if not ctx.open_position and advice is Advice.BUY:
-                        if not _try_open_position(ctx, base_asset, fees, filters, candle):
-                            restart = False
+                        if restart:
                             break
-                        highest_close_since_position = candle.close
-                    elif ctx.open_position and advice is Advice.SELL:
-                        _close_position(ctx, summary, quote_asset, fees, filters, candle)
-                    elif trailing_stop != 0 and ctx.open_position:
-                        highest_close_since_position = max(
-                            highest_close_since_position, candle.close
-                        )
-                        trailing_factor = 1 - trailing_stop
-                        if candle.close <= highest_close_since_position * trailing_factor:
-                            _close_position(ctx, summary, quote_asset, fees, filters, candle)
 
-                    last_candle = candle
-
-                    if restart:
+                    if not restart:
                         break
 
-                if not restart:
-                    break
-
-            if last_candle and ctx.open_position:
-                _close_position(ctx, summary, quote_asset, fees, filters, last_candle)
+                if ctx.last_candle and ctx.open_position:
+                    _close_position(ctx, summary, quote_asset, fees, filters, ctx.last_candle)
+            except InsufficientBalance:
+                pass
 
             return SolverResult.from_trading_summary(summary)
 
         return backtest
+
+
+def _tick(
+    ctx: TradingContext, summary: TradingSummary, base_asset: str, quote_asset: str, fees: Fees,
+    filters: Filters, trailing_stop: Decimal, candle: Candle
+) -> None:
+    advice = ctx.strategy.update(candle)
+
+    if not ctx.open_position and advice is Advice.BUY:
+        if not _try_open_position(ctx, base_asset, fees, filters, candle):
+            raise InsufficientBalance()
+        ctx.highest_close_since_position = candle.close
+    elif ctx.open_position and advice is Advice.SELL:
+        _close_position(ctx, summary, quote_asset, fees, filters, candle)
+    elif trailing_stop != 0 and ctx.open_position:
+        ctx.highest_close_since_position = max(
+            ctx.highest_close_since_position, candle.close
+        )
+        trailing_factor = 1 - trailing_stop
+        if candle.close <= ctx.highest_close_since_position * trailing_factor:
+            _close_position(ctx, summary, quote_asset, fees, filters, candle)
+
+    ctx.last_candle = candle
 
 
 def _try_open_position(

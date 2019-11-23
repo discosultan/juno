@@ -118,7 +118,7 @@ class Rust(Solver):
         meta = strategy_type.meta
 
         def backtest(
-            restart_on_missed_candle: bool,
+            missed_candle_policy: int,
             trailing_stop: Decimal,
             *args: Any,
         ) -> SolverResult:
@@ -137,7 +137,7 @@ class Rust(Solver):
                 start,
                 end,
                 float(quote),
-                restart_on_missed_candle,
+                missed_candle_policy,
                 trailing_stop,
                 *meta.get_non_identifier_args(args),
             )
@@ -226,7 +226,7 @@ BacktestResult {meta.identifier.format(**format_args)}(
     uint64_t start,
     uint64_t end,
     double quote,
-    bool restart_on_missed_candle,
+    uint32_t missed_candle_policy,
     double trailing_stop,
     {custom_params});
         '''

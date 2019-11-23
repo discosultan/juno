@@ -10,7 +10,7 @@
             "symbol": "eth-btc",
             "interval": "1h",
             "quote": 1.0,
-            "restart_on_missed_candle": false,
+            "missed_candle_policy": "ignore",
             "strategy_config": {
                 "type": "mamacx",
                 "short_period": 18,

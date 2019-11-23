@@ -91,7 +91,7 @@ async def test_backtest_scenarios(scenario_nr):
         'end': 1514761200000,
         'interval': HOUR_MS,
         'quote': Decimal('100.0'),
-        'restart_on_missed_candle': False,
+        'missed_candle_policy': 'ignore',
         'strategy_config': {
             'type': 'mamacx',
             'short_period': 18,

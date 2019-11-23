@@ -29,7 +29,7 @@ class Paper(Agent):
         quote: Decimal,
         strategy_config: Dict[str, Any],
         end: int = MAX_TIME_MS,
-        restart_on_missed_candle: bool = False,
+        missed_candle_policy: str = 'ignore',
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
         get_time: Optional[Callable[[], int]] = None,
@@ -58,7 +58,7 @@ class Paper(Agent):
             test=True,
             event=self,
             log=_log,
-            restart_on_missed_candle=restart_on_missed_candle,
+            missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
             trailing_stop=trailing_stop,
         )

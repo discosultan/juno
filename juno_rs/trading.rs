@@ -1,4 +1,4 @@
-use crate::{Candle, Fees, Filters};
+use crate::{Candle, Fees, Filters, Strategy};
 
 const YEAR_MS: f64 = 31_556_952_000.0;
 
@@ -156,16 +156,23 @@ impl<'a> TradingSummary<'a> {
     }
 }
 
-pub struct TradingContext {
+pub struct TradingContext<'a, T: Strategy> {
+    pub strategy: T,
     pub quote: f64,
     pub open_position: Option<Position>,
+    pub last_candle: Option<&'a Candle>,
+    pub highest_close_since_position: f64,
+
 }
 
-impl TradingContext {
-    pub fn new(quote: f64) -> Self {
+impl<'a, T: Strategy> TradingContext<'_, T> {
+    pub fn new(strategy: T, quote: f64) -> Self {
         Self {
+            strategy,
             quote,
             open_position: None,
+            last_candle: None,
+            highest_close_since_position: 0.0,
         }
     }
 }

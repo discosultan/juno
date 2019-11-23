@@ -103,7 +103,7 @@ async def test_trader_trailing_stop_loss():
         end=4,
         quote=Decimal('10.0'),
         new_strategy=lambda: fakes.Strategy(Advice.BUY, Advice.NONE, Advice.NONE, Advice.SELL),
-        restart_on_missed_candle=False,
+        missed_candle_policy='ignore',
         adjust_start=False,
         trailing_stop=Decimal('0.1'),
     )
@@ -139,7 +139,7 @@ async def test_trader_restart_on_missed_candle():
         end=6,
         quote=Decimal('10.0'),
         new_strategy=lambda: strategy_stack.pop(),
-        restart_on_missed_candle=True,
+        missed_candle_policy='restart',
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
     )

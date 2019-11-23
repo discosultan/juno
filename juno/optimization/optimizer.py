@@ -21,7 +21,11 @@ from juno.utils import flatten, format_attrs_as_json
 
 from .solver import Solver, SolverResult
 
-_restart_on_missed_candle_constraint = Choice([True, False])
+_missed_candle_policy_constraint = Choice([
+    0,  # 'ignore'
+    1,  # 'restart'
+    2,  # 'assume_same_as_last'
+])
 _trailing_stop_constraint = Choice([
     Constant(Decimal('0.0')),
     Uniform(Decimal('0.0001'), Decimal('0.9999')),
@@ -42,7 +46,7 @@ class Optimizer:
         strategy: str,
         log: logging.Logger = logging.getLogger(__name__),
         end: Optional[int] = None,
-        restart_on_missed_candle: Optional[bool] = False,
+        missed_candle_policy: Optional[str] = 'ignore',
         trailing_stop: Optional[Decimal] = Decimal('0.0'),
         population_size: int = 50,
         max_generations: int = 1000,
@@ -75,7 +79,7 @@ class Optimizer:
         self.strategy = strategy
         self.log = log
         self.end = end
-        self.restart_on_missed_candle = restart_on_missed_candle
+        self.missed_candle_policy = missed_candle_policy
         self.trailing_stop = trailing_stop
         self.population_size = population_size
         self.max_generations = max_generations
@@ -103,13 +107,33 @@ class Optimizer:
         toolbox = base.Toolbox()
 
         # Initialization.
+        if self.missed_candle_policy is None:
+            def get_random_missed_candle_policy():
+                return _missed_candle_policy_constraint.random(random)  # type: ignore
+
+            missed_candle_policy_attr = get_random_missed_candle_policy
+        else:
+            missed_candle_policy = _MISSED_CANDLE_POLICY_MAP[self.missed_candle_policy]
+
+            def get_missed_candle_policy():
+                return missed_candle_policy
+
+            missed_candle_policy_attr = get_missed_candle_policy
+
+        if self.trailing_stop is None:
+            def get_random_trailing_stop():
+                return _trailing_stop_constraint.random(random).random(random)  # type: ignore
+
+            trailing_stop_attr = get_random_trailing_stop
+        else:
+            def get_trailing_stop():
+                return self.trailing_stop
+
+            trailing_stop_attr = get_trailing_stop
+
         attrs = [
-            ((lambda: _restart_on_missed_candle_constraint.random(random))  # type: ignore
-             if self.restart_on_missed_candle is None
-             else (lambda: self.restart_on_missed_candle)),
-            ((lambda: _trailing_stop_constraint.random(random).random(random))  # type: ignore
-             if self.trailing_stop is None else (lambda: self.trailing_stop)  # type: ignore
-             )
+            missed_candle_policy_attr,
+            trailing_stop_attr,
         ] + [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
@@ -201,7 +225,7 @@ class Optimizer:
         best_args = list(flatten(hall[0]))
         best_result = solve(*best_args)
         self.result = OptimizationResult(
-            restart_on_missed_candle=best_args[0],
+            missed_candle_policy=_REVERSE_MISSED_CANDLE_POLICY_MAP[best_args[0]],
             trailing_stop=best_args[1],
             strategy_config=_output_as_strategy_config(strategy_type, best_args[2:]),
             result=best_result,
@@ -223,7 +247,7 @@ class Optimizer:
             quote=self.quote,
             new_strategy=lambda: new_strategy(self.result.strategy_config),
             log=disabled_log,
-            restart_on_missed_candle=self.result.restart_on_missed_candle,
+            missed_candle_policy=self.result.missed_candle_policy,
             trailing_stop=self.result.trailing_stop,
             adjust_start=False,
         )
@@ -241,7 +265,7 @@ class Optimizer:
 
 
 class OptimizationResult(NamedTuple):
-    restart_on_missed_candle: bool = False
+    missed_candle_policy: str = 'ignore'
     trailing_stop: Decimal = Decimal('0.0')
     strategy_config: Dict[str, Any] = {}
     result: SolverResult = SolverResult()
@@ -265,3 +289,11 @@ def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
         else:
             isclose = isclose and aval == bval
     return isclose
+
+
+_MISSED_CANDLE_POLICY_MAP = {
+    'ignore': 0,
+    'restart': 1,
+    'assume_same_as_last': 2,
+}
+_REVERSE_MISSED_CANDLE_POLICY_MAP = {v: k for k, v in _MISSED_CANDLE_POLICY_MAP.items()}
