@@ -154,7 +154,7 @@ class Optimizer:
         toolbox.register('mate', tools.cxUniform, indpb=indpb)
         # toolbox.register('mutate', tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP,
         #                  eta=20.0, indpb=1.0 / NDIM)
-        toolbox.register('mutate', juno_tools.mut_individual, indpb=indpb)
+        toolbox.register('mutate', juno_tools.mut_individual, attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
         solve = await self.solver.get(
