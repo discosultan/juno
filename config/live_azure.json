@@ -10,14 +10,17 @@
             "exchange": "binance",
             "symbol": "eth-btc",
             "interval": "1h",
-            "missed_candle_policy": "ignore",
+            "missed_candle_policy": "restart",
+            "trailing_stop": 0.1832,
             "strategy_config": {
                 "type": "mamacx",
-                "short_period": 18,
-                "long_period": 29,
-                "neg_threshold": -0.25,
-                "pos_threshold": 0.25,
-                "persistence": 4
+                "short_period": 19,
+                "long_period": 31,
+                "neg_threshold": -0.201,
+                "pos_threshold": 0.376,
+                "persistence": 1,
+                "short_ma": "smma",
+                "long_ma": "ema"
             },
             "plugins": [
                 "discord"
