@@ -110,7 +110,7 @@ async def test_memory_set_map_twice_get_map(memory):
     assert out_candle == candle2
 
 
-async def test_memory_set_different_maps(memory):
+async def test_memory_set_get_different_maps(memory):
     fees = {'foo': Fees()}
     filters = {'foo': Filters()}
 
