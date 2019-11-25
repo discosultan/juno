@@ -14,8 +14,9 @@ DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal('0.1234567890123456789012345678901234567
 
 @pytest.fixture
 async def memory(loop):
-    async with Memory() as storage:
-        yield storage
+    return Memory()
+    # async with Memory() as storage:
+    #     yield storage
 
 
 @pytest.mark.parametrize(

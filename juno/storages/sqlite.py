@@ -202,11 +202,22 @@ class SQLite(Storage):
 
     @contextmanager
     def _connect(self, key: Key) -> Iterator[sqlite3.Connection]:
-        name = self._normalize_key(key)
-        name = str(home_path('data') / f'v{_VERSION}_{name}.db')
+        # Normalize key.
+        key_type = type(key)
+        if key_type is str:
+            normalized_key = cast(str, key)
+        elif key_type is tuple:
+            normalized_key = '_'.join(map(str, key))
+        else:
+            raise NotImplementedError()
+
+        name = self._get_db_name(normalized_key)
         _log.debug(f'opening {name}')
         with sqlite3.connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
+
+    def _get_db_name(self, key: str) -> str:
+        return str(home_path('data') / f'v{_VERSION}_{key}.db')
 
     def _ensure_table(self, db: Any, type_: Type[Any], name: Optional[str] = None) -> None:
         if name is None:
