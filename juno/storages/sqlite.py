@@ -2,15 +2,15 @@ import asyncio
 import logging
 import sqlite3
 from collections import defaultdict
-from contextlib import contextmanager
+from contextlib import closing
 from decimal import Decimal
 # TODO: mypy fails to recognise stdlib attributes get_args, get_origin. remove ignore when fixed
 from typing import (  # type: ignore
     Any,
     AsyncIterable,
+    ContextManager,
     Dict,
     Iterable,
-    Iterator,
     List,
     Optional,
     Set,
@@ -200,8 +200,7 @@ class SQLite(Storage):
                 db.commit()
         return await asyncio.get_running_loop().run_in_executor(None, inner)
 
-    @contextmanager
-    def _connect(self, key: Key) -> Iterator[sqlite3.Connection]:
+    def _connect(self, key: Key) -> ContextManager[sqlite3.Connection]:
         # Normalize key.
         key_type = type(key)
         if key_type is str:
@@ -213,8 +212,7 @@ class SQLite(Storage):
 
         name, is_uri = self._get_db_name(normalized_key)
         _log.debug(f'opening {name}')
-        with sqlite3.connect(name, uri=is_uri, detect_types=sqlite3.PARSE_DECLTYPES) as db:
-            yield db
+        return closing(sqlite3.connect(name, uri=is_uri, detect_types=sqlite3.PARSE_DECLTYPES))
 
     def _get_db_name(self, key: str) -> Tuple[str, bool]:
         return str(home_path('data') / f'v{_VERSION}_{key}.db'), False
