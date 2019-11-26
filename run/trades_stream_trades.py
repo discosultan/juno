@@ -34,4 +34,4 @@ async def main():
 
 
 logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='DEBUG')
-asyncio.run(main(), debug=True)
+asyncio.run(main())
