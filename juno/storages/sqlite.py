@@ -1,13 +1,12 @@
 import logging
 import sqlite3
 from collections import defaultdict
-from contextlib import asynccontextmanager
 from decimal import Decimal
 # TODO: mypy fails to recognise stdlib attributes get_args, get_origin. remove ignore when fixed
 from typing import (  # type: ignore
     Any,
+    AsyncContextManager,
     AsyncIterable,
-    AsyncIterator,
     Dict,
     List,
     Optional,
@@ -175,13 +174,11 @@ class SQLite(Storage):
             )
             await db.commit()
 
-    @asynccontextmanager
-    async def _connect(self, key: Key) -> AsyncIterator[Connection]:
+    def _connect(self, key: Key) -> AsyncContextManager[Connection]:
         name = self._normalize_key(key)
         name = str(home_path('data') / f'v{_VERSION}_{name}.db')
         _log.debug(f'opening {name}')
-        async with connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
-            yield db
+        return connect(name, detect_types=sqlite3.PARSE_DECLTYPES)
 
     async def _ensure_table(self, db: Any, type_: Type[Any], name: Optional[str] = None) -> None:
         if name is None:
