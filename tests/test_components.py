@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from juno import Balance, Candle, DepthSnapshot, Fees, SymbolsInfo, Trade
-from juno.asyncio import list_async
+from juno.asyncio import cancelable, list_async
 from juno.components import Chandler, Informant, Orderbook, Trades, Wallet
 from juno.filters import Filters, Price, Size
 from juno.storages import Memory
@@ -77,45 +77,40 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     assert stored_spans == espans
 
 
-# TODO: Uncomment, but seems to have a bug in aiosqlite.
-# async def test_stream_future_candles_span_stored_until_stopped(memory):
-#     EXCHANGE = 'exchange'
-#     SYMBOL = 'eth-btc'
-#     INTERVAL = 1
-#     START = 0
-#     CANCEL_AT = 5
-#     END = 10
-#     candles = [Candle(time=1)]
-#     exchange = fakes.Exchange(future_candles=candles)
-#     trades = Trades(storage=memory, exchanges=[exchange])
-#     time = fakes.Time(START)
-#     chandler = Chandler(
-#         trades=trades,
-#         storage=memory,
-#         exchanges=[exchange],
-#         get_time=time.get_time,
-#     )
+async def test_stream_future_candles_span_stored_until_stopped(memory):
+    EXCHANGE = 'exchange'
+    SYMBOL = 'eth-btc'
+    INTERVAL = 1
+    START = 0
+    CANCEL_AT = 5
+    END = 10
+    candles = [Candle(time=1)]
+    exchange = fakes.Exchange(future_candles=candles)
+    trades = Trades(storage=memory, exchanges=[exchange])
+    time = fakes.Time(START)
+    chandler = Chandler(
+        trades=trades,
+        storage=memory,
+        exchanges=[exchange],
+        get_time=time.get_time,
+    )
 
-#     task = asyncio.create_task(cancelable(
-#         list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, START, END))
-#     ))
-#     await asyncio.sleep(0)
-#     await asyncio.sleep(0)
-#     await asyncio.sleep(0)
-#     await asyncio.sleep(0)
-#     await asyncio.sleep(0)
-#     time.time = CANCEL_AT
-#     task.cancel()
-#     await task
+    task = asyncio.create_task(cancelable(
+        list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, START, END))
+    ))
+    await exchange.candle_queue.join()
+    time.time = CANCEL_AT
+    task.cancel()
+    await task
 
-#     storage_key = (EXCHANGE, SYMBOL, INTERVAL)
-#     stored_spans, stored_candles = await asyncio.gather(
-#         list_async(memory.stream_time_series_spans(storage_key, Candle, START, END)),
-#         list_async(memory.stream_time_series(storage_key, Candle, START, END)),
-#     )
+    storage_key = (EXCHANGE, SYMBOL, INTERVAL)
+    stored_spans, stored_candles = await asyncio.gather(
+        list_async(memory.stream_time_series_spans(storage_key, Candle, START, END)),
+        list_async(memory.stream_time_series(storage_key, Candle, START, END)),
+    )
 
-#     assert stored_candles == candles
-#     assert stored_spans == (START, CANCEL_AT)
+    assert stored_candles == candles
+    assert stored_spans == [(START, candles[-1].time + INTERVAL)]
 
 
 async def test_stream_candles_construct_from_trades(memory):
@@ -149,38 +144,33 @@ async def test_stream_candles_construct_from_trades(memory):
     ]
 
 
-# TODO: Uncomment, but seems to have a bug in aiosqlite.
-# async def test_stream_future_trades_span_stored_until_stopped(memory):
-#     EXCHANGE = 'exchange'
-#     SYMBOL = 'eth-btc'
-#     START = 0
-#     CANCEL_AT = 5
-#     END = 10
-#     trades = [Trade(time=1)]
-#     exchange = fakes.Exchange(future_trades=trades)
-#     time = fakes.Time(START)
-#     trades = Trades(storage=memory, exchanges=[exchange])
+async def test_stream_future_trades_span_stored_until_stopped(memory):
+    EXCHANGE = 'exchange'
+    SYMBOL = 'eth-btc'
+    START = 0
+    CANCEL_AT = 5
+    END = 10
+    trades = [Trade(time=1)]
+    exchange = fakes.Exchange(future_trades=trades)
+    time = fakes.Time(START)
+    trades_component = Trades(storage=memory, exchanges=[exchange], get_time=time.get_time)
 
-#     task = asyncio.create_task(cancelable(
-#         list_async(trades.stream_trades(EXCHANGE, SYMBOL, START, END))
-#     ))
-#     await asyncio.sleep(0)
-#     await asyncio.sleep(0)
-#     await asyncio.sleep(0)
-#     await asyncio.sleep(0)
-#     await asyncio.sleep(0)
-#     time.time = CANCEL_AT
-#     task.cancel()
-#     await task
+    task = asyncio.create_task(cancelable(
+        list_async(trades_component.stream_trades(EXCHANGE, SYMBOL, START, END))
+    ))
+    await exchange.trade_queue.join()
+    time.time = CANCEL_AT
+    task.cancel()
+    await task
 
-#     storage_key = (EXCHANGE, SYMBOL)
-#     stored_spans, stored_trades = await asyncio.gather(
-#         list_async(memory.stream_time_series_spans(storage_key, Trade, START, END)),
-#         list_async(memory.stream_time_series(storage_key, Trade, START, END)),
-#     )
+    storage_key = (EXCHANGE, SYMBOL)
+    stored_spans, stored_trades = await asyncio.gather(
+        list_async(memory.stream_time_series_spans(storage_key, Trade, START, END)),
+        list_async(memory.stream_time_series(storage_key, Trade, START, END)),
+    )
 
-#     assert stored_trades == trades
-#     assert stored_spans == (START, CANCEL_AT)
+    assert stored_trades == trades
+    assert stored_spans == [(START, trades[-1].time + 1)]
 
 
 @pytest.mark.parametrize(

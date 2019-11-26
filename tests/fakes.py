@@ -82,6 +82,7 @@ class Exchange(exchanges.Exchange):
         async def inner():
             while True:
                 yield await self.candle_queue.get()
+                self.candle_queue.task_done()
 
         yield inner()
 
@@ -93,6 +94,7 @@ class Exchange(exchanges.Exchange):
         async def inner():
             while True:
                 yield await self.depth_queue.get()
+                self.depth_queue.task_done()
 
         yield inner()
 
@@ -101,6 +103,7 @@ class Exchange(exchanges.Exchange):
         async def inner():
             while True:
                 yield await self.orders_queue.get()
+                self.orders_queue.task_done()
 
         yield inner()
 
@@ -124,6 +127,7 @@ class Exchange(exchanges.Exchange):
         async def inner():
             while True:
                 yield await self.trade_queue.get()
+                self.trade_queue.task_done()
 
         yield inner()
 
