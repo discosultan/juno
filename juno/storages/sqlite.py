@@ -211,13 +211,13 @@ class SQLite(Storage):
         else:
             raise NotImplementedError()
 
-        name = self._get_db_name(normalized_key)
+        name, is_uri = self._get_db_name(normalized_key)
         _log.debug(f'opening {name}')
-        with sqlite3.connect(name, detect_types=sqlite3.PARSE_DECLTYPES) as db:
+        with sqlite3.connect(name, uri=is_uri, detect_types=sqlite3.PARSE_DECLTYPES) as db:
             yield db
 
-    def _get_db_name(self, key: str) -> str:
-        return str(home_path('data') / f'v{_VERSION}_{key}.db')
+    def _get_db_name(self, key: str) -> Tuple[str, bool]:
+        return str(home_path('data') / f'v{_VERSION}_{key}.db'), False
 
     def _ensure_table(self, db: Any, type_: Type[Any], name: Optional[str] = None) -> None:
         if name is None:
