@@ -1,12 +1,14 @@
+import asyncio
 import logging
 import sqlite3
 from collections import defaultdict
+from contextlib import closing
 from decimal import Decimal
 # TODO: mypy fails to recognise stdlib attributes get_args, get_origin. remove ignore when fixed
 from typing import (  # type: ignore
     Any,
-    AsyncContextManager,
     AsyncIterable,
+    ContextManager,
     Dict,
     List,
     Optional,
@@ -21,8 +23,6 @@ from typing import (  # type: ignore
     get_type_hints
 )
 
-from aiosqlite import Connection, connect
-
 import juno.json as json
 from juno.time import strfspan, time_ms
 from juno.utils import home_path
@@ -32,7 +32,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 29
+_VERSION = '32'
 
 T = TypeVar('T')
 
@@ -56,36 +56,41 @@ sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
 
 
 class SQLite(Storage):
-    def __init__(self) -> None:
+    def __init__(self, version: Optional[str] = None) -> None:
+        self._version = version if version is not None else _VERSION
         self._tables: Dict[Any, Set[str]] = defaultdict(set)
 
     async def stream_time_series_spans(self, key: Key, type: Type[T], start: int,
                                        end: int) -> AsyncIterable[Tuple[int, int]]:
-        _log.info(
-            f'streaming {type.__name__} span(s) between {strfspan(start, end)} from {key} db'
-        )
-        async with self._connect(key) as db:
-            span_table_name = f'{type.__name__}{Span.__name__}'
-            await self._ensure_table(db, Span, span_table_name)
-            query = f'SELECT * FROM {span_table_name} WHERE start < ? AND end > ? ORDER BY start'
-            async with db.execute(query, [end, start]) as cursor:
-                async for span_start, span_end in cursor:
-                    yield max(span_start, start), min(span_end, end)
+        def inner():
+            _log.info(
+                f'streaming {type.__name__} span(s) between {strfspan(start, end)} from {key} db'
+            )
+            with self._connect(key) as conn:
+                span_table_name = f'{type.__name__}{Span.__name__}'
+                self._ensure_table(conn, Span, span_table_name)
+                return conn.execute(
+                    f'SELECT * FROM {span_table_name} WHERE start < ? AND end > ? ORDER BY start',
+                    [end, start]
+                ).fetchall()
+
+        rows = await asyncio.get_running_loop().run_in_executor(None, inner)
+        for span_start, span_end in rows:
+            yield max(span_start, start), min(span_end, end)
 
     async def stream_time_series(self, key: Key, type: Type[T], start: int,
                                  end: int) -> AsyncIterable[T]:
-        PAGE_SIZE = 1000
-        _log.info(f'streaming {type.__name__}(s) between {strfspan(start, end)} from {key} db')
-        async with self._connect(key) as db:
-            await self._ensure_table(db, type)
-            query = f'SELECT * FROM {type.__name__} WHERE time >= ? AND time < ? ORDER BY time'
-            async with db.execute(query, [start, end]) as cursor:
-                while True:
-                    rows = await cursor.fetchmany(PAGE_SIZE)
-                    for row in rows:
-                        yield type(*row)
-                    if len(rows) < PAGE_SIZE:
-                        break
+        def inner():
+            _log.info(f'streaming {type.__name__}(s) between {strfspan(start, end)} from {key} db')
+            with self._connect(key) as conn:
+                self._ensure_table(conn, type)
+                return conn.execute(
+                    f'SELECT * FROM {type.__name__} WHERE time >= ? AND time < ? ORDER BY time',
+                    [start, end]
+                ).fetchall()
+        rows = await asyncio.get_running_loop().run_in_executor(None, inner)
+        for row in rows:
+            yield type(*row)
 
     async def store_time_series_and_span(
         self, key: Key, type: Type[Any], items: List[Any], start: int, end: int
@@ -99,94 +104,109 @@ class SQLite(Storage):
                     f'{items[-1].time}'
                 )
 
-        _log.info(
-            f'storing {len(items)} {type.__name__}(s) between {strfspan(start, end)} to {key} db'
-        )
-        async with self._connect(key) as db:
-            if len(items) > 0:
-                await self._ensure_table(db, type)
-                try:
-                    await db.executemany(
-                        f"INSERT INTO {type.__name__} "
-                        f"VALUES ({', '.join(['?'] * len(get_type_hints(type)))})", items
-                    )
-                except sqlite3.IntegrityError as err:
-                    # TODO: Can we relax this constraint?
-                    _log.error(f'{err} {key}')
-                    raise
-
+        def inner():
+            _log.info(
+                f'storing {len(items)} {type.__name__}(s) between {strfspan(start, end)} to {key} '
+                'db'
+            )
             span_table_name = f'{type.__name__}{Span.__name__}'
-            await self._ensure_table(db, Span, span_table_name)
-            await db.execute(f'INSERT INTO {span_table_name} VALUES (?, ?)', [start, end])
-            await db.commit()
+            with self._connect(key) as conn:
+                self._ensure_table(conn, type)
+                self._ensure_table(conn, Span, span_table_name)
+
+                c = conn.cursor()
+                if len(items) > 0:
+                    try:
+                        c.executemany(
+                            f"INSERT INTO {type.__name__} "
+                            f"VALUES ({', '.join(['?'] * len(get_type_hints(type)))})", items
+                        )
+                    except sqlite3.IntegrityError as err:
+                        # TODO: Can we relax this constraint?
+                        _log.error(f'{err} {key}')
+                        raise
+                c.execute(f'INSERT INTO {span_table_name} VALUES (?, ?)', [start, end])
+                conn.commit()
+
+        return await asyncio.get_running_loop().run_in_executor(None, inner)
 
     async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:
-        _log.info(f'getting value of type {type_.__name__} from {key} db')
-        async with self._connect(key) as db:
-            await self._ensure_table(db, Bag)
-            cursor = await db.execute(
-                f'SELECT * FROM {Bag.__name__} WHERE key=?', [type_.__name__]
-            )
-            row = await cursor.fetchone()
-            await cursor.close()
-            if row:
-                return _load_type_from_string(type_, json.loads(row[1])), row[2]
-            else:
-                return None, None
+        def inner():
+            _log.info(f'getting value of type {type_.__name__} from {key} db')
+            with self._connect(key) as conn:
+                self._ensure_table(conn, Bag)
+                row = conn.execute(
+                    f'SELECT * FROM {Bag.__name__} WHERE key=?', [type_.__name__]
+                ).fetchone()
+                if row:
+                    return _load_type_from_string(type_, json.loads(row[1])), row[2]
+                else:
+                    return None, None
+
+        return await asyncio.get_running_loop().run_in_executor(None, inner)
 
     async def set(self, key: Key, type_: Type[T], item: T) -> None:
-        _log.info(f'setting value of type {type_.__name__} to {key} db')
-        async with self._connect(key) as db:
-            await self._ensure_table(db, Bag)
-            await db.execute(
-                f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                [type_.__name__, json.dumps(item), time_ms()]
-            )
-            await db.commit()
+        def inner():
+            _log.info(f'setting value of type {type_.__name__} to {key} db')
+            with self._connect(key) as conn:
+                self._ensure_table(conn, Bag)
+                conn.execute(
+                    f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
+                    [type_.__name__, json.dumps(item), time_ms()]
+                )
+                conn.commit()
+
+        return await asyncio.get_running_loop().run_in_executor(None, inner)
 
     async def get_map(self, key: Key,
                       type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
-        _log.info(f'getting map of items of type {type_.__name__} from {key} db')
-        async with self._connect(key) as db:
-            await self._ensure_table(db, Bag)
-            cursor = await db.execute(
-                f'SELECT * FROM {Bag.__name__} WHERE key=?', ['map_' + type_.__name__]
-            )
-            row = await cursor.fetchone()
-            await cursor.close()
-            if row:
-                return {
-                    k: _load_type_from_string(type_, v)
-                    for k, v in json.loads(row[1]).items()
-                }, row[2]
-            else:
-                return None, None
+        def inner():
+            _log.info(f'getting map of items of type {type_.__name__} from {key} db')
+            with self._connect(key) as conn:
+                self._ensure_table(conn, Bag)
+                row = conn.execute(
+                    f'SELECT * FROM {Bag.__name__} WHERE key=?', ['map_' + type_.__name__]
+                ).fetchone()
+                if row:
+                    return {
+                        k: _load_type_from_string(type_, v)
+                        for k, v in json.loads(row[1]).items()
+                    }, row[2]
+                else:
+                    return None, None
+
+        return await asyncio.get_running_loop().run_in_executor(None, inner)
 
     # TODO: Generic type
     async def set_map(self, key: Key, type_: Type[T], items: Dict[str, T]) -> None:
-        _log.info(f'setting map of {len(items)} items of type  {type_.__name__} to {key} db')
-        async with self._connect(key) as db:
-            await self._ensure_table(db, Bag)
-            await db.execute(
-                f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                ['map_' + type_.__name__, json.dumps(items),
-                 time_ms()]
-            )
-            await db.commit()
+        def inner():
+            _log.info(f'setting map of {len(items)} items of type  {type_.__name__} to {key} db')
+            with self._connect(key) as conn:
+                self._ensure_table(conn, Bag)
+                conn.execute(
+                    f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
+                    ['map_' + type_.__name__, json.dumps(items), time_ms()]
+                )
+                conn.commit()
 
-    def _connect(self, key: Key) -> AsyncContextManager[Connection]:
+        return await asyncio.get_running_loop().run_in_executor(None, inner)
+
+    def _connect(self, key: Key) -> ContextManager[sqlite3.Connection]:
         name = self._normalize_key(key)
-        name = str(home_path('data') / f'v{_VERSION}_{name}.db')
+        name = str(home_path('data') / f'v{self._version}_{name}.db')
         _log.debug(f'opening {name}')
-        return connect(name, detect_types=sqlite3.PARSE_DECLTYPES)
+        return closing(sqlite3.connect(name, detect_types=sqlite3.PARSE_DECLTYPES))
 
-    async def _ensure_table(self, db: Any, type_: Type[Any], name: Optional[str] = None) -> None:
+    def _ensure_table(
+        self, conn: sqlite3.Connection, type_: Type[Any], name: Optional[str] = None
+    ) -> None:
         if name is None:
             name = type_.__name__
-        tables = self._tables[db]
+        tables = self._tables[conn]
         if name not in tables:
-            await _create_table(db, type_, name)
-            await db.commit()
+            c = conn.cursor()
+            _create_table(c, type_, name)
+            conn.commit()
             tables.add(name)
 
     def _normalize_key(self, key: Key) -> str:
@@ -199,7 +219,7 @@ class SQLite(Storage):
             raise NotImplementedError()
 
 
-async def _create_table(db: Any, type_: Type[Any], name: str) -> None:
+def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
     annotations = get_type_hints(type_)
     col_names = list(annotations.keys())
     col_types = [_type_to_sql_type(t) for t in annotations.values()]
@@ -208,18 +228,18 @@ async def _create_table(db: Any, type_: Type[Any], name: str) -> None:
     cols = []
     for col_name, col_type in zip(col_names, col_types):
         cols.append(f'{col_name} {col_type} NOT NULL')
-    await db.execute(f'CREATE TABLE IF NOT EXISTS {name} ({", ".join(cols)})')
+    c.execute(f'CREATE TABLE IF NOT EXISTS {name} ({", ".join(cols)})')
 
     # Add indices.
     meta_getter = getattr(type_, 'meta', None)
     meta = meta_getter() if meta_getter else None
     if meta:
-        for n, c in meta.items():
-            if c == 'index':
-                await db.execute(f'CREATE INDEX IF NOT EXISTS {name}Index ON {name}({n})')
-            elif c == 'unique':
-                await db.execute(
-                    f'CREATE UNIQUE INDEX IF NOT EXISTS {name}UniqueIndex ON {name}({n})'
+        for cname, ctype in meta.items():
+            if ctype == 'index':
+                c.execute(f'CREATE INDEX IF NOT EXISTS {name}Index ON {name}({cname})')
+            elif ctype == 'unique':
+                c.execute(
+                    f'CREATE UNIQUE INDEX IF NOT EXISTS {name}UniqueIndex ON {name}({cname})'
                 )
             else:
                 raise NotImplementedError()
@@ -237,7 +257,7 @@ async def _create_table(db: Any, type_: Type[Any], name: str) -> None:
             else:
                 view_cols.append(col)
 
-        await db.execute(
+        c.execute(
             f'CREATE VIEW IF NOT EXISTS {name}View AS '
             f'SELECT {", ".join(view_cols)} FROM {name}'
         )
