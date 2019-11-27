@@ -177,7 +177,7 @@ async def test_stream_historical_trades(loop, request, exchange):
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_trades(loop, request, exchange):
     skip_non_configured(request, exchange)
-    skip_exchange(exchange, Binance, Coinbase)
+    skip_exchange(exchange, Coinbase)
     # Kraken has quite low volumes. The fiat symbol market is much more active.
     symbol = 'btc-eur' if isinstance(exchange, Kraken) else 'eth-btc'
 

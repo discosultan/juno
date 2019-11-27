@@ -135,6 +135,7 @@ class Trades:
                     yield trade
             if stream:  # Future.
                 async for trade in stream:
+                    # TODO: Skip if trade was already retrieved from historical.
                     # TODO: Can we improve? We may potentially wait for a long time before a trade
                     # past the end time occurs.
                     if trade.time >= end:
