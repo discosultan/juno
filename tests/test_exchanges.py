@@ -178,6 +178,7 @@ async def test_stream_historical_trades(loop, request, exchange):
 async def test_connect_stream_trades(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Binance, Coinbase)
+    # Kraken has quite low volumes. The fiat symbol market is much more active.
     symbol = 'btc-eur' if isinstance(exchange, Kraken) else 'eth-btc'
 
     async with exchange.connect_stream_trades(symbol=symbol) as stream:

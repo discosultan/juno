@@ -40,7 +40,7 @@ class Memory(SQLite):
                     check_same_thread=False
                 )
                 ctx.connection = conn
-        yield ctx.connection
+            yield ctx.connection
 
 
 class _ConnectionContext:
