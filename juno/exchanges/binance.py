@@ -194,7 +194,7 @@ class Binance(Exchange):
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@depth', interval=12 * HOUR_SEC, name='orderbook'
+            url=f'/ws/{_ws_symbol(symbol)}@depth@100ms', interval=12 * HOUR_SEC, name='depth'
         ) as ws:
             yield inner(ws)
 
@@ -341,6 +341,22 @@ class Binance(Exchange):
             batch_start = time + 1 if time is not None else batch_end
             if batch_start >= end:
                 break
+
+    @asynccontextmanager
+    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
+            async for data in ws:
+                yield Trade(
+                    time=data['T'],
+                    price=Decimal(data['p']),
+                    size=Decimal(data['q']),
+                )
+
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
+        async with self._connect_refreshing_stream(
+            url=f'/ws/{_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade'
+        ) as ws:
+            yield inner(ws)
 
     async def _wapi_request(
         self,
