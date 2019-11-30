@@ -11,7 +11,7 @@ from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.time import strfspan, time_ms
-from juno.utils import generate_missing_spans, merge_adjacent_spans
+from juno.utils import CircularBuffer, generate_missing_spans, merge_adjacent_spans
 
 _log = logging.getLogger(__name__)
 
@@ -128,18 +128,27 @@ class Trades:
         exchange_instance = self._exchanges[exchange]
 
         async def inner(stream: Optional[AsyncIterable[Trade]]) -> AsyncIterable[Trade]:
+            last_trade_ids = CircularBuffer(20, 0)
             if start < current:  # Historical.
                 async for trade in exchange_instance.stream_historical_trades(
                     symbol, start, min(end, current)
                 ):
+                    if trade.id > 0:
+                        last_trade_ids.push(trade.id)
                     yield trade
             if stream:  # Future.
+                skipping_existing = True
                 async for trade in stream:
-                    # TODO: Skip if trade was already retrieved from historical.
                     # TODO: Can we improve? We may potentially wait for a long time before a trade
                     # past the end time occurs.
                     if trade.time >= end:
                         break
+
+                    # Skip if trade was already retrieved from historical.
+                    if skipping_existing and trade.id > 0 and trade.id in last_trade_ids:
+                        continue
+                    else:
+                        skipping_existing = False
 
                     yield trade
 

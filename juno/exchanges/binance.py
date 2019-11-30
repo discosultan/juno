@@ -334,6 +334,7 @@ class Binance(Exchange):
                 time = t['T']
                 assert time < end
                 yield Trade(
+                    id=t['a'],
                     time=time,
                     price=Decimal(t['p']),
                     size=Decimal(t['q']),
@@ -347,6 +348,7 @@ class Binance(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for data in ws:
                 yield Trade(
+                    id=data['a'],
                     time=data['T'],
                     price=Decimal(data['p']),
                     size=Decimal(data['q']),
