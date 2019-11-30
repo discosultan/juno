@@ -108,6 +108,7 @@ class Kraken(Exchange):
     @asynccontextmanager
     async def connect_stream_candles(self, symbol: str,
                                      interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+        # https://docs.kraken.com/websockets/#message-ohlc
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for c in ws:
                 # TODO: Kraken doesn't publish candles for intervals where there are no trades.
@@ -188,6 +189,7 @@ class Kraken(Exchange):
 
     async def stream_historical_trades(self, symbol: str, start: int,
                                        end: int) -> AsyncIterable[Trade]:
+        # https://www.kraken.com/en-us/features/api#get-recent-trades
         since = _time(start) - 1  # Exclusive.
         while True:
             res = await self._request_public(
@@ -200,7 +202,12 @@ class Kraken(Exchange):
                 cost=2,
             )
             result = res['result']
-            since = result['last']
+            last = result['last']
+
+            if last == since:  # No more trades returned.
+                break
+
+            since = last
             _, trades = next(iter(result.items()))
             for trade in trades:
                 time = _from_time(trade[2])
