@@ -8,7 +8,7 @@ import pytest
 from juno import Balance, OrderType, Side
 from juno.config import load_instance
 from juno.exchanges import Binance, Coinbase, Kraken
-from juno.time import HOUR_MS, strptimestamp
+from juno.time import HOUR_MS, MIN_MS, strptimestamp
 
 from .utils import types_match
 
@@ -112,7 +112,7 @@ async def test_connect_stream_candles(loop, request, exchange):
     skip_non_configured(request, exchange)
     skip_exchange(exchange, Coinbase)
 
-    async with exchange.connect_stream_candles(symbol='eth-btc', interval=HOUR_MS) as stream:
+    async with exchange.connect_stream_candles(symbol='eth-btc', interval=MIN_MS) as stream:
         candle = await stream.__anext__()
         await stream.aclose()
 

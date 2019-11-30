@@ -19,17 +19,15 @@ async def memory(loop):
 
 
 @pytest.mark.parametrize(
-    'start,end,closed,efrom,eto,espans',
+    'start,end,efrom,eto,espans',
     [
-        [0, 3, True, 0, 2, [(0, 2), (2, 3)]],  # Skips skipped candle at the end.
-        [2, 3, True, 0, 0, [(2, 3)]],  # Empty if only skipped candle.
-        [3, 5, True, 2, 5, [(3, 5)]],  # Filters out closed candle.
-        [0, 5, False, 0, 5, [(0, 2), (2, 5)]],  # Includes closed candle.
-        [0, 6, True, 0, 6, [(0, 2), (2, 5), (5, 6)]],  # Includes future candle.
-        [5, 6, False, 5, 6, [(5, 6)]],  # Only future candle.
+        [0, 3, 0, 2, [(0, 2), (2, 3)]],  # Skips skipped candle at the end.
+        [2, 3, 0, 0, [(2, 3)]],  # Empty if only skipped candle.
+        [0, 6, 0, 5, [(0, 2), (2, 5), (5, 6)]],  # Includes future candle.
+        [5, 6, 4, 5, [(5, 6)]],  # Only future candle.
     ]
 )
-async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
+async def test_stream_candles(memory, start, end, efrom, eto, espans):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     INTERVAL = 1
@@ -40,15 +38,12 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
         Candle(time=1),
         # Deliberately skipped candle.
         Candle(time=3),
-        Candle(time=4, closed=False),
         Candle(time=4),
     ]
     future_candles = [
         Candle(time=5),
     ]
     expected_candles = (historical_candles + future_candles)[efrom:eto]
-    if closed:
-        expected_candles = [c for c in expected_candles if c.closed]
     time = fakes.Time(CURRENT)
     exchange = fakes.Exchange(
         historical_candles=historical_candles,
@@ -64,7 +59,7 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     )
 
     output_candles = await list_async(
-        chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, start, end, closed)
+        chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, start, end)
     )
     storage_key = (EXCHANGE, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
@@ -73,7 +68,7 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     )
 
     assert output_candles == expected_candles
-    assert stored_candles == [c for c in output_candles if c.closed]
+    assert stored_candles == output_candles
     assert stored_spans == espans
 
 
@@ -139,7 +134,6 @@ async def test_stream_candles_construct_from_trades(memory):
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            closed=True
         )
     ]
 

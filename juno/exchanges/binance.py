@@ -288,7 +288,7 @@ class Binance(Exchange):
             for c in res:
                 yield Candle(
                     c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
-                    Decimal(c[5]), True
+                    Decimal(c[5])
                 )
 
     @asynccontextmanager
@@ -302,9 +302,14 @@ class Binance(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for data in ws:
                 c = data['k']
+
+                closed = c['x']
+                if not closed:
+                    continue
+
                 yield Candle(
                     c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']), Decimal(c['c']),
-                    Decimal(c['v']), c['x']
+                    Decimal(c['v'])
                 )
 
         async with self._connect_refreshing_stream(

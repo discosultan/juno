@@ -111,7 +111,6 @@ class Trader:
                                     low=ctx.last_candle.low,
                                     close=ctx.last_candle.close,
                                     volume=ctx.last_candle.volume,
-                                    closed=ctx.last_candle.closed
                                 )
                                 await self._tick(missed_candle)
 

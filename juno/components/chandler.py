@@ -39,7 +39,7 @@ class Chandler:
         self._storage_batch_size = storage_batch_size
 
     async def stream_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True
+        self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
@@ -64,15 +64,13 @@ class Chandler:
                 async for candle in self._storage.stream_time_series(
                     storage_key, Candle, span_start, span_end
                 ):
-                    if not closed or candle.closed:
-                        yield candle
+                    yield candle
             else:
                 _log.info(f'missing {candle_msg} between {period_msg}')
                 async for candle in self._stream_and_store_exchange_candles(
                     exchange, symbol, interval, span_start, span_end
                 ):
-                    if not closed or candle.closed:
-                        yield candle
+                    yield candle
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
     async def _stream_and_store_exchange_candles(
@@ -92,19 +90,18 @@ class Chandler:
                 end=end,
                 current=current
             ):
-                if candle.closed:
-                    batch.append(candle)
-                    if len(batch) == self._storage_batch_size:
-                        batch_end = batch[-1].time + interval
-                        await self._storage.store_time_series_and_span(
-                            key=storage_key,
-                            type=Candle,
-                            items=batch,
-                            start=batch_start,
-                            end=batch_end,
-                        )
-                        batch_start = batch_end
-                        del batch[:]
+                batch.append(candle)
+                if len(batch) == self._storage_batch_size:
+                    batch_end = batch[-1].time + interval
+                    await self._storage.store_time_series_and_span(
+                        key=storage_key,
+                        type=Candle,
+                        items=batch,
+                        start=batch_start,
+                        end=batch_end,
+                    )
+                    batch_start = batch_end
+                    del batch[:]
                 yield candle
         except asyncio.CancelledError:
             if len(batch) > 0:
@@ -150,7 +147,7 @@ class Chandler:
 
                     yield candle
 
-                    if candle.closed and candle.time == end - interval:
+                    if candle.time == end - interval:
                         break
 
         if end > current:
@@ -187,7 +184,6 @@ class Chandler:
                     low=low,
                     close=close,
                     volume=volume,
-                    closed=True
                 )
                 current = next_
                 next_ = current + interval
@@ -214,5 +210,4 @@ class Chandler:
                 low=low,
                 close=close,
                 volume=volume,
-                closed=True
             )

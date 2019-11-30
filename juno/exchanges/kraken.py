@@ -108,6 +108,7 @@ class Kraken(Exchange):
     @asynccontextmanager
     async def connect_stream_candles(self, symbol: str,
                                      interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+        # https://docs.kraken.com/websockets/#message-ohlc
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for c in ws:
                 # TODO: Kraken doesn't publish candles for intervals where there are no trades.
@@ -122,7 +123,6 @@ class Kraken(Exchange):
                     low=Decimal(c[4]),
                     close=Decimal(c[5]),
                     volume=Decimal(c[7]),
-                    closed=True,
                 )
 
         async with self._public_ws.subscribe({

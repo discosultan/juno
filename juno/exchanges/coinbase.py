@@ -131,7 +131,7 @@ class Coinbase(Exchange):
                     raise Exception(f'missing data for candle {c}; please re-run the command')
                 yield Candle(
                     c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]), Decimal(c[4]),
-                    Decimal(c[5]), True
+                    Decimal(c[5])
                 )
 
     # TODO: First candle can be partial.
@@ -181,7 +181,6 @@ class Coinbase(Exchange):
                         low=price,
                         close=price,
                         volume=size,
-                        closed=True
                     )
                 else:
                     current_candle = Candle(
@@ -191,7 +190,6 @@ class Coinbase(Exchange):
                         low=min(price, current_candle.low),
                         close=price,
                         volume=current_candle.volume + size,
-                        closed=True
                     )
                     last_candle_map[product_id] = current_candle
 

@@ -49,8 +49,6 @@ class Python(Solver):
 
                     for candle in candles[i:]:
                         i += 1
-                        if not candle.closed:
-                            continue
 
                         summary.append_candle(candle)
 
@@ -69,7 +67,6 @@ class Python(Solver):
                                         low=ctx.last_candle.low,
                                         close=ctx.last_candle.close,
                                         volume=ctx.last_candle.volume,
-                                        closed=ctx.last_candle.closed
                                     )
                                     _tick(ctx, summary, base_asset, quote_asset, fees, filters,
                                           trailing_stop, missed_candle)

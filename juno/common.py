@@ -42,13 +42,12 @@ class Candle(NamedTuple):
     low: Decimal = Decimal('0.0')
     close: Decimal = Decimal('0.0')
     volume: Decimal = Decimal('0.0')  # Within interval.
-    closed: bool = True
 
     def __repr__(self) -> str:
         return (
             f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
             f'open={self.open}, high={self.high}, low={self.low}, close={self.close}, '
-            f'volume={self.volume}, closed={self.closed})'
+            f'volume={self.volume})'
         )
 
     @staticmethod

@@ -70,7 +70,7 @@ async def test_backtest():
 async def test_backtest_scenarios(scenario_nr):
     path = f'./data/backtest_scenario{scenario_nr}_candles.json'
     chandler = fakes.Chandler(
-        candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(__file__, path)))
+        candles=list(map(lambda c: Candle(**c), load_json_file(__file__, path)))
     )
     informant = fakes.Informant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
