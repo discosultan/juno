@@ -194,7 +194,8 @@ class Binance(Exchange):
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@depth@100ms', interval=12 * HOUR_SEC, name='depth'
+            url=f'/ws/{_ws_symbol(symbol)}@depth@100ms', interval=12 * HOUR_SEC, name='depth',
+            raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
 
@@ -310,7 +311,8 @@ class Binance(Exchange):
         async with self._connect_refreshing_stream(
             url=f'/ws/{_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
             interval=12 * HOUR_SEC,
-            name='candles'
+            name='candles',
+            raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
 
@@ -356,7 +358,8 @@ class Binance(Exchange):
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade'
+            url=f'/ws/{_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade',
+            raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
 
@@ -457,15 +460,17 @@ class Binance(Exchange):
                     res.raise_for_status()
                 return await res.json(loads=json.loads)
 
-    def _connect_refreshing_stream(self, url: str, interval: int, name: str,
-                                   **kwargs: Any) -> AsyncContextManager[AsyncIterable[Any]]:
+    def _connect_refreshing_stream(
+        self, url: str, interval: int, name: str, raise_on_disconnect: bool = False
+    ) -> AsyncContextManager[AsyncIterable[Any]]:
         return connect_refreshing_stream(
             self._session,
             url=_BASE_WS_URL + url,
             interval=interval,
             loads=json.loads,
             take_until=lambda old, new: old['E'] < new['E'],
-            name=name
+            name=name,
+            raise_on_disconnect=raise_on_disconnect
         )
 
 
@@ -570,6 +575,9 @@ class UserDataStream:
             await user_stream_connected.wait()
 
     async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
+        # TODO: We don't raise an exception on ws disconnect here, but instead try to reconnect.
+        # This may be problematic, because we can skip a message. Figure out a solution to
+        # propagate disconnect exception to consumers.
         async with self._binance._connect_refreshing_stream(
             url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user'
         ) as ws:

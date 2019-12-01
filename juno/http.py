@@ -99,7 +99,8 @@ async def connect_refreshing_stream(
     interval: int,
     loads: Callable[[str], Any],
     take_until: Callable[[Any, Any], bool],
-    name: Optional[str] = None
+    name: Optional[str] = None,
+    raise_on_disconnect: bool = False
 ) -> AsyncIterator[AsyncIterable[Any]]:
     """Streams messages over WebSocket. The connection is restarted every `interval` seconds.
     Ensures no data is lost during restart when switching from one connection to another.
@@ -145,13 +146,20 @@ async def connect_refreshing_stream(
 
                 msg = receive_task.result()
                 if msg.type is aiohttp.WSMsgType.CLOSED:
-                    # TODO: Should we raise here or at least provide an option?
-                    _aiohttp_log.warning(
-                        f'server closed ws {ctx.name} connection; data: {msg.data}; reconnecting'
-                    )
-                    await asyncio.gather(ctx.close(), cancel(timeout_task))
-                    ctx = await _WSConnectionContext.connect(session, url, name2, counter)
-                    break
+                    if raise_on_disconnect:
+                        _aiohttp_log.warning(
+                            f'server closed ws {ctx.name} connection; data: {msg.data}; raising '
+                            'exception'
+                        )
+                        raise Exception('Server unexpectedly closed WS connection')
+                    else:
+                        _aiohttp_log.warning(
+                            f'server closed ws {ctx.name} connection; data: {msg.data}; '
+                            'reconnecting'
+                        )
+                        await asyncio.gather(ctx.close(), cancel(timeout_task))
+                        ctx = await _WSConnectionContext.connect(session, url, name2, counter)
+                        break
 
                 yield loads(msg.data)
 
