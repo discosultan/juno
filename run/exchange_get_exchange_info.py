@@ -13,9 +13,10 @@ async def main():
     async with EXCHANGE_TYPE(
         os.environ[f'JUNO__{name}__API_KEY'], os.environ[f'JUNO__{name}__SECRET_KEY']
     ) as client:
-        symbols_info = await client.get_symbols_info()
-        logging.info(symbols_info.filters['ada-btc'])
-        logging.info(symbols_info.filters.keys())
+        exchange_info = await client.get_exchange_info()
+        logging.info(exchange_info.filters['ada-btc'])
+        logging.info(exchange_info.filters.keys())
+        logging.info(exchange_info.candle_intervals)
 
 
 logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')

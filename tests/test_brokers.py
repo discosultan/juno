@@ -7,7 +7,7 @@ import pytest
 
 from juno import (
     DepthSnapshot, DepthUpdate, Fees, Fills, InsufficientBalance, OrderResult, OrderStatus,
-    OrderUpdate, SymbolsInfo
+    OrderUpdate, ExchangeInfo
 )
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook
@@ -20,7 +20,7 @@ filters = Filters(
     price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
     size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
 )
-symbol_info = SymbolsInfo(
+exchange_info = ExchangeInfo(
     fees={'__all__': Fees(maker=Decimal('0.1'), taker=Decimal('0.1'))},
     filters={'__all__': filters}
 )
@@ -77,7 +77,7 @@ async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expecte
     snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
     updates = [DepthUpdate(asks=update_asks, bids=[])]
     async with init_market_broker(
-        fakes.Exchange(depth=snapshot, future_depths=updates, symbol_info=symbol_info)
+        fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
     ) as broker:
         output = broker.find_order_asks(exchange='exchange', symbol='eth-btc', quote=quote)
         assert_fills(output, expected_output)
@@ -134,7 +134,7 @@ async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected
     snapshot = DepthSnapshot(asks=[], bids=snapshot_bids)
     updates = [DepthUpdate(asks=[], bids=update_bids)]
     async with init_market_broker(
-        fakes.Exchange(depth=snapshot, future_depths=updates, symbol_info=symbol_info)
+        fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
     ) as broker:
         output = broker.find_order_bids(exchange='exchange', symbol='eth-btc', base=base)
         assert_fills(output, expected_output)
@@ -143,7 +143,7 @@ async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected
 async def test_market_insufficient_balance():
     snapshot = DepthSnapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
     async with init_market_broker(
-        fakes.Exchange(depth=snapshot, symbol_info=symbol_info)
+        fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
     ) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
@@ -155,7 +155,7 @@ async def test_limit_fill_immediately():
     async with init_limit_broker(
         fakes.Exchange(
             depth=snapshot,
-            symbol_info=symbol_info,
+            exchange_info=exchange_info,
             future_orders=[
                 OrderUpdate(
                     symbol='eth-btc',
@@ -179,7 +179,7 @@ async def test_limit_fill_partially():
     async with init_limit_broker(
         fakes.Exchange(
             depth=snapshot,
-            symbol_info=symbol_info,
+            exchange_info=exchange_info,
             place_order_result=OrderResult(status=OrderStatus.NEW, fills=Fills()),
             future_orders=[
                 OrderUpdate(
@@ -213,7 +213,7 @@ async def test_limit_fill_partially():
 async def test_limit_insufficient_balance():
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal('1.0'), Decimal('1.0'))])
     async with init_limit_broker(
-        fakes.Exchange(depth=snapshot, symbol_info=symbol_info)
+        fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
     ) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
@@ -227,7 +227,7 @@ async def test_limit_partial_fill_adjust_fill():
     )
     exchange = fakes.Exchange(
         depth=snapshot,
-        symbol_info=symbol_info,
+        exchange_info=exchange_info,
         future_orders=[
             OrderUpdate(
                 symbol='eth-btc',

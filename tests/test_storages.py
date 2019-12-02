@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, Filters, SymbolsInfo, Trade, storages
+from juno import Candle, Fees, Filters, ExchangeInfo, Trade, storages
 from juno.asyncio import list_async
 
 from .utils import types_match
@@ -71,7 +71,7 @@ async def test_memory_store_and_stream_empty_series(memory):
 
 @pytest.mark.parametrize('item', [
     Candle(time=1, close=Decimal('1.0')),
-    SymbolsInfo(),
+    ExchangeInfo(candle_intervals=[1, 2]),
 ])
 async def test_memory_set_get(memory, item):
     item_type = type(item)

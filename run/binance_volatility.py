@@ -40,7 +40,7 @@ async def main():
     informant = Informant(sqlite, [binance])
     async with binance, chandler, informant:
         symbols = informant.list_symbols(exchange)[:10]
-        intervals = informant.list_intervals(exchange)[:3]
+        intervals = informant.list_candle_intervals(exchange)[:3]
         now = time_ms()
         tasks = []
         for interval in intervals:

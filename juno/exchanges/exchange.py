@@ -5,7 +5,7 @@ from typing import AsyncIterable, AsyncIterator, Dict, Optional, Union
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, OrderResult, OrderType,
-    OrderUpdate, Side, SymbolsInfo, TimeInForce, Trade
+    OrderUpdate, Side, ExchangeInfo, TimeInForce, Trade
 )
 
 
@@ -16,7 +16,7 @@ class Exchange(ABC):
     can_stream_candles: bool = True
 
     @abstractmethod
-    async def get_symbols_info(self) -> SymbolsInfo:
+    async def get_exchange_info(self) -> ExchangeInfo:
         pass
 
     @abstractmethod

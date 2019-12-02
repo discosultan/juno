@@ -150,11 +150,6 @@ class Side(Enum):
     SELL = 1
 
 
-class SymbolsInfo(NamedTuple):
-    fees: Dict[str, Fees] = {'__all__': Fees()}
-    filters: Dict[str, Filters] = {'__all__': Filters()}
-
-
 class TimeInForce(Enum):
     # A Good-Til-Canceled order will continue to work within the system and in the marketplace
     # until it executes or is canceled.
@@ -184,3 +179,9 @@ class Trend(Enum):
     UNKNOWN = 0
     UP = 1
     DOWN = 2
+
+
+class ExchangeInfo(NamedTuple):
+    fees: Dict[str, Fees] = {'__all__': Fees()}
+    filters: Dict[str, Filters] = {'__all__': Filters()}
+    candle_intervals: List[int] = []
