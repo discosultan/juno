@@ -17,7 +17,7 @@ from dateutil.tz import UTC
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderType, Side,
-    SymbolsInfo, TimeInForce
+    ExchangeInfo, TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Price, Size
@@ -74,7 +74,7 @@ class Coinbase(Exchange):
         await cancel(self._stream_task)
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def get_symbols_info(self) -> SymbolsInfo:
+    async def get_exchange_info(self) -> ExchangeInfo:
         # TODO: Fetch from exchange API if possible? Also has a more complex structure.
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
         fees = {'__all__': Fees(maker=Decimal('0.0015'), taker=Decimal('0.0025'))}
@@ -91,7 +91,11 @@ class Coinbase(Exchange):
                 )
             )
 
-        return SymbolsInfo(fees=fees, filters=filters)
+        return ExchangeInfo(
+            fees=fees,
+            filters=filters,
+            candle_intervals=[60000, 300000, 900000, 3600000, 21600000, 86400000]
+        )
 
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._private_request('GET', '/accounts')

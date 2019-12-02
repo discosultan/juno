@@ -51,10 +51,10 @@ async def kraken(loop, config):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_symbols_info(loop, request, exchange):
+async def test_get_exchange_info(loop, request, exchange):
     skip_non_configured(request, exchange)
 
-    res = await exchange.get_symbols_info()
+    res = await exchange.get_exchange_info()
 
     assert len(res.fees) > 0
     first_fees = next(iter(res.fees.values()))

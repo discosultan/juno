@@ -18,7 +18,7 @@ import backoff
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
-    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, SymbolsInfo, TimeInForce, Trade
+    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, ExchangeInfo, TimeInForce, Trade
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -75,7 +75,7 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def get_symbols_info(self) -> SymbolsInfo:
+    async def get_exchange_info(self) -> ExchangeInfo:
         fees_res, filters_res = await asyncio.gather(
             self._wapi_request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
             self._api_request('GET', '/api/v3/exchangeInfo'),
@@ -123,7 +123,14 @@ class Binance(Exchange):
                     avg_price_period=percent_price['avgPriceMins'] * MIN_MS
                 )
             )
-        return SymbolsInfo(fees=fees, filters=filters)
+        return ExchangeInfo(
+            fees=fees,
+            filters=filters,
+            candle_intervals=[
+                60000, 180000, 300000, 900000, 1800000, 3600000, 7200000, 14400000, 21600000,
+                28800000, 43200000, 86400000, 259200000, 604800000, 2629746000
+            ]
+        )
 
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._api_request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)

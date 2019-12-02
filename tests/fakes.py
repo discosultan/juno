@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from juno import (
     CancelOrderResult, CancelOrderStatus, Fees, Filters, OrderResult, OrderStatus, Side,
-    SymbolsInfo, brokers, components, exchanges
+    ExchangeInfo, brokers, components, exchanges
 )
 
 
@@ -12,7 +12,7 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
-        symbol_info=SymbolsInfo(
+        exchange_info=ExchangeInfo(
             fees={'__all__': Fees()}, filters={'__all__': Filters()}
         ),
         balances=None,
@@ -32,7 +32,7 @@ class Exchange(exchanges.Exchange):
         for future_candle in future_candles:
             self.candle_queue.put_nowait(future_candle)
 
-        self.symbol_info = symbol_info
+        self.exchange_info = exchange_info
 
         self.balances = balances
         self.balance_queue = asyncio.Queue
@@ -59,8 +59,8 @@ class Exchange(exchanges.Exchange):
         for future_trade in future_trades:
             self.trade_queue.put_nowait(future_trade)
 
-    async def get_symbols_info(self):
-        return self.symbol_info
+    async def get_exchange_info(self):
+        return self.exchange_info
 
     async def get_balances(self):
         return self.balances

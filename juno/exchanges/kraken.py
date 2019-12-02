@@ -16,7 +16,7 @@ from typing import (
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderResult,
-    OrderType, OrderUpdate, Side, SymbolsInfo, TimeInForce, Trade
+    OrderType, OrderUpdate, Side, ExchangeInfo, TimeInForce, Trade
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -70,7 +70,7 @@ class Kraken(Exchange):
             self._session.__aexit__(exc_type, exc, tb),
         )
 
-    async def get_symbols_info(self) -> SymbolsInfo:
+    async def get_exchange_info(self) -> ExchangeInfo:
         res = await self._request_public('GET', '/0/public/AssetPairs')
         fees, filters = {}, {}
         for val in res['result'].values():
@@ -86,7 +86,7 @@ class Kraken(Exchange):
                 base_precision=val['lot_decimals'],
                 quote_precision=val['pair_decimals'],
             )
-        return SymbolsInfo(fees=fees, filters=filters)
+        return ExchangeInfo(fees=fees, filters=filters)
 
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._request_private('/0/private/Balance')

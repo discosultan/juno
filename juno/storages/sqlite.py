@@ -281,19 +281,28 @@ def _isnamedtuple(type_: Type[Any]) -> bool:
     return issubclass(type_, tuple) and bool(getattr(type_, '_fields', False))
 
 
-def _load_type_from_string(type_: Type[Any], values: Union[Dict[str, Any], tuple]) -> Any:
+def _load_type_from_string(type_: Type[Any], value: Any) -> Any:
+    if type_ in {int, float, str, Decimal}:
+        return value
+
     annotations = get_type_hints(type_)
     for i, (key, attr_type) in enumerate(annotations.items()):
         index = i if _isnamedtuple(type_) else key
-        if get_origin(attr_type) is dict:
+        origin = get_origin(attr_type)
+        if origin is dict:
             sub_type = get_args(attr_type)[1]
-            sub = values[index]  # type: ignore
+            sub = value[index]  # type: ignore
             for dk, dv in sub.items():
+                sub[dk] = _load_type_from_string(sub_type, dv)
+        elif origin is list:
+            sub_type = get_args(attr_type)[0]
+            sub = value[index]  # type: ignore
+            for dk, dv in enumerate(sub):
                 sub[dk] = _load_type_from_string(sub_type, dv)
         elif _isnamedtuple(attr_type):
             # Materialize it.
-            values[index] = _load_type_from_string(attr_type, values[index])  # type: ignore
-    return type_(*values) if _isnamedtuple(type_) else type_(**values)
+            value[index] = _load_type_from_string(attr_type, value[index])  # type: ignore
+    return type_(*value) if _isnamedtuple(type_) or get_origin(type_) is list else type_(**value)
 
 
 class Bag:
