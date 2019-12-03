@@ -5,6 +5,7 @@ import random
 import sys
 from decimal import Decimal
 from functools import partial
+from itertools import product
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
@@ -96,11 +97,30 @@ class Optimizer:
         self.result = OptimizationResult()
 
     async def run(self) -> None:
-        candles = await list_async(
-            self.chandler.stream_candles(self.exchange, self.symbol, self.interval, self.start,
-                                         self.end)
+        symbols = (
+            [self.symbol] if self.symbol is not None
+            else self.informant.list_symbols(self.exchange)
         )
-        fees, filters = self.informant.get_fees_filters(self.exchange, self.symbol)
+        intervals = (
+            [self.interval] if self.interval is not None
+            else self.informant.list_candle_intervals(self.exchange)
+        )
+        candles = {}
+        candle_tasks = []
+        for symbol, interval in product(symbols, intervals):
+            async def fetch_candles(symbol, interval):
+                candles[(symbol, interval)] = await list_async(
+                    self.chandler.stream_candles(self.exchange, symbol, interval, self.start,
+                                                 self.end)
+                )
+            candle_tasks.append(fetch_candles(symbol, interval))
+        await asyncio.gather(*candle_tasks)
+
+        fees_filters = {}
+        for symbol in symbols:
+            fees_filters[symbol] = self.informant.get_fees_filters(self.exchange, symbol)
+
+        self.log.info(candles.keys(), fees_filters.keys())
 
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
@@ -119,6 +139,36 @@ class Optimizer:
         toolbox = base.Toolbox()
 
         # Initialization.
+        if self.symbol is None:
+            constraint = Choice(symbols)
+
+            def get_random_symbol() -> str:
+                return constraint.random(random)  # type: ignore
+
+            symbol_attr = get_random_symbol
+        else:
+            symbol = self.symbol
+
+            def get_symbol() -> str:
+                return symbol
+
+            symbol_attr = get_symbol
+
+        if self.interval is None:
+            constraint = Choice(intervals)
+
+            def get_random_interval() -> int:
+                return constraint.random(random)  # type: ignore
+
+            interval_attr = get_random_interval
+        else:
+            interval = self.interval
+
+            def get_interval() -> int:
+                return interval
+
+            interval_attr = get_interval
+
         if self.missed_candle_policy is None:
             def get_random_missed_candle_policy() -> int:
                 return _missed_candle_policy_constraint.random(random)  # type: ignore
@@ -144,6 +194,8 @@ class Optimizer:
             trailing_stop_attr = get_trailing_stop
 
         attrs = [
+            symbol_attr,
+            interval_attr,
             missed_candle_policy_attr,
             trailing_stop_attr,
         ] + [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
@@ -170,14 +222,11 @@ class Optimizer:
         toolbox.register('evaluate', lambda ind: self.solver.solve(
             strategy_type,
             self.exchange,
-            self.symbol,
-            self.interval,
             self.start,
             self.end,
             self.quote,
-            candles,
-            fees,
-            filters,
+            candles[(ind[0], ind[1])],
+            *fees_filters[ind[0]],
             *flatten(ind)
         ))
 
@@ -215,20 +264,19 @@ class Optimizer:
         best_result = self.solver.solve(
             strategy_type,
             self.exchange,
-            self.symbol,
-            self.interval,
             self.start,
             self.end,
             self.quote,
-            candles,
-            fees,
-            filters,
+            candles[(best_args[0], best_args[1])],
+            *fees_filters[best_args[0]],
             *best_args
         )
         self.result = OptimizationResult(
-            missed_candle_policy=_REVERSE_MISSED_CANDLE_POLICY_MAP[best_args[0]],
-            trailing_stop=best_args[1],
-            strategy_config=_output_as_strategy_config(strategy_type, best_args[2:]),
+            symbol=best_args[0],
+            interval=best_args[1],
+            missed_candle_policy=_REVERSE_MISSED_CANDLE_POLICY_MAP[best_args[2]],
+            trailing_stop=best_args[3],
+            strategy_config=_output_as_strategy_config(strategy_type, best_args[4:]),
             result=best_result,
         )
 
@@ -241,8 +289,8 @@ class Optimizer:
             chandler=self.chandler,
             informant=self.informant,
             exchange=self.exchange,
-            symbol=self.symbol,
-            interval=self.interval,
+            symbol=self.result.symbol,
+            interval=self.result.interval,
             start=self.start,
             end=self.end,
             quote=self.quote,
@@ -266,6 +314,8 @@ class Optimizer:
 
 
 class OptimizationResult(NamedTuple):
+    symbol: str = ''
+    interval: int = 0
     missed_candle_policy: str = 'ignore'
     trailing_stop: Decimal = Decimal('0.0')
     strategy_config: Dict[str, Any] = {}
