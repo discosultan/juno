@@ -37,8 +37,9 @@ class Paper(Agent):
         if not get_time:
             get_time = time_ms
 
-        now = floor_multiple(get_time(), interval)
-        assert end > now
+        current = floor_multiple(get_time(), interval)
+        end = floor_multiple(end, interval)
+        assert end > current
 
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
 
@@ -50,7 +51,7 @@ class Paper(Agent):
             exchange=exchange,
             symbol=symbol,
             interval=interval,
-            start=now,
+            start=current,
             end=end,
             quote=quote,
             new_strategy=lambda: new_strategy(strategy_config),

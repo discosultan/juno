@@ -57,8 +57,10 @@ class Optimizer:
     ) -> None:
         now = time_ms()
 
+        start = floor_multiple(start, interval)
         if end is None:
-            end = floor_multiple(now, interval)
+            end = now
+        end = floor_multiple(end, interval)
 
         assert end <= now
         assert end > start
@@ -95,7 +97,7 @@ class Optimizer:
         # algorithms for mutation, crossover, selection. These algos are using the random module
         # directly and we have not way to pass our randomizer in. Hence we send the random
         # module directly.
-        # random = Random(self.seed)  # <-- Don't do this!
+        # random = Random(self.seed)  # <-- Don't do this! Or do but use all custom operators.
         random.seed(self.seed)
 
         strategy_type = get_strategy_type(self.strategy)
