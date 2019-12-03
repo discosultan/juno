@@ -57,10 +57,12 @@ class Optimizer:
     ) -> None:
         now = time_ms()
 
-        start = floor_multiple(start, interval)
         if end is None:
             end = now
-        end = floor_multiple(end, interval)
+
+        if interval is not None:
+            start = floor_multiple(start, interval)
+            end = floor_multiple(end, interval)
 
         assert end <= now
         assert end > start
@@ -93,6 +95,8 @@ class Optimizer:
         self.result = OptimizationResult()
 
     async def run(self) -> None:
+        
+
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
         # directly and we have not way to pass our randomizer in. Hence we send the random

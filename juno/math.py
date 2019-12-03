@@ -19,6 +19,11 @@ def round_half_up(value: Decimal, precision: int) -> Decimal:
     return value.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_HALF_UP)
 
 
+# Ref: https://stackoverflow.com/a/51716959/1466456
+def lcm(a, b):
+    return abs(a*b) // math.gcd(a, b)
+
+
 class Constraint(ABC):
 
     validate: Callable[..., bool] = abstractmethod(lambda: True)
