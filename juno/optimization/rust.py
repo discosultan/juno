@@ -8,13 +8,13 @@ import platform
 import shutil
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable, Type
+from typing import Any, Dict, List, Tuple, Type
 
 import cffi
 
-from juno.asyncio import list_async
+from juno import Candle, Fees, Filters
 from juno.components import Chandler, Informant
-from juno.strategies import Meta, Strategy
+from juno.strategies import MAMACX, Meta, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path
 
@@ -27,6 +27,8 @@ class Rust(Solver):
     def __init__(self, chandler: Chandler, informant: Informant) -> None:
         self.chandler = chandler
         self.informant = informant
+        self.c_candles: Dict[Tuple[str, int], Any] = {}
+        self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
@@ -58,14 +60,18 @@ class Rust(Solver):
                 None, shutil.copy2, str(compiled_path), str(dst_path)
             )
 
-        self.lib_path = dst_path
+        self.ffi = cffi.FFI()
+        self.ffi.cdef(_build_cdef())
+        self.libjuno = await asyncio.get_running_loop().run_in_executor(
+            None, self.ffi.dlopen, str(dst_path)
+        )
 
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
-    async def get(
+    def solve(
         self,
         strategy_type: Type[Strategy],
         exchange: str,
@@ -74,19 +80,46 @@ class Rust(Solver):
         start: int,
         end: int,
         quote: Decimal,
-    ) -> Callable[..., Any]:
-        candles = await list_async(
-            self.chandler.stream_candles(exchange, symbol, interval, start, end)
+        candles: List[Candle],
+        fees: Fees,
+        filters: Filters,
+        missed_candle_policy: int,
+        trailing_stop: Decimal,
+        *args: Any,
+    ) -> SolverResult:
+        c_candles = self.c_candles.get((symbol, interval))
+        if not c_candles:
+            c_candles = self._build_c_candles(candles)
+            self.c_candles[(symbol, interval)] = c_candles
+
+        c_fees_filters = self.c_fees_filters.get(symbol)
+        if not c_fees_filters:
+            c_fees_filters = self._build_c_fees_filters(fees, filters)
+            self.c_fees_filters[symbol] = c_fees_filters
+
+        meta = strategy_type.meta
+        format_args = {
+            k: v
+            for k, v in zip(meta.identifier_params, meta.get_identifier_args(args))
+        }
+        fn_name = meta.identifier.format(**format_args)
+        fn = getattr(self.libjuno, fn_name)
+        result = fn(
+            c_candles,
+            len(c_candles),
+            *c_fees_filters,
+            interval,
+            start,
+            end,
+            float(quote),
+            missed_candle_policy,
+            trailing_stop,
+            *meta.get_non_identifier_args(args),
         )
-        fees, filters = self.informant.get_fees_filters(exchange, symbol)
+        return SolverResult.from_object(result)
 
-        # FFI.
-        ffi = cffi.FFI()
-        cdef = _build_cdef(strategy_type)
-        ffi.cdef(cdef)
-        libjuno = ffi.dlopen(str(self.lib_path))
-
-        c_candles = ffi.new(f'Candle[{len(candles)}]')
+    def _build_c_candles(self, candles: List[Candle]) -> Any:
+        c_candles = self.ffi.new(f'Candle[{len(candles)}]')
         for i, c in enumerate(candles):
             c_candles[i] = {
                 'time': c[0],
@@ -96,12 +129,14 @@ class Rust(Solver):
                 'close': float(c[4]),
                 'volume': float(c[5]),
             }
+        return c_candles
 
-        c_fees = ffi.new('Fees *')
+    def _build_c_fees_filters(self, fees: Fees, filters: Filters) -> Any:
+        c_fees = self.ffi.new('Fees *')
         c_fees.maker = float(fees.maker)
         c_fees.taker = float(fees.taker)
 
-        c_filters = ffi.new('Filters *')
+        c_filters = self.ffi.new('Filters *')
         c_filters.base_precision = filters.base_precision
         c_filters.quote_precision = filters.quote_precision
         c_filters.price = {
@@ -115,38 +150,12 @@ class Rust(Solver):
             'step': float(filters.size.step),
         }
 
-        meta = strategy_type.meta
-
-        def backtest(
-            missed_candle_policy: int,
-            trailing_stop: Decimal,
-            *args: Any,
-        ) -> SolverResult:
-            format_args = {
-                k: v
-                for k, v in zip(meta.identifier_params, meta.get_identifier_args(args))
-            }
-            fn_name = meta.identifier.format(**format_args)
-            fn = getattr(libjuno, fn_name)
-            result = fn(
-                c_candles,
-                len(candles),
-                c_fees,
-                c_filters,
-                interval,
-                start,
-                end,
-                float(quote),
-                missed_candle_policy,
-                trailing_stop,
-                *meta.get_non_identifier_args(args),
-            )
-            return SolverResult.from_object(result)
-
-        return backtest
+        return c_fees, c_filters
 
 
-def _build_cdef(strategy_type: Type[Strategy]) -> str:
+def _build_cdef() -> str:
+    # TODO: Do we want to parametrize this? Or lookup from module and construct for all.
+    strategy_type = MAMACX
     type_hints = get_input_type_hints(strategy_type.__init__)
     meta = strategy_type.meta
     custom_params = ',\n    '.join(

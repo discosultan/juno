@@ -10,6 +10,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 from deap import algorithms, base, creator, tools
 
 from juno import InsufficientBalance
+from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.logging import disabled_log
 from juno.math import Choice, Constant, Uniform, floor_multiple
@@ -95,7 +96,11 @@ class Optimizer:
         self.result = OptimizationResult()
 
     async def run(self) -> None:
-        
+        candles = await list_async(
+            self.chandler.stream_candles(self.exchange, self.symbol, self.interval, self.start,
+                                         self.end)
+        )
+        fees, filters = self.informant.get_fees_filters(self.exchange, self.symbol)
 
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
@@ -162,17 +167,19 @@ class Optimizer:
         #                  eta=20.0, indpb=1.0 / NDIM)
         toolbox.register('mutate', juno_tools.mut_individual, attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
-
-        solve = await self.solver.get(
-            strategy_type=strategy_type,
-            exchange=self.exchange,
-            symbol=self.symbol,
-            interval=self.interval,
-            start=self.start,
-            end=self.end,
-            quote=self.quote,
-        )
-        toolbox.register('evaluate', lambda ind: solve(*flatten(ind)))
+        toolbox.register('evaluate', lambda ind: self.solver.solve(
+            strategy_type,
+            self.exchange,
+            self.symbol,
+            self.interval,
+            self.start,
+            self.end,
+            self.quote,
+            candles,
+            fees,
+            filters,
+            *flatten(ind)
+        ))
 
         toolbox.population_size = self.population_size
         toolbox.max_generations = self.max_generations
@@ -205,7 +212,19 @@ class Optimizer:
         self.log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
 
         best_args = list(flatten(hall[0]))
-        best_result = solve(*best_args)
+        best_result = self.solver.solve(
+            strategy_type,
+            self.exchange,
+            self.symbol,
+            self.interval,
+            self.start,
+            self.end,
+            self.quote,
+            candles,
+            fees,
+            filters,
+            *best_args
+        )
         self.result = OptimizationResult(
             missed_candle_policy=_REVERSE_MISSED_CANDLE_POLICY_MAP[best_args[0]],
             trailing_stop=best_args[1],
