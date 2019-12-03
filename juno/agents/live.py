@@ -40,8 +40,9 @@ class Live(Agent):
         if not get_time:
             get_time = time_ms
 
-        now = floor_multiple(get_time(), interval)
-        assert end > now
+        current = floor_multiple(get_time(), interval)
+        end = floor_multiple(end, interval)
+        assert end > current
 
         _, quote_asset = unpack_symbol(symbol)
         quote = self.wallet.get_balance(exchange, quote_asset).available
@@ -55,7 +56,7 @@ class Live(Agent):
             exchange=exchange,
             symbol=symbol,
             interval=interval,
-            start=now,
+            start=current,
             end=end,
             quote=quote,
             new_strategy=lambda: new_strategy(strategy_config),

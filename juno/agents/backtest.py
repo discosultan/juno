@@ -34,8 +34,10 @@ class Backtest(Agent):
     ) -> None:
         now = time_ms()
 
+        start = floor_multiple(start, interval)
         if end is None:
-            end = floor_multiple(now, interval)
+            end = now
+        end = floor_multiple(end, interval)
 
         assert end <= now
         assert end > start
