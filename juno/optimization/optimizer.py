@@ -116,11 +116,7 @@ class Optimizer:
             candle_tasks.append(fetch_candles(symbol, interval))
         await asyncio.gather(*candle_tasks)
 
-        fees_filters = {}
-        for symbol in symbols:
-            fees_filters[symbol] = self.informant.get_fees_filters(self.exchange, symbol)
-
-        self.log.info(candles.keys(), fees_filters.keys())
+        fees_filters = {s: self.informant.get_fees_filters(self.exchange, symbol) for s in symbols}
 
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
