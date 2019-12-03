@@ -1,9 +1,7 @@
 from decimal import Decimal
-from typing import Any, Callable, Type
+from typing import Any, List, Type
 
 from juno import Advice, Candle, Fees, Fill, Fills, Filters, InsufficientBalance
-from juno.asyncio import list_async
-from juno.components import Chandler, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.trading import Position, TradingContext, TradingSummary
@@ -13,11 +11,7 @@ from .solver import Solver, SolverResult
 
 
 class Python(Solver):
-    def __init__(self, chandler: Chandler, informant: Informant) -> None:
-        self.chandler = chandler
-        self.informant = informant
-
-    async def get(
+    def solve(
         self,
         strategy_type: Type[Strategy],
         exchange: str,
@@ -26,95 +20,87 @@ class Python(Solver):
         start: int,
         end: int,
         quote: Decimal,
-    ) -> Callable[..., Any]:
-        candles = await list_async(
-            self.chandler.stream_candles(exchange, symbol, interval, start, end)
+        candles: List[Candle],
+        fees: Fees,
+        filters: Filters,
+        missed_candle_policy: int,
+        trailing_stop: Decimal,
+        *args: Any,
+    ) -> SolverResult:
+        summary = TradingSummary(
+            interval=interval, start=start, quote=quote, fees=fees, filters=filters
         )
-        fees, filters = self.informant.get_fees_filters(exchange, symbol)
-        base_asset, quote_asset = unpack_symbol(symbol)
+        ctx = TradingContext(strategy_type(*args), quote)
+        try:
+            i = 0
+            while True:
+                restart = False
 
-        def backtest(
-            missed_candle_policy: int,
-            trailing_stop: Decimal,
-            *args: Any,
-        ) -> SolverResult:
-            summary = TradingSummary(
-                interval=interval, start=start, quote=quote, fees=fees, filters=filters
-            )
-            ctx = TradingContext(strategy_type(*args), quote)
-            try:
-                i = 0
-                while True:
-                    restart = False
+                for candle in candles[i:]:
+                    i += 1
+                    if not candle.closed:
+                        continue
 
-                    for candle in candles[i:]:
-                        i += 1
-                        if not candle.closed:
-                            continue
+                    summary.append_candle(candle)
 
-                        summary.append_candle(candle)
+                    # TODO: python 3.8 assignment expression
+                    if ctx.last_candle and candle.time - ctx.last_candle.time >= interval * 2:
+                        if missed_candle_policy == 1:  # 'restart'
+                            restart = True
+                            ctx.strategy = strategy_type(*args)
+                        elif missed_candle_policy == 2:  # 'last'
+                            num_missed = (candle.time - ctx.last_candle.time) // interval - 1
+                            for i in range(1, num_missed + 1):
+                                missed_candle = Candle(
+                                    time=ctx.last_candle.time + i * interval,
+                                    open=ctx.last_candle.open,
+                                    high=ctx.last_candle.high,
+                                    low=ctx.last_candle.low,
+                                    close=ctx.last_candle.close,
+                                    volume=ctx.last_candle.volume,
+                                    closed=ctx.last_candle.closed
+                                )
+                                _tick(ctx, summary, symbol, fees, filters, trailing_stop,
+                                      missed_candle)
 
-                        # TODO: python 3.8 assignment expression
-                        if ctx.last_candle and candle.time - ctx.last_candle.time >= interval * 2:
-                            if missed_candle_policy == 1:  # 'restart'
-                                restart = True
-                                ctx.strategy = strategy_type(*args)
-                            elif missed_candle_policy == 2:  # 'last'
-                                num_missed = (candle.time - ctx.last_candle.time) // interval - 1
-                                for i in range(1, num_missed + 1):
-                                    missed_candle = Candle(
-                                        time=ctx.last_candle.time + i * interval,
-                                        open=ctx.last_candle.open,
-                                        high=ctx.last_candle.high,
-                                        low=ctx.last_candle.low,
-                                        close=ctx.last_candle.close,
-                                        volume=ctx.last_candle.volume,
-                                        closed=ctx.last_candle.closed
-                                    )
-                                    _tick(ctx, summary, base_asset, quote_asset, fees, filters,
-                                          trailing_stop, missed_candle)
+                    _tick(ctx, summary, symbol, fees, filters, trailing_stop, candle)
 
-                        _tick(ctx, summary, base_asset, quote_asset, fees, filters, trailing_stop,
-                              candle)
-
-                        if restart:
-                            break
-
-                    if not restart:
+                    if restart:
                         break
 
-                if ctx.last_candle and ctx.open_position:
-                    _close_position(ctx, summary, quote_asset, fees, filters, ctx.last_candle)
-            except InsufficientBalance:
-                pass
+                if not restart:
+                    break
 
-            return SolverResult.from_trading_summary(summary)
+            if ctx.last_candle and ctx.open_position:
+                _close_position(ctx, summary, symbol, fees, filters, ctx.last_candle)
+        except InsufficientBalance:
+            pass
 
-        return backtest
+        return SolverResult.from_trading_summary(summary)
 
 
 def _tick(
-    ctx: TradingContext, summary: TradingSummary, base_asset: str, quote_asset: str, fees: Fees,
+    ctx: TradingContext, summary: TradingSummary, symbol: str, fees: Fees,
     filters: Filters, trailing_stop: Decimal, candle: Candle
 ) -> None:
     advice = ctx.strategy.update(candle)
 
     if not ctx.open_position and advice is Advice.BUY:
-        _try_open_position(ctx, base_asset, fees, filters, candle)
+        _try_open_position(ctx, symbol, fees, filters, candle)
         ctx.highest_close_since_position = candle.close
     elif ctx.open_position and advice is Advice.SELL:
-        _close_position(ctx, summary, quote_asset, fees, filters, candle)
+        _close_position(ctx, summary, symbol, fees, filters, candle)
     elif trailing_stop != 0 and ctx.open_position:
         ctx.highest_close_since_position = max(ctx.highest_close_since_position, candle.close)
         trailing_factor = 1 - trailing_stop
         if candle.close <= ctx.highest_close_since_position * trailing_factor:
-            _close_position(ctx, summary, quote_asset, fees, filters, candle)
+            _close_position(ctx, summary, symbol, fees, filters, candle)
 
     ctx.last_candle = candle
 
 
 def _try_open_position(
-    ctx: TradingContext, base_asset: str, fees: Fees, filters: Filters, candle: Candle
+    ctx: TradingContext, symbol: str, fees: Fees, filters: Filters, candle: Candle
 ) -> None:
     price = candle.close
 
@@ -124,6 +110,7 @@ def _try_open_position(
 
     fee = round_half_up(size * fees.taker, filters.base_precision)
 
+    base_asset, _ = unpack_symbol(symbol)
     ctx.open_position = Position(
         time=candle.time,
         fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=base_asset)])
@@ -133,7 +120,7 @@ def _try_open_position(
 
 
 def _close_position(
-    ctx: TradingContext, summary: TradingSummary, quote_asset: str, fees: Fees, filters: Filters,
+    ctx: TradingContext, summary: TradingSummary, symbol: str, fees: Fees, filters: Filters,
     candle: Candle
 ) -> None:
     pos = ctx.open_position
@@ -146,6 +133,7 @@ def _close_position(
     quote = size * price
     fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
+    _, quote_asset = unpack_symbol(symbol)
     pos.close(
         time=candle.time,
         fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=quote_asset)])

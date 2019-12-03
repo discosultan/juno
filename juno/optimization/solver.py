@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Callable, Dict, NamedTuple, Tuple, Type, get_type_hints
+from typing import Any, Dict, List, NamedTuple, Tuple, Type, get_type_hints
 
+from juno import Candle, Fees, Filters
 from juno.strategies import Strategy
 from juno.trading import TradingSummary
 
 
 class Solver(ABC):
     @abstractmethod
-    async def get(
+    def solve(
         self,
         strategy_type: Type[Strategy],
         exchange: str,
@@ -19,7 +20,13 @@ class Solver(ABC):
         start: int,
         end: int,
         quote: Decimal,
-    ) -> Callable[..., Any]:
+        candles: List[Candle],
+        fees: Fees,
+        filters: Filters,
+        missed_candle_policy: int,
+        trailing_stop: Decimal,
+        *args: Any,
+    ) -> SolverResult:
         pass
 
 
