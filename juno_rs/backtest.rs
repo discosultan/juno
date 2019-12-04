@@ -16,7 +16,7 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
 ) -> BacktestResult {
     let two_interval = interval * 2;
     let mut summary = TradingSummary::new(
-        candles[0].time, candles[candles.len() - 1].time, quote, fees, filters
+        candles[0].time, candles[candles.len() - 1].time + interval, quote, fees, filters
     );
     let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
