@@ -10,14 +10,14 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     fees: &Fees,
     filters: &Filters,
     interval: u64,
-    start: u64,
-    end: u64,
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
 ) -> BacktestResult {
     let two_interval = interval * 2;
-    let mut summary = TradingSummary::new(start, end, quote, fees, filters);
+    let mut summary = TradingSummary::new(
+        candles[0].time, candles[candles.len() - 1].time, quote, fees, filters
+    );
     let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
     loop {

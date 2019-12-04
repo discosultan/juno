@@ -15,8 +15,6 @@ class Python(Solver):
         self,
         strategy_type: Type[Strategy],
         exchange: str,
-        start: int,
-        end: int,
         quote: Decimal,
         candles: List[Candle],
         fees: Fees,
@@ -28,7 +26,7 @@ class Python(Solver):
         *args: Any,
     ) -> SolverResult:
         summary = TradingSummary(
-            interval=interval, start=start, quote=quote, fees=fees, filters=filters
+            interval=interval, start=candles[0].time, quote=quote, fees=fees, filters=filters
         )
         ctx = TradingContext(strategy_type(*args), quote)
         try:

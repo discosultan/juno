@@ -62,9 +62,7 @@ class Optimizer:
         if end is None:
             end = now
 
-        if interval is not None:
-            start = floor_multiple(start, interval)
-            end = floor_multiple(end, interval)
+        # We normalize `start` and `end` later to take all potential intervals into account.
 
         assert end <= now
         assert end > start
@@ -105,13 +103,16 @@ class Optimizer:
             [self.interval] if self.interval is not None
             else self.informant.list_candle_intervals(self.exchange)
         )
+
         candles = {}
         candle_tasks = []
         for symbol, interval in product(symbols, intervals):
             async def fetch_candles(symbol, interval):
                 candles[(symbol, interval)] = await list_async(
-                    self.chandler.stream_candles(self.exchange, symbol, interval, self.start,
-                                                 self.end)
+                    self.chandler.stream_candles(
+                        self.exchange, symbol, interval, floor_multiple(self.start, interval),
+                        floor_multiple(self.end, interval)
+                    )
                 )
             candle_tasks.append(fetch_candles(symbol, interval))
         await asyncio.gather(*candle_tasks)
@@ -218,8 +219,6 @@ class Optimizer:
         toolbox.register('evaluate', lambda ind: self.solver.solve(
             strategy_type,
             self.exchange,
-            self.start,
-            self.end,
             self.quote,
             candles[(ind[0], ind[1])],
             *fees_filters[ind[0]],
@@ -260,8 +259,6 @@ class Optimizer:
         best_result = self.solver.solve(
             strategy_type,
             self.exchange,
-            self.start,
-            self.end,
             self.quote,
             candles[(best_args[0], best_args[1])],
             *fees_filters[best_args[0]],
@@ -287,8 +284,8 @@ class Optimizer:
             exchange=self.exchange,
             symbol=self.result.symbol,
             interval=self.result.interval,
-            start=self.start,
-            end=self.end,
+            start=floor_multiple(self.start, self.result.interval),
+            end=floor_multiple(self.end, self.result.interval),
             quote=self.quote,
             new_strategy=lambda: new_strategy(self.result.strategy_config),
             log=disabled_log,

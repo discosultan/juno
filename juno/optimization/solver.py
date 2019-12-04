@@ -15,8 +15,6 @@ class Solver(ABC):
         self,
         strategy_type: Type[Strategy],
         exchange: str,
-        start: int,
-        end: int,
         quote: Decimal,
         candles: List[Candle],
         fees: Fees,
