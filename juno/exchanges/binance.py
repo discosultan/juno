@@ -13,6 +13,7 @@ from typing import (
     Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 )
 
+import aiohttp
 import backoff
 
 import juno.json as json
@@ -40,6 +41,7 @@ _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
 _ERR_CANCEL_REJECTED = -2011
 _ERR_INVALID_TIMESTAMP = -1021
+_ERR_LISTEN_KEY_DOES_NOT_EXIST = -1125
 
 _log = logging.getLogger(__name__)
 
@@ -486,8 +488,9 @@ class Clock:
         self.time_diff = 0
         self._binance = binance
         self._synced = asyncio.Event()
+
         self._sync_clock_task: Optional[asyncio.Task[None]] = None
-        self._old_sync_tasks: List[asyncio.Task[None]] = []
+        self._old_tasks: List[asyncio.Task[None]] = []
 
     async def __aenter__(self) -> Clock:
         return self
@@ -496,18 +499,20 @@ class Clock:
         await cancel(self._sync_clock_task)
 
     async def wait(self) -> None:
-        if len(self._old_sync_tasks) > 0:
-            to_wait = self._old_sync_tasks[:]
-            self._old_sync_tasks.clear()
+        if len(self._old_tasks) > 0:
+            to_wait = self._old_tasks[:]
+            self._old_tasks.clear()
             await asyncio.gather(*to_wait)
+
         if not self._sync_clock_task:
             self._synced.clear()
             self._sync_clock_task = asyncio.create_task(cancelable(self._periodic_sync()))
+
         await self._synced.wait()
 
     def clear(self) -> None:
         if self._sync_clock_task:
-            self._old_sync_tasks.append(self._sync_clock_task)
+            self._old_tasks.append(self._sync_clock_task)
             self._sync_clock_task = None
 
     async def _periodic_sync(self) -> None:
@@ -533,9 +538,13 @@ class Clock:
 class UserDataStream:
     def __init__(self, binance: Binance) -> None:
         self._binance = binance
-        self._listen_key_lock = asyncio.Lock()
+        # self._listen_key_lock = asyncio.Lock()
+        self._active = asyncio.Event()
+
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
+        self._old_tasks: List[asyncio.Task[None]] = []
+
         self._events: Dict[str, Event[Any]] = defaultdict(lambda: Event(autoclear=True))
 
     async def __aenter__(self) -> UserDataStream:
@@ -546,6 +555,11 @@ class UserDataStream:
 
     @asynccontextmanager
     async def subscribe(self, event_type: str) -> AsyncIterator[AsyncIterable[Any]]:
+        if len(self._old_tasks) > 0:
+            to_wait = self._old_tasks[:]
+            self._old_tasks.clear()
+            await asyncio.gather(*to_wait)
+
         # TODO: Note that someone else might consume the event data while we do the initial
         # fetch request. This might require a more sophisticated tracking impl.
         # For example, instead of pub/sub events, keep a queue of messages and deliver them
@@ -556,7 +570,10 @@ class UserDataStream:
 
         async def inner(event: Event[Any]) -> AsyncIterable[Any]:
             while True:
-                yield await event.wait()
+                data = await event.wait()
+                if isinstance(data, Exception):
+                    raise data
+                yield data
 
         try:
             yield inner(event)
@@ -564,43 +581,55 @@ class UserDataStream:
             # TODO: unsubscribe if no other consumers?
             pass
 
+    def clear(self) -> None:
+        if self._listen_key_refresh_task and self._stream_user_data_task:
+            self._old_tasks.append(self._listen_key_refresh_task)
+            self._old_tasks.append(self._stream_user_data_task)
+            self._listen_key_refresh_task = None
+            self._stream_user_data_task = None
+
     async def _ensure_connection(self) -> None:
-        async with self._listen_key_lock:
-            if self._listen_key_refresh_task:
-                return
+        # async with self._listen_key_lock:
+        if not self._listen_key_refresh_task:
+            self._active.clear()
+            return
 
-            user_stream_connected = asyncio.Event()
+        listen_key = await self._create_listen_key()
+        self._listen_key_refresh_task = asyncio.create_task(
+            cancelable(self._periodic_listen_key_refresh(listen_key))
+        )
 
-            listen_key = await self._create_listen_key()
-            self._listen_key_refresh_task = asyncio.create_task(
-                cancelable(self._periodic_listen_key_refresh(listen_key))
-            )
-            self._stream_user_data_task = asyncio.create_task(
-                cancelable(self._stream_user_data(listen_key, user_stream_connected))
-            )
-
-            await user_stream_connected.wait()
-
-    async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
-        # TODO: We don't raise an exception on ws disconnect here, but instead try to reconnect.
-        # This may be problematic, because we can skip a message. Figure out a solution to
-        # propagate disconnect exception to consumers.
         async with self._binance._connect_refreshing_stream(
-            url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user'
-        ) as ws:
-            connected.set()
-            async for data in ws:
+            url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user', raise_on_disconnect=True
+        ) as stream:
+            self._stream_user_data_task = asyncio.create_task(
+                cancelable(self._stream_user_data(stream))
+            )
+
+    async def _stream_user_data(self, stream: AsyncIterable[Any]) -> None:
+        try:
+            async for data in stream:
                 self._events[data['e']].set(data)
+        except Exception as e:
+            for event in self._events.values():
+                event.set(e)
 
     async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
         try:
             while True:
                 await asyncio.sleep(30 * MIN_SEC)
-                await self._update_listen_key(listen_key)
+                res = await self._update_listen_key(listen_key)
+                if res.get('code') == _ERR_LISTEN_KEY_DOES_NOT_EXIST:
+                    self.clear()
+                    break
         finally:
             await self._delete_listen_key(listen_key)
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
+        max_tries=3
+    )
     async def _create_listen_key(self) -> str:
         return (await self._binance._api_request(
             'POST',
@@ -608,18 +637,26 @@ class UserDataStream:
             security=_SEC_USER_STREAM
         ))['listenKey']
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    async def _update_listen_key(self, listen_key: str) -> None:
-        await self._binance._api_request(
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
+        max_tries=3
+    )
+    async def _update_listen_key(self, listen_key: str) -> Any:
+        res = await self._binance._api_request(
             'PUT',
             '/api/v3/userDataStream',
             data={'listenKey': listen_key},
-            security=_SEC_USER_STREAM
+            security=_SEC_USER_STREAM,
+            raise_for_status=False
         )
+        if res.status == 500:
+            res.raise_for_status()
+        return res
 
     @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    async def _delete_listen_key(self, listen_key: str) -> None:
-        await self._binance._api_request(
+    async def _delete_listen_key(self, listen_key: str) -> Any:
+        return await self._binance._api_request(
             'DELETE',
             '/api/v3/userDataStream',
             data={'listenKey': listen_key},
