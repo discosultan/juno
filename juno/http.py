@@ -151,7 +151,10 @@ async def connect_refreshing_stream(
                             f'server closed ws {ctx.name} connection; data: {msg.data}; raising '
                             'exception'
                         )
-                        raise Exception('Server unexpectedly closed WS connection')
+                        raise aiohttp.WebSocketError(
+                            aiohttp.WSCloseCode.GOING_AWAY,
+                            'Server unexpectedly closed WS connection'
+                        )
                     else:
                         _aiohttp_log.warning(
                             f'server closed ws {ctx.name} connection; data: {msg.data}; '

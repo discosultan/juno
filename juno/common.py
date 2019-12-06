@@ -102,10 +102,6 @@ class Fills(List[Fill]):
         return sum((f.fee for f in self), Decimal('0.0'))
 
 
-class InsufficientBalance(Exception):
-    pass
-
-
 class OrderResult(NamedTuple):
     status: OrderStatus
     fills: Fills = Fills()
@@ -185,3 +181,11 @@ class ExchangeInfo(NamedTuple):
     fees: Dict[str, Fees] = {'__all__': Fees()}
     filters: Dict[str, Filters] = {'__all__': Filters()}
     candle_intervals: List[int] = []
+
+
+class JunoException(Exception):
+    pass
+
+
+class InsufficientBalance(JunoException):
+    pass

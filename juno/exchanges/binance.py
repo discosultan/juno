@@ -520,7 +520,11 @@ class Clock:
             await self._sync_clock()
             await asyncio.sleep(HOUR_SEC * 12)
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
+        max_tries=3
+    )
     async def _sync_clock(self) -> None:
         _log.info('syncing clock with Binance')
         before = time_ms()
@@ -654,7 +658,11 @@ class UserDataStream:
             res.raise_for_status()
         return res
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
+        max_tries=3
+    )
     async def _delete_listen_key(self, listen_key: str) -> Any:
         return await self._binance._api_request(
             'DELETE',

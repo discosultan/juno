@@ -188,6 +188,15 @@ async def test_connect_stream_trades(loop, request, exchange):
     assert types_match(trade)
 
 
+@pytest.mark.exchange
+@pytest.mark.manual
+async def test_binance_user_data_stream_listen_key(loop, request, binance):
+    skip_non_configured(request, binance)
+    listen_key = await binance._user_data_stream._create_listen_key()
+    await binance._user_data_stream._update_listen_key(listen_key)
+    await binance._user_data_stream._delete_listen_key(listen_key)
+
+
 def skip_non_configured(request, exchange):
     markers = ['exchange', 'manual']
     if request.config.option.markexpr not in markers:
