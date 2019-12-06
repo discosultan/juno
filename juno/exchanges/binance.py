@@ -396,7 +396,7 @@ class Binance(Exchange):
             # always.
             _log.warning(f'received error: {result["msg"]}; syncing clock before exc')
             self._clock.clear()
-            raise Exception(result['msg'])
+            raise JunoException(result['msg'])
         return result
 
     async def _api_request(
@@ -419,7 +419,7 @@ class Binance(Exchange):
         if isinstance(result, dict) and result.get('code') == _ERR_INVALID_TIMESTAMP:
             _log.warning(f'received invalid timestamp; syncing clock before exc')
             self._clock.clear()
-            raise Exception('Incorrect timestamp')
+            raise JunoException('Incorrect timestamp')
         return result
 
     async def _request(
@@ -464,7 +464,7 @@ class Binance(Exchange):
                 retry_after = res.headers['Retry-After']
                 _log.warning(f'received status {res.status}; sleeping {retry_after}s before exc')
                 await asyncio.sleep(float(retry_after))
-                raise Exception('Retry after')
+                raise JunoException('Retry after')
             else:
                 if raise_for_status:
                     res.raise_for_status()
@@ -615,7 +615,7 @@ class UserDataStream:
                     self._listen_key = None
                     await self._ensure_listen_key()
             else:
-                _log.warning('listen key missing locally')
+                _log.warning('want to refresh listen key but missing locally')
 
     async def _stream_user_data(self) -> None:
         while True:
