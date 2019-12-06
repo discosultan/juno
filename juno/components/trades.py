@@ -6,7 +6,7 @@ from typing import AsyncIterable, Callable, List, Optional
 
 import backoff
 
-from juno import Trade
+from juno import JunoException, Trade
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.storages import Storage
@@ -62,7 +62,7 @@ class Trades:
                 ):
                     yield trade
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    @backoff.on_exception(backoff.expo, JunoException, max_tries=3)
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
