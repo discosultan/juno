@@ -510,11 +510,16 @@ class Clock:
 
     def clear(self) -> None:
         self._synced.clear()
+        if self._periodic_sync_task:
+            self._periodic_sync_task.get_coro().throw(Reset())
 
     async def _periodic_sync(self) -> None:
         while True:
-            await self._sync_clock()
-            await asyncio.sleep(HOUR_SEC * 12)
+            try:
+                await self._sync_clock()
+                await asyncio.sleep(HOUR_SEC * 12)
+            except Reset:
+                pass
 
     @backoff.on_exception(
         backoff.expo,
@@ -726,3 +731,7 @@ def _from_order_status(status: str) -> OrderStatus:
     if not mapped_status:
         raise NotImplementedError(f'Handling of status {status} not implemented')
     return mapped_status
+
+
+class Reset(JunoException):
+    pass
