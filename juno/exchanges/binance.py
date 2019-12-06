@@ -563,11 +563,6 @@ class UserDataStream:
 
     @asynccontextmanager
     async def subscribe(self, event_type: str) -> AsyncIterator[AsyncIterable[Any]]:
-        if len(self._old_tasks) > 0:
-            to_wait = self._old_tasks[:]
-            self._old_tasks.clear()
-            await asyncio.gather(*to_wait)
-
         # TODO: Note that someone else might consume the event data while we do the initial
         # fetch request. This might require a more sophisticated tracking impl.
         # For example, instead of pub/sub events, keep a queue of messages and deliver them
@@ -589,28 +584,24 @@ class UserDataStream:
             # TODO: unsubscribe if no other consumers?
             pass
 
-    # def clear(self) -> None:
-    #     self._listen_key = None
-    #     if self._listen_key_refresh_task and self._stream_user_data_task:
-    #         self._old_tasks.append(self._listen_key_refresh_task)
-    #         self._old_tasks.append(self._stream_user_data_task)
-    #         self._listen_key_refresh_task = None
-    #         self._stream_user_data_task = None
-
-    async def _ensure_connection(self) -> None:
+    async def _ensure_listen_key(self) -> None:
         async with self._listen_key_lock:
             if not self._listen_key:
                 self._listen_key = await self._create_listen_key()
 
-            if not self._listen_key_refresh_task:
-                self._listen_key_refresh_task = asyncio.create_task(
-                    cancelable(self._periodic_listen_key_refresh())
-                )
+    async def _ensure_connection(self) -> None:
+        await self._ensure_listen_key()
 
-            if not self._stream_user_data_task:
-                self._stream_user_data_task = asyncio.create_task(
-                    cancelable(self._stream_user_data())
-                )
+        if not self._listen_key_refresh_task:
+            self._listen_key_refresh_task = asyncio.create_task(
+                cancelable(self._periodic_listen_key_refresh())
+            )
+
+        if not self._stream_user_data_task:
+            self._stream_user_data_task = asyncio.create_task(
+                cancelable(self._stream_user_data())
+            )
+
         await self._stream_connected.wait()
 
     async def _periodic_listen_key_refresh(self) -> None:
@@ -621,8 +612,8 @@ class UserDataStream:
                 if res.get('code') == _ERR_LISTEN_KEY_DOES_NOT_EXIST:
                     _log.warning(f'tried to update a listen key {self._listen_key} which did not '
                                  'exist; resetting')
-                    self._listen_key = await self._create_listen_key()
-                    break
+                    self._listen_key = None
+                    await self._ensure_listen_key()
             else:
                 _log.warning('listen key missing locally')
 
@@ -639,7 +630,7 @@ class UserDataStream:
             except JunoException as e:
                 for event in self._events.values():
                     event.set(e)
-            self._listen_key = await self._create_listen_key()
+            await self._ensure_listen_key()
 
     @backoff.on_exception(
         backoff.expo,
