@@ -7,10 +7,10 @@
         {
             "type": "optimize",
             "exchange": "binance",
-            "symbol": "eth-btc",
+            "symbols": ["eth-btc"],
             "start": "2017-07-01",
             "end": "2019-12-07",
-            "interval": "1h",
+            "intervals": ["1h"],
             "quote": 1.0,
             "missed_candle_policy": null,
             "trailing_stop": null,
