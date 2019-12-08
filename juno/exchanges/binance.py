@@ -24,7 +24,7 @@ from juno import (
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
-from juno.http import ClientSession, connect_refreshing_stream
+from juno.http import ClientSession, ClientJsonResponse, connect_refreshing_stream
 from juno.time import HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, page
@@ -86,10 +86,10 @@ class Binance(Exchange):
         fees = {
             _from_symbol(fee['symbol']):
             Fees(maker=Decimal(fee['maker']), taker=Decimal(fee['taker']))
-            for fee in fees_res['tradeFee']
+            for fee in fees_res.data['tradeFee']
         }
         filters = {}
-        for symbol in filters_res['symbols']:
+        for symbol in filters_res.data['symbols']:
             for f in symbol['filters']:
                 t = f['filterType']
                 if t == 'PRICE_FILTER':
@@ -138,7 +138,7 @@ class Binance(Exchange):
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._api_request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
         result = {}
-        for balance in res['balances']:
+        for balance in res.data['balances']:
             result[
                 balance['asset'].lower()
             ] = Balance(available=Decimal(balance['free']), hold=Decimal(balance['locked']))
@@ -174,7 +174,7 @@ class Binance(Exchange):
             5000: 50,
         }
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-        result = await self._api_request(
+        res = await self._api_request(
             'GET',
             '/api/v3/depth',
             weight=LIMIT_TO_WEIGHT[LIMIT],
@@ -184,9 +184,9 @@ class Binance(Exchange):
             }
         )
         return DepthSnapshot(
-            bids=[(Decimal(x[0]), Decimal(x[1])) for x in result['bids']],
-            asks=[(Decimal(x[0]), Decimal(x[1])) for x in result['asks']],
-            last_id=result['lastUpdateId'],
+            bids=[(Decimal(x[0]), Decimal(x[1])) for x in res.data['bids']],
+            asks=[(Decimal(x[0]), Decimal(x[1])) for x in res.data['asks']],
+            last_id=res.data['lastUpdateId'],
         )
 
     @asynccontextmanager
@@ -258,14 +258,14 @@ class Binance(Exchange):
         if test:
             return OrderResult.not_placed()
         return OrderResult(
-            status=_from_order_status(res['status']),
+            status=_from_order_status(res.data['status']),
             fills=Fills([
                 Fill(
                     price=Decimal(f['price']),
                     size=Decimal(f['qty']),
                     fee=Decimal(f['commission']),
                     fee_asset=f['commissionAsset'].lower()
-                ) for f in res['fills']
+                ) for f in res.data['fills']
             ])
         )
 
@@ -274,7 +274,7 @@ class Binance(Exchange):
         res = await self._api_request(
             'DELETE', '/api/v3/order', data=data, security=_SEC_TRADE, raise_for_status=False
         )
-        binance_error = res.get('code')
+        binance_error = res.data.get('code')
         if binance_error == _ERR_CANCEL_REJECTED:
             return CancelOrderResult(status=CancelOrderStatus.REJECTED)
         if binance_error:
@@ -296,7 +296,7 @@ class Binance(Exchange):
                     'limit': MAX_CANDLES_PER_REQUEST
                 }
             )
-            for c in res:
+            for c in res.data:
                 yield Candle(
                     c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
                     Decimal(c[5]), True
@@ -341,8 +341,8 @@ class Binance(Exchange):
 
             time = None
 
-            trades = await self._api_request('GET', '/api/v3/aggTrades', data=payload)
-            for t in trades:
+            res = await self._api_request('GET', '/api/v3/aggTrades', data=payload)
+            for t in res.data:
                 time = t['T']
                 assert time < end
                 yield Trade(
@@ -382,7 +382,7 @@ class Binance(Exchange):
         security: int = _SEC_NONE,
         raise_for_status=True
     ) -> Any:
-        result = await self._request(
+        res = await self._request(
             method=method,
             url=url,
             weight=weight,
@@ -390,14 +390,14 @@ class Binance(Exchange):
             security=security,
             raise_for_status=raise_for_status,
         )
-        if not result['success']:
+        if not res.data['success']:
             # There's no error code in this response to figure out whether it's a timestamp issue.
             # We could look it up from the message, but currently just assume that is the case
             # always.
-            _log.warning(f'received error: {result["msg"]}; syncing clock before exc')
+            _log.warning(f'received error: {res.data["msg"]}; syncing clock before exc')
             self._clock.clear()
-            raise JunoException(result['msg'])
-        return result
+            raise JunoException(res.data['msg'])
+        return res
 
     async def _api_request(
         self,
@@ -408,7 +408,7 @@ class Binance(Exchange):
         security: int = _SEC_NONE,
         raise_for_status=True,
     ) -> Any:
-        result = await self._request(
+        res = await self._request(
             method=method,
             url=url,
             weight=weight,
@@ -416,11 +416,11 @@ class Binance(Exchange):
             security=security,
             raise_for_status=raise_for_status,
         )
-        if isinstance(result, dict) and result.get('code') == _ERR_INVALID_TIMESTAMP:
+        if isinstance(res.data, dict) and res.data.get('code') == _ERR_INVALID_TIMESTAMP:
             _log.warning(f'received invalid timestamp; syncing clock before exc')
             self._clock.clear()
             raise JunoException('Incorrect timestamp')
-        return result
+        return res
 
     async def _request(
         self,
@@ -430,7 +430,7 @@ class Binance(Exchange):
         data: Optional[Any] = None,
         security: int = _SEC_NONE,
         raise_for_status: bool = True
-    ) -> Any:
+    ) -> ClientJsonResponse:
         limiters = [
             self._raw_reqs_limiter.acquire(),
             self._reqs_per_min_limiter.acquire(weight),
@@ -459,7 +459,9 @@ class Binance(Exchange):
         if data:
             kwargs['params' if method == 'GET' else 'data'] = data
 
-        async with self._session.request(method=method, url=_BASE_REST_URL + url, **kwargs) as res:
+        async with self._session.request_json(
+            method=method, url=_BASE_REST_URL + url, **kwargs
+        ) as res:
             if res.status in [418, 429]:
                 retry_after = res.headers['Retry-After']
                 _log.warning(f'received status {res.status}; sleeping {retry_after}s before exc')
@@ -468,7 +470,7 @@ class Binance(Exchange):
             else:
                 if raise_for_status:
                     res.raise_for_status()
-                return await res.json(loads=json.loads)
+                return res
 
     @asynccontextmanager
     async def _connect_refreshing_stream(
@@ -529,7 +531,7 @@ class Clock:
     async def _sync_clock(self) -> None:
         _log.info('syncing clock with Binance')
         before = time_ms()
-        server_time = (await self._binance._api_request('GET', '/api/v3/time'))['serverTime']
+        server_time = (await self._binance._api_request('GET', '/api/v3/time')).data['serverTime']
         after = time_ms()
         # Assume response time is same as request time.
         delay = (after - before) // 2
@@ -557,8 +559,11 @@ class UserDataStream:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        if self._listen_key:
-            await self._delete_listen_key(self._listen_key)
+        # We could delete a listen key here but we don't. Listen key is scoped to account and we
+        # don't want to delete listen keys for other juno instances tied to the same account.
+        # It will get deleted automatically by Binance after 60 mins of inactivity.
+        # if self._listen_key:
+        #     await self._delete_listen_key(self._listen_key)
         await cancel(self._listen_key_refresh_task, self._stream_user_data_task)
 
     @asynccontextmanager
@@ -587,7 +592,7 @@ class UserDataStream:
     async def _ensure_listen_key(self) -> None:
         async with self._listen_key_lock:
             if not self._listen_key:
-                self._listen_key = await self._create_listen_key()
+                self._listen_key = (await self._create_listen_key()).data['listenKey']
 
     async def _ensure_connection(self) -> None:
         await self._ensure_listen_key()
@@ -608,8 +613,9 @@ class UserDataStream:
         while True:
             await asyncio.sleep(30 * MIN_SEC)
             if self._listen_key:
-                res = await self._update_listen_key(self._listen_key)
-                if res.get('code') == _ERR_LISTEN_KEY_DOES_NOT_EXIST:
+                try:
+                    await self._update_listen_key(self._listen_key)
+                except JunoException:
                     _log.warning(f'tried to update a listen key {self._listen_key} which did not '
                                  'exist; resetting')
                     self._listen_key = None
@@ -637,19 +643,21 @@ class UserDataStream:
         (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
         max_tries=3
     )
-    async def _create_listen_key(self) -> str:
-        return (await self._binance._api_request(
+    async def _create_listen_key(self) -> ClientJsonResponse:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
+        return await self._binance._api_request(
             'POST',
             '/api/v3/userDataStream',
             security=_SEC_USER_STREAM
-        ))['listenKey']
+        )
 
     @backoff.on_exception(
         backoff.expo,
         (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
         max_tries=3
     )
-    async def _update_listen_key(self, listen_key: str) -> Any:
+    async def _update_listen_key(self, listen_key: str) -> ClientJsonResponse:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
         res = await self._binance._api_request(
             'PUT',
             '/api/v3/userDataStream',
@@ -657,16 +665,18 @@ class UserDataStream:
             security=_SEC_USER_STREAM,
             raise_for_status=False
         )
-        if res.status == 400:
-            return res
+        if res.status == 400 and res.data.get('code') == _ERR_LISTEN_KEY_DOES_NOT_EXIST:
+            raise JunoException('Listen key does not exist')
         res.raise_for_status()
+        return res
 
     @backoff.on_exception(
         backoff.expo,
         (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
         max_tries=3
     )
-    async def _delete_listen_key(self, listen_key: str) -> Any:
+    async def _delete_listen_key(self, listen_key: str) -> ClientJsonResponse:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
         return await self._binance._api_request(
             'DELETE',
             '/api/v3/userDataStream',
