@@ -630,6 +630,7 @@ class UserDataStream:
                     url=f'/ws/{self._listen_key}', interval=12 * HOUR_SEC, name='user',
                     raise_on_disconnect=True
                 ) as stream:
+                    self._stream_connected.set()
                     async for data in stream:
                         self._events[data['e']].set(data)
                 break
