@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 
 from juno.components import Chandler, Informant
 from juno.optimization import Optimizer, Solver
@@ -20,8 +20,8 @@ class Optimize(Agent):
     async def run(
         self,
         exchange: str,
-        symbol: str,
-        interval: int,
+        symbols: Optional[List[str]],
+        intervals: Optional[List[int]],
         start: int,
         quote: Decimal,
         strategy: str,
@@ -39,8 +39,8 @@ class Optimize(Agent):
             chandler=self.chandler,
             informant=self.informant,
             exchange=exchange,
-            symbol=symbol,
-            interval=interval,
+            symbols=symbols,
+            intervals=intervals,
             start=start,
             quote=quote,
             strategy=strategy,

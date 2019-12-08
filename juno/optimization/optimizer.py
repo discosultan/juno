@@ -45,8 +45,8 @@ class Optimizer:
         start: int,
         quote: Decimal,
         strategy: str,
-        symbol: Optional[str] = None,
-        interval: Optional[int] = None,
+        symbols: Optional[List[str]] = None,
+        intervals: Optional[List[int]] = None,
         log: logging.Logger = logging.getLogger(__name__),
         end: Optional[int] = None,
         missed_candle_policy: Optional[str] = 'ignore',
@@ -68,6 +68,9 @@ class Optimizer:
         assert end > start
         assert quote > 0
 
+        assert symbols is None or len(symbols) > 0
+        assert intervals is None or len(intervals) > 0
+
         if seed is None:
             seed = random.randrange(sys.maxsize)
 
@@ -77,8 +80,8 @@ class Optimizer:
         self.chandler = chandler
         self.informant = informant
         self.exchange = exchange
-        self.symbol = symbol
-        self.interval = interval
+        self.symbols = symbols
+        self.intervals = intervals
         self.start = start
         self.quote = quote
         self.strategy = strategy
@@ -96,11 +99,11 @@ class Optimizer:
 
     async def run(self) -> None:
         symbols = (
-            [self.symbol] if self.symbol is not None
+            self.symbols if self.symbols is not None
             else self.informant.list_symbols(self.exchange)
         )
         intervals = (
-            [self.interval] if self.interval is not None
+            self.intervals if self.intervals is not None
             else self.informant.list_candle_intervals(self.exchange)
         )
 
@@ -136,30 +139,30 @@ class Optimizer:
         toolbox = base.Toolbox()
 
         # Initialization.
-        if self.symbol is None:
-            constraint = Choice(symbols)
+        if len(symbols) > 1:
+            symbol_constraint = Choice(symbols)
 
             def get_random_symbol() -> str:
-                return constraint.random(random)  # type: ignore
+                return symbol_constraint.random(random)  # type: ignore
 
             symbol_attr = get_random_symbol
         else:
-            symbol = self.symbol
+            symbol = symbols[0]
 
             def get_symbol() -> str:
                 return symbol
 
             symbol_attr = get_symbol
 
-        if self.interval is None:
-            constraint = Choice(intervals)
+        if len(intervals) > 1:
+            interval_constraint = Choice(intervals)
 
             def get_random_interval() -> int:
-                return constraint.random(random)  # type: ignore
+                return interval_constraint.random(random)  # type: ignore
 
             interval_attr = get_random_interval
         else:
-            interval = self.interval
+            interval = intervals[0]
 
             def get_interval() -> int:
                 return interval
@@ -216,14 +219,18 @@ class Optimizer:
         #                  eta=20.0, indpb=1.0 / NDIM)
         toolbox.register('mutate', juno_tools.mut_individual, attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
-        toolbox.register('evaluate', lambda ind: self.solver.solve(
-            strategy_type,
-            self.exchange,
-            self.quote,
-            candles[(ind[0], ind[1])],
-            *fees_filters[ind[0]],
-            *flatten(ind)
-        ))
+
+        def evaluate(ind: List[Any]) -> SolverResult:
+            return self.solver.solve(
+                strategy_type,
+                self.exchange,
+                self.quote,
+                candles[(ind[0], ind[1])],
+                *fees_filters[ind[0]],
+                *flatten(ind)
+            )
+
+        toolbox.register('evaluate', evaluate)
 
         toolbox.population_size = self.population_size
         toolbox.max_generations = self.max_generations

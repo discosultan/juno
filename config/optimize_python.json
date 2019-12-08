@@ -7,10 +7,10 @@
         {
             "type": "optimize",
             "exchange": "binance",
-            "symbol": "eth-btc",
+            "symbols": ["eth-btc"],
             "start": "2019-04-01",
             "end": null,
-            "interval": "1h",
+            "intervals": ["1h"],
             "quote": 10.0,
             "missed_candle_policy": "ignore",
             "strategy": "mamacx",
