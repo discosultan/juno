@@ -126,7 +126,7 @@ class Trader:
             if ctx.last_candle and ctx.open_position:
                 self.log.info('ending trading but position open; closing')
                 await self._close_position(candle=ctx.last_candle)
-            print([p.duration for p in self.summary.positions])
+            # print([p.duration for p in self.summary.positions])
 
     async def _tick(self, candle: Candle) -> None:
         ctx = self.ctx
