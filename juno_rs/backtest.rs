@@ -80,6 +80,7 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     }
 
     summary.calculate();
+    println!("{:?}", summary.positions.iter().map(|p| p.duration).collect::<Vec<u64>>());
     (
         summary.profit,
         summary.mean_drawdown,

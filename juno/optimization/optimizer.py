@@ -288,7 +288,7 @@ class Optimizer:
             end=floor_multiple(self.end, self.result.interval),
             quote=self.quote,
             new_strategy=lambda: new_strategy(self.result.strategy_config),
-            log=disabled_log,
+            # log=disabled_log,
             missed_candle_policy=self.result.missed_candle_policy,
             trailing_stop=self.result.trailing_stop,
             adjust_start=False,
