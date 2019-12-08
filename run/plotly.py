@@ -7,6 +7,7 @@ import plotly.offline as py
 from juno.asyncio import list_async
 from juno.components import Chandler, Trades
 from juno.exchanges import Binance
+from juno.logging import create_handlers
 from juno.storages import SQLite
 from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strpinterval
 
@@ -79,5 +80,5 @@ async def main():
     py.plot(data)
 
 
-logging.basicConfig(level='INFO')
+logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())

@@ -14,7 +14,6 @@ class Solver(ABC):
     def solve(
         self,
         strategy_type: Type[Strategy],
-        exchange: str,
         quote: Decimal,
         candles: List[Candle],
         fees: Fees,

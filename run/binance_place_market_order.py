@@ -1,13 +1,13 @@
 import asyncio
 import logging
 import os
-import sys
 from typing import List
 
 from juno import OrderType, Side
 from juno.brokers import Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
+from juno.logging import create_handlers
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
@@ -64,5 +64,5 @@ async def main() -> None:
     logging.info('Done!')
 
 
-logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level='INFO')
+logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())
