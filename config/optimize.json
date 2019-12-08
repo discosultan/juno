@@ -7,17 +7,17 @@
         {
             "type": "optimize",
             "exchange": "binance",
-            "symbol": "eth-btc",
+            "symbols": ["eth-btc", "xmr-btc"],
             "start": "2017-01-01",
             "end": null,
-            "interval": "1h",
+            "intervals": ["1h", "2h"],
             "quote": 1.0,
             "missed_candle_policy": null,
             "trailing_stop": null,
             "strategy": "mamacx",
             "population_size": 10,
             "max_generations": 50,
-            "seed": null,
+            "seed": 2285234675661996286,
             "verbose": true
         }
     ]
