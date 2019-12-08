@@ -5,11 +5,12 @@ import logging
 from contextlib import asynccontextmanager
 from itertools import cycle
 from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Callable, Iterator, Optional
+    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Callable, Iterator, Optional, cast
 )
 
 import aiohttp
 
+import juno.json as json
 from juno.utils import generate_random_words
 
 from .asyncio import cancel, cancelable, concat_async
@@ -57,6 +58,12 @@ class ClientSession:
             yield res
 
     @asynccontextmanager
+    async def request_json(self, *args: Any, **kwargs: Any) -> AsyncIterator[ClientJsonResponse]:
+        async with self.request(*args, **kwargs) as res:
+            setattr(res, 'data', await res.json(loads=json.loads))
+            yield cast(ClientJsonResponse, res)
+
+    @asynccontextmanager
     async def ws_connect(self, url: str, name: Optional[str] = None,
                          **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
         name = name or next(_random_words)
@@ -64,6 +71,10 @@ class ClientSession:
         _aiohttp_log.debug(kwargs)
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield ClientWebSocketResponse(ws, name)
+
+
+class ClientJsonResponse(aiohttp.ClientResponse):
+    data: Any
 
 
 class ClientWebSocketResponse:
@@ -151,7 +162,10 @@ async def connect_refreshing_stream(
                             f'server closed ws {ctx.name} connection; data: {msg.data}; raising '
                             'exception'
                         )
-                        raise Exception('Server unexpectedly closed WS connection')
+                        raise aiohttp.WebSocketError(
+                            aiohttp.WSCloseCode.GOING_AWAY,
+                            'Server unexpectedly closed WS connection'
+                        )
                     else:
                         _aiohttp_log.warning(
                             f'server closed ws {ctx.name} connection; data: {msg.data}; '

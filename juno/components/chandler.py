@@ -8,7 +8,7 @@ from typing import AsyncIterable, Callable, List, Optional
 
 import backoff
 
-from juno import Candle
+from juno import Candle, JunoException
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
@@ -74,7 +74,7 @@ class Chandler:
                     if not closed or candle.closed:
                         yield candle
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    @backoff.on_exception(backoff.expo, JunoException, max_tries=3)
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:

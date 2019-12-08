@@ -10,19 +10,21 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
+    Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 )
 
+import aiohttp
 import backoff
 
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
-    Fills, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, ExchangeInfo, TimeInForce, Trade
+    Fills, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, ExchangeInfo,
+    TimeInForce, Trade
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
-from juno.http import ClientSession, connect_refreshing_stream
+from juno.http import ClientSession, ClientJsonResponse, connect_refreshing_stream
 from juno.time import HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import LeakyBucket, page
@@ -40,6 +42,7 @@ _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
 _ERR_CANCEL_REJECTED = -2011
 _ERR_INVALID_TIMESTAMP = -1021
+_ERR_LISTEN_KEY_DOES_NOT_EXIST = -1125
 
 _log = logging.getLogger(__name__)
 
@@ -83,10 +86,10 @@ class Binance(Exchange):
         fees = {
             _from_symbol(fee['symbol']):
             Fees(maker=Decimal(fee['maker']), taker=Decimal(fee['taker']))
-            for fee in fees_res['tradeFee']
+            for fee in fees_res.data['tradeFee']
         }
         filters = {}
-        for symbol in filters_res['symbols']:
+        for symbol in filters_res.data['symbols']:
             for f in symbol['filters']:
                 t = f['filterType']
                 if t == 'PRICE_FILTER':
@@ -135,7 +138,7 @@ class Binance(Exchange):
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._api_request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
         result = {}
-        for balance in res['balances']:
+        for balance in res.data['balances']:
             result[
                 balance['asset'].lower()
             ] = Balance(available=Decimal(balance['free']), hold=Decimal(balance['locked']))
@@ -171,7 +174,7 @@ class Binance(Exchange):
             5000: 50,
         }
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-        result = await self._api_request(
+        res = await self._api_request(
             'GET',
             '/api/v3/depth',
             weight=LIMIT_TO_WEIGHT[LIMIT],
@@ -181,9 +184,9 @@ class Binance(Exchange):
             }
         )
         return DepthSnapshot(
-            bids=[(Decimal(x[0]), Decimal(x[1])) for x in result['bids']],
-            asks=[(Decimal(x[0]), Decimal(x[1])) for x in result['asks']],
-            last_id=result['lastUpdateId'],
+            bids=[(Decimal(x[0]), Decimal(x[1])) for x in res.data['bids']],
+            asks=[(Decimal(x[0]), Decimal(x[1])) for x in res.data['asks']],
+            last_id=res.data['lastUpdateId'],
         )
 
     @asynccontextmanager
@@ -255,14 +258,14 @@ class Binance(Exchange):
         if test:
             return OrderResult.not_placed()
         return OrderResult(
-            status=_from_order_status(res['status']),
+            status=_from_order_status(res.data['status']),
             fills=Fills([
                 Fill(
                     price=Decimal(f['price']),
                     size=Decimal(f['qty']),
                     fee=Decimal(f['commission']),
                     fee_asset=f['commissionAsset'].lower()
-                ) for f in res['fills']
+                ) for f in res.data['fills']
             ])
         )
 
@@ -271,7 +274,7 @@ class Binance(Exchange):
         res = await self._api_request(
             'DELETE', '/api/v3/order', data=data, security=_SEC_TRADE, raise_for_status=False
         )
-        binance_error = res.get('code')
+        binance_error = res.data.get('code')
         if binance_error == _ERR_CANCEL_REJECTED:
             return CancelOrderResult(status=CancelOrderStatus.REJECTED)
         if binance_error:
@@ -293,7 +296,7 @@ class Binance(Exchange):
                     'limit': MAX_CANDLES_PER_REQUEST
                 }
             )
-            for c in res:
+            for c in res.data:
                 yield Candle(
                     c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
                     Decimal(c[5]), True
@@ -338,8 +341,8 @@ class Binance(Exchange):
 
             time = None
 
-            trades = await self._api_request('GET', '/api/v3/aggTrades', data=payload)
-            for t in trades:
+            res = await self._api_request('GET', '/api/v3/aggTrades', data=payload)
+            for t in res.data:
                 time = t['T']
                 assert time < end
                 yield Trade(
@@ -379,7 +382,7 @@ class Binance(Exchange):
         security: int = _SEC_NONE,
         raise_for_status=True
     ) -> Any:
-        result = await self._request(
+        res = await self._request(
             method=method,
             url=url,
             weight=weight,
@@ -387,14 +390,14 @@ class Binance(Exchange):
             security=security,
             raise_for_status=raise_for_status,
         )
-        if not result['success']:
+        if not res.data['success']:
             # There's no error code in this response to figure out whether it's a timestamp issue.
             # We could look it up from the message, but currently just assume that is the case
             # always.
-            _log.warning(f'received error: {result["msg"]}; syncing clock before exc')
+            _log.warning(f'received error: {res.data["msg"]}; syncing clock before exc')
             self._clock.clear()
-            raise Exception(result['msg'])
-        return result
+            raise JunoException(res.data['msg'])
+        return res
 
     async def _api_request(
         self,
@@ -405,7 +408,7 @@ class Binance(Exchange):
         security: int = _SEC_NONE,
         raise_for_status=True,
     ) -> Any:
-        result = await self._request(
+        res = await self._request(
             method=method,
             url=url,
             weight=weight,
@@ -413,11 +416,11 @@ class Binance(Exchange):
             security=security,
             raise_for_status=raise_for_status,
         )
-        if isinstance(result, dict) and result.get('code') == _ERR_INVALID_TIMESTAMP:
+        if isinstance(res.data, dict) and res.data.get('code') == _ERR_INVALID_TIMESTAMP:
             _log.warning(f'received invalid timestamp; syncing clock before exc')
             self._clock.clear()
-            raise Exception('Incorrect timestamp')
-        return result
+            raise JunoException('Incorrect timestamp')
+        return res
 
     async def _request(
         self,
@@ -427,7 +430,7 @@ class Binance(Exchange):
         data: Optional[Any] = None,
         security: int = _SEC_NONE,
         raise_for_status: bool = True
-    ) -> Any:
+    ) -> ClientJsonResponse:
         limiters = [
             self._raw_reqs_limiter.acquire(),
             self._reqs_per_min_limiter.acquire(weight),
@@ -456,29 +459,36 @@ class Binance(Exchange):
         if data:
             kwargs['params' if method == 'GET' else 'data'] = data
 
-        async with self._session.request(method=method, url=_BASE_REST_URL + url, **kwargs) as res:
+        async with self._session.request_json(
+            method=method, url=_BASE_REST_URL + url, **kwargs
+        ) as res:
             if res.status in [418, 429]:
                 retry_after = res.headers['Retry-After']
                 _log.warning(f'received status {res.status}; sleeping {retry_after}s before exc')
                 await asyncio.sleep(float(retry_after))
-                raise Exception('Retry after')
+                raise JunoException('Retry after')
             else:
                 if raise_for_status:
                     res.raise_for_status()
-                return await res.json(loads=json.loads)
+                return res
 
-    def _connect_refreshing_stream(
+    @asynccontextmanager
+    async def _connect_refreshing_stream(
         self, url: str, interval: int, name: str, raise_on_disconnect: bool = False
-    ) -> AsyncContextManager[AsyncIterable[Any]]:
-        return connect_refreshing_stream(
-            self._session,
-            url=_BASE_WS_URL + url,
-            interval=interval,
-            loads=json.loads,
-            take_until=lambda old, new: old['E'] < new['E'],
-            name=name,
-            raise_on_disconnect=raise_on_disconnect
-        )
+    ) -> AsyncIterator[AsyncIterable[Any]]:
+        try:
+            async with connect_refreshing_stream(
+                self._session,
+                url=_BASE_WS_URL + url,
+                interval=interval,
+                loads=json.loads,
+                take_until=lambda old, new: old['E'] < new['E'],
+                name=name,
+                raise_on_disconnect=raise_on_disconnect
+            ) as stream:
+                yield stream
+        except aiohttp.WebSocketError as e:
+            raise JunoException(str(e))
 
 
 class Clock:
@@ -486,40 +496,42 @@ class Clock:
         self.time_diff = 0
         self._binance = binance
         self._synced = asyncio.Event()
-        self._sync_clock_task: Optional[asyncio.Task[None]] = None
-        self._old_sync_tasks: List[asyncio.Task[None]] = []
+        self._periodic_sync_task: Optional[asyncio.Task[None]] = None
 
     async def __aenter__(self) -> Clock:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(self._sync_clock_task)
+        await cancel(self._periodic_sync_task)
 
     async def wait(self) -> None:
-        if len(self._old_sync_tasks) > 0:
-            to_wait = self._old_sync_tasks[:]
-            self._old_sync_tasks.clear()
-            await asyncio.gather(*to_wait)
-        if not self._sync_clock_task:
-            self._synced.clear()
-            self._sync_clock_task = asyncio.create_task(cancelable(self._periodic_sync()))
+        if not self._periodic_sync_task:
+            self._periodic_sync_task = asyncio.create_task(cancelable(self._periodic_sync()))
+
         await self._synced.wait()
 
     def clear(self) -> None:
-        if self._sync_clock_task:
-            self._old_sync_tasks.append(self._sync_clock_task)
-            self._sync_clock_task = None
+        self._synced.clear()
+        if self._periodic_sync_task:
+            self._periodic_sync_task.get_coro().throw(Reset())
 
     async def _periodic_sync(self) -> None:
         while True:
-            await self._sync_clock()
-            await asyncio.sleep(HOUR_SEC * 12)
+            try:
+                await self._sync_clock()
+                await asyncio.sleep(HOUR_SEC * 12)
+            except Reset:
+                pass
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
+        max_tries=3
+    )
     async def _sync_clock(self) -> None:
         _log.info('syncing clock with Binance')
         before = time_ms()
-        server_time = (await self._binance._api_request('GET', '/api/v3/time'))['serverTime']
+        server_time = (await self._binance._api_request('GET', '/api/v3/time')).data['serverTime']
         after = time_ms()
         # Assume response time is same as request time.
         delay = (after - before) // 2
@@ -534,14 +546,24 @@ class UserDataStream:
     def __init__(self, binance: Binance) -> None:
         self._binance = binance
         self._listen_key_lock = asyncio.Lock()
+        self._stream_connected = asyncio.Event()
+        self._listen_key = None
+
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
+        self._old_tasks: List[asyncio.Task[None]] = []
+
         self._events: Dict[str, Event[Any]] = defaultdict(lambda: Event(autoclear=True))
 
     async def __aenter__(self) -> UserDataStream:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        # We could delete a listen key here but we don't. Listen key is scoped to account and we
+        # don't want to delete listen keys for other juno instances tied to the same account.
+        # It will get deleted automatically by Binance after 60 mins of inactivity.
+        # if self._listen_key:
+        #     await self._delete_listen_key(self._listen_key)
         await cancel(self._listen_key_refresh_task, self._stream_user_data_task)
 
     @asynccontextmanager
@@ -556,7 +578,10 @@ class UserDataStream:
 
         async def inner(event: Event[Any]) -> AsyncIterable[Any]:
             while True:
-                yield await event.wait()
+                data = await event.wait()
+                if isinstance(data, Exception):
+                    raise data
+                yield data
 
         try:
             yield inner(event)
@@ -564,62 +589,96 @@ class UserDataStream:
             # TODO: unsubscribe if no other consumers?
             pass
 
-    async def _ensure_connection(self) -> None:
+    async def _ensure_listen_key(self) -> None:
         async with self._listen_key_lock:
-            if self._listen_key_refresh_task:
-                return
+            if not self._listen_key:
+                self._listen_key = (await self._create_listen_key()).data['listenKey']
 
-            user_stream_connected = asyncio.Event()
+    async def _ensure_connection(self) -> None:
+        await self._ensure_listen_key()
 
-            listen_key = await self._create_listen_key()
+        if not self._listen_key_refresh_task:
             self._listen_key_refresh_task = asyncio.create_task(
-                cancelable(self._periodic_listen_key_refresh(listen_key))
+                cancelable(self._periodic_listen_key_refresh())
             )
+
+        if not self._stream_user_data_task:
             self._stream_user_data_task = asyncio.create_task(
-                cancelable(self._stream_user_data(listen_key, user_stream_connected))
+                cancelable(self._stream_user_data())
             )
 
-            await user_stream_connected.wait()
+        await self._stream_connected.wait()
 
-    async def _stream_user_data(self, listen_key: str, connected: asyncio.Event) -> None:
-        # TODO: We don't raise an exception on ws disconnect here, but instead try to reconnect.
-        # This may be problematic, because we can skip a message. Figure out a solution to
-        # propagate disconnect exception to consumers.
-        async with self._binance._connect_refreshing_stream(
-            url=f'/ws/{listen_key}', interval=12 * HOUR_SEC, name='user'
-        ) as ws:
-            connected.set()
-            async for data in ws:
-                self._events[data['e']].set(data)
+    async def _periodic_listen_key_refresh(self) -> None:
+        while True:
+            await asyncio.sleep(30 * MIN_SEC)
+            if self._listen_key:
+                try:
+                    await self._update_listen_key(self._listen_key)
+                except JunoException:
+                    _log.warning(f'tried to update a listen key {self._listen_key} which did not '
+                                 'exist; resetting')
+                    self._listen_key = None
+                    await self._ensure_listen_key()
+            else:
+                _log.warning('want to refresh listen key but missing locally')
 
-    async def _periodic_listen_key_refresh(self, listen_key: str) -> None:
-        try:
-            while True:
-                await asyncio.sleep(30 * MIN_SEC)
-                await self._update_listen_key(listen_key)
-        finally:
-            await self._delete_listen_key(listen_key)
+    async def _stream_user_data(self) -> None:
+        while True:
+            try:
+                async with self._binance._connect_refreshing_stream(
+                    url=f'/ws/{self._listen_key}', interval=12 * HOUR_SEC, name='user',
+                    raise_on_disconnect=True
+                ) as stream:
+                    self._stream_connected.set()
+                    async for data in stream:
+                        self._events[data['e']].set(data)
+                break
+            except JunoException as e:
+                for event in self._events.values():
+                    event.set(e)
+            await self._ensure_listen_key()
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    async def _create_listen_key(self) -> str:
-        return (await self._binance._api_request(
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
+        max_tries=3
+    )
+    async def _create_listen_key(self) -> ClientJsonResponse:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
+        return await self._binance._api_request(
             'POST',
             '/api/v3/userDataStream',
             security=_SEC_USER_STREAM
-        ))['listenKey']
+        )
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    async def _update_listen_key(self, listen_key: str) -> None:
-        await self._binance._api_request(
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
+        max_tries=3
+    )
+    async def _update_listen_key(self, listen_key: str) -> ClientJsonResponse:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
+        res = await self._binance._api_request(
             'PUT',
             '/api/v3/userDataStream',
             data={'listenKey': listen_key},
-            security=_SEC_USER_STREAM
+            security=_SEC_USER_STREAM,
+            raise_for_status=False
         )
+        if res.status == 400 and res.data.get('code') == _ERR_LISTEN_KEY_DOES_NOT_EXIST:
+            raise JunoException('Listen key does not exist')
+        res.raise_for_status()
+        return res
 
-    @backoff.on_exception(backoff.expo, Exception, max_tries=3)
-    async def _delete_listen_key(self, listen_key: str) -> None:
-        await self._binance._api_request(
+    @backoff.on_exception(
+        backoff.expo,
+        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
+        max_tries=3
+    )
+    async def _delete_listen_key(self, listen_key: str) -> ClientJsonResponse:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
+        return await self._binance._api_request(
             'DELETE',
             '/api/v3/userDataStream',
             data={'listenKey': listen_key},
@@ -674,3 +733,7 @@ def _from_order_status(status: str) -> OrderStatus:
     if not mapped_status:
         raise NotImplementedError(f'Handling of status {status} not implemented')
     return mapped_status
+
+
+class Reset(JunoException):
+    pass
