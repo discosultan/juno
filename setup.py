@@ -7,6 +7,7 @@ setup(
     include_package_data=True,
     install_requires=[
         'aiohttp',
+        'aiolimiter',
         'backoff',
         'cffi',
         'colorlog',

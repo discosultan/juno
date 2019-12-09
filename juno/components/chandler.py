@@ -96,6 +96,10 @@ class Chandler:
                     batch.append(candle)
                     if len(batch) == self._storage_batch_size:
                         batch_end = batch[-1].time + interval
+                        # TODO: If storing here succeeds but we cancel after; batch doesn't get
+                        # emptied and we get an error since we retry to add them on cancellation.
+                        # Use two batch lists and swap em before storage to solve it ;)
+                        # Same for trades component.
                         await self._storage.store_time_series_and_span(
                             key=storage_key,
                             type=Candle,
