@@ -3,7 +3,6 @@ import logging
 import os
 
 from juno import exchanges
-from juno.logging import create_handlers
 
 EXCHANGE_TYPE = exchanges.Binance
 
@@ -17,5 +16,4 @@ async def main():
         logging.info(balances)
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())

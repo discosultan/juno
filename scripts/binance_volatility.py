@@ -9,7 +9,6 @@ import pandas as pd
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.exchanges import Binance
-from juno.logging import create_handlers
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
@@ -54,11 +53,10 @@ async def main():
         results = await asyncio.gather(*tasks)
 
         results = [r for r in results if not math.isnan(r[2])]
-        print(results)
+        logging.info(results)
 
         best = max(results, key=lambda v: v[2])  # By volatility.
-        print(best)
+        logging.info(best)
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())

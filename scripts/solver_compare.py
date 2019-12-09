@@ -5,7 +5,6 @@ from decimal import Decimal
 
 from juno import components, exchanges, optimization, strategies, storages
 from juno.asyncio import list_async
-from juno.logging import create_handlers
 from juno.time import HOUR_MS, strptimestamp
 
 
@@ -45,8 +44,10 @@ async def main() -> None:
         )
         rust_result = rust_solver.solve(*args)
         python_result = python_solver.solve(*args)
+
+        logging.info(rust_result)
+        logging.info(python_result)
         logging.info('done')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())

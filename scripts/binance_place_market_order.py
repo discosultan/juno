@@ -7,7 +7,6 @@ from juno import OrderType, Side
 from juno.brokers import Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
-from juno.logging import create_handlers
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
@@ -61,8 +60,7 @@ async def main() -> None:
             symbol=SYMBOL, side=SIDE, type_=OrderType.MARKET, size=size, test=TEST
         )
         logging.info(res)
-    logging.info('Done!')
+    logging.info('done')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())

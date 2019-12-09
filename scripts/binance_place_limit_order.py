@@ -6,7 +6,6 @@ from decimal import Decimal
 from juno import OrderType, Side, TimeInForce
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance
-from juno.logging import create_handlers
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
@@ -15,7 +14,6 @@ TEST = False
 SIDE = Side.BUY
 SYMBOL = 'ada-btc'
 CLIENT_ID = 'foo'
-LOG_LEVEL = 'DEBUG'
 
 
 async def main() -> None:
@@ -80,8 +78,7 @@ async def main() -> None:
             test=TEST
         )
         logging.info(res)
-    logging.info('Done!')
+    logging.info('done')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level=LOG_LEVEL)
 asyncio.run(main())

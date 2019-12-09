@@ -5,7 +5,6 @@ import os
 from juno import exchanges, storages
 from juno.asyncio import enumerate_async
 from juno.components import Trades
-from juno.logging import create_handlers
 from juno.time import strptimestamp
 
 EXCHANGE_TYPE = exchanges.Kraken
@@ -33,5 +32,4 @@ async def main():
         logging.info('done')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='DEBUG')
 asyncio.run(main())
