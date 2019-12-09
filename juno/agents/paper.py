@@ -1,4 +1,3 @@
-import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
@@ -10,8 +9,6 @@ from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import Trader
 
 from .agent import Agent
-
-_log = logging.getLogger(__name__)
 
 
 class Paper(Agent):
@@ -58,7 +55,6 @@ class Paper(Agent):
             broker=self.broker,
             test=True,
             event=self,
-            log=_log,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
             trailing_stop=trailing_stop,

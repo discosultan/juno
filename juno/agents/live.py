@@ -1,4 +1,3 @@
-import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
@@ -11,8 +10,6 @@ from juno.trading import Trader
 from juno.utils import unpack_symbol
 
 from .agent import Agent
-
-_log = logging.getLogger(__name__)
 
 
 class Live(Agent):
@@ -63,7 +60,6 @@ class Live(Agent):
             broker=self.broker,
             test=False,
             event=self,
-            log=_log,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
             trailing_stop=trailing_stop,

@@ -11,6 +11,8 @@ from juno.utils import EventEmitter, format_attrs_as_json, unpack_symbol
 
 from .common import Position, TradingContext, TradingSummary
 
+_log = logging.getLogger(__name__)
+
 
 class Trader:
     def __init__(
@@ -27,7 +29,6 @@ class Trader:
         broker: Optional[Broker] = None,
         test: bool = True,  # No effect if broker is None.
         event: EventEmitter = EventEmitter(),
-        log: logging.Logger = logging.getLogger(__name__),
         missed_candle_policy: str = 'ignore',
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
@@ -50,7 +51,6 @@ class Trader:
         self.broker = broker
         self.test = test
         self.event = event
-        self.log = log
         self.missed_candle_policy = missed_candle_policy
         self.adjust_start = adjust_start
         self.trailing_stop = trailing_stop
@@ -74,7 +74,7 @@ class Trader:
                     # Adjust start to accommodate for the required history before a strategy
                     # becomes effective. Only do it on first run because subsequent runs mean
                     # missed candles and we don't want to fetch passed a missed candle.
-                    self.log.info(
+                    _log.info(
                         f'fetching {ctx.strategy.req_history} candle(s) before start time to '
                         'warm-up strategy'
                     )
@@ -91,18 +91,18 @@ class Trader:
                     if ctx.last_candle and candle.time - ctx.last_candle.time >= self.interval * 2:
                         # TODO: python 3.8 assignment expression
                         num_missed = (candle.time - ctx.last_candle.time) // self.interval - 1
-                        self.log.warning(
+                        _log.warning(
                             f'missed {num_missed} candle(s); last candle {ctx.last_candle}; '
                             f'current candle {candle}'
                         )
                         if self.missed_candle_policy == 'restart':
-                            self.log.info('restarting strategy')
+                            _log.info('restarting strategy')
                             restart = True
                             ctx.strategy = self.new_strategy()
                             start = candle.time + self.interval
                             restart_count += 1
                         elif self.missed_candle_policy == 'last':
-                            self.log.info('replaying missed candles with last candle values')
+                            _log.info('replaying missed candles with last candle values')
                             last_candle = ctx.last_candle
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
@@ -125,7 +125,7 @@ class Trader:
                     break
         finally:
             if ctx.last_candle and ctx.open_position:
-                self.log.info('ending trading but position open; closing')
+                _log.info('ending trading but position open; closing')
                 await self._close_position(candle=ctx.last_candle)
 
     async def _tick(self, candle: Candle) -> None:
@@ -145,7 +145,7 @@ class Trader:
             )
             trailing_factor = 1 - self.trailing_stop
             if candle.close <= ctx.highest_close_since_position * trailing_factor:
-                self.log.info(f'trailing stop hit at {self.trailing_stop}; selling')
+                _log.info(f'trailing stop hit at {self.trailing_stop}; selling')
                 await self._close_position(candle=candle)
 
         ctx.last_candle = candle
@@ -176,8 +176,8 @@ class Trader:
 
             ctx.quote -= size * price
 
-        self.log.info(f'position opened: {candle}')
-        self.log.debug(format_attrs_as_json(ctx.open_position))
+        _log.info(f'position opened: {candle}')
+        _log.debug(format_attrs_as_json(ctx.open_position))
         await self.event.emit('position_opened', ctx.open_position)
 
     async def _close_position(self, candle: Candle) -> None:
@@ -212,6 +212,6 @@ class Trader:
 
         ctx.open_position = None
         self.summary.append_position(pos)
-        self.log.info(f'position closed: {candle}')
-        self.log.debug(format_attrs_as_json(pos))
+        _log.info(f'position closed: {candle}')
+        _log.debug(format_attrs_as_json(pos))
         await self.event.emit('position_closed', pos)

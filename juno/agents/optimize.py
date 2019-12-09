@@ -1,4 +1,3 @@
-import logging
 from decimal import Decimal
 from typing import List, Optional
 
@@ -6,8 +5,6 @@ from juno.components import Chandler, Informant
 from juno.optimization import Optimizer, Solver
 
 from . import Agent
-
-_log = logging.getLogger(__name__)
 
 
 class Optimize(Agent):
@@ -44,7 +41,6 @@ class Optimize(Agent):
             start=start,
             quote=quote,
             strategy=strategy,
-            log=_log,
             end=end,
             missed_candle_policy=missed_candle_policy,
             trailing_stop=trailing_stop,

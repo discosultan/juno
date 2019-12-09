@@ -1,4 +1,3 @@
-import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -9,8 +8,6 @@ from juno.time import time_ms
 from juno.trading import Trader
 
 from .agent import Agent
-
-_log = logging.getLogger(__name__)
 
 
 class Backtest(Agent):
@@ -54,7 +51,6 @@ class Backtest(Agent):
             quote=quote,
             new_strategy=lambda: new_strategy(strategy_config),
             event=self,
-            log=_log,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
             trailing_stop=trailing_stop,

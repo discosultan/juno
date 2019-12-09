@@ -23,6 +23,8 @@ from juno.utils import flatten, format_attrs_as_json
 from . import tools as juno_tools
 from .solver import Solver, SolverResult
 
+_log = logging.getLogger(__name__)
+
 _missed_candle_policy_constraint = Choice([
     0,  # 'ignore'
     1,  # 'restart'
@@ -46,7 +48,6 @@ class Optimizer:
         strategy: str,
         symbols: Optional[List[str]] = None,
         intervals: Optional[List[int]] = None,
-        log: logging.Logger = logging.getLogger(__name__),
         end: Optional[int] = None,
         missed_candle_policy: Optional[str] = 'ignore',
         trailing_stop: Optional[Decimal] = Decimal('0.0'),
@@ -73,7 +74,7 @@ class Optimizer:
         if seed is None:
             seed = random.randrange(sys.maxsize)
 
-        log.info(f'randomizer seed ({seed})')
+        _log.info(f'randomizer seed ({seed})')
 
         self.solver = solver
         self.chandler = chandler
@@ -84,7 +85,6 @@ class Optimizer:
         self.start = start
         self.quote = quote
         self.strategy = strategy
-        self.log = log
         self.end = end
         self.missed_candle_policy = missed_candle_policy
         self.trailing_stop = trailing_stop
@@ -239,7 +239,7 @@ class Optimizer:
 
         hall = tools.HallOfFame(1)
 
-        self.log.info('evolving')
+        _log.info('evolving')
         evolve_start = time_ms()
 
         # Returns the final population and logbook with the statistics of the evolution.
@@ -258,7 +258,7 @@ class Optimizer:
             )
         )
 
-        self.log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
+        _log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
 
         best_args = list(flatten(hall[0]))
         best_result = self.solver.solve(
@@ -279,7 +279,7 @@ class Optimizer:
 
         # Validate our results by running a backtest in actual trader to ensure correctness.
         solver_name = type(self.solver).__name__.lower()
-        self.log.info(
+        _log.info(
             f'validating {solver_name} solver result with best args against actual trader'
         )
         trader = Trader(
@@ -292,7 +292,6 @@ class Optimizer:
             end=floor_multiple(self.end, self.result.interval),
             quote=self.quote,
             new_strategy=lambda: new_strategy(self.result.strategy_config),
-            log=self.log,
             missed_candle_policy=self.result.missed_candle_policy,
             trailing_stop=self.result.trailing_stop,
             adjust_start=False,
