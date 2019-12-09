@@ -103,15 +103,16 @@ class Trader:
                             restart_count += 1
                         elif self.missed_candle_policy == 'last':
                             self.log.info('replaying missed candles with last candle values')
+                            last_candle = ctx.last_candle
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
-                                    time=ctx.last_candle.time + i * self.interval,
-                                    open=ctx.last_candle.open,
-                                    high=ctx.last_candle.high,
-                                    low=ctx.last_candle.low,
-                                    close=ctx.last_candle.close,
-                                    volume=ctx.last_candle.volume,
-                                    closed=ctx.last_candle.closed
+                                    time=last_candle.time + i * self.interval,
+                                    open=last_candle.open,
+                                    high=last_candle.high,
+                                    low=last_candle.low,
+                                    close=last_candle.close,
+                                    volume=last_candle.volume,
+                                    closed=last_candle.closed
                                 )
                                 await self._tick(missed_candle)
 
@@ -126,7 +127,6 @@ class Trader:
             if ctx.last_candle and ctx.open_position:
                 self.log.info('ending trading but position open; closing')
                 await self._close_position(candle=ctx.last_candle)
-            # print([p.duration for p in self.summary.positions])
 
     async def _tick(self, candle: Candle) -> None:
         ctx = self.ctx

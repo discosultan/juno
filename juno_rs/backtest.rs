@@ -34,7 +34,6 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
                     restart = true;
                     ctx.strategy = strategy_factory();
                 } else if missed_candle_policy == 2 && diff >= two_interval {
-                    println!("NUTIPURK");
                     let num_missed = diff / interval - 1;
                     for i in 1..=num_missed {
                         let missed_candle = Candle {
@@ -48,7 +47,6 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
                         if !tick(
                             &mut ctx, &mut summary, &fees, &filters, trailing_stop, &missed_candle
                         ) {
-                            println!("PURSKENEEEEEEEEEEEGEEEEEEEEEEEEEEEEEEEEEEEEEER");
                             exit = true;
                             break;
                         }
@@ -82,7 +80,6 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     }
 
     summary.calculate();
-    // println!("{:?}", summary.positions.iter().map(|p| p.duration).collect::<Vec<u64>>());
     (
         summary.profit,
         summary.mean_drawdown,
