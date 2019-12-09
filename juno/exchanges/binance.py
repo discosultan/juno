@@ -55,10 +55,10 @@ class Binance(Exchange):
         self._session = ClientSession(raise_for_status=False)
 
         # Rate limiters.
-        self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)  # 1200 per min.
-        self._raw_reqs_limiter = LeakyBucket(rate=5000, period=300)  # 5000 raw reqs per 5 min.
-        self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)  # 10 per sec.
-        self._orders_per_day_limiter = LeakyBucket(rate=100_000, period=86_400)  # 100 000 per day.
+        self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)  # 1200 / min.
+        self._raw_reqs_limiter = LeakyBucket(rate=5000, period=300)  # 5000 raw reqs / 5 min.
+        self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)  # 10 / sec.
+        self._orders_per_day_limiter = LeakyBucket(rate=100_000, period=86_400)  # 100 000 / day.
 
         self._clock = Clock(self)
         self._user_data_stream = UserDataStream(self)
@@ -79,6 +79,8 @@ class Binance(Exchange):
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def get_exchange_info(self) -> ExchangeInfo:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
         fees_res, filters_res = await asyncio.gather(
             self._wapi_request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
             self._api_request('GET', '/api/v3/exchangeInfo'),
@@ -529,6 +531,7 @@ class Clock:
         max_tries=3
     )
     async def _sync_clock(self) -> None:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
         _log.info('syncing clock with Binance')
         before = time_ms()
         server_time = (await self._binance._api_request('GET', '/api/v3/time')).data['serverTime']
