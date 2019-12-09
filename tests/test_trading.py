@@ -161,11 +161,11 @@ async def test_trader_assume_same_as_last_on_missed_candle():
         candles=[
             Candle(time=0),
             Candle(time=1),
-            # 1 candle skipped.
-            Candle(time=3),  # Generate new candle with previous data.
+            # 2 candles skipped.
+            Candle(time=4),  # Generate new candles with previous data.
         ]
     )
-    strategy = fakes.Strategy(Advice.NONE, Advice.NONE, Advice.NONE, Advice.NONE)
+    strategy = fakes.Strategy(Advice.NONE, Advice.NONE, Advice.NONE, Advice.NONE, Advice.NONE)
 
     trader = Trader(
         chandler=chandler,
@@ -174,7 +174,7 @@ async def test_trader_assume_same_as_last_on_missed_candle():
         symbol='eth-btc',
         interval=1,
         start=0,
-        end=4,
+        end=5,
         quote=Decimal('10.0'),
         new_strategy=lambda: strategy,
         missed_candle_policy='last',
@@ -184,8 +184,9 @@ async def test_trader_assume_same_as_last_on_missed_candle():
 
     await trader.run()
 
-    assert len(strategy.updates) == 4
+    assert len(strategy.updates) == 5
     assert strategy.updates[0].time == 0
     assert strategy.updates[1].time == 1
     assert strategy.updates[2].time == 2
     assert strategy.updates[3].time == 3
+    assert strategy.updates[4].time == 4
