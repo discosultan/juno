@@ -47,6 +47,15 @@ def test_choice_constraint():
 
 @pytest.mark.manual
 @pytest.mark.chaos
+def test_constraint_choice_constraint():
+    assert_constraint_chaos(math.ConstraintChoice([
+        math.Constant(Decimal('0.0')),
+        math.Uniform(Decimal('0.0001'), Decimal('0.9999')),
+    ]))
+
+
+@pytest.mark.manual
+@pytest.mark.chaos
 def test_uniform_constraint():
     assert_constraint_chaos(math.Uniform(Decimal('-0.10'), Decimal('2.00')))
 

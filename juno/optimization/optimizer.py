@@ -13,7 +13,7 @@ from deap import algorithms, base, creator, tools
 from juno import InsufficientBalance
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
-from juno.math import Choice, Constant, Uniform, floor_multiple
+from juno.math import Choice, ConstraintChoice, Constant, Uniform, floor_multiple
 from juno.strategies import Strategy, get_strategy_type, new_strategy
 from juno.time import strfinterval, time_ms
 from juno.trading import Trader
@@ -30,7 +30,7 @@ _missed_candle_policy_constraint = Choice([
     1,  # 'restart'
     2,  # 'last'
 ])
-_trailing_stop_constraint = Choice([
+_trailing_stop_constraint = ConstraintChoice([
     Constant(Decimal('0.0')),
     Uniform(Decimal('0.0001'), Decimal('0.9999')),
 ])
@@ -183,7 +183,7 @@ class Optimizer:
 
         if self.trailing_stop is None:
             def get_random_trailing_stop() -> Decimal:
-                return _trailing_stop_constraint.random(random).random(random)  # type: ignore
+                return _trailing_stop_constraint.random(random)  # type: ignore
 
             trailing_stop_attr = get_random_trailing_stop
         else:

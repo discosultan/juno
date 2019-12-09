@@ -50,6 +50,17 @@ class Choice(Constraint):
         return random.choice(self.choices)
 
 
+class ConstraintChoice(Constraint):
+    def __init__(self, choices: List[Constraint]) -> None:
+        self.choices = choices
+
+    def validate(self, value: Any) -> bool:
+        return any(choice.validate(value) for choice in self.choices)
+
+    def random(self, random: Random) -> Any:
+        return random.choice(self.choices).random(random)
+
+
 class Uniform(Constraint):
     def __init__(self, min_: Decimal, max_: Decimal) -> None:
         self.min = min_
