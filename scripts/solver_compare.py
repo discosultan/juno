@@ -45,7 +45,7 @@ async def main() -> None:
         logging.info('solving rust')
         rust_result = rust_solver.solve(*args)
         logging.info(rust_result.mean_position_duration)
-        
+
         logging.info('solving python')
         python_result = python_solver.solve(*args)
         logging.info(python_result.mean_position_duration)
