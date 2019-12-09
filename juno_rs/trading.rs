@@ -51,7 +51,7 @@ pub struct TradingSummary<'a> {
     fees: &'a Fees,
     filters: &'a Filters,
 
-    pub positions: Vec<Position>,
+    positions: Vec<Position>,
     first_candle: Option<&'a Candle>,
     last_candle: Option<&'a Candle>,
 
