@@ -78,6 +78,7 @@ async def main():
     data = [trace1, trace2, trace3]
     py.plot(data)
 
+    logging.info('done')
 
-logging.basicConfig(level='INFO')
+
 asyncio.run(main())

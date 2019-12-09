@@ -10,14 +10,14 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     fees: &Fees,
     filters: &Filters,
     interval: u64,
-    start: u64,
-    end: u64,
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
 ) -> BacktestResult {
     let two_interval = interval * 2;
-    let mut summary = TradingSummary::new(start, end, quote, fees, filters);
+    let mut summary = TradingSummary::new(
+        candles[0].time, candles[candles.len() - 1].time + interval, quote, fees, filters
+    );
     let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
     loop {
@@ -34,7 +34,7 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
                     restart = true;
                     ctx.strategy = strategy_factory();
                 } else if missed_candle_policy == 2 && diff >= two_interval {
-                    let num_missed = (diff / interval) - 1;
+                    let num_missed = diff / interval - 1;
                     for i in 1..=num_missed {
                         let missed_candle = Candle {
                             time: last_candle.time + i * interval,

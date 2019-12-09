@@ -103,15 +103,16 @@ class Trader:
                             restart_count += 1
                         elif self.missed_candle_policy == 'last':
                             self.log.info('replaying missed candles with last candle values')
+                            last_candle = ctx.last_candle
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
-                                    time=ctx.last_candle.time + i * self.interval,
-                                    open=ctx.last_candle.open,
-                                    high=ctx.last_candle.high,
-                                    low=ctx.last_candle.low,
-                                    close=ctx.last_candle.close,
-                                    volume=ctx.last_candle.volume,
-                                    closed=ctx.last_candle.closed
+                                    time=last_candle.time + i * self.interval,
+                                    open=last_candle.open,
+                                    high=last_candle.high,
+                                    low=last_candle.low,
+                                    close=last_candle.close,
+                                    volume=last_candle.volume,
+                                    closed=last_candle.closed
                                 )
                                 await self._tick(missed_candle)
 
@@ -175,7 +176,7 @@ class Trader:
 
             ctx.quote -= size * price
 
-        self.log.info(f'position opened at candle: {candle}')
+        self.log.info(f'position opened: {candle}')
         self.log.debug(format_attrs_as_json(ctx.open_position))
         await self.event.emit('position_opened', ctx.open_position)
 
@@ -211,6 +212,6 @@ class Trader:
 
         ctx.open_position = None
         self.summary.append_position(pos)
-        self.log.info(f'position closed at candle: {candle}')
+        self.log.info(f'position closed: {candle}')
         self.log.debug(format_attrs_as_json(pos))
         await self.event.emit('position_closed', pos)

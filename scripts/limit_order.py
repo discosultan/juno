@@ -9,7 +9,6 @@ from juno import Side
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
-from juno.logging import create_handlers
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
@@ -17,7 +16,6 @@ SIDE = Side.SELL
 EXCHANGE = 'binance'
 SYMBOL = 'eth-btc'
 BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
-LOG_LEVEL = 'INFO'
 QUOTE: Optional[Decimal] = Decimal('0.005')
 QUOTE = None
 BASE: Optional[Decimal] = Decimal('0.2')
@@ -57,8 +55,7 @@ async def main() -> None:
         logging.info(f'in case of market order total size: {market_fills.total_size}')
         logging.info(f'in case of market order total quote: {market_fills.total_quote}')
 
-    logging.info('Done!')
+    logging.info('done')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level=LOG_LEVEL)
 asyncio.run(main())

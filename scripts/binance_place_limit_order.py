@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import sys
 from decimal import Decimal
 
 from juno import OrderType, Side, TimeInForce
@@ -15,7 +14,6 @@ TEST = False
 SIDE = Side.BUY
 SYMBOL = 'ada-btc'
 CLIENT_ID = 'foo'
-LOG_LEVEL = 'DEBUG'
 
 
 async def main() -> None:
@@ -80,8 +78,7 @@ async def main() -> None:
             test=TEST
         )
         logging.info(res)
-    logging.info('Done!')
+    logging.info('done')
 
 
-logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level=LOG_LEVEL)
 asyncio.run(main())

@@ -4,7 +4,6 @@ import os
 
 from juno import exchanges
 from juno.components import Chandler, Trades
-from juno.logging import create_handlers
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import HOUR_MS, MIN_MS, time_ms
@@ -48,5 +47,4 @@ async def main():
         logging.info('all good')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='DEBUG')
 asyncio.run(main())

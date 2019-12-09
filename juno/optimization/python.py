@@ -14,21 +14,18 @@ class Python(Solver):
     def solve(
         self,
         strategy_type: Type[Strategy],
-        exchange: str,
-        symbol: str,
-        interval: int,
-        start: int,
-        end: int,
         quote: Decimal,
         candles: List[Candle],
         fees: Fees,
         filters: Filters,
+        symbol: str,
+        interval: int,
         missed_candle_policy: int,
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
         summary = TradingSummary(
-            interval=interval, start=start, quote=quote, fees=fees, filters=filters
+            interval=interval, start=candles[0].time, quote=quote, fees=fees, filters=filters
         )
         ctx = TradingContext(strategy_type(*args), quote)
         try:
@@ -50,15 +47,16 @@ class Python(Solver):
                             ctx.strategy = strategy_type(*args)
                         elif missed_candle_policy == 2:  # 'last'
                             num_missed = (candle.time - ctx.last_candle.time) // interval - 1
+                            last_candle = ctx.last_candle
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
-                                    time=ctx.last_candle.time + i * interval,
-                                    open=ctx.last_candle.open,
-                                    high=ctx.last_candle.high,
-                                    low=ctx.last_candle.low,
-                                    close=ctx.last_candle.close,
-                                    volume=ctx.last_candle.volume,
-                                    closed=ctx.last_candle.closed
+                                    time=last_candle.time + i * interval,
+                                    open=last_candle.open,
+                                    high=last_candle.high,
+                                    low=last_candle.low,
+                                    close=last_candle.close,
+                                    volume=last_candle.volume,
+                                    closed=last_candle.closed
                                 )
                                 _tick(ctx, summary, symbol, fees, filters, trailing_stop,
                                       missed_candle)

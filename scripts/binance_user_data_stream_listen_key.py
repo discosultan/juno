@@ -4,7 +4,6 @@ import os
 
 from juno import JunoException
 from juno.exchanges import Binance
-from juno.logging import create_handlers
 
 JunoException()
 
@@ -25,8 +24,7 @@ async def main() -> None:
         # except JunoException:
         #     pass
         # await client._user_data_stream._delete_listen_key(listen_key1)
-    logging.info('Done!')
+    logging.info('done')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())
