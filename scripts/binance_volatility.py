@@ -53,11 +53,10 @@ async def main():
         results = await asyncio.gather(*tasks)
 
         results = [r for r in results if not math.isnan(r[2])]
-        print(results)
+        logging.info(results)
 
         best = max(results, key=lambda v: v[2])  # By volatility.
-        print(best)
+        logging.info(best)
 
 
-logging.basicConfig(level='INFO')
 asyncio.run(main())

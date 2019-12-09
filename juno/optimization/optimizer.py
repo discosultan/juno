@@ -223,7 +223,6 @@ class Optimizer:
         def evaluate(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
                 strategy_type,
-                self.exchange,
                 self.quote,
                 candles[(ind[0], ind[1])],
                 *fees_filters[ind[0]],
@@ -265,7 +264,6 @@ class Optimizer:
         best_args = list(flatten(hall[0]))
         best_result = self.solver.solve(
             strategy_type,
-            self.exchange,
             self.quote,
             candles[(best_args[0], best_args[1])],
             *fees_filters[best_args[0]],

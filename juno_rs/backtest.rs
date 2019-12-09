@@ -34,7 +34,7 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
                     restart = true;
                     ctx.strategy = strategy_factory();
                 } else if missed_candle_policy == 2 && diff >= two_interval {
-                    let num_missed = (diff / interval) - 1;
+                    let num_missed = diff / interval - 1;
                     for i in 1..=num_missed {
                         let missed_candle = Candle {
                             time: last_candle.time + i * interval,

@@ -3,7 +3,6 @@ import logging
 import os
 
 from juno import exchanges
-from juno.logging import create_handlers
 
 EXCHANGE_TYPE = exchanges.Binance
 CLIENT_ID = 'foo'
@@ -17,8 +16,7 @@ async def main() -> None:
     ) as client:
         res = await client.cancel_order(symbol=SYMBOL, client_id=CLIENT_ID)
         logging.info(res)
-    logging.info('Done!')
+    logging.info('done')
 
 
-logging.basicConfig(handlers=create_handlers('colored', ['stdout']), level='INFO')
 asyncio.run(main())

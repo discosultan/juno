@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import sys
 from typing import List
 
 from juno import OrderType, Side
@@ -61,8 +60,7 @@ async def main() -> None:
             symbol=SYMBOL, side=SIDE, type_=OrderType.MARKET, size=size, test=TEST
         )
         logging.info(res)
-    logging.info('Done!')
+    logging.info('done')
 
 
-logging.basicConfig(handlers=[logging.StreamHandler(stream=sys.stdout)], level='INFO')
 asyncio.run(main())
