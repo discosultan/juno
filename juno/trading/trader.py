@@ -176,7 +176,7 @@ class Trader:
 
             ctx.quote -= size * price
 
-        self.log.info(f'position opened at candle: {candle}')
+        self.log.info(f'position opened: {candle}')
         self.log.debug(format_attrs_as_json(ctx.open_position))
         await self.event.emit('position_opened', ctx.open_position)
 
@@ -212,6 +212,6 @@ class Trader:
 
         ctx.open_position = None
         self.summary.append_position(pos)
-        self.log.info(f'position closed at candle: {candle}')
+        self.log.info(f'position closed: {candle}')
         self.log.debug(format_attrs_as_json(pos))
         await self.event.emit('position_closed', pos)

@@ -13,7 +13,6 @@ from deap import algorithms, base, creator, tools
 from juno import InsufficientBalance
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
-from juno.logging import disabled_log
 from juno.math import Choice, Constant, Uniform, floor_multiple
 from juno.strategies import Strategy, get_strategy_type, new_strategy
 from juno.time import strfinterval, time_ms
@@ -293,7 +292,7 @@ class Optimizer:
             end=floor_multiple(self.end, self.result.interval),
             quote=self.quote,
             new_strategy=lambda: new_strategy(self.result.strategy_config),
-            log=disabled_log,
+            log=self.log,
             missed_candle_policy=self.result.missed_candle_policy,
             trailing_stop=self.result.trailing_stop,
             adjust_start=False,
