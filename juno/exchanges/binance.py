@@ -15,6 +15,7 @@ from typing import (
 
 import aiohttp
 import backoff
+from aiolimiter import AsyncLimiter
 
 import juno.json as json
 from juno import (
@@ -25,9 +26,9 @@ from juno import (
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientSession, ClientJsonResponse, connect_refreshing_stream
-from juno.time import HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
+from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import LeakyBucket, page
+from juno.utils import page
 
 from .exchange import Exchange
 
@@ -55,10 +56,11 @@ class Binance(Exchange):
         self._session = ClientSession(raise_for_status=False)
 
         # Rate limiters.
-        self._reqs_per_min_limiter = LeakyBucket(rate=1200, period=60)  # 1200 / min.
-        self._raw_reqs_limiter = LeakyBucket(rate=5000, period=300)  # 5000 raw reqs / 5 min.
-        self._orders_per_sec_limiter = LeakyBucket(rate=10, period=1)  # 10 / sec.
-        self._orders_per_day_limiter = LeakyBucket(rate=100_000, period=86_400)  # 100 000 / day.
+        x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
+        self._reqs_per_min_limiter = AsyncLimiter(max_rate=1200 * x, time_period=60)
+        self._raw_reqs_limiter = AsyncLimiter(max_rate=5000 * x, time_period=300)
+        self._orders_per_sec_limiter = AsyncLimiter(max_rate=10 * x, time_period=1)
+        self._orders_per_day_limiter = AsyncLimiter(max_rate=100_000 * x, time_period=DAY_SEC)
 
         self._clock = Clock(self)
         self._user_data_stream = UserDataStream(self)
