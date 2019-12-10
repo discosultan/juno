@@ -13,7 +13,7 @@ from deap import algorithms, base, creator, tools
 from juno import InsufficientBalance
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
-from juno.math import Choice, ConstraintChoice, Constant, Uniform, floor_multiple
+from juno.math import Choice, Constraint, ConstraintChoice, Constant, Uniform, floor_multiple
 from juno.strategies import Strategy, get_strategy_type, new_strategy
 from juno.time import strfinterval, time_ms
 from juno.trading import Trader
@@ -138,66 +138,17 @@ class Optimizer:
         toolbox = base.Toolbox()
 
         # Initialization.
-        if len(symbols) > 1:
-            symbol_constraint = Choice(symbols)
-
-            def get_random_symbol() -> str:
-                return symbol_constraint.random(random)  # type: ignore
-
-            symbol_attr = get_random_symbol
-        else:
-            symbol = symbols[0]
-
-            def get_symbol() -> str:
-                return symbol
-
-            symbol_attr = get_symbol
-
-        if len(intervals) > 1:
-            interval_constraint = Choice(intervals)
-
-            def get_random_interval() -> int:
-                return interval_constraint.random(random)  # type: ignore
-
-            interval_attr = get_random_interval
-        else:
-            interval = intervals[0]
-
-            def get_interval() -> int:
-                return interval
-
-            interval_attr = get_interval
-
-        if self.missed_candle_policy is None:
-            def get_random_missed_candle_policy() -> int:
-                return _missed_candle_policy_constraint.random(random)  # type: ignore
-
-            missed_candle_policy_attr = get_random_missed_candle_policy
-        else:
-            missed_candle_policy = _MISSED_CANDLE_POLICY_MAP[self.missed_candle_policy]
-
-            def get_missed_candle_policy() -> int:
-                return missed_candle_policy
-
-            missed_candle_policy_attr = get_missed_candle_policy
-
-        if self.trailing_stop is None:
-            def get_random_trailing_stop() -> Decimal:
-                return _trailing_stop_constraint.random(random)  # type: ignore
-
-            trailing_stop_attr = get_random_trailing_stop
-        else:
-            def get_trailing_stop() -> Decimal:
-                return self.trailing_stop  # type: ignore
-
-            trailing_stop_attr = get_trailing_stop
-
         attrs = [
-            symbol_attr,
-            interval_attr,
-            missed_candle_policy_attr,
-            trailing_stop_attr,
-        ] + [partial(c.random, random) for c in strategy_type.meta.constraints.values()]
+            _build_attr(symbols, Choice(symbols), random),
+            _build_attr(intervals, Choice(intervals), random),
+            _build_attr(
+                self.missed_candle_policy and _MISSED_CANDLE_POLICY_MAP[self.missed_candle_policy],
+                _missed_candle_policy_constraint,
+                random
+            ),
+            _build_attr(self.trailing_stop, _trailing_stop_constraint, random),
+            *(partial(c.random, random) for c in strategy_type.meta.constraints.values())
+        ]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
             'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
@@ -307,6 +258,19 @@ class Optimizer:
                 f'{solver_name} solver:\n{format_attrs_as_json(validation_result)}'
                 f'\n{format_attrs_as_json(best_result)}'
             )
+
+
+def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:
+    if target is None or isinstance(target, list) and len(target) > 1:
+        def get_random() -> Any:
+            return constraint.random(random)  # type: ignore
+        return get_random
+    else:
+        value = target[0] if isinstance(target, list) else target
+
+        def get_constant() -> Any:
+            return value
+        return get_constant
 
 
 class OptimizationResult(NamedTuple):
