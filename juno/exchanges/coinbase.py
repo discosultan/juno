@@ -12,6 +12,7 @@ from decimal import Decimal
 from time import time
 from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 
+from aiolimiter import AsyncLimiter
 from dateutil.tz import UTC
 
 import juno.json as json
@@ -25,7 +26,7 @@ from juno.http import ClientSession
 from juno.math import floor_multiple
 from juno.time import datetime_timestamp_ms, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import LeakyBucket, page
+from juno.utils import page
 
 from .exchange import Exchange
 
@@ -47,8 +48,9 @@ class Coinbase(Exchange):
 
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
-        self._pub_limiter = LeakyBucket(rate=1, period=1)  # They advertise 3 per sec.
-        self._priv_limiter = LeakyBucket(rate=5, period=1)  # They advertise 5 per sec.
+        x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
+        self._pub_limiter = AsyncLimiter(max_rate=3 * x, time_period=1)
+        self._priv_limiter = AsyncLimiter(max_rate=5 * x, time_period=1)
 
         # Stream.
         self._stream_task: Optional[asyncio.Task] = None

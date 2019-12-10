@@ -8,7 +8,6 @@ from collections import MutableMapping, MutableSequence, defaultdict
 from copy import deepcopy
 from os import path
 from pathlib import Path
-from time import time
 from types import ModuleType
 # TODO: Fix in 3.8.1
 from typing import (  # type: ignore
@@ -262,53 +261,6 @@ class EventEmitter:
         return await asyncio.gather(
             *(x(*args) for x in self._handlers[event]), return_exceptions=True
         )
-
-
-# Implements a leaky bucket algorithm. Useful for rate limiting API calls.
-# Implementation taken from: https://stackoverflow.com/a/45502319/1466456
-class LeakyBucket:
-    """A leaky bucket rate limiter.
-
-    Allows up to rate / period acquisitions before blocking.
-
-    Period is measured in seconds.
-    """
-    def __init__(self, rate: float, period: float) -> None:
-        self._max_level = rate
-        self._rate_per_sec = rate / period
-        self._level = 0.0
-        self._last_check = 0.0
-
-    def _leak(self) -> None:
-        """Drip out capacity from the bucket."""
-        now = time()
-        if self._level:
-            # Drip out enough level for the elapsed time since we last checked.
-            elapsed = now - self._last_check
-            decrement = elapsed * self._rate_per_sec
-            self._level = max(self._level - decrement, 0.0)
-        self._last_check = now
-
-    def has_capacity(self, amount: float = 1.0) -> bool:
-        """Check if there is enough space remaining in the bucket."""
-        self._leak()
-        return self._level + amount <= self._max_level
-
-    async def acquire(self, amount: float = 1.0) -> None:
-        """Acquire space in the bucket.
-
-        If the bucket is full, block until there is space.
-        """
-        if amount > self._max_level:
-            raise ValueError("Can't acquire more than the bucket capacity")
-
-        while not self.has_capacity(amount):
-            # Wait for the next drip to have left the bucket.
-            sleep_time = 1.0 / self._rate_per_sec
-            _log.info(f'rate limiter reached; sleeping for {sleep_time}s')
-            await asyncio.sleep(sleep_time)
-
-        self._level += amount
 
 
 class Persistence:
