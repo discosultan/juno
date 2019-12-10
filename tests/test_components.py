@@ -173,7 +173,7 @@ async def test_stream_candles_on_ws_disconnect(storage):
     )
 
     stream_candles_task = asyncio.create_task(
-        cancelable(list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 5)))
+        list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 5))
     )
     await exchange.candle_queue.join()
     exchange.historical_candles = [
@@ -186,6 +186,7 @@ async def test_stream_candles_on_ws_disconnect(storage):
         Candle(time=4),
         Candle(time=5),
     ]
+    time.time = 3
     stream_candles_task.get_coro().throw(JunoException())
     result = await stream_candles_task
 

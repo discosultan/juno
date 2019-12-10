@@ -108,7 +108,7 @@ class Chandler:
                         batch_start = batch_end
                         del swap_batch[:]
                 yield candle
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, JunoException):
             if len(batch) > 0:
                 await self._storage.store_time_series_and_span(
                     key=storage_key,
@@ -117,6 +117,7 @@ class Chandler:
                     start=batch_start,
                     end=batch[-1].time + interval,
                 )
+            raise
         else:
             current = floor_multiple(self._get_time(), interval)
             await self._storage.store_time_series_and_span(
