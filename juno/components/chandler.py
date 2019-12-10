@@ -79,6 +79,7 @@ class Chandler:
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         batch = []
+        swap_batch: List[Candle] = []
         batch_start = start
         current = floor_multiple(self._get_time(), interval)
         storage_key = (exchange, symbol, interval)
@@ -96,15 +97,16 @@ class Chandler:
                     batch.append(candle)
                     if len(batch) == self._storage_batch_size:
                         batch_end = batch[-1].time + interval
+                        batch, swap_batch = swap_batch, batch
                         await self._storage.store_time_series_and_span(
                             key=storage_key,
                             type=Candle,
-                            items=batch,
+                            items=swap_batch,
                             start=batch_start,
                             end=batch_end,
                         )
                         batch_start = batch_end
-                        del batch[:]
+                        del swap_batch[:]
                 yield candle
         except asyncio.CancelledError:
             if len(batch) > 0:

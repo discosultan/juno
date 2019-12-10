@@ -4,18 +4,17 @@ from decimal import Decimal
 import pytest
 
 from juno import Balance, Candle, DepthSnapshot, Fees, ExchangeInfo, Trade
-from juno.asyncio import cancelable, list_async
+from juno.asyncio import cancel, cancelable, list_async
 from juno.components import Chandler, Informant, Orderbook, Trades, Wallet
 from juno.filters import Filters, Price, Size
-from juno.storages import Memory
 
 from . import fakes
 
 
 @pytest.fixture
-async def memory(loop):
-    async with Memory() as memory:
-        yield memory
+async def storage(loop):
+    async with fakes.Storage() as storage:
+        yield storage
 
 
 @pytest.mark.parametrize(
@@ -29,7 +28,7 @@ async def memory(loop):
         [5, 6, False, 5, 6, [(5, 6)]],  # Only future candle.
     ]
 )
-async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
+async def test_stream_candles(storage, start, end, closed, efrom, eto, espans):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     INTERVAL = 1
@@ -54,10 +53,10 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
         historical_candles=historical_candles,
         future_candles=future_candles,
     )
-    trades = Trades(storage=memory, exchanges=[exchange])
+    trades = Trades(storage=storage, exchanges=[exchange])
     chandler = Chandler(
         trades=trades,
-        storage=memory,
+        storage=storage,
         exchanges=[exchange],
         get_time=time.get_time,
         storage_batch_size=STORAGE_BATCH_SIZE
@@ -68,8 +67,8 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     )
     storage_key = (EXCHANGE, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
-        list_async(memory.stream_time_series_spans(storage_key, Candle, start, end)),
-        list_async(memory.stream_time_series(storage_key, Candle, start, end)),
+        list_async(storage.stream_time_series_spans(storage_key, Candle, start, end)),
+        list_async(storage.stream_time_series(storage_key, Candle, start, end)),
     )
 
     assert output_candles == expected_candles
@@ -77,7 +76,7 @@ async def test_stream_candles(memory, start, end, closed, efrom, eto, espans):
     assert stored_spans == espans
 
 
-async def test_stream_future_candles_span_stored_until_stopped(memory):
+async def test_stream_future_candles_span_stored_until_stopped(storage):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     INTERVAL = 1
@@ -86,11 +85,11 @@ async def test_stream_future_candles_span_stored_until_stopped(memory):
     END = 10
     candles = [Candle(time=1)]
     exchange = fakes.Exchange(future_candles=candles)
-    trades = Trades(storage=memory, exchanges=[exchange])
+    trades = Trades(storage=storage, exchanges=[exchange])
     time = fakes.Time(START)
     chandler = Chandler(
         trades=trades,
-        storage=memory,
+        storage=storage,
         exchanges=[exchange],
         get_time=time.get_time,
     )
@@ -100,20 +99,19 @@ async def test_stream_future_candles_span_stored_until_stopped(memory):
     ))
     await exchange.candle_queue.join()
     time.time = CANCEL_AT
-    task.cancel()
-    await task
+    await cancel(task)
 
     storage_key = (EXCHANGE, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
-        list_async(memory.stream_time_series_spans(storage_key, Candle, START, END)),
-        list_async(memory.stream_time_series(storage_key, Candle, START, END)),
+        list_async(storage.stream_time_series_spans(storage_key, Candle, START, END)),
+        list_async(storage.stream_time_series(storage_key, Candle, START, END)),
     )
 
     assert stored_candles == candles
     assert stored_spans == [(START, candles[-1].time + INTERVAL)]
 
 
-async def test_stream_candles_construct_from_trades(memory):
+async def test_stream_candles_construct_from_trades(storage):
     exchange = fakes.Exchange()
     exchange.can_stream_historical_candles = False
     exchange.can_stream_candles = False
@@ -125,7 +123,7 @@ async def test_stream_candles_construct_from_trades(memory):
     ])
     chandler = Chandler(
         trades=trades,
-        storage=memory,
+        storage=storage,
         exchanges=[exchange],
     )
 
@@ -144,29 +142,27 @@ async def test_stream_candles_construct_from_trades(memory):
     ]
 
 
-async def test_stream_candles_cancel_does_not_store_twice(memory):
+async def test_stream_candles_cancel_does_not_store_twice(storage):
     candles = [Candle(time=1)]
     exchange = fakes.Exchange(historical_candles=candles)
     chandler = Chandler(
-        trades=fakes.Trades(), storage=memory, exchanges=[exchange], storage_batch_size=1
+        trades=fakes.Trades(), storage=storage, exchanges=[exchange], storage_batch_size=1
     )
 
     stream_candles_task = asyncio.create_task(
         cancelable(list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 2)))
     )
 
-    await asyncio.sleep(0)
-    # await stream_candles_task
-    stream_candles_task.cancel()
-    await stream_candles_task
+    await storage.stored_time_series_and_span.wait()
+    await cancel(stream_candles_task)
 
     stored_candles = await list_async(
-        memory.stream_time_series(('exchange', 'eth-btc', 1), Candle, 0, 2)
+        storage.stream_time_series(('exchange', 'eth-btc', 1), Candle, 0, 2)
     )
     assert stored_candles == candles
 
 
-async def test_stream_future_trades_span_stored_until_stopped(memory):
+async def test_stream_future_trades_span_stored_until_stopped(storage):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     START = 0
@@ -175,20 +171,19 @@ async def test_stream_future_trades_span_stored_until_stopped(memory):
     trades = [Trade(time=1)]
     exchange = fakes.Exchange(future_trades=trades)
     time = fakes.Time(START)
-    trades_component = Trades(storage=memory, exchanges=[exchange], get_time=time.get_time)
+    trades_component = Trades(storage=storage, exchanges=[exchange], get_time=time.get_time)
 
     task = asyncio.create_task(cancelable(
         list_async(trades_component.stream_trades(EXCHANGE, SYMBOL, START, END))
     ))
     await exchange.trade_queue.join()
     time.time = CANCEL_AT
-    task.cancel()
-    await task
+    await cancel(task)
 
     storage_key = (EXCHANGE, SYMBOL)
     stored_spans, stored_trades = await asyncio.gather(
-        list_async(memory.stream_time_series_spans(storage_key, Trade, START, END)),
-        list_async(memory.stream_time_series(storage_key, Trade, START, END)),
+        list_async(storage.stream_time_series_spans(storage_key, Trade, START, END)),
+        list_async(storage.stream_time_series(storage_key, Trade, START, END)),
     )
 
     assert stored_trades == trades
@@ -204,7 +199,7 @@ async def test_stream_future_trades_span_stored_until_stopped(memory):
         [0, 4, 0, 2, [(0, 4)]],  # Middle trades with cap at the end.
     ]
 )
-async def test_stream_trades(memory, start, end, efrom, eto, espans):
+async def test_stream_trades(storage, start, end, efrom, eto, espans):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     CURRENT = 6
@@ -226,7 +221,7 @@ async def test_stream_trades(memory, start, end, efrom, eto, espans):
         future_trades=future_trades,
     )
     trades = Trades(
-        storage=memory,
+        storage=storage,
         exchanges=[exchange],
         get_time=time.get_time,
         storage_batch_size=STORAGE_BATCH_SIZE
@@ -235,8 +230,8 @@ async def test_stream_trades(memory, start, end, efrom, eto, espans):
     output_trades = await list_async(trades.stream_trades(EXCHANGE, SYMBOL, start, end))
     storage_key = (EXCHANGE, SYMBOL)
     stored_spans, stored_trades = await asyncio.gather(
-        list_async(memory.stream_time_series_spans(storage_key, Trade, start, end)),
-        list_async(memory.stream_time_series(storage_key, Trade, start, end)),
+        list_async(storage.stream_time_series_spans(storage_key, Trade, start, end)),
+        list_async(storage.stream_time_series(storage_key, Trade, start, end)),
     )
 
     assert output_trades == expected_trades
@@ -245,7 +240,7 @@ async def test_stream_trades(memory, start, end, efrom, eto, espans):
 
 
 @pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])
-async def test_get_fees_filters(memory, exchange_key):
+async def test_get_fees_filters(storage, exchange_key):
     fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
     filters = Filters(
         price=Price(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0')),
@@ -255,26 +250,26 @@ async def test_get_fees_filters(memory, exchange_key):
         exchange_info=ExchangeInfo(fees={exchange_key: fees}, filters={exchange_key: filters})
     )
 
-    async with Informant(storage=memory, exchanges=[exchange]) as informant:
+    async with Informant(storage=storage, exchanges=[exchange]) as informant:
         out_fees, out_filters = informant.get_fees_filters('exchange', 'eth-btc')
 
         assert out_fees == fees
         assert out_filters == filters
 
 
-async def test_list_symbols(memory):
+async def test_list_symbols(storage):
     symbols = ['eth-btc', 'ltc-btc']
     exchange = fakes.Exchange(
         exchange_info=ExchangeInfo(fees=Fees(), filters={s: Filters() for s in symbols})
     )
 
-    async with Informant(storage=memory, exchanges=[exchange]) as informant:
+    async with Informant(storage=storage, exchanges=[exchange]) as informant:
         out_symbols = informant.list_symbols('exchange')
 
     assert out_symbols == symbols
 
 
-async def test_list_asks_bids(memory):
+async def test_list_asks_bids(storage):
     snapshot = DepthSnapshot(
         asks=[
             (Decimal('1.0'), Decimal('1.0')),
