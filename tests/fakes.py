@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from juno import (
     CancelOrderResult, CancelOrderStatus, Fees, Filters, OrderResult, OrderStatus, Side,
-    ExchangeInfo, brokers, components, exchanges
+    ExchangeInfo, brokers, components, exchanges, storages
 )
 
 
@@ -216,3 +216,14 @@ class Time:
         time = self.time
         self.time += 1
         return time
+
+
+class Storage(storages.Memory):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stored_time_series_and_span = asyncio.Event()
+
+    async def store_time_series_and_span(self, *args, **kwargs):
+        await super().store_time_series_and_span(*args, **kwargs)
+        self.stored_time_series_and_span.set()
+        await asyncio.sleep(0)

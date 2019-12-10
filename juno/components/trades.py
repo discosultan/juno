@@ -66,8 +66,8 @@ class Trades:
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
-        add_back: List[Trade] = []
         batch = []
+        swap_batch: List[Trade] = []
         batch_start = start
         current = self._get_time()
         storage_key = (exchange, symbol)
@@ -81,27 +81,26 @@ class Trades:
                 # because multiple trades can happen at the same time. We need our time span to be
                 # correct.
                 if len(batch) == self._storage_batch_size + 1:
-                    del add_back[:]
                     last = batch[-1]
 
                     for i in range(len(batch) - 1, -1, -1):
                         if batch[i].time != last.time:
                             break
-                        add_back.append(batch[i])  # Note we are adding in reverse direction.
+                        swap_batch.insert(0, batch[i])  # Note that we are inserting in front.
                         del batch[i]
 
                     batch_end = batch[-1].time + 1
+                    batch, swap_batch = swap_batch, batch
                     await self._storage.store_time_series_and_span(
                         key=storage_key,
                         type=Trade,
-                        items=batch,
+                        items=swap_batch,
                         start=batch_start,
                         end=batch_end,
                     )
 
                     batch_start = batch_end
-                    del batch[:]
-                    batch.extend(add_back)
+                    del swap_batch[:]
                 yield trade
         except asyncio.CancelledError:
             if len(batch) > 0:
