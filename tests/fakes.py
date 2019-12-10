@@ -133,7 +133,7 @@ class Exchange(exchanges.Exchange):
 
 
 class Chandler:
-    def __init__(self, candles):
+    def __init__(self, candles=[]):
         self.candles = candles
 
     async def stream_candles(self, exchange, symbol, interval, start, end):
@@ -142,7 +142,7 @@ class Chandler:
 
 
 class Trades:
-    def __init__(self, trades):
+    def __init__(self, trades=[]):
         self.trades = trades
 
     async def stream_trades(self, exchange, symbol, start, end):
