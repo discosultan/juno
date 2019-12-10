@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, Candle, DepthSnapshot, Fees, ExchangeInfo, Trade
+from juno import Balance, Candle, DepthSnapshot, Fees, ExchangeInfo, JunoException, Trade
 from juno.asyncio import cancel, cancelable, list_async
 from juno.components import Chandler, Informant, Orderbook, Trades, Wallet
 from juno.filters import Filters, Price, Size
@@ -160,6 +160,38 @@ async def test_stream_candles_cancel_does_not_store_twice(storage):
         storage.stream_time_series(('exchange', 'eth-btc', 1), Candle, 0, 2)
     )
     assert stored_candles == candles
+
+
+async def test_stream_candles_on_ws_disconnect(storage):
+    time = fakes.Time(0)
+    exchange = fakes.Exchange(future_candles=[
+        Candle(time=0),
+        Candle(time=1),
+    ])
+    chandler = Chandler(
+        trades=fakes.Trades(), storage=storage, exchanges=[exchange], get_time=time.get_time
+    )
+
+    stream_candles_task = asyncio.create_task(
+        cancelable(list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 5)))
+    )
+    await exchange.candle_queue.join()
+    exchange.historical_candles = [
+        Candle(time=0),
+        Candle(time=1),
+        Candle(time=2),
+    ]
+    exchange.future_candles = [
+        Candle(time=3),
+        Candle(time=4),
+        Candle(time=5),
+    ]
+    stream_candles_task.get_coro().throw(JunoException())
+    result = await stream_candles_task
+
+    assert len(result) == 5
+    for i, candle in enumerate(result):
+        assert candle.time == i
 
 
 async def test_stream_future_trades_span_stored_until_stopped(storage):
