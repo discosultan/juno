@@ -144,6 +144,28 @@ async def test_stream_candles_construct_from_trades(memory):
     ]
 
 
+async def test_stream_candles_cancel_does_not_store_twice(memory):
+    candles = [Candle(time=1)]
+    exchange = fakes.Exchange(historical_candles=candles)
+    chandler = Chandler(
+        trades=fakes.Trades(), storage=memory, exchanges=[exchange], storage_batch_size=1
+    )
+
+    stream_candles_task = asyncio.create_task(
+        cancelable(list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 2)))
+    )
+
+    await asyncio.sleep(0)
+    # await stream_candles_task
+    stream_candles_task.cancel()
+    await stream_candles_task
+
+    stored_candles = await list_async(
+        memory.stream_time_series(('exchange', 'eth-btc', 1), Candle, 0, 2)
+    )
+    assert stored_candles == candles
+
+
 async def test_stream_future_trades_span_stored_until_stopped(memory):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
