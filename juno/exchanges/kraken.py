@@ -214,7 +214,7 @@ class Kraken(Exchange):
             for trade in trades:
                 time = _from_time(trade[2])
                 if time >= end:
-                    break
+                    return
                 yield Trade(
                     time=time,
                     price=Decimal(trade[0]),
