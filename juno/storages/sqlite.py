@@ -59,6 +59,7 @@ class SQLite(Storage):
     def __init__(self, version: Optional[str] = None) -> None:
         self._version = version if version is not None else _VERSION
         self._tables: Dict[Any, Set[str]] = defaultdict(set)
+        _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {_VERSION}')
 
     async def stream_time_series_spans(self, key: Key, type: Type[T], start: int,
                                        end: int) -> AsyncIterable[Tuple[int, int]]:
