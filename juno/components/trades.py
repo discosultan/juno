@@ -34,7 +34,7 @@ class Trades:
         """Tries to stream trades for the specified range from local storage. If trades don't
         exist, streams them from an exchange and stores to local storage."""
         storage_key = (exchange, symbol)
-        trade_msg = f'{symbol} trades'
+        trade_msg = f'{exchange} {symbol} trades'
 
         _log.info(f'checking for existing {trade_msg} in local storage')
         existing_spans = await list_async(

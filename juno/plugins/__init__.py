@@ -18,5 +18,5 @@ def list_plugins(agent_config_map: Dict[Agent, Dict[str, Any]],
             activation_fn = getattr(plugin_module, 'activate')
             if not activation_fn:
                 raise ValueError(f'Plugin {name} is missing "activate" function')
-            plugins.append(activation_fn(agent, config[name]))
+            plugins.append(activation_fn(agent, config.get(name, {})))
     return plugins

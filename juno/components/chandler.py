@@ -44,7 +44,7 @@ class Chandler:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
         storage_key = (exchange, symbol, interval)
-        candle_msg = f'{symbol} {strfinterval(interval)} candles'
+        candle_msg = f'{exchange} {symbol} {strfinterval(interval)} candles'
 
         _log.info(f'checking for existing {candle_msg} in local storage')
         existing_spans = await list_async(
