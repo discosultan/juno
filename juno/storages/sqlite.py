@@ -300,6 +300,9 @@ def _load_type_from_string(type_: Type[Any], value: Any) -> Any:
             sub = value[index]  # type: ignore
             for dk, dv in enumerate(sub):
                 sub[dk] = _load_type_from_string(sub_type, dv)
+        elif issubclass(type_, list):
+            # TODO: Figure out how to get_args of class inheriting from List[T]
+            raise NotImplementedError()
         elif _isnamedtuple(attr_type):
             # Materialize it.
             value[index] = _load_type_from_string(attr_type, value[index])  # type: ignore
