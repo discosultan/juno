@@ -74,7 +74,7 @@ class Informant:
     ) -> None:
         period = DAY_MS
         _log.info(
-            f'starting periodic sync of {type_} for {", ".join(self._exchanges.keys())} '
+            f'starting periodic sync of {type_.__name__} for {", ".join(self._exchanges.keys())} '
             f'every {strfinterval(period)}'
         )
         while True:
@@ -92,16 +92,18 @@ class Informant:
         now = time_ms()
         data, updated = await self._storage.get(exchange, type_)
         if not data or not updated:
-            _log.info(f'local {exchange} {type_} missing; updating by fetching from exchange')
+            _log.info(
+                f'local {exchange} {type_.__name__} missing; updating by fetching from exchange'
+            )
             data = await self._fetch_from_exchange(exchange, type_, fetch)
         elif now >= updated + DAY_MS:
             _log.info(
-                f'local {exchange} {type_} out-of-date; updating by fetching from '
+                f'local {exchange} {type_.__name__} out-of-date; updating by fetching from '
                 'exchange'
             )
             data = await self._fetch_from_exchange(exchange, type_, fetch)
         else:
-            _log.info(f'updating {exchange} {type_} by fetching from storage')
+            _log.info(f'updating {exchange} {type_.__name__} by fetching from storage')
         self._synced_data[exchange][type_] = data
 
     async def _fetch_from_exchange(
