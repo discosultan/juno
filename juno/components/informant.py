@@ -37,6 +37,7 @@ class Informant:
                 ExchangeInfo, exchange_info_synced_evt, lambda e: e.get_exchange_info()
             ))
         )
+        # TODO: Do we want to always kick this sync off? Maybe extract to a different component.
         self._tickers_sync_task = asyncio.create_task(
             cancelable(self._sync_for_all_exchanges(
                 Tickers, tickers_synced_evt, lambda e: e.list_24hr_tickers()
