@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from juno import (
-    DepthSnapshot, DepthUpdate, Fees, InsufficientBalance, OrderResult, OrderStatus, OrderUpdate,
-    ExchangeInfo
+    DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Fill, InsufficientBalance, OrderResult,
+    OrderStatus, OrderUpdate
 )
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook
@@ -292,9 +292,9 @@ async def test_limit_partial_fill_adjust_fill():
         )
         result = await asyncio.wait_for(task, timeout=1)
         assert result.status is OrderStatus.FILLED
-        assert result.fills.total_quote == 2
-        assert result.fills.total_size == Decimal('1.5')
-        assert result.fills.total_fee == Decimal('0.15')
+        assert Fill.total_quote(result.fills) == 2
+        assert Fill.total_size(result.fills) == Decimal('1.5')
+        assert Fill.total_fee(result.fills) == Decimal('0.15')
         assert len(exchange.place_order_calls) == 2
         assert exchange.place_order_calls[0]['price'] == 1
         assert exchange.place_order_calls[0]['size'] == 2

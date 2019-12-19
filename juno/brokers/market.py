@@ -79,10 +79,10 @@ class Market(Broker):
             _log.info(f'skipping {order_log} placement; size zero')
             raise InsufficientBalance()
 
-        _log.info(f'placing {order_log} of size {Fill.total_size(fills)}')
+        size = Fill.total_size(fills)
+        _log.info(f'placing {order_log} of size {size}')
         res = await self._exchanges[exchange].place_order(
-            symbol=symbol, side=side, type_=OrderType.MARKET, size=Fill.total_size(fills),
-            test=test
+            symbol=symbol, side=side, type_=OrderType.MARKET, size=size, test=test
         )
         if test:
             res = OrderResult(status=OrderStatus.FILLED, fills=fills)

@@ -5,7 +5,7 @@ import sys
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Side
+from juno import Fill, Side
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
@@ -50,10 +50,10 @@ async def main() -> None:
 
         logging.info(res)
         logging.info(f'{SIDE} {SYMBOL}')
-        logging.info(f'total size: {res.fills.total_size}')
-        logging.info(f'total quote: {res.fills.total_quote}')
-        logging.info(f'in case of market order total size: {market_fills.total_size}')
-        logging.info(f'in case of market order total quote: {market_fills.total_quote}')
+        logging.info(f'total size: {Fill.total_size(res.fills)}')
+        logging.info(f'total quote: {Fill.total_quote(res.fills)}')
+        logging.info(f'in case of market order total size: {Fill.total_size(market_fills)}')
+        logging.info(f'in case of market order total quote: {Fill.total_quote(market_fills)}')
 
     logging.info('done')
 
