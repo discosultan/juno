@@ -20,8 +20,8 @@ from aiolimiter import AsyncLimiter
 import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
-    Fills, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, ExchangeInfo,
-    Ticker, TimeInForce, Trade
+    JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, ExchangeInfo, Ticker,
+    TimeInForce, Trade
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -273,14 +273,14 @@ class Binance(Exchange):
             return OrderResult.not_placed()
         return OrderResult(
             status=_from_order_status(res.data['status']),
-            fills=Fills([
+            fills=[
                 Fill(
                     price=Decimal(f['price']),
                     size=Decimal(f['qty']),
                     fee=Decimal(f['commission']),
                     fee_asset=f['commissionAsset'].lower()
                 ) for f in res.data['fills']
-            ])
+            ]
         )
 
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:

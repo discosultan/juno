@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import List
 
-from juno import Fill, Fills, InsufficientBalance, OrderResult, OrderStatus, OrderType, Side
+from juno import Fill, InsufficientBalance, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -33,8 +33,8 @@ class Market(Broker):
             exchange=exchange, symbol=symbol, side=Side.SELL, fills=fills, test=test
         )
 
-    def find_order_asks(self, exchange: str, symbol: str, quote: Decimal) -> Fills:
-        result = Fills()
+    def find_order_asks(self, exchange: str, symbol: str, quote: Decimal) -> List[Fill]:
+        result = []
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         for aprice, asize in self._orderbook.list_asks(exchange, symbol):
             aquote = aprice * asize
@@ -52,8 +52,8 @@ class Market(Broker):
                 quote -= aquote
         return result
 
-    def find_order_bids(self, exchange: str, symbol: str, base: Decimal) -> Fills:
-        result = Fills()
+    def find_order_bids(self, exchange: str, symbol: str, base: Decimal) -> List[Fill]:
+        result = []
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         for bprice, bsize in self._orderbook.list_bids(exchange, symbol):
             base_asset, quote_asset = unpack_symbol(symbol)
@@ -71,17 +71,18 @@ class Market(Broker):
         return result
 
     async def _fill(
-        self, exchange: str, symbol: str, side: Side, fills: Fills, test: bool
+        self, exchange: str, symbol: str, side: Side, fills: List[Fill], test: bool
     ) -> OrderResult:
         order_log = f'{"test " if test else ""}market {side} order'
 
-        if fills.total_size == 0:
+        if Fill.total_size(fills) == 0:
             _log.info(f'skipping {order_log} placement; size zero')
             raise InsufficientBalance()
 
-        _log.info(f'placing {order_log} of size {fills.total_size}')
+        _log.info(f'placing {order_log} of size {Fill.total_size(fills)}')
         res = await self._exchanges[exchange].place_order(
-            symbol=symbol, side=side, type_=OrderType.MARKET, size=fills.total_size, test=test
+            symbol=symbol, side=side, type_=OrderType.MARKET, size=Fill.total_size(fills),
+            test=test
         )
         if test:
             res = OrderResult(status=OrderStatus.FILLED, fills=fills)

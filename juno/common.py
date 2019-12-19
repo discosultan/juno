@@ -82,33 +82,31 @@ class Fill(NamedTuple):
     fee: Decimal = Decimal('0.0')
     fee_asset: str = 'btc'
 
+    @staticmethod
+    def total_size(fills: List[Fill]) -> Decimal:
+        return sum((f.size for f in fills), Decimal('0.0'))
 
-class Fills(List[Fill]):
-    @property
-    def total_size(self) -> Decimal:
-        return sum((f.size for f in self), Decimal('0.0'))
+    @staticmethod
+    def total_quote(fills: List[Fill]) -> Decimal:
+        return sum((f.size * f.price for f in fills), Decimal('0.0'))
 
-    @property
-    def total_quote(self) -> Decimal:
-        return sum((f.size * f.price for f in self), Decimal('0.0'))
-
-    @property
-    def total_fee(self) -> Decimal:
+    @staticmethod
+    def total_fee(fills: List[Fill]) -> Decimal:
         # Note that we may easily have different fee assets per order when utility tokens such as
         # BNB are used.
-        if len({f.fee_asset for f in self}) > 1:
+        if len({f.fee_asset for f in fills}) > 1:
             raise NotImplementedError('implement support for different fee assets')
 
-        return sum((f.fee for f in self), Decimal('0.0'))
+        return sum((f.fee for f in fills), Decimal('0.0'))
 
 
 class OrderResult(NamedTuple):
     status: OrderStatus
-    fills: Fills = Fills()
+    fills: List[Fill] = []
 
     @staticmethod
     def not_placed() -> OrderResult:
-        return OrderResult(status=OrderStatus.NOT_PLACED, fills=Fills())
+        return OrderResult(status=OrderStatus.NOT_PLACED, fills=[])
 
 
 class OrderStatus(Enum):

@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from juno import (
-    DepthSnapshot, DepthUpdate, Fees, Fills, InsufficientBalance, OrderResult, OrderStatus,
-    OrderUpdate, ExchangeInfo
+    DepthSnapshot, DepthUpdate, Fees, InsufficientBalance, OrderResult, OrderStatus, OrderUpdate,
+    ExchangeInfo
 )
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook
@@ -180,7 +180,7 @@ async def test_limit_fill_partially():
         fakes.Exchange(
             depth=snapshot,
             exchange_info=exchange_info,
-            place_order_result=OrderResult(status=OrderStatus.NEW, fills=Fills()),
+            place_order_result=OrderResult(status=OrderStatus.NEW, fills=[]),
             future_orders=[
                 OrderUpdate(
                     symbol='eth-btc',

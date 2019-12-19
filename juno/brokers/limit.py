@@ -6,8 +6,8 @@ from decimal import Decimal
 from typing import AsyncIterable, Callable, List
 
 from juno import (
-    CancelOrderStatus, Fill, Fills, InsufficientBalance, OrderResult, OrderStatus, OrderType,
-    OrderUpdate, Side, TimeInForce
+    CancelOrderStatus, Fill, InsufficientBalance, OrderResult, OrderStatus, OrderType, OrderUpdate,
+    Side, TimeInForce
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.components import Informant, Orderbook
@@ -47,11 +47,14 @@ class Limit(Broker):
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         # TODO: Our rounding still seems incorrect. Binance is always rounding up? Not half up??
-        expected_fee = round_half_up(res.fills.total_size * fees.maker, filters.base_precision)
-        if res.fills.total_fee != expected_fee:
+        expected_fee = round_half_up(
+            Fill.total_size(res.fills) * fees.maker, filters.base_precision
+        )
+        if Fill.total_fee(res.fills) != expected_fee:
             _log.warning(
-                f'{res.fills.total_fee=} != {expected_fee=} ({res.fills.total_size=}, '
-                f'{fees.maker=}, {filters.base_precision=})'
+                f'total_fee={Fill.total_fee(res.fills)} != {expected_fee=} '
+                f'(total_size={Fill.total_size(res.fills)}, {fees.maker=}, '
+                f'{filters.base_precision=})'
             )
 
         return res
@@ -63,11 +66,14 @@ class Limit(Broker):
 
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
-        expected_fee = round_half_up(res.fills.total_quote * fees.maker, filters.quote_precision)
-        if res.fills.total_fee != expected_fee:
+        expected_fee = round_half_up(
+            Fill.total_quote(res.fills) * fees.maker, filters.quote_precision
+        )
+        if Fill.total_fee(res.fills) != expected_fee:
             _log.warning(
-                f'{res.fills.total_fee=} != {expected_fee=} ({res.fills.total_quote=}, '
-                f'{fees.maker=}, {filters.quote_precision=})'
+                f'total_fee={Fill.total_fee(res.fills)} != {expected_fee=} '
+                f'(total_quote={Fill.total_quote(res.fills)}, {fees.maker=}, '
+                f'{filters.quote_precision=})'
             )
 
         return res
@@ -196,7 +202,7 @@ class Limit(Broker):
         self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
         keep_limit_order_best_task: asyncio.Task, side: Side, ctx: _Context
     ):
-        fills = Fills()  # Fills from aggregated trades.
+        fills = []  # Fills from aggregated trades.
         async for order in stream:
             if order.client_id != client_id:
                 _log.debug(f'skipping order tracking; {order.client_id=} != {client_id=}')
