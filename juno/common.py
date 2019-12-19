@@ -146,6 +146,11 @@ class Side(Enum):
     SELL = 1
 
 
+class Ticker(NamedTuple):
+    symbol: str
+    volume: Decimal
+
+
 class TimeInForce(Enum):
     # A Good-Til-Canceled order will continue to work within the system and in the marketplace
     # until it executes or is canceled.

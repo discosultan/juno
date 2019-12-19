@@ -77,6 +77,20 @@ async def test_get_exchange_info(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_list_24hr_tickers(loop, request, exchange):
+    skip_non_configured(request, exchange)
+    skip_exchange(exchange, Coinbase, Kraken)
+
+    # Note, this is an expensive call!
+    res = await exchange.list_24hr_tickers()
+
+    assert len(res) > 0
+    assert types_match(next(iter(res)))
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_get_balances(loop, request, exchange):
     skip_non_configured(request, exchange)
 

@@ -11,6 +11,7 @@ from typing import (
 
 import juno.json as json
 from juno.time import strfspan, time_ms
+from juno.typing import get_name, isnamedtuple
 from juno.utils import home_path
 
 from .storage import Storage
@@ -119,14 +120,14 @@ class SQLite(Storage):
 
     async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:
         def inner():
-            _log.info(f'getting value of type {type_.__name__} from {key} db')
+            _log.info(f'getting value of type {get_name(type_)} from {key} db')
             with self._connect(key) as conn:
                 self._ensure_table(conn, Bag)
                 row = conn.execute(
-                    f'SELECT * FROM {Bag.__name__} WHERE key=?', [type_.__name__]
+                    f'SELECT * FROM {Bag.__name__} WHERE key=?', [get_name(type_)]
                 ).fetchone()
                 if row:
-                    return _load_type_from_string(type_, json.loads(row[1])), row[2]
+                    return _load_type_from_raw(type_, json.loads(row[1])), row[2]
                 else:
                     return None, None
 
@@ -134,12 +135,12 @@ class SQLite(Storage):
 
     async def set(self, key: Key, type_: Type[T], item: T) -> None:
         def inner():
-            _log.info(f'setting value of type {type_.__name__} to {key} db')
+            _log.info(f'setting value of type {get_name(type_)} to {key} db')
             with self._connect(key) as conn:
                 self._ensure_table(conn, Bag)
                 conn.execute(
                     f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                    [type_.__name__, json.dumps(item), time_ms()]
+                    [get_name(type_), json.dumps(item), time_ms()]
                 )
                 conn.commit()
 
@@ -148,15 +149,15 @@ class SQLite(Storage):
     async def get_map(self, key: Key,
                       type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
         def inner():
-            _log.info(f'getting map of items of type {type_.__name__} from {key} db')
+            _log.info(f'getting map of items of type {get_name(type_)} from {key} db')
             with self._connect(key) as conn:
                 self._ensure_table(conn, Bag)
                 row = conn.execute(
-                    f'SELECT * FROM {Bag.__name__} WHERE key=?', ['map_' + type_.__name__]
+                    f'SELECT * FROM {Bag.__name__} WHERE key=?', ['map_' + get_name(type_)]
                 ).fetchone()
                 if row:
                     return {
-                        k: _load_type_from_string(type_, v)
+                        k: _load_type_from_raw(type_, v)
                         for k, v in json.loads(row[1]).items()
                     }, row[2]
                 else:
@@ -167,12 +168,12 @@ class SQLite(Storage):
     # TODO: Generic type
     async def set_map(self, key: Key, type_: Type[T], items: Dict[str, T]) -> None:
         def inner():
-            _log.info(f'setting map of {len(items)} items of type  {type_.__name__} to {key} db')
+            _log.info(f'setting map of {len(items)} items of type  {get_name(type_)} to {key} db')
             with self._connect(key) as conn:
                 self._ensure_table(conn, Bag)
                 conn.execute(
                     f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                    ['map_' + type_.__name__, json.dumps(items), time_ms()]
+                    ['map_' + get_name(type_), json.dumps(items), time_ms()]
                 )
                 conn.commit()
 
@@ -264,32 +265,29 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
     raise NotImplementedError(f'Missing conversion for type {type_}')
 
 
-def _isnamedtuple(type_: Type[Any]) -> bool:
-    return issubclass(type_, tuple) and bool(getattr(type_, '_fields', False))
-
-
-def _load_type_from_string(type_: Type[Any], value: Any) -> Any:
-    if type_ in {int, float, str, Decimal}:
+def _load_type_from_raw(type_: Type[Any], value: Any) -> Any:
+    # Needs to be a list because type_ can be non-hashable for lookup in a set.
+    if type_ in [bool, int, float, str, Decimal]:
         return value
 
-    annotations = get_type_hints(type_)
-    for i, (key, attr_type) in enumerate(annotations.items()):
-        index = i if _isnamedtuple(type_) else key
-        origin = get_origin(attr_type)
-        if origin is dict:
-            sub_type = get_args(attr_type)[1]
-            sub = value[index]  # type: ignore
-            for dk, dv in sub.items():
-                sub[dk] = _load_type_from_string(sub_type, dv)
-        elif origin is list:
-            sub_type = get_args(attr_type)[0]
-            sub = value[index]  # type: ignore
-            for dk, dv in enumerate(sub):
-                sub[dk] = _load_type_from_string(sub_type, dv)
-        elif _isnamedtuple(attr_type):
-            # Materialize it.
-            value[index] = _load_type_from_string(attr_type, value[index])  # type: ignore
-    return type_(*value) if _isnamedtuple(type_) or get_origin(type_) is list else type_(**value)
+    origin = get_origin(type_) or type_
+    if origin is list:
+        sub_type = get_args(type_)[0]
+        for i, sub_value in enumerate(value):
+            value[i] = _load_type_from_raw(sub_type, sub_value)
+        return value
+    elif origin is dict:
+        sub_type = get_args(type_)[1]
+        for key, sub_value in value.items():
+            value[key] = _load_type_from_raw(sub_type, sub_value)
+        return value
+    elif isnamedtuple(type_):
+        values = []
+        annotations = get_type_hints(type_)
+        for i, (name, sub_type) in enumerate(annotations.items()):
+            sub_value = value[i]
+            values.append(_load_type_from_raw(sub_type, sub_value))
+        return type_(*values)
 
 
 class Bag:

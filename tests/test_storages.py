@@ -1,9 +1,10 @@
 import asyncio
 from decimal import Decimal
+from typing import List
 
 import pytest
 
-from juno import Candle, Fees, Filters, ExchangeInfo, Trade, storages
+from juno import Candle, Fees, Filters, ExchangeInfo, Ticker, Trade, storages
 from juno.asyncio import list_async
 
 from .utils import types_match
@@ -69,15 +70,14 @@ async def test_memory_store_and_stream_empty_series(memory):
     assert output_items == []
 
 
-@pytest.mark.parametrize('item', [
-    Candle(time=1, close=Decimal('1.0')),
-    ExchangeInfo(candle_intervals=[1, 2]),
+@pytest.mark.parametrize('item,type_', [
+    (Candle(time=1, close=Decimal('1.0')), Candle),
+    (ExchangeInfo(candle_intervals=[1, 2]), ExchangeInfo),
+    ([Ticker(symbol='eth-btc', volume=Decimal('1.0'))], List[Ticker]),
 ])
-async def test_memory_set_get(memory, item):
-    item_type = type(item)
-
-    await memory.set(key='key', type_=item_type, item=item)
-    out_item, _ = await memory.get(key='key', type_=item_type)
+async def test_memory_set_get(memory, item, type_):
+    await memory.set(key='key', type_=type_, item=item)
+    out_item, _ = await memory.get(key='key', type_=type_)
 
     assert out_item == item
     assert types_match(out_item)
