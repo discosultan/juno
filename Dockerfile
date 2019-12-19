@@ -1,4 +1,4 @@
-FROM python:3.8.0-alpine
+FROM python:3.8.1-alpine
 
 # `apk add` first line is required for cffi, second for numpy.
 RUN apk --no-cache add \

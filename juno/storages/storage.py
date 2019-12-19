@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterable, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, AsyncIterable, List, Optional, Tuple, Type, TypeVar, Union
 
 T = TypeVar('T')
 
@@ -31,13 +31,4 @@ class Storage(ABC):
 
     @abstractmethod
     async def set(self, key: Key, type_: Type[T], item: T) -> None:
-        pass
-
-    @abstractmethod
-    async def get_map(self, key: Key,
-                      type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
-        pass
-
-    @abstractmethod
-    async def set_map(self, key: Key, type_: Type[T], items: Dict[str, T]) -> None:
         pass
