@@ -4,23 +4,9 @@ import sqlite3
 from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
-# TODO: mypy fails to recognise stdlib attributes get_args, get_origin. remove ignore when fixed
-from typing import (  # type: ignore
-    Any,
-    AsyncIterable,
-    ContextManager,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    get_args,
-    get_origin,
-    get_type_hints
+from typing import (
+    Any, AsyncIterable, ContextManager, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union,
+    cast, get_args, get_origin, get_type_hints
 )
 
 import juno.json as json
