@@ -35,7 +35,7 @@ class Rust(Solver):
         src_dir = Path(os.path.dirname(os.path.realpath(__file__))) / '..' / '..'
         src_files = src_dir.glob('./juno_rs/**/*.rs')
         # Seconds-level precision.
-        src_latest_mtime = max((int(f.stat().st_mtime) for f in src_files))
+        src_latest_mtime = max(int(f.stat().st_mtime) for f in src_files)
 
         # Setup Rust target paths.
         prefix, suffix = None, None

@@ -163,23 +163,23 @@ class TradingSummary:
 
     @property
     def num_positions_in_profit(self) -> int:
-        return sum((1 for p in self.positions if p.profit >= 0))
+        return sum(1 for p in self.positions if p.profit >= 0)
 
     @property
     def num_positions_in_loss(self) -> int:
-        return sum((1 for p in self.positions if p.profit < 0))
+        return sum(1 for p in self.positions if p.profit < 0)
 
     @property
     def mean_position_profit(self) -> Decimal:
         if len(self.positions) == 0:
             return Decimal('0.0')
-        return statistics.mean((x.profit for x in self.positions))
+        return statistics.mean(x.profit for x in self.positions)
 
     @property
     def mean_position_duration(self) -> int:
         if len(self.positions) == 0:
             return 0
-        return int(statistics.mean((x.duration for x in self.positions)))
+        return int(statistics.mean(x.duration for x in self.positions))
 
     # @property
     # def drawdowns(self) -> List[Decimal]:

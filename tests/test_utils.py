@@ -56,7 +56,7 @@ def test_replace_secrets():
     input = {'foo': 'hello', 'secret_bar': 'world'}
     output = utils.replace_secrets(input)
 
-    assert all((k in output for k in input.keys()))
+    assert all(k in output for k in input.keys())
     assert output['foo'] == 'hello'
     assert output['secret_bar'] != input['secret_bar']
 

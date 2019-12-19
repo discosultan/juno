@@ -235,7 +235,7 @@ def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
     # Create debug views.
     # TODO: Use typing instead based on NewType()?
     VIEW_COL_NAMES = ['time', 'start', 'end']
-    if any((n for n in col_names if n in VIEW_COL_NAMES)):
+    if any(n for n in col_names if n in VIEW_COL_NAMES):
         view_cols = []
         for col in col_names:
             if col in VIEW_COL_NAMES:

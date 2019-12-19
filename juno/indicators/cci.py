@@ -25,7 +25,7 @@ class Cci:
         self._sma.update(typical_price)
 
         if self._t == self._t1:
-            acc = sum((abs(self._sma.value - tp) for tp in self._typical_prices))
+            acc = sum(abs(self._sma.value - tp) for tp in self._typical_prices)
             self.value = (typical_price - self._sma.value) / (acc * self._scale * Decimal('0.015'))
 
         self._t = min(self._t + 1, self._t1)
