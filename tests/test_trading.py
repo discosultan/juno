@@ -7,7 +7,6 @@ from juno.time import HOUR_MS
 from juno.trading import Position, Trader, TradingSummary
 
 from . import fakes
-from .utils import new_closed_position
 
 
 def test_position():
@@ -191,3 +190,11 @@ async def test_trader_assume_same_as_last_on_missed_candle():
     assert strategy.updates[2].time == 2
     assert strategy.updates[3].time == 3
     assert strategy.updates[4].time == 4
+
+
+def new_closed_position(profit):
+    size = abs(profit)
+    price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
+    pos = Position(time=0, fills=[Fill(price=Decimal('0.0'), size=size)])
+    pos.close(time=1, fills=[Fill(price=price, size=size)])
+    return pos

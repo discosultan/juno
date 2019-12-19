@@ -146,39 +146,6 @@ class SQLite(Storage):
 
         return await asyncio.get_running_loop().run_in_executor(None, inner)
 
-    async def get_map(self, key: Key,
-                      type_: Type[T]) -> Tuple[Optional[Dict[str, T]], Optional[int]]:
-        def inner():
-            _log.info(f'getting map of items of type {get_name(type_)} from {key} db')
-            with self._connect(key) as conn:
-                self._ensure_table(conn, Bag)
-                row = conn.execute(
-                    f'SELECT * FROM {Bag.__name__} WHERE key=?', ['map_' + get_name(type_)]
-                ).fetchone()
-                if row:
-                    return {
-                        k: _load_type_from_raw(type_, v)
-                        for k, v in json.loads(row[1]).items()
-                    }, row[2]
-                else:
-                    return None, None
-
-        return await asyncio.get_running_loop().run_in_executor(None, inner)
-
-    # TODO: Generic type
-    async def set_map(self, key: Key, type_: Type[T], items: Dict[str, T]) -> None:
-        def inner():
-            _log.info(f'setting map of {len(items)} items of type  {get_name(type_)} to {key} db')
-            with self._connect(key) as conn:
-                self._ensure_table(conn, Bag)
-                conn.execute(
-                    f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                    ['map_' + get_name(type_), json.dumps(items), time_ms()]
-                )
-                conn.commit()
-
-        return await asyncio.get_running_loop().run_in_executor(None, inner)
-
     def _connect(self, key: Key) -> ContextManager[sqlite3.Connection]:
         name = self._normalize_key(key)
         name = str(home_path('data') / f'v{self._version}_{name}.db')

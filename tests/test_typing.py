@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import Dict, List, NamedTuple, Tuple
 
 import pytest
 
@@ -37,3 +37,19 @@ def test_get_name(input, expected_output):
 ])
 def test_isnamedtuple(input, expected_output):
     assert typing.isnamedtuple(input) == expected_output
+
+
+@pytest.mark.parametrize('input,type_,expected_output', [
+    (Bar(1), Bar, True),
+    ((1, ), Bar, False),
+    (1, int, True),
+    ('a', int, False),
+    ({'a': Bar(1)}, Dict[str, Bar], True),
+    ({'a': 1, 'b': 'x'}, Dict[str, int], False),
+    ({'value': 1}, Bar, False),
+    ([Bar(1)], List[Bar], True),
+    ([1, 'x'], List[int], False),
+    ((1, 'x'), Tuple[int, str], True),
+])
+def test_types_match(input, type_, expected_output):
+    assert typing.types_match(input, type_) == expected_output
