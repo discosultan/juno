@@ -56,8 +56,11 @@ async def main():
                 chandler, trader.summary, 'coinbase', 'btc-eur'
             ),
             stream_and_export_daily_candles_as_csv(
-                chandler, trader.summary, 'binance', SYMBOL
+                chandler, trader.summary, 'coinbase', 'eth-eur'
             ),
+            # stream_and_export_daily_candles_as_csv(
+            #     chandler, trader.summary, 'binance', SYMBOL
+            # ),
             asyncio.get_running_loop().run_in_executor(
                 None, export_trading_summary_as_csv, trader.summary, SYMBOL
             ),
