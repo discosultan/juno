@@ -7,12 +7,12 @@ from typing import Any, Awaitable, Callable, Dict, List, Tuple, Type, TypeVar
 
 import backoff
 
-from juno import Fees, Filters, ExchangeInfo, JunoException, Tickers
+from juno import Fees, Filters, ExchangeInfo, JunoException, Ticker
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.time import DAY_MS, strfinterval, time_ms
-from juno.typing import ExcType, ExcValue, Traceback
+from juno.typing import ExcType, ExcValue, Traceback, get_name
 
 _log = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class Informant:
         # TODO: Do we want to always kick this sync off? Maybe extract to a different component.
         self._tickers_sync_task = asyncio.create_task(
             cancelable(self._sync_for_all_exchanges(
-                Tickers, tickers_synced_evt, lambda e: e.list_24hr_tickers()
+                List[Ticker], tickers_synced_evt, lambda e: e.list_24hr_tickers()
             ))
         )
 
@@ -66,8 +66,8 @@ class Informant:
     def list_candle_intervals(self, exchange: str) -> List[int]:
         return self._synced_data[exchange][ExchangeInfo].candle_intervals
 
-    def list_tickers(self, exchange: str) -> Tickers:
-        return self._synced_data[exchange][Tickers]
+    def list_tickers(self, exchange: str) -> List[Ticker]:
+        return self._synced_data[exchange][List[Ticker]]
 
     async def _sync_for_all_exchanges(
         self, type_: Type[Any], initial_sync_event: asyncio.Event,
@@ -75,7 +75,7 @@ class Informant:
     ) -> None:
         period = DAY_MS
         _log.info(
-            f'starting periodic sync of {type_.__name__} for {", ".join(self._exchanges.keys())} '
+            f'starting periodic sync of {get_name(type_)} for {", ".join(self._exchanges.keys())} '
             f'every {strfinterval(period)}'
         )
         while True:
@@ -94,17 +94,17 @@ class Informant:
         data, updated = await self._storage.get(exchange, type_)
         if not data or not updated:
             _log.info(
-                f'local {exchange} {type_.__name__} missing; updating by fetching from exchange'
+                f'local {exchange} {get_name(type_)} missing; updating by fetching from exchange'
             )
             data = await self._fetch_from_exchange(exchange, type_, fetch)
         elif now >= updated + DAY_MS:
             _log.info(
-                f'local {exchange} {type_.__name__} out-of-date; updating by fetching from '
+                f'local {exchange} {get_name(type_)} out-of-date; updating by fetching from '
                 'exchange'
             )
             data = await self._fetch_from_exchange(exchange, type_, fetch)
         else:
-            _log.info(f'updating {exchange} {type_.__name__} by fetching from storage')
+            _log.info(f'updating {exchange} {get_name(type_)} by fetching from storage')
         self._synced_data[exchange][type_] = data
 
     async def _fetch_from_exchange(

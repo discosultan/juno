@@ -151,10 +151,6 @@ class Ticker(NamedTuple):
     volume: Decimal
 
 
-class Tickers(List[Ticker]):
-    pass
-
-
 class TimeInForce(Enum):
     # A Good-Til-Canceled order will continue to work within the system and in the marketplace
     # until it executes or is canceled.

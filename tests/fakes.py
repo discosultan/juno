@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from juno import (
     CancelOrderResult, CancelOrderStatus, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
-    Side, Tickers, brokers, components, exchanges, storages
+    Side, brokers, components, exchanges, storages
 )
 
 
@@ -15,7 +15,7 @@ class Exchange(exchanges.Exchange):
         exchange_info=ExchangeInfo(
             fees={'__all__': Fees()}, filters={'__all__': Filters()}
         ),
-        tickers=Tickers(),
+        tickers=[],
         balances=None,
         future_balances=[],
         depth=None,

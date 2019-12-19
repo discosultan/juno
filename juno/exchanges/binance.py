@@ -21,7 +21,7 @@ import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
     Fills, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, ExchangeInfo,
-    Ticker, Tickers, TimeInForce, Trade
+    Ticker, TimeInForce, Trade
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -139,9 +139,9 @@ class Binance(Exchange):
             ]
         )
 
-    async def list_24hr_tickers(self) -> Tickers:
+    async def list_24hr_tickers(self) -> List[Ticker]:
         res = await self._api_request('GET', '/api/v3/ticker/24hr', weight=40)
-        result = Tickers()
+        result = []
         for t in res.data:
             result.append(Ticker(
                 symbol=_from_symbol(t['symbol']),
