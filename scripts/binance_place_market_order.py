@@ -3,7 +3,7 @@ import logging
 import os
 from typing import List
 
-from juno import OrderType, Side
+from juno import Fill, OrderType, Side
 from juno.brokers import Market
 from juno.components import Informant, Orderbook, Wallet
 from juno.exchanges import Binance, Exchange
@@ -44,11 +44,12 @@ async def main() -> None:
                 exchange=EXCHANGE, symbol=SYMBOL, base=balance.available
             )
 
-        logging.info(f'Size from orderbook: {fills.total_size}')
-        size = filters.size.round_down(fills.total_size)
+        size = Fill.total_size(fills)
+        logging.info(f'Size from orderbook: {size}')
+        size = filters.size.round_down(size)
         logging.info(f'Adjusted size: {size}')
 
-        logging.info(f'Unadjusted fee: {fills.total_fee}')
+        logging.info(f'Unadjusted fee: {Fill.total_fee(fills)}')
 
         if size == 0:
             logging.error('Not enough balance! Quitting!')

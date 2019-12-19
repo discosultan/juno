@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, List, Type
 
-from juno import Advice, Candle, Fees, Fill, Fills, Filters, InsufficientBalance
+from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.trading import Position, TradingContext, TradingSummary
@@ -111,7 +111,7 @@ def _try_open_position(
     base_asset, _ = unpack_symbol(symbol)
     ctx.open_position = Position(
         time=candle.time,
-        fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=base_asset)])
+        fills=[Fill(price=price, size=size, fee=fee, fee_asset=base_asset)]
     )
 
     ctx.quote -= size * price
@@ -126,7 +126,7 @@ def _close_position(
 
     price = candle.close
 
-    size = filters.size.round_down(pos.fills.total_size - pos.fills.total_fee)
+    size = filters.size.round_down(Fill.total_size(pos.fills) - Fill.total_fee(pos.fills))
 
     quote = size * price
     fee = round_half_up(quote * fees.taker, filters.quote_precision)
@@ -134,7 +134,7 @@ def _close_position(
     _, quote_asset = unpack_symbol(symbol)
     pos.close(
         time=candle.time,
-        fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=quote_asset)])
+        fills=[Fill(price=price, size=size, fee=fee, fee_asset=quote_asset)]
     )
     summary.append_position(pos)
 

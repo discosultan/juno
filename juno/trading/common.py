@@ -2,7 +2,7 @@ import statistics
 from decimal import Decimal, Overflow
 from typing import List, Optional
 
-from juno import Candle, Fees, Fills, Interval, Timestamp
+from juno import Candle, Fees, Fill, Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_half_up
 from juno.strategies import Strategy
@@ -11,21 +11,21 @@ from juno.time import YEAR_MS
 
 # TODO: Add support for external token fees (i.e BNB)
 class Position:
-    def __init__(self, time: int, fills: Fills) -> None:
+    def __init__(self, time: int, fills: List[Fill]) -> None:
         self.time = time
         self.fills = fills
         self.closing_time = 0
-        self.closing_fills: Optional[Fills] = None
+        self.closing_fills: Optional[List[Fill]] = None
 
-    def close(self, time: int, fills: Fills) -> None:
-        assert fills.total_size <= self.fills.total_size - self.fills.total_fee
+    def close(self, time: int, fills: List[Fill]) -> None:
+        assert Fill.total_size(fills) <= Fill.total_size(self.fills) - Fill.total_fee(self.fills)
 
         self.closing_time = Timestamp(time)
         self.closing_fills = fills
 
     @property
     def total_size(self) -> Decimal:
-        return self.fills.total_size
+        return Fill.total_size(self.fills)
 
     @property
     def start(self) -> Timestamp:
@@ -33,13 +33,13 @@ class Position:
 
     @property
     def cost(self) -> Decimal:
-        return self.fills.total_quote
+        return Fill.total_quote(self.fills)
 
     @property
     def gain(self) -> Decimal:
         if not self.closing_fills:
             return Decimal('0.0')
-        return self.closing_fills.total_quote - self.closing_fills.total_fee
+        return Fill.total_quote(self.closing_fills) - Fill.total_fee(self.closing_fills)
 
     @property
     def profit(self) -> Decimal:
@@ -68,7 +68,8 @@ class Position:
     def dust(self) -> Decimal:
         if not self.closing_fills:
             return Decimal('0.0')
-        return self.fills.total_size - self.fills.total_fee - self.closing_fills.total_size
+        return (Fill.total_size(self.fills) - Fill.total_fee(self.fills) -
+                Fill.total_size(self.closing_fills))
 
     @property
     def end(self) -> Timestamp:

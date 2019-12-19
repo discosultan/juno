@@ -5,7 +5,7 @@ import os
 from decimal import Decimal
 from typing import Any, Dict, List
 
-from juno import Candle, Filters
+from juno import Candle, Fill, Filters
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.exchanges import Binance, Coinbase
@@ -121,8 +121,8 @@ def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, sym
         for pos in summary.positions:
             assert pos.closing_fills
 
-            buy_size = pos.fills.total_size - pos.fills.total_fee
-            buy_price = filters.price.round_down(pos.fills.total_quote / buy_size)
+            buy_size = Fill.total_size(pos.fills) - Fill.total_fee(pos.fills)
+            buy_price = filters.price.round_down(Fill.total_quote(pos.fills) / buy_size)
             writer.writerow(trade_row(pos.time, base_asset, quote_asset, buy_size, buy_price))
 
             sell_size = pos.gain

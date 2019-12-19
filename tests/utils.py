@@ -1,15 +1,15 @@
 from decimal import Decimal
 from typing import get_args, get_origin, get_type_hints
 
-from juno import Fill, Fills
+from juno import Fill
 from juno.trading import Position
 
 
 def new_closed_position(profit):
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
-    pos = Position(time=0, fills=Fills([Fill(price=Decimal('0.0'), size=size)]))
-    pos.close(time=1, fills=Fills([Fill(price=price, size=size)]))
+    pos = Position(time=0, fills=[Fill(price=Decimal('0.0'), size=size)])
+    pos.close(time=1, fills=[Fill(price=price, size=size)])
     return pos
 
 
