@@ -1,6 +1,5 @@
 from decimal import Decimal
-# TODO: Fix in 3.8.1
-from typing import get_args, get_origin, get_type_hints  # type: ignore
+from typing import get_args, get_origin, get_type_hints
 
 from juno import Fill, Fills
 from juno.trading import Position
