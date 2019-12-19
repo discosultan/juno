@@ -5,7 +5,7 @@ import os
 from decimal import Decimal
 from typing import Any, Dict, List
 
-from juno import Candle
+from juno import Candle, Filters
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.exchanges import Binance, Coinbase
@@ -51,6 +51,8 @@ async def main():
         )
         await trader.run()
 
+        _, filters = informant.get_fees_filters('binance', SYMBOL)
+
         await asyncio.gather(
             stream_and_export_daily_candles_as_csv(
                 chandler, trader.summary, 'coinbase', 'btc-eur'
@@ -58,11 +60,8 @@ async def main():
             stream_and_export_daily_candles_as_csv(
                 chandler, trader.summary, 'coinbase', 'eth-eur'
             ),
-            # stream_and_export_daily_candles_as_csv(
-            #     chandler, trader.summary, 'binance', SYMBOL
-            # ),
             asyncio.get_running_loop().run_in_executor(
-                None, export_trading_summary_as_csv, trader.summary, SYMBOL
+                None, export_trading_summary_as_csv, filters, trader.summary, SYMBOL
             ),
         )
 
@@ -103,7 +102,7 @@ def candle_row(candle: Candle) -> Dict[str, Any]:
     }
 
 
-def export_trading_summary_as_csv(summary: TradingSummary, symbol: str) -> None:
+def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, symbol: str) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
 
     with open('tradesheet.csv', 'w', newline='') as csvfile:
@@ -120,12 +119,17 @@ def export_trading_summary_as_csv(summary: TradingSummary, symbol: str) -> None:
             trade_row(summary.start, quote_asset, 'EUR', summary.quote, Decimal('3347.23'))
         )
         for pos in summary.positions:
-            size = pos.fills.total_size - pos.fills.total_fee
-            price = pos.fills.total_quote / size
-            writer.writerow(trade_row(pos.time, base_asset, quote_asset, size, price))
-            size = pos.gain
-            price = (pos.fills.total_size - pos.fills.total_fee) / pos.gain
-            writer.writerow(trade_row(pos.closing_time, quote_asset, base_asset, size, price))
+            assert pos.closing_fills
+
+            buy_size = pos.fills.total_size - pos.fills.total_fee
+            buy_price = filters.price.round_down(pos.fills.total_quote / buy_size)
+            writer.writerow(trade_row(pos.time, base_asset, quote_asset, buy_size, buy_price))
+
+            sell_size = pos.gain
+            sell_price = filters.price.round_down(buy_size / sell_size)
+            writer.writerow(
+                trade_row(pos.closing_time, quote_asset, base_asset, sell_size, sell_price)
+            )
 
 
 def trade_row(
