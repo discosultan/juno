@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import sqlite3
-from collections import MutableMapping, MutableSequence, defaultdict
+from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
 from typing import (
-    Any, AsyncIterable, ContextManager, Dict, Iterable, List, Optional, Set, Tuple, Type, TypeVar,
-    Union, cast, get_args, get_origin, get_type_hints
+    Any, AsyncIterable, ContextManager, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union,
+    cast, get_args, get_origin, get_type_hints
 )
 
 import juno.json as json

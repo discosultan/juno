@@ -22,7 +22,7 @@ def get_name(type_: Any) -> str:
     return str(type_) if get_origin(type_) else type_.__name__
 
 
-def isnamedtuple(type_: Type[Any]) -> bool:
-    origin = get_origin(type_) or type_
+def isnamedtuple(object: Any) -> bool:
+    origin = get_origin(object) or object
     # Note that '_fields' is present only if the tuple has at least 1 field.
     return issubclass(origin, tuple) and bool(getattr(origin, '_fields', False))
