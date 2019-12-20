@@ -108,7 +108,7 @@ class Trades:
                     batch_start = batch_end
                     del swap_batch[:]
                 yield trade
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, JunoException):
             if len(batch) > 0:
                 await self._storage.store_time_series_and_span(
                     key=storage_key,
@@ -117,6 +117,7 @@ class Trades:
                     start=batch_start,
                     end=batch[-1].time + 1,
                 )
+            raise
         else:
             current = self._get_time()
             await self._storage.store_time_series_and_span(
