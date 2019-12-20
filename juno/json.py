@@ -1,7 +1,7 @@
 # Adds the following capabilities to base JSON module:
 # - Handles dumping classes by unwrapping their internal __dict__.
 
-from collections import MutableMapping, MutableSequence
+from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
 from decimal import Decimal
 from typing import IO, Any, Iterable, Optional
