@@ -181,11 +181,12 @@ async def test_stream_candles_on_ws_disconnect(storage):
         Candle(time=1),
         Candle(time=2),
     ]
-    exchange.future_candles = [
+    for candle in [
         Candle(time=3),
         Candle(time=4),
         Candle(time=5),
-    ]
+    ]:
+        exchange.candle_queue.put_nowait(candle)
     time.time = 3
     stream_candles_task.get_coro().throw(JunoException())
     result = await stream_candles_task
