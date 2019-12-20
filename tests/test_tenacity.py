@@ -22,7 +22,7 @@ def test_stop_after_attempt_with_reset_failure_before_reset():
 
 
 def test_stop_after_attempt_with_reset_success():
-    time = Time(time=0.0, increment=0.0)
+    time = Time(time=0)
     steps = [
         ('raise', CustomException()),
         ('raise', CustomException()),
@@ -48,11 +48,11 @@ def test_stop_after_attempt_with_reset_success():
 
 
 def test_stop_after_attempt_with_reset_failure_after_reset():
-    time = Time(time=0.0, increment=0.0)
+    time = Time(time=0)
     steps = [
         ('raise', CustomException()),
         ('raise', CustomException()),
-        ('time', 2.0),
+        ('time', 2),
         ('raise', CustomException()),
         ('raise', CustomException()),
         ('raise', CustomException()),

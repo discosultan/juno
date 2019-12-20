@@ -48,7 +48,7 @@ async def test_stream_candles(storage, start, end, closed, efrom, eto, espans):
     expected_candles = (historical_candles + future_candles)[efrom:eto]
     if closed:
         expected_candles = [c for c in expected_candles if c.closed]
-    time = fakes.Time(CURRENT)
+    time = fakes.Time(CURRENT, increment=1)
     exchange = fakes.Exchange(
         historical_candles=historical_candles,
         future_candles=future_candles,
@@ -86,7 +86,7 @@ async def test_stream_future_candles_span_stored_until_stopped(storage):
     candles = [Candle(time=1)]
     exchange = fakes.Exchange(future_candles=candles)
     trades = Trades(storage=storage, exchanges=[exchange])
-    time = fakes.Time(START)
+    time = fakes.Time(START, increment=1)
     chandler = Chandler(
         trades=trades,
         storage=storage,
@@ -170,7 +170,7 @@ async def test_stream_future_trades_span_stored_until_stopped(storage):
     END = 10
     trades = [Trade(time=1)]
     exchange = fakes.Exchange(future_trades=trades)
-    time = fakes.Time(START)
+    time = fakes.Time(START, increment=1)
     trades_component = Trades(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     task = asyncio.create_task(cancelable(
@@ -215,7 +215,7 @@ async def test_stream_trades(storage, start, end, efrom, eto, espans):
         Trade(time=7, price=Decimal('1.0'), size=Decimal('1.0')),
     ]
     expected_trades = (historical_trades + future_trades)[efrom:eto]
-    time = fakes.Time(CURRENT)
+    time = fakes.Time(CURRENT, increment=1)
     exchange = fakes.Exchange(
         historical_trades=historical_trades,
         future_trades=future_trades,

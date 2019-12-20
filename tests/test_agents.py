@@ -143,7 +143,7 @@ async def test_paper():
             'pos_threshold': Decimal('1.0'),
             'persistence': 0
         },
-        'get_time_ms': fakes.Time().get_time
+        'get_time_ms': fakes.Time(increment=1).get_time
     }
 
     assert await Paper(chandler=chandler, informant=informant, broker=broker).start(**agent_config)
@@ -191,7 +191,7 @@ async def test_live():
             'pos_threshold': Decimal('1.0'),
             'persistence': 0
         },
-        'get_time_ms': fakes.Time().get_time
+        'get_time_ms': fakes.Time(increment=1).get_time
     }
 
     assert await Live(chandler=chandler, informant=informant, wallet=wallet,

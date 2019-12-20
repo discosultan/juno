@@ -214,7 +214,7 @@ class Strategy:
 
 
 class Time:
-    def __init__(self, time=0, increment=1):
+    def __init__(self, time=0, increment=0):
         self.time = time
         self.increment = increment
 
