@@ -58,7 +58,7 @@ async def test_stream_candles(storage, start, end, closed, efrom, eto, espans):
         trades=trades,
         storage=storage,
         exchanges=[exchange],
-        get_time=time.get_time,
+        get_time_ms=time.get_time,
         storage_batch_size=STORAGE_BATCH_SIZE
     )
 
@@ -91,7 +91,7 @@ async def test_stream_future_candles_span_stored_until_stopped(storage):
         trades=trades,
         storage=storage,
         exchanges=[exchange],
-        get_time=time.get_time,
+        get_time_ms=time.get_time,
     )
 
     task = asyncio.create_task(cancelable(
@@ -171,7 +171,7 @@ async def test_stream_future_trades_span_stored_until_stopped(storage):
     trades = [Trade(time=1)]
     exchange = fakes.Exchange(future_trades=trades)
     time = fakes.Time(START)
-    trades_component = Trades(storage=storage, exchanges=[exchange], get_time=time.get_time)
+    trades_component = Trades(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
     task = asyncio.create_task(cancelable(
         list_async(trades_component.stream_trades(EXCHANGE, SYMBOL, START, END))
@@ -223,7 +223,7 @@ async def test_stream_trades(storage, start, end, efrom, eto, espans):
     trades = Trades(
         storage=storage,
         exchanges=[exchange],
-        get_time=time.get_time,
+        get_time_ms=time.get_time,
         storage_batch_size=STORAGE_BATCH_SIZE
     )
 

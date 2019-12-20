@@ -4,12 +4,13 @@ import asyncio
 import logging
 from typing import AsyncIterable, Callable, List, Optional
 
-import backoff
+from tenacity import before_sleep_log, retry, retry_if_exception_type
 
 from juno import JunoException, Trade
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.storages import Storage
+from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfspan, time_ms
 from juno.utils import CircularBuffer, generate_missing_spans, merge_adjacent_spans
 
@@ -21,12 +22,12 @@ class Trades:
         self,
         storage: Storage,
         exchanges: List[Exchange],
-        get_time: Optional[Callable[[], int]] = None,
+        get_time_ms: Optional[Callable[[], int]] = None,
         storage_batch_size: int = 1000
     ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._get_time = get_time or time_ms
+        self._get_time = get_time_ms or time_ms
         self._storage_batch_size = storage_batch_size
 
     async def stream_trades(self, exchange: str, symbol: str, start: int,
@@ -62,7 +63,12 @@ class Trades:
                 ):
                     yield trade
 
-    @backoff.on_exception(backoff.expo, JunoException, max_tries=3)
+    # TODO: Use context manager form and update start.
+    @retry(
+        stop=stop_after_attempt_with_reset(3, 300),
+        retry=retry_if_exception_type(JunoException),
+        before_sleep=before_sleep_log(_log, logging.DEBUG)
+    )
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:

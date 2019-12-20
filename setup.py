@@ -8,7 +8,6 @@ setup(
     install_requires=[
         'aiohttp',
         'aiolimiter',
-        'backoff',
         'cffi',
         'colorlog',
         # A release has not been made for a long time. We pull straight from master for Python 3.8
@@ -18,6 +17,7 @@ setup(
         'pandas',
         'python-dateutil',
         'simplejson',
+        'tenacity',
     ],
     extras_require={
         'dev': [

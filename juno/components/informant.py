@@ -5,12 +5,13 @@ import logging
 from collections import defaultdict
 from typing import Any, Awaitable, Callable, Dict, List, Tuple, Type, TypeVar
 
-import backoff
+from tenacity import before_sleep_log, retry, retry_if_exception_type
 
 from juno import Fees, Filters, ExchangeInfo, JunoException, Ticker
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
 from juno.storages import Storage
+from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import DAY_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
 
@@ -86,7 +87,11 @@ class Informant:
                 initial_sync_event.set()
             await asyncio.sleep(period / 1000.0)
 
-    @backoff.on_exception(backoff.expo, JunoException, max_tries=3)
+    @retry(
+        stop=stop_after_attempt_with_reset(3, 300),
+        retry=retry_if_exception_type(JunoException),
+        before_sleep=before_sleep_log(_log, logging.DEBUG)
+    )
     async def _sync_for_exchange(
         self, exchange: str, type_: Type[Any], fetch: Callable[[Exchange], Awaitable[Any]]
     ) -> None:
