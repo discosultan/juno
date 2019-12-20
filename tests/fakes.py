@@ -214,12 +214,13 @@ class Strategy:
 
 
 class Time:
-    def __init__(self, time=0):
+    def __init__(self, time=0, increment=0):
         self.time = time
+        self.increment = increment
 
     def get_time(self):
         time = self.time
-        self.time += 1
+        self.time += self.increment
         return time
 
 

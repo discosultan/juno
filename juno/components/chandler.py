@@ -6,13 +6,14 @@ import sys
 from decimal import Decimal
 from typing import AsyncIterable, Callable, List, Optional
 
-import backoff
+from tenacity import before_sleep_log, retry, retry_if_exception_type
 
 from juno import Candle, JunoException
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.storages import Storage
+from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfinterval, strfspan, time_ms
 from juno.utils import generate_missing_spans, merge_adjacent_spans
 
@@ -27,7 +28,7 @@ class Chandler:
         trades: Trades,
         storage: Storage,
         exchanges: List[Exchange],
-        get_time: Optional[Callable[[], int]] = None,
+        get_time_ms: Optional[Callable[[], int]] = None,
         storage_batch_size: int = 1000
     ) -> None:
         assert storage_batch_size > 0
@@ -35,7 +36,7 @@ class Chandler:
         self._trades = trades
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._get_time = get_time or time_ms
+        self._get_time = get_time_ms or time_ms
         self._storage_batch_size = storage_batch_size
 
     async def stream_candles(
@@ -74,7 +75,12 @@ class Chandler:
                     if not closed or candle.closed:
                         yield candle
 
-    @backoff.on_exception(backoff.expo, JunoException, max_tries=3)
+    # TODO: Use context manager form and update start.
+    @retry(
+        stop=stop_after_attempt_with_reset(3, 300),
+        retry=retry_if_exception_type(JunoException),
+        before_sleep=before_sleep_log(_log, logging.DEBUG)
+    )
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:

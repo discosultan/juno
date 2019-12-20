@@ -14,8 +14,10 @@ from typing import (
 )
 
 import aiohttp
-import backoff
 from aiolimiter import AsyncLimiter
+from tenacity import (
+    before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+)
 
 import juno.json as json
 from juno import (
@@ -537,10 +539,13 @@ class Clock:
             except Reset:
                 pass
 
-    @backoff.on_exception(
-        backoff.expo,
-        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
-        max_tries=3
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(
+            (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
+        ),
+        before_sleep=before_sleep_log(_log, logging.DEBUG)
     )
     async def _sync_clock(self) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
@@ -654,10 +659,13 @@ class UserDataStream:
                     event.set(e)
             await self._ensure_listen_key()
 
-    @backoff.on_exception(
-        backoff.expo,
-        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
-        max_tries=3
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(
+            (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
+        ),
+        before_sleep=before_sleep_log(_log, logging.DEBUG)
     )
     async def _create_listen_key(self) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
@@ -667,10 +675,13 @@ class UserDataStream:
             security=_SEC_USER_STREAM
         )
 
-    @backoff.on_exception(
-        backoff.expo,
-        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
-        max_tries=3
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(
+            (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
+        ),
+        before_sleep=before_sleep_log(_log, logging.DEBUG)
     )
     async def _update_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
@@ -686,10 +697,13 @@ class UserDataStream:
         res.raise_for_status()
         return res
 
-    @backoff.on_exception(
-        backoff.expo,
-        (aiohttp.ClientConnectionError, aiohttp.ClientResponseError),
-        max_tries=3
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(
+            (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
+        ),
+        before_sleep=before_sleep_log(_log, logging.DEBUG)
     )
     async def _delete_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
