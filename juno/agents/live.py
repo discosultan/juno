@@ -32,12 +32,12 @@ class Live(Agent):
         missed_candle_policy: str = 'ignore',
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
-        get_time: Optional[Callable[[], int]] = None
+        get_time_ms: Optional[Callable[[], int]] = None
     ) -> None:
-        if not get_time:
-            get_time = time_ms
+        if not get_time_ms:
+            get_time_ms = time_ms
 
-        current = floor_multiple(get_time(), interval)
+        current = floor_multiple(get_time_ms(), interval)
         end = floor_multiple(end, interval)
         assert end > current
 

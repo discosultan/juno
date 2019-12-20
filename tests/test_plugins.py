@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, Fill, Fills, Filters
+from juno import Candle, Fees, Fill, Filters
 from juno.agents import Agent
 from juno.time import DAY_MS
 from juno.trading import Position, TradingSummary
@@ -23,20 +23,20 @@ async def test_discord(request, config):
         agent.result.append_candle(candle)
         pos = Position(
             time=candle.time,
-            fills=Fills([
+            fills=[
                 Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
                      fee_asset='btc')
-            ])
+            ]
         )
         await agent.emit('position_opened', pos)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
         agent.result.append_candle(candle)
         pos.close(
             time=candle.time,
-            fills=Fills([
+            fills=[
                 Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
                      fee_asset='eth')
-            ])
+            ]
         )
         agent.result.append_position(pos)
         await agent.emit('position_closed', pos)

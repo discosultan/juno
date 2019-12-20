@@ -121,7 +121,7 @@ def list_dependencies_in_init_order(dep_map: Dict[Any, List[Any]]) -> List[List[
         for instance, deps in dep_map.items():
             if instance in initialized:
                 continue
-            if all((dep in initialized for dep in deps)):
+            if all(dep in initialized for dep in deps):
                 tier.append(instance)
                 initialized.add(instance)
         if tier:

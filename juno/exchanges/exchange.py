@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Dict, Optional, Union
+from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, OrderResult, OrderType,
-    OrderUpdate, Side, ExchangeInfo, TimeInForce, Trade
+    OrderUpdate, Side, ExchangeInfo, Ticker, TimeInForce, Trade
 )
 
 
@@ -17,6 +17,9 @@ class Exchange(ABC):
 
     @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
+        pass
+
+    async def list_24hr_tickers(self) -> List[Ticker]:
         pass
 
     @abstractmethod

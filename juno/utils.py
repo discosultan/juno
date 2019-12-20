@@ -9,23 +9,9 @@ from copy import deepcopy
 from os import path
 from pathlib import Path
 from types import ModuleType
-# TODO: Fix in 3.8.1
-from typing import (  # type: ignore
-    Any,
-    Awaitable,
-    Callable,
-    Dict,
-    Generic,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    get_origin,
-    get_type_hints
+from typing import (
+    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, Type,
+    TypeVar, Union, get_origin, get_type_hints
 )
 
 import juno.json as json

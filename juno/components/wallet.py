@@ -5,11 +5,12 @@ import logging
 from collections import defaultdict
 from typing import AsyncIterable, Dict, List
 
-import backoff
+from tenacity import before_sleep_log, retry, retry_if_exception_type
 
 from juno import Balance, JunoException
 from juno.asyncio import Barrier, cancel, cancelable
 from juno.exchanges import Exchange
+from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
 
 _log = logging.getLogger(__name__)
@@ -36,7 +37,11 @@ class Wallet:
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(*(self._sync_balances(e) for e in self._exchanges.keys()))
 
-    @backoff.on_exception(backoff.expo, JunoException, max_tries=3)
+    @retry(
+        stop=stop_after_attempt_with_reset(3, 300),
+        retry=retry_if_exception_type(JunoException),
+        before_sleep=before_sleep_log(_log, logging.DEBUG)
+    )
     async def _sync_balances(self, exchange: str) -> None:
         is_first = True
         async for balances in self._stream_balances(exchange):

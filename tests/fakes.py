@@ -2,8 +2,8 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from juno import (
-    CancelOrderResult, CancelOrderStatus, Fees, Filters, OrderResult, OrderStatus, Side,
-    ExchangeInfo, brokers, components, exchanges, storages
+    CancelOrderResult, CancelOrderStatus, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
+    Side, brokers, components, exchanges, storages
 )
 
 
@@ -15,6 +15,7 @@ class Exchange(exchanges.Exchange):
         exchange_info=ExchangeInfo(
             fees={'__all__': Fees()}, filters={'__all__': Filters()}
         ),
+        tickers=[],
         balances=None,
         future_balances=[],
         depth=None,
@@ -33,6 +34,7 @@ class Exchange(exchanges.Exchange):
             self.candle_queue.put_nowait(future_candle)
 
         self.exchange_info = exchange_info
+        self.tickers = tickers
 
         self.balances = balances
         self.balance_queue = asyncio.Queue
@@ -61,6 +63,9 @@ class Exchange(exchanges.Exchange):
 
     async def get_exchange_info(self):
         return self.exchange_info
+
+    async def list_24hr_tickers(self):
+        return self.tickers
 
     async def get_balances(self):
         return self.balances
@@ -209,12 +214,13 @@ class Strategy:
 
 
 class Time:
-    def __init__(self, time=0):
+    def __init__(self, time=0, increment=0):
         self.time = time
+        self.increment = increment
 
     def get_time(self):
         time = self.time
-        self.time += 1
+        self.time += self.increment
         return time
 
 

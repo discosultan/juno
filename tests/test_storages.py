@@ -1,12 +1,12 @@
 import asyncio
 from decimal import Decimal
+from typing import Dict, List
 
 import pytest
 
-from juno import Candle, Fees, Filters, ExchangeInfo, Trade, storages
+from juno import Candle, Fees, Filters, ExchangeInfo, Ticker, Trade, storages
 from juno.asyncio import list_async
-
-from .utils import types_match
+from juno.typing import types_match
 
 DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal('0.1234567890123456789012345678901234567890123456789')
 
@@ -69,57 +69,48 @@ async def test_memory_store_and_stream_empty_series(memory):
     assert output_items == []
 
 
-@pytest.mark.parametrize('item', [
-    Candle(time=1, close=Decimal('1.0')),
-    ExchangeInfo(candle_intervals=[1, 2]),
+@pytest.mark.parametrize('item,type_', [
+    (Candle(time=1, close=Decimal('1.0')), Candle),
+    (ExchangeInfo(candle_intervals=[1, 2]), ExchangeInfo),
+    ([Ticker(symbol='eth-btc', volume=Decimal('1.0'))], List[Ticker]),
+    ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees])
 ])
-async def test_memory_set_get(memory, item):
-    item_type = type(item)
-
-    await memory.set(key='key', type_=item_type, item=item)
-    out_item, _ = await memory.get(key='key', type_=item_type)
+async def test_memory_set_get(memory, item, type_):
+    await memory.set(key='key', type_=type_, item=item)
+    out_item, _ = await memory.get(key='key', type_=type_)
 
     assert out_item == item
-    assert types_match(out_item)
+    assert types_match(out_item, type_)
 
 
-async def test_memory_set_get_map(memory):
-    candle = {'foo': Candle(time=1, close=Decimal('1.0'))}
-
-    await memory.set_map(key='key', type_=Candle, items=candle)
-    out_candle, _ = await memory.get_map(key='key', type_=Candle)
-
-    assert out_candle == candle
-
-
-async def test_memory_get_map_missing(memory):
-    item, _ = await memory.get_map(key='key', type_=Candle)
+async def test_memory_get_missing(memory):
+    item, _ = await memory.get(key='key', type_=Candle)
 
     assert item is None
 
 
-async def test_memory_set_map_twice_get_map(memory):
-    candle1 = {'foo': Candle(time=1)}
-    candle2 = {'foo': Candle(time=2)}
+async def test_memory_set_twice_get(memory):
+    candle1 = Candle(time=1)
+    candle2 = Candle(time=2)
 
-    await memory.set_map(key='key', type_=Candle, items=candle1)
-    await memory.set_map(key='key', type_=Candle, items=candle2)
-    out_candle, _ = await memory.get_map(key='key', type_=Candle)
+    await memory.set(key='key', type_=Candle, item=candle1)
+    await memory.set(key='key', type_=Candle, item=candle2)
+    out_candle, _ = await memory.get(key='key', type_=Candle)
 
     assert out_candle == candle2
 
 
-async def test_memory_set_get_different_maps(memory):
+async def test_memory_set_get_different(memory):
     fees = {'foo': Fees()}
     filters = {'foo': Filters()}
 
     await asyncio.gather(
-        memory.set_map(key='key', type_=Fees, items=fees),
-        memory.set_map(key='key', type_=Filters, items=filters)
+        memory.set(key='key', type_=Dict[str, Fees], item=fees),
+        memory.set(key='key', type_=Dict[str, Filters], item=filters)
     )
     (out_fees, _), (out_filters, _) = await asyncio.gather(
-        memory.get_map(key='key', type_=Fees),
-        memory.get_map(key='key', type_=Filters),
+        memory.get(key='key', type_=Dict[str, Fees]),
+        memory.get(key='key', type_=Dict[str, Filters]),
     )
 
     assert out_fees == fees

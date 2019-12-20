@@ -18,7 +18,7 @@ class Meta:
         self._identifier = identifier
         self.all_params = list(flatten(self.constraints.keys()))
         self.identifier_params = re.findall(r'\{(.*?)\}', identifier) if identifier else []
-        if not all((p in self.all_params for p in self.identifier_params)):
+        if not all(p in self.all_params for p in self.identifier_params):
             raise ValueError('Param from identifier missing in params.')
         self.non_identifier_params = [
             k for k in self.all_params if k not in self.identifier_params

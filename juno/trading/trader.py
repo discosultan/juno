@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Callable, Optional
 
-from juno import Advice, Candle, Fill, Fills, InsufficientBalance
+from juno import Advice, Candle, Fill, InsufficientBalance
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
@@ -158,7 +158,7 @@ class Trader:
             )
 
             ctx.open_position = Position(candle.time, res.fills)
-            ctx.quote -= res.fills.total_quote
+            ctx.quote -= Fill.total_quote(res.fills)
         else:
             price = candle.close
             fees, filters = self.informant.get_fees_filters(self.exchange, self.symbol)
@@ -171,7 +171,7 @@ class Trader:
 
             ctx.open_position = Position(
                 time=candle.time,
-                fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=self.base_asset)])
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=self.base_asset)]
             )
 
             ctx.quote -= size * price
@@ -189,23 +189,23 @@ class Trader:
             res = await self.broker.sell(
                 exchange=self.exchange,
                 symbol=self.symbol,
-                base=pos.fills.total_size - pos.fills.total_fee,
+                base=Fill.total_size(pos.fills) - Fill.total_fee(pos.fills),
                 test=self.test
             )
 
             pos.close(candle.time, res.fills)
-            ctx.quote += res.fills.total_quote - res.fills.total_fee
+            ctx.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
         else:
             price = candle.close
             fees, filters = self.informant.get_fees_filters(self.exchange, self.symbol)
-            size = filters.size.round_down(pos.fills.total_size - pos.fills.total_fee)
+            size = filters.size.round_down(Fill.total_size(pos.fills) - Fill.total_fee(pos.fills))
 
             quote = size * price
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
             pos.close(
                 time=candle.time,
-                fills=Fills([Fill(price=price, size=size, fee=fee, fee_asset=self.quote_asset)])
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=self.quote_asset)]
             )
 
             ctx.quote += quote - fee

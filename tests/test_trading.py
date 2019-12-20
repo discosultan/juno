@@ -2,26 +2,25 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Advice, Candle, Fees, Fill, Fills, Filters
+from juno import Advice, Candle, Fees, Fill, Filters
 from juno.time import HOUR_MS
 from juno.trading import Position, Trader, TradingSummary
 
 from . import fakes
-from .utils import new_closed_position
 
 
 def test_position():
     pos = Position(
         time=0,
-        fills=Fills([
+        fills=[
             Fill(price=Decimal('2.0'), size=Decimal('6.0'), fee=Decimal('2.0'), fee_asset='btc')
-        ])
+        ]
     )
     pos.close(
         time=1,
-        fills=Fills([
+        fills=[
             Fill(price=Decimal('2.0'), size=Decimal('2.0'), fee=Decimal('1.0'), fee_asset='eth')
-        ])
+        ]
     )
 
     assert pos.cost == 12  # 6 * 2
@@ -38,14 +37,15 @@ def test_position():
 def test_position_annualized_roi_overflow():
     pos = Position(
         time=0,
-        fills=Fills([
+        fills=[
             Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='eth')
-        ]))
+        ]
+    )
     pos.close(
         time=2,
-        fills=Fills([
+        fills=[
             Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='btc')
-        ])
+        ]
     )
 
     assert pos.annualized_roi == Decimal('Inf')
@@ -190,3 +190,11 @@ async def test_trader_assume_same_as_last_on_missed_candle():
     assert strategy.updates[2].time == 2
     assert strategy.updates[3].time == 3
     assert strategy.updates[4].time == 4
+
+
+def new_closed_position(profit):
+    size = abs(profit)
+    price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
+    pos = Position(time=0, fills=[Fill(price=Decimal('0.0'), size=size)])
+    pos.close(time=1, fills=[Fill(price=price, size=size)])
+    return pos
