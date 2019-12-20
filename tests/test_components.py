@@ -169,7 +169,7 @@ async def test_stream_candles_on_ws_disconnect(storage):
         Candle(time=1),
     ])
     chandler = Chandler(
-        trades=fakes.Trades(), storage=storage, exchanges=[exchange], get_time=time.get_time
+        trades=fakes.Trades(), storage=storage, exchanges=[exchange], get_time_ms=time.get_time
     )
 
     stream_candles_task = asyncio.create_task(
