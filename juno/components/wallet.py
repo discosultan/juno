@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from typing import AsyncIterable, Dict, List
 
-from tenacity import before_sleep_log, retry, retry_if_exception_type
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Balance, JunoException
 from juno.asyncio import Barrier, cancel, cancelable
@@ -37,19 +37,20 @@ class Wallet:
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(*(self._sync_balances(e) for e in self._exchanges.keys()))
 
-    @retry(
-        stop=stop_after_attempt_with_reset(3, 300),
-        retry=retry_if_exception_type(JunoException),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
-    )
     async def _sync_balances(self, exchange: str) -> None:
         is_first = True
-        async for balances in self._stream_balances(exchange):
-            _log.info(f'received balance update from {exchange}')
-            self._exchange_balances[exchange] = balances
-            if is_first:
-                is_first = False
-                self._initial_balances_fetched.release()
+        for attempt in Retrying(
+            stop=stop_after_attempt_with_reset(3, 300),
+            retry=retry_if_exception_type(JunoException),
+            before_sleep=before_sleep_log(_log, logging.DEBUG)
+        ):
+            with attempt:
+                async for balances in self._stream_balances(exchange):
+                    _log.info(f'received balance update from {exchange}')
+                    self._exchange_balances[exchange] = balances
+                    if is_first:
+                        is_first = False
+                        self._initial_balances_fetched.release()
 
     async def _stream_balances(self, exchange: str) -> AsyncIterable[Dict[str, Balance]]:
         exchange_instance = self._exchanges[exchange]

@@ -4,7 +4,7 @@ import asyncio
 import logging
 from typing import AsyncIterable, Callable, List, Optional
 
-from tenacity import before_sleep_log, retry, retry_if_exception_type
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import JunoException, Trade
 from juno.asyncio import list_async
@@ -63,70 +63,74 @@ class Trades:
                 ):
                     yield trade
 
-    # TODO: Use context manager form and update start.
-    @retry(
-        stop=stop_after_attempt_with_reset(3, 300),
-        retry=retry_if_exception_type(JunoException),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
-    )
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
-        batch = []
-        swap_batch: List[Trade] = []
-        batch_start = start
-        current = self._get_time()
         storage_key = (exchange, symbol)
+        for attempt in Retrying(
+            stop=stop_after_attempt_with_reset(3, 300),
+            retry=retry_if_exception_type(JunoException),
+            before_sleep=before_sleep_log(_log, logging.DEBUG)
+        ):
+            with attempt:
+                batch = []
+                swap_batch: List[Trade] = []
+                batch_start = start
+                current = self._get_time()
 
-        try:
-            async for trade in self._stream_exchange_trades(
-                exchange=exchange, symbol=symbol, start=start, end=end, current=current
-            ):
-                batch.append(trade)
-                # We go over limit with +1 because we never take the last trade of the batch
-                # because multiple trades can happen at the same time. We need our time span to be
-                # correct.
-                if len(batch) == self._storage_batch_size + 1:
-                    last = batch[-1]
+                try:
+                    async for trade in self._stream_exchange_trades(
+                        exchange=exchange, symbol=symbol, start=start, end=end, current=current
+                    ):
+                        batch.append(trade)
+                        # We go over limit with +1 because we never take the last trade of the
+                        # batch because multiple trades can happen at the same time. We need our
+                        # time span to be correct.
+                        if len(batch) == self._storage_batch_size + 1:
+                            last = batch[-1]
 
-                    for i in range(len(batch) - 1, -1, -1):
-                        if batch[i].time != last.time:
-                            break
-                        swap_batch.insert(0, batch[i])  # Note that we are inserting in front.
-                        del batch[i]
+                            for i in range(len(batch) - 1, -1, -1):
+                                if batch[i].time != last.time:
+                                    break
+                                # Note that we are inserting in front.
+                                swap_batch.insert(0, batch[i])
+                                del batch[i]
 
-                    batch_end = batch[-1].time + 1
-                    batch, swap_batch = swap_batch, batch
+                            batch_end = batch[-1].time + 1
+                            batch, swap_batch = swap_batch, batch
+                            await self._storage.store_time_series_and_span(
+                                key=storage_key,
+                                type=Trade,
+                                items=swap_batch,
+                                start=batch_start,
+                                end=batch_end,
+                            )
+
+                            batch_start = batch_end
+                            del swap_batch[:]
+                        yield trade
+                except (asyncio.CancelledError, JunoException):
+                    if len(batch) > 0:
+                        batch_end = batch[-1].time + 1
+                        await self._storage.store_time_series_and_span(
+                            key=storage_key,
+                            type=Trade,
+                            items=batch,
+                            start=batch_start,
+                            end=batch[-1].time + 1,
+                        )
+                        start = batch_end
+                    raise
+                else:
+                    current = self._get_time()
+                    batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
                         key=storage_key,
                         type=Trade,
-                        items=swap_batch,
+                        items=batch,
                         start=batch_start,
                         end=batch_end,
                     )
-
-                    batch_start = batch_end
-                    del swap_batch[:]
-                yield trade
-        except (asyncio.CancelledError, JunoException):
-            if len(batch) > 0:
-                await self._storage.store_time_series_and_span(
-                    key=storage_key,
-                    type=Trade,
-                    items=batch,
-                    start=batch_start,
-                    end=batch[-1].time + 1,
-                )
-            raise
-        else:
-            current = self._get_time()
-            await self._storage.store_time_series_and_span(
-                key=storage_key,
-                type=Trade,
-                items=batch,
-                start=batch_start,
-                end=min(current, end),
-            )
 
     async def _stream_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int, current: int

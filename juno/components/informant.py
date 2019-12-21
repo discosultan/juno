@@ -5,13 +5,12 @@ import logging
 from collections import defaultdict
 from typing import Any, Awaitable, Callable, Dict, List, Tuple, Type, TypeVar
 
-from tenacity import before_sleep_log, retry, retry_if_exception_type
+from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
 from juno import Fees, Filters, ExchangeInfo, JunoException, Ticker
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
 from juno.storages import Storage
-from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import DAY_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
 
@@ -34,13 +33,13 @@ class Informant:
         tickers_synced_evt = asyncio.Event()
 
         self._exchange_info_sync_task = asyncio.create_task(
-            cancelable(self._sync_for_all_exchanges(
+            cancelable(self._periodic_sync_for_all_exchanges(
                 ExchangeInfo, exchange_info_synced_evt, lambda e: e.get_exchange_info()
             ))
         )
         # TODO: Do we want to always kick this sync off? Maybe extract to a different component.
         self._tickers_sync_task = asyncio.create_task(
-            cancelable(self._sync_for_all_exchanges(
+            cancelable(self._periodic_sync_for_all_exchanges(
                 List[Ticker], tickers_synced_evt, lambda e: e.list_24hr_tickers()
             ))
         )
@@ -70,7 +69,7 @@ class Informant:
     def list_tickers(self, exchange: str) -> List[Ticker]:
         return self._synced_data[exchange][List[Ticker]]
 
-    async def _sync_for_all_exchanges(
+    async def _periodic_sync_for_all_exchanges(
         self, type_: Type[Any], initial_sync_event: asyncio.Event,
         fetch: Callable[[Exchange], Awaitable[Any]]
     ) -> None:
@@ -88,7 +87,7 @@ class Informant:
             await asyncio.sleep(period / 1000.0)
 
     @retry(
-        stop=stop_after_attempt_with_reset(3, 300),
+        stop=stop_after_attempt(3),
         retry=retry_if_exception_type(JunoException),
         before_sleep=before_sleep_log(_log, logging.DEBUG)
     )

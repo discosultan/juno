@@ -7,7 +7,7 @@ from decimal import Decimal
 from itertools import product
 from typing import Any, AsyncIterable, Dict, List, Tuple, Union
 
-from tenacity import before_sleep_log, retry, retry_if_exception_type
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import DepthSnapshot, DepthUpdate, JunoException, Side
 from juno.asyncio import Barrier, Event, cancel, cancelable
@@ -61,27 +61,28 @@ class Orderbook:
     async def _sync_orderbooks(self) -> None:
         await asyncio.gather(*(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
 
-    @retry(
-        stop=stop_after_attempt_with_reset(3, 300),
-        retry=retry_if_exception_type(JunoException),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
-    )
     async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
         orderbook = self._data[exchange][symbol]
-        orderbook.snapshot_received = False
-        async for depth in self._stream_depth(exchange, symbol):
-            if isinstance(depth, DepthSnapshot):
-                orderbook[Side.BUY] = {k: v for k, v in depth.asks}
-                orderbook[Side.SELL] = {k: v for k, v in depth.bids}
-                orderbook.snapshot_received = True
-                self._initial_orderbook_fetched.release()
-            elif isinstance(depth, DepthUpdate):
-                assert orderbook.snapshot_received
-                _update_orderbook_side(orderbook[Side.BUY], depth.asks)
-                _update_orderbook_side(orderbook[Side.SELL], depth.bids)
-            else:
-                raise NotImplementedError(depth)
-            orderbook.updated.set()
+        for attempt in Retrying(
+            stop=stop_after_attempt_with_reset(3, 300),
+            retry=retry_if_exception_type(JunoException),
+            before_sleep=before_sleep_log(_log, logging.DEBUG)
+        ):
+            with attempt:
+                orderbook.snapshot_received = False
+                async for depth in self._stream_depth(exchange, symbol):
+                    if isinstance(depth, DepthSnapshot):
+                        orderbook[Side.BUY] = {k: v for k, v in depth.asks}
+                        orderbook[Side.SELL] = {k: v for k, v in depth.bids}
+                        orderbook.snapshot_received = True
+                        self._initial_orderbook_fetched.release()
+                    elif isinstance(depth, DepthUpdate):
+                        assert orderbook.snapshot_received
+                        _update_orderbook_side(orderbook[Side.BUY], depth.asks)
+                        _update_orderbook_side(orderbook[Side.SELL], depth.bids)
+                    else:
+                        raise NotImplementedError(depth)
+                    orderbook.updated.set()
 
     async def _stream_depth(self, exchange: str,
                             symbol: str) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
