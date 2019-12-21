@@ -7,7 +7,7 @@ import logging
 import math
 import urllib.parse
 from collections import defaultdict
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
 from typing import (
     Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
@@ -513,6 +513,7 @@ class Clock:
         self._binance = binance
         self._synced = asyncio.Event()
         self._periodic_sync_task: Optional[asyncio.Task[None]] = None
+        self._reset_periodic_sync: Event[None] = Event(autoclear=True)
 
     async def __aenter__(self) -> Clock:
         return self
@@ -529,16 +530,21 @@ class Clock:
     def clear(self) -> None:
         self._synced.clear()
         if self._periodic_sync_task:
-            # TODO: GET RID OF IT!
-            self._periodic_sync_task.get_coro().throw(Reset())
+            self._reset_periodic_sync.set()
 
     async def _periodic_sync(self) -> None:
         while True:
+            await self._sync_clock()
+            sleep_task = asyncio.create_task(asyncio.sleep(HOUR_SEC * 12))
             try:
-                await self._sync_clock()
-                await asyncio.sleep(HOUR_SEC * 12)
-            except Reset:
-                pass
+                await asyncio.wait(
+                    [sleep_task, self._reset_periodic_sync.wait()],
+                    return_when=asyncio.FIRST_COMPLETED
+                )
+            finally:
+                if not sleep_task.done():
+                    with suppress(asyncio.CancelledError):
+                        await cancel(sleep_task)
 
     @retry(
         stop=stop_after_attempt(3),
