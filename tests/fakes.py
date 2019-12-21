@@ -86,8 +86,11 @@ class Exchange(exchanges.Exchange):
     async def connect_stream_candles(self, symbol, interval):
         async def inner():
             while True:
-                yield await self.candle_queue.get()
+                item = await self.candle_queue.get()
                 self.candle_queue.task_done()
+                if isinstance(item, Exception):
+                    raise item
+                yield item
 
         yield inner()
 

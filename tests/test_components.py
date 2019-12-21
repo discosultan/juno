@@ -176,20 +176,21 @@ async def test_stream_candles_on_ws_disconnect(storage):
         list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 5))
     )
     await exchange.candle_queue.join()
+
+    time.time = 3
     exchange.historical_candles = [
         Candle(time=0),
         Candle(time=1),
         Candle(time=2),
     ]
-    for candle in [
-        Candle(time=3),
-        Candle(time=4),
-        Candle(time=5),
-    ]:
-        exchange.candle_queue.put_nowait(candle)
-    time.time = 3
-    # TODO: GET RID OF IT!
-    stream_candles_task.get_coro().throw(JunoException())
+    for exc_or_candle in [JunoException(), Candle(time=3)]:
+        exchange.candle_queue.put_nowait(exc_or_candle)
+    await exchange.candle_queue.join()
+
+    time.time = 5
+    for exc_or_candle in [Candle(time=4), Candle(time=5)]:
+        exchange.candle_queue.put_nowait(exc_or_candle)
+
     result = await stream_candles_task
 
     assert len(result) == 5
