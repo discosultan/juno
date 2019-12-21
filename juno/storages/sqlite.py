@@ -50,7 +50,7 @@ class SQLite(Storage):
 
     async def stream_time_series_spans(self, key: Key, type: Type[T], start: int,
                                        end: int) -> AsyncIterable[Tuple[int, int]]:
-        def inner():
+        def inner() -> List[Tuple[int, int]]:
             _log.info(
                 f'streaming {type.__name__} span(s) between {strfspan(start, end)} from {key} db'
             )
@@ -68,7 +68,7 @@ class SQLite(Storage):
 
     async def stream_time_series(self, key: Key, type: Type[T], start: int,
                                  end: int) -> AsyncIterable[T]:
-        def inner():
+        def inner() -> List[T]:
             _log.info(f'streaming {type.__name__}(s) between {strfspan(start, end)} from {key} db')
             with self._connect(key) as conn:
                 self._ensure_table(conn, type)
@@ -92,7 +92,7 @@ class SQLite(Storage):
                     f'{items[-1].time}'
                 )
 
-        def inner():
+        def inner() -> None:
             _log.info(
                 f'storing {len(items)} {type.__name__}(s) between {strfspan(start, end)} to {key} '
                 'db'
@@ -116,10 +116,10 @@ class SQLite(Storage):
                 c.execute(f'INSERT INTO {span_table_name} VALUES (?, ?)', [start, end])
                 conn.commit()
 
-        return await asyncio.get_running_loop().run_in_executor(None, inner)
+        await asyncio.get_running_loop().run_in_executor(None, inner)
 
     async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:
-        def inner():
+        def inner() -> Tuple[Optional[T], Optional[int]]:
             _log.info(f'getting value of type {get_name(type_)} from {key} db')
             with self._connect(key) as conn:
                 self._ensure_table(conn, Bag)
@@ -134,7 +134,7 @@ class SQLite(Storage):
         return await asyncio.get_running_loop().run_in_executor(None, inner)
 
     async def set(self, key: Key, type_: Type[T], item: T) -> None:
-        def inner():
+        def inner() -> None:
             _log.info(f'setting value of type {get_name(type_)} to {key} db')
             with self._connect(key) as conn:
                 self._ensure_table(conn, Bag)
@@ -144,7 +144,7 @@ class SQLite(Storage):
                 )
                 conn.commit()
 
-        return await asyncio.get_running_loop().run_in_executor(None, inner)
+        await asyncio.get_running_loop().run_in_executor(None, inner)
 
     def _connect(self, key: Key) -> ContextManager[sqlite3.Connection]:
         name = self._normalize_key(key)

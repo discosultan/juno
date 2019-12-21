@@ -188,6 +188,7 @@ async def test_stream_candles_on_ws_disconnect(storage):
     ]:
         exchange.candle_queue.put_nowait(candle)
     time.time = 3
+    # TODO: GET RID OF IT!
     stream_candles_task.get_coro().throw(JunoException())
     result = await stream_candles_task
 

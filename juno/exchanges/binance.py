@@ -529,6 +529,7 @@ class Clock:
     def clear(self) -> None:
         self._synced.clear()
         if self._periodic_sync_task:
+            # TODO: GET RID OF IT!
             self._periodic_sync_task.get_coro().throw(Reset())
 
     async def _periodic_sync(self) -> None:
