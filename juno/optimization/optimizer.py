@@ -195,7 +195,8 @@ class Optimizer:
 
         # Returns the final population and logbook with the statistics of the evolution.
         final_pop, stat = await asyncio.get_running_loop().run_in_executor(
-            None, lambda: algorithms.eaMuPlusLambda(
+            None, partial(
+                algorithms.eaMuPlusLambda,
                 pop,
                 toolbox,
                 mu=toolbox.population_size,
