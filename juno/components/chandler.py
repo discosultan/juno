@@ -6,7 +6,7 @@ import sys
 from decimal import Decimal
 from typing import AsyncIterable, Callable, List, Optional
 
-from tenacity import before_sleep_log, retry, retry_if_exception_type
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, JunoException
 from juno.asyncio import list_async
@@ -75,63 +75,67 @@ class Chandler:
                     if not closed or candle.closed:
                         yield candle
 
-    # TODO: Use context manager form and update start.
-    @retry(
-        stop=stop_after_attempt_with_reset(3, 300),
-        retry=retry_if_exception_type(JunoException),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
-    )
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
-        batch = []
-        swap_batch: List[Candle] = []
-        batch_start = start
-        current = floor_multiple(self._get_time(), interval)
         storage_key = (exchange, symbol, interval)
+        for attempt in Retrying(
+            stop=stop_after_attempt_with_reset(3, 300),
+            retry=retry_if_exception_type(JunoException),
+            before_sleep=before_sleep_log(_log, logging.DEBUG)
+        ):
+            with attempt:
+                batch = []
+                swap_batch: List[Candle] = []
+                batch_start = start
+                current = floor_multiple(self._get_time(), interval)
 
-        try:
-            async for candle in self._stream_exchange_candles(
-                exchange=exchange,
-                symbol=symbol,
-                interval=interval,
-                start=start,
-                end=end,
-                current=current
-            ):
-                if candle.closed:
-                    batch.append(candle)
-                    if len(batch) == self._storage_batch_size:
+                try:
+                    async for candle in self._stream_exchange_candles(
+                        exchange=exchange,
+                        symbol=symbol,
+                        interval=interval,
+                        start=start,
+                        end=end,
+                        current=current
+                    ):
+                        if candle.closed:
+                            batch.append(candle)
+                            if len(batch) == self._storage_batch_size:
+                                batch_end = batch[-1].time + interval
+                                batch, swap_batch = swap_batch, batch
+                                await self._storage.store_time_series_and_span(
+                                    key=storage_key,
+                                    type=Candle,
+                                    items=swap_batch,
+                                    start=batch_start,
+                                    end=batch_end,
+                                )
+                                batch_start = batch_end
+                                del swap_batch[:]
+                        yield candle
+                except (asyncio.CancelledError, JunoException):
+                    if len(batch) > 0:
                         batch_end = batch[-1].time + interval
-                        batch, swap_batch = swap_batch, batch
                         await self._storage.store_time_series_and_span(
                             key=storage_key,
                             type=Candle,
-                            items=swap_batch,
+                            items=batch,
                             start=batch_start,
                             end=batch_end,
                         )
-                        batch_start = batch_end
-                        del swap_batch[:]
-                yield candle
-        except asyncio.CancelledError:
-            if len(batch) > 0:
-                await self._storage.store_time_series_and_span(
-                    key=storage_key,
-                    type=Candle,
-                    items=batch,
-                    start=batch_start,
-                    end=batch[-1].time + interval,
-                )
-        else:
-            current = floor_multiple(self._get_time(), interval)
-            await self._storage.store_time_series_and_span(
-                key=storage_key,
-                type=Candle,
-                items=batch,
-                start=batch_start,
-                end=min(current, end),
-            )
+                        start = batch_end
+                    raise
+                else:
+                    current = floor_multiple(self._get_time(), interval)
+                    batch_end = min(current, end)
+                    await self._storage.store_time_series_and_span(
+                        key=storage_key,
+                        type=Candle,
+                        items=batch,
+                        start=batch_start,
+                        end=batch_end,
+                    )
 
     async def _stream_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int
