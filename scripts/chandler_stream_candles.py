@@ -44,7 +44,7 @@ async def main():
         assert candle.time == start + 2 * MIN_MS
 
         await stream.aclose()
-        logging.info('all good')
+        logging.info('done')
 
 
 asyncio.run(main())
