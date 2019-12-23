@@ -1,19 +1,17 @@
 import asyncio
 import logging
 import math
-import os
 
 import numpy as np
 import pandas as pd
 
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
+from juno.config import config_from_env, load_instance
 from juno.exchanges import Binance
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
-
-exchange = 'binance'
 
 
 async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end):
@@ -31,9 +29,8 @@ async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start
 
 
 async def main():
-    binance = Binance(
-        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
-    )
+    binance = load_instance(Binance, config_from_env())
+    exchange = 'binance'
     sqlite = SQLite()
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades, sqlite, [binance])

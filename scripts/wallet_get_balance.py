@@ -1,20 +1,17 @@
 import asyncio
 import logging
-import os
 
 from juno import exchanges
 from juno.components import Wallet
+from juno.config import config_from_env, load_instance
 
 EXCHANGE_TYPE = exchanges.Binance
 ASSETS = ['btc', 'eth']
 
 
 async def main():
-    name = EXCHANGE_TYPE.__name__.upper()
-    client = EXCHANGE_TYPE(
-        os.environ[f'JUNO__{name}__API_KEY'], os.environ[f'JUNO__{name}__SECRET_KEY']
-    )
-    name = name.lower()
+    client = load_instance(EXCHANGE_TYPE, config_from_env())
+    name = EXCHANGE_TYPE.__name__.lower()
     wallet = Wallet([client])
     async with client, wallet:
         for asset in ASSETS:

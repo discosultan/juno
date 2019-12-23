@@ -1,11 +1,11 @@
 import asyncio
 import logging
-import os
 from typing import List
 
 from juno import Fill, OrderType, Side
 from juno.brokers import Market
 from juno.components import Informant, Orderbook, Wallet
+from juno.config import config_from_env, load_instance
 from juno.exchanges import Binance, Exchange
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
@@ -17,9 +17,7 @@ SYMBOL = 'ada-btc'
 
 
 async def main() -> None:
-    binance = Binance(
-        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
-    )
+    binance = load_instance(Binance, config_from_env())
     exchanges: List[Exchange] = [binance]
     memory = Memory()
     sqlite = SQLite()

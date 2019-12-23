@@ -13,7 +13,7 @@ from juno.agents import Agent
 from juno.asyncio import cancelable
 from juno.brokers import Broker
 from juno.config import (
-    load_from_env, load_from_json_file, load_instance, load_instances, load_type
+    config_from_env, config_from_json_file, load_instance, load_instances, load_type
 )
 from juno.di import Container
 from juno.exchanges import Exchange
@@ -34,8 +34,8 @@ async def main() -> None:
         sys.argv[1] if len(sys.argv) >= 2 else full_path(__file__, 'config/default.json')
     )
     config = {}
-    config.update(load_from_json_file(config_path))
-    config.update(load_from_env())
+    config.update(config_from_json_file(config_path))
+    config.update(config_from_env())
 
     # Configure logging.
     log_level = config.get('log_level', 'info')

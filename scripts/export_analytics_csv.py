@@ -1,13 +1,13 @@
 import asyncio
 import csv
 import logging
-import os
 from decimal import Decimal
 from typing import Any, Dict, List
 
 from juno import Candle, Fill, Filters
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
+from juno.config import config_from_env, load_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
@@ -20,15 +20,11 @@ SYMBOL = 'eth-btc'
 INTERVAL = HOUR_MS
 
 
-async def main():
+async def main() -> None:
     sqlite = SQLite()
-    binance = Binance(
-        os.environ[f'JUNO__BINANCE__API_KEY'], os.environ[f'JUNO__BINANCE__SECRET_KEY']
-    )
-    coinbase = Coinbase(
-        os.environ[f'JUNO__COINBASE__API_KEY'], os.environ[f'JUNO__COINBASE__SECRET_KEY'],
-        os.environ[f'JUNO__COINBASE__PASSPHRASE']
-    )
+    config = config_from_env()
+    binance = load_instance(Binance, config)
+    coinbase = load_instance(Coinbase, config)
     trades = Trades(sqlite, [binance, coinbase])
     chandler = Chandler(trades, sqlite, [binance, coinbase])
     informant = Informant(sqlite, [binance, coinbase])

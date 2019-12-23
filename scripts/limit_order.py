@@ -1,14 +1,14 @@
 import asyncio
 import logging
-import os
 import sys
 from decimal import Decimal
-from typing import List, Optional
+from typing import Optional
 
 from juno import Fill, Side
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook, Wallet
-from juno.exchanges import Binance, Exchange
+from juno.config import config_from_env, load_instance
+from juno.exchanges import Binance
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
@@ -26,10 +26,8 @@ if len(sys.argv) > 1:
 
 
 async def main() -> None:
-    binance = Binance(
-        os.environ['JUNO__BINANCE__API_KEY'], os.environ['JUNO__BINANCE__SECRET_KEY']
-    )
-    exchanges: List[Exchange] = [binance]
+    binance = load_instance(Binance, config_from_env())
+    exchanges = [binance]
     memory = Memory()
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=exchanges)

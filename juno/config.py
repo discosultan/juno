@@ -10,7 +10,7 @@ from juno.typing import filter_member_args
 from juno.utils import map_module_types, recursive_iter
 
 
-def load_from_env(
+def config_from_env(
     env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
 ) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
@@ -33,7 +33,7 @@ def load_from_env(
     return cast(Dict[str, Any], transform(result))
 
 
-def load_from_json_file(file: str) -> Dict[str, Any]:
+def config_from_json_file(file: str) -> Dict[str, Any]:
     with open(file, 'r') as f:
         return cast(Dict[str, Any], transform(json.load(f)))
 

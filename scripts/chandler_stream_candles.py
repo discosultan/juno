@@ -1,9 +1,9 @@
 import asyncio
 import logging
-import os
 
 from juno import exchanges
 from juno.components import Chandler, Trades
+from juno.config import config_from_env, load_instance
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import HOUR_MS, MIN_MS, time_ms
@@ -13,12 +13,9 @@ SYMBOL = 'eth-btc'
 
 
 async def main():
-    name = EXCHANGE_TYPE.__name__.upper()
     sqlite = SQLite()
-    client = EXCHANGE_TYPE(
-        os.environ[f'JUNO__{name}__API_KEY'], os.environ[f'JUNO__{name}__SECRET_KEY']
-    )
-    name = name.lower()
+    client = load_instance(EXCHANGE_TYPE, config_from_env())
+    name = EXCHANGE_TYPE.__name__.lower()
     trades = Trades(sqlite, [client])
     chandler = Chandler(trades, sqlite, [client])
     async with client:
