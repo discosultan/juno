@@ -12,8 +12,9 @@ from juno import (
 class Exchange(ABC):
     # Capabilities.
     can_stream_depth_snapshot: bool = False
-    can_stream_historical_candles: bool = True
-    can_stream_candles: bool = True
+    can_stream_historical_candles: bool = False
+    can_stream_candles: bool = False
+    can_list_24hr_tickers: bool = False
 
     @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:

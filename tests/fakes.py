@@ -8,6 +8,11 @@ from juno import (
 
 
 class Exchange(exchanges.Exchange):
+    can_stream_depth_snapshot: bool = True
+    can_stream_historical_candles: bool = True
+    can_stream_candles: bool = True
+    can_list_24hr_tickers: bool = True
+
     def __init__(
         self,
         historical_candles=[],

@@ -51,6 +51,12 @@ _log = logging.getLogger(__name__)
 
 
 class Binance(Exchange):
+    # Capabilities.
+    can_stream_depth_snapshot: bool = False
+    can_stream_historical_candles: bool = True
+    can_stream_candles: bool = True
+    can_list_24hr_tickers: bool = True
+
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')

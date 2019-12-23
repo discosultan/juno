@@ -44,6 +44,7 @@ class Kraken(Exchange):
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = False
     can_stream_candles: bool = False
+    can_list_24hr_tickers: bool = False  # Don't know, need to check.
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key

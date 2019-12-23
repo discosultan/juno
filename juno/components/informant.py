@@ -34,13 +34,18 @@ class Informant:
 
         self._exchange_info_sync_task = asyncio.create_task(
             cancelable(self._periodic_sync_for_all_exchanges(
-                ExchangeInfo, exchange_info_synced_evt, lambda e: e.get_exchange_info()
+                ExchangeInfo,
+                exchange_info_synced_evt,
+                lambda e: e.get_exchange_info(),
             ))
         )
         # TODO: Do we want to always kick this sync off? Maybe extract to a different component.
         self._tickers_sync_task = asyncio.create_task(
             cancelable(self._periodic_sync_for_all_exchanges(
-                List[Ticker], tickers_synced_evt, lambda e: e.list_24hr_tickers()
+                List[Ticker],
+                tickers_synced_evt,
+                lambda e: e.list_24hr_tickers(),
+                lambda e: e.can_list_24hr_tickers,
             ))
         )
 
@@ -71,16 +76,18 @@ class Informant:
 
     async def _periodic_sync_for_all_exchanges(
         self, type_: Type[Any], initial_sync_event: asyncio.Event,
-        fetch: Callable[[Exchange], Awaitable[Any]]
+        fetch: Callable[[Exchange], Awaitable[Any]],
+        exchange_predicate: Callable[[Exchange], bool] = lambda _: True
     ) -> None:
         period = DAY_MS
+        exchanges = [n for n, e in self._exchanges.items() if exchange_predicate(e)]
         _log.info(
-            f'starting periodic sync of {get_name(type_)} for {", ".join(self._exchanges.keys())} '
-            f'every {strfinterval(period)}'
+            f'starting periodic sync of {get_name(type_)} for {", ".join(exchanges)} every '
+            f'{strfinterval(period)}'
         )
         while True:
             await asyncio.gather(
-                *(self._sync_for_exchange(e, type_, fetch) for e in self._exchanges.keys())
+                *(self._sync_for_exchange(e, type_, fetch) for e in exchanges)
             )
             if not initial_sync_event.is_set():
                 initial_sync_event.set()

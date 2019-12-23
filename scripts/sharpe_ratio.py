@@ -122,36 +122,38 @@ async def main() -> None:
         portfolio_performance = pd.Series(
             [float(sum(v for v in apd.values())) for apd in asset_performance.values()]
         )
+        logging.critical(portfolio_performance)
         portfolio_a_returns = portfolio_performance.pct_change().dropna()
         portfolio_g_returns = np.log(portfolio_a_returns + 1)
         portfolio_neg_g_returns = portfolio_g_returns[portfolio_g_returns < 0].dropna()
 
         benchmark_performance = pd.Series([float(c.close) for c in btc_eur_daily])
+        logging.critical(benchmark_performance)
         benchmark_a_returns = benchmark_performance.pct_change().dropna()
         benchmark_g_returns = np.log(benchmark_a_returns + 1)
         benchmark_neg_g_returns = benchmark_g_returns[benchmark_g_returns < 0].dropna()
 
         # Compute benchmark statistics.
-        benchmark_total_return = (benchmark_performance[-1] / benchmark_performance[0]) - 1
+        benchmark_total_return = benchmark_performance.iloc[-1] / benchmark_performance.iloc[0] - 1
         benchmark_annualized_return = 365 * benchmark_g_returns.mean()
         benchmark_annualized_volatility = np.sqrt(365) * benchmark_g_returns.std()
         benchmark_annualized_downside_risk = np.sqrt(365) * benchmark_neg_g_returns.std()
         benchmark_sharpe_ratio = benchmark_annualized_return / benchmark_annualized_volatility
         benchmark_sortino_ratio = benchmark_annualized_return / benchmark_annualized_downside_risk
         benchmark_cagr = (
-            (benchmark_performance[-1] / benchmark_performance[0]) **
+            (benchmark_performance.iloc[-1] / benchmark_performance.iloc[0]) **
             (1 / (trade_days / 365))
         ) - 1
 
         # Compute portfolio statistics.
-        portfolio_total_return = (portfolio_performance[-1] / portfolio_performance[0]) - 1
+        portfolio_total_return = portfolio_performance.iloc[-1] / portfolio_performance.iloc[0] - 1
         portfolio_annualized_return = 365 * portfolio_g_returns.mean()
         portfolio_annualized_volatility = np.sqrt(365) * portfolio_g_returns.std()
         portfolio_annualized_downside_risk = np.sqrt(365) * portfolio_neg_g_returns.std()
         portfolio_sharpe_ratio = portfolio_annualized_return / portfolio_annualized_volatility
         portfolio_sortino_ratio = portfolio_annualized_return / portfolio_annualized_downside_risk
         portfolio_cagr = (
-            (portfolio_performance[-1] / portfolio_performance[0]) **
+            (portfolio_performance.iloc[-1] / portfolio_performance.iloc[0]) **
             (1 / (trade_days / 365))
         ) - 1
         # covariance_matrix = pd.concat(
