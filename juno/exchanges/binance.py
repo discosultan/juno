@@ -59,10 +59,10 @@ class Binance(Exchange):
 
         # Rate limiters.
         x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
-        self._reqs_per_min_limiter = AsyncLimiter(max_rate=1200 * x, time_period=60)
-        self._raw_reqs_limiter = AsyncLimiter(max_rate=5000 * x, time_period=300)
-        self._orders_per_sec_limiter = AsyncLimiter(max_rate=10 * x, time_period=1)
-        self._orders_per_day_limiter = AsyncLimiter(max_rate=100_000 * x, time_period=DAY_SEC)
+        self._reqs_per_min_limiter = AsyncLimiter(1200 * x, 60, _log, logging.INFO)
+        self._raw_reqs_limiter = AsyncLimiter(5000 * x, 300, _log, logging.INFO)
+        self._orders_per_sec_limiter = AsyncLimiter(10 * x, 1, _log, logging.INFO)
+        self._orders_per_day_limiter = AsyncLimiter(100_000 * x, DAY_SEC, _log, logging.INFO)
 
         self._clock = Clock(self)
         self._user_data_stream = UserDataStream(self)

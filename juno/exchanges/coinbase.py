@@ -49,8 +49,8 @@ class Coinbase(Exchange):
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
         x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
-        self._pub_limiter = AsyncLimiter(max_rate=3 * x, time_period=1)
-        self._priv_limiter = AsyncLimiter(max_rate=5 * x, time_period=1)
+        self._pub_limiter = AsyncLimiter(3 * x, 1, _log, logging.INFO)
+        self._priv_limiter = AsyncLimiter(5 * x, 1, _log, logging.INFO)
 
         # Stream.
         self._stream_task: Optional[asyncio.Task] = None

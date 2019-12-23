@@ -7,13 +7,14 @@ setup(
     include_package_data=True,
     install_requires=[
         'aiohttp',
-        'aiolimiter',
+        # This is a fork of original aiolimiter which adds logging support.
+        'aiolimiter @ git+ssh://git@github.com/discosultan/aiolimiter@master#egg=aiolimiter',
         'cffi',
         'colorlog',
         # A release has not been made for a long time. We pull straight from master for Python 3.8
         # support.
         'deap @ git+ssh://git@github.com/DEAP/deap@master#egg=deap',
-        'numpy',  # Also implicitly required by deap.
+        'numpy',
         'pandas',
         'python-dateutil',
         'simplejson',
