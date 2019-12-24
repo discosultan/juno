@@ -37,7 +37,7 @@ async def main() -> None:
     informant = Informant(sqlite, [binance, coinbase])
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
-    quote_asset, base_asset = unpack_symbol(SYMBOL)
+    base_asset, quote_asset = unpack_symbol(SYMBOL)
     async with binance, coinbase, informant:
         trader = Trader(
             chandler=chandler,
@@ -58,46 +58,52 @@ async def main() -> None:
         _, filters = informant.get_fees_filters('binance', SYMBOL)
 
         start_day = floor_multiple(start, DAY_MS)
-        end_day = start_day + DAY_MS
-        trade_days = (end_day - start_day) / DAY_MS
-        # 1. Assumes symbol base is BTC.
+        end_day = floor_multiple(end, DAY_MS)
+        length_days = (end_day - start_day) / DAY_MS
+        # 1. Assumes symbol quote is BTC.
         # 2. We run it after trading step, because it might use the same candle configuration which
         # we don't support processing concurrently.
 
         btc_eur_daily, symbol_daily = await asyncio.gather(
-            # {c.time: c async for c in chandler.stream_candles(
-            #     'coinbase', 'btc-eur', DAY_MS, start_day, end_day)
-            #  },
-            # {c.time: c async for c in chandler.stream_candles(
-            #     'binance', SYMBOL, DAY_MS, start_day, end_day)
-            #  },
             list_async(chandler.stream_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day)),
             list_async(chandler.stream_candles('binance', SYMBOL, DAY_MS, start_day, end_day)),
         )
-        assert len(btc_eur_daily) == len(symbol_daily)
-        market_data = {
-            'btc': {c.time: c.close for c in btc_eur_daily},
-            base_asset: {c.time: c.close for c in symbol_daily},
-        }
-
-        # eur_investment = trader.summary.quote * btc_eur_daily[0].close
+        assert len(btc_eur_daily) == length_days
+        assert len(symbol_daily) == length_days
+        market_data = defaultdict(dict)
+        for btc_eur, symbol in zip(btc_eur_daily, symbol_daily):
+            time = btc_eur.time
+            market_data['btc'][time] = btc_eur.close
+            market_data[base_asset][time] = symbol.close * btc_eur.close  # TODO: assumes quote BTC
 
         trades: Dict[int, List[Tuple[str, Any, Decimal]]] = defaultdict(list)
         for pos in trader.summary.positions:
+            assert pos.closing_fills
+            # Open.
             time = floor_multiple(pos.time, DAY_MS)
             day_trades = trades[time]
             day_trades.append((quote_asset, operator.sub, Fill.total_quote(pos.fills)))
-            day_trades.append(
-                (base_asset, operator.add, Fill.total_size(pos.fills) - Fill.total_fee(pos.fills))
-            )
+            day_trades.append((
+                base_asset,
+                operator.add,
+                Fill.total_size(pos.fills) - Fill.total_fee(pos.fills)
+            ))
+            # Close.
+            time = floor_multiple(pos.closing_time, DAY_MS)
+            day_trades = trades[time]
+            day_trades.append((base_asset, operator.sub, Fill.total_size(pos.closing_fills)))
+            day_trades.append((
+                quote_asset,
+                operator.add,
+                Fill.total_quote(pos.closing_fills) - Fill.total_fee(pos.closing_fills)
+            ))
 
         asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
         asset_holdings[quote_asset] = trader.summary.quote
 
         asset_performance: Dict[int, Dict[str, Decimal]] = defaultdict(
-            lambda: defaultdict(lambda: Decimal('0.0'))
+            lambda: {k: Decimal('0.0') for k in market_data.keys()}
         )
-        # portfolio_performance = {}
 
         for time_day in range(start_day, end_day, DAY_MS):
             # Update holdings.
@@ -107,13 +113,14 @@ async def main() -> None:
                 for asset, op, size in day_trades2:
                     asset_holdings[asset] = op(asset_holdings[asset], size)
 
-            # Update asset performance.
+            # Update asset performance (mark-to-market portfolio).
             asset_performance_day = asset_performance[time_day]
-            for asset in asset_performance_day.keys():
+            for asset in market_data.keys():
                 asset_eur_value = market_data[asset].get(time_day)
                 if asset_eur_value is not None:
                     asset_performance_day[asset] = asset_holdings[asset] * asset_eur_value
                 else:  # Missing asset market data for the day.
+                    logging.warning('missing market data for day')
                     # TODO: What if previous day also missing?? Maybe better to fill missing
                     # candles?? Remove assert above.
                     asset_performance_day[asset] = asset_performance[time_day - DAY_MS][asset]
@@ -128,7 +135,6 @@ async def main() -> None:
         portfolio_neg_g_returns = portfolio_g_returns[portfolio_g_returns < 0].dropna()
 
         benchmark_performance = pd.Series([float(c.close) for c in btc_eur_daily])
-        logging.critical(benchmark_performance)
         benchmark_a_returns = benchmark_performance.pct_change().dropna()
         benchmark_g_returns = np.log(benchmark_a_returns + 1)
         benchmark_neg_g_returns = benchmark_g_returns[benchmark_g_returns < 0].dropna()
@@ -142,7 +148,7 @@ async def main() -> None:
         benchmark_sortino_ratio = benchmark_annualized_return / benchmark_annualized_downside_risk
         benchmark_cagr = (
             (benchmark_performance.iloc[-1] / benchmark_performance.iloc[0]) **
-            (1 / (trade_days / 365))
+            (1 / (length_days / 365))
         ) - 1
 
         # Compute portfolio statistics.
@@ -154,13 +160,13 @@ async def main() -> None:
         portfolio_sortino_ratio = portfolio_annualized_return / portfolio_annualized_downside_risk
         portfolio_cagr = (
             (portfolio_performance.iloc[-1] / portfolio_performance.iloc[0]) **
-            (1 / (trade_days / 365))
+            (1 / (length_days / 365))
         ) - 1
-        # covariance_matrix = pd.concat(
-        #   [g_returns['Value'], benchmark_g_returns], axis=1
-        # ).dropna().cov()
-        # beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
-        # alpha = annualized_return - (beta * 365 * benchmark_g_returns.mean())
+        covariance_matrix = pd.concat(
+          [portfolio_g_returns, benchmark_g_returns], axis=1
+        ).dropna().cov()
+        beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
+        alpha = portfolio_annualized_return - (beta * 365 * benchmark_g_returns.mean())
 
         logging.info(f'{benchmark_total_return=}')
         logging.info(f'{benchmark_annualized_return=}')
@@ -177,6 +183,8 @@ async def main() -> None:
         logging.info(f'{portfolio_sharpe_ratio=}')
         logging.info(f'{portfolio_sortino_ratio=}')
         logging.info(f'{portfolio_cagr=}')
+        logging.info(f'{alpha=}')
+        logging.info(f'{beta=}')
 
     logging.info('done')
 
