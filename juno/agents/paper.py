@@ -1,10 +1,11 @@
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
+from juno import strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
+from juno.config import load_instance_from_module
 from juno.math import floor_multiple
-from juno.strategies import new_strategy
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import Trader
 
@@ -51,7 +52,7 @@ class Paper(Agent):
             start=current,
             end=end,
             quote=quote,
-            new_strategy=lambda: new_strategy(strategy_config),
+            new_strategy=lambda: load_instance_from_module(strategies, strategy_config),
             broker=self.broker,
             test=True,
             event=self,
