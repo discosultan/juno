@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import itertools
 import logging
 import os
 import platform
@@ -14,7 +13,7 @@ import cffi
 
 from juno import Candle, Fees, Filters
 from juno.components import Chandler, Informant
-from juno.strategies import MAMACX, Meta, Strategy
+from juno.strategies import MAMACX, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path
 
@@ -94,13 +93,8 @@ class Rust(Solver):
             c_fees_filters = self._build_c_fees_filters(fees, filters)
             self.c_fees_filters[symbol] = c_fees_filters
 
-        meta = strategy_type.meta
-        format_args = {
-            k: v
-            for k, v in zip(meta.identifier_params, meta.get_identifier_args(args))
-        }
-        fn_name = meta.identifier.format(**format_args)
-        fn = getattr(self.libjuno, fn_name)
+        fn = getattr(self.libjuno, strategy_type.__name__.lower())
+
         result = fn(
             c_candles,
             len(c_candles),
@@ -109,7 +103,7 @@ class Rust(Solver):
             float(quote),
             missed_candle_policy,
             trailing_stop,
-            *meta.get_non_identifier_args(args),
+            *args,
         )
         return SolverResult.from_object(result)
 
@@ -151,11 +145,6 @@ class Rust(Solver):
 def _build_cdef() -> str:
     # TODO: Do we want to parametrize this? Or lookup from module and construct for all.
     strategy_type = MAMACX
-    type_hints = get_input_type_hints(strategy_type.__init__)
-    meta = strategy_type.meta
-    custom_params = ',\n    '.join(
-        (f'{_map_type(v)} {k}' for k, v in type_hints.items() if k in meta.non_identifier_params)
-    )
 
     return f'''
 typedef struct {{
@@ -193,7 +182,7 @@ typedef struct {{
 
 {_build_backtest_result()}
 
-{_build_function_permutations(meta, custom_params)}
+{_build_strategy_function(strategy_type)}
     '''
 
 
@@ -209,19 +198,12 @@ typedef struct {{
     '''
 
 
-def _build_function_permutations(meta: Meta, custom_params: str) -> str:
-    templates = []
-    possible_values = []
-    for key in meta.identifier_params:
-        # TODO: Generalize?
-        possible_values.append(meta.constraints[key].choices)  # type: ignore
-    for keys, values in zip(
-        itertools.repeat(meta.identifier_params), itertools.product(*possible_values)
-    ):
-        format_args = {k: v for k, v in zip(keys, values)}
-        templates.append(
-            f'''
-BacktestResult {meta.identifier.format(**format_args)}(
+def _build_strategy_function(type_: Type[Strategy]) -> str:
+    custom_params = ',\n    '.join(
+        (f'{_map_type(v)} {k}' for k, v in get_input_type_hints(type_.__init__).items())
+    )
+    return f'''
+BacktestResult {type_.__name__.lower()}(
     const Candle *candles,
     uint32_t length,
     const Fees *fees,
@@ -232,8 +214,6 @@ BacktestResult {meta.identifier.format(**format_args)}(
     double trailing_stop,
     {custom_params});
         '''
-        )
-    return '\n'.join(templates)
 
 
 # TODO: Consolidate mappings below? Use NewType? Use meta only?
@@ -255,6 +235,7 @@ def _map_type(type_: type) -> str:
         int: 'uint32_t',
         float: 'double',
         Decimal: 'double',
+        bytes: 'char*',
     }.get(type_)
     if not result:
         raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')

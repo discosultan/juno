@@ -3,7 +3,7 @@
 
 import inspect
 import sys
-from typing import Any, Type
+from typing import Any, Type, Union
 
 from .adx import Adx
 from .adxr import Adxr
@@ -46,5 +46,7 @@ _indicators = {
 }
 
 
-def get_indicator_type(name: str) -> Type[Any]:
+def get_indicator_type(name: Union[str, bytes]) -> Type[Any]:
+    if isinstance(name, bytes):
+        name = name.decode('utf-8')
     return _indicators[name]

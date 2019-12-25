@@ -185,6 +185,10 @@ class Optimizer:
         toolbox.max_generations = self.max_generations
         toolbox.mutation_probability = self.mutation_probability
 
+        # Overwrite regular map to process entire population at once.
+        # Assumes only our algoritm is using it to evaluate an individual.
+        toolbox.register('map', lambda pop: toolbox.evaluate(pop))
+
         pop = toolbox.population(n=toolbox.population_size)
         pop = toolbox.select(pop, len(pop))
 

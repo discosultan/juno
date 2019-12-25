@@ -7,7 +7,7 @@ from juno.utils import Persistence
 
 from .strategy import Meta, Strategy
 
-_ma_choices = math.Choice(['sma', 'smma', 'ema', 'ema2'])
+_ma_choices = math.Choice([b'sma', b'smma', b'ema', b'ema2'])
 
 
 # Moving average moving average crossover.
@@ -37,8 +37,8 @@ class MAMACX(Strategy):
         neg_threshold: Decimal,
         pos_threshold: Decimal,
         persistence: int,
-        short_ma: str = 'ema',
-        long_ma: str = 'ema'
+        short_ma: bytes = b'ema',
+        long_ma: bytes = b'ema'
     ) -> None:
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
