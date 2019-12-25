@@ -10,15 +10,16 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
-from juno import InsufficientBalance
+from juno import InsufficientBalance, strategies
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
+from juno.config import init_module_instance
 from juno.math import Choice, Constraint, ConstraintChoice, Constant, Uniform, floor_multiple
-from juno.strategies import Strategy, get_strategy_type, new_strategy
+from juno.strategies import Strategy
 from juno.time import strfinterval, time_ms
 from juno.trading import Trader
 from juno.typing import get_input_type_hints
-from juno.utils import flatten, format_attrs_as_json
+from juno.utils import get_module_type, flatten, format_attrs_as_json
 
 from . import tools as juno_tools
 from .solver import Solver, SolverResult
@@ -128,7 +129,7 @@ class Optimizer:
         # random = Random(self.seed)  # <-- Don't do this! Or do but use all custom operators.
         random.seed(self.seed)
 
-        strategy_type = get_strategy_type(self.strategy)
+        strategy_type = get_module_type(strategies, self.strategy)
 
         # Objectives.
         objectives = [w for _, w in SolverResult.meta(include_disabled=False).values()]
@@ -243,7 +244,7 @@ class Optimizer:
             start=floor_multiple(self.start, self.result.interval),
             end=floor_multiple(self.end, self.result.interval),
             quote=self.quote,
-            new_strategy=lambda: new_strategy(self.result.strategy_config),
+            new_strategy=lambda: init_module_instance(strategies, self.result.strategy_config),
             missed_candle_policy=self.result.missed_candle_policy,
             trailing_stop=self.result.trailing_stop,
             adjust_start=False,

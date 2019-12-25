@@ -1,9 +1,10 @@
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
+from juno import strategies
 from juno.components import Chandler, Informant
+from juno.config import init_module_instance
 from juno.math import floor_multiple
-from juno.strategies import new_strategy
 from juno.time import time_ms
 from juno.trading import Trader
 
@@ -49,7 +50,7 @@ class Backtest(Agent):
             start=start,
             end=end,
             quote=quote,
-            new_strategy=lambda: new_strategy(strategy_config),
+            new_strategy=lambda: init_module_instance(strategies, strategy_config),
             event=self,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,

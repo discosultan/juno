@@ -19,11 +19,10 @@ from tenacity import (
     before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 )
 
-import juno.json as json
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
     JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, ExchangeInfo, Ticker,
-    TimeInForce, Trade
+    TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size

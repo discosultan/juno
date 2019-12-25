@@ -2,12 +2,13 @@ import inspect
 import os
 import re
 import sys
+from types import ModuleType
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
-import juno.json as json
+from juno import json
 from juno.time import strpinterval, strptimestamp
 from juno.typing import filter_member_args
-from juno.utils import map_module_types, recursive_iter
+from juno.utils import get_module_type, map_module_types, recursive_iter
 
 
 def config_from_env(
@@ -99,6 +100,11 @@ def load_instance(type_: type, config: Dict[str, Any]) -> Any:
         type_ = load_type(type_, config)
     name = type_.__name__.lower()
     return type_(**filter_member_args(type_.__init__, config.get(name, {})))  # type: ignore
+
+
+def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
+    type_ = get_module_type(module, config['type'])
+    return type_(**filter_member_args(type_.__init__, config))
 
 
 def load_type(type_: type, config: Dict[str, Any]) -> Any:
