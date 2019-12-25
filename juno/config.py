@@ -5,8 +5,7 @@ import sys
 from types import ModuleType
 from typing import Any, Dict, List, Mapping, Optional, Set, cast
 
-import juno
-import juno.json as json
+from juno import json
 from juno.time import strpinterval, strptimestamp
 from juno.typing import filter_member_args
 from juno.utils import get_module_type, map_module_types, recursive_iter
@@ -103,7 +102,7 @@ def load_instance(type_: type, config: Dict[str, Any]) -> Any:
     return type_(**filter_member_args(type_.__init__, config.get(name, {})))  # type: ignore
 
 
-def load_instance_from_module(module: ModuleType, config: Dict[str, Any]) -> Any:
+def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
     type_ = get_module_type(module, config['type'])
     return type_(**filter_member_args(type_.__init__, config))
 

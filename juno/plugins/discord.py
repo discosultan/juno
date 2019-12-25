@@ -8,7 +8,7 @@ from typing import Any, AsyncIterator, Dict
 
 import discord
 
-import juno.json as json
+from juno import json
 from juno.agents import Agent
 from juno.asyncio import cancel, cancelable
 from juno.trading import Position

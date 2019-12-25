@@ -15,8 +15,7 @@ from typing import (
     TypeVar, Union, get_origin, get_type_hints
 )
 
-import juno.json as json
-from juno import Interval, Timestamp, Trend
+from juno import Interval, Timestamp, Trend, json
 from juno.time import strfinterval, strftimestamp
 
 T = TypeVar('T')

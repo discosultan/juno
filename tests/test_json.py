@@ -3,7 +3,7 @@ from typing import NamedTuple
 
 import pytest
 
-import juno.json as json
+from juno import json
 
 
 class Complex:

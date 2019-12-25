@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional
 from juno import strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, Wallet
-from juno.config import load_instance_from_module
+from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import Trader
@@ -57,7 +57,7 @@ class Live(Agent):
             start=current,
             end=end,
             quote=quote,
-            new_strategy=lambda: load_instance_from_module(strategies, strategy_config),
+            new_strategy=lambda: init_module_instance(strategies, strategy_config),
             broker=self.broker,
             test=False,
             event=self,
