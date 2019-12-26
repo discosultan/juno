@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, NamedTuple, NewType, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple, _GenericAlias  # type: ignore
 
 from juno.filters import Filters
 from juno.time import datetime_utcfromtimestamp_ms
 
-Interval = NewType('Interval', int)
-Timestamp = NewType('Timestamp', int)
+
+Interval = _GenericAlias(int, (), name='Interval')
+Timestamp = _GenericAlias(int, (), name='Timestamp')
 
 
 class Advice(Enum):

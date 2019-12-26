@@ -189,7 +189,7 @@ def _get_attrs(obj: Any) -> Dict[str, Any]:
 
 
 def _get_transform(type_: Type[Any]) -> Callable[[Any], Any]:
-    # NewTypes.
+    # Aliases.
     if type_ is Interval:
         return strfinterval
     if type_ is Timestamp:
