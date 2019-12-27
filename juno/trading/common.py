@@ -74,20 +74,20 @@ class Position:
     @property
     def end(self) -> Timestamp:
         if not self.closing_fills:
-            return Timestamp(0)
-        return Timestamp(self.closing_time)
+            return 0
+        return self.closing_time
 
     @property
     def duration(self) -> Interval:
         if not self.closing_fills:
-            return Interval(0)
-        return Interval(self.closing_time - self.time)
+            return 0
+        return self.closing_time - self.time
 
 
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
     def __init__(
-        self, interval: int, start: int, quote: Decimal, fees: Fees, filters: Filters
+        self, interval: Interval, start: Timestamp, quote: Decimal, fees: Fees, filters: Filters
     ) -> None:
         self.interval = interval
         self._start = start
@@ -156,7 +156,7 @@ class TradingSummary:
 
     @property
     def duration(self) -> Interval:
-        return Interval(self.end - self.start if self.end > 0 else 0)
+        return self.end - self.start if self.end > 0 else 0
 
     @property
     def num_positions(self) -> int:

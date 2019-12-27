@@ -10,7 +10,7 @@ from typing import (
 
 import aiohttp
 
-import juno.json as json
+from juno import json
 from juno.utils import generate_random_words
 
 from .asyncio import cancel, cancelable, concat_async

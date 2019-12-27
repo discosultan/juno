@@ -1,10 +1,6 @@
 # Indicators are adapted and verified using the Tulip Indicators C library:
 # https://github.com/TulipCharts/tulipindicators
 
-import inspect
-import sys
-from typing import Any, Type
-
 from .adx import Adx
 from .adxr import Adxr
 from .cci import Cci
@@ -39,12 +35,3 @@ __all__ = [
     'StochRsi',
     'Tsi',
 ]
-
-_indicators = {
-    name.lower(): obj
-    for name, obj in inspect.getmembers(sys.modules[__name__], inspect.isclass)
-}
-
-
-def get_indicator_type(name: str) -> Type[Any]:
-    return _indicators[name]

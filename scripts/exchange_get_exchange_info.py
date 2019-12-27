@@ -2,13 +2,13 @@ import asyncio
 import logging
 
 from juno import exchanges
-from juno.config import config_from_env, load_instance
+from juno.config import config_from_env, init_instance
 
 EXCHANGE_TYPE = exchanges.Binance
 
 
 async def main():
-    async with load_instance(EXCHANGE_TYPE, config_from_env()) as client:
+    async with init_instance(EXCHANGE_TYPE, config_from_env()) as client:
         exchange_info = await client.get_exchange_info()
         logging.info(exchange_info.filters['ada-btc'])
         logging.info(exchange_info.filters.keys())

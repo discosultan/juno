@@ -1,31 +1,41 @@
+import sys
 from decimal import Decimal
+from typing import Dict, List, NamedTuple, Optional
 
-from juno import config
+from juno import Interval, Timestamp, config
 
 
-def test_transform():
+class Foo(NamedTuple):
+    name: str
+    timestamp: Timestamp
+    interval: Interval
+    optional_interval: Optional[Interval]
+    decimal: Decimal
+    list_of_intervals: List[Interval]
+    dict_of_intervals: Dict[Interval, Interval]
+
+
+def test_init_module_instance():
     input = {
-        'name': 'foo',
+        'type': 'foo',
+        'name': 'bar',
         'timestamp': '2000-01-01T00:00:00+00:00',
         'interval': '1h',
-        'long_interval': '1d',
+        'optional_interval': '2h',
         'decimal': Decimal('1.5'),
-        'list': [],
-        'dict': {},
         'list_of_intervals': ['1h', '2h'],
+        'dict_of_intervals': {'1h': '2h'}
     }
-    expected_output = {
-        'name': 'foo',
-        'timestamp': 946_684_800_000,
-        'interval': 3_600_000,
-        'long_interval': 86_400_000,
-        'decimal': Decimal('1.5'),
-        'list': [],
-        'dict': {},
-        'list_of_intervals': [3_600_000, 7_200_000],
-    }
-    output = config.transform(input)
-    assert output == expected_output
+
+    output = config.init_module_instance(sys.modules[__name__], input)
+
+    assert output.name == 'bar'
+    assert output.timestamp == 946_684_800_000
+    assert output.interval == 3_600_000
+    assert output.optional_interval == 7_200_000
+    assert output.decimal == Decimal('1.5')
+    assert output.list_of_intervals == [3_600_000, 7_200_000]
+    assert output.dict_of_intervals.get(3_600_000) == 7_200_000
 
 
 def test_load_from_env():

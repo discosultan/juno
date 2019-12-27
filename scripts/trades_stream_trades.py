@@ -4,7 +4,7 @@ import logging
 from juno import exchanges, storages
 from juno.asyncio import enumerate_async
 from juno.components import Trades
-from juno.config import config_from_env, load_instance
+from juno.config import config_from_env, init_instance
 from juno.time import strptimestamp
 
 EXCHANGE_TYPE = exchanges.Kraken
@@ -13,7 +13,7 @@ SYMBOL = 'eth-btc'
 
 async def main():
     storage = storages.SQLite()
-    client = load_instance(EXCHANGE_TYPE, config_from_env())
+    client = init_instance(EXCHANGE_TYPE, config_from_env())
     name = EXCHANGE_TYPE.__name__.lower()
     trades = Trades(storage, [client])
     async with client:

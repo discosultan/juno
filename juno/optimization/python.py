@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, List, Type
 
-from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance
+from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.trading import Position, TradingContext, TradingSummary
@@ -19,7 +19,7 @@ class Python(Solver):
         fees: Fees,
         filters: Filters,
         symbol: str,
-        interval: int,
+        interval: Interval,
         missed_candle_policy: int,
         trailing_stop: Decimal,
         *args: Any,

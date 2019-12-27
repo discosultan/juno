@@ -15,8 +15,7 @@ from typing import (
     TypeVar, Union, get_origin, get_type_hints
 )
 
-import juno.json as json
-from juno import Interval, Timestamp, Trend
+from juno import Interval, Timestamp, Trend, json
 from juno.time import strfinterval, strftimestamp
 
 T = TypeVar('T')
@@ -190,7 +189,7 @@ def _get_attrs(obj: Any) -> Dict[str, Any]:
 
 
 def _get_transform(type_: Type[Any]) -> Callable[[Any], Any]:
-    # NewTypes.
+    # Aliases.
     if type_ is Interval:
         return strfinterval
     if type_ is Timestamp:
@@ -210,6 +209,19 @@ def _get_transform(type_: Type[Any]) -> Callable[[Any], Any]:
 
 def _isprop(v: object) -> bool:
     return isinstance(v, property)
+
+
+def get_module_type(module: ModuleType, name: str) -> Type[Any]:
+    name_lower = name.lower()
+    found_members = inspect.getmembers(
+        module,
+        lambda obj: inspect.isclass(obj) and obj.__name__.lower() == name_lower
+    )
+    if len(found_members) == 0:
+        raise ValueError(f'Type named "{name}" not found in module "{module.__name__}".')
+    if len(found_members) > 1:
+        raise ValueError(f'Found more than one type named "{name}" in module "{module.__name__}".')
+    return found_members[0][1]
 
 
 class CircularBuffer(Generic[T]):

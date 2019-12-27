@@ -5,7 +5,7 @@ import plotly.graph_objs as go
 import plotly.offline as py
 from juno.asyncio import list_async
 from juno.components import Chandler, Trades
-from juno.config import config_from_env, load_instance
+from juno.config import config_from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import SQLite
 from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strpinterval
@@ -13,7 +13,7 @@ from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strpinterval
 
 async def main():
     sqlite = SQLite()
-    binance = load_instance(Binance, config_from_env())
+    binance = init_instance(Binance, config_from_env())
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades, sqlite, [binance])
     async with binance, chandler:

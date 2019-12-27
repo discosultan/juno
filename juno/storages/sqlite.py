@@ -9,7 +9,7 @@ from typing import (
     cast, get_args, get_origin, get_type_hints
 )
 
-import juno.json as json
+from juno import json
 from juno.time import strfspan, time_ms
 from juno.typing import get_name, isnamedtuple
 from juno.utils import home_path

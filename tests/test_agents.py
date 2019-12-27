@@ -84,7 +84,6 @@ async def test_backtest_scenarios(scenario_nr):
         )
     )
     agent_config = {
-        'type': 'backtest',
         'exchange': 'binance',
         'symbol': 'eth-btc',
         'start': 1483225200000,

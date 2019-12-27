@@ -6,7 +6,7 @@ from typing import List
 
 from colorlog import ColoredFormatter
 
-import juno.json as json
+from juno import json
 from juno.utils import home_path
 
 disabled_log = logging.Logger(name='disabled')

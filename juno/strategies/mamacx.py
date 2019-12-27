@@ -1,9 +1,8 @@
 import operator
 from decimal import Decimal
 
-from juno import Advice, Candle, Trend, math
-from juno.indicators import get_indicator_type
-from juno.utils import Persistence
+from juno import Advice, Candle, Trend, indicators, math
+from juno.utils import Persistence, get_module_type
 
 from .strategy import Meta, Strategy
 
@@ -43,8 +42,8 @@ class MAMACX(Strategy):
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
-        self._short_ma = get_indicator_type(short_ma)(short_period)
-        self._long_ma = get_indicator_type(long_ma)(long_period)
+        self._short_ma = get_module_type(indicators, short_ma)(short_period)
+        self._long_ma = get_module_type(indicators, long_ma)(long_period)
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
         self._persistence = Persistence(level=persistence, allow_initial_trend=False)

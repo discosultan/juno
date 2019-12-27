@@ -15,10 +15,9 @@ from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Unio
 from aiolimiter import AsyncLimiter
 from dateutil.tz import UTC
 
-import juno.json as json
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderType, Side,
-    ExchangeInfo, TimeInForce
+    ExchangeInfo, TimeInForce, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Price, Size
