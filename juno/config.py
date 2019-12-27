@@ -1,6 +1,7 @@
 import inspect
 import os
 import sys
+from enum import Enum
 from types import ModuleType
 from typing import (
     Any, Dict, List, Mapping, Optional, Set, Type, TypeVar, Union, get_args, get_origin
@@ -108,13 +109,15 @@ def kwargs_from_config(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]
     parsed_config = {}
     # TODO: assignment expression?
     for k, t in type_hints.items():
-        config_val = config.get(k)
-        if config_val is not None:
+        config_val = config.get(k, '__missing__')
+        if config_val != '__missing__':
             parsed_config[k] = _transform_value(config_val, t)
     return parsed_config
 
 
 def _transform_value(value: Any, type_: Any) -> Any:
+    if type_ is Any:
+        return value
     if type_ is Interval:
         return strpinterval(value)
     if type_ is Timestamp:
@@ -133,6 +136,9 @@ def _transform_value(value: Any, type_: Any) -> Any:
         elif origin is Union:  # Most probably Optional[T].
             st, _ = get_args(type_)
             return _transform_value(value, st) if value is not None else None
+
+    if issubclass(type_, Enum):
+        return type_[value.upper()]
 
     return value
 

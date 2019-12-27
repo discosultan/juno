@@ -175,7 +175,7 @@ def _get_attrs(obj: Any) -> Dict[str, Any]:
     # Fields.
     fields = [(n, v) for (n, v) in get_type_hints(type_).items() if not n.startswith('_')]
     for name, field_type in fields:
-        output[name] = _get_transform(field_type)(getattr(obj, name))  # type: ignore
+        output[name] = _transform(field_type, getattr(obj, name))  # type: ignore
 
     # Properties.
     props = [(n, v) for (n, v) in inspect.getmembers(type_, _isprop) if not n.startswith('_')]
@@ -183,28 +183,28 @@ def _get_attrs(obj: Any) -> Dict[str, Any]:
     props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
     for name, prop in props:
         prop_type = get_type_hints(prop.fget)['return']
-        output[name] = _get_transform(prop_type)(prop.fget(obj))
+        output[name] = _transform(prop_type, prop.fget(obj))
 
     return output
 
 
-def _get_transform(type_: Type[Any]) -> Callable[[Any], Any]:
+def _transform(type_: Type[Any], value: Any) -> Any:
     # Aliases.
     if type_ is Interval:
-        return strfinterval
+        return strfinterval(value)
     if type_ is Timestamp:
-        return strftimestamp
+        return strftimestamp(value)
 
     # Dict.
     origin = get_origin(type_)
     if origin and issubclass(origin, dict):
-        return lambda v: v
+        return value
 
     # NamedTuple.
     if issubclass(type_, tuple) and get_type_hints(type_):
-        return _get_attrs
+        return _get_attrs(value)
 
-    return lambda v: v
+    return value
 
 
 def _isprop(v: object) -> bool:
