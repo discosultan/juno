@@ -11,7 +11,7 @@ import pandas as pd
 from juno import Fill
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
-from juno.config import config_from_env, load_instance
+from juno.config import config_from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.storages import SQLite
@@ -27,8 +27,8 @@ INTERVAL = HOUR_MS
 async def main() -> None:
     sqlite = SQLite()
     config = config_from_env()
-    binance = load_instance(Binance, config)
-    coinbase = load_instance(Coinbase, config)
+    binance = init_instance(Binance, config)
+    coinbase = init_instance(Coinbase, config)
     chandler = Chandler(
         Trades(sqlite, [binance, coinbase]),
         sqlite,
@@ -48,8 +48,8 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4, 'sma',
-                                        'smma'),
+            new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4,
+                                        MAMACX.MA.SMA, MAMACX.MA.SMMA),
             trailing_stop=Decimal('0.0827'),
             missed_candle_policy='last'
         )

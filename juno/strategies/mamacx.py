@@ -20,6 +20,8 @@ _ma_choices = math.Choice([MA.EMA, MA.EMA2, MA.SMA, MA.SMMA])
 
 # Moving average moving average crossover.
 class MAMACX(Strategy):
+    MA = MA
+
     meta = Meta(
         constraints={
             ('short_period', 'long_period'):
