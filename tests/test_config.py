@@ -1,8 +1,13 @@
 import sys
 from decimal import Decimal
+from enum import IntEnum
 from typing import Dict, List, NamedTuple, Optional
 
 from juno import Interval, Timestamp, config
+
+
+class SomeEnum(IntEnum):
+    KEY = 1
 
 
 class Foo(NamedTuple):
@@ -10,9 +15,11 @@ class Foo(NamedTuple):
     timestamp: Timestamp
     interval: Interval
     optional_interval: Optional[Interval]
+    missing_optional_interval: Optional[Interval]
     decimal: Decimal
     list_of_intervals: List[Interval]
     dict_of_intervals: Dict[Interval, Interval]
+    enum: SomeEnum
 
 
 def test_init_module_instance():
@@ -22,9 +29,11 @@ def test_init_module_instance():
         'timestamp': '2000-01-01T00:00:00+00:00',
         'interval': '1h',
         'optional_interval': '2h',
+        'missing_optional_interval': None,
         'decimal': Decimal('1.5'),
         'list_of_intervals': ['1h', '2h'],
-        'dict_of_intervals': {'1h': '2h'}
+        'dict_of_intervals': {'1h': '2h'},
+        'enum': 'key'
     }
 
     output = config.init_module_instance(sys.modules[__name__], input)
@@ -33,9 +42,11 @@ def test_init_module_instance():
     assert output.timestamp == 946_684_800_000
     assert output.interval == 3_600_000
     assert output.optional_interval == 7_200_000
+    assert output.missing_optional_interval is None
     assert output.decimal == Decimal('1.5')
     assert output.list_of_intervals == [3_600_000, 7_200_000]
     assert output.dict_of_intervals.get(3_600_000) == 7_200_000
+    assert output.enum == SomeEnum.KEY
 
 
 def test_load_from_env():

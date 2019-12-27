@@ -6,27 +6,6 @@ from juno import math
 from juno.strategies import Meta, Strategy
 
 
-def test_meta():
-    meta = Meta(constraints={
-        'foo': {},
-        'bar': {},
-        'baz': {},
-    }, identifier='{foo}{bar}hello')
-    assert meta.all_params == ['foo', 'bar', 'baz']
-    assert meta.identifier_params == ['foo', 'bar']
-    assert meta.non_identifier_params == ['baz']
-
-
-def test_meta_with_complex_constraint():
-    meta = Meta(constraints={
-        ('foo', 'bar'): {},
-        'baz': {},
-    }, identifier='{foo}{bar}hello')
-    assert meta.all_params == ['foo', 'bar', 'baz']
-    assert meta.identifier_params == ['foo', 'bar']
-    assert meta.non_identifier_params == ['baz']
-
-
 def test_strategy_meta():
     strategy = DummyStrategy()
 

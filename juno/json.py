@@ -4,6 +4,7 @@
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
 from decimal import Decimal
+from enum import Enum
 from typing import IO, Any, Iterable, Optional
 
 import simplejson as json
@@ -15,7 +16,7 @@ def _prepare_dump(obj: Any) -> Any:
 
     if isinstance(obj, tuple):
         obj = list(obj)
-    elif hasattr(obj, '__dict__'):
+    elif not isinstance(obj, Enum) and hasattr(obj, '__dict__'):
         obj = obj.__dict__
 
     stack = [obj]
@@ -33,7 +34,7 @@ def _prepare_dump(obj: Any) -> Any:
             if isinstance(v, tuple):
                 item[k] = list(v)
                 stack.append(item[k])
-            elif hasattr(v, '__dict__'):
+            elif not isinstance(v, Enum) and hasattr(v, '__dict__'):
                 item[k] = v.__dict__
                 stack.append(item[k])
             else:
