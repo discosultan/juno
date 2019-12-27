@@ -1,7 +1,8 @@
-from .common import Position, TradingContext, TradingSummary
+from .common import MissedCandlePolicy, Position, TradingContext, TradingSummary
 from .trader import Trader
 
 __all__ = [
+    'MissedCandlePolicy',
     'Position',
     'TradingContext',
     'Trader',

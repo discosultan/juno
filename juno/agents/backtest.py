@@ -6,7 +6,7 @@ from juno.components import Chandler, Informant
 from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import time_ms
-from juno.trading import Trader
+from juno.trading import MissedCandlePolicy, Trader
 
 from .agent import Agent
 
@@ -26,7 +26,7 @@ class Backtest(Agent):
         quote: Decimal,
         strategy_config: Dict[str, Any],
         end: Optional[Timestamp] = None,
-        missed_candle_policy: str = 'ignore',
+        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
     ) -> None:

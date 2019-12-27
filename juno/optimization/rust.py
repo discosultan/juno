@@ -14,6 +14,7 @@ import cffi
 
 from juno import Candle, Fees, Filters, Interval
 from juno.components import Chandler, Informant
+from juno.trading import MissedCandlePolicy
 from juno.strategies import MAMACX, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path
@@ -80,7 +81,7 @@ class Rust(Solver):
         filters: Filters,
         symbol: str,
         interval: Interval,
-        missed_candle_policy: int,
+        missed_candle_policy: MissedCandlePolicy,
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:

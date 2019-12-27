@@ -4,6 +4,7 @@ from typing import List, Optional
 from juno import Interval, Timestamp
 from juno.components import Chandler, Informant
 from juno.optimization import Optimizer, Solver
+from juno.trading import MissedCandlePolicy
 
 from . import Agent
 
@@ -24,7 +25,7 @@ class Optimize(Agent):
         quote: Decimal,
         strategy: str,
         end: Optional[Timestamp] = None,
-        missed_candle_policy: Optional[str] = 'ignore',
+        missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE,
         trailing_stop: Optional[Decimal] = Decimal('0.0'),
         population_size: int = 50,
         max_generations: int = 1000,

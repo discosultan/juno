@@ -52,7 +52,7 @@ pub unsafe extern "C" fn mamacx(
         (3, 1) => run_mamacx_test::<Smma, Ema2>(candles, length, fees, filters, interval, quote, missed_candle_policy, trailing_stop, short_period, long_period, neg_threshold, pos_threshold, persistence),
         (3, 2) => run_mamacx_test::<Smma, Sma> (candles, length, fees, filters, interval, quote, missed_candle_policy, trailing_stop, short_period, long_period, neg_threshold, pos_threshold, persistence),
         (3, 3) => run_mamacx_test::<Smma, Smma>(candles, length, fees, filters, interval, quote, missed_candle_policy, trailing_stop, short_period, long_period, neg_threshold, pos_threshold, persistence),
-        _ => panic!()
+        _ => panic!("Moving average ({}, {}) not implemented!", short_ma, long_ma),
     }
 }
 

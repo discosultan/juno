@@ -9,7 +9,7 @@ from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.utils import EventEmitter, format_attrs_as_json, unpack_symbol
 
-from .common import Position, TradingContext, TradingSummary
+from .common import MissedCandlePolicy, Position, TradingContext, TradingSummary
 
 _log = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class Trader:
         broker: Optional[Broker] = None,
         test: bool = True,  # No effect if broker is None.
         event: EventEmitter = EventEmitter(),
-        missed_candle_policy: str = 'ignore',
+        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
     ) -> None:
@@ -37,7 +37,6 @@ class Trader:
         assert end > 0
         assert end > start
         assert 0 <= trailing_stop < 1
-        assert missed_candle_policy in ['ignore', 'restart', 'last']
 
         self.chandler = chandler
         self.informant = informant
@@ -95,13 +94,13 @@ class Trader:
                             f'missed {num_missed} candle(s); last candle {ctx.last_candle}; '
                             f'current candle {candle}'
                         )
-                        if self.missed_candle_policy == 'restart':
+                        if self.missed_candle_policy is MissedCandlePolicy.RESTART:
                             _log.info('restarting strategy')
                             restart = True
                             ctx.strategy = self.new_strategy()
                             start = candle.time + self.interval
                             restart_count += 1
-                        elif self.missed_candle_policy == 'last':
+                        elif self.missed_candle_policy is MissedCandlePolicy.LAST:
                             _log.info('replaying missed candles with last candle values')
                             last_candle = ctx.last_candle
                             for i in range(1, num_missed + 1):
