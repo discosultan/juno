@@ -3,12 +3,16 @@ import os
 import re
 import sys
 from types import ModuleType
-from typing import Any, Dict, List, Mapping, Optional, Set, cast
+from typing import (
+    Any, Dict, List, Mapping, Optional, Set, Type, TypeVar, cast, get_args, get_origin
+)
 
-from juno import json
+from juno import Interval, Timestamp, json
 from juno.time import strpinterval, strptimestamp
-from juno.typing import filter_member_args
+from juno.typing import get_input_type_hints, isnamedtuple, filter_member_args
 from juno.utils import get_module_type, map_module_types, recursive_iter
+
+T = TypeVar('T')
 
 
 def config_from_env(
@@ -104,7 +108,37 @@ def load_instance(type_: type, config: Dict[str, Any]) -> Any:
 
 def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
     type_ = get_module_type(module, config['type'])
-    return type_(**filter_member_args(type_.__init__, config))
+    return init_instance(type_, config)
+
+
+def init_instance(type_: Type[T], config: Dict[str, Any]) -> T:
+    init_hints = get_input_type_hints(type_ if isnamedtuple(type_) else type_.__init__)
+    new_config = {}
+    for k, t in init_hints.items():
+        config_val = config.get(k)
+        if config_val is not None:
+            new_config[k] = _transform_value(config_val, t)
+    return type_(**new_config)  # type: ignore
+
+
+def _transform_value(value: Any, type_: Any) -> Any:
+    if type_ is Interval:
+        return strpinterval(value)
+    if type_ is Timestamp:
+        return strptimestamp(value)
+
+    origin = get_origin(type_)
+    if origin:
+        if origin is list:
+            st, = get_args(type_)
+            return [_transform_value(sv, st) for sv in value]
+        elif origin is dict:
+            skt, svt = get_args(type_)
+            return {
+                _transform_value(sk, skt): _transform_value(sv, svt) for sk, sv in value.items()
+            }
+
+    return value
 
 
 def load_type(type_: type, config: Dict[str, Any]) -> Any:
