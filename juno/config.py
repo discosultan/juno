@@ -109,8 +109,8 @@ def kwargs_from_config(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]
     parsed_config = {}
     # TODO: assignment expression?
     for k, t in type_hints.items():
-        config_val = config.get(k)
-        if config_val is not None:
+        config_val = config.get(k, '__missing__')
+        if config_val != '__missing__':
             parsed_config[k] = _transform_value(config_val, t)
     return parsed_config
 

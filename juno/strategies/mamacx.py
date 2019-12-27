@@ -34,8 +34,7 @@ class MAMACX(Strategy):
                 _ma_choices,
             'long_ma':
                 _ma_choices,
-        },
-        identifier='{short_ma}{long_ma}cx'
+        }
     )
 
     def __init__(
