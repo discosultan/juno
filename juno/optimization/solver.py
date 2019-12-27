@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Tuple, Type, get_type_hints
 
-from juno import Candle, Fees, Filters
+from juno import Candle, Fees, Filters, Interval
 from juno.strategies import Strategy
 from juno.trading import TradingSummary
 
@@ -19,7 +19,7 @@ class Solver(ABC):
         fees: Fees,
         filters: Filters,
         symbol: str,
-        interval: int,
+        interval: Interval,
         missed_candle_policy: int,
         trailing_stop: Decimal,
         *args: Any,

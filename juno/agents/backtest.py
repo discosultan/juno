@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from juno import strategies
+from juno import Interval, Timestamp, strategies
 from juno.components import Chandler, Informant
 from juno.config import init_module_instance
 from juno.math import floor_multiple
@@ -21,11 +21,11 @@ class Backtest(Agent):
         self,
         exchange: str,
         symbol: str,
-        interval: int,
-        start: int,
+        interval: Interval,
+        start: Timestamp,
         quote: Decimal,
         strategy_config: Dict[str, Any],
-        end: Optional[int] = None,
+        end: Optional[Timestamp] = None,
         missed_candle_policy: str = 'ignore',
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),

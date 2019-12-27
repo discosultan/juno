@@ -13,7 +13,8 @@ from juno.agents import Agent
 from juno.asyncio import cancelable
 from juno.brokers import Broker
 from juno.config import (
-    config_from_env, config_from_json_file, load_instance, load_instances, load_type
+    config_from_env, config_from_json_file, init_instance, init_instances, kwargs_from_config,
+    load_type
 )
 from juno.di import Container
 from juno.exchanges import Exchange
@@ -72,8 +73,8 @@ async def main() -> None:
     # Configure deps.
     container = Container()
     container.add_singleton_instance(Dict[str, Any], lambda: config)
-    container.add_singleton_instance(Storage, lambda: load_instance(Storage, config))
-    container.add_singleton_instance(List[Exchange], lambda: load_instances(Exchange, config))
+    container.add_singleton_instance(Storage, lambda: init_instance(Storage, config))
+    container.add_singleton_instance(List[Exchange], lambda: init_instances(Exchange, config))
     container.add_singleton_type(Broker, lambda: load_type(Broker, config))
     container.add_singleton_type(Solver, lambda: load_type(Solver, config))
 
@@ -95,7 +96,9 @@ async def main() -> None:
         )
 
         # Run agents.
-        await asyncio.gather(*(a.start(**c) for a, c in agent_config_map.items()))
+        await asyncio.gather(
+            *(a.start(**kwargs_from_config(a.run, c)) for a, c in agent_config_map.items())
+        )
 
     _log.info('main finished')
 

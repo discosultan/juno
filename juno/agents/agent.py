@@ -5,7 +5,6 @@ from enum import Enum
 from typing import Any, Awaitable, Callable, Dict, List
 
 from juno.asyncio import empty_future
-from juno.typing import filter_member_args
 from juno.utils import EventEmitter, format_attrs_as_json, generate_random_words
 
 _log = logging.getLogger(__name__)
@@ -37,7 +36,7 @@ class Agent(EventEmitter):
         type_name = type(self).__name__.lower()
         _log.info(f'running {self.name} ({type_name}): {agent_config}')
         try:
-            await self.run(**filter_member_args(self.run, agent_config))
+            await self.run(**agent_config)
         except asyncio.CancelledError:
             _log.info('agent cancelled')
         except Exception as exc:

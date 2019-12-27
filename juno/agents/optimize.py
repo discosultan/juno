@@ -1,6 +1,7 @@
 from decimal import Decimal
 from typing import List, Optional
 
+from juno import Interval, Timestamp
 from juno.components import Chandler, Informant
 from juno.optimization import Optimizer, Solver
 
@@ -18,11 +19,11 @@ class Optimize(Agent):
         self,
         exchange: str,
         symbols: Optional[List[str]],
-        intervals: Optional[List[int]],
-        start: int,
+        intervals: Optional[List[Interval]],
+        start: Timestamp,
         quote: Decimal,
         strategy: str,
-        end: Optional[int] = None,
+        end: Optional[Timestamp] = None,
         missed_candle_policy: Optional[str] = 'ignore',
         trailing_stop: Optional[Decimal] = Decimal('0.0'),
         population_size: int = 50,

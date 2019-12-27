@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Tuple, Type
 
 import cffi
 
-from juno import Candle, Fees, Filters
+from juno import Candle, Fees, Filters, Interval
 from juno.components import Chandler, Informant
 from juno.strategies import MAMACX, Meta, Strategy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
@@ -79,7 +79,7 @@ class Rust(Solver):
         fees: Fees,
         filters: Filters,
         symbol: str,
-        interval: int,
+        interval: Interval,
         missed_candle_policy: int,
         trailing_stop: Decimal,
         *args: Any,

@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import Callable, Optional
 
-from juno import Advice, Candle, Fill, InsufficientBalance
+from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
@@ -21,9 +21,9 @@ class Trader:
         informant: Informant,
         exchange: str,
         symbol: str,
-        interval: int,
-        start: int,
-        end: int,
+        interval: Interval,
+        start: Timestamp,
+        end: Timestamp,
         quote: Decimal,
         new_strategy: Callable[[], Strategy],
         broker: Optional[Broker] = None,

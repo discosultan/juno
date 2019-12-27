@@ -87,7 +87,7 @@ class Position:
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
     def __init__(
-        self, interval: int, start: int, quote: Decimal, fees: Fees, filters: Filters
+        self, interval: Interval, start: Timestamp, quote: Decimal, fees: Fees, filters: Filters
     ) -> None:
         self.interval = interval
         self._start = start

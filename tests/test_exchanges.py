@@ -8,7 +8,7 @@ import pytest
 from juno import (
     Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, OrderType, Side, Ticker, Trade
 )
-from juno.config import load_instance
+from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Kraken
 from juno.time import HOUR_MS, strptimestamp
 from juno.typing import types_match
@@ -221,7 +221,7 @@ def skip_exchange(exchange, *skip_exchange_types):
 @asynccontextmanager
 async def try_init_exchange(type_, config):
     try:
-        async with load_instance(type_, config) as exchange:
+        async with init_instance(type_, config) as exchange:
             yield exchange
     except TypeError:
         yield None

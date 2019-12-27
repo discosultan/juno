@@ -10,7 +10,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
-from juno import InsufficientBalance, strategies
+from juno import InsufficientBalance, Interval, Timestamp, strategies
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.config import init_module_instance
@@ -44,12 +44,12 @@ class Optimizer:
         chandler: Chandler,
         informant: Informant,
         exchange: str,
-        start: int,
+        start: Timestamp,
         quote: Decimal,
         strategy: str,
         symbols: Optional[List[str]] = None,
-        intervals: Optional[List[int]] = None,
-        end: Optional[int] = None,
+        intervals: Optional[List[Interval]] = None,
+        end: Optional[Timestamp] = None,
         missed_candle_policy: Optional[str] = 'ignore',
         trailing_stop: Optional[Decimal] = Decimal('0.0'),
         population_size: int = 50,
@@ -277,7 +277,7 @@ def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> A
 
 class OptimizationResult(NamedTuple):
     symbol: str = ''
-    interval: int = 0
+    interval: Interval = 0
     missed_candle_policy: str = 'ignore'
     trailing_stop: Decimal = Decimal('0.0')
     strategy_config: Dict[str, Any] = {}

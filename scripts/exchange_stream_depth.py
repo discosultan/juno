@@ -2,14 +2,14 @@ import asyncio
 import logging
 
 from juno import exchanges
-from juno.config import config_from_env, load_instance
+from juno.config import config_from_env, init_instance
 
 EXCHANGE_TYPE = exchanges.Kraken
 SYMBOL = 'ada-eur'
 
 
 async def main():
-    async with load_instance(EXCHANGE_TYPE, config_from_env()) as client:
+    async with init_instance(EXCHANGE_TYPE, config_from_env()) as client:
         async with client.connect_stream_depth(SYMBOL) as stream:
             async for val in stream:
                 logging.info(val)

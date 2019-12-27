@@ -1,6 +1,6 @@
 import sys
 from decimal import Decimal
-from typing import Dict, List, NamedTuple
+from typing import Dict, List, NamedTuple, Optional
 
 from juno import Interval, Timestamp, config
 
@@ -9,6 +9,7 @@ class Foo(NamedTuple):
     name: str
     timestamp: Timestamp
     interval: Interval
+    optional_interval: Optional[Interval]
     decimal: Decimal
     list_of_intervals: List[Interval]
     dict_of_intervals: Dict[Interval, Interval]
@@ -20,6 +21,7 @@ def test_init_module_instance():
         'name': 'bar',
         'timestamp': '2000-01-01T00:00:00+00:00',
         'interval': '1h',
+        'optional_interval': '2h',
         'decimal': Decimal('1.5'),
         'list_of_intervals': ['1h', '2h'],
         'dict_of_intervals': {'1h': '2h'}
@@ -30,6 +32,7 @@ def test_init_module_instance():
     assert output.name == 'bar'
     assert output.timestamp == 946_684_800_000
     assert output.interval == 3_600_000
+    assert output.optional_interval == 7_200_000
     assert output.decimal == Decimal('1.5')
     assert output.list_of_intervals == [3_600_000, 7_200_000]
     assert output.dict_of_intervals.get(3_600_000) == 7_200_000

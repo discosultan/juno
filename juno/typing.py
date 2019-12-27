@@ -14,11 +14,6 @@ def get_input_type_hints(obj: Any) -> Dict[str, type]:
     return {n: t for n, t in get_type_hints(obj).items() if n != 'return'}
 
 
-def filter_member_args(obj: Any, dict_: Dict[str, Any]) -> Dict[str, Any]:
-    keys = set(get_input_type_hints(obj).keys())
-    return {k: v for k, v in dict_.items() if k in keys}
-
-
 def get_name(type_: Any) -> str:
     return str(type_) if get_origin(type_) else type_.__name__
 

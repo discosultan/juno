@@ -9,7 +9,10 @@ from juno.time import datetime_utcfromtimestamp_ms
 
 
 Interval = _GenericAlias(int, (), name='Interval')
-Timestamp = _GenericAlias(int, (), name='Timestamp')
+# Note that we alias `Interval` instead of `int`. This is required because typing module seems to
+# erase duplicate aliases to same type. If `Timestamp` also aliased `int`, `Optional[Interval]`
+# would be resolved as `Union[Timestamp, None]` instead.
+Timestamp = _GenericAlias(Interval, (), name='Timestamp')
 
 
 class Advice(Enum):

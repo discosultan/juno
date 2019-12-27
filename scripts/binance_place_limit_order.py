@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from juno import OrderType, Side, TimeInForce
 from juno.components import Informant, Orderbook, Wallet
-from juno.config import config_from_env, load_instance
+from juno.config import config_from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
@@ -17,7 +17,7 @@ CLIENT_ID = 'foo'
 
 
 async def main() -> None:
-    binance = load_instance(Binance, config_from_env())
+    binance = init_instance(Binance, config_from_env())
     memory = Memory()
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=[binance])

@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
-from juno import strategies
+from juno import Interval, Timestamp, strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, Wallet
 from juno.config import init_module_instance
@@ -27,9 +27,9 @@ class Live(Agent):
         self,
         exchange: str,
         symbol: str,
-        interval: int,
+        interval: Interval,
         strategy_config: Dict[str, Any],
-        end: int = MAX_TIME_MS,
+        end: Timestamp = MAX_TIME_MS,
         missed_candle_policy: str = 'ignore',
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
