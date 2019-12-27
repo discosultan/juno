@@ -15,7 +15,7 @@ from juno.config import config_from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.storages import SQLite
-from juno.strategies import MAMACX
+from juno.strategies import MA, MAMACX
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
 from juno.trading import Trader
 from juno.utils import unpack_symbol
@@ -48,8 +48,8 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4,
-                                        MAMACX.MA.SMA, MAMACX.MA.SMMA),
+            new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4, MA.SMA,
+                                        MA.SMMA),
             trailing_stop=Decimal('0.0827'),
             missed_candle_policy='last'
         )
@@ -70,7 +70,7 @@ async def main() -> None:
         )
         assert len(btc_eur_daily) == length_days
         assert len(symbol_daily) == length_days
-        market_data = defaultdict(dict)
+        market_data: Dict[str, Dict[int, Decimal]] = defaultdict(dict)
         for btc_eur, symbol in zip(btc_eur_daily, symbol_daily):
             time = btc_eur.time
             market_data['btc'][time] = btc_eur.close
@@ -129,7 +129,6 @@ async def main() -> None:
         portfolio_performance = pd.Series(
             [float(sum(v for v in apd.values())) for apd in asset_performance.values()]
         )
-        logging.critical(portfolio_performance)
         portfolio_a_returns = portfolio_performance.pct_change().dropna()
         portfolio_g_returns = np.log(portfolio_a_returns + 1)
         portfolio_neg_g_returns = portfolio_g_returns[portfolio_g_returns < 0].dropna()
