@@ -17,7 +17,7 @@ from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.strategies import MA, MAMACX
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
-from juno.trading import Trader
+from juno.trading import MissedCandlePolicy, Trader
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -51,7 +51,7 @@ async def main() -> None:
             new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4, MA.SMA,
                                         MA.SMMA),
             trailing_stop=Decimal('0.0827'),
-            missed_candle_policy='last'
+            missed_candle_policy=MissedCandlePolicy.LAST
         )
         await trader.run()
 
