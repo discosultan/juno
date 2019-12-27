@@ -40,11 +40,14 @@ pub struct Payload {
 pub unsafe extern "C" fn mamacx_multiple(
     payloads: *const Payload,
     length: u32,
-) -> Vec<BacktestResult> {
+    outputs: *mut BacktestResult,
+) {
     let payloads = slice::from_raw_parts(payloads, length as usize);
-    let mut result = Vec::with_capacity(length as usize);
-    for p in payloads {
-        result.push(mamacx(
+    let outputs = slice::from_raw_parts_mut(outputs, length as usize);
+    // let mut result = Vec::with_capacity(length as usize);
+
+    for (i, p) in payloads.iter().enumerate() {
+        outputs[i] = mamacx(
             p.candles,
             p.length,
             p.fees,
@@ -58,11 +61,12 @@ pub unsafe extern "C" fn mamacx_multiple(
             p.neg_threshold,
             p.pos_threshold,
             p.persistence,
-            p.short_period,
-            p.long_period,
-        ));
+            p.short_ma,
+            p.long_ma,
+        );
     }
-    result
+    println!("HELLO WORLD");
+    // result
 }
 
 #[no_mangle]
@@ -100,7 +104,7 @@ pub unsafe extern "C" fn mamacx(
         (3, 1) => run_mamacx_test::<Smma, Ema2>(candles, length, fees, filters, interval, quote, missed_candle_policy, trailing_stop, short_period, long_period, neg_threshold, pos_threshold, persistence),
         (3, 2) => run_mamacx_test::<Smma, Sma> (candles, length, fees, filters, interval, quote, missed_candle_policy, trailing_stop, short_period, long_period, neg_threshold, pos_threshold, persistence),
         (3, 3) => run_mamacx_test::<Smma, Smma>(candles, length, fees, filters, interval, quote, missed_candle_policy, trailing_stop, short_period, long_period, neg_threshold, pos_threshold, persistence),
-        _ => panic!()
+        _ => panic!("Moving average ({}, {}) not implemented!", short_ma, long_ma)
     }
 }
 

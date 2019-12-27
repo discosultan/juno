@@ -72,8 +72,18 @@ class Rust(Solver):
         pass
 
     def solve_multiple(self, payloads: List[Any]) -> List[SolverResult]:
-        preps = []
-        for strategy_type, quote, candles, fees, filters, symbol, interval, missed_candle_policy, trailing_stop, *args in payloads:
+        c_payloads = self.ffi.new(f'Payload[{len(payloads)}]')
+        # for i, c in enumerate(candles):
+        #     c_candles[i] = {
+        #         'time': c[0],
+        #         'open': float(c[1]),
+        #         'high': float(c[2]),
+        #         'low': float(c[3]),
+        #         'close': float(c[4]),
+        #         'volume': float(c[5]),
+        #     }
+        # preps = []
+        for i, (strategy_type, quote, candles, fees, filters, symbol, interval, missed_candle_policy, trailing_stop, *args) in enumerate(payloads):
             c_candles = self.c_candles.get((symbol, interval))
             if not c_candles:
                 c_candles = self._build_c_candles(candles)
@@ -84,15 +94,38 @@ class Rust(Solver):
                 c_fees_filters = self._build_c_fees_filters(fees, filters)
                 self.c_fees_filters[symbol] = c_fees_filters
 
-            preps.append(
-                (c_candles, len(c_candles), *c_fees_filters, interval, float(quote), missed_candle_policy, trailing_stop, *args)
-            )
+            c_payloads[i] = {
+                'candles': c_candles,
+                'length': len(c_candles),
+                'fees': c_fees_filters[0],
+                'filters':  c_fees_filters[1],
+                'interval': interval,
+                'quote': float(quote),
+                'missed_candle_policy': missed_candle_policy,
+                'trailing_stop': trailing_stop,
+                'short_period': args[0],
+                'long_period': args[1],
+                'neg_threshold': args[2],
+                'pos_threshold': args[3],
+                'persistence': args[4],
+                'short_ma': args[5],
+                'long_ma': args[6],
+            }
+            # preps.append(
+            #     (c_candles, len(c_candles), *c_fees_filters, interval, float(quote), missed_candle_policy, trailing_stop, *args)
+            # )
+        c_outputs = self.ffi.new(f'BacktestResult[{len(payloads)}]')
         fn = getattr(self.libjuno, strategy_type.__name__.lower() + '_multiple')
-        result = fn(
-            preps,
-            len(preps),
+        fn(
+            c_payloads,
+            len(c_payloads),
+            c_outputs
         )
-        return list(map(SolverResult.from_object), result)
+        max_result = []
+        for i in range(0, len(c_outputs)):
+            max_result.append(SolverResult.from_object(c_outputs[i]))
+        return max_result
+        # return list(map(SolverResult.from_object, result))
 
     def solve(
         self,
@@ -206,6 +239,30 @@ typedef struct {{
 {_build_backtest_result()}
 
 {_build_strategy_function(strategy_type)}
+
+typedef struct {{
+    const Candle *candles;
+    uint32_t length;
+    const Fees *fees;
+    const Filters *filters;
+    uint64_t interval;
+    double quote;
+    uint32_t missed_candle_policy;
+    double trailing_stop;
+    uint32_t short_period;
+    uint32_t long_period;
+    double neg_threshold;
+    double pos_threshold;
+    uint32_t persistence;
+    uint32_t short_ma;
+    uint32_t long_ma;
+}} Payload;
+
+void mamacx_multiple(
+    const Payload *payloads,
+    uint32_t length,
+    BacktestResult *outputs
+);
     '''
 
 

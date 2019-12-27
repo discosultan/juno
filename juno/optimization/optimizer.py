@@ -181,7 +181,7 @@ class Optimizer:
 
         def evaluate(pop: List[List[Any]]) -> SolverResult:
             return self.solver.solve_multiple(
-                *((strategy_type, self.quote, candles[(ind[0], ind[1])], *fees_filters[ind[0]], *flatten(ind)) for ind in pop)
+                [(strategy_type, self.quote, candles[(ind[0], ind[1])], *fees_filters[ind[0]], *flatten(ind)) for ind in pop]
             )
 
         toolbox.register('evaluate', evaluate)
