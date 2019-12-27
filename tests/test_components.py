@@ -53,9 +53,8 @@ async def test_stream_candles(storage, start, end, closed, efrom, eto, espans):
         historical_candles=historical_candles,
         future_candles=future_candles,
     )
-    trades = Trades(storage=storage, exchanges=[exchange])
     chandler = Chandler(
-        trades=trades,
+        trades=Trades(storage=storage, exchanges=[exchange]),
         storage=storage,
         exchanges=[exchange],
         get_time_ms=time.get_time,
@@ -85,10 +84,9 @@ async def test_stream_future_candles_span_stored_until_stopped(storage):
     END = 10
     candles = [Candle(time=1)]
     exchange = fakes.Exchange(future_candles=candles)
-    trades = Trades(storage=storage, exchanges=[exchange])
     time = fakes.Time(START, increment=1)
     chandler = Chandler(
-        trades=trades,
+        trades=Trades(storage=storage, exchanges=[exchange]),
         storage=storage,
         exchanges=[exchange],
         get_time_ms=time.get_time,
@@ -319,6 +317,7 @@ async def test_list_asks_bids(storage):
         ]
     )
     exchange = fakes.Exchange(depth=snapshot)
+    exchange.can_stream_depth_snapshot = False
 
     async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
         asks = orderbook.list_asks(exchange='exchange', symbol='eth-btc')

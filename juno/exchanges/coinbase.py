@@ -38,7 +38,11 @@ _log = logging.getLogger(__name__)
 class Coinbase(Exchange):
     # Capabilities.
     can_stream_depth_snapshot: bool = True
+    can_stream_historical_candles: bool = True
     can_stream_candles: bool = False
+    # Actually can but only through WS.
+    # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
+    can_list_24hr_tickers: bool = False
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key

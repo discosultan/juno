@@ -76,9 +76,9 @@ order_client_id = str(uuid4())
 async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expected_output):
     snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
     updates = [DepthUpdate(asks=update_asks, bids=[])]
-    async with init_market_broker(
-        fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
-    ) as broker:
+    exchange = fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
+    exchange.can_stream_depth_snapshot = False
+    async with init_market_broker(exchange) as broker:
         output = broker.find_order_asks(exchange='exchange', symbol='eth-btc', quote=quote)
         assert_fills(output, expected_output)
 
@@ -133,18 +133,18 @@ async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expecte
 async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected_output):
     snapshot = DepthSnapshot(asks=[], bids=snapshot_bids)
     updates = [DepthUpdate(asks=[], bids=update_bids)]
-    async with init_market_broker(
-        fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
-    ) as broker:
+    exchange = fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
+    exchange.can_stream_depth_snapshot = False
+    async with init_market_broker(exchange) as broker:
         output = broker.find_order_bids(exchange='exchange', symbol='eth-btc', base=base)
         assert_fills(output, expected_output)
 
 
 async def test_market_insufficient_balance():
     snapshot = DepthSnapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
-    async with init_market_broker(
-        fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
-    ) as broker:
+    exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
+    exchange.can_stream_depth_snapshot = False
+    async with init_market_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
             await broker.buy('exchange', 'eth-btc', Decimal('0.1'), True)
@@ -152,69 +152,69 @@ async def test_market_insufficient_balance():
 
 async def test_limit_fill_immediately():
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))])
-    async with init_limit_broker(
-        fakes.Exchange(
-            depth=snapshot,
-            exchange_info=exchange_info,
-            future_orders=[
-                OrderUpdate(
-                    symbol='eth-btc',
-                    status=OrderStatus.FILLED,
-                    client_id=order_client_id,
-                    price=Decimal('1.0'),
-                    size=Decimal('1.0'),
-                    filled_size=Decimal('1.0'),
-                    cumulative_filled_size=Decimal('1.0'),
-                    fee=Decimal('0.1'),
-                    fee_asset='eth',
-                )
-            ]
-        )
-    ) as broker:
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+        future_orders=[
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.FILLED,
+                client_id=order_client_id,
+                price=Decimal('1.0'),
+                size=Decimal('1.0'),
+                filled_size=Decimal('1.0'),
+                cumulative_filled_size=Decimal('1.0'),
+                fee=Decimal('0.1'),
+                fee_asset='eth',
+            )
+        ]
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_limit_broker(exchange) as broker:
         await broker.buy('exchange', 'eth-btc', Decimal('1.0'), False)
 
 
 async def test_limit_fill_partially():
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))])
-    async with init_limit_broker(
-        fakes.Exchange(
-            depth=snapshot,
-            exchange_info=exchange_info,
-            place_order_result=OrderResult(status=OrderStatus.NEW, fills=[]),
-            future_orders=[
-                OrderUpdate(
-                    symbol='eth-btc',
-                    status=OrderStatus.PARTIALLY_FILLED,
-                    client_id=order_client_id,
-                    price=Decimal('1.0'),
-                    size=Decimal('1.0'),
-                    filled_size=Decimal('0.5'),
-                    cumulative_filled_size=Decimal('0.5'),
-                    fee=Decimal('0.05'),
-                    fee_asset='eth'
-                ),
-                OrderUpdate(
-                    symbol='eth-btc',
-                    status=OrderStatus.FILLED,
-                    client_id=order_client_id,
-                    price=Decimal('1.0'),
-                    size=Decimal('1.0'),
-                    filled_size=Decimal('0.5'),
-                    cumulative_filled_size=Decimal('1.0'),
-                    fee=Decimal('0.05'),
-                    fee_asset='eth'
-                ),
-            ]
-        )
-    ) as broker:
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+        place_order_result=OrderResult(status=OrderStatus.NEW, fills=[]),
+        future_orders=[
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.PARTIALLY_FILLED,
+                client_id=order_client_id,
+                price=Decimal('1.0'),
+                size=Decimal('1.0'),
+                filled_size=Decimal('0.5'),
+                cumulative_filled_size=Decimal('0.5'),
+                fee=Decimal('0.05'),
+                fee_asset='eth'
+            ),
+            OrderUpdate(
+                symbol='eth-btc',
+                status=OrderStatus.FILLED,
+                client_id=order_client_id,
+                price=Decimal('1.0'),
+                size=Decimal('1.0'),
+                filled_size=Decimal('0.5'),
+                cumulative_filled_size=Decimal('1.0'),
+                fee=Decimal('0.05'),
+                fee_asset='eth'
+            ),
+        ]
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_limit_broker(exchange) as broker:
         await broker.buy('exchange', 'eth-btc', Decimal('1.0'), False)
 
 
 async def test_limit_insufficient_balance():
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal('1.0'), Decimal('1.0'))])
-    async with init_limit_broker(
-        fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
-    ) as broker:
+    exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
+    exchange.can_stream_depth_snapshot = False
+    async with init_limit_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
             await broker.buy('exchange', 'eth-btc', Decimal('0.1'), False)
@@ -249,6 +249,7 @@ async def test_limit_partial_fill_adjust_fill():
             ),
         ]
     )
+    exchange.can_stream_depth_snapshot = False
     async with init_limit_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy('exchange', 'eth-btc', Decimal('2.0'), False))
         await yield_control()

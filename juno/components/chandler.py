@@ -79,6 +79,8 @@ class Chandler:
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         storage_key = (exchange, symbol, interval)
+        # Note that we need to use a context manager based retrying because retry decorators do not
+        # work with async generator functions.
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
             retry=retry_if_exception_type(JunoException),
