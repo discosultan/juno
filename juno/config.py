@@ -3,7 +3,7 @@ import os
 import sys
 from types import ModuleType
 from typing import (
-    Any, Dict, List, Mapping, Optional, Set, Type, TypeVar, Union, cast, get_args, get_origin
+    Any, Dict, List, Mapping, Optional, Set, Type, TypeVar, Union, get_args, get_origin
 )
 
 from juno import Interval, Timestamp, json
@@ -34,12 +34,12 @@ def config_from_env(
                 else:
                     target[k1] = _ensure_dict(_get(target, k1))
                 target = target[k1]
-    return cast(Dict[str, Any], result)
+    return result
 
 
 def config_from_json_file(file: str) -> Dict[str, Any]:
     with open(file, 'r') as f:
-        return cast(Dict[str, Any], json.load(f))
+        return json.load(f)
 
 
 def list_names(config: Dict[str, Any], name: str) -> Set[str]:
