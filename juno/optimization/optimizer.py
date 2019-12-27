@@ -170,13 +170,18 @@ class Optimizer:
         toolbox.register('mutate', juno_tools.mut_individual, attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
-        def evaluate(ind: List[Any]) -> SolverResult:
+        def evaluate_(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
                 strategy_type,
                 self.quote,
                 candles[(ind[0], ind[1])],
                 *fees_filters[ind[0]],
                 *flatten(ind)
+            )
+
+        def evaluate(pop: List[List[Any]]) -> SolverResult:
+            return self.solver.solve_multiple(
+                *((strategy_type, self.quote, candles[(ind[0], ind[1])], *fees_filters[ind[0]], *flatten(ind)) for ind in pop)
             )
 
         toolbox.register('evaluate', evaluate)
@@ -188,7 +193,7 @@ class Optimizer:
         # Overwrite regular map to process entire population at once.
         # Assumes only our algoritm is using it to evaluate an individual.
         # TODO: Implement.
-        # toolbox.register('map', lambda pop: toolbox.evaluate(pop))
+        toolbox.register('map', lambda evaluate, pop: evaluate(pop))
 
         pop = toolbox.population(n=toolbox.population_size)
         pop = toolbox.select(pop, len(pop))

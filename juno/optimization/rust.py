@@ -71,6 +71,29 @@ class Rust(Solver):
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
+    def solve_multiple(self, payloads: List[Any]) -> List[SolverResult]:
+        preps = []
+        for strategy_type, quote, candles, fees, filters, symbol, interval, missed_candle_policy, trailing_stop, *args in payloads:
+            c_candles = self.c_candles.get((symbol, interval))
+            if not c_candles:
+                c_candles = self._build_c_candles(candles)
+                self.c_candles[(symbol, interval)] = c_candles
+
+            c_fees_filters = self.c_fees_filters.get(symbol)
+            if not c_fees_filters:
+                c_fees_filters = self._build_c_fees_filters(fees, filters)
+                self.c_fees_filters[symbol] = c_fees_filters
+
+            preps.append(
+                (c_candles, len(c_candles), *c_fees_filters, interval, float(quote), missed_candle_policy, trailing_stop, *args)
+            )
+        fn = getattr(self.libjuno, strategy_type.__name__.lower() + '_multiple')
+        result = fn(
+            preps,
+            len(preps),
+        )
+        return list(map(SolverResult.from_object), result)
+
     def solve(
         self,
         strategy_type: Type[Strategy],

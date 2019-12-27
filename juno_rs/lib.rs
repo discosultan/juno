@@ -17,6 +17,54 @@ pub use common::{Advice, Candle, Fees, Trend};
 pub use filters::Filters;
 pub use trading::{Position, TradingContext, TradingSummary};
 
+#[repr(C)]
+pub struct Payload {
+    candles: *const Candle,
+    length: u32,
+    fees: *const Fees,
+    filters: *const Filters,
+    interval: u64,
+    quote: f64,
+    missed_candle_policy: u32,
+    trailing_stop: f64,
+    short_period: u32,
+    long_period: u32,
+    neg_threshold: f64,
+    pos_threshold: f64,
+    persistence: u32,
+    short_ma: u32,
+    long_ma: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn mamacx_multiple(
+    payloads: *const Payload,
+    length: u32,
+) -> Vec<BacktestResult> {
+    let payloads = slice::from_raw_parts(payloads, length as usize);
+    let mut result = Vec::with_capacity(length as usize);
+    for p in payloads {
+        result.push(mamacx(
+            p.candles,
+            p.length,
+            p.fees,
+            p.filters,
+            p.interval,
+            p.quote,
+            p.missed_candle_policy,
+            p.trailing_stop,
+            p.short_period,
+            p.long_period,
+            p.neg_threshold,
+            p.pos_threshold,
+            p.persistence,
+            p.short_period,
+            p.long_period,
+        ));
+    }
+    result
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn mamacx(
     candles: *const Candle,
