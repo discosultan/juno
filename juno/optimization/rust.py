@@ -199,7 +199,7 @@ typedef struct {{
 
 
 def _build_strategy_function(type_: Type[Strategy]) -> str:
-    custom_params = ',\n    '.join(
+    strategy_params = ',\n    '.join(
         (f'{_map_type(v)} {k}' for k, v in get_input_type_hints(type_.__init__).items())
     )
     return f'''
@@ -212,7 +212,7 @@ BacktestResult {type_.__name__.lower()}(
     double quote,
     uint32_t missed_candle_policy,
     double trailing_stop,
-    {custom_params});
+    {strategy_params});
         '''
 
 

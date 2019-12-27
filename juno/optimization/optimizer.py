@@ -187,6 +187,7 @@ class Optimizer:
 
         # Overwrite regular map to process entire population at once.
         # Assumes only our algoritm is using it to evaluate an individual.
+        # TODO: Implement.
         # toolbox.register('map', lambda pop: toolbox.evaluate(pop))
 
         pop = toolbox.population(n=toolbox.population_size)
