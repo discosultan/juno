@@ -38,35 +38,32 @@ pub struct Payload {
 
 #[no_mangle]
 pub unsafe extern "C" fn mamacx_multiple(
-    payloads: *const Payload,
-    length: u32,
+    inputs: *const Payload,
     outputs: *mut BacktestResult,
+    length: u32,
 ) {
-    let payloads = slice::from_raw_parts(payloads, length as usize);
+    let inputs = slice::from_raw_parts(inputs, length as usize);
     let outputs = slice::from_raw_parts_mut(outputs, length as usize);
-    // let mut result = Vec::with_capacity(length as usize);
 
-    for (i, p) in payloads.iter().enumerate() {
+    for (i, input) in inputs.iter().enumerate() {
         outputs[i] = mamacx(
-            p.candles,
-            p.length,
-            p.fees,
-            p.filters,
-            p.interval,
-            p.quote,
-            p.missed_candle_policy,
-            p.trailing_stop,
-            p.short_period,
-            p.long_period,
-            p.neg_threshold,
-            p.pos_threshold,
-            p.persistence,
-            p.short_ma,
-            p.long_ma,
+            input.candles,
+            input.length,
+            input.fees,
+            input.filters,
+            input.interval,
+            input.quote,
+            input.missed_candle_policy,
+            input.trailing_stop,
+            input.short_period,
+            input.long_period,
+            input.neg_threshold,
+            input.pos_threshold,
+            input.persistence,
+            input.short_ma,
+            input.long_ma,
         );
     }
-    println!("HELLO WORLD");
-    // result
 }
 
 #[no_mangle]

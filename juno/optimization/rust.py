@@ -29,6 +29,8 @@ class Rust(Solver):
         self.informant = informant
         self.c_candles: Dict[Tuple[str, int], Any] = {}
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
+        self.c_inputs: Any = None
+        self.c_outputs: Any = None
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
@@ -72,7 +74,11 @@ class Rust(Solver):
         pass
 
     def solve_multiple(self, payloads: List[Any]) -> List[SolverResult]:
-        c_payloads = self.ffi.new(f'Payload[{len(payloads)}]')
+        # TODO: Doesn't accommodate different population sizes.
+        pop_size = len(payloads)
+        if not self.c_inputs:
+            self.c_inputs = self.ffi.new(f'Payload[{pop_size}]')
+            self.c_outputs = self.ffi.new(f'BacktestResult[{pop_size}]')
         # for i, c in enumerate(candles):
         #     c_candles[i] = {
         #         'time': c[0],
@@ -94,36 +100,53 @@ class Rust(Solver):
                 c_fees_filters = self._build_c_fees_filters(fees, filters)
                 self.c_fees_filters[symbol] = c_fees_filters
 
-            c_payloads[i] = {
-                'candles': c_candles,
-                'length': len(c_candles),
-                'fees': c_fees_filters[0],
-                'filters':  c_fees_filters[1],
-                'interval': interval,
-                'quote': float(quote),
-                'missed_candle_policy': missed_candle_policy,
-                'trailing_stop': trailing_stop,
-                'short_period': args[0],
-                'long_period': args[1],
-                'neg_threshold': args[2],
-                'pos_threshold': args[3],
-                'persistence': args[4],
-                'short_ma': args[5],
-                'long_ma': args[6],
-            }
+            # self.c_inputs[i] = {
+            #     'candles': c_candles,
+            #     'length': len(c_candles),
+            #     'fees': c_fees_filters[0],
+            #     'filters': c_fees_filters[1],
+            #     'interval': interval,
+            #     'quote': float(quote),
+            #     'missed_candle_policy': missed_candle_policy,
+            #     'trailing_stop': trailing_stop,
+            #     'short_period': args[0],
+            #     'long_period': args[1],
+            #     'neg_threshold': args[2],
+            #     'pos_threshold': args[3],
+            #     'persistence': args[4],
+            #     'short_ma': args[5],
+            #     'long_ma': args[6],
+            # }
+
+            self.c_inputs[i] = (
+                c_candles,
+                len(c_candles),
+                c_fees_filters[0],
+                c_fees_filters[1],
+                interval,
+                float(quote),
+                missed_candle_policy,
+                trailing_stop,
+                args[0],
+                args[1],
+                args[2],
+                args[3],
+                args[4],
+                args[5],
+                args[6],
+            )
             # preps.append(
             #     (c_candles, len(c_candles), *c_fees_filters, interval, float(quote), missed_candle_policy, trailing_stop, *args)
             # )
-        c_outputs = self.ffi.new(f'BacktestResult[{len(payloads)}]')
         fn = getattr(self.libjuno, strategy_type.__name__.lower() + '_multiple')
         fn(
-            c_payloads,
-            len(c_payloads),
-            c_outputs
+            self.c_inputs,
+            self.c_outputs,
+            pop_size,
         )
         max_result = []
-        for i in range(0, len(c_outputs)):
-            max_result.append(SolverResult.from_object(c_outputs[i]))
+        for i in range(0, pop_size):
+            max_result.append(SolverResult.from_object(self.c_outputs[i]))
         return max_result
         # return list(map(SolverResult.from_object, result))
 
@@ -259,9 +282,9 @@ typedef struct {{
 }} Payload;
 
 void mamacx_multiple(
-    const Payload *payloads,
-    uint32_t length,
-    BacktestResult *outputs
+    const Payload *inputs,
+    BacktestResult *outputs,
+    uint32_t length
 );
     '''
 
