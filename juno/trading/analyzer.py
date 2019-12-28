@@ -3,7 +3,7 @@ import logging
 import operator
 from collections import defaultdict
 from decimal import Decimal
-from typing import Callable, Dict, List, NamedTuple, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Tuple
 
 import numpy as np
 import pandas as pd
@@ -22,12 +22,31 @@ Operator = Callable[[Decimal, Decimal], Decimal]
 _log = logging.getLogger(__name__)
 
 
-class Statistics(NamedTuple):
+class AlphaBeta(NamedTuple):
     alpha: float
     beta: float
+
+
+class Statistics(NamedTuple):
+    performance: Any
+    a_returns: Any
+    g_returns: Any
+    neg_g_returns: Any
+
+    total_return: float
+    annualized_return: float
+    annualized_volatility: float
+    annualized_downside_risk: float
     sharpe_ratio: float
     sortino_ratio: float
     cagr: float
+
+
+# async def get_benchmark_statistics(chandler: Chandler) -> Statistics:
+#     btc_fiat_daily = await list_async(
+#     ),
+#     performance = pd.Series([float(c.close) for c in btc_fiat_daily])
+#     return get_benchmark_statistics(performance)
 
 
 async def analyze(
@@ -67,51 +86,24 @@ async def analyze(
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance.values()]
     )
-    portfolio_a_returns = portfolio_performance.pct_change().dropna()
-    portfolio_g_returns = np.log(portfolio_a_returns + 1)
-    portfolio_neg_g_returns = portfolio_g_returns[portfolio_g_returns < 0].dropna()
 
     benchmark_performance = pd.Series([float(c.close) for c in btc_fiat_daily])
-    benchmark_a_returns = benchmark_performance.pct_change().dropna()
-    benchmark_g_returns = np.log(benchmark_a_returns + 1)
-    # benchmark_neg_g_returns = benchmark_g_returns[benchmark_g_returns < 0].dropna()
+    benchmark_stats = calculate_statistics(benchmark_performance)
+    portfolio_stats = calculate_statistics(portfolio_performance)
 
-    # Compute benchmark statistics.
-    # benchmark_total_return = benchmark_performance.iloc[-1] / benchmark_performance.iloc[0] - 1
-    # benchmark_annualized_return = 365 * benchmark_g_returns.mean()
-    # benchmark_annualized_volatility = np.sqrt(365) * benchmark_g_returns.std()
-    # benchmark_annualized_downside_risk = np.sqrt(365) * benchmark_neg_g_returns.std()
-    # benchmark_sharpe_ratio = benchmark_annualized_return / benchmark_annualized_volatility
-    # benchmark_sortino_ratio = benchmark_annualized_return / benchmark_annualized_downside_risk
-    # benchmark_cagr = (
-    #     (benchmark_performance.iloc[-1] / benchmark_performance.iloc[0]) **
-    #     (1 / (length_days / 365))
-    # ) - 1
-
-    # Compute portfolio statistics.
-    # portfolio_total_return = portfolio_performance.iloc[-1] / portfolio_performance.iloc[0] - 1
-    portfolio_annualized_return = 365 * portfolio_g_returns.mean()
-    portfolio_annualized_volatility = np.sqrt(365) * portfolio_g_returns.std()
-    portfolio_annualized_downside_risk = np.sqrt(365) * portfolio_neg_g_returns.std()
-    portfolio_sharpe_ratio = portfolio_annualized_return / portfolio_annualized_volatility
-    portfolio_sortino_ratio = portfolio_annualized_return / portfolio_annualized_downside_risk
-    portfolio_cagr = (
-        (portfolio_performance.iloc[-1] / portfolio_performance.iloc[0]) **
-        (1 / (length_days / 365))
-    ) - 1
     covariance_matrix = pd.concat(
-        [portfolio_g_returns, benchmark_g_returns], axis=1
+        [portfolio_stats.g_returns, benchmark_stats.g_returns], axis=1
     ).dropna().cov()
     beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
-    alpha = portfolio_annualized_return - (beta * 365 * benchmark_g_returns.mean())
+    alpha = portfolio_stats.annualized_return - (beta * 365 * benchmark_stats.g_returns.mean())
 
-    return Statistics(
-        alpha=alpha,
-        beta=beta,
-        sharpe_ratio=portfolio_sharpe_ratio,
-        sortino_ratio=portfolio_sortino_ratio,
-        cagr=portfolio_cagr
-    )
+    alpha_beta = AlphaBeta(alpha=alpha, beta=beta)
+
+    _log.critical(benchmark_stats)
+    _log.critical(portfolio_stats)
+    _log.critical(alpha_beta)
+
+    return portfolio_stats
 
 
 def find_first_exchange_for_symbol(informant: Informant, symbol: str):
@@ -199,3 +191,35 @@ def get_asset_performance(
                 asset_performance_day[asset] = asset_performance[time_day - DAY_MS][asset]
 
     return asset_performance
+
+
+def calculate_statistics(performance: Any) -> Statistics:
+    a_returns = performance.pct_change().dropna()
+    g_returns = np.log(a_returns + 1)
+    neg_g_returns = g_returns[g_returns < 0].dropna()
+
+    # Compute benchmark statistics.
+    total_return = performance.iloc[-1] / performance.iloc[0] - 1
+    annualized_return = 365 * g_returns.mean()
+    annualized_volatility = np.sqrt(365) * g_returns.std()
+    annualized_downside_risk = np.sqrt(365) * neg_g_returns.std()
+    sharpe_ratio = annualized_return / annualized_volatility
+    sortino_ratio = annualized_return / annualized_downside_risk
+    cagr = (
+        (performance.iloc[-1] / performance.iloc[0]) **
+        (1 / (performance.size / 365))
+    ) - 1
+
+    return Statistics(
+        performance=performance,
+        a_returns=a_returns,
+        g_returns=g_returns,
+        neg_g_returns=neg_g_returns,
+        total_return=total_return,
+        annualized_return=annualized_return,
+        annualized_volatility=annualized_volatility,
+        annualized_downside_risk=annualized_downside_risk,
+        sharpe_ratio=sharpe_ratio,
+        sortino_ratio=sortino_ratio,
+        cagr=cagr
+    )

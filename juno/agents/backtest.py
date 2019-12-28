@@ -59,6 +59,4 @@ class Backtest(Agent):
         self.result = trader.summary
         await trader.run()
 
-        stats = await analyze(self.chandler, self.informant, exchange, symbol, trader.summary)
-        import logging
-        logging.critical(stats)
+        await analyze(self.chandler, self.informant, exchange, symbol, trader.summary)
