@@ -3,7 +3,7 @@ import logging
 import operator
 from collections import defaultdict
 from decimal import Decimal
-from typing import Any, Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -11,7 +11,7 @@ import pandas as pd
 from juno import Fill
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.storages import SQLite
@@ -23,10 +23,12 @@ from juno.utils import unpack_symbol
 SYMBOL = 'eth-btc'
 INTERVAL = HOUR_MS
 
+Operator = Callable[[Decimal, Decimal], Decimal]
+
 
 async def main() -> None:
     sqlite = SQLite()
-    config = config_from_env()
+    config = from_env()
     binance = init_instance(Binance, config)
     coinbase = init_instance(Coinbase, config)
     chandler = Chandler(
@@ -62,19 +64,21 @@ async def main() -> None:
         # 2. We run it after trading step, because it might use the same candle configuration which
         # we don't support processing concurrently.
 
-        btc_eur_daily, symbol_daily = await asyncio.gather(
+        assert quote_asset == 'btc'  # TODO: Don't support others yet.
+
+        btc_fiat_daily, symbol_daily = await asyncio.gather(
             list_async(chandler.stream_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day)),
             list_async(chandler.stream_candles('binance', SYMBOL, DAY_MS, start_day, end_day)),
         )
-        assert len(btc_eur_daily) == length_days
+        assert len(btc_fiat_daily) == length_days
         assert len(symbol_daily) == length_days
         market_data: Dict[str, Dict[int, Decimal]] = defaultdict(dict)
-        for btc_eur, symbol in zip(btc_eur_daily, symbol_daily):
-            time = btc_eur.time
-            market_data['btc'][time] = btc_eur.close
-            market_data[base_asset][time] = symbol.close * btc_eur.close  # TODO: assumes quote BTC
+        for btc_fiat_candle, symbol_candle in zip(btc_fiat_daily, symbol_daily):
+            time = btc_fiat_candle.time
+            market_data['btc'][time] = btc_fiat_candle.close
+            market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
-        trades: Dict[int, List[Tuple[str, Any, Decimal]]] = defaultdict(list)
+        trades: Dict[int, List[Tuple[str, Operator, Decimal]]] = defaultdict(list)
         for pos in trader.summary.positions:
             assert pos.closing_fills
             # Open.
@@ -131,7 +135,7 @@ async def main() -> None:
         portfolio_g_returns = np.log(portfolio_a_returns + 1)
         portfolio_neg_g_returns = portfolio_g_returns[portfolio_g_returns < 0].dropna()
 
-        benchmark_performance = pd.Series([float(c.close) for c in btc_eur_daily])
+        benchmark_performance = pd.Series([float(c.close) for c in btc_fiat_daily])
         benchmark_a_returns = benchmark_performance.pct_change().dropna()
         benchmark_g_returns = np.log(benchmark_a_returns + 1)
         benchmark_neg_g_returns = benchmark_g_returns[benchmark_g_returns < 0].dropna()

@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from juno import Candle, Fill, Filters
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
@@ -22,7 +22,7 @@ INTERVAL = HOUR_MS
 
 async def main() -> None:
     sqlite = SQLite()
-    config = config_from_env()
+    config = from_env()
     binance = init_instance(Binance, config)
     coinbase = init_instance(Coinbase, config)
     trades = Trades(sqlite, [binance, coinbase])

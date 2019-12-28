@@ -7,7 +7,7 @@ import pandas as pd
 
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.math import floor_multiple
 from juno.storages import SQLite
@@ -29,7 +29,7 @@ async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start
 
 
 async def main():
-    binance = init_instance(Binance, config_from_env())
+    binance = init_instance(Binance, from_env())
     exchange = 'binance'
     sqlite = SQLite()
     trades = Trades(sqlite, [binance])

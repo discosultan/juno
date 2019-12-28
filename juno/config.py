@@ -15,7 +15,7 @@ from juno.utils import get_module_type, map_module_types, recursive_iter
 T = TypeVar('T')
 
 
-def config_from_env(
+def from_env(
     env: Mapping[str, str] = os.environ, prefix: str = 'JUNO', separator: str = '__'
 ) -> Dict[str, Any]:
     result: Dict[str, Any] = {}
@@ -38,7 +38,7 @@ def config_from_env(
     return result
 
 
-def config_from_json_file(file: str) -> Dict[str, Any]:
+def from_json_file(file: str) -> Dict[str, Any]:
     with open(file, 'r') as f:
         return json.load(f)
 
@@ -73,7 +73,7 @@ def _get(collection: Any, key: Any) -> Optional[Any]:
         return collection.get(key)
 
 
-def init_instances(type_: type, config: Dict[str, Any]) -> List[Any]:
+def init_instances_mentioned_in_config(type_: type, config: Dict[str, Any]) -> List[Any]:
     result = []
     name = type_.__name__.lower()
     module_types = _map_type_parent_module_types(type_)
@@ -81,6 +81,18 @@ def init_instances(type_: type, config: Dict[str, Any]) -> List[Any]:
         type_ = module_types[name]
         if not inspect.isabstract(type_):
             result.append(init_instance(type_, config))
+    return result
+
+
+def try_init_all_instances(type_: type, config: Dict[str, Any]) -> List[Any]:
+    result = []
+    for type_ in _map_type_parent_module_types(type_).values():
+        if inspect.isabstract(type_):
+            continue
+        try:
+            result.append(init_instance(type_, config))
+        except TypeError:
+            pass
     return result
 
 
@@ -101,10 +113,10 @@ def init_instance(type_: Type[Any], config: Dict[str, Any]) -> Any:
         config = sub_config
 
     signature = type_ if isnamedtuple(type_) else type_.__init__
-    return type_(**kwargs_from_config(signature, config))  # type: ignore
+    return type_(**kwargs_for(signature, config))  # type: ignore
 
 
-def kwargs_from_config(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]:
+def kwargs_for(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]:
     type_hints = get_input_type_hints(signature)
     parsed_config = {}
     # TODO: assignment expression?

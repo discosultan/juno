@@ -2,14 +2,14 @@ import asyncio
 import logging
 
 from juno import JunoException
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
 JunoException()
 
 
 async def main() -> None:
-    async with init_instance(Binance, config_from_env()) as client:
+    async with init_instance(Binance, from_env()) as client:
         listen_key1 = (await client._user_data_stream._create_listen_key()).data['listenKey']
         listen_key2 = (await client._user_data_stream._create_listen_key()).data['listenKey']
         await client._user_data_stream._update_listen_key(listen_key2)

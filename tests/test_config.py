@@ -67,7 +67,7 @@ def test_load_from_env():
             'corge': 'e'
         }],
     }
-    output = config.config_from_env(input)
+    output = config.from_env(input)
     assert output == expected_output
 
 

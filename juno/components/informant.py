@@ -74,6 +74,9 @@ class Informant:
     def list_tickers(self, exchange: str) -> List[Ticker]:
         return self._synced_data[exchange][List[Ticker]]
 
+    def list_exchanges(self) -> List[str]:
+        return list(self._exchanges.keys())
+
     async def _periodic_sync_for_all_exchanges(
         self, type_: Type[Any], initial_sync_event: asyncio.Event,
         fetch: Callable[[Exchange], Awaitable[Any]],

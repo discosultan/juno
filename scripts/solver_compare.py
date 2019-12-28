@@ -4,13 +4,13 @@ from decimal import Decimal
 
 from juno import components, exchanges, optimization, strategies, storages
 from juno.asyncio import list_async
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.time import HOUR_MS, strptimestamp
 
 
 async def main() -> None:
     storage = storages.SQLite()
-    exchange = init_instance(exchanges.Binance, config_from_env())
+    exchange = init_instance(exchanges.Binance, from_env())
     informant = components.Informant(storage, [exchange])
     trades = components.Trades(storage, [exchange])
     chandler = components.Chandler(trades, storage, [exchange])

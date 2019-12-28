@@ -3,7 +3,7 @@ import logging
 
 from juno import exchanges
 from juno.components import Chandler, Trades
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import HOUR_MS, MIN_MS, time_ms
@@ -14,7 +14,7 @@ SYMBOL = 'eth-btc'
 
 async def main():
     sqlite = SQLite()
-    client = init_instance(EXCHANGE_TYPE, config_from_env())
+    client = init_instance(EXCHANGE_TYPE, from_env())
     name = EXCHANGE_TYPE.__name__.lower()
     trades = Trades(sqlite, [client])
     chandler = Chandler(trades, sqlite, [client])

@@ -7,7 +7,7 @@ from typing import Optional
 from juno import Fill, Side
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook, Wallet
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
@@ -26,7 +26,7 @@ if len(sys.argv) > 1:
 
 
 async def main() -> None:
-    binance = init_instance(Binance, config_from_env())
+    binance = init_instance(Binance, from_env())
     exchanges = [binance]
     memory = Memory()
     sqlite = SQLite()

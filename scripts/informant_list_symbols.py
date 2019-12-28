@@ -4,7 +4,7 @@ from contextlib import AsyncExitStack
 
 from juno import exchanges
 from juno.components import Informant
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.storages import SQLite
 
 EXCHANGE_TYPES = [exchanges.Binance, exchanges.Coinbase, exchanges.Kraken]
@@ -12,7 +12,7 @@ EXCHANGE_TYPES = [exchanges.Binance, exchanges.Coinbase, exchanges.Kraken]
 
 async def main():
     storage = SQLite()
-    config = config_from_env()
+    config = from_env()
     exchanges = [init_instance(e, config) for e in EXCHANGE_TYPES]
     informant = Informant(storage, exchanges)
     async with AsyncExitStack() as stack:
