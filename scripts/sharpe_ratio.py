@@ -55,8 +55,6 @@ async def main() -> None:
         )
         await trader.run()
 
-        _, filters = informant.get_fees_filters('binance', SYMBOL)
-
         start_day = floor_multiple(start, DAY_MS)
         end_day = floor_multiple(end, DAY_MS)
         length_days = (end_day - start_day) / DAY_MS
