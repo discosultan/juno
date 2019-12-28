@@ -6,7 +6,7 @@ from juno.components import Chandler, Informant
 from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import time_ms
-from juno.trading import MissedCandlePolicy, Trader
+from juno.trading import MissedCandlePolicy, Trader, analyze
 
 from .agent import Agent
 
@@ -58,3 +58,7 @@ class Backtest(Agent):
         )
         self.result = trader.summary
         await trader.run()
+
+        stats = await analyze(self.chandler, self.informant, exchange, symbol, trader.summary)
+        import logging
+        logging.critical(stats)

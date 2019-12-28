@@ -118,9 +118,9 @@ async def main() -> None:
             # Update asset performance (mark-to-market portfolio).
             asset_performance_day = asset_performance[time_day]
             for asset in market_data.keys():
-                asset_eur_value = market_data[asset].get(time_day)
-                if asset_eur_value is not None:
-                    asset_performance_day[asset] = asset_holdings[asset] * asset_eur_value
+                asset_fiat_value = market_data[asset].get(time_day)
+                if asset_fiat_value is not None:
+                    asset_performance_day[asset] = asset_holdings[asset] * asset_fiat_value
                 else:  # Missing asset market data for the day.
                     logging.warning('missing market data for day')
                     # TODO: What if previous day also missing?? Maybe better to fill missing
