@@ -42,14 +42,30 @@ class Statistics(NamedTuple):
     cagr: float
 
 
-# async def get_benchmark_statistics(chandler: Chandler) -> Statistics:
-#     btc_fiat_daily = await list_async(
-#     ),
-#     performance = pd.Series([float(c.close) for c in btc_fiat_daily])
-#     return get_benchmark_statistics(performance)
+class Combined(NamedTuple):
+    benchmark_stats: Statistics
+    portfolio_stats: Statistics
+    portfolio_alpha_beta: AlphaBeta
 
 
-async def analyze(
+async def get_benchmark_statistics(
+    chandler: Chandler, informant: Informant, start: int, end: int
+) -> Statistics:
+    start_day = floor_multiple(start, DAY_MS)
+    end_day = floor_multiple(end, DAY_MS)
+
+    # Find first exchange which supports the fiat pair.
+    btc_fiat_symbol = 'btc-eur'
+    btc_fiat_exchange = _find_first_exchange_for_symbol(informant, btc_fiat_symbol)
+
+    btc_fiat_daily = await list_async(chandler.stream_candles(
+        btc_fiat_exchange, btc_fiat_symbol, DAY_MS, start_day, end_day
+    ))
+    performance = pd.Series([float(c.close) for c in btc_fiat_daily])
+    return _calculate_statistics(performance)
+
+
+async def get_portfolio_statistics(
     chandler: Chandler,
     informant: Informant,
     exchange: str,
@@ -64,7 +80,7 @@ async def analyze(
 
     # Find first exchange which supports the fiat pair.
     btc_fiat_symbol = 'btc-eur'
-    btc_fiat_exchange = find_first_exchange_for_symbol(informant, btc_fiat_symbol)
+    btc_fiat_exchange = _find_first_exchange_for_symbol(informant, btc_fiat_symbol)
 
     # Fetch necessary market data.
     btc_fiat_daily, symbol_daily = await asyncio.gather(
@@ -76,37 +92,29 @@ async def analyze(
     assert len(btc_fiat_daily) == length_days
     assert len(symbol_daily) == length_days
 
-    market_data = get_market_data(symbol, btc_fiat_daily, symbol_daily)
-    trades = get_trades_from_summary(summary, symbol)
-    asset_performance = get_asset_performance(
+    market_data = _get_market_data(symbol, btc_fiat_daily, symbol_daily)
+    trades = _get_trades_from_summary(summary, symbol)
+    asset_performance = _get_asset_performance(
         summary, symbol, start_day, end_day, market_data, trades
     )
-
-    # Update portfolio performance.
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance.values()]
     )
 
-    benchmark_performance = pd.Series([float(c.close) for c in btc_fiat_daily])
-    benchmark_stats = calculate_statistics(benchmark_performance)
-    portfolio_stats = calculate_statistics(portfolio_performance)
+    return _calculate_statistics(portfolio_performance)
 
+
+def get_alpha_beta(benchmark_stats: Statistics, portfolio_stats: Statistics) -> AlphaBeta:
     covariance_matrix = pd.concat(
         [portfolio_stats.g_returns, benchmark_stats.g_returns], axis=1
     ).dropna().cov()
     beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
     alpha = portfolio_stats.annualized_return - (beta * 365 * benchmark_stats.g_returns.mean())
 
-    alpha_beta = AlphaBeta(alpha=alpha, beta=beta)
-
-    _log.critical(benchmark_stats)
-    _log.critical(portfolio_stats)
-    _log.critical(alpha_beta)
-
-    return portfolio_stats
+    return AlphaBeta(alpha=alpha, beta=beta)
 
 
-def find_first_exchange_for_symbol(informant: Informant, symbol: str):
+def _find_first_exchange_for_symbol(informant: Informant, symbol: str):
     for exchange in informant.list_exchanges():
         symbols = informant.list_symbols(exchange)
         if symbol in symbols:
@@ -114,7 +122,7 @@ def find_first_exchange_for_symbol(informant: Informant, symbol: str):
     raise ValueError('Not found.')
 
 
-def get_market_data(symbol: str, btc_fiat_daily: List[Candle], symbol_daily: List[Candle]):
+def _get_market_data(symbol: str, btc_fiat_daily: List[Candle], symbol_daily: List[Candle]):
     # Calculate fiat value for traded base assets.
     base_asset, quote_asset = unpack_symbol(symbol)
     market_data: Dict[str, Dict[int, Decimal]] = defaultdict(dict)
@@ -125,7 +133,7 @@ def get_market_data(symbol: str, btc_fiat_daily: List[Candle], symbol_daily: Lis
     return market_data
 
 
-def get_trades_from_summary(
+def _get_trades_from_summary(
     summary: TradingSummary,
     symbol: str
 ) -> Dict[int, List[Tuple[str, Operator, Decimal]]]:
@@ -154,7 +162,7 @@ def get_trades_from_summary(
     return trades
 
 
-def get_asset_performance(
+def _get_asset_performance(
     summary: TradingSummary,
     symbol: str,
     start_day: int,
@@ -193,7 +201,7 @@ def get_asset_performance(
     return asset_performance
 
 
-def calculate_statistics(performance: Any) -> Statistics:
+def _calculate_statistics(performance: pd.Series) -> Statistics:
     a_returns = performance.pct_change().dropna()
     g_returns = np.log(a_returns + 1)
     neg_g_returns = g_returns[g_returns < 0].dropna()

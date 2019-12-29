@@ -6,7 +6,9 @@ from juno.components import Chandler, Informant
 from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import time_ms
-from juno.trading import MissedCandlePolicy, Trader, analyze
+from juno.trading import (
+    MissedCandlePolicy, Trader, get_alpha_beta, get_benchmark_statistics, get_portfolio_statistics
+)
 
 from .agent import Agent
 
