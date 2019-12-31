@@ -15,8 +15,8 @@ from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.math import Choice, Constraint, ConstraintChoice, Constant, Uniform, floor_multiple
 from juno.strategies import Strategy
-from juno.time import strfinterval, time_ms
-from juno.trading import MissedCandlePolicy, Trader
+from juno.time import DAY_MS, strfinterval, time_ms
+from juno.trading import MissedCandlePolicy, Trader, get_benchmark_statistics
 from juno.typing import get_input_type_hints
 from juno.utils import get_module_type, flatten, format_attrs_as_json
 
@@ -108,7 +108,9 @@ class Optimizer:
 
         candles = {}
         candle_tasks = []
-        for symbol, interval in product(symbols, intervals):
+        # We also include daily candles regardless of config for analysation purposes.
+        fetch_intervals = intervals if DAY_MS in intervals else intervals + [DAY_MS]
+        for symbol, interval in product(symbols, fetch_intervals):
             async def fetch_candles(symbol, interval):
                 candles[(symbol, interval)] = await list_async(
                     self.chandler.stream_candles(
@@ -120,6 +122,9 @@ class Optimizer:
         await asyncio.gather(*candle_tasks)
 
         fees_filters = {s: self.informant.get_fees_filters(self.exchange, symbol) for s in symbols}
+
+        # Prepare benchmark stats.
+        benchmark_stats = get_benchmark_statistics(candles[('btc-eur', DAY_MS)])
 
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
