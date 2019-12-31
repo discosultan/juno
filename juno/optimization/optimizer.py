@@ -10,13 +10,15 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
-from juno import InsufficientBalance, Interval, Timestamp, strategies
+from juno import Candle, InsufficientBalance, Interval, Timestamp, strategies
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.math import Choice, Constraint, ConstraintChoice, Constant, Uniform, floor_multiple
 from juno.strategies import Strategy
 from juno.time import DAY_MS, strfinterval, time_ms
-from juno.trading import MissedCandlePolicy, Trader, get_benchmark_statistics
+from juno.trading import (
+    MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
+)
 from juno.typing import get_input_type_hints
 from juno.utils import get_module_type, flatten, format_attrs_as_json
 
@@ -106,19 +108,26 @@ class Optimizer:
             else self.informant.list_candle_intervals(self.exchange)
         )
 
-        candles = {}
+        btc_fiat_symbol = 'btc-eur'
+        btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
+
+        if len(btc_fiat_exchanges) == 0:
+            _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
+                         'calculating further statistics')
+            return
+
+        btc_fiat_exchange = btc_fiat_exchanges[0]
+
+        candles: Dict[Tuple[str, int], List[Candle]] = {}
         candle_tasks = []
+
+        candle_tasks.append(
+            self._fetch_candles(candles, btc_fiat_exchange, btc_fiat_symbol, DAY_MS)
+        )
         # We also include daily candles regardless of config for analysation purposes.
         fetch_intervals = intervals if DAY_MS in intervals else intervals + [DAY_MS]
         for symbol, interval in product(symbols, fetch_intervals):
-            async def fetch_candles(symbol, interval):
-                candles[(symbol, interval)] = await list_async(
-                    self.chandler.stream_candles(
-                        self.exchange, symbol, interval, floor_multiple(self.start, interval),
-                        floor_multiple(self.end, interval)
-                    )
-                )
-            candle_tasks.append(fetch_candles(symbol, interval))
+            candle_tasks.append(self._fetch_candles(candles, self.exchange, symbol, interval))
         await asyncio.gather(*candle_tasks)
 
         fees_filters = {s: self.informant.get_fees_filters(self.exchange, symbol) for s in symbols}
@@ -173,6 +182,9 @@ class Optimizer:
 
         def evaluate(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
+                candles[('btc-eur', DAY_MS)],
+                candles[(ind[0], DAY_MS)],
+                benchmark_stats,
                 strategy_type,
                 self.quote,
                 candles[(ind[0], ind[1])],
@@ -215,6 +227,9 @@ class Optimizer:
 
         best_args = list(flatten(hall[0]))
         best_result = self.solver.solve(
+            candles[('btc-eur', DAY_MS)],
+            candles[(best_args[0], DAY_MS)],
+            benchmark_stats,
             strategy_type,
             self.quote,
             candles[(best_args[0], best_args[1])],
@@ -253,13 +268,30 @@ class Optimizer:
             await trader.run()
         except InsufficientBalance:
             pass
-        validation_result = SolverResult.from_trading_summary(trader.summary)
+        validation_result = SolverResult.from_trading_summary(
+            trader.summary,
+            get_portfolio_statistics(
+                benchmark_stats,
+                candles[('btc-eur', DAY_MS)],
+                candles[(self.result.symbol, DAY_MS)],
+                self.result.symbol,
+                trader.summary
+            )
+        )
         if not _isclose(validation_result, best_result):
             raise Exception(
                 f'Optimizer results differ for input {self.result} between trader and '
                 f'{solver_name} solver:\n{format_attrs_as_json(validation_result)}'
                 f'\n{format_attrs_as_json(best_result)}'
             )
+
+    async def _fetch_candles(self, candles, exchange, symbol, interval):
+        candles[(symbol, interval)] = await list_async(
+            self.chandler.stream_candles(
+                exchange, symbol, interval, floor_multiple(self.start, interval),
+                floor_multiple(self.end, interval)
+            )
+        )
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

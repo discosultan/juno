@@ -6,13 +6,16 @@ from typing import Any, Dict, List, NamedTuple, Tuple, Type, get_type_hints
 
 from juno import Candle, Fees, Filters, Interval
 from juno.strategies import Strategy
-from juno.trading import MissedCandlePolicy, TradingSummary
+from juno.trading import MissedCandlePolicy, PortfolioStatistics, Statistics, TradingSummary
 
 
 class Solver(ABC):
     @abstractmethod
     def solve(
         self,
+        base_fiat_candles: List[Candle],
+        portfolio_candles: List[Candle],
+        benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,
         candles: List[Candle],
@@ -35,6 +38,7 @@ class SolverResult(NamedTuple):
     mean_position_duration: int = 0
     num_positions_in_profit: int = 0
     num_positions_in_loss: int = 0
+    alpha: float = 0.0
 
     @staticmethod
     def meta(include_disabled: bool = False) -> Dict[str, Tuple[str, float]]:
@@ -48,16 +52,29 @@ class SolverResult(NamedTuple):
             'mean_position_duration': ('u64', -1.0),
             'num_positions_in_profit': ('u32', 1.0),
             'num_positions_in_loss': ('u32', -1.0),
+            'alpha': ('f64', 1.0),
         }
         if include_disabled:
             return META
         return {k: v for k, v in META.items() if k in _SOLVER_RESULT_KEYS}
 
     @staticmethod
-    def from_trading_summary(summary: TradingSummary) -> SolverResult:
+    def from_trading_summary(
+        summary: TradingSummary, stats: PortfolioStatistics
+    ) -> SolverResult:
         return SolverResult(
-            *map(_decimal_to_float, (getattr(summary, k) for k in _SOLVER_RESULT_KEYS))
+            float(summary.profit),
+            float(summary.mean_drawdown),
+            float(summary.max_drawdown),
+            float(summary.mean_position_profit),
+            summary.mean_position_duration,
+            summary.num_positions_in_profit,
+            summary.num_positions_in_loss,
+            stats.alpha
         )
+        #     *map(_decimal_to_float, (getattr(summary, k) for k in _SOLVER_RESULT_KEYS)),
+        #     alpha_beta.alpha
+        # )
 
     @staticmethod
     def from_object(obj: Any) -> SolverResult:

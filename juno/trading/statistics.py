@@ -19,11 +19,6 @@ Operator = Callable[[Decimal, Decimal], Decimal]
 _log = logging.getLogger(__name__)
 
 
-class AlphaBeta(NamedTuple):
-    alpha: float
-    beta: float
-
-
 class Statistics(NamedTuple):
     performance: Any
     a_returns: Any
@@ -39,10 +34,22 @@ class Statistics(NamedTuple):
     cagr: float
 
 
-class Combined(NamedTuple):
-    benchmark_stats: Statistics
-    portfolio_stats: Statistics
-    portfolio_alpha_beta: AlphaBeta
+class PortfolioStatistics(NamedTuple):
+    performance: Any
+    a_returns: Any
+    g_returns: Any
+    neg_g_returns: Any
+
+    total_return: float
+    annualized_return: float
+    annualized_volatility: float
+    annualized_downside_risk: float
+    sharpe_ratio: float
+    sortino_ratio: float
+    cagr: float
+
+    alpha: float
+    beta: float
 
 
 def get_benchmark_statistics(candles: List[Candle]) -> Statistics:
@@ -51,11 +58,12 @@ def get_benchmark_statistics(candles: List[Candle]) -> Statistics:
 
 
 def get_portfolio_statistics(
+    benchmark_stats: Statistics,
     base_fiat_candles: List[Candle],
     portfolio_candles: List[Candle],
     symbol: str,
     summary: TradingSummary
-) -> Statistics:
+) -> PortfolioStatistics:
     start_day = floor_multiple(summary.start, DAY_MS)
     end_day = floor_multiple(summary.end, DAY_MS)
     length_days = (end_day - start_day) / DAY_MS
@@ -73,17 +81,11 @@ def get_portfolio_statistics(
         [float(sum(v for v in apd.values())) for apd in asset_performance.values()]
     )
 
-    return _calculate_statistics(portfolio_performance)
-
-
-def get_alpha_beta(benchmark_stats: Statistics, portfolio_stats: Statistics) -> AlphaBeta:
-    covariance_matrix = pd.concat(
-        [portfolio_stats.g_returns, benchmark_stats.g_returns], axis=1
-    ).dropna().cov()
-    beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
-    alpha = portfolio_stats.annualized_return - (beta * 365 * benchmark_stats.g_returns.mean())
-
-    return AlphaBeta(alpha=alpha, beta=beta)
+    portfolio_stats = _calculate_statistics(portfolio_performance)
+    return PortfolioStatistics(
+        *portfolio_stats,
+        *_get_alpha_beta(benchmark_stats, portfolio_stats),
+    )
 
 
 def _get_market_data(symbol: str, btc_fiat_daily: List[Candle], symbol_daily: List[Candle]):
@@ -195,3 +197,15 @@ def _calculate_statistics(performance: pd.Series) -> Statistics:
         sortino_ratio=sortino_ratio,
         cagr=cagr
     )
+
+
+def _get_alpha_beta(
+    benchmark_stats: Statistics, portfolio_stats: Statistics
+) -> Tuple[float, float]:
+    covariance_matrix = pd.concat(
+        [portfolio_stats.g_returns, benchmark_stats.g_returns], axis=1
+    ).dropna().cov()
+    beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
+    alpha = portfolio_stats.annualized_return - (beta * 365 * benchmark_stats.g_returns.mean())
+
+    return alpha, beta

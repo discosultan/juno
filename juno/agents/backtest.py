@@ -10,7 +10,7 @@ from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import DAY_MS, time_ms
 from juno.trading import (
-    MissedCandlePolicy, Trader, get_alpha_beta, get_benchmark_statistics, get_portfolio_statistics
+    MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
 
 from .agent import Agent
@@ -92,10 +92,8 @@ class Backtest(Agent):
 
         benchmark_stats = get_benchmark_statistics(btc_fiat_daily)
         portfolio_stats = get_portfolio_statistics(
-            btc_fiat_daily, symbol_daily, symbol, trader.summary
+            benchmark_stats, btc_fiat_daily, symbol_daily, symbol, trader.summary
         )
-        alpha_beta = get_alpha_beta(benchmark_stats, portfolio_stats)
 
         _log.info(f'benchmark stats: {benchmark_stats}')
         _log.info(f'portfolio stats: {portfolio_stats}')
-        _log.info(f'alpha beta: {alpha_beta}')
