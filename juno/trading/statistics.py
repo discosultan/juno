@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import operator
 from collections import defaultdict
@@ -9,8 +8,6 @@ import numpy as np
 import pandas as pd
 
 from juno import Candle, Fill
-from juno.asyncio import list_async
-from juno.components import Chandler, Informant
 from juno.math import floor_multiple
 from juno.time import DAY_MS
 from juno.utils import unpack_symbol
@@ -48,27 +45,14 @@ class Combined(NamedTuple):
     portfolio_alpha_beta: AlphaBeta
 
 
-async def get_benchmark_statistics(
-    chandler: Chandler, informant: Informant, start: int, end: int
-) -> Statistics:
-    start_day = floor_multiple(start, DAY_MS)
-    end_day = floor_multiple(end, DAY_MS)
-
-    # Find first exchange which supports the fiat pair.
-    btc_fiat_symbol = 'btc-eur'
-    btc_fiat_exchange = _find_first_exchange_for_symbol(informant, btc_fiat_symbol)
-
-    btc_fiat_daily = await list_async(chandler.stream_candles(
-        btc_fiat_exchange, btc_fiat_symbol, DAY_MS, start_day, end_day
-    ))
-    performance = pd.Series([float(c.close) for c in btc_fiat_daily])
+def get_benchmark_statistics(candles: List[Candle]) -> Statistics:
+    performance = pd.Series([float(c.close) for c in candles])
     return _calculate_statistics(performance)
 
 
-async def get_portfolio_statistics(
-    chandler: Chandler,
-    informant: Informant,
-    exchange: str,
+def get_portfolio_statistics(
+    base_fiat_candles: List[Candle],
+    portfolio_candles: List[Candle],
     symbol: str,
     summary: TradingSummary
 ) -> Statistics:
@@ -77,22 +61,10 @@ async def get_portfolio_statistics(
     length_days = (end_day - start_day) / DAY_MS
     base_asset, quote_asset = unpack_symbol(symbol)
     assert quote_asset == 'btc'  # TODO: We don't support other quote yet.
+    assert len(base_fiat_candles) == length_days
+    assert len(portfolio_candles) == length_days
 
-    # Find first exchange which supports the fiat pair.
-    btc_fiat_symbol = 'btc-eur'
-    btc_fiat_exchange = _find_first_exchange_for_symbol(informant, btc_fiat_symbol)
-
-    # Fetch necessary market data.
-    btc_fiat_daily, symbol_daily = await asyncio.gather(
-        list_async(
-            chandler.stream_candles(btc_fiat_exchange, btc_fiat_symbol, DAY_MS, start_day, end_day)
-        ),
-        list_async(chandler.stream_candles(exchange, symbol, DAY_MS, start_day, end_day)),
-    )
-    assert len(btc_fiat_daily) == length_days
-    assert len(symbol_daily) == length_days
-
-    market_data = _get_market_data(symbol, btc_fiat_daily, symbol_daily)
+    market_data = _get_market_data(symbol, base_fiat_candles, portfolio_candles)
     trades = _get_trades_from_summary(summary, symbol)
     asset_performance = _get_asset_performance(
         summary, symbol, start_day, end_day, market_data, trades
@@ -112,14 +84,6 @@ def get_alpha_beta(benchmark_stats: Statistics, portfolio_stats: Statistics) -> 
     alpha = portfolio_stats.annualized_return - (beta * 365 * benchmark_stats.g_returns.mean())
 
     return AlphaBeta(alpha=alpha, beta=beta)
-
-
-def _find_first_exchange_for_symbol(informant: Informant, symbol: str):
-    for exchange in informant.list_exchanges():
-        symbols = informant.list_symbols(exchange)
-        if symbol in symbols:
-            return exchange
-    raise ValueError('Not found.')
 
 
 def _get_market_data(symbol: str, btc_fiat_daily: List[Candle], symbol_daily: List[Candle]):

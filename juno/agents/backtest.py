@@ -1,16 +1,21 @@
+import asyncio
+import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
+from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.config import init_module_instance
 from juno.math import floor_multiple
-from juno.time import time_ms
+from juno.time import DAY_MS, time_ms
 from juno.trading import (
     MissedCandlePolicy, Trader, get_alpha_beta, get_benchmark_statistics, get_portfolio_statistics
 )
 
 from .agent import Agent
+
+_log = logging.getLogger(__name__)
 
 
 class Backtest(Agent):
@@ -61,4 +66,36 @@ class Backtest(Agent):
         self.result = trader.summary
         await trader.run()
 
-        await analyze(self.chandler, self.informant, exchange, symbol, trader.summary)
+        start_day = floor_multiple(start, DAY_MS)
+        end_day = floor_multiple(end, DAY_MS)
+
+        # Find first exchange which supports the fiat pair.
+        btc_fiat_symbol = 'btc-eur'
+        btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
+
+        if len(btc_fiat_exchanges) == 0:
+            _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
+                         'calculating further statistics')
+            return
+
+        btc_fiat_exchange = btc_fiat_exchanges[0]
+
+        # Fetch necessary market data.
+        btc_fiat_daily, symbol_daily = await asyncio.gather(
+            list_async(self.chandler.stream_candles(
+                btc_fiat_exchange, btc_fiat_symbol, DAY_MS, start_day, end_day
+            )),
+            list_async(self.chandler.stream_candles(
+                exchange, symbol, DAY_MS, start_day, end_day
+            )),
+        )
+
+        benchmark_stats = get_benchmark_statistics(btc_fiat_daily)
+        portfolio_stats = get_portfolio_statistics(
+            btc_fiat_daily, symbol_daily, symbol, trader.summary
+        )
+        alpha_beta = get_alpha_beta(benchmark_stats, portfolio_stats)
+
+        _log.info(f'benchmark stats: {benchmark_stats}')
+        _log.info(f'portfolio stats: {portfolio_stats}')
+        _log.info(f'alpha beta: {alpha_beta}')
