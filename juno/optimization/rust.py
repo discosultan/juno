@@ -16,6 +16,8 @@ from juno import Candle, Fees, Filters, Interval
 from juno.components import Chandler, Informant
 from juno.trading import MissedCandlePolicy
 from juno.strategies import MAMACX, Strategy
+from juno.time import DAY_MS
+from juno.trading import Statistics
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path
 
@@ -29,6 +31,7 @@ class Rust(Solver):
         self.chandler = chandler
         self.informant = informant
         self.c_candles: Dict[Tuple[str, int], Any] = {}
+        self.c_benchmark_statistics: Any = None
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
 
     async def __aenter__(self) -> Rust:
@@ -74,6 +77,9 @@ class Rust(Solver):
 
     def solve(
         self,
+        base_fiat_candles: List[Candle],
+        portfolio_candles: List[Candle],
+        benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,
         candles: List[Candle],
@@ -85,6 +91,19 @@ class Rust(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
+        c_base_fiat_candles = self.c_candles.get(('btc-eur', DAY_MS))
+        if not c_base_fiat_candles:
+            c_base_fiat_candles = self._build_c_candles(base_fiat_candles)
+            self.c_candles[('btc-eur', DAY_MS)] = c_base_fiat_candles
+
+        c_portfolio_candles = self.c_candles.get((symbol, DAY_MS))
+        if not c_portfolio_candles:
+            c_portfolio_candles = self._build_c_candles(portfolio_candles)
+            self.c_candles[(symbol, DAY_MS)] = c_portfolio_candles
+
+        if not self.c_benchmark_statistics:
+            self.c_benchmark_statistics = self._build_c_benchmark_statistics(benchmark_stats)
+
         c_candles = self.c_candles.get((symbol, interval))
         if not c_candles:
             c_candles = self._build_c_candles(candles)
@@ -120,6 +139,10 @@ class Rust(Solver):
                 'volume': float(c[5]),
             }
         return c_candles
+
+    def _build_c_statistics(self, stats: Statistics) -> Any:
+        raise NotImplementedError()
+        return None
 
     def _build_c_fees_filters(self, fees: Fees, filters: Filters) -> Any:
         c_fees = self.ffi.new('Fees *')
