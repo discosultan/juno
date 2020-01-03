@@ -2,7 +2,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import components, exchanges, optimization, strategies, storages, time
+from juno import components, exchanges, optimization, storages, strategies, time
 from juno.asyncio import list_async
 from juno.config import config_from_env, init_instance
 from juno.math import floor_multiple

@@ -16,8 +16,8 @@ from aiolimiter import AsyncLimiter
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderType, Side,
-    ExchangeInfo, TimeInForce, json
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
+    OrderType, Side, TimeInForce, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Price, Size
