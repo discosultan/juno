@@ -15,7 +15,7 @@ from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.math import Choice, Constraint, ConstraintChoice, Constant, Uniform, floor_multiple
 from juno.strategies import Strategy
-from juno.time import strfinterval, time_ms
+from juno.time import strfinterval, strfspan, time_ms
 from juno.trading import MissedCandlePolicy, Trader
 from juno.typing import get_input_type_hints
 from juno.utils import get_module_type, flatten, format_attrs_as_json
@@ -97,14 +97,8 @@ class Optimizer:
         self.result = OptimizationResult()
 
     async def run(self) -> None:
-        symbols = (
-            self.symbols if self.symbols is not None
-            else self.informant.list_symbols(self.exchange)
-        )
-        intervals = (
-            self.intervals if self.intervals is not None
-            else self.informant.list_candle_intervals(self.exchange)
-        )
+        symbols = self.informant.list_symbols(self.exchange, self.symbols)
+        intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
 
         candles = {}
         candle_tasks = []
@@ -118,6 +112,10 @@ class Optimizer:
                 )
             candle_tasks.append(fetch_candles(symbol, interval))
         await asyncio.gather(*candle_tasks)
+
+        for (s, i), v in ((k, v) for k, v in candles.items() if len(v) > 0):
+            # TODO: Exclude from optimization.
+            _log.warning(f'no {s} {strfinterval(i)} candles found between {strfspan(self.start, self.end)}')
 
         fees_filters = {s: self.informant.get_fees_filters(self.exchange, symbol) for s in symbols}
 

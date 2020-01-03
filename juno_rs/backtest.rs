@@ -15,9 +15,15 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     trailing_stop: f64,
 ) -> BacktestResult {
     let two_interval = interval * 2;
-    let mut summary = TradingSummary::new(
-        candles[0].time, candles[candles.len() - 1].time + interval, quote, fees, filters
-    );
+
+    let candles_len = candles.len();
+    let (start, end) = if candles_len == 0 {
+        (0, interval)
+    } else {
+        (candles[0].time, candles[candles_len - 1].time + interval)
+    };
+
+    let mut summary = TradingSummary::new(start, end, quote, fees, filters);
     let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
     loop {
