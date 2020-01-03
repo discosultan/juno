@@ -102,7 +102,7 @@ class Rust(Solver):
             self.c_candles[(symbol, DAY_MS)] = c_portfolio_candles
 
         if not self.c_benchmark_statistics:
-            self.c_benchmark_statistics = self._build_c_benchmark_statistics(benchmark_stats)
+            self.c_benchmark_statistics = self._build_c_statistics(benchmark_stats)
 
         c_candles = self.c_candles.get((symbol, interval))
         if not c_candles:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Awaitable, Callable, Dict, List, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Set, Tuple, Type, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
@@ -13,6 +13,7 @@ from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.time import DAY_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
+from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
 
@@ -65,11 +66,50 @@ class Informant:
         filters = exchange_info.filters.get('__all__') or exchange_info.filters[symbol]
         return fees, filters
 
-    def list_symbols(self, exchange: str) -> List[str]:
-        return list(self._synced_data[exchange][ExchangeInfo].filters.keys())
+    def list_symbols(self, exchange: str, patterns: Optional[List[str]] = None) -> List[str]:
+        all_symbols = list(self._synced_data[exchange][ExchangeInfo].filters.keys())
 
-    def list_candle_intervals(self, exchange: str) -> List[int]:
-        return self._synced_data[exchange][ExchangeInfo].candle_intervals
+        if patterns is None:
+            return all_symbols
+
+        # Do not use a set because we want the result ordering to be deterministic!
+        # Dict is ordered.
+        result: Dict[str, None] = {}
+        for pattern in patterns:
+            added = 0
+            base_pattern, quote_pattern = unpack_symbol(pattern)
+            for symbol in all_symbols:
+                base_asset, quote_asset = unpack_symbol(symbol)
+                match = True
+                if base_pattern != '*' and base_pattern != base_asset:
+                    match = False
+                if quote_pattern != '*' and quote_pattern != quote_asset:
+                    match = False
+                if match:
+                    result[symbol] = None
+                    added += 1
+            if added == 0:
+                raise ValueError(f'Exchange {exchange} does not support any symbol matching '
+                                 f'{pattern}')
+
+        return list(result.keys())
+
+    def list_candle_intervals(
+        self, exchange: str, patterns: Optional[List[int]] = None
+    ) -> List[int]:
+        all_intervals = self._synced_data[exchange][ExchangeInfo].candle_intervals
+
+        if patterns is None:
+            return all_intervals
+
+        result: Dict[int, None] = {}
+        for pattern in patterns:
+            if pattern in all_intervals:
+                result[pattern] = None
+            else:
+                raise ValueError(f'Exchange {exchange} does not support candle interval {pattern}')
+
+        return list(result.keys())
 
     def list_tickers(self, exchange: str) -> List[Ticker]:
         return self._synced_data[exchange][List[Ticker]]

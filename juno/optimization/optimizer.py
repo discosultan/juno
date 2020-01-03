@@ -15,7 +15,7 @@ from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.math import Choice, Constraint, ConstraintChoice, Constant, Uniform, floor_multiple
 from juno.strategies import Strategy
-from juno.time import DAY_MS, strfinterval, time_ms
+from juno.time import DAY_MS, strfinterval, strfspan, time_ms
 from juno.trading import (
     MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
@@ -99,14 +99,8 @@ class Optimizer:
         self.result = OptimizationResult()
 
     async def run(self) -> None:
-        symbols = (
-            self.symbols if self.symbols is not None
-            else self.informant.list_symbols(self.exchange)
-        )
-        intervals = (
-            self.intervals if self.intervals is not None
-            else self.informant.list_candle_intervals(self.exchange)
-        )
+        symbols = self.informant.list_symbols(self.exchange, self.symbols)
+        intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
 
         btc_fiat_symbol = 'btc-eur'
         btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
@@ -130,7 +124,12 @@ class Optimizer:
             candle_tasks.append(self._fetch_candles(candles, self.exchange, symbol, interval))
         await asyncio.gather(*candle_tasks)
 
-        fees_filters = {s: self.informant.get_fees_filters(self.exchange, symbol) for s in symbols}
+        for (s, i), v in ((k, v) for k, v in candles.items() if len(v) > 0):
+            # TODO: Exclude from optimization.
+            _log.warning(f'no {s} {strfinterval(i)} candles found between '
+                         f'{strfspan(self.start, self.end)}')
+
+        fees_filters = {s: self.informant.get_fees_filters(self.exchange, s) for s in symbols}
 
         # Prepare benchmark stats.
         benchmark_stats = get_benchmark_statistics(candles[('btc-eur', DAY_MS)])
@@ -191,6 +190,15 @@ class Optimizer:
                 *fees_filters[ind[0]],
                 *flatten(ind)
             )
+
+            # best_args = list(flatten(hall[0]))
+            # best_result = self.solver.solve(
+            #     strategy_type,
+            #     self.quote,
+            #     candles[(best_args[0], best_args[1])],
+            #     *fees_filters[best_args[0]],
+            #     *best_args
+            # )
 
         toolbox.register('evaluate', evaluate)
 
