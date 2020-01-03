@@ -115,9 +115,10 @@ class Optimizer:
 
         for (s, i), v in ((k, v) for k, v in candles.items() if len(v) > 0):
             # TODO: Exclude from optimization.
-            _log.warning(f'no {s} {strfinterval(i)} candles found between {strfspan(self.start, self.end)}')
+            _log.warning(f'no {s} {strfinterval(i)} candles found between '
+                         f'{strfspan(self.start, self.end)}')
 
-        fees_filters = {s: self.informant.get_fees_filters(self.exchange, symbol) for s in symbols}
+        fees_filters = {s: self.informant.get_fees_filters(self.exchange, s) for s in symbols}
 
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
@@ -172,6 +173,15 @@ class Optimizer:
                 *fees_filters[ind[0]],
                 *flatten(ind)
             )
+
+            # best_args = list(flatten(hall[0]))
+            # best_result = self.solver.solve(
+            #     strategy_type,
+            #     self.quote,
+            #     candles[(best_args[0], best_args[1])],
+            #     *fees_filters[best_args[0]],
+            #     *best_args
+            # )
 
         toolbox.register('evaluate', evaluate)
 

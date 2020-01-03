@@ -72,7 +72,9 @@ class Informant:
         if patterns is None:
             return all_symbols
 
-        result: Set[str] = set()
+        # Do not use a set because we want the result ordering to be deterministic!
+        # Dict is ordered.
+        result: Dict[str, None] = {}
         for pattern in patterns:
             added = 0
             base_pattern, quote_pattern = unpack_symbol(pattern)
@@ -84,13 +86,13 @@ class Informant:
                 if quote_pattern != '*' and quote_pattern != quote_asset:
                     match = False
                 if match:
-                    result.add(symbol)
+                    result[symbol] = None
                     added += 1
             if added == 0:
                 raise ValueError(f'Exchange {exchange} does not support any symbol matching '
                                  f'{pattern}')
 
-        return list(result)
+        return list(result.keys())
 
     def list_candle_intervals(
         self, exchange: str, patterns: Optional[List[int]] = None
@@ -100,14 +102,14 @@ class Informant:
         if patterns is None:
             return all_intervals
 
-        result: Set[int] = set()
+        result: Dict[int, None] = {}
         for pattern in patterns:
             if pattern in all_intervals:
-                result.add(pattern)
+                result[pattern] = None
             else:
                 raise ValueError(f'Exchange {exchange} does not support candle interval {pattern}')
 
-        return list(result)
+        return list(result.keys())
 
     def list_tickers(self, exchange: str) -> List[Ticker]:
         return self._synced_data[exchange][List[Ticker]]
