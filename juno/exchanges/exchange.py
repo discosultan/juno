@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, OrderResult, OrderType,
-    OrderUpdate, Side, ExchangeInfo, Ticker, TimeInForce, Trade
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, OrderResult,
+    OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade
 )
 
 

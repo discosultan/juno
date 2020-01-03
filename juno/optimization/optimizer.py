@@ -13,14 +13,14 @@ from deap import algorithms, base, creator, tools
 from juno import Candle, InsufficientBalance, Interval, Timestamp, strategies
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
-from juno.math import Choice, Constraint, ConstraintChoice, Constant, Uniform, floor_multiple
+from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.strategies import Strategy
 from juno.time import DAY_MS, strfinterval, strfspan, time_ms
 from juno.trading import (
     MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
 from juno.typing import get_input_type_hints
-from juno.utils import get_module_type, flatten, format_attrs_as_json
+from juno.utils import flatten, format_attrs_as_json, get_module_type
 
 from . import tools as juno_tools
 from .solver import Solver, SolverResult

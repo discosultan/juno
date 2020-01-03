@@ -4,7 +4,7 @@ from typing import Dict, List
 
 import pytest
 
-from juno import Candle, Fees, Filters, ExchangeInfo, Ticker, Trade, storages
+from juno import Candle, ExchangeInfo, Fees, Filters, Ticker, Trade, storages
 from juno.asyncio import list_async
 from juno.typing import types_match
 

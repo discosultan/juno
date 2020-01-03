@@ -16,8 +16,8 @@ from typing import (
 from aiolimiter import AsyncLimiter
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, Fees, Filters, OrderResult,
-    OrderType, OrderUpdate, Side, ExchangeInfo, TimeInForce, Trade, json
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
+    OrderResult, OrderType, OrderUpdate, Side, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse

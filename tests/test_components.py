@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, Candle, DepthSnapshot, Fees, ExchangeInfo, JunoException, Trade
+from juno import Balance, Candle, DepthSnapshot, ExchangeInfo, Fees, JunoException, Trade
 from juno.asyncio import cancel, cancelable, list_async
 from juno.components import Chandler, Informant, Orderbook, Trades, Wallet
 from juno.filters import Filters, Price, Size

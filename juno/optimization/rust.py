@@ -14,10 +14,9 @@ import cffi
 
 from juno import Candle, Fees, Filters, Interval
 from juno.components import Chandler, Informant
-from juno.trading import MissedCandlePolicy
 from juno.strategies import MAMACX, Strategy
 from juno.time import DAY_MS
-from juno.trading import Statistics
+from juno.trading import MissedCandlePolicy, Statistics
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path
 

@@ -7,7 +7,6 @@ from typing import Dict, List, NamedTuple, Optional, Tuple, _GenericAlias  # typ
 from juno.filters import Filters
 from juno.time import datetime_utcfromtimestamp_ms
 
-
 Interval = _GenericAlias(int, (), name='Interval')
 # Note that we alias `Interval` instead of `int`. This is required because typing module seems to
 # erase duplicate aliases to same type. If `Timestamp` also aliased `int`, `Optional[Interval]`

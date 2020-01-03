@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Set, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Type, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
-from juno import Fees, Filters, ExchangeInfo, JunoException, Ticker
+from juno import ExchangeInfo, Fees, Filters, JunoException, Ticker
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
 from juno.storages import Storage

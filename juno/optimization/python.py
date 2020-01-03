@@ -5,8 +5,8 @@ from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Inter
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.trading import (
-    get_portfolio_statistics, MissedCandlePolicy, Position, Statistics, TradingContext,
-    TradingSummary
+    MissedCandlePolicy, Position, Statistics, TradingContext, TradingSummary,
+    get_portfolio_statistics
 )
 from juno.utils import unpack_symbol
 
