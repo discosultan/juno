@@ -1,5 +1,6 @@
 import statistics
 from decimal import Decimal, Overflow
+from enum import IntEnum
 from typing import List, Optional
 
 from juno import Candle, Fees, Fill, Interval, Timestamp
@@ -7,6 +8,12 @@ from juno.filters import Filters
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.time import YEAR_MS
+
+
+class MissedCandlePolicy(IntEnum):
+    IGNORE = 0
+    RESTART = 1
+    LAST = 2
 
 
 # TODO: Add support for external token fees (i.e BNB)

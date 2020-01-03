@@ -4,7 +4,7 @@ import pytest
 
 from juno import Advice, Candle, Fees, Fill, Filters
 from juno.time import HOUR_MS
-from juno.trading import Position, Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
 
 from . import fakes
 
@@ -103,7 +103,7 @@ async def test_trader_trailing_stop_loss():
         end=4,
         quote=Decimal('10.0'),
         new_strategy=lambda: fakes.Strategy(Advice.BUY, Advice.NONE, Advice.NONE, Advice.SELL),
-        missed_candle_policy='ignore',
+        missed_candle_policy=MissedCandlePolicy.IGNORE,
         adjust_start=False,
         trailing_stop=Decimal('0.1'),
     )
@@ -139,7 +139,7 @@ async def test_trader_restart_on_missed_candle():
         end=6,
         quote=Decimal('10.0'),
         new_strategy=lambda: strategy_stack.pop(),
-        missed_candle_policy='restart',
+        missed_candle_policy=MissedCandlePolicy.RESTART,
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
     )
@@ -177,7 +177,7 @@ async def test_trader_assume_same_as_last_on_missed_candle():
         end=5,
         quote=Decimal('10.0'),
         new_strategy=lambda: strategy,
-        missed_candle_policy='last',
+        missed_candle_policy=MissedCandlePolicy.LAST,
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
     )

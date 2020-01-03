@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, Candle, DepthSnapshot, Fees, ExchangeInfo, JunoException, Trade
+from juno import Balance, Candle, DepthSnapshot, ExchangeInfo, Fees, JunoException, Trade
 from juno.asyncio import cancel, cancelable, list_async
 from juno.components import Chandler, Informant, Orderbook, Trades, Wallet
 from juno.filters import Filters, Price, Size
@@ -291,16 +291,37 @@ async def test_get_fees_filters(storage, exchange_key):
         assert out_filters == filters
 
 
-async def test_list_symbols(storage):
-    symbols = ['eth-btc', 'ltc-btc']
+@pytest.mark.parametrize('symbols,patterns,expected_output', [
+    (['eth-btc', 'ltc-btc'], None, ['eth-btc', 'ltc-btc']),
+    (['eth-btc', 'ltc-btc', 'ltc-eth'], ['*-btc'], ['eth-btc', 'ltc-btc']),
+    (['eth-btc', 'ltc-btc', 'ltc-eth'], ['eth-btc', 'ltc-btc'], ['eth-btc', 'ltc-btc']),
+])
+async def test_list_symbols(storage, symbols, patterns, expected_output):
     exchange = fakes.Exchange(
-        exchange_info=ExchangeInfo(fees=Fees(), filters={s: Filters() for s in symbols})
+        exchange_info=ExchangeInfo(filters={s: Filters() for s in symbols})
     )
 
     async with Informant(storage=storage, exchanges=[exchange]) as informant:
-        out_symbols = informant.list_symbols('exchange')
+        output = informant.list_symbols('exchange', patterns)
 
-    assert out_symbols == symbols
+    assert len(output) == len(expected_output)
+    assert set(output) == set(expected_output)
+
+
+@pytest.mark.parametrize('intervals,patterns,expected_output', [
+    ([1, 2], None, [1, 2]),
+    ([1, 2, 3], [1, 2], [1, 2]),
+])
+async def test_list_candle_intervals(storage, intervals, patterns, expected_output):
+    exchange = fakes.Exchange(
+        exchange_info=ExchangeInfo(candle_intervals=intervals)
+    )
+
+    async with Informant(storage=storage, exchanges=[exchange]) as informant:
+        output = informant.list_candle_intervals('exchange', patterns)
+
+    assert len(output) == len(expected_output)
+    assert set(output) == set(expected_output)
 
 
 async def test_list_asks_bids(storage):

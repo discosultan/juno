@@ -24,6 +24,7 @@ setup(
         'dev': [
             'flake8',
             'flake8-comprehensions',
+            'flake8-isort',
             'isort',
             'mypy',
             'pytest',

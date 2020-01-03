@@ -7,7 +7,7 @@ from juno.components import Chandler, Informant, Wallet
 from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
-from juno.trading import Trader
+from juno.trading import MissedCandlePolicy, Trader
 from juno.utils import unpack_symbol
 
 from .agent import Agent
@@ -30,7 +30,7 @@ class Live(Agent):
         interval: Interval,
         strategy_config: Dict[str, Any],
         end: Timestamp = MAX_TIME_MS,
-        missed_candle_policy: str = 'ignore',
+        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
         get_time_ms: Optional[Callable[[], int]] = None

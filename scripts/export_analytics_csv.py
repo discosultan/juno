@@ -11,9 +11,9 @@ from juno.config import config_from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
-from juno.strategies import MAMACX
+from juno.strategies import MA, MAMACX
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
-from juno.trading import Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, Trader, TradingSummary
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -40,10 +40,10 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4, 'sma',
-                                        'smma'),
+            new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4, MA.SMA,
+                                        MA.SMMA),
             trailing_stop=Decimal('0.0827'),
-            missed_candle_policy='last'
+            missed_candle_policy=MissedCandlePolicy.LAST
         )
         await trader.run()
 

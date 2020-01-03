@@ -6,6 +6,7 @@ from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
+from juno.trading import MissedCandlePolicy
 from juno.utils import load_json_file
 
 from . import fakes
@@ -90,7 +91,7 @@ async def test_backtest_scenarios(scenario_nr):
         'end': 1514761200000,
         'interval': HOUR_MS,
         'quote': Decimal('100.0'),
-        'missed_candle_policy': 'ignore',
+        'missed_candle_policy': MissedCandlePolicy.IGNORE,
         'strategy_config': {
             'type': 'mamacx',
             'short_period': 18,

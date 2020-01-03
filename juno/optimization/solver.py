@@ -6,7 +6,7 @@ from typing import Any, Dict, List, NamedTuple, Tuple, Type, get_type_hints
 
 from juno import Candle, Fees, Filters, Interval
 from juno.strategies import Strategy
-from juno.trading import TradingSummary
+from juno.trading import MissedCandlePolicy, TradingSummary
 
 
 class Solver(ABC):
@@ -20,7 +20,7 @@ class Solver(ABC):
         filters: Filters,
         symbol: str,
         interval: Interval,
-        missed_candle_policy: int,
+        missed_candle_policy: MissedCandlePolicy,
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:

@@ -9,9 +9,7 @@ import urllib.parse
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
-from typing import (
-    Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
-)
+from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 
 import aiohttp
 from aiolimiter import AsyncLimiter
@@ -20,13 +18,13 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate, Fees, Fill,
-    JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, ExchangeInfo, Ticker,
-    TimeInForce, Trade, json
+    Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate,
+    ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
+    Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
-from juno.http import ClientSession, ClientJsonResponse, connect_refreshing_stream
+from juno.http import ClientJsonResponse, ClientSession, connect_refreshing_stream
 from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import page
@@ -740,7 +738,7 @@ def _from_symbol(symbol: str) -> str:
     # since there is no separator used. We simply map based on known base currencies.
     known_base_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY'
+        'RUB', 'TRY', 'EUR'
     ]
     for known_base_asset in known_base_assets:
         if symbol.endswith(known_base_asset):

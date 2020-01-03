@@ -13,12 +13,12 @@ from deap import algorithms, base, creator, tools
 from juno import InsufficientBalance, Interval, Timestamp, strategies
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
-from juno.math import Choice, Constraint, ConstraintChoice, Constant, Uniform, floor_multiple
+from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.strategies import Strategy
-from juno.time import strfinterval, time_ms
-from juno.trading import Trader
+from juno.time import strfinterval, strfspan, time_ms
+from juno.trading import MissedCandlePolicy, Trader
 from juno.typing import get_input_type_hints
-from juno.utils import get_module_type, flatten, format_attrs_as_json
+from juno.utils import flatten, format_attrs_as_json, get_module_type
 
 from . import tools as juno_tools
 from .solver import Solver, SolverResult
@@ -26,9 +26,9 @@ from .solver import Solver, SolverResult
 _log = logging.getLogger(__name__)
 
 _missed_candle_policy_constraint = Choice([
-    0,  # 'ignore'
-    1,  # 'restart'
-    2,  # 'last'
+    MissedCandlePolicy.IGNORE,
+    MissedCandlePolicy.RESTART,
+    MissedCandlePolicy.LAST,
 ])
 _trailing_stop_constraint = ConstraintChoice([
     Constant(Decimal('0.0')),
@@ -49,7 +49,7 @@ class Optimizer:
         symbols: Optional[List[str]] = None,
         intervals: Optional[List[Interval]] = None,
         end: Optional[Timestamp] = None,
-        missed_candle_policy: Optional[str] = 'ignore',
+        missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE,
         trailing_stop: Optional[Decimal] = Decimal('0.0'),
         population_size: int = 50,
         max_generations: int = 1000,
@@ -97,14 +97,8 @@ class Optimizer:
         self.result = OptimizationResult()
 
     async def run(self) -> None:
-        symbols = (
-            self.symbols if self.symbols is not None
-            else self.informant.list_symbols(self.exchange)
-        )
-        intervals = (
-            self.intervals if self.intervals is not None
-            else self.informant.list_candle_intervals(self.exchange)
-        )
+        symbols = self.informant.list_symbols(self.exchange, self.symbols)
+        intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
 
         candles = {}
         candle_tasks = []
@@ -119,7 +113,12 @@ class Optimizer:
             candle_tasks.append(fetch_candles(symbol, interval))
         await asyncio.gather(*candle_tasks)
 
-        fees_filters = {s: self.informant.get_fees_filters(self.exchange, symbol) for s in symbols}
+        for (s, i), v in ((k, v) for k, v in candles.items() if len(v) > 0):
+            # TODO: Exclude from optimization.
+            _log.warning(f'no {s} {strfinterval(i)} candles found between '
+                         f'{strfspan(self.start, self.end)}')
+
+        fees_filters = {s: self.informant.get_fees_filters(self.exchange, s) for s in symbols}
 
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
@@ -141,11 +140,7 @@ class Optimizer:
         attrs = [
             _build_attr(symbols, Choice(symbols), random),
             _build_attr(intervals, Choice(intervals), random),
-            _build_attr(
-                self.missed_candle_policy and _MISSED_CANDLE_POLICY_MAP[self.missed_candle_policy],
-                _missed_candle_policy_constraint,
-                random
-            ),
+            _build_attr(self.missed_candle_policy, _missed_candle_policy_constraint, random),
             _build_attr(self.trailing_stop, _trailing_stop_constraint, random),
             *(partial(c.random, random) for c in strategy_type.meta.constraints.values())
         ]
@@ -180,9 +175,10 @@ class Optimizer:
             )
 
         def evaluate(pop: List[List[Any]]) -> SolverResult:
-            return self.solver.solve_multiple(
-                [(strategy_type, self.quote, candles[(ind[0], ind[1])], *fees_filters[ind[0]], *flatten(ind)) for ind in pop]
-            )
+            return self.solver.solve_multiple([
+                (strategy_type, self.quote, candles[(ind[0], ind[1])], *fees_filters[ind[0]],
+                 *flatten(ind)) for ind in pop
+            ])
 
         toolbox.register('evaluate', evaluate)
 
@@ -192,7 +188,6 @@ class Optimizer:
 
         # Overwrite regular map to process entire population at once.
         # Assumes only our algoritm is using it to evaluate an individual.
-        # TODO: Implement.
         toolbox.register('map', lambda evaluate, pop: evaluate(pop))
 
         pop = toolbox.population(n=toolbox.population_size)
@@ -233,7 +228,7 @@ class Optimizer:
         self.result = OptimizationResult(
             symbol=best_args[0],
             interval=best_args[1],
-            missed_candle_policy=_REVERSE_MISSED_CANDLE_POLICY_MAP[best_args[2]],
+            missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
             strategy_config=_output_as_strategy_config(strategy_type, best_args[4:]),
             result=best_result,
@@ -287,7 +282,7 @@ def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> A
 class OptimizationResult(NamedTuple):
     symbol: str = ''
     interval: Interval = 0
-    missed_candle_policy: str = 'ignore'
+    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
     trailing_stop: Decimal = Decimal('0.0')
     strategy_config: Dict[str, Any] = {}
     result: SolverResult = SolverResult()
@@ -311,11 +306,3 @@ def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
         else:
             isclose = isclose and aval == bval
     return isclose
-
-
-_MISSED_CANDLE_POLICY_MAP = {
-    'ignore': 0,
-    'restart': 1,
-    'last': 2,
-}
-_REVERSE_MISSED_CANDLE_POLICY_MAP = {v: k for k, v in _MISSED_CANDLE_POLICY_MAP.items()}

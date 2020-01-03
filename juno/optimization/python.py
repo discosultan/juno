@@ -4,7 +4,7 @@ from typing import Any, List, Type
 from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.trading import Position, TradingContext, TradingSummary
+from juno.trading import MissedCandlePolicy, Position, TradingContext, TradingSummary
 from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
@@ -20,7 +20,7 @@ class Python(Solver):
         filters: Filters,
         symbol: str,
         interval: Interval,
-        missed_candle_policy: int,
+        missed_candle_policy: MissedCandlePolicy,
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
@@ -42,10 +42,10 @@ class Python(Solver):
 
                     # TODO: python 3.8 assignment expression
                     if ctx.last_candle and candle.time - ctx.last_candle.time >= interval * 2:
-                        if missed_candle_policy == 1:  # 'restart'
+                        if missed_candle_policy is MissedCandlePolicy.RESTART:
                             restart = True
                             ctx.strategy = strategy_type(*args)
-                        elif missed_candle_policy == 2:  # 'last'
+                        elif missed_candle_policy is MissedCandlePolicy.LAST:
                             num_missed = (candle.time - ctx.last_candle.time) // interval - 1
                             last_candle = ctx.last_candle
                             for i in range(1, num_missed + 1):
