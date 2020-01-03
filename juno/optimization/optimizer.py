@@ -174,15 +174,6 @@ class Optimizer:
                 *flatten(ind)
             )
 
-            # best_args = list(flatten(hall[0]))
-            # best_result = self.solver.solve(
-            #     strategy_type,
-            #     self.quote,
-            #     candles[(best_args[0], best_args[1])],
-            #     *fees_filters[best_args[0]],
-            #     *best_args
-            # )
-
         toolbox.register('evaluate', evaluate)
 
         toolbox.population_size = self.population_size
