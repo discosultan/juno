@@ -43,8 +43,8 @@ class TradingInfo(NamedTuple):
     filters: Filters
     interval: Interval
     quote: Decimal
-    missed_candle_policy: IntEnum,
-    trailing_stop: f64,
+    missed_candle_policy: MissedCandlePolicy
+    trailing_stop: Decimal
 
 
 class Rust(Solver):
@@ -209,20 +209,11 @@ def _build_cdef() -> str:
         build_function_from_params(
             strategy_name_lower,
             SolverResult,
-            ('analysis_info', anal),
-            ('trading_info', trad),
+            ('analysis_info', AnalysisInfo),
+            ('trading_info', TradingInfo),
             (f'{strategy_name_lower}_info', kaka)
         ),
     )
-
-typedef struct {{
-    const Candle *base_fiat_candles;
-    uint32_t base_fiat_candle_length;
-    const Candle *portfolio_candles;
-    uint32_t portfolio_candle_length;
-    const double *benchmark_g_returns;
-    uint32_t benchmark_g_return_length;
-}} AnalysisInfo;
 
 {_build_backtest_result()}
 

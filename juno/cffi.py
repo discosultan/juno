@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import IntEnum
-from typing import Any, Callable, List, Tuple, Type, get_type_hints
+from typing import Any, Callable, Iterable, List, Tuple, Type, get_args, get_origin, get_type_hints
 
 _CUSTOM_MAPPINGS = {}
 _DEFAULT_MAPPINGS = {
@@ -28,12 +28,12 @@ def build_function(function: Callable[..., Any]) -> str:
 def build_function_from_params(
     name: str, return_param: Type[Any], *params: Tuple[str, Type[Any]]
 ) -> str:
-    param_strings = (f'\n    {_map_type(v)} {k}' for k, v in params)
+    param_strings = (f'\n    {_map_type(v)} {k}' for k, v in _transform(params))
     return f'{_map_type(return_param)} {name}({",".join(param_strings)});\n'
 
 
 def build_struct(type_: Type[Any], exclude: List[str] = []) -> str:
-    fields = (f'    {_map_type(v)} {k};\n' for k, v in get_type_hints(type_).items()
+    fields = (f'    {_map_type(v)} {k};\n' for k, v in _transform(get_type_hints(type_).items())
               if k not in exclude)
     return f'typedef struct {{\n{"".join(fields)}}} {type_.__name__};\n'
 
@@ -42,8 +42,23 @@ def _map_type(type_: Type[Any]) -> str:
     for k, v in _CUSTOM_MAPPINGS.items():
         if type_ is k:
             return v
+
+    if type_ is None:
+        return 'void'
+
+    if get_origin(type_) is list:
+        return f'const {_map_type(get_args(type_)[0])}*'
+
     for k, v in _DEFAULT_MAPPINGS.items():
         if issubclass(type_, k):
             return v
-    return type_.__name__
+
     # raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')
+    return type_.__name__
+
+
+def _transform(items: Iterable[Tuple[str, Type[Any]]]) -> Iterable[Tuple[str, Type[Any]]]:
+    for k, v in items:
+        yield k, v
+        if get_origin(v) is list:
+            yield f'{k}_length', int
