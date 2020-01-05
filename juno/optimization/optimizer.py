@@ -102,26 +102,26 @@ class Optimizer:
         symbols = self.informant.list_symbols(self.exchange, self.symbols)
         intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
 
-        btc_fiat_symbol = 'btc-eur'
-        btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
-
-        if len(btc_fiat_exchanges) == 0:
-            _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
-                         'calculating further statistics')
-            return
-
-        btc_fiat_exchange = btc_fiat_exchanges[0]
+        # TODO: How to resolve best exchange / symbol for FIAT statistical analysis.
+        # btc_fiat_symbol = 'btc-eur'
+        # btc_fiat_exchange = 'coinbase'
+        # btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
+        # if len(btc_fiat_exchanges) == 0:
+        #     _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
+        #                  'calculating further statistics')
+        #     return
+        # btc_fiat_exchange = btc_fiat_exchanges[0]
 
         candles: Dict[Tuple[str, int], List[Candle]] = {}
-        candle_tasks = []
+        candle_tasks = [
+            # Binance also supports FIAT symbols but has limited candle data, hence Coinbase.
+            self._fetch_candles(candles, 'coinbase', 'btc-eur', DAY_MS)
+        ]
 
-        candle_tasks.append(
-            self._fetch_candles(candles, btc_fiat_exchange, btc_fiat_symbol, DAY_MS)
-        )
-        # We also include daily candles regardless of config for analysation purposes.
+        # We also include daily candles, regardless of config, for statistical analysis.
         fetch_intervals = intervals if DAY_MS in intervals else intervals + [DAY_MS]
-        for symbol, interval in product(symbols, fetch_intervals):
-            candle_tasks.append(self._fetch_candles(candles, self.exchange, symbol, interval))
+        candle_tasks.extend(self._fetch_candles(candles, self.exchange, s, i) for s, i in
+                            product(symbols, fetch_intervals))
         await asyncio.gather(*candle_tasks)
 
         for (s, i), v in ((k, v) for k, v in candles.items() if len(v) > 0):
@@ -283,8 +283,15 @@ class Optimizer:
                 f'{solver_name} solver:\n{format_attrs_as_json(validation_result)}'
                 f'\n{format_attrs_as_json(best_result)}'
             )
+        _log.info(f'Trading summary: {format_attrs_as_json(trader.summary)}')
 
-    async def _fetch_candles(self, candles, exchange, symbol, interval):
+    async def _fetch_candles(
+        self,
+        candles: Dict[Tuple[str, int], List[Candle]],
+        exchange: str,
+        symbol: str,
+        interval: int
+    ) -> None:
         candles[(symbol, interval)] = await list_async(
             self.chandler.stream_candles(
                 exchange, symbol, interval, floor_multiple(self.start, interval),

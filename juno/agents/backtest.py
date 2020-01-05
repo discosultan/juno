@@ -70,20 +70,19 @@ class Backtest(Agent):
         end_day = floor_multiple(end, DAY_MS)
 
         # Find first exchange which supports the fiat pair.
-        btc_fiat_symbol = 'btc-eur'
-        btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
-
-        if len(btc_fiat_exchanges) == 0:
-            _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
-                         'calculating further statistics')
-            return
-
-        btc_fiat_exchange = btc_fiat_exchanges[0]
+        # btc_fiat_symbol = 'btc-eur'
+        # btc_fiat_exchange = 'coinbase'
+        # btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
+        # if len(btc_fiat_exchanges) == 0:
+        #     _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
+        #                  'calculating further statistics')
+        #     return
+        # btc_fiat_exchange = btc_fiat_exchanges[0]
 
         # Fetch necessary market data.
         btc_fiat_daily, symbol_daily = await asyncio.gather(
             list_async(self.chandler.stream_candles(
-                btc_fiat_exchange, btc_fiat_symbol, DAY_MS, start_day, end_day
+                'coinbase', 'btc-eur', DAY_MS, start_day, end_day
             )),
             list_async(self.chandler.stream_candles(
                 exchange, symbol, DAY_MS, start_day, end_day

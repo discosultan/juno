@@ -31,13 +31,13 @@ class Solver(ABC):
 
 
 class SolverResult(NamedTuple):
-    profit: float = 0.0
-    mean_drawdown: float = 0.0
-    max_drawdown: float = 0.0
-    mean_position_profit: float = 0.0
-    mean_position_duration: int = 0
-    num_positions_in_profit: int = 0
-    num_positions_in_loss: int = 0
+    # profit: float = 0.0
+    # mean_drawdown: float = 0.0
+    # max_drawdown: float = 0.0
+    # mean_position_profit: float = 0.0
+    # mean_position_duration: int = 0
+    # num_positions_in_profit: int = 0
+    # num_positions_in_loss: int = 0
     alpha: float = 0.0
 
     @staticmethod
@@ -63,18 +63,9 @@ class SolverResult(NamedTuple):
         summary: TradingSummary, stats: PortfolioStatistics
     ) -> SolverResult:
         return SolverResult(
-            float(summary.profit),
-            float(summary.mean_drawdown),
-            float(summary.max_drawdown),
-            float(summary.mean_position_profit),
-            summary.mean_position_duration,
-            summary.num_positions_in_profit,
-            summary.num_positions_in_loss,
-            stats.alpha
+            *map(_decimal_to_float, (getattr(summary, k, None) or getattr(stats, k)
+                 for k in _SOLVER_RESULT_KEYS)),
         )
-        #     *map(_decimal_to_float, (getattr(summary, k) for k in _SOLVER_RESULT_KEYS)),
-        #     alpha_beta.alpha
-        # )
 
     @staticmethod
     def from_object(obj: Any) -> SolverResult:

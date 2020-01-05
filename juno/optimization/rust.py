@@ -30,7 +30,7 @@ class Rust(Solver):
         self.chandler = chandler
         self.informant = informant
         self.c_candles: Dict[Tuple[str, int], Any] = {}
-        self.c_benchmark_statistics: Any = None
+        self.c_benchmark_g_returns: Any = None
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
 
     async def __aenter__(self) -> Rust:
@@ -100,8 +100,8 @@ class Rust(Solver):
             c_portfolio_candles = self._build_c_candles(portfolio_candles)
             self.c_candles[(symbol, DAY_MS)] = c_portfolio_candles
 
-        if not self.c_benchmark_statistics:
-            self.c_benchmark_statistics = self._build_c_statistics(benchmark_stats)
+        if not self.c_benchmark_g_returns:
+            self.c_benchmark_g_returns = self._build_c_benchmark_g_returns(benchmark_stats)
 
         c_candles = self.c_candles.get((symbol, interval))
         if not c_candles:
@@ -139,8 +139,9 @@ class Rust(Solver):
             }
         return c_candles
 
-    def _build_c_statistics(self, stats: Statistics) -> Any:
-        raise NotImplementedError()
+    def _build_c_benchmark_g_returns(self, stats: Statistics) -> Any:
+        np_array = stats.g_returns.to_numpy()
+        self.ffi.cast('double *', np_array.ctypes.data)
         return None
 
     def _build_c_fees_filters(self, fees: Fees, filters: Filters) -> Any:

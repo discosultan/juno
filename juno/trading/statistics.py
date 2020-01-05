@@ -20,10 +20,10 @@ _log = logging.getLogger(__name__)
 
 
 class Statistics(NamedTuple):
-    performance: Any
-    a_returns: Any
-    g_returns: Any
-    neg_g_returns: Any
+    performance: pd.Series
+    a_returns: pd.Series
+    g_returns: pd.Series
+    neg_g_returns: pd.Series
 
     total_return: float
     annualized_return: float
@@ -35,10 +35,10 @@ class Statistics(NamedTuple):
 
 
 class PortfolioStatistics(NamedTuple):
-    performance: Any
-    a_returns: Any
-    g_returns: Any
-    neg_g_returns: Any
+    performance: pd.Series
+    a_returns: pd.Series
+    g_returns: pd.Series
+    neg_g_returns: pd.Series
 
     total_return: float
     annualized_return: float
@@ -172,7 +172,7 @@ def _calculate_statistics(performance: pd.Series) -> Statistics:
     g_returns = np.log(a_returns + 1)
     neg_g_returns = g_returns[g_returns < 0].dropna()
 
-    # Compute benchmark statistics.
+    # Compute statistics.
     total_return = performance.iloc[-1] / performance.iloc[0] - 1
     annualized_return = 365 * g_returns.mean()
     annualized_volatility = np.sqrt(365) * g_returns.std()
