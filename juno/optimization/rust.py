@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import cffi
 import logging
 import os
 import platform
@@ -8,12 +9,14 @@ import shutil
 from decimal import Decimal
 from enum import IntEnum
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, NamedTuple, Tuple, Type
 
-import cffi
+import pandas as pd
 
-from juno import Candle, Fees, Filters, Interval
+from juno import Candle, Fees, Filters, Interval, Timestamp
+from juno.cffi import build_function_from_params, build_struct, register_custom_mapping
 from juno.components import Chandler, Informant
+from juno.filters import Price, Size
 from juno.strategies import MAMACX, Strategy
 from juno.time import DAY_MS
 from juno.trading import MissedCandlePolicy, Statistics
@@ -23,6 +26,25 @@ from juno.utils import home_path
 from .solver import Solver, SolverResult
 
 _log = logging.getLogger(__name__)
+
+register_custom_mapping(Interval, 'uint64_t')
+register_custom_mapping(Timestamp, 'uint64_t')
+
+
+class AnalysisInfo(NamedTuple):
+    base_fiat_candles: List[Candle]
+    portfolio_candles: List[Candle]
+    benchmark_g_returns: pd.Series
+
+
+class TradingInfo(NamedTuple):
+    candles: List[Candle]
+    fees: Fees
+    filters: Filters
+    interval: Interval
+    quote: Decimal
+    missed_candle_policy: IntEnum,
+    trailing_stop: f64,
 
 
 class Rust(Solver):
@@ -115,6 +137,12 @@ class Rust(Solver):
 
         fn = getattr(self.libjuno, strategy_type.__name__.lower())
         result = fn(
+            c_base_fiat_candles,
+            len(c_base_fiat_candles),
+            c_portfolio_candles,
+            len(c_portfolio_candles),
+            self.c_benchmark_g_returns[0],
+            len(self.c_benchmark_g_returns[0]),
             c_candles,
             len(c_candles),
             *c_fees_filters,
@@ -141,8 +169,8 @@ class Rust(Solver):
 
     def _build_c_benchmark_g_returns(self, stats: Statistics) -> Any:
         np_array = stats.g_returns.to_numpy()
-        self.ffi.cast('double *', np_array.ctypes.data)
-        return None
+        pointer = self.ffi.cast('double *', np_array.ctypes.data)
+        return pointer, np_array
 
     def _build_c_fees_filters(self, fees: Fees, filters: Filters) -> Any:
         c_fees = self.ffi.new('Fees *')
@@ -169,40 +197,32 @@ class Rust(Solver):
 def _build_cdef() -> str:
     # TODO: Do we want to parametrize this? Or lookup from module and construct for all.
     strategy_type = MAMACX
+    strategy_name_lower = strategy_type.__name__.lower()
 
-    return f'''
-typedef struct {{
-    uint64_t time;
-    double open;
-    double high;
-    double low;
-    double close;
-    double volume;
-}} Candle;
-
-typedef struct {{
-    double maker;
-    double taker;
-}} Fees;
-
-typedef struct {{
-    double min;
-    double max;
-    double step;
-}} Price;
+    return (
+        build_struct(Candle, exclude=['closed']),
+        build_struct(Fees),
+        build_struct(Price),
+        build_struct(Size),
+        build_struct(Filters, exclude=['percent_price', 'min_notional']),
+        build_struct(SolverResult),
+        build_function_from_params(
+            strategy_name_lower,
+            SolverResult,
+            ('analysis_info', anal),
+            ('trading_info', trad),
+            (f'{strategy_name_lower}_info', kaka)
+        ),
+    )
 
 typedef struct {{
-    double min;
-    double max;
-    double step;
-}} Size;
-
-typedef struct {{
-    uint32_t base_precision;
-    uint32_t quote_precision;
-    Price price;
-    Size size;
-}} Filters;
+    const Candle *base_fiat_candles;
+    uint32_t base_fiat_candle_length;
+    const Candle *portfolio_candles;
+    uint32_t portfolio_candle_length;
+    const double *benchmark_g_returns;
+    uint32_t benchmark_g_return_length;
+}} AnalysisInfo;
 
 {_build_backtest_result()}
 

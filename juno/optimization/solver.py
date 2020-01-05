@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Tuple, Type, get_type_hints
+from typing import Any, Dict, List, NamedTuple, Type, get_type_hints
 
-from juno import Candle, Fees, Filters, Interval
+from juno import Candle, Fees, Filters, Interval, Timestamp
 from juno.strategies import Strategy
 from juno.trading import MissedCandlePolicy, PortfolioStatistics, Statistics, TradingSummary
 
@@ -31,28 +31,28 @@ class Solver(ABC):
 
 
 class SolverResult(NamedTuple):
-    # profit: float = 0.0
-    # mean_drawdown: float = 0.0
-    # max_drawdown: float = 0.0
-    # mean_position_profit: float = 0.0
-    # mean_position_duration: int = 0
-    # num_positions_in_profit: int = 0
-    # num_positions_in_loss: int = 0
+    profit: float = 0.0
+    mean_drawdown: float = 0.0
+    max_drawdown: float = 0.0
+    mean_position_profit: float = 0.0
+    mean_position_duration: Timestamp = 0
+    num_positions_in_profit: int = 0
+    num_positions_in_loss: int = 0
     alpha: float = 0.0
 
     @staticmethod
-    def meta(include_disabled: bool = False) -> Dict[str, Tuple[str, float]]:
+    def meta(include_disabled: bool = False) -> Dict[str, float]:
         # We try to maximize properties with positive weight, minimize properties with negative
         # weight.
         META = {
-            'profit': ('f64', 1.0),
-            'mean_drawdown': ('f64', -1.0),
-            'max_drawdown': ('f64', -1.0),
-            'mean_position_profit': ('f64', 1.0),
-            'mean_position_duration': ('u64', -1.0),
-            'num_positions_in_profit': ('u32', 1.0),
-            'num_positions_in_loss': ('u32', -1.0),
-            'alpha': ('f64', 1.0),
+            'profit': 1.0,
+            'mean_drawdown': -1.0,
+            'max_drawdown': -1.0,
+            'mean_position_profit': 1.0,
+            'mean_position_duration': -1.0,
+            'num_positions_in_profit': 1.0,
+            'num_positions_in_loss': -1.0,
+            'alpha': 1.0,
         }
         if include_disabled:
             return META
