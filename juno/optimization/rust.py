@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import asyncio
-import cffi
 import logging
 import os
 import platform
 import shutil
 from decimal import Decimal
-from enum import IntEnum
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple, Tuple, Type
 
+import cffi
 import pandas as pd
 
 from juno import Candle, Fees, Filters, Interval, Timestamp
-from juno.cffi import build_function_from_params, build_struct, register_custom_mapping
+from juno.cffi import (
+    build_function_from_params, build_struct, build_struct_from_fields, register_custom_mapping
+)
 from juno.components import Chandler, Informant
 from juno.filters import Price, Size
 from juno.strategies import MAMACX, Strategy
@@ -136,22 +137,22 @@ class Rust(Solver):
             self.c_fees_filters[symbol] = c_fees_filters
 
         fn = getattr(self.libjuno, strategy_type.__name__.lower())
-        result = fn(
-            c_base_fiat_candles,
-            len(c_base_fiat_candles),
-            c_portfolio_candles,
-            len(c_portfolio_candles),
-            self.c_benchmark_g_returns[0],
-            len(self.c_benchmark_g_returns[0]),
-            c_candles,
-            len(c_candles),
-            *c_fees_filters,
-            interval,
-            float(quote),
-            missed_candle_policy,
-            trailing_stop,
-            *args,
-        )
+        result = fn(c_analysis_info, c_trading_info, c_strategy_info)
+            # c_base_fiat_candles,
+            # len(c_base_fiat_candles),
+            # c_portfolio_candles,
+            # len(c_portfolio_candles),
+            # self.c_benchmark_g_returns[0],
+            # len(self.c_benchmark_g_returns[0]),
+            # c_candles,
+            # len(c_candles),
+            # *c_fees_filters,
+            # interval,
+            # float(quote),
+            # missed_candle_policy,
+            # trailing_stop,
+            # *args,
+        # )
         return SolverResult.from_object(result)
 
     def _build_c_candles(self, candles: List[Candle]) -> Any:
@@ -198,81 +199,24 @@ def _build_cdef() -> str:
     # TODO: Do we want to parametrize this? Or lookup from module and construct for all.
     strategy_type = MAMACX
     strategy_name_lower = strategy_type.__name__.lower()
+    strategy_info_name = f'{strategy_type.__name__}Info'
 
-    return (
+    return ''.join((
         build_struct(Candle, exclude=['closed']),
         build_struct(Fees),
         build_struct(Price),
         build_struct(Size),
         build_struct(Filters, exclude=['percent_price', 'min_notional']),
         build_struct(SolverResult),
+        build_struct_from_fields(
+            strategy_info_name,
+            *iter(get_input_type_hints(strategy_type.__init__).items())
+        ),
         build_function_from_params(
             strategy_name_lower,
             SolverResult,
             ('analysis_info', AnalysisInfo),
             ('trading_info', TradingInfo),
-            (f'{strategy_name_lower}_info', kaka)
+            (f'{strategy_name_lower}_info', type(strategy_info_name, (), {}))
         ),
-    )
-
-{_build_backtest_result()}
-
-{_build_strategy_function(strategy_type)}
-    '''
-
-
-def _build_backtest_result() -> str:
-    fields = "\n    ".join(
-        (f"{_map_meta_type(t)} {k};"
-         for k, (t, _) in SolverResult.meta(include_disabled=True).items())
-    )
-    return f'''
-typedef struct {{
-    {fields}
-}} BacktestResult;
-    '''
-
-
-def _build_strategy_function(type_: Type[Strategy]) -> str:
-    strategy_params = ',\n    '.join(
-        (f'{_map_type(v)} {k}' for k, v in get_input_type_hints(type_.__init__).items())
-    )
-    return f'''
-BacktestResult {type_.__name__.lower()}(
-    const Candle *candles,
-    uint32_t length,
-    const Fees *fees,
-    const Filters *filters,
-    uint64_t interval,
-    double quote,
-    uint32_t missed_candle_policy,
-    double trailing_stop,
-    {strategy_params});
-        '''
-
-
-# TODO: Consolidate mappings below? Use NewType? Use meta only?
-
-
-def _map_meta_type(type_: str) -> str:
-    result = {
-        'u32': 'uint32_t',
-        'u64': 'uint64_t',
-        'f64': 'double',
-    }.get(type_)
-    if not result:
-        raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')
-    return result
-
-
-def _map_type(type_: type) -> str:
-    MAPPINGS = {
-        int: 'uint32_t',
-        float: 'double',
-        Decimal: 'double',
-        IntEnum: 'u32',
-    }
-    for k, v in MAPPINGS.items():
-        if issubclass(type_, k):
-            return v
-    raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')
+    ))

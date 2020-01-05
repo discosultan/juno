@@ -33,9 +33,13 @@ def build_function_from_params(
 
 
 def build_struct(type_: Type[Any], exclude: List[str] = []) -> str:
-    fields = (f'    {_map_type(v)} {k};\n' for k, v in _transform(get_type_hints(type_).items())
-              if k not in exclude)
-    return f'typedef struct {{\n{"".join(fields)}}} {type_.__name__};\n'
+    fields = ((k, v) for k, v in _transform(get_type_hints(type_).items()) if k not in exclude)
+    return build_struct_from_fields(type_.__name__, *fields)
+
+
+def build_struct_from_fields(name: str, *fields: Tuple[str, Type[Any]]) -> str:
+    field_strings = (f'    {_map_type(v)} {k};\n' for k, v in _transform(fields))
+    return f'typedef struct {{\n{"".join(field_strings)}}} {name};\n'
 
 
 def _map_type(type_: Type[Any]) -> str:

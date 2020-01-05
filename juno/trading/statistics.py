@@ -2,7 +2,7 @@ import logging
 import operator
 from collections import defaultdict
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple
+from typing import Callable, Dict, List, NamedTuple, Tuple
 
 import numpy as np
 import pandas as pd

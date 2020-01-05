@@ -4,32 +4,6 @@ from typing import List, NamedTuple, _GenericAlias  # type: ignore
 from juno import cffi
 
 
-class Foo(NamedTuple):
-    x: int
-    y: Decimal
-
-
-def test_build_struct():
-    output = cffi.build_struct(Foo)
-    assert output == '''typedef struct {
-    uint32_t x;
-    double y;
-} Foo;
-'''
-
-
-def test_build_struct_exclude_field():
-    output = cffi.build_struct(Foo, exclude=['x'])
-    assert output == '''typedef struct {
-    double y;
-} Foo;
-'''
-
-
-def bar(x: int, y: Decimal) -> int:
-    pass
-
-
 def test_build_function():
     output = cffi.build_function(bar)
     assert output == '''uint32_t bar(
@@ -44,9 +18,6 @@ def test_build_function_from_params():
     uint32_t x,
     double y);
 '''
-
-
-Baz = _GenericAlias(int, (), name='Baz')
 
 
 def test_build_function_from_params_custom_mapping():
@@ -77,3 +48,41 @@ def test_build_function_from_params_list():
     const uint32_t* values,
     uint32_t values_length);
 '''
+
+
+def test_build_struct():
+    output = cffi.build_struct(Foo)
+    assert output == '''typedef struct {
+    uint32_t x;
+    double y;
+} Foo;
+'''
+
+
+def test_build_struct_exclude_field():
+    output = cffi.build_struct(Foo, exclude=['x'])
+    assert output == '''typedef struct {
+    double y;
+} Foo;
+'''
+
+
+def test_build_struct_from_fields():
+    output = cffi.build_struct_from_fields('Foo', ('x', int), ('y', Decimal))
+    assert output == '''typedef struct {
+    uint32_t x;
+    double y;
+} Foo;
+'''
+
+
+class Foo(NamedTuple):
+    x: int
+    y: Decimal
+
+
+def bar(x: int, y: Decimal) -> int:
+    pass
+
+
+Baz = _GenericAlias(int, (), name='Baz')
