@@ -36,6 +36,7 @@ class Backtest(Agent):
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
+        analyze: bool = True,
     ) -> None:
         now = time_ms()
 
@@ -65,6 +66,9 @@ class Backtest(Agent):
         )
         self.result = trader.summary
         await trader.run()
+
+        if not analyze:
+            return
 
         start_day = floor_multiple(start, DAY_MS)
         end_day = floor_multiple(end, DAY_MS)

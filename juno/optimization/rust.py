@@ -225,7 +225,8 @@ def _build_cdef() -> str:
             ('interval', Interval),
             ('quote', Decimal),
             ('missed_candle_policy', MissedCandlePolicy),
-            ('trailing_stop', Decimal)
+            ('trailing_stop', Decimal),
+            refs=['fees', 'filters']
         ),
         _cdef_builder.struct_from_fields(
             strategy_info_name,

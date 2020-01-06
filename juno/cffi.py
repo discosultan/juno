@@ -31,11 +31,15 @@ class CDefBuilder:
         fields = ((k, v) for k, v in _transform(get_type_hints(type_).items()) if k not in exclude)
         return self.struct_from_fields(type_.__name__, *fields)
 
-    def struct_from_fields(self, name: str, *fields: Tuple[str, Type[Any]]) -> str:
-        field_strings = (f'    {self._map_type(v)} {k};\n' for k, v in _transform(fields))
+    def struct_from_fields(
+        self, name: str, *fields: Tuple[str, Type[Any]], refs: List[str] = []
+    ) -> str:
+        field_strings = (
+            f'    {self._map_type(v, is_ref=k in refs)} {k};\n' for k, v in _transform(fields)
+        )
         return f'typedef struct {{\n{"".join(field_strings)}}} {name};\n'
 
-    def _map_type(self, type_: Type[Any]) -> str:
+    def _map_type(self, type_: Type[Any], is_ref: bool = False) -> str:
         for k, v in self._custom_mappings.items():
             if type_ is k:
                 return v
@@ -51,7 +55,10 @@ class CDefBuilder:
                 return v
 
         # raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')
-        return type_.__name__
+        if is_ref:
+            return f'const {type_.__name__}*'
+        else:
+            return type_.__name__
 
 
 def _transform(items: Iterable[Tuple[str, Type[Any]]]) -> Iterable[Tuple[str, Type[Any]]]:

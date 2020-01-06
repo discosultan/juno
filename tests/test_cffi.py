@@ -74,11 +74,19 @@ def test_cdef_builder_struct_exclude_field(cdef_builder):
 
 
 def test_cdef_builder_struct_from_fields(cdef_builder):
-    output = cdef_builder.struct_from_fields('Foo', ('x', int), ('y', Decimal))
+    output = cdef_builder.struct_from_fields('Temp', ('x', int), ('y', Decimal))
     assert output == '''typedef struct {
     uint32_t x;
     double y;
-} Foo;
+} Temp;
+'''
+
+
+def test_cdef_builder_struct_from_fields_refs(cdef_builder):
+    output = cdef_builder.struct_from_fields('Temp', ('x', Foo), refs=['x'])
+    assert output == '''typedef struct {
+    const Foo* x;
+} Temp;
 '''
 
 
