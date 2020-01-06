@@ -232,7 +232,7 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
 
 def _load_type_from_raw(type_: Type[Any], value: Any) -> Any:
     # Needs to be a list because type_ can be non-hashable for lookup in a set.
-    if type_ in [bool, int, float, str, Decimal]:
+    if type_ in [bool, int, float, str, Decimal, Interval, Timestamp]:
         return value
 
     origin = get_origin(type_) or type_
