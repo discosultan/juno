@@ -23,8 +23,8 @@ pub struct AnalysisInfo {
     base_fiat_candles_length: u32,
     portfolio_candles: *const Candle,
     portfolio_candles_length: u32,
-    benchmark_g_returns: *const f64,
-    benchmark_g_returns_length: u32,
+    // benchmark_g_returns: *const f64,
+    // benchmark_g_returns_length: u32,
 }
 
 #[repr(C)]

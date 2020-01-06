@@ -45,14 +45,14 @@ class SolverResult(NamedTuple):
         # We try to maximize properties with positive weight, minimize properties with negative
         # weight.
         META = {
-            'profit': 1.0,
-            'mean_drawdown': -1.0,
-            'max_drawdown': -1.0,
-            'mean_position_profit': 1.0,
-            'mean_position_duration': -1.0,
-            'num_positions_in_profit': 1.0,
-            'num_positions_in_loss': -1.0,
-            'alpha': 1.0,
+            'profit': 1.0,  # +
+            'mean_drawdown': -1.0,  # -
+            'max_drawdown': -1.0,  # -
+            'mean_position_profit': 1.0,  # +
+            'mean_position_duration': -1.0,  # -
+            'num_positions_in_profit': 1.0,  # +
+            'num_positions_in_loss': -1.0,  # -
+            'alpha': 1.0,  # +
         }
         if include_disabled:
             return META

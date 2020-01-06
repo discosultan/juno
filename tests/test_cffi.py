@@ -1,57 +1,63 @@
 from decimal import Decimal
 from typing import List, NamedTuple, _GenericAlias  # type: ignore
 
+import pytest
+
 from juno import cffi
 
 
-def test_build_function():
-    output = cffi.build_function(bar)
+@pytest.fixture
+def cdef_builder():
+    return cffi.CDefBuilder()
+
+
+def test_cdef_builder_function(cdef_builder):
+    output = cdef_builder.function(bar)
     assert output == '''uint32_t bar(
     uint32_t x,
     double y);
 '''
 
 
-def test_build_function_from_params():
-    output = cffi.build_function_from_params('bar', int, ('x', int), ('y', Decimal))
+def test_cdef_builder_function_from_params(cdef_builder):
+    output = cdef_builder.function_from_params('bar', int, ('x', int), ('y', Decimal))
     assert output == '''uint32_t bar(
     uint32_t x,
     double y);
 '''
 
 
-def test_build_function_from_params_custom_mapping():
-    cffi.register_custom_mapping(Baz, 'uint64_t')
-    output = cffi.build_function_from_params('baz', Baz, ('x', int), ('y', Baz))
-    cffi.deregister_custom_mapping(Baz)
+def test_cdef_builder_function_from_params_custom_mapping():
+    cdef_builder = cffi.CDefBuilder({Baz: 'uint64_t'})
+    output = cdef_builder.function_from_params('baz', Baz, ('x', int), ('y', Baz))
     assert output == '''uint64_t baz(
     uint32_t x,
     uint64_t y);
 '''
 
 
-def test_build_function_from_params_missing_mapping():
-    output = cffi.build_function_from_params('temp', Foo)
+def test_cdef_builder_function_from_params_missing_mapping(cdef_builder):
+    output = cdef_builder.function_from_params('temp', Foo)
     assert output == '''Foo temp();
 '''
 
 
-def test_build_function_from_params_void_return():
-    output = cffi.build_function_from_params('temp', None)
+def test_build_function_from_params_void_return(cdef_builder):
+    output = cdef_builder.function_from_params('temp', None)
     assert output == '''void temp();
 '''
 
 
-def test_build_function_from_params_list():
-    output = cffi.build_function_from_params('temp', int, ('values', List[int]))
+def test_cdef_builder_function_from_params_list(cdef_builder):
+    output = cdef_builder.function_from_params('temp', int, ('values', List[int]))
     assert output == '''uint32_t temp(
     const uint32_t* values,
     uint32_t values_length);
 '''
 
 
-def test_build_struct():
-    output = cffi.build_struct(Foo)
+def test_cdef_builder_struct(cdef_builder):
+    output = cdef_builder.struct(Foo)
     assert output == '''typedef struct {
     uint32_t x;
     double y;
@@ -59,16 +65,16 @@ def test_build_struct():
 '''
 
 
-def test_build_struct_exclude_field():
-    output = cffi.build_struct(Foo, exclude=['x'])
+def test_cdef_builder_struct_exclude_field(cdef_builder):
+    output = cdef_builder.struct(Foo, exclude=['x'])
     assert output == '''typedef struct {
     double y;
 } Foo;
 '''
 
 
-def test_build_struct_from_fields():
-    output = cffi.build_struct_from_fields('Foo', ('x', int), ('y', Decimal))
+def test_cdef_builder_struct_from_fields(cdef_builder):
+    output = cdef_builder.struct_from_fields('Foo', ('x', int), ('y', Decimal))
     assert output == '''typedef struct {
     uint32_t x;
     double y;
@@ -85,4 +91,4 @@ def bar(x: int, y: Decimal) -> int:
     pass
 
 
-Baz = _GenericAlias(int, (), name='Baz')
+Baz = _GenericAlias(int, (), inst=False, name='Baz')
