@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Type, get_type_hints
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, get_type_hints
 
 from juno import Candle, Fees, Filters, Interval, Timestamp
 from juno.strategies import Strategy
@@ -62,10 +62,13 @@ class SolverResult(NamedTuple):
     def from_trading_summary(
         summary: TradingSummary, stats: PortfolioStatistics
     ) -> SolverResult:
-        return SolverResult(
-            *map(_decimal_to_float, (getattr(summary, k, None) or getattr(stats, k)
-                 for k in _SOLVER_RESULT_KEYS)),
-        )
+        return SolverResult(*map(
+            _decimal_to_float,
+            (_coalesce(
+                getattr(summary, k, None),
+                lambda: getattr(stats, k)
+            ) for k in _SOLVER_RESULT_KEYS)
+        ))
 
     @staticmethod
     def from_object(obj: Any) -> SolverResult:
@@ -73,6 +76,10 @@ class SolverResult(NamedTuple):
 
 
 _SOLVER_RESULT_KEYS = list(get_type_hints(SolverResult).keys())
+
+
+def _coalesce(val: Optional[Any], default: Callable[[], Any]) -> Any:
+    return val if val is not None else default()
 
 
 def _decimal_to_float(val: Any) -> Any:

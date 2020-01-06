@@ -2,7 +2,7 @@
     "log_format": "colored",
     "log_level": "info",
     "storage": "sqlite",
-    "solver": "python",
+    "solver": "rust",
     "agents": [
         {
             "type": "optimize",

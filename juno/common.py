@@ -2,16 +2,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, NamedTuple, Optional, Tuple, _GenericAlias  # type: ignore
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
+from juno.aliases import Timestamp
 from juno.filters import Filters
 from juno.time import datetime_utcfromtimestamp_ms
-
-Interval = _GenericAlias(int, (), name='Interval')
-# Note that we alias `Interval` instead of `int`. This is required because typing module seems to
-# erase duplicate aliases to same type. If `Timestamp` also aliased `int`, `Optional[Interval]`
-# would be resolved as `Union[Timestamp, None]` instead.
-Timestamp = _GenericAlias(Interval, (), name='Timestamp')
 
 
 class Advice(Enum):
@@ -39,7 +34,7 @@ class CancelOrderStatus(Enum):
 # values for SQLIte insertion. Dataclasses miss that functionality but offer comparisons, etc.
 # out of the box.
 class Candle(NamedTuple):
-    time: int = 0  # Interval start time.
+    time: Timestamp = 0  # Interval start time.
     open: Decimal = Decimal('0.0')
     high: Decimal = Decimal('0.0')
     low: Decimal = Decimal('0.0')

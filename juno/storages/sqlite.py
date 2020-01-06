@@ -9,7 +9,7 @@ from typing import (
     cast, get_args, get_origin, get_type_hints
 )
 
-from juno import json
+from juno import Interval, Timestamp, json
 from juno.time import strfspan, time_ms
 from juno.typing import get_name, isnamedtuple
 from juno.utils import home_path
@@ -19,7 +19,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = '32'
+_VERSION = '34'
 
 T = TypeVar('T')
 
@@ -175,13 +175,12 @@ class SQLite(Storage):
 
 
 def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
-    annotations = get_type_hints(type_)
-    col_names = list(annotations.keys())
-    col_types = [_type_to_sql_type(t) for t in annotations.values()]
+    type_hints = get_type_hints(type_)
+    col_types = [(k, _type_to_sql_type(v)) for k, v in type_hints.items()]
 
     # Create table.
     cols = []
-    for col_name, col_type in zip(col_names, col_types):
+    for col_name, col_type in col_types:
         cols.append(f'{col_name} {col_type} NOT NULL')
     c.execute(f'CREATE TABLE IF NOT EXISTS {name} ({", ".join(cols)})')
 
@@ -200,18 +199,17 @@ def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
                 raise NotImplementedError()
 
     # Create debug views.
-    # TODO: Use typing instead based on NewType()?
-    VIEW_COL_NAMES = ['time', 'start', 'end']
-    if any(n for n in col_names if n in VIEW_COL_NAMES):
-        view_cols = []
-        for col in col_names:
-            if col in VIEW_COL_NAMES:
-                view_cols.append(
-                    f"strftime('%Y-%m-%d %H:%M:%S', {col} / 1000, 'unixepoch') AS {col}"
-                )
-            else:
-                view_cols.append(col)
-
+    view_cols = []
+    create_view = False
+    for col_name, type_ in type_hints.items():
+        if type_ is Timestamp:
+            view_cols.append(
+                f"strftime('%Y-%m-%d %H:%M:%S', {col_name} / 1000, 'unixepoch') AS {col_name}"
+            )
+            create_view = True
+        else:
+            view_cols.append(col_name)
+    if create_view:
         c.execute(
             f'CREATE VIEW IF NOT EXISTS {name}View AS '
             f'SELECT {", ".join(view_cols)} FROM {name}'
@@ -219,7 +217,7 @@ def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
 
 
 def _type_to_sql_type(type_: Type[Primitive]) -> str:
-    if type_ is int:
+    if type_ in [Interval, Timestamp, int]:
         return 'INTEGER'
     if type_ is float:
         return 'REAL'
