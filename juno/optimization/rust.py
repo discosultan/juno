@@ -55,6 +55,8 @@ class Rust(Solver):
         self.c_candles: Dict[Tuple[str, int], Any] = {}
         self.c_benchmark_g_returns: Any = None
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
+        self.c_series: Dict[str, Any] = {}
+        self.keep_alive: List[Any] = []
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
@@ -92,6 +94,10 @@ class Rust(Solver):
             None, self.ffi.dlopen, str(dst_path)
         )
 
+        self.c_analysis_info = self.ffi.new('AnalysisInfo *')
+        self.c_trading_info = self.ffi.new('TradingInfo *')
+        self.c_strategy_info = self.ffi.new(f'{MAMACX.__name__}Info *')
+
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
@@ -116,36 +122,39 @@ class Rust(Solver):
         c_base_fiat_candles = self._get_or_create_c_candles(('btc-eur', DAY_MS), base_fiat_candles)
         c_portfolio_candles = self._get_or_create_c_candles((symbol, DAY_MS), portfolio_candles)
 
-        # if not self.c_benchmark_g_returns:
-        #     self.c_benchmark_g_returns = self._build_c_benchmark_g_returns(benchmark_stats)
+        c_benchmark_g_returns = self._get_or_create_c_series(
+            'benchmark_g_returns', benchmark_stats.g_returns
+        )
 
         c_candles = self._get_or_create_c_candles((symbol, interval), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
 
-        c_analysis_info = self.ffi.new('AnalysisInfo *')
+        c_analysis_info = self.c_analysis_info
         c_analysis_info.base_fiat_candles = c_base_fiat_candles
-        c_analysis_info.base_fiat_candles_length = len(c_base_fiat_candles)
+        c_analysis_info.base_fiat_candles_length = len(base_fiat_candles)
         c_analysis_info.portfolio_candles = c_portfolio_candles
-        c_analysis_info.portfolio_candles_length = len(c_portfolio_candles)
-        # c_analysis_info.benchmark_g_returns =
+        c_analysis_info.portfolio_candles_length = len(portfolio_candles)
+        c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
+        c_analysis_info.benchmark_g_returns_length = benchmark_stats.g_returns.size
 
-        c_trading_info = self.ffi.new('TradingInfo *')
+        c_trading_info = self.c_trading_info
         c_trading_info.candles = c_candles
-        c_trading_info.candles_length = len(c_candles)
+        c_trading_info.candles_length = len(candles)
         c_trading_info.fees = c_fees
         c_trading_info.filters = c_filters
         c_trading_info.interval = interval
-        c_trading_info.quote = float(quote)  # TODO: do we need to cast here?????
+        c_trading_info.quote = quote
         c_trading_info.missed_candle_policy = missed_candle_policy
-        c_trading_info.trailing_stop = float(trailing_stop)
+        c_trading_info.trailing_stop = trailing_stop
 
-        c_strategy_info = self.ffi.new(f'{strategy_type.__name__}Info')
+        c_strategy_info = self.c_strategy_info
         c_strategy_info.short_period = args[0]
         c_strategy_info.long_period = args[1]
         c_strategy_info.neg_threshold = args[2]
         c_strategy_info.pos_threshold = args[3]
-        c_strategy_info.short_ma = args[4]
-        c_strategy_info.long_ma = args[5]
+        c_strategy_info.persistence = args[4]
+        c_strategy_info.short_ma = args[5]
+        c_strategy_info.long_ma = args[6]
 
         fn = getattr(self.libjuno, strategy_type.__name__.lower())
         result = fn(c_analysis_info, c_trading_info, c_strategy_info)
@@ -166,11 +175,6 @@ class Rust(Solver):
                 }
             self.c_candles[key] = c_candles
         return c_candles
-
-    def _build_c_benchmark_g_returns(self, stats: Statistics) -> Any:
-        np_array = stats.g_returns.to_numpy()
-        pointer = self.ffi.cast('double *', np_array.ctypes.data)
-        return pointer, np_array
 
     def _get_or_create_c_fees_filters(self, key: str, fees: Fees, filters: Filters) -> Any:
         c_fees_filters = self.c_fees_filters.get(key)
@@ -197,12 +201,22 @@ class Rust(Solver):
             c_fees_filters = c_fees, c_filters
         return c_fees_filters
 
+    def _get_or_create_c_series(self, key: str, series: pd.Series) -> Any:
+        c_series = self.c_series.get(key)
+        if not c_series:
+            np_array = series.to_numpy()
+            self.keep_alive.append(np_array)
+            c_series = self.ffi.cast('double *', np_array.ctypes.data)
+            self.c_series[key] = c_series
+        return c_series
+
 
 def _build_cdef() -> str:
     # TODO: Do we want to parametrize this? Or lookup from module and construct for all.
     strategy_type = MAMACX
     strategy_name_lower = strategy_type.__name__.lower()
-    strategy_info_name = f'{strategy_type.__name__}Info'
+    strategy_info_type_name = f'{strategy_type.__name__}Info'
+    strategy_info_param_name = f'{strategy_name_lower}_info'
 
     return ''.join((
         _cdef_builder.struct(Candle, exclude=['closed']),
@@ -214,8 +228,8 @@ def _build_cdef() -> str:
         _cdef_builder.struct_from_fields(
             'AnalysisInfo',
             ('base_fiat_candles', List[Candle]),
-            ('portfolio_candles', List[Candle])
-            # ('benchmark_g_returns', pd.Series)
+            ('portfolio_candles', List[Candle]),
+            ('benchmark_g_returns', List[Decimal])
         ),
         _cdef_builder.struct_from_fields(
             'TradingInfo',
@@ -229,7 +243,7 @@ def _build_cdef() -> str:
             refs=['fees', 'filters']
         ),
         _cdef_builder.struct_from_fields(
-            strategy_info_name,
+            strategy_info_type_name,
             *iter(get_input_type_hints(strategy_type.__init__).items())
         ),
         _cdef_builder.function_from_params(
@@ -237,6 +251,7 @@ def _build_cdef() -> str:
             SolverResult,
             ('analysis_info', AnalysisInfo),
             ('trading_info', TradingInfo),
-            (f'{strategy_name_lower}_info', type(strategy_info_name, (), {}))
+            (strategy_info_param_name, type(strategy_info_type_name, (), {})),
+            refs=['analysis_info', 'trading_info', strategy_info_param_name]
         ),
     ))

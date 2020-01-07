@@ -35,7 +35,7 @@ class SolverResult(NamedTuple):
     mean_drawdown: float = 0.0
     max_drawdown: float = 0.0
     mean_position_profit: float = 0.0
-    mean_position_duration: Timestamp = 0
+    mean_position_duration: Interval = 0
     num_positions_in_profit: int = 0
     num_positions_in_loss: int = 0
     alpha: float = 0.0

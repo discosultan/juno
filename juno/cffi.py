@@ -22,9 +22,12 @@ class CDefBuilder:
         return self.function_from_params(function.__name__, hints['return'], *params)
 
     def function_from_params(
-        self, name: str, return_param: Type[Any], *params: Tuple[str, Type[Any]]
+        self, name: str, return_param: Type[Any], *params: Tuple[str, Type[Any]],
+        refs: List[str] = []
     ) -> str:
-        param_strings = (f'\n    {self._map_type(v)} {k}' for k, v in _transform(params))
+        param_strings = (
+            f'\n    {self._map_type(v, is_ref=k in refs)} {k}' for k, v in _transform(params)
+        )
         return f'{self._map_type(return_param)} {name}({",".join(param_strings)});\n'
 
     def struct(self, type_: Type[Any], exclude: List[str] = []) -> str:
