@@ -106,10 +106,10 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
 ) -> BacktestResult {
     // Turn unsafe ptrs to safe references.
     let _analysis_info = &*analysis_info;
-    let trader_info = &*trading_info;
-    let candles = slice::from_raw_parts(trader_info.candles, trader_info.candles_length as usize);
-    let fees = &*trader_info.fees;
-    let filters = &*trader_info.filters;
+    let trading_info = &*trading_info;
+    let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
+    let fees = &*trading_info.fees;
+    let filters = &*trading_info.filters;
 
     // println!("{:?}", fees);
     // println!("{:?}", filters);
@@ -119,9 +119,9 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         candles,
         fees,
         filters,
-        trader_info.interval,
-        trader_info.quote,
-        trader_info.missed_candle_policy,
-        trader_info.trailing_stop,
+        trading_info.interval,
+        trading_info.quote,
+        trading_info.missed_candle_policy,
+        trading_info.trailing_stop,
     )
 }

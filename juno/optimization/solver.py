@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, get_type_hints
 
-from juno import Candle, Fees, Filters, Interval, Timestamp
+from juno import Candle, Fees, Filters, Interval
 from juno.strategies import Strategy
 from juno.trading import MissedCandlePolicy, PortfolioStatistics, Statistics, TradingSummary
 
@@ -38,7 +38,7 @@ class SolverResult(NamedTuple):
     mean_position_duration: Interval = 0
     num_positions_in_profit: int = 0
     num_positions_in_loss: int = 0
-    alpha: float = 0.0
+    # alpha: float = 0.0
 
     @staticmethod
     def meta(include_disabled: bool = False) -> Dict[str, float]:
