@@ -249,7 +249,7 @@ def _load_type_from_raw(type_: Type[Any], value: Any) -> Any:
     elif isnamedtuple(type_):
         values = []
         annotations = get_type_hints(type_)
-        for i, (name, sub_type) in enumerate(annotations.items()):
+        for i, (_name, sub_type) in enumerate(annotations.items()):
             sub_value = value[i]
             values.append(_load_type_from_raw(sub_type, sub_value))
         return type_(*values)

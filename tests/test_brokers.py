@@ -332,5 +332,5 @@ def assert_fills(output, expected_output):
 
 
 async def yield_control():
-    for i in range(0, 10):
+    for _ in range(0, 10):
         await asyncio.sleep(0)

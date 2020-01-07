@@ -214,7 +214,7 @@ class TradingSummary:
         sum_drawdown = Decimal('0.0')
         self._drawdowns.clear()
         self._drawdowns.append(Decimal('0.0'))
-        for i, pos in enumerate(self.positions):
+        for pos in self.positions:
             quote += pos.profit
             max_quote = max(max_quote, quote)
             drawdown = Decimal('1.0') - quote / max_quote

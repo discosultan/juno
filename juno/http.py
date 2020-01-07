@@ -60,8 +60,9 @@ class ClientSession:
     @asynccontextmanager
     async def request_json(self, *args: Any, **kwargs: Any) -> AsyncIterator[ClientJsonResponse]:
         async with self.request(*args, **kwargs) as res:
-            setattr(res, 'data', await res.json(loads=json.loads))
-            yield cast(ClientJsonResponse, res)
+            res = cast(ClientJsonResponse, res)
+            res.data = await res.json(loads=json.loads)
+            yield res
 
     @asynccontextmanager
     async def ws_connect(self, url: str, name: Optional[str] = None,

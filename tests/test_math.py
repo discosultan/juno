@@ -74,7 +74,7 @@ def test_int_pair_constraint():
 
 def assert_constraint_chaos(randomizer):
     random = Random()
-    for i in range(0, 1000):
+    for _ in range(0, 1000):
         value = randomizer.random(random)
     if isinstance(value, tuple):
         assert randomizer.validate(*value)
