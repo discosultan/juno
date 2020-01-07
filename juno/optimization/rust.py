@@ -37,7 +37,6 @@ class Rust(Solver):
         self.chandler = chandler
         self.informant = informant
         self.c_candles: Dict[Tuple[str, int], Any] = {}
-        self.c_benchmark_g_returns: Any = None
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
         self.c_series: Dict[str, Any] = {}
         self.keep_alive: List[Any] = []

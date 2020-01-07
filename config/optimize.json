@@ -15,7 +15,7 @@
             "missed_candle_policy": null,
             "trailing_stop": null,
             "strategy": "mamacx",
-            "population_size": 100,
+            "population_size": 50,
             "max_generations": 100,
             "seed": null,
             "verbose": true
