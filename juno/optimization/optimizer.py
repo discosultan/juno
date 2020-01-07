@@ -10,13 +10,15 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
-from juno import InsufficientBalance, Interval, Timestamp, strategies
+from juno import Candle, InsufficientBalance, Interval, Timestamp, strategies
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.strategies import Strategy
-from juno.time import strfinterval, strfspan, time_ms
-from juno.trading import MissedCandlePolicy, Trader
+from juno.time import DAY_MS, strfinterval, strfspan, time_ms
+from juno.trading import (
+    MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
+)
 from juno.typing import get_input_type_hints
 from juno.utils import flatten, format_attrs_as_json, get_module_type
 
@@ -100,17 +102,26 @@ class Optimizer:
         symbols = self.informant.list_symbols(self.exchange, self.symbols)
         intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
 
-        candles = {}
-        candle_tasks = []
-        for symbol, interval in product(symbols, intervals):
-            async def fetch_candles(symbol, interval):
-                candles[(symbol, interval)] = await list_async(
-                    self.chandler.stream_candles(
-                        self.exchange, symbol, interval, floor_multiple(self.start, interval),
-                        floor_multiple(self.end, interval)
-                    )
-                )
-            candle_tasks.append(fetch_candles(symbol, interval))
+        # TODO: How to resolve best exchange / symbol for FIAT statistical analysis.
+        # btc_fiat_symbol = 'btc-eur'
+        # btc_fiat_exchange = 'coinbase'
+        # btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
+        # if len(btc_fiat_exchanges) == 0:
+        #     _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
+        #                  'calculating further statistics')
+        #     return
+        # btc_fiat_exchange = btc_fiat_exchanges[0]
+
+        candles: Dict[Tuple[str, int], List[Candle]] = {}
+        candle_tasks = [
+            # Binance also supports FIAT symbols but has limited candle data, hence Coinbase.
+            self._fetch_candles(candles, 'coinbase', 'btc-eur', DAY_MS)
+        ]
+
+        # We also include daily candles, regardless of config, for statistical analysis.
+        fetch_intervals = intervals if DAY_MS in intervals else intervals + [DAY_MS]
+        candle_tasks.extend(self._fetch_candles(candles, self.exchange, s, i) for s, i in
+                            product(symbols, fetch_intervals))
         await asyncio.gather(*candle_tasks)
 
         for (s, i), v in ((k, v) for k, v in candles.items() if len(v) > 0):
@@ -119,6 +130,9 @@ class Optimizer:
                          f'{strfspan(self.start, self.end)}')
 
         fees_filters = {s: self.informant.get_fees_filters(self.exchange, s) for s in symbols}
+
+        # Prepare benchmark stats.
+        benchmark_stats = get_benchmark_statistics(candles[('btc-eur', DAY_MS)])
 
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
@@ -130,7 +144,7 @@ class Optimizer:
         strategy_type = get_module_type(strategies, self.strategy)
 
         # Objectives.
-        objectives = [w for _, w in SolverResult.meta(include_disabled=False).values()]
+        objectives = list(SolverResult.meta(include_disabled=False).values())
         creator.create('FitnessMulti', base.Fitness, weights=objectives)
         creator.create('Individual', list, fitness=creator.FitnessMulti)
 
@@ -167,6 +181,9 @@ class Optimizer:
 
         def evaluate(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
+                candles[('btc-eur', DAY_MS)],
+                candles[(ind[0], DAY_MS)],
+                benchmark_stats,
                 strategy_type,
                 self.quote,
                 candles[(ind[0], ind[1])],
@@ -209,6 +226,9 @@ class Optimizer:
 
         best_args = list(flatten(hall[0]))
         best_result = self.solver.solve(
+            candles[('btc-eur', DAY_MS)],
+            candles[(best_args[0], DAY_MS)],
+            benchmark_stats,
             strategy_type,
             self.quote,
             candles[(best_args[0], best_args[1])],
@@ -247,13 +267,37 @@ class Optimizer:
             await trader.run()
         except InsufficientBalance:
             pass
-        validation_result = SolverResult.from_trading_summary(trader.summary)
+        validation_result = SolverResult.from_trading_summary(
+            trader.summary,
+            get_portfolio_statistics(
+                benchmark_stats,
+                candles[('btc-eur', DAY_MS)],
+                candles[(self.result.symbol, DAY_MS)],
+                self.result.symbol,
+                trader.summary
+            )
+        )
         if not _isclose(validation_result, best_result):
             raise Exception(
                 f'Optimizer results differ for input {self.result} between trader and '
                 f'{solver_name} solver:\n{format_attrs_as_json(validation_result)}'
                 f'\n{format_attrs_as_json(best_result)}'
             )
+        _log.info(f'Trading summary: {format_attrs_as_json(trader.summary)}')
+
+    async def _fetch_candles(
+        self,
+        candles: Dict[Tuple[str, int], List[Candle]],
+        exchange: str,
+        symbol: str,
+        interval: int
+    ) -> None:
+        candles[(symbol, interval)] = await list_async(
+            self.chandler.stream_candles(
+                exchange, symbol, interval, floor_multiple(self.start, interval),
+                floor_multiple(self.end, interval)
+            )
+        )
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

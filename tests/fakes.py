@@ -164,12 +164,16 @@ class Trades:
 
 
 class Informant:
-    def __init__(self, fees=Fees(), filters=Filters()):
+    def __init__(self, fees=Fees(), filters=Filters(), exchanges_supporting_symbol=[]):
         self.fees = fees
         self.filters = filters
+        self.exchanges_supporting_symbol = exchanges_supporting_symbol
 
     def get_fees_filters(self, exchange, symbol):
         return self.fees, self.filters
+
+    def list_exchanges_supporting_symbol(self, symbol):
+        return self.exchanges_supporting_symbol
 
 
 class Orderbook(components.Orderbook):

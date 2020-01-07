@@ -4,7 +4,10 @@ from typing import Any, List, Type
 from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.trading import MissedCandlePolicy, Position, TradingContext, TradingSummary
+from juno.trading import (
+    MissedCandlePolicy, Position, Statistics, TradingContext, TradingSummary,
+    get_portfolio_statistics
+)
 from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
@@ -13,6 +16,9 @@ from .solver import Solver, SolverResult
 class Python(Solver):
     def solve(
         self,
+        base_fiat_candles: List[Candle],
+        portfolio_candles: List[Candle],
+        benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,
         candles: List[Candle],
@@ -74,7 +80,11 @@ class Python(Solver):
         except InsufficientBalance:
             pass
 
-        return SolverResult.from_trading_summary(summary)
+        portfolio_stats = get_portfolio_statistics(
+            benchmark_stats, base_fiat_candles, portfolio_candles, symbol, summary
+        )
+
+        return SolverResult.from_trading_summary(summary, portfolio_stats)
 
 
 def _tick(

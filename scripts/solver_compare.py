@@ -4,7 +4,7 @@ from decimal import Decimal
 
 from juno import components, exchanges, optimization, storages, strategies, time
 from juno.asyncio import list_async
-from juno.config import config_from_env, init_instance
+from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
 from juno.time import strptimestamp
@@ -46,7 +46,7 @@ async def main() -> None:
     end = floor_multiple(strptimestamp(END), INTERVAL)
 
     storage = storages.SQLite()
-    exchange = init_instance(exchanges.Binance, config_from_env())
+    exchange = init_instance(exchanges.Binance, from_env())
     informant = components.Informant(storage, [exchange])
     trades = components.Trades(storage, [exchange])
     chandler = components.Chandler(trades, storage, [exchange])
@@ -78,6 +78,7 @@ async def main() -> None:
             SHORT_MA,
             LONG_MA,
         )
+        # TODO: FIX
         rust_result = rust_solver.solve(*args)
         python_result = python_solver.solve(*args)
 

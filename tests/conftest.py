@@ -1,8 +1,8 @@
 import pytest
 
-from juno.config import config_from_env
+import juno
 
 
 @pytest.fixture(scope='session')
 def config():
-    return config_from_env()
+    return juno.config.from_env()

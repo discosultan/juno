@@ -9,13 +9,10 @@ from typing import Any, Dict, List
 import pkg_resources
 
 import juno
+from juno import agents, config
 from juno.agents import Agent
 from juno.asyncio import cancelable
 from juno.brokers import Broker
-from juno.config import (
-    config_from_env, config_from_json_file, init_instance, init_instances, kwargs_from_config,
-    load_type
-)
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.logging import create_handlers
@@ -34,14 +31,14 @@ async def main() -> None:
     config_path = (
         sys.argv[1] if len(sys.argv) >= 2 else full_path(__file__, 'config/default.json')
     )
-    config = {}
-    config.update(config_from_json_file(config_path))
-    config.update(config_from_env())
+    cfg = {}
+    cfg.update(config.from_json_file(config_path))
+    cfg.update(config.from_env())
 
     # Configure logging.
-    log_level = config.get('log_level', 'info')
-    log_format = config.get('log_format', 'default')
-    log_outputs = config.get('log_outputs', ['stdout'])
+    log_level = cfg.get('log_level', 'info')
+    log_format = cfg.get('log_format', 'default')
+    log_outputs = cfg.get('log_outputs', ['stdout'])
     logging.basicConfig(
         handlers=create_handlers(log_format, log_outputs),
         level=logging.getLevelName(log_level.upper())
@@ -72,21 +69,25 @@ async def main() -> None:
 
     # Configure deps.
     container = Container()
-    container.add_singleton_instance(Dict[str, Any], lambda: config)
-    container.add_singleton_instance(Storage, lambda: init_instance(Storage, config))
-    container.add_singleton_instance(List[Exchange], lambda: init_instances(Exchange, config))
-    container.add_singleton_type(Broker, lambda: load_type(Broker, config))
-    container.add_singleton_type(Solver, lambda: load_type(Solver, config))
+    container.add_singleton_instance(Dict[str, Any], lambda: cfg)
+    container.add_singleton_instance(Storage, lambda: config.init_instance(Storage, cfg))
+    # container.add_singleton_instance(
+    #     List[Exchange], lambda: config.init_instances_mentioned_in_config(Exchange, cfg)
+    # )
+    container.add_singleton_instance(
+        List[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
+    )
+    container.add_singleton_type(Broker, lambda: config.load_type(Broker, cfg))
+    container.add_singleton_type(Solver, lambda: config.load_type(Solver, cfg))
 
     # Load agents.
-    agent_types = map_module_types(juno.agents)
+    agent_types = map_module_types(agents)
     agent_config_map: Dict[Agent, Dict[str, Any]] = {
-        container.resolve(agent_types[c['type']]): c
-        for c in config['agents']
+        container.resolve(agent_types[c['type']]): c for c in cfg['agents']
     }
 
     # Load plugins.
-    plugins = list_plugins(agent_config_map, config)
+    plugins = list_plugins(agent_config_map, cfg)
 
     async with AsyncExitStack() as stack:
 
@@ -97,7 +98,7 @@ async def main() -> None:
 
         # Run agents.
         await asyncio.gather(
-            *(a.start(**kwargs_from_config(a.run, c)) for a, c in agent_config_map.items())
+            *(a.start(**config.kwargs_for(a.run, c)) for a, c in agent_config_map.items())
         )
 
     _log.info('main finished')
