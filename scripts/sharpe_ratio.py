@@ -148,8 +148,8 @@ async def main() -> None:
         benchmark_sharpe_ratio = benchmark_annualized_return / benchmark_annualized_volatility
         benchmark_sortino_ratio = benchmark_annualized_return / benchmark_annualized_downside_risk
         benchmark_cagr = (
-            (benchmark_performance.iloc[-1] / benchmark_performance.iloc[0]) **
-            (1 / (length_days / 365))
+            (benchmark_performance.iloc[-1] / benchmark_performance.iloc[0])
+            ** (1 / (length_days / 365))
         ) - 1
 
         # Compute portfolio statistics.
@@ -160,11 +160,11 @@ async def main() -> None:
         portfolio_sharpe_ratio = portfolio_annualized_return / portfolio_annualized_volatility
         portfolio_sortino_ratio = portfolio_annualized_return / portfolio_annualized_downside_risk
         portfolio_cagr = (
-            (portfolio_performance.iloc[-1] / portfolio_performance.iloc[0]) **
-            (1 / (length_days / 365))
+            (portfolio_performance.iloc[-1] / portfolio_performance.iloc[0])
+            ** (1 / (length_days / 365))
         ) - 1
         covariance_matrix = pd.concat(
-          [portfolio_g_returns, benchmark_g_returns], axis=1
+            [portfolio_g_returns, benchmark_g_returns], axis=1
         ).dropna().cov()
         beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
         alpha = portfolio_annualized_return - (beta * 365 * benchmark_g_returns.mean())

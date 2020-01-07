@@ -68,8 +68,11 @@ class MAMACX(Strategy):
 
         trend = Trend.UNKNOWN
         if self._t == self._t1:
-            diff = 100 * (self._short_ma.value -
-                          self._long_ma.value) / ((self._short_ma.value + self._long_ma.value) / 2)
+            diff = (
+                100
+                * (self._short_ma.value - self._long_ma.value)
+                / ((self._short_ma.value + self._long_ma.value) / 2)
+            )
 
             if diff > self._pos_threshold:
                 trend = Trend.UP

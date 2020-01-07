@@ -180,8 +180,8 @@ def _calculate_statistics(performance: pd.Series) -> Statistics:
     sharpe_ratio = annualized_return / annualized_volatility
     sortino_ratio = annualized_return / annualized_downside_risk
     cagr = (
-        (performance.iloc[-1] / performance.iloc[0]) **
-        (1 / (performance.size / 365))
+        (performance.iloc[-1] / performance.iloc[0])
+        ** (1 / (performance.size / 365))
     ) - 1
 
     return Statistics(

@@ -75,8 +75,11 @@ class Position:
     def dust(self) -> Decimal:
         if not self.closing_fills:
             return Decimal('0.0')
-        return (Fill.total_size(self.fills) - Fill.total_fee(self.fills) -
-                Fill.total_size(self.closing_fills))
+        return (
+            Fill.total_size(self.fills)
+            - Fill.total_fee(self.fills)
+            - Fill.total_size(self.closing_fills)
+        )
 
     @property
     def end(self) -> Timestamp:
