@@ -7,7 +7,7 @@ import platform
 import shutil
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, NamedTuple, Tuple, Type
+from typing import Any, Dict, List, Tuple, Type
 
 import cffi
 import pandas as pd
@@ -30,22 +30,6 @@ _cdef_builder = CDefBuilder({
     Interval: 'uint64_t',
     Timestamp: 'uint64_t',
 })
-
-
-class AnalysisInfo(NamedTuple):
-    base_fiat_candles: List[Candle]
-    portfolio_candles: List[Candle]
-    benchmark_g_returns: pd.Series
-
-
-class TradingInfo(NamedTuple):
-    candles: List[Candle]
-    fees: Fees
-    filters: Filters
-    interval: Interval
-    quote: Decimal
-    missed_candle_policy: MissedCandlePolicy
-    trailing_stop: Decimal
 
 
 class Rust(Solver):
@@ -249,8 +233,8 @@ def _build_cdef() -> str:
         _cdef_builder.function_from_params(
             strategy_name_lower,
             SolverResult,
-            ('analysis_info', AnalysisInfo),
-            ('trading_info', TradingInfo),
+            ('analysis_info', type('AnalysisInfo', (), {})),
+            ('trading_info', type('TradingInfo', (), {})),
             (strategy_info_param_name, type(strategy_info_type_name, (), {})),
             refs=['analysis_info', 'trading_info', strategy_info_param_name]
         ),
