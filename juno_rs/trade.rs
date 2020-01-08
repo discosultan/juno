@@ -2,8 +2,6 @@ use crate::strategies::Strategy;
 use crate::{Advice, Candle, Fees, Filters, Position, TradingContext, TradingSummary};
 use crate::math::round_half_up;
 
-pub type TradingResult = (f64, f64, f64, f64, u64, u32, u32);
-
 pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     strategy_factory: TF,
     candles: &[Candle],
@@ -13,7 +11,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
-) -> TradingResult {
+) -> TradingSummary {
     let two_interval = interval * 2;
 
     let candles_len = candles.len();
@@ -23,7 +21,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
 
-    let mut summary = TradingSummary::new(start, end, quote, fees, filters);
+    let mut summary = TradingSummary::new(start, end, quote);
     let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
     loop {
@@ -86,15 +84,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     }
 
     summary.calculate();
-    (
-        summary.profit,
-        summary.mean_drawdown,
-        summary.max_drawdown,
-        summary.mean_position_profit,
-        summary.mean_position_duration,
-        summary.num_positions_in_profit,
-        summary.num_positions_in_loss,
-    )
+    summary
 }
 
 fn tick<T: Strategy>(
@@ -156,7 +146,7 @@ fn close_position<T: Strategy>(
 ) {
     let price = candle.close;
     if let Some(mut pos) = ctx.open_position.take() {
-        let size = filters.size.round_down(pos.size - pos.fee);
+        let size = filters.size.round_down(pos.base_gain);
 
         let quote = size * price;
         let fee = round_half_up(quote * fees.taker, filters.quote_precision);

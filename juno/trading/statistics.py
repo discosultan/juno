@@ -1,5 +1,4 @@
 import logging
-import operator
 from collections import defaultdict
 from decimal import Decimal
 from typing import Callable, Dict, List, NamedTuple, Tuple
@@ -7,7 +6,7 @@ from typing import Callable, Dict, List, NamedTuple, Tuple
 import numpy as np
 import pandas as pd
 
-from juno import Candle, Fill
+from juno import Candle
 from juno.math import floor_multiple
 from juno.time import DAY_MS
 from juno.utils import unpack_symbol
@@ -59,8 +58,8 @@ def get_benchmark_statistics(candles: List[Candle]) -> Statistics:
 
 def get_portfolio_statistics(
     benchmark_stats: Statistics,
-    base_fiat_candles: List[Candle],
-    portfolio_candles: List[Candle],
+    quote_fiat_daily: List[Candle],  # i.e btc-eur
+    symbol_daily: List[Candle],
     symbol: str,
     summary: TradingSummary
 ) -> PortfolioStatistics:
@@ -69,10 +68,10 @@ def get_portfolio_statistics(
     length_days = (end_day - start_day) / DAY_MS
     base_asset, quote_asset = unpack_symbol(symbol)
     assert quote_asset == 'btc'  # TODO: We don't support other quote yet.
-    assert len(base_fiat_candles) == length_days
-    assert len(portfolio_candles) == length_days
+    assert len(quote_fiat_daily) == length_days
+    assert len(symbol_daily) == length_days
 
-    market_data = _get_market_data(symbol, base_fiat_candles, portfolio_candles)
+    market_data = _get_market_data(symbol, quote_fiat_daily, symbol_daily)
     trades = _get_trades_from_summary(summary, symbol)
     asset_performance = _get_asset_performance(
         summary, symbol, start_day, end_day, market_data, trades
@@ -88,43 +87,39 @@ def get_portfolio_statistics(
     )
 
 
-def _get_market_data(symbol: str, btc_fiat_daily: List[Candle], symbol_daily: List[Candle]):
+def _get_market_data(
+    symbol: str,
+    quote_fiat_daily: List[Candle],
+    symbol_daily: List[Candle]
+) -> Dict[str, Dict[int, Decimal]]:
     # Calculate fiat value for traded base assets.
     base_asset, quote_asset = unpack_symbol(symbol)
     market_data: Dict[str, Dict[int, Decimal]] = defaultdict(dict)
-    for btc_fiat_candle, symbol_candle in zip(btc_fiat_daily, symbol_daily):
-        time = btc_fiat_candle.time
-        market_data['btc'][time] = btc_fiat_candle.close
-        market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
+    for quote_fiat_candle, symbol_candle in zip(quote_fiat_daily, symbol_daily):
+        time = quote_fiat_candle.time
+        market_data['btc'][time] = quote_fiat_candle.close
+        market_data[base_asset][time] = symbol_candle.close * quote_fiat_candle.close
     return market_data
 
 
 def _get_trades_from_summary(
     summary: TradingSummary,
     symbol: str
-) -> Dict[int, List[Tuple[str, Operator, Decimal]]]:
+) -> Dict[int, List[Tuple[str, Decimal]]]:
     base_asset, quote_asset = unpack_symbol(symbol)
-    trades: Dict[int, List[Tuple[str, Operator, Decimal]]] = defaultdict(list)
+    trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
     for pos in summary.positions:
         assert pos.closing_fills
         # Open.
         time = floor_multiple(pos.time, DAY_MS)
         day_trades = trades[time]
-        day_trades.append((quote_asset, operator.sub, Fill.total_quote(pos.fills)))
-        day_trades.append((
-            base_asset,
-            operator.add,
-            Fill.total_size(pos.fills) - Fill.total_fee(pos.fills)
-        ))
+        day_trades.append((quote_asset, -pos.cost))
+        day_trades.append((base_asset, +pos.base_gain))
         # Close.
         time = floor_multiple(pos.closing_time, DAY_MS)
         day_trades = trades[time]
-        day_trades.append((base_asset, operator.sub, Fill.total_size(pos.closing_fills)))
-        day_trades.append((
-            quote_asset,
-            operator.add,
-            Fill.total_quote(pos.closing_fills) - Fill.total_fee(pos.closing_fills)
-        ))
+        day_trades.append((base_asset, -pos.base_cost))
+        day_trades.append((quote_asset, +pos.gain))
     return trades
 
 
@@ -134,7 +129,7 @@ def _get_asset_performance(
     start_day: int,
     end_day: int,
     market_data: Dict[str, Dict[int, Decimal]],
-    trades: Dict[int, List[Tuple[str, Operator, Decimal]]]
+    trades: Dict[int, List[Tuple[str, Decimal]]]
 ) -> Dict[int, Dict[str, Decimal]]:
     base_asset, quote_asset = unpack_symbol(symbol)
 
@@ -149,8 +144,8 @@ def _get_asset_performance(
         # Update holdings.
         day_trades = trades.get(time_day)
         if day_trades:
-            for asset, op, size in day_trades:
-                asset_holdings[asset] = op(asset_holdings[asset], size)
+            for asset, size in day_trades:
+                asset_holdings[asset] = asset_holdings[asset] + size
 
         # Update asset performance (mark-to-market portfolio).
         asset_performance_day = asset_performance[time_day]

@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import operator
 from collections import defaultdict
 from decimal import Decimal
 from typing import Callable, Dict, List, Tuple
@@ -8,7 +7,6 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from juno import Fill
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
@@ -78,27 +76,19 @@ async def main() -> None:
             market_data['btc'][time] = btc_fiat_candle.close
             market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
-        trades: Dict[int, List[Tuple[str, Operator, Decimal]]] = defaultdict(list)
+        trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
         for pos in trader.summary.positions:
             assert pos.closing_fills
             # Open.
             time = floor_multiple(pos.time, DAY_MS)
             day_trades = trades[time]
-            day_trades.append((quote_asset, operator.sub, Fill.total_quote(pos.fills)))
-            day_trades.append((
-                base_asset,
-                operator.add,
-                Fill.total_size(pos.fills) - Fill.total_fee(pos.fills)
-            ))
+            day_trades.append((quote_asset, -pos.cost))
+            day_trades.append((base_asset, +pos.base_gain))
             # Close.
             time = floor_multiple(pos.closing_time, DAY_MS)
             day_trades = trades[time]
-            day_trades.append((base_asset, operator.sub, Fill.total_size(pos.closing_fills)))
-            day_trades.append((
-                quote_asset,
-                operator.add,
-                Fill.total_quote(pos.closing_fills) - Fill.total_fee(pos.closing_fills)
-            ))
+            day_trades.append((base_asset, -pos.base_cost))
+            day_trades.append((quote_asset, +pos.gain))
 
         asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
         asset_holdings[quote_asset] = trader.summary.quote
@@ -112,8 +102,8 @@ async def main() -> None:
             # TODO: Improve naming.
             day_trades2 = trades.get(time_day)
             if day_trades2:
-                for asset, op, size in day_trades2:
-                    asset_holdings[asset] = op(asset_holdings[asset], size)
+                for asset, size in day_trades2:
+                    asset_holdings[asset] = asset_holdings[asset] + size
 
             # Update asset performance (mark-to-market portfolio).
             asset_performance_day = asset_performance[time_day]

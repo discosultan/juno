@@ -1,4 +1,4 @@
-use crate::{Candle, Fees, Filters, Strategy};
+use crate::{Candle, Strategy};
 
 const YEAR_MS: f64 = 31_556_952_000.0;
 
@@ -6,9 +6,9 @@ const YEAR_MS: f64 = 31_556_952_000.0;
 pub struct Position {
     time: u64,
     pub price: f64,
-    pub size: f64,
     pub cost: f64,
-    pub fee: f64,
+    pub base_gain: f64,
+    pub base_cost: f64,
 
     // Calculated.
     pub duration: u64,
@@ -23,9 +23,9 @@ impl Position {
         Self {
             time,
             price,
-            size,
             cost: price * size,
-            fee,
+            base_gain: size - fee,
+            base_cost: size,  // After closing.
             duration: 0,
             gain: 0.0,
             profit: 0.0,
@@ -47,13 +47,10 @@ impl Position {
 }
 
 #[derive(Debug)]
-pub struct TradingSummary<'a> {
-    fees: &'a Fees,
-    filters: &'a Filters,
-
+pub struct TradingSummary {
     positions: Vec<Position>,
-    first_candle: Option<&'a Candle>,
-    last_candle: Option<&'a Candle>,
+    first_candle: Option<Candle>,  // TODO: We can optimize to store close only.
+    last_candle: Option<Candle>,
 
     duration: u64,
     cost: f64,
@@ -73,11 +70,9 @@ pub struct TradingSummary<'a> {
     pub num_positions_in_loss: u32,
 }
 
-impl<'a> TradingSummary<'a> {
-    pub fn new(start: u64, end: u64, quote: f64, fees: &'a Fees, filters: &'a Filters) -> Self {
+impl TradingSummary {
+    pub fn new(start: u64, end: u64, quote: f64) -> Self {
         Self {
-            fees,
-            filters,
             positions: Vec::new(),
             first_candle: None,
             last_candle: None,
@@ -98,11 +93,11 @@ impl<'a> TradingSummary<'a> {
         }
     }
 
-    pub fn append_candle(&mut self, candle: &'a Candle) {
+    pub fn append_candle(&mut self, candle: &Candle) {
         if self.first_candle.is_none() {
-            self.first_candle = Some(candle);
+            self.first_candle = Some(*candle);
         }
-        self.last_candle = Some(candle);
+        self.last_candle = Some(*candle);
     }
 
     pub fn append_position(&mut self, pos: Position) {

@@ -136,7 +136,7 @@ def _close_position(
 
     price = candle.close
 
-    size = filters.size.round_down(Fill.total_size(pos.fills) - Fill.total_fee(pos.fills))
+    size = filters.size.round_down(pos.base_gain)
 
     quote = size * price
     fee = round_half_up(quote * fees.taker, filters.quote_precision)

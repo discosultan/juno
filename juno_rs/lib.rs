@@ -23,10 +23,10 @@ pub type Result = (f64, f64, f64, f64, u64, u32, u32, f64);
 
 #[repr(C)]
 pub struct AnalysisInfo {
-    base_fiat_candles: *const Candle,
-    base_fiat_candles_length: u32,
-    portfolio_candles: *const Candle,
-    portfolio_candles_length: u32,
+    quote_fiat_daily: *const Candle,
+    quote_fiat_daily_length: u32,
+    base_fiat_daily: *const f64,
+    base_fiat_daily_length: u32,
     benchmark_g_returns: *const f64,
     benchmark_g_returns_length: u32,
 }
@@ -128,30 +128,35 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
 
     // Analysis.
     let analysis_info = &*analysis_info;
-    let base_fiat_candles = slice::from_raw_parts(
-        analysis_info.base_fiat_candles, 
-        analysis_info.base_fiat_candles_length as usize
+    let quote_fiat_daily = slice::from_raw_parts(
+        analysis_info.quote_fiat_daily, 
+        analysis_info.quote_fiat_daily_length as usize
     );
-    let portfolio_candles = slice::from_raw_parts(
-        analysis_info.portfolio_candles, 
-        analysis_info.portfolio_candles_length as usize
+    let base_fiat_daily = slice::from_raw_parts(
+        analysis_info.base_fiat_daily, 
+        analysis_info.base_fiat_daily_length as usize
     );
     let benchmark_g_returns = slice::from_raw_parts(
         analysis_info.benchmark_g_returns,
         analysis_info.benchmark_g_returns_length as usize
     );
 
-    let analysis_result = analyse(base_fiat_candles, portfolio_candles, benchmark_g_returns);
+    let analysis_result = analyse(
+        quote_fiat_daily,
+        base_fiat_daily,
+        benchmark_g_returns,
+        &trading_result
+    );
 
     // Combine.
     (
-        trading_result.0,
-        trading_result.1,
-        trading_result.2,
-        trading_result.3,
-        trading_result.4,
-        trading_result.5,
-        trading_result.6,
+        trading_result.profit,
+        trading_result.mean_drawdown,
+        trading_result.max_drawdown,
+        trading_result.mean_position_profit,
+        trading_result.mean_position_duration,
+        trading_result.num_positions_in_profit,
+        trading_result.num_positions_in_loss,
         analysis_result.0,
     )
 }

@@ -4,7 +4,7 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, List
 
-from juno import Candle, Fill, Filters
+from juno import Candle, Filters
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
@@ -117,8 +117,8 @@ def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, sym
         for pos in summary.positions:
             assert pos.closing_fills
 
-            buy_size = Fill.total_size(pos.fills) - Fill.total_fee(pos.fills)
-            buy_price = filters.price.round_down(Fill.total_quote(pos.fills) / buy_size)
+            buy_size = pos.base_gain
+            buy_price = filters.price.round_down(pos.cost / buy_size)
             writer.writerow(trade_row(pos.time, base_asset, quote_asset, buy_size, buy_price))
 
             sell_size = pos.gain
