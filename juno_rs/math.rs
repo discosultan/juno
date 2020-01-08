@@ -22,6 +22,6 @@ mod tests {
 
     #[test]
     fn test_round_half_up() {
-        assert_eq!(round_half_up(1.234, 2), 1.23);
+        assert_eq!(round_half_up(0.123, 2), 0.12);
     }
 }
