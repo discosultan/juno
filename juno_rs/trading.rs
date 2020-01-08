@@ -48,10 +48,10 @@ impl Position {
 
 #[derive(Debug)]
 pub struct TradingSummary {
-    positions: Vec<Position>,
+    pub positions: Vec<Position>,
 
-    duration: u64,
-    cost: f64,
+    pub duration: u64,
+    pub cost: f64,
 
     // Calculated.
     pub gain: f64,

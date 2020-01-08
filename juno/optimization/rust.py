@@ -150,7 +150,7 @@ class Rust(Solver):
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 
-    # TODO: Temp! Noob! Move out of solver! Must be compuated in optimizer!
+    # TODO: Temp! Noob! Move out of solver! Must be computed in optimizer!
     def _get_c_base_fiat_daily(self, symbol, quote_fiat_daily, symbol_daily) -> Any:
         c_base_fiat_daily = self.c_series.get(symbol)  # TODO: WTF
         if not c_base_fiat_daily:
