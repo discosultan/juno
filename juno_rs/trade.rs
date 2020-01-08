@@ -30,7 +30,6 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
 
         for candle in candles[i..candles.len()].iter() {
             i += 1;
-            summary.append_candle(candle);
 
             if let Some(last_candle) = ctx.last_candle {
                 let diff = candle.time - last_candle.time;

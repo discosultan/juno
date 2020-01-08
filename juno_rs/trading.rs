@@ -49,8 +49,6 @@ impl Position {
 #[derive(Debug)]
 pub struct TradingSummary {
     positions: Vec<Position>,
-    first_candle: Option<Candle>,  // TODO: We can optimize to store close only.
-    last_candle: Option<Candle>,
 
     duration: u64,
     cost: f64,
@@ -74,8 +72,6 @@ impl TradingSummary {
     pub fn new(start: u64, end: u64, quote: f64) -> Self {
         Self {
             positions: Vec::new(),
-            first_candle: None,
-            last_candle: None,
             duration: end - start,
             cost: quote,
             gain: 0.0,
@@ -91,13 +87,6 @@ impl TradingSummary {
             num_positions_in_profit: 0,
             num_positions_in_loss: 0,
         }
-    }
-
-    pub fn append_candle(&mut self, candle: &Candle) {
-        if self.first_candle.is_none() {
-            self.first_candle = Some(*candle);
-        }
-        self.last_candle = Some(*candle);
     }
 
     pub fn append_position(&mut self, pos: Position) {
