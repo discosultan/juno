@@ -102,23 +102,9 @@ class Rust(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
-        c_base_fiat_candles = self._get_or_create_c_candles(('btc-eur', DAY_MS), base_fiat_candles)
-        c_portfolio_candles = self._get_or_create_c_candles((symbol, DAY_MS), portfolio_candles)
-
-        c_benchmark_g_returns = self._get_or_create_c_series(
-            'benchmark_g_returns', benchmark_stats.g_returns
-        )
-
+        # Trading.
         c_candles = self._get_or_create_c_candles((symbol, interval), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
-
-        c_analysis_info = self.c_analysis_info
-        c_analysis_info.base_fiat_candles = c_base_fiat_candles
-        c_analysis_info.base_fiat_candles_length = len(base_fiat_candles)
-        c_analysis_info.portfolio_candles = c_portfolio_candles
-        c_analysis_info.portfolio_candles_length = len(portfolio_candles)
-        c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
-        c_analysis_info.benchmark_g_returns_length = benchmark_stats.g_returns.size
 
         c_trading_info = self.c_trading_info
         c_trading_info.candles = c_candles
@@ -130,6 +116,7 @@ class Rust(Solver):
         c_trading_info.missed_candle_policy = missed_candle_policy
         c_trading_info.trailing_stop = trailing_stop
 
+        # Strategy.
         c_strategy_info = self.c_strategy_info
         c_strategy_info.short_period = args[0]
         c_strategy_info.long_period = args[1]
@@ -139,8 +126,25 @@ class Rust(Solver):
         c_strategy_info.short_ma = args[5]
         c_strategy_info.long_ma = args[6]
 
+        # Analysis.
+        c_base_fiat_candles = self._get_or_create_c_candles(('btc-eur', DAY_MS), base_fiat_candles)
+        c_portfolio_candles = self._get_or_create_c_candles((symbol, DAY_MS), portfolio_candles)
+
+        c_benchmark_g_returns = self._get_or_create_c_series(
+            'benchmark_g_returns', benchmark_stats.g_returns
+        )
+
+        c_analysis_info = self.c_analysis_info
+        c_analysis_info.base_fiat_candles = c_base_fiat_candles
+        c_analysis_info.base_fiat_candles_length = len(base_fiat_candles)
+        c_analysis_info.portfolio_candles = c_portfolio_candles
+        c_analysis_info.portfolio_candles_length = len(portfolio_candles)
+        c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
+        c_analysis_info.benchmark_g_returns_length = benchmark_stats.g_returns.size
+
+        # Go!
         fn = getattr(self.libjuno, strategy_type.__name__.lower())
-        result = fn(c_analysis_info, c_trading_info, c_strategy_info)
+        result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 
     def _get_or_create_c_candles(self, key: Tuple[str, int], candles: List[Candle]) -> Any:
@@ -232,9 +236,9 @@ def _build_cdef() -> str:
         _cdef_builder.function_from_params(
             strategy_name_lower,
             SolverResult,
-            ('analysis_info', type('AnalysisInfo', (), {})),
             ('trading_info', type('TradingInfo', (), {})),
             (strategy_info_param_name, type(strategy_info_type_name, (), {})),
+            ('analysis_info', type('AnalysisInfo', (), {})),
             refs=['analysis_info', 'trading_info', strategy_info_param_name]
         ),
     ))

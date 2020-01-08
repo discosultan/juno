@@ -2,9 +2,9 @@ use crate::strategies::Strategy;
 use crate::{Advice, Candle, Fees, Filters, Position, TradingContext, TradingSummary};
 use crate::math::round_half_up;
 
-pub type BacktestResult = (f64, f64, f64, f64, u64, u32, u32);
+pub type TradingResult = (f64, f64, f64, f64, u64, u32, u32);
 
-pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
+pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     strategy_factory: TF,
     candles: &[Candle],
     fees: &Fees,
@@ -13,7 +13,7 @@ pub fn backtest<TF: Fn() -> TS, TS: Strategy>(
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
-) -> BacktestResult {
+) -> TradingResult {
     let two_interval = interval * 2;
 
     let candles_len = candles.len();
