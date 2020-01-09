@@ -21,7 +21,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
 
-    let mut summary = TradingSummary::new(start, end, quote);
+    let mut summary = TradingSummary::new(interval, start, end, quote);
     let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
     loop {

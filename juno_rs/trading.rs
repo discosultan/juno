@@ -4,13 +4,13 @@ const YEAR_MS: f64 = 31_556_952_000.0;
 
 #[derive(Debug)]
 pub struct Position {
-    time: u64,
+    pub time: u64,
     pub price: f64,
     pub cost: f64,
     pub base_gain: f64,
     pub base_cost: f64,
 
-    // Calculated.
+    pub close_time: u64,
     pub duration: u64,
     pub gain: f64,
     pub profit: f64,
@@ -26,6 +26,7 @@ impl Position {
             cost: price * size,
             base_gain: size - fee,
             base_cost: size,  // After closing.
+            close_time: 0,
             duration: 0,
             gain: 0.0,
             profit: 0.0,
@@ -35,6 +36,7 @@ impl Position {
     }
 
     pub fn close(&mut self, time: u64, price: f64, size: f64, fee: f64) {
+        self.close_time = time;
         self.duration = time - self.time;
         self.gain = price * size - fee;
         self.profit = self.gain - self.cost;
@@ -50,6 +52,9 @@ impl Position {
 pub struct TradingSummary {
     pub positions: Vec<Position>,
 
+    pub interval: u64,
+    pub start: u64,
+    pub end: u64,
     pub duration: u64,
     pub cost: f64,
 
@@ -69,9 +74,12 @@ pub struct TradingSummary {
 }
 
 impl TradingSummary {
-    pub fn new(start: u64, end: u64, quote: f64) -> Self {
+    pub fn new(interval: u64, start: u64, end: u64, quote: f64) -> Self {
         Self {
             positions: Vec::new(),
+            interval,
+            start,
+            end,
             duration: end - start,
             cost: quote,
             gain: 0.0,
