@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::{
     Candle,
-    math::floor_multiple,
+    math::{floor_multiple, mean},
     trading::TradingSummary
 };
 
@@ -17,18 +17,18 @@ enum Asset
 }
 
 struct Statistics {
-    performance: Vec<f64>,
-    a_returns: Vec<f64>,
+    // performance: Vec<f64>,
+    // a_returns: Vec<f64>,
     g_returns: Vec<f64>,
-    neg_g_returns: Vec<f64>,
+    // neg_g_returns: Vec<f64>,
 
-    total_return: f64,
+    // total_return: f64,
     annualized_return: f64,
-    annualized_volatility: f64,
-    annualized_downside_risk: f64,
-    sharpe_ratio: f64,
-    sortino_ratio: f64,
-    cagr: f64,
+    // annualized_volatility: f64,
+    // annualized_downside_risk: f64,
+    // sharpe_ratio: f64,
+    // sortino_ratio: f64,
+    // cagr: f64,
 }
 
 pub fn analyse(
@@ -43,8 +43,9 @@ pub fn analyse(
         .iter()
         .map(|d| d.values().sum())
         .collect::<Vec<f64>>();
-    let stats = calculate_statistics(&portfolio_performance);
-    (0.0, )
+    let portfolio_stats = calculate_statistics(&portfolio_performance);
+    let (alpha, beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
+    (alpha, )
 }
 
 fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset, f64)>> {
@@ -83,7 +84,7 @@ fn get_asset_performance(
 
     let mut asset_performance = Vec::with_capacity(length as usize);
 
-    let step_size = summary.interval as usize;
+    // let step_size = summary.interval as usize;
     for i in 0..length {
         let time_day = start_day + i * summary.interval;
     // for time_day in (start_day..end_day).step_by(step_size) {
@@ -97,7 +98,6 @@ fn get_asset_performance(
 
         // Update asset performance (mark-to-market portfolio).
         let mut asset_performance_day = HashMap::new();
-        asset_performance.push(asset_performance_day);
         //  asset_performance
         //     .entry(time_day)
         //     .or_insert(HashMap::new());
@@ -118,11 +118,51 @@ fn get_asset_performance(
                 .entry(*asset)
                 .or_insert(0.0) = asset_holdings[asset] * asset_fiat_value;
         }
+        asset_performance.push(asset_performance_day);
     }
 
     asset_performance
 }
 
 fn calculate_statistics(performance: &[f64]) -> Statistics {
-    
+    let returns_len = performance.len() - 1;
+
+    let mut a_returns = Vec::with_capacity(returns_len);
+    for i in 0..returns_len {
+        a_returns[i] = performance[i + 1] / performance[i];
+    }
+
+    let mut g_returns = Vec::with_capacity(returns_len);
+    for i in 0..returns_len {
+        g_returns[i] = (a_returns[i] + 1.0).ln();
+    }
+
+    // let mut neg_g_returns = Vec::new();
+    // for g_return in g_returns.into_iter() {
+    //     if g_return < 0.0 {
+    //         neg_g_returns.push(g_return);
+    //     }
+    // }
+
+    let annualized_return = 365.0 * mean(&g_returns);
+
+    Statistics {
+        // a_returns,
+        g_returns,
+        // neg_g_returns,
+
+        annualized_return
+    }
+}
+
+fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistics) -> (f64, f64) {
+    // covariance_matrix = pd.concat(
+    //     [portfolio_stats.g_returns, benchmark_stats.g_returns], axis=1
+    // ).dropna().cov()
+    // let beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
+    // let alpha = portfolio_stats.annualized_return - (beta * 365 * benchmark_stats.g_returns.mean())
+
+    // (alpha, beta)
+
+    (0.0, 0.0)
 }

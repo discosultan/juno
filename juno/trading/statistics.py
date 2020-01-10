@@ -83,7 +83,7 @@ def get_portfolio_statistics(
     portfolio_stats = _calculate_statistics(portfolio_performance)
     return PortfolioStatistics(
         *portfolio_stats,
-        *_get_alpha_beta(benchmark_stats, portfolio_stats),
+        *_calculate_alpha_beta(benchmark_stats, portfolio_stats),
     )
 
 
@@ -194,7 +194,7 @@ def _calculate_statistics(performance: pd.Series) -> Statistics:
     )
 
 
-def _get_alpha_beta(
+def _calculate_alpha_beta(
     benchmark_stats: Statistics, portfolio_stats: Statistics
 ) -> Tuple[float, float]:
     covariance_matrix = pd.concat(
