@@ -124,7 +124,7 @@ class Optimizer:
                             product(symbols, fetch_intervals))
         await asyncio.gather(*candle_tasks)
 
-        for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) > 0):
+        for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
                          f'{strfspan(self.start, self.end)}')

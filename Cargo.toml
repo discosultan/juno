@@ -7,3 +7,7 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib"]
 path = "juno_rs/lib.rs"
+
+[dependencies]
+ndarray = "0.13"
+ndarray-stats = "0.3"

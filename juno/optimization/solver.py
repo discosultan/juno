@@ -13,7 +13,7 @@ class Solver(ABC):
     @abstractmethod
     def solve(
         self,
-        base_fiat_candles: List[Candle],
+        quote_fiat_candles: List[Candle],
         portfolio_candles: List[Candle],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
@@ -38,7 +38,7 @@ class SolverResult(NamedTuple):
     mean_position_duration: Interval = 0
     num_positions_in_profit: int = 0
     num_positions_in_loss: int = 0
-    # alpha: float = 0.0
+    alpha: float = 0.0
 
     @staticmethod
     def meta(include_disabled: bool = False) -> Dict[str, float]:
