@@ -138,20 +138,20 @@ async def main() -> None:
             benchmark_stats, quote_fiat_daily, base_quote_daily, SYMBOL, trader.summary
         )
 
-        logging.info('rust solver')
-        logging.info(rust_result.profit)
-        logging.info(rust_result.mean_position_duration)
-        logging.info(rust_result.alpha)
+        logging.info('=== rust solver ===')
+        logging.info(f'alpha {rust_result.alpha}')
+        logging.info(f'profit {rust_result.profit}')
+        logging.info(f'mean pos dur {rust_result.mean_position_duration}')
 
-        logging.info('python solver')
-        logging.info(python_result.profit)
-        logging.info(python_result.mean_position_duration)
-        logging.info(python_result.alpha)
+        logging.info('=== python solver ===')
+        logging.info(f'alpha {python_result.alpha}')
+        logging.info(f'profit {python_result.profit}')
+        logging.info(f'mean pos dur {python_result.mean_position_duration}')
 
-        logging.info('python trader')
-        logging.info(trader.summary.profit)
-        logging.info(trader.summary.mean_position_duration)
-        logging.info(portfolio_stats.alpha)
+        logging.info('=== python trader ===')
+        logging.info(f'alpha {portfolio_stats.alpha}')
+        logging.info(f'profit {trader.summary.profit}')
+        logging.info(f'mean pos dur {trader.summary.mean_position_duration}')
 
         logging.info('done')
 

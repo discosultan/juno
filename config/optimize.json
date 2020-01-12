@@ -9,15 +9,15 @@
             "exchange": "binance",
             "symbols": ["eth-btc"],
             "start": "2019-01-01",
-            "end": "2019-02-01",
-            "intervals": ["1d"],
+            "end": "2020-01-01",
+            "intervals": ["1h"],
             "quote": 1.0,
-            "missed_candle_policy": "ignore",
-            "trailing_stop": 0.0,
+            "missed_candle_policy": null,
+            "trailing_stop": null,
             "strategy": "mamacx",
-            "population_size": 5,
-            "max_generations": 10,
-            "seed": 5812802161888611634,
+            "population_size": 100,
+            "max_generations": 200,
+            "seed": null,
             "verbose": true
         }
     ]

@@ -19,7 +19,7 @@ pub use common::{Advice, Candle, Fees, Trend};
 pub use filters::Filters;
 pub use trading::{Position, TradingContext, TradingSummary};
 
-pub type Result = (f64, f64, f64, f64, u64, u32, u32, f64);
+pub type Result = (f64, f64, f64, f64, f64, u64, u32, u32);
 
 #[repr(C)]
 pub struct AnalysisInfo {
@@ -150,6 +150,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
 
     // Combine.
     (
+        analysis_result.0,
         trading_result.profit,
         trading_result.mean_drawdown,
         trading_result.max_drawdown,
@@ -157,6 +158,5 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         trading_result.mean_position_duration,
         trading_result.num_positions_in_profit,
         trading_result.num_positions_in_loss,
-        analysis_result.0,
     )
 }

@@ -31,6 +31,7 @@ class Solver(ABC):
 
 
 class SolverResult(NamedTuple):
+    alpha: float = 0.0
     profit: float = 0.0
     mean_drawdown: float = 0.0
     max_drawdown: float = 0.0
@@ -38,25 +39,27 @@ class SolverResult(NamedTuple):
     mean_position_duration: Interval = 0
     num_positions_in_profit: int = 0
     num_positions_in_loss: int = 0
-    alpha: float = 0.0
 
     @staticmethod
     def meta(include_disabled: bool = False) -> Dict[str, float]:
+        # NB! There's an issue with optimizing more than 3 objectives:
+        # https://stackoverflow.com/q/44929118/1466456
         # We try to maximize properties with positive weight, minimize properties with negative
         # weight.
         META = {
-            'profit': 1.0,  # +
-            'mean_drawdown': -1.0,  # -
-            'max_drawdown': -1.0,  # -
-            'mean_position_profit': 1.0,  # +
-            'mean_position_duration': -1.0,  # -
-            'num_positions_in_profit': 1.0,  # +
-            'num_positions_in_loss': -1.0,  # -
-            'alpha': 1.0,  # +
+            # 'profit': 1.0,  # +
+            # 'mean_drawdown': -1.0,  # -
+            # 'max_drawdown': -1.0,  # -
+            # 'mean_position_profit': 1.0,  # +
+            # 'mean_position_duration': -1.0,  # -
+            # 'num_positions_in_profit': 1.0,  # +
+            # 'num_positions_in_loss': -1.0,  # -
+            'alpha': -100.0,  # +
         }
-        if include_disabled:
-            return META
-        return {k: v for k, v in META.items() if k in _SOLVER_RESULT_KEYS}
+        return {k: META.get(k, 0.00000001) for k in _SOLVER_RESULT_KEYS}
+        # if include_disabled:
+        #     return META
+        # return {k: v for k, v in META.items() if k in _SOLVER_RESULT_KEYS}
 
     @staticmethod
     def from_trading_summary(
