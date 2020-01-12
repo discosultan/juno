@@ -1,16 +1,16 @@
-use crate::{Candle, Fees, Filters, Strategy};
+use crate::{Candle, Strategy};
 
 const YEAR_MS: f64 = 31_556_952_000.0;
 
 #[derive(Debug)]
 pub struct Position {
-    time: u64,
+    pub time: u64,
     pub price: f64,
-    pub size: f64,
     pub cost: f64,
-    pub fee: f64,
+    pub base_gain: f64,
+    pub base_cost: f64,
 
-    // Calculated.
+    pub close_time: u64,
     pub duration: u64,
     pub gain: f64,
     pub profit: f64,
@@ -23,9 +23,11 @@ impl Position {
         Self {
             time,
             price,
-            size,
             cost: price * size,
-            fee,
+            base_gain: size - fee,
+
+            base_cost: 0.0,
+            close_time: 0,
             duration: 0,
             gain: 0.0,
             profit: 0.0,
@@ -35,7 +37,9 @@ impl Position {
     }
 
     pub fn close(&mut self, time: u64, price: f64, size: f64, fee: f64) {
+        self.close_time = time;
         self.duration = time - self.time;
+        self.base_cost = size;
         self.gain = price * size - fee;
         self.profit = self.gain - self.cost;
         self.roi = self.profit / self.cost;
@@ -47,16 +51,14 @@ impl Position {
 }
 
 #[derive(Debug)]
-pub struct TradingSummary<'a> {
-    fees: &'a Fees,
-    filters: &'a Filters,
+pub struct TradingSummary {
+    pub positions: Vec<Position>,
 
-    positions: Vec<Position>,
-    first_candle: Option<&'a Candle>,
-    last_candle: Option<&'a Candle>,
-
-    duration: u64,
-    cost: f64,
+    pub interval: u64,
+    pub start: u64,
+    pub end: u64,
+    pub duration: u64,
+    pub cost: f64,
 
     // Calculated.
     pub gain: f64,
@@ -73,14 +75,13 @@ pub struct TradingSummary<'a> {
     pub num_positions_in_loss: u32,
 }
 
-impl<'a> TradingSummary<'a> {
-    pub fn new(start: u64, end: u64, quote: f64, fees: &'a Fees, filters: &'a Filters) -> Self {
+impl TradingSummary {
+    pub fn new(interval: u64, start: u64, end: u64, quote: f64) -> Self {
         Self {
-            fees,
-            filters,
             positions: Vec::new(),
-            first_candle: None,
-            last_candle: None,
+            interval,
+            start,
+            end,
             duration: end - start,
             cost: quote,
             gain: 0.0,
@@ -96,13 +97,6 @@ impl<'a> TradingSummary<'a> {
             num_positions_in_profit: 0,
             num_positions_in_loss: 0,
         }
-    }
-
-    pub fn append_candle(&mut self, candle: &'a Candle) {
-        if self.first_candle.is_none() {
-            self.first_candle = Some(candle);
-        }
-        self.last_candle = Some(candle);
     }
 
     pub fn append_position(&mut self, pos: Position) {

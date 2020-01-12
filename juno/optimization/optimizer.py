@@ -124,7 +124,7 @@ class Optimizer:
                             product(symbols, fetch_intervals))
         await asyncio.gather(*candle_tasks)
 
-        for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) > 0):
+        for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
                          f'{strfspan(self.start, self.end)}')
@@ -144,8 +144,9 @@ class Optimizer:
         strategy_type = get_module_type(strategies, self.strategy)
 
         # Objectives.
-        objectives = list(SolverResult.meta(include_disabled=False).values())
-        creator.create('FitnessMulti', base.Fitness, weights=objectives)
+        objectives = SolverResult.meta()
+        _log.info(f'objectives: {objectives}')
+        creator.create('FitnessMulti', base.Fitness, weights=list(objectives.values()))
         creator.create('Individual', list, fitness=creator.FitnessMulti)
 
         toolbox = base.Toolbox()

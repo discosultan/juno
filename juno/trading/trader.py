@@ -188,7 +188,7 @@ class Trader:
             res = await self.broker.sell(
                 exchange=self.exchange,
                 symbol=self.symbol,
-                base=Fill.total_size(pos.fills) - Fill.total_fee(pos.fills),
+                base=pos.base_gain,
                 test=self.test
             )
 
@@ -197,7 +197,7 @@ class Trader:
         else:
             price = candle.close
             fees, filters = self.informant.get_fees_filters(self.exchange, self.symbol)
-            size = filters.size.round_down(Fill.total_size(pos.fills) - Fill.total_fee(pos.fills))
+            size = filters.size.round_down(pos.base_gain)
 
             quote = size * price
             fee = round_half_up(quote * fees.taker, filters.quote_precision)

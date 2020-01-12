@@ -25,14 +25,10 @@ class Position:
         self.closing_fills: Optional[List[Fill]] = None
 
     def close(self, time: int, fills: List[Fill]) -> None:
-        assert Fill.total_size(fills) <= Fill.total_size(self.fills) - Fill.total_fee(self.fills)
+        assert Fill.total_size(fills) <= self.base_gain
 
         self.closing_time = Timestamp(time)
         self.closing_fills = fills
-
-    @property
-    def total_size(self) -> Decimal:
-        return Fill.total_size(self.fills)
 
     @property
     def start(self) -> Timestamp:
@@ -41,6 +37,16 @@ class Position:
     @property
     def cost(self) -> Decimal:
         return Fill.total_quote(self.fills)
+
+    @property
+    def base_gain(self) -> Decimal:
+        return Fill.total_size(self.fills) - Fill.total_fee(self.fills)
+
+    @property
+    def base_cost(self) -> Decimal:
+        if not self.closing_fills:
+            return Decimal('0.0')
+        return Fill.total_size(self.closing_fills)
 
     @property
     def gain(self) -> Decimal:
@@ -187,7 +193,7 @@ class TradingSummary:
         return statistics.mean(x.profit for x in self.positions)
 
     @property
-    def mean_position_duration(self) -> int:
+    def mean_position_duration(self) -> Interval:
         if len(self.positions) == 0:
             return 0
         return int(statistics.mean(x.duration for x in self.positions))
