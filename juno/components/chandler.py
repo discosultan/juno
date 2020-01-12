@@ -40,7 +40,8 @@ class Chandler:
         self._storage_batch_size = storage_batch_size
 
     async def stream_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True
+        self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True,
+        fill_missing_with_last: bool = False
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
@@ -58,22 +59,40 @@ class Chandler:
                                                                      for a, b in missing_spans])
         spans.sort(key=lambda s: s[0])
 
+        last_closed_candle = None
         for span_start, span_end, exist_locally in spans:
             period_msg = f'{strfspan(span_start, span_end)}'
             if exist_locally:
                 _log.info(f'local {candle_msg} exist between {period_msg}')
-                async for candle in self._storage.stream_time_series(
+                stream = self._storage.stream_time_series(
                     storage_key, Candle, span_start, span_end
-                ):
-                    if not closed or candle.closed:
-                        yield candle
+                )
             else:
                 _log.info(f'missing {candle_msg} between {period_msg}')
-                async for candle in self._stream_and_store_exchange_candles(
+                stream = self._stream_and_store_exchange_candles(
                     exchange, symbol, interval, span_start, span_end
+                )
+            async for candle in stream:
+                if (
+                    fill_missing_with_last
+                    and last_closed_candle
+                    and candle.time - last_closed_candle.time >= interval * 2
                 ):
-                    if not closed or candle.closed:
-                        yield candle
+                    num_missed = (candle.time - last_closed_candle.time) // interval - 1
+                    for i in range(1, num_missed + 1):
+                        yield Candle(
+                            time=last_closed_candle.time + i * interval,
+                            open=last_closed_candle.open,
+                            high=last_closed_candle.high,
+                            low=last_closed_candle.low,
+                            close=last_closed_candle.close,
+                            volume=last_closed_candle.volume,
+                            closed=True
+                        )
+                if not closed or candle.closed:
+                    yield candle
+                if candle.closed:
+                    last_closed_candle = candle
 
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int

@@ -52,16 +52,14 @@ class Trades:
             period_msg = f'{strfspan(span_start, span_end)}'
             if exist_locally:
                 _log.info(f'local {trade_msg} exist between {period_msg}')
-                async for trade in self._storage.stream_time_series(
-                    storage_key, Trade, span_start, span_end
-                ):
-                    yield trade
+                stream = self._storage.stream_time_series(storage_key, Trade, span_start, span_end)
             else:
                 _log.info(f'missing {trade_msg} between {period_msg}')
-                async for trade in self._stream_and_store_exchange_trades(
+                stream = self._stream_and_store_exchange_trades(
                     exchange, symbol, span_start, span_end
-                ):
-                    yield trade
+                )
+            async for trade in stream:
+                yield trade
 
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int

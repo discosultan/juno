@@ -196,6 +196,22 @@ async def test_stream_candles_on_ws_disconnect(storage):
         assert candle.time == i
 
 
+async def test_stream_candles_fill_missing_with_last(storage):
+    exchange = fakes.Exchange(historical_candles=[
+        Candle(time=0, close=1),
+        # Missed candle.
+        Candle(time=2, close=2),
+    ])
+    chandler = Chandler(trades=fakes.Trades(), storage=storage, exchanges=[exchange])
+    output = await list_async(
+        chandler.stream_candles('exchange', 'eth-btc', 1, 0, 3, fill_missing_with_last=True)
+    )
+    assert output == [
+        Candle(time=0, close=1),
+        Candle(time=1, close=1),
+        Candle(time=2, close=2),
+    ]
+
 async def test_stream_future_trades_span_stored_until_stopped(storage):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
