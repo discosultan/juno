@@ -32,16 +32,16 @@ class Solver(ABC):
 
 class SolverResult(NamedTuple):
     alpha: float = 0.0
-    profit: float = 0.0
-    mean_drawdown: float = 0.0
-    max_drawdown: float = 0.0
-    mean_position_profit: float = 0.0
-    mean_position_duration: Interval = 0
-    num_positions_in_profit: int = 0
-    num_positions_in_loss: int = 0
+    # profit: float = 0.0
+    # mean_drawdown: float = 0.0
+    # max_drawdown: float = 0.0
+    # mean_position_profit: float = 0.0
+    # mean_position_duration: Interval = 0
+    # num_positions_in_profit: int = 0
+    # num_positions_in_loss: int = 0
 
     @staticmethod
-    def meta(include_disabled: bool = False) -> Dict[str, float]:
+    def meta() -> Dict[str, float]:
         # NB! There's an issue with optimizing more than 3 objectives:
         # https://stackoverflow.com/q/44929118/1466456
         # We try to maximize properties with positive weight, minimize properties with negative

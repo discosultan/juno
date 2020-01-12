@@ -144,7 +144,7 @@ class Optimizer:
         strategy_type = get_module_type(strategies, self.strategy)
 
         # Objectives.
-        objectives = SolverResult.meta(include_disabled=False)
+        objectives = SolverResult.meta()
         _log.info(f'objectives: {objectives}')
         creator.create('FitnessMulti', base.Fitness, weights=list(objectives.values()))
         creator.create('Individual', list, fitness=creator.FitnessMulti)
