@@ -193,7 +193,7 @@ class TradingSummary:
         return statistics.mean(x.profit for x in self.positions)
 
     @property
-    def mean_position_duration(self) -> int:
+    def mean_position_duration(self) -> Interval:
         if len(self.positions) == 0:
             return 0
         return int(statistics.mean(x.duration for x in self.positions))
