@@ -108,7 +108,6 @@ async def main() -> None:
             SHORT_MA,
             LONG_MA,
         )
-        # TODO: FIX
         rust_result = rust_solver.solve(*args)
         python_result = python_solver.solve(*args)
 
@@ -140,18 +139,18 @@ async def main() -> None:
         )
 
         logging.info('rust solver')
-        # logging.info(rust_result.profit)
-        # logging.info(rust_result.mean_position_duration)
+        logging.info(rust_result.profit)
+        logging.info(rust_result.mean_position_duration)
         logging.info(rust_result.alpha)
 
         logging.info('python solver')
-        # logging.info(python_result.profit)
-        # logging.info(python_result.mean_position_duration)
+        logging.info(python_result.profit)
+        logging.info(python_result.mean_position_duration)
         logging.info(python_result.alpha)
 
         logging.info('python trader')
-        # logging.info(trader.summary.profit)
-        # logging.info(trader.summary.mean_position_duration)
+        logging.info(trader.summary.profit)
+        logging.info(trader.summary.mean_position_duration)
         logging.info(portfolio_stats.alpha)
 
         logging.info('done')

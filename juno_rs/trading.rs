@@ -25,7 +25,8 @@ impl Position {
             price,
             cost: price * size,
             base_gain: size - fee,
-            base_cost: size,  // After closing.
+
+            base_cost: 0.0,
             close_time: 0,
             duration: 0,
             gain: 0.0,
@@ -38,6 +39,7 @@ impl Position {
     pub fn close(&mut self, time: u64, price: f64, size: f64, fee: f64) {
         self.close_time = time;
         self.duration = time - self.time;
+        self.base_cost = size;
         self.gain = price * size - fee;
         self.profit = self.gain - self.cost;
         self.roi = self.profit / self.cost;

@@ -11,7 +11,7 @@ pub type AnalysisResult = (f64, );
 
 const DAY_MS: u64 = 86_400_000;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Asset
 {
     Base,
@@ -45,8 +45,6 @@ pub fn analyse(
         .iter()
         .map(|d| d.values().sum())
         .collect::<Vec<f64>>();
-    println!("benchmark {:?}", quote_fiat_daily.iter().map(|c| c.close).collect::<Vec<f64>>());
-    println!("portfolio {:?}", portfolio_performance);
     let portfolio_stats = calculate_statistics(&portfolio_performance);
     let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, portfolio_stats);
     (alpha, )
