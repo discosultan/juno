@@ -36,7 +36,7 @@ class Rust(Solver):
     def __init__(self, chandler: Chandler, informant: Informant) -> None:
         self.chandler = chandler
         self.informant = informant
-        self.c_candles: Dict[Tuple[str, int], Any] = {}
+        self.c_candles: Dict[Tuple[str, int, bool], Any] = {}
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
         self.c_series: Dict[str, Any] = {}
         self.keep_alive: List[Any] = []
@@ -103,7 +103,7 @@ class Rust(Solver):
         *args: Any,
     ) -> SolverResult:
         # Trading.
-        c_candles = self._get_or_create_c_candles((symbol, interval), candles)
+        c_candles = self._get_or_create_c_candles((symbol, interval, False), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
 
         c_trading_info = self.c_trading_info
@@ -128,7 +128,7 @@ class Rust(Solver):
 
         # Analysis.
         c_quote_fiat_daily = self._get_or_create_c_candles(
-            ('btc-eur', DAY_MS), quote_fiat_candles
+            ('btc-eur', DAY_MS, True), quote_fiat_candles
         )
         # c_portfolio_candles = self._get_or_create_c_candles((symbol, DAY_MS), symbol_candles)
         c_base_fiat_daily = self._get_c_base_fiat_daily(symbol, quote_fiat_candles, symbol_candles)
@@ -154,14 +154,16 @@ class Rust(Solver):
     def _get_c_base_fiat_daily(self, symbol, quote_fiat_daily, symbol_daily) -> Any:
         c_base_fiat_daily = self.c_series.get(symbol)  # TODO: WTF
         if not c_base_fiat_daily:
-            assert len(quote_fiat_daily) == len(symbol_daily)
+            assert len(quote_fiat_daily) == len(symbol_daily), (
+                f'{len(quote_fiat_daily)=} {len(symbol_daily)=}'
+            )
             c_base_fiat_daily = self.ffi.new(f'double[{len(quote_fiat_daily)}]')
             for i, (qfd, sd) in enumerate(zip(quote_fiat_daily, symbol_daily)):
                 c_base_fiat_daily[i] = sd.close * qfd.close
             self.c_series[symbol] = c_base_fiat_daily
         return c_base_fiat_daily
 
-    def _get_or_create_c_candles(self, key: Tuple[str, int], candles: List[Candle]) -> Any:
+    def _get_or_create_c_candles(self, key: Tuple[str, int, bool], candles: List[Candle]) -> Any:
         c_candles = self.c_candles.get(key)
         if not c_candles:
             c_candles = self.ffi.new(f'Candle[{len(candles)}]')

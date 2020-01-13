@@ -88,20 +88,16 @@ class Trader:
                 ):
                     # Check if we have missed a candle.
                     if ctx.last_candle and candle.time - ctx.last_candle.time >= self.interval * 2:
-                        # TODO: python 3.8 assignment expression
+                        # TODO: walrus operator
                         num_missed = (candle.time - ctx.last_candle.time) // self.interval - 1
-                        _log.warning(
-                            f'missed {num_missed} candle(s); last candle {ctx.last_candle}; '
-                            f'current candle {candle}'
-                        )
                         if self.missed_candle_policy is MissedCandlePolicy.RESTART:
-                            _log.info('restarting strategy')
+                            _log.info('restarting strategy due to missed candle(s)')
                             restart = True
                             ctx.strategy = self.new_strategy()
                             start = candle.time + self.interval
                             restart_count += 1
                         elif self.missed_candle_policy is MissedCandlePolicy.LAST:
-                            _log.info('replaying missed candles with last candle values')
+                            _log.info(f'filling {num_missed} missed candles with last values')
                             last_candle = ctx.last_candle
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
