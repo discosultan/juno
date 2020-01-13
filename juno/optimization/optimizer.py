@@ -112,19 +112,22 @@ class Optimizer:
         #     return
         # btc_fiat_exchange = btc_fiat_exchanges[0]
 
-        candles: Dict[Tuple[str, int], List[Candle]] = {}
-        candle_tasks = [
+        candles: Dict[Tuple[str, int, bool], List[Candle]] = {}
+        # Fetch candles specific to statistical analysis.
+        await asyncio.gather(
             # Binance also supports FIAT symbols but has limited candle data, hence Coinbase.
-            self._fetch_candles(candles, 'coinbase', 'btc-eur', DAY_MS)
-        ]
+            self._fetch_candles(candles, 'coinbase', 'btc-eur', DAY_MS,
+                                fill_missing_with_last=True),
+            *(self._fetch_candles(candles, self.exchange, s, DAY_MS, fill_missing_with_last=True)
+              for s in symbols)
+        )
+        # Fetch candles for backtesting.
+        await asyncio.gather(
+            *(self._fetch_candles(candles, self.exchange, s, i, fill_missing_with_last=False)
+              for s, i in product(symbols, intervals))
+        )
 
-        # We also include daily candles, regardless of config, for statistical analysis.
-        fetch_intervals = intervals if DAY_MS in intervals else intervals + [DAY_MS]
-        candle_tasks.extend(self._fetch_candles(candles, self.exchange, s, i) for s, i in
-                            product(symbols, fetch_intervals))
-        await asyncio.gather(*candle_tasks)
-
-        for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
+        for (s, i, _f), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
                          f'{strfspan(self.start, self.end)}')
@@ -132,7 +135,7 @@ class Optimizer:
         fees_filters = {s: self.informant.get_fees_filters(self.exchange, s) for s in symbols}
 
         # Prepare benchmark stats.
-        benchmark_stats = get_benchmark_statistics(candles[('btc-eur', DAY_MS)])
+        benchmark_stats = get_benchmark_statistics(candles[('btc-eur', DAY_MS, True)])
 
         # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
         # algorithms for mutation, crossover, selection. These algos are using the random module
@@ -182,12 +185,12 @@ class Optimizer:
 
         def evaluate(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
-                candles[('btc-eur', DAY_MS)],
-                candles[(ind[0], DAY_MS)],
+                candles[('btc-eur', DAY_MS, True)],
+                candles[(ind[0], DAY_MS, True)],
                 benchmark_stats,
                 strategy_type,
                 self.quote,
-                candles[(ind[0], ind[1])],
+                candles[(ind[0], ind[1], False)],
                 *fees_filters[ind[0]],
                 *flatten(ind)
             )
@@ -227,12 +230,12 @@ class Optimizer:
 
         best_args = list(flatten(hall[0]))
         best_result = self.solver.solve(
-            candles[('btc-eur', DAY_MS)],
-            candles[(best_args[0], DAY_MS)],
+            candles[('btc-eur', DAY_MS, True)],
+            candles[(best_args[0], DAY_MS, True)],
             benchmark_stats,
             strategy_type,
             self.quote,
-            candles[(best_args[0], best_args[1])],
+            candles[(best_args[0], best_args[1], False)],
             *fees_filters[best_args[0]],
             *best_args
         )
@@ -272,8 +275,8 @@ class Optimizer:
             trader.summary,
             get_portfolio_statistics(
                 benchmark_stats,
-                candles[('btc-eur', DAY_MS)],
-                candles[(self.result.symbol, DAY_MS)],
+                candles[('btc-eur', DAY_MS, True)],
+                candles[(self.result.symbol, DAY_MS, True)],
                 self.result.symbol,
                 trader.summary
             )
@@ -288,15 +291,16 @@ class Optimizer:
 
     async def _fetch_candles(
         self,
-        candles: Dict[Tuple[str, int], List[Candle]],
+        candles: Dict[Tuple[str, int, bool], List[Candle]],
         exchange: str,
         symbol: str,
-        interval: int
+        interval: int,
+        fill_missing_with_last: bool
     ) -> None:
-        candles[(symbol, interval)] = await list_async(
+        candles[(symbol, interval, fill_missing_with_last)] = await list_async(
             self.chandler.stream_candles(
                 exchange, symbol, interval, floor_multiple(self.start, interval),
-                floor_multiple(self.end, interval)
+                floor_multiple(self.end, interval), fill_missing_with_last=fill_missing_with_last
             )
         )
 

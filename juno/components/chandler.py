@@ -14,7 +14,7 @@ from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset
-from juno.time import strfinterval, strfspan, time_ms
+from juno.time import strfinterval, strfspan, strftimestamp, time_ms
 from juno.utils import generate_missing_spans, merge_adjacent_spans
 
 from .trades import Trades
@@ -46,7 +46,7 @@ class Chandler:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
         storage_key = (exchange, symbol, interval)
-        candle_msg = f'{exchange} {symbol} {strfinterval(interval)} candles'
+        candle_msg = f'{exchange} {symbol} {strfinterval(interval)} candle(s)'
 
         _log.info(f'checking for existing {candle_msg} in local storage')
         existing_spans = await list_async(
@@ -73,17 +73,25 @@ class Chandler:
                     exchange, symbol, interval, span_start, span_end
                 )
             async for candle in stream:
+                if not last_closed_candle and candle.closed:
+                    num_missed = (candle.time - start) // interval
+                    if num_missed > 0:
+                        _log.warning(
+                            f'missed {num_missed} {candle_msg} from the start '
+                            f'{strftimestamp(start)}; current candle {candle}'
+                        )
+
                 # TODO: use walrus operator
                 time_diff = candle.time - last_closed_candle.time if last_closed_candle else 0
                 if time_diff >= interval * 2:
                     assert last_closed_candle
                     num_missed = time_diff // interval - 1
                     _log.warning(
-                        f'missed {num_missed} candle(s); last closed candle {last_closed_candle}; '
-                        f'current candle {candle}'
+                        f'missed {num_missed} {candle_msg}; last closed candle '
+                        f'{last_closed_candle}; current candle {candle}'
                     )
                     if fill_missing_with_last:
-                        _log.info(f'filling {num_missed} missed candles with last values')
+                        _log.info(f'filling {num_missed} missed {candle_msg} with last values')
                         for i in range(1, num_missed + 1):
                             yield Candle(
                                 time=last_closed_candle.time + i * interval,
@@ -98,6 +106,17 @@ class Chandler:
                     yield candle
                 if candle.closed:
                     last_closed_candle = candle
+
+        if not last_closed_candle:
+            _log.warning(f'missed all {candle_msg} between {strfspan(start, end)}')
+        else:
+            time_diff = end - last_closed_candle.time
+            if time_diff >= interval * 2:
+                num_missed = time_diff // interval - 1
+                _log.warning(
+                    f'missed {num_missed} {candle_msg} from the end {strftimestamp(end)}; '
+                    f'current candle {candle}'
+                )
 
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
