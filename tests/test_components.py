@@ -212,6 +212,7 @@ async def test_stream_candles_fill_missing_with_last(storage):
         Candle(time=2, close=2),
     ]
 
+
 async def test_stream_future_trades_span_stored_until_stopped(storage):
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'

@@ -84,36 +84,20 @@ class Trader:
                     symbol=self.symbol,
                     interval=self.interval,
                     start=start,
-                    end=self.end
+                    end=self.end,
+                    fill_missing_with_last=self.missed_candle_policy is MissedCandlePolicy.LAST
                 ):
-                    # Check if we have missed a candle.
-                    if ctx.last_candle and candle.time - ctx.last_candle.time >= self.interval * 2:
-                        # TODO: python 3.8 assignment expression
-                        num_missed = (candle.time - ctx.last_candle.time) // self.interval - 1
-                        _log.warning(
-                            f'missed {num_missed} candle(s); last candle {ctx.last_candle}; '
-                            f'current candle {candle}'
-                        )
-                        if self.missed_candle_policy is MissedCandlePolicy.RESTART:
-                            _log.info('restarting strategy')
-                            restart = True
-                            ctx.strategy = self.new_strategy()
-                            start = candle.time + self.interval
-                            restart_count += 1
-                        elif self.missed_candle_policy is MissedCandlePolicy.LAST:
-                            _log.info('replaying missed candles with last candle values')
-                            last_candle = ctx.last_candle
-                            for i in range(1, num_missed + 1):
-                                missed_candle = Candle(
-                                    time=last_candle.time + i * self.interval,
-                                    open=last_candle.open,
-                                    high=last_candle.high,
-                                    low=last_candle.low,
-                                    close=last_candle.close,
-                                    volume=last_candle.volume,
-                                    closed=last_candle.closed
-                                )
-                                await self._tick(missed_candle)
+                    # Check if we need to restart strategy due to missed candle.
+                    if (
+                        ctx.last_candle
+                        and candle.time - ctx.last_candle.time >= self.interval * 2
+                        and self.missed_candle_policy is MissedCandlePolicy.RESTART
+                    ):
+                        _log.info('restarting strategy')
+                        restart = True
+                        ctx.strategy = self.new_strategy()
+                        start = candle.time + self.interval
+                        restart_count += 1
 
                     await self._tick(candle)
 

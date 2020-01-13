@@ -59,7 +59,7 @@ class Chandler:
                                                                      for a, b in missing_spans])
         spans.sort(key=lambda s: s[0])
 
-        last_closed_candle = None
+        last_closed_candle: Optional[Candle] = None
         for span_start, span_end, exist_locally in spans:
             period_msg = f'{strfspan(span_start, span_end)}'
             if exist_locally:
@@ -73,22 +73,27 @@ class Chandler:
                     exchange, symbol, interval, span_start, span_end
                 )
             async for candle in stream:
-                if (
-                    fill_missing_with_last
-                    and last_closed_candle
-                    and candle.time - last_closed_candle.time >= interval * 2
-                ):
-                    num_missed = (candle.time - last_closed_candle.time) // interval - 1
-                    for i in range(1, num_missed + 1):
-                        yield Candle(
-                            time=last_closed_candle.time + i * interval,
-                            open=last_closed_candle.open,
-                            high=last_closed_candle.high,
-                            low=last_closed_candle.low,
-                            close=last_closed_candle.close,
-                            volume=last_closed_candle.volume,
-                            closed=True
-                        )
+                # TODO: use walrus operator
+                time_diff = candle.time - last_closed_candle.time if last_closed_candle else 0
+                if time_diff >= interval * 2:
+                    assert last_closed_candle
+                    num_missed = time_diff // interval - 1
+                    _log.warning(
+                        f'missed {num_missed} candle(s); last closed candle {last_closed_candle}; '
+                        f'current candle {candle}'
+                    )
+                    if fill_missing_with_last:
+                        _log.info(f'filling {num_missed} missed candles with last values')
+                        for i in range(1, num_missed + 1):
+                            yield Candle(
+                                time=last_closed_candle.time + i * interval,
+                                open=last_closed_candle.open,
+                                high=last_closed_candle.high,
+                                low=last_closed_candle.low,
+                                close=last_closed_candle.close,
+                                volume=last_closed_candle.volume,
+                                closed=True
+                            )
                 if not closed or candle.closed:
                     yield candle
                 if candle.closed:
