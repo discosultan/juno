@@ -15,7 +15,7 @@ async def main():
     sqlite = SQLite()
     binance = init_instance(Binance, from_env())
     trades = Trades(sqlite, [binance])
-    chandler = Chandler(trades, sqlite, [binance])
+    chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])
     async with binance, chandler:
         candles = await list_async(
             chandler.stream_candles(
