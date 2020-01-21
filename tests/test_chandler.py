@@ -80,7 +80,7 @@ async def test_stream_future_candles_span_stored_until_stopped(storage):
     chandler = Chandler(
         storage=storage,
         exchanges=[exchange],
-        get_time_ms=time.get_time,
+        get_time_ms=time.get_time
     )
 
     task = asyncio.create_task(cancelable(
@@ -113,7 +113,7 @@ async def test_stream_candles_construct_from_trades(storage):
     chandler = Chandler(
         trades=trades,
         storage=storage,
-        exchanges=[exchange],
+        exchanges=[exchange]
     )
 
     output_candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 5, 0, 5))
@@ -197,4 +197,36 @@ async def test_stream_candles_fill_missing_with_last(storage):
         Candle(time=0, close=1),
         Candle(time=1, close=1),
         Candle(time=2, close=2),
+    ]
+
+
+async def test_stream_candles_construct_from_trades_if_interval_not_supported(storage):
+    exchange = fakes.Exchange()
+    exchange.can_stream_historical_candles = True
+
+    informant = fakes.Informant(candle_intervals=[1])
+    trades = fakes.Trades(trades=[
+        Trade(time=0, price=Decimal('1.0'), size=Decimal('1.0')),
+        Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
+        Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
+    ])
+    chandler = Chandler(
+        informant=informant,
+        trades=trades,
+        storage=storage,
+        exchanges=[exchange]
+    )
+
+    output_candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 5, 0, 5))
+
+    assert output_candles == [
+        Candle(
+            time=0,
+            open=Decimal('1.0'),
+            high=Decimal('4.0'),
+            low=Decimal('1.0'),
+            close=Decimal('2.0'),
+            volume=Decimal('4.0'),
+            closed=True
+        )
     ]
