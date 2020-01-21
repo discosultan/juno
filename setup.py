@@ -11,9 +11,7 @@ setup(
         'aiolimiter @ git+ssh://git@github.com/discosultan/aiolimiter@master#egg=aiolimiter',
         'cffi',
         'colorlog',
-        # A release has not been made for a long time. We pull straight from master for Python 3.8
-        # support.
-        'deap @ git+ssh://git@github.com/DEAP/deap@master#egg=deap',
+        'deap',
         'numpy',
         'pandas',
         'python-dateutil',
