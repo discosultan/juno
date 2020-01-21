@@ -27,6 +27,14 @@ class DM:
     def req_history(self) -> int:
         return self._t2
 
+    @property
+    def diff(self) -> Decimal:
+        return abs(self.plus_value - self.minus_value)
+
+    @property
+    def sum(self) -> Decimal:
+        return self.plus_value + self.minus_value
+
     def update(self, high: Decimal, low: Decimal) -> None:
         if self._t >= self._t1 and self._t < self._t3:
             dp, dm = _calc_direction(self._prev_high, self._prev_low, high, low)

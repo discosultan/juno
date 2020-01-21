@@ -19,8 +19,8 @@ class Adxr:
     def req_history(self) -> int:
         return self._t2
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
-        self._adx.update(high, low, close)
+    def update(self, high: Decimal, low: Decimal) -> None:
+        self._adx.update(high, low)
 
         if self._t >= self._t1:
             self._historical_adx.append(self._adx.value)

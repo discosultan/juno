@@ -19,8 +19,8 @@ class Adx:
     def req_history(self) -> int:
         return self._t1
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
-        self._dx.update(high, low, close)
+    def update(self, high: Decimal, low: Decimal) -> None:
+        self._dx.update(high, low)
         if self._dx.value == 0:
             self.value = Decimal('0.0')
         else:
