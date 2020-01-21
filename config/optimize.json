@@ -7,15 +7,15 @@
         {
             "type": "optimize",
             "exchange": "binance",
-            "symbols": ["eth-btc"],
+            "symbols": ["eth-btc", "xrp-btc", "ltc-btc", "eos-btc", "xmr-btc"],
             "start": "2018-01-01",
             "end": "2020-01-01",
-            "intervals": ["1h"],
+            "intervals": ["30m", "1h", "2h", "4h", "1d"],
             "quote": 1.0,
             "missed_candle_policy": null,
             "trailing_stop": null,
             "strategy": "mamacx",
-            "population_size": 50,
+            "population_size": 10,
             "max_generations": 100,
             "seed": null,
             "verbose": true
