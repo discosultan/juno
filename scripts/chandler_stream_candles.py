@@ -17,7 +17,7 @@ async def main():
     client = init_instance(EXCHANGE_TYPE, from_env())
     name = EXCHANGE_TYPE.__name__.lower()
     trades = Trades(sqlite, [client])
-    chandler = Chandler(trades, sqlite, [client])
+    chandler = Chandler(trades=trades, storage=sqlite, exchanges=[client])
     async with client:
         # Should fetch 2 historical and rest future.
         start = floor_multiple(time_ms(), MIN_MS) - 2 * MIN_MS

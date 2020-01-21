@@ -33,7 +33,7 @@ async def main():
     exchange = 'binance'
     sqlite = SQLite()
     trades = Trades(sqlite, [binance])
-    chandler = Chandler(trades, sqlite, [binance])
+    chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])
     informant = Informant(sqlite, [binance])
     async with binance, chandler, informant:
         symbols = informant.list_symbols(exchange)[:10]

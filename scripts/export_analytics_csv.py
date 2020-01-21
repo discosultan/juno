@@ -26,7 +26,7 @@ async def main() -> None:
     binance = init_instance(Binance, config)
     coinbase = init_instance(Coinbase, config)
     trades = Trades(sqlite, [binance, coinbase])
-    chandler = Chandler(trades, sqlite, [binance, coinbase])
+    chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance, coinbase])
     informant = Informant(sqlite, [binance, coinbase])
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)

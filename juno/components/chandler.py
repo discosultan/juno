@@ -17,6 +17,7 @@ from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfinterval, strfspan, strftimestamp, time_ms
 from juno.utils import generate_missing_spans, merge_adjacent_spans
 
+from .informant import Informant
 from .trades import Trades
 
 _log = logging.getLogger(__name__)
@@ -25,17 +26,19 @@ _log = logging.getLogger(__name__)
 class Chandler:
     def __init__(
         self,
-        trades: Trades,
         storage: Storage,
         exchanges: List[Exchange],
+        informant: Optional[Informant] = None,
+        trades: Optional[Trades] = None,
         get_time_ms: Optional[Callable[[], int]] = None,
         storage_batch_size: int = 1000
     ) -> None:
         assert storage_batch_size > 0
 
-        self._trades = trades
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._informant = informant
+        self._trades = trades
         self._get_time = get_time_ms or time_ms
         self._storage_batch_size = storage_batch_size
 
@@ -186,11 +189,19 @@ class Chandler:
         self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int
     ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
+        # If informant is not available, we assume the interval to be supported. We will fail in
+        # exchange if it is not.
+        is_candle_interval_supported = (
+            not self._informant or interval in self._informant.list_candle_intervals(exchange)
+        )
 
         async def inner(stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
             if start < current:  # Historical.
                 historical_end = min(end, current)
-                if exchange_instance.can_stream_historical_candles:
+                if (
+                    exchange_instance.can_stream_historical_candles
+                    and is_candle_interval_supported
+                ):
                     async for candle in exchange_instance.stream_historical_candles(
                         symbol, interval, start, historical_end
                     ):
@@ -211,7 +222,7 @@ class Chandler:
                         break
 
         if end > current:
-            if exchange_instance.can_stream_candles:
+            if exchange_instance.can_stream_candles and is_candle_interval_supported:
                 async with exchange_instance.connect_stream_candles(symbol, interval) as stream:
                     async for candle in inner(stream):
                         yield candle
@@ -226,6 +237,11 @@ class Chandler:
     async def _stream_construct_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
+        if not self._trades:
+            raise ValueError('Trades component not configured. Unable to construct candles')
+
+        _log.info(f'constructing {exchange} {symbol} {interval} candles from trades')
+
         current = start
         next_ = current + interval
         open_ = Decimal('0.0')
