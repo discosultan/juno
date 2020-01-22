@@ -1,5 +1,7 @@
+mod macd;
 mod mamacx;
 
+pub use macd::Macd;
 pub use mamacx::MAMACX;
 
 use crate::{Advice, Candle, Trend};

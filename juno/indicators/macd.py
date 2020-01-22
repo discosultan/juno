@@ -10,8 +10,8 @@ class Macd:
             raise ValueError(f'Invalid period(s) ({short_period}, {long_period}, {signal_period})')
         if long_period < short_period:
             raise ValueError(
-                f'Long period ({long_period}) must be larger '
-                f'than or equal to short period ({short_period})'
+                f'Long period ({long_period}) must be larger than or equal to short period '
+                f'({short_period})'
             )
 
         self.value = Decimal('0.0')

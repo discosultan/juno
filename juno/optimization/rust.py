@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 import os
 import platform
@@ -12,11 +13,11 @@ from typing import Any, Dict, List, Tuple, Type
 import cffi
 import pandas as pd
 
-from juno import Candle, Fees, Filters, Interval, Timestamp
+from juno import Candle, Fees, Filters, Interval, Timestamp, strategies
 from juno.cffi import CDefBuilder
 from juno.components import Chandler, Informant
 from juno.filters import Price, Size
-from juno.strategies import MAMACX, Strategy
+from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.trading import MissedCandlePolicy, Statistics
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
@@ -30,6 +31,13 @@ _cdef_builder = CDefBuilder({
     Interval: 'uint64_t',
     Timestamp: 'uint64_t',
 })
+
+_strategy_types = [
+    t for n, t in inspect.getmembers(
+        strategies,
+        lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, Strategy)
+    )
+]
 
 
 class Rust(Solver):
@@ -79,7 +87,9 @@ class Rust(Solver):
 
         self.c_analysis_info = self.ffi.new('AnalysisInfo *')
         self.c_trading_info = self.ffi.new('TradingInfo *')
-        self.c_strategy_info = self.ffi.new(f'{MAMACX.__name__}Info *')
+        self.c_strategy_infos = {
+            t: self.ffi.new(f'{t.__name__}Info *') for t in _strategy_types
+        }
 
         return self
 
@@ -117,14 +127,9 @@ class Rust(Solver):
         c_trading_info.trailing_stop = trailing_stop
 
         # Strategy.
-        c_strategy_info = self.c_strategy_info
-        c_strategy_info.short_period = args[0]
-        c_strategy_info.long_period = args[1]
-        c_strategy_info.neg_threshold = args[2]
-        c_strategy_info.pos_threshold = args[3]
-        c_strategy_info.persistence = args[4]
-        c_strategy_info.short_ma = args[5]
-        c_strategy_info.long_ma = args[6]
+        c_strategy_info = self.c_strategy_infos[strategy_type]
+        for i, n in enumerate(get_input_type_hints(strategy_type.__init__).keys()):
+            setattr(c_strategy_info, n, args[i])
 
         # Analysis.
         c_quote_fiat_daily = self._get_or_create_c_candles(
@@ -215,13 +220,7 @@ class Rust(Solver):
 
 
 def _build_cdef() -> str:
-    # TODO: Do we want to parametrize this? Or lookup from module and construct for all.
-    strategy_type = MAMACX
-    strategy_name_lower = strategy_type.__name__.lower()
-    strategy_info_type_name = f'{strategy_type.__name__}Info'
-    strategy_info_param_name = f'{strategy_name_lower}_info'
-
-    return ''.join((
+    members = [
         _cdef_builder.struct(Candle, exclude=['closed']),
         _cdef_builder.struct(Fees),
         _cdef_builder.struct(Price),
@@ -244,17 +243,25 @@ def _build_cdef() -> str:
             ('missed_candle_policy', MissedCandlePolicy),
             ('trailing_stop', Decimal),
             refs=['fees', 'filters']
-        ),
-        _cdef_builder.struct_from_fields(
+        )
+    ]
+
+    for strategy_type in _strategy_types:
+        _log.critical(strategy_type)
+        strategy_name_lower = strategy_type.__name__.lower()
+        strategy_info_type_name = f'{strategy_type.__name__}Info'
+        strategy_info_param_name = f'{strategy_name_lower}_info'
+        members.append(_cdef_builder.struct_from_fields(
             strategy_info_type_name,
-            *iter(get_input_type_hints(strategy_type.__init__).items())
-        ),
-        _cdef_builder.function_from_params(
+            *iter(get_input_type_hints(strategy_type.__init__).items())  # type: ignore
+        ))
+        members.append(_cdef_builder.function_from_params(
             strategy_name_lower,
             SolverResult,
             ('trading_info', type('TradingInfo', (), {})),
             (strategy_info_param_name, type(strategy_info_type_name, (), {})),
             ('analysis_info', type('AnalysisInfo', (), {})),
             refs=['analysis_info', 'trading_info', strategy_info_param_name]
-        ),
-    ))
+        ))
+
+    return ''.join(members)

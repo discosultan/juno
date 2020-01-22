@@ -11,47 +11,34 @@ mod trading;
 mod utils;
 
 use std::slice;
-use analyse::analyse;
-use indicators::{Ema, Ema2, MA, Sma, Smma};
-use strategies::{MAMACX, Strategy};
-use trade::trade;
-pub use common::{Advice, Candle, Fees, Trend};
-pub use filters::Filters;
-pub use trading::{Position, TradingContext, TradingSummary};
+use crate::{
+    analyse::analyse,
+    indicators::{Ema, Ema2, MA, Sma, Smma},
+    strategies::{Macd, MAMACX, Strategy},
+    trade::trade,
+};
+pub use crate::{
+    common::{Advice, Candle, Fees, Trend},
+    filters::Filters,
+    trading::{Position, TradingContext, TradingSummary},
+};
 
-pub type Result = (f64, ); // (f64, f64, f64, f64, f64, u64, u32, u32);
-
-#[repr(C)]
-pub struct AnalysisInfo {
-    quote_fiat_daily: *const Candle,
-    quote_fiat_daily_length: u32,
-    base_fiat_daily: *const f64,
-    base_fiat_daily_length: u32,
-    benchmark_g_returns: *const f64,
-    benchmark_g_returns_length: u32,
-}
-
-#[repr(C)]
-pub struct TradingInfo {
-    candles: *const Candle,
-    candles_length: u32,
-    fees: *const Fees,
-    filters: *const Filters,
-    interval: u64,
-    quote: f64,
-    missed_candle_policy: u32,
-    trailing_stop: f64,
-}
-
-#[repr(C)]
-pub struct MAMACXInfo {
-    short_period: u32,
-    long_period: u32,
-    neg_threshold: f64,
-    pos_threshold: f64,
-    persistence: u32,
-    short_ma: u32,
-    long_ma: u32,
+#[no_mangle]
+pub unsafe extern "C" fn macd(
+    trading_info: *const TradingInfo,
+    macd_info: *const MacdInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let macd_info = &*macd_info;
+    let strategy_factory = || {
+        Macd::new(
+            macd_info.short_period,
+            macd_info.long_period,
+            macd_info.signal_period,
+            macd_info.persistence,
+        )
+    };
+    run_test(trading_info, strategy_factory, analysis_info)
 }
 
 #[no_mangle]
@@ -159,4 +146,47 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         // trading_result.num_positions_in_profit,
         // trading_result.num_positions_in_loss,
     )
+}
+
+pub type Result = (f64, ); // (f64, f64, f64, f64, f64, u64, u32, u32);
+
+#[repr(C)]
+pub struct AnalysisInfo {
+    quote_fiat_daily: *const Candle,
+    quote_fiat_daily_length: u32,
+    base_fiat_daily: *const f64,
+    base_fiat_daily_length: u32,
+    benchmark_g_returns: *const f64,
+    benchmark_g_returns_length: u32,
+}
+
+#[repr(C)]
+pub struct TradingInfo {
+    candles: *const Candle,
+    candles_length: u32,
+    fees: *const Fees,
+    filters: *const Filters,
+    interval: u64,
+    quote: f64,
+    missed_candle_policy: u32,
+    trailing_stop: f64,
+}
+
+#[repr(C)]
+pub struct MacdInfo {
+    short_period: u32,
+    long_period: u32,
+    signal_period: u32,
+    persistence: u32,
+}
+
+#[repr(C)]
+pub struct MAMACXInfo {
+    short_period: u32,
+    long_period: u32,
+    neg_threshold: f64,
+    pos_threshold: f64,
+    persistence: u32,
+    short_ma: u32,
+    long_ma: u32,
 }
