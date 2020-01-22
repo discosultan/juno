@@ -1,5 +1,6 @@
 from .macd import Macd
 from .mamacx import MA, MAMACX
+from .rsi import Rsi
 from .strategy import Meta, Strategy
 
 __all__ = [
@@ -7,5 +8,6 @@ __all__ = [
     'Macd',
     'MAMACX',
     'Meta',
+    'Rsi',
     'Strategy',
 ]
