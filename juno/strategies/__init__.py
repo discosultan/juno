@@ -1,10 +1,10 @@
-from .macd import MACD
+from .macd import Macd
 from .mamacx import MA, MAMACX
 from .strategy import Meta, Strategy
 
 __all__ = [
     'MA',
-    'MACD',
+    'Macd',
     'MAMACX',
     'Meta',
     'Strategy',

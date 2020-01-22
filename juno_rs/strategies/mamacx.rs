@@ -1,9 +1,13 @@
 use std::cmp::min;
 
-use crate::indicators::MA;
-use crate::strategies::{advice, Strategy};
-use crate::utils::Persistence;
-use crate::{Advice, Candle, Trend};
+use crate::{
+    Advice,
+    Candle,
+    Trend,
+    indicators::MA,
+    strategies::{advice, Strategy},
+    utils::Persistence,
+};
 
 pub struct MAMACX<TShort: MA, TLong: MA> {
     short_ma: TShort,
@@ -23,7 +27,7 @@ impl<TShort: MA, TLong: MA> MAMACX<TShort, TLong> {
         pos_threshold: f64,
         persistence: u32,
     ) -> Self {
-        let period_long = long_ma.period();
+        let long_period = long_ma.period();
         Self {
             short_ma,
             long_ma,
@@ -31,7 +35,7 @@ impl<TShort: MA, TLong: MA> MAMACX<TShort, TLong> {
             neg_threshold,
             pos_threshold,
             t: 0,
-            t1: period_long - 1,
+            t1: long_period - 1,
         }
     }
 }
