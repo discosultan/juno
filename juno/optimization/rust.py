@@ -130,14 +130,6 @@ class Rust(Solver):
         c_strategy_info = self.c_strategy_infos[strategy_type]
         for i, n in enumerate(get_input_type_hints(strategy_type.__init__).keys()):
             setattr(c_strategy_info, n, args[i])
-            # for i in range(0, len(args)):
-        # c_strategy_info.short_period = args[0]
-        # c_strategy_info.long_period = args[1]
-        # c_strategy_info.neg_threshold = args[2]
-        # c_strategy_info.pos_threshold = args[3]
-        # c_strategy_info.persistence = args[4]
-        # c_strategy_info.short_ma = args[5]
-        # c_strategy_info.long_ma = args[6]
 
         # Analysis.
         c_quote_fiat_daily = self._get_or_create_c_candles(
