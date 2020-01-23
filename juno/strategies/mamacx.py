@@ -57,6 +57,7 @@ class MAMACX(Strategy):
         self._persistence = Persistence(level=persistence, allow_initial_trend=False)
         self._t = 0
         self._t1 = long_period - 1
+        self.advice = None
 
     @property
     def req_history(self) -> int:
@@ -66,7 +67,7 @@ class MAMACX(Strategy):
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
-        trend = Trend.UNKNOWN
+
         if self._t == self._t1:
             diff = (
                 100
@@ -75,9 +76,11 @@ class MAMACX(Strategy):
             )
 
             if diff > self._pos_threshold:
-                trend = Trend.UP
+                self.advice = Advice.BUY
             elif diff < self._neg_threshold:
-                trend = Trend.DOWN
+                self.advice = Advice.SELL
+            else:
+                self.advice = None
 
         self._t = min(self._t + 1, self._t1)
 

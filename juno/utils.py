@@ -15,7 +15,7 @@ from typing import (
     TypeVar, Union, get_origin, get_type_hints
 )
 
-from juno import Interval, Timestamp, Trend, json
+from juno import Interval, Timestamp, json
 from juno.time import strfinterval, strftimestamp
 
 T = TypeVar('T')
@@ -260,36 +260,3 @@ class EventEmitter:
         return await asyncio.gather(
             *(x(*args) for x in self._handlers[event]), return_exceptions=True
         )
-
-
-class Persistence:
-    """The number of ticks required to confirm a trend."""
-    def __init__(self, level: int, allow_initial_trend: bool = False) -> None:
-        self.age = 0
-        self.level = level
-        self.allow_next_trend = allow_initial_trend
-        self.trend = Trend.UNKNOWN
-        self.potential_trend = Trend.UNKNOWN
-
-    def update(self, trend: Trend) -> Tuple[Trend, bool]:
-        trend_changed = False
-
-        if trend is Trend.UNKNOWN or (
-            self.potential_trend is not Trend.UNKNOWN and trend is not self.potential_trend
-        ):
-            self.allow_next_trend = True
-
-        if trend is not self.potential_trend:
-            self.age = 0
-            self.potential_trend = trend
-
-        if (
-            self.allow_next_trend and self.age == self.level
-            and self.potential_trend is not self.trend
-        ):
-            self.trend = self.potential_trend
-            trend_changed = True
-
-        self.age += 1
-
-        return self.trend, trend_changed
