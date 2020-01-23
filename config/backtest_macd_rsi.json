@@ -14,11 +14,14 @@
             "missed_candle_policy": "last",
             "trailing_stop": 0.0,
             "strategy_config": {
-                "type": "rsi",
-                "period": 14,
-                "up_threshold": 70.0,
-                "down_threshold": 30.0,
-                "persistence": 0
+                "type": "macdrsi",
+                "macd_short_period": 12,
+                "macd_long_period": 26,
+                "macd_signal_period": 9,
+                "rsi_period": 14,
+                "rsi_up_threshold": 70.0,
+                "rsi_down_threshold": 30.0,
+                "persistence": 4
             }
         }
     ]

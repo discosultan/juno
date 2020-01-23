@@ -24,7 +24,7 @@ class MAMACX(Strategy):
     meta = Meta(
         constraints={
             ('short_period', 'long_period'):
-                math.Pair(math.Int(1, 51), operator.lt, math.Int(2, 101)),
+                math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
             'neg_threshold':
                 math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
             'pos_threshold':

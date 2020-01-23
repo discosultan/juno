@@ -6,12 +6,13 @@ from juno import Advice, Candle, indicators, math
 from .strategy import Meta, Strategy
 
 
-# Moving Average Convergence Divergence.
+# Simple MACD based strategy which signals buy when MACD value above the signal line and sell if
+# below.
 class Macd(Strategy):
     meta = Meta(
         constraints={
             ('short_period', 'long_period'):
-                math.Pair(math.Int(1, 51), operator.lt, math.Int(2, 101)),
+                math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
             'signal_period': math.Int(1, 101),
             'persistence': math.Int(0, 10),
         }

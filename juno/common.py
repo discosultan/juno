@@ -13,6 +13,14 @@ class Advice(Enum):
     BUY = 1
     SELL = 2
 
+    @staticmethod
+    def combine(*advices: Optional[Advice]) -> Optional[Advice]:
+        if all(a is Advice.BUY for a in advices):
+            return Advice.BUY
+        if all(a is Advice.SELL for a in advices):
+            return Advice.SELL
+        return None
+
 
 class Balance(NamedTuple):
     available: Decimal
