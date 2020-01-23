@@ -1,9 +1,10 @@
 import operator
 from decimal import Decimal
 from enum import IntEnum
+from typing import Optional
 
-from juno import Advice, Candle, Trend, indicators, math
-from juno.utils import Persistence, get_module_type
+from juno import Advice, Candle, indicators, math
+from juno.utils import get_module_type
 
 from .strategy import Meta, Strategy
 
@@ -47,28 +48,21 @@ class MAMACX(Strategy):
         short_ma: MA = MA.EMA,
         long_ma: MA = MA.EMA
     ) -> None:
+        super().__init__(maturity=long_period - 1, persistence=persistence)
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
+
         self._short_ma = get_module_type(indicators, short_ma.name.lower())(short_period)
         self._long_ma = get_module_type(indicators, long_ma.name.lower())(long_period)
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
-        self._persistence = Persistence(level=persistence, allow_initial_trend=False)
-        self._t = 0
-        self._t1 = long_period - 1
-        self.advice = None
 
-    @property
-    def req_history(self) -> int:
-        return self._t1
-
-    def update(self, candle: Candle) -> Advice:
+    def tick(self, candle: Candle) -> Optional[Advice]:
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
-
-        if self._t == self._t1:
+        if self.mature:
             diff = (
                 100
                 * (self._short_ma.value - self._long_ma.value)
@@ -76,12 +70,8 @@ class MAMACX(Strategy):
             )
 
             if diff > self._pos_threshold:
-                self.advice = Advice.BUY
+                return Advice.BUY
             elif diff < self._neg_threshold:
-                self.advice = Advice.SELL
-            else:
-                self.advice = None
+                return Advice.SELL
 
-        self._t = min(self._t + 1, self._t1)
-
-        return Strategy.advice(*self._persistence.update(trend))
+        return None

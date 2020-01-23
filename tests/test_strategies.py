@@ -24,71 +24,68 @@ class DummyStrategy(Strategy):
         }
     )
 
-    def req_history(self):
-        pass
-
-    def update(self, candle):
+    def tick(self, candle):
         pass
 
 
 def test_persistence_level_0_allow_initial_trend():
-    persistence = Persistence(level=0, allow_initial_trend=True)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-    assert persistence.update(Trend.UP) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, True)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
+    persistence = Persistence(level=0, allow_initial=True)
+    assert persistence.update(Trend.UP) == (True, True)
+    assert persistence.update(Trend.UP) == (True, False)
+    assert persistence.update(Trend.DOWN) == (True, True)
+    assert persistence.update(None) == (False, True)
+    assert persistence.update(Trend.UP) == (True, True)
 
 
 def test_persistence_level_0_disallow_initial_trend():
-    persistence = Persistence(level=0, allow_initial_trend=False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    persistence = Persistence(level=0, allow_initial=False)
+    assert persistence.update(Trend.UP) == (False, False)
+    assert persistence.update(Trend.UP) == (False, False)
 
 
 def test_persistence_level_0_disallow_initial_trend_starting_with_unknown_does_not_skip_initial():
-    persistence = Persistence(level=0, allow_initial_trend=False)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
+    persistence = Persistence(level=0, allow_initial=False)
+    assert persistence.update(None) == (False, False)
+    assert persistence.update(Trend.UP) == (True, True)
 
 
 def test_persistence_level_1_allow_initial_trend():
-    persistence = Persistence(level=1, allow_initial_trend=True)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-    assert persistence.update(Trend.UP) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.DOWN, False)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, True)
+    persistence = Persistence(level=1, allow_initial=True)
+    assert persistence.update(Trend.UP) == (False, False)
+    assert persistence.update(Trend.UP) == (True, True)
+    assert persistence.update(Trend.UP) == (True, False)
+    assert persistence.update(Trend.DOWN) == (True, False)
+    assert persistence.update(Trend.DOWN) == (True, True)
+    assert persistence.update(None) == (True, False)
+    assert persistence.update(None) == (False, True)
 
 
 def test_persistence_level_1_disallow_initial_trend():
-    persistence = utils.Persistence(level=1, allow_initial_trend=False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
+    persistence = Persistence(level=1, allow_initial=False)
+    assert persistence.update(Trend.UP) == (False, False)
+    assert persistence.update(Trend.UP) == (False, False)
+    assert persistence.update(Trend.UP) == (False, False)
 
 
 def test_persistence_level_1_disallow_initial_trend_starting_with_unknown_does_not_skip_initial():
-    persistence = Persistence(level=1, allow_initial_trend=False)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
+    persistence = Persistence(level=1, allow_initial=False)
+    assert persistence.update(None) == (False, False)
+    assert persistence.update(Trend.UP) == (False, False)
+    assert persistence.update(Trend.UP) == (True, True)
 
 
 def test_persistence_level_1_disallow_initial_trend_starting_with_up_does_not_skip_initial():
-    persistence = Persistence(level=1, allow_initial_trend=False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.DOWN) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
+    persistence = Persistence(level=1, allow_initial=False)
+    assert persistence.update(Trend.UP) == (False, False)
+    assert persistence.update(Trend.DOWN) == (False, False)
+    assert persistence.update(Trend.DOWN) == (True, True)
 
 
 def test_persistence_level_1_allow_initial_trend_change_resets_age():
-    persistence = Persistence(level=1, allow_initial_trend=True)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
+    persistence = Persistence(level=1, allow_initial=True)
+    assert persistence.update(Trend.UP) == (False, False)
+    assert persistence.update(Trend.UP) == (True, True)
+    assert persistence.update(Trend.DOWN) == (True, False)
+    assert persistence.update(Trend.UP) == (True, False)
+    assert persistence.update(Trend.DOWN) == (True, False)
+    assert persistence.update(Trend.DOWN) == (True, True)

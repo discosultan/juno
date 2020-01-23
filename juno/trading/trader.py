@@ -127,7 +127,8 @@ class Trader:
         ctx = self.ctx
         self.summary.append_candle(candle)
 
-        advice = ctx.strategy.update(candle)
+        ctx.strategy.update(candle)
+        advice = ctx.strategy.advice
 
         if not ctx.open_position and advice is Advice.BUY:
             await self._open_position(candle=candle)

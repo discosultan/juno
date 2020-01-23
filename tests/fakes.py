@@ -251,6 +251,9 @@ class Strategy:
 
     def update(self, candle):
         self.updates.append(candle)
+
+    @property
+    def advice(self):
         return self.advices.pop()
 
 

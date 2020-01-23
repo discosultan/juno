@@ -10,7 +10,6 @@ from juno.time import datetime_utcfromtimestamp_ms
 
 
 class Advice(Enum):
-    NONE = 0
     BUY = 1
     SELL = 2
 

@@ -9,11 +9,11 @@ pub struct Persistence {
 }
 
 impl Persistence {
-    pub fn new(level: u32, allow_initial_trend: bool) -> Self {
+    pub fn new(level: u32, allow_initial: bool) -> Self {
         Persistence {
             age: 0,
             level,
-            allow_next_trend: allow_initial_trend,
+            allow_next_trend: allow_initial,
             trend: Trend::Unknown,
             potential_trend: Trend::Unknown,
         }

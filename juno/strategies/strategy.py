@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod, abstractproperty
-from typing import Any, Dict, Tuple, Union
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional, Tuple, Union
 
-from juno import Advice, Candle, Trend
+from juno import Advice, Candle
 from juno.math import Constraint
 
 
@@ -16,16 +16,32 @@ class Meta:
 class Strategy(ABC):
     meta: Meta
 
-    @abstractproperty
-    def advice(self) -> Advice:
-        self._advice = 
+    def __init__(self, maturity: int = 0, persistence: int = 0) -> None:
+        self.req_history = maturity
 
-    @abstractproperty
-    def req_history(self) -> int:
-        pass
+        self._maturity = maturity
+        self._persistence = Persistence(persistence)
+        self._advice: Optional[Advice] = None
+        self._age = 0
+
+    @property
+    def advice(self) -> Optional[Advice]:
+        advice = None
+        if self._persistence.persisted:
+            advice = self._advice
+        return advice
+
+    @property
+    def mature(self) -> bool:
+        return self._age >= self._maturity
+
+    def update(self, candle: Candle) -> None:
+        self._advice = self.tick(candle)
+        self._persistence.update(self._advice)
+        self._age = min(self._age + 1, self._maturity)
 
     @abstractmethod
-    def update(self, candle: Candle) -> Advice:
+    def tick(self, candle: Candle) -> Optional[Advice]:
         pass
 
     def validate(self, *args: Any) -> None:
@@ -47,42 +63,42 @@ class Strategy(ABC):
 
             from_index = to_index
 
-    # @staticmethod
-    # def advice(trend: Trend, changed: bool) -> Advice:
-    #     return {
-    #         Trend.UP: Advice.BUY,
-    #         Trend.DOWN: Advice.SELL,
-    #     }.get(trend, Advice.NONE) if changed else Advice.NONE
-
 
 class Persistence:
-    """The number of ticks required to confirm a trend."""
-    def __init__(self, level: int, allow_initial_trend: bool = False) -> None:
+    """The number of ticks required to confirm a value."""
+    def __init__(self, level: int, allow_initial: bool = False) -> None:
         self.age = 0
         self.level = level
-        self.allow_next_trend = allow_initial_trend
-        self.trend = Trend.UNKNOWN
-        self.potential_trend = Trend.UNKNOWN
+        self.allow_next = allow_initial
+        self.value = None
+        self.potential = None
+        self.changed = False
 
-    def update(self, trend: Trend) -> Tuple[Trend, bool]:
-        trend_changed = False
+    @property
+    def persisted(self) -> bool:
+        return self.value is not None and self.age >= self.level
 
-        if trend is Trend.UNKNOWN or (
-            self.potential_trend is not Trend.UNKNOWN and trend is not self.potential_trend
+    def update(self, value: Optional[Any]) -> Tuple[bool, bool]:
+        if (
+            value is None
+            or (self.potential is not None and value is not self.potential)
         ):
-            self.allow_next_trend = True
+            self.allow_next = True
 
-        if trend is not self.potential_trend:
+        if value is not self.potential:
             self.age = 0
-            self.potential_trend = trend
+            self.potential = value
 
         if (
-            self.allow_next_trend and self.age == self.level
-            and self.potential_trend is not self.trend
+            self.allow_next
+            and self.age == self.level
+            and self.potential is not self.value
         ):
-            self.trend = self.potential_trend
-            trend_changed = True
+            self.value = self.potential
+            self.changed = True
+        else:
+            self.changed = False
 
-        self.age += 1
+        self.age = min(self.age + 1, self.level)
 
-        return self.trend, trend_changed
+        return self.persisted, self.changed
