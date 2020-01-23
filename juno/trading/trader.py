@@ -127,7 +127,8 @@ class Trader:
         ctx = self.ctx
         self.summary.append_candle(candle)
 
-        advice = ctx.strategy.update(candle)
+        ctx.strategy.update(candle)
+        advice = ctx.strategy.advice
 
         if not ctx.open_position and advice is Advice.BUY:
             await self._open_position(candle=candle)
@@ -143,6 +144,8 @@ class Trader:
                 _log.info(f'trailing stop hit at {self.trailing_stop}; selling')
                 await self._close_position(candle=candle)
 
+        if not ctx.last_candle:
+            _log.info(f'first candle {candle}')
         ctx.last_candle = candle
 
     async def _open_position(self, candle: Candle) -> None:

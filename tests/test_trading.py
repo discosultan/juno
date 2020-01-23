@@ -102,7 +102,7 @@ async def test_trader_trailing_stop_loss():
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        new_strategy=lambda: fakes.Strategy(Advice.BUY, Advice.NONE, Advice.NONE, Advice.SELL),
+        new_strategy=lambda: fakes.Strategy(Advice.BUY, None, None, Advice.SELL),
         missed_candle_policy=MissedCandlePolicy.IGNORE,
         adjust_start=False,
         trailing_stop=Decimal('0.1'),
@@ -125,8 +125,8 @@ async def test_trader_restart_on_missed_candle():
             Candle(time=5),
         ]
     )
-    strategy1 = fakes.Strategy(Advice.NONE, Advice.NONE)
-    strategy2 = fakes.Strategy(Advice.NONE, Advice.NONE, Advice.NONE)
+    strategy1 = fakes.Strategy(None, None)
+    strategy2 = fakes.Strategy(None, None, None)
     strategy_stack = [strategy2, strategy1]
 
     trader = Trader(
@@ -165,7 +165,7 @@ async def test_trader_assume_same_as_last_on_missed_candle():
             Candle(time=4),  # Generate new candles with previous data.
         ]
     )
-    strategy = fakes.Strategy(Advice.NONE, Advice.NONE, Advice.NONE, Advice.NONE, Advice.NONE)
+    strategy = fakes.Strategy(None, None, None, None, None)
 
     trader = Trader(
         chandler=chandler,

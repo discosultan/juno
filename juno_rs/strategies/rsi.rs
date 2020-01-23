@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::cmp::min;
 
 use crate::{
     Advice,
@@ -7,38 +7,42 @@ use crate::{
     strategies::{Persistence, Strategy},
 };
 
-pub struct Macd {
-    macd: indicators::Macd,
+pub struct Rsi {
+    rsi: indicators::Rsi,
+    up_threshold: f64,
+    down_threshold: f64,
     persistence: Persistence,
     t: u32,
     t1: u32,
 }
 
-impl Macd {
+impl Rsi {
     pub fn new(
-        short_period: u32,
-        long_period: u32,
-        signal_period: u32,
+        period: u32,
+        up_threshold: f64,
+        down_threshold: f64,
         persistence: u32,
     ) -> Self {
         Self {
-            macd: indicators::Macd::new(short_period, long_period, signal_period),
+            rsi: indicators::Rsi::new(period),
+            up_threshold,
+            down_threshold,
             persistence: Persistence::new(persistence, false),
             t: 0,
-            t1: max(long_period, signal_period) - 1,
+            t1: period - 1,
         }
     }
 }
 
-impl Strategy for Macd {
+impl Strategy for Rsi {
     fn update(&mut self, candle: &Candle) -> Option<Advice> {
-        self.macd.update(candle.close);
+        self.rsi.update(candle.close);
 
         let mut advice = None;
         if self.t == self.t1 {
-            if self.macd.value > self.macd.signal {
+            if self.rsi.value < self.down_threshold {
                 advice = Some(Advice::Buy);
-            } else {
+            } else if self.rsi.value > self.up_threshold {
                 advice = Some(Advice::Sell);
             }
         }

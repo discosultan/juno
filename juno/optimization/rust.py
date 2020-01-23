@@ -247,7 +247,6 @@ def _build_cdef() -> str:
     ]
 
     for strategy_type in _strategy_types:
-        _log.critical(strategy_type)
         strategy_name_lower = strategy_type.__name__.lower()
         strategy_info_type_name = f'{strategy_type.__name__}Info'
         strategy_info_param_name = f'{strategy_name_lower}_info'

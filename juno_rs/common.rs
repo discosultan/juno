@@ -1,6 +1,5 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Advice {
-    None,
     Buy,
     Sell,
 }
@@ -19,11 +18,4 @@ pub struct Candle {
 pub struct Fees {
     pub maker: f64,
     pub taker: f64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Trend {
-    Unknown,
-    Up,
-    Down,
 }

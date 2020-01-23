@@ -2,21 +2,21 @@
     "log_format": "colored",
     "log_level": "info",
     "storage": "sqlite",
-    "solver": "python",
+    "solver": "rust",
     "agents": [
         {
             "type": "optimize",
             "exchange": "binance",
-            "symbols": ["eth-btc"],
+            "symbols": ["eth-btc", "ltc-btc", "eos-btc"],
             "start": "2018-01-01",
             "end": "2020-01-01",
-            "intervals": ["1h"],
+            "intervals": ["30m", "1h", "2h"],
             "quote": 1.0,
             "missed_candle_policy": null,
             "trailing_stop": null,
-            "strategy": "rsi",
-            "population_size": 10,
-            "max_generations": 10,
+            "strategy": "mamacx",
+            "population_size": 100,
+            "max_generations": 10000,
             "seed": null,
             "verbose": true
         }

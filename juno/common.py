@@ -10,9 +10,16 @@ from juno.time import datetime_utcfromtimestamp_ms
 
 
 class Advice(Enum):
-    NONE = 0
     BUY = 1
     SELL = 2
+
+    @staticmethod
+    def combine(*advices: Optional[Advice]) -> Optional[Advice]:
+        if all(a is Advice.BUY for a in advices):
+            return Advice.BUY
+        if all(a is Advice.SELL for a in advices):
+            return Advice.SELL
+        return None
 
 
 class Balance(NamedTuple):
@@ -170,12 +177,6 @@ class Trade(NamedTuple):
         return {
             'time': 'index',
         }
-
-
-class Trend(Enum):
-    UNKNOWN = 0
-    UP = 1
-    DOWN = 2
 
 
 class ExchangeInfo(NamedTuple):

@@ -1,11 +1,16 @@
 from .macd import Macd
+from .macdrsi import MacdRsi
 from .mamacx import MA, MAMACX
-from .strategy import Meta, Strategy
+from .rsi import Rsi
+from .strategy import Meta, Persistence, Strategy
 
 __all__ = [
     'MA',
     'Macd',
+    'MacdRsi',
     'MAMACX',
     'Meta',
+    'Persistence',
+    'Rsi',
     'Strategy',
 ]

@@ -2,7 +2,7 @@ from statistics import mean
 
 import pytest
 
-from juno import Trend, utils
+from juno import utils
 
 
 @pytest.mark.parametrize(
@@ -69,69 +69,6 @@ def test_flatten():
     expected_output = [35, 53, 525, 6743, 64, 63, 743, 754, 757]
     output = list(utils.flatten([35, 53, [525, 6743], 64, 63, [743, 754, 757]]))
     assert output == expected_output
-
-
-def test_persistence_level_0_allow_initial_trend():
-    persistence = utils.Persistence(level=0, allow_initial_trend=True)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-    assert persistence.update(Trend.UP) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, True)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-
-
-def test_persistence_level_0_disallow_initial_trend():
-    persistence = utils.Persistence(level=0, allow_initial_trend=False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-
-
-def test_persistence_level_0_disallow_initial_trend_starting_with_unknown_does_not_skip_initial():
-    persistence = utils.Persistence(level=0, allow_initial_trend=False)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-
-
-def test_persistence_level_1_allow_initial_trend():
-    persistence = utils.Persistence(level=1, allow_initial_trend=True)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-    assert persistence.update(Trend.UP) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.DOWN, False)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, True)
-
-
-def test_persistence_level_1_disallow_initial_trend():
-    persistence = utils.Persistence(level=1, allow_initial_trend=False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-
-
-def test_persistence_level_1_disallow_initial_trend_starting_with_unknown_does_not_skip_initial():
-    persistence = utils.Persistence(level=1, allow_initial_trend=False)
-    assert persistence.update(Trend.UNKNOWN) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-
-
-def test_persistence_level_1_disallow_initial_trend_starting_with_up_does_not_skip_initial():
-    persistence = utils.Persistence(level=1, allow_initial_trend=False)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.DOWN) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
-
-
-def test_persistence_level_1_allow_initial_trend_change_resets_age():
-    persistence = utils.Persistence(level=1, allow_initial_trend=True)
-    assert persistence.update(Trend.UP) == (Trend.UNKNOWN, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, True)
-    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
-    assert persistence.update(Trend.UP) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.UP, False)
-    assert persistence.update(Trend.DOWN) == (Trend.DOWN, True)
 
 
 def test_circular_buffer():

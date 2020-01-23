@@ -97,7 +97,10 @@ def try_init_all_instances(type_: type, config: Dict[str, Any]) -> List[Any]:
 
 
 def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
-    type_ = get_module_type(module, config['type'])
+    type_name = config.get('type')
+    if not type_name:
+        raise ValueError('Unable to init module instance. Property "type" missing in config')
+    type_ = get_module_type(module, type_name)
     return init_instance(type_, config)
 
 
