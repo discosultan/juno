@@ -7,20 +7,21 @@
             "type": "backtest",
             "exchange": "binance",
             "quote": 1.0,
-            "start": "2017-08-01",
+            "start": "2018-01-01",
             "end": "2020-01-01",
             "symbol": "eos-btc",
             "interval": "1h",
-            "missed_candle_policy": 2,
+            "missed_candle_policy": "last",
             "trailing_stop": 0.0,
             "strategy_config": {
+                "type": "mamacx",
                 "short_period": 11,
                 "long_period": 21,
                 "neg_threshold": -0.229,
                 "pos_threshold": 0.1,
                 "persistence": 4,
-                "short_ma": 2,
-                "long_ma": 2
+                "short_ma": "sma",
+                "long_ma": "sma"
             }
         }
     ]
