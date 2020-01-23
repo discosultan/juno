@@ -8,17 +8,16 @@ mod indicators;
 mod math;
 mod strategies;
 mod trading;
-mod utils;
 
 use std::slice;
 use crate::{
     analyse::analyse,
     indicators::{Ema, Ema2, MA, Sma, Smma},
-    strategies::{Macd, MAMACX, Strategy},
+    strategies::{Macd, MacdRsi, MAMACX, Strategy},
     trade::trade,
 };
 pub use crate::{
-    common::{Advice, Candle, Fees, Trend},
+    common::{Advice, Candle, Fees},
     filters::Filters,
     trading::{Position, TradingContext, TradingSummary},
 };
@@ -36,6 +35,27 @@ pub unsafe extern "C" fn macd(
             macd_info.long_period,
             macd_info.signal_period,
             macd_info.persistence,
+        )
+    };
+    run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn macdrsi(
+    trading_info: *const TradingInfo,
+    macdrsi_info: *const MacdRsiInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let macdrsi_info = &*macdrsi_info;
+    let strategy_factory = || {
+        MacdRsi::new(
+            macdrsi_info.macd_short_period,
+            macdrsi_info.macd_long_period,
+            macdrsi_info.macd_signal_period,
+            macdrsi_info.rsi_period,
+            macdrsi_info.rsi_up_threshold,
+            macdrsi_info.rsi_down_threshold,
+            macdrsi_info.persistence,
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
@@ -177,6 +197,17 @@ pub struct MacdInfo {
     short_period: u32,
     long_period: u32,
     signal_period: u32,
+    persistence: u32,
+}
+
+#[repr(C)]
+pub struct MacdRsiInfo {
+    macd_short_period: u32,
+    macd_long_period: u32,
+    macd_signal_period: u32,
+    rsi_period: u32,
+    rsi_up_threshold: f64,
+    rsi_down_threshold: f64,
     persistence: u32,
 }
 

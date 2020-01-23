@@ -179,12 +179,6 @@ class Trade(NamedTuple):
         }
 
 
-class Trend(Enum):
-    UNKNOWN = 0
-    UP = 1
-    DOWN = 2
-
-
 class ExchangeInfo(NamedTuple):
     fees: Dict[str, Fees] = {'__all__': Fees()}
     filters: Dict[str, Filters] = {'__all__': Filters()}

@@ -3,10 +3,8 @@ use std::cmp::min;
 use crate::{
     Advice,
     Candle,
-    Trend,
     indicators::MA,
-    strategies::{advice, Strategy},
-    utils::Persistence,
+    strategies::{Persistence, Strategy},
 };
 
 pub struct MAMACX<TShort: MA, TLong: MA> {
@@ -41,24 +39,29 @@ impl<TShort: MA, TLong: MA> MAMACX<TShort, TLong> {
 }
 
 impl<TShort: MA, TLong: MA> Strategy for MAMACX<TShort, TLong> {
-    fn update(&mut self, candle: &Candle) -> Advice {
+    fn update(&mut self, candle: &Candle) -> Option<Advice> {
         self.short_ma.update(candle.close);
         self.long_ma.update(candle.close);
 
-        let mut trend = Trend::Unknown;
+        let mut advice = None;
         if self.t == self.t1 {
             let diff = 100.0 * (self.short_ma.value() - self.long_ma.value())
                 / ((self.short_ma.value() + self.long_ma.value()) / 2.0);
 
             if diff > self.pos_threshold {
-                trend = Trend::Up;
+                advice = Some(Advice::Buy);
             } else if diff < self.neg_threshold {
-                trend = Trend::Down;
+                advice = Some(Advice::Sell);
             }
         }
 
         self.t = min(self.t + 1, self.t1);
 
-        advice(self.persistence.update(trend))
+        let (persisted, _) = self.persistence.update(advice);
+        if persisted {
+            advice
+        } else {
+            None
+        }
     }
 }
