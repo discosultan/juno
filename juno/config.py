@@ -107,7 +107,7 @@ def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
 def init_instance(type_: Type[Any], config: Dict[str, Any]) -> Any:
     # Supports loading abstract types by resolving concrete type from config.
     if inspect.isabstract(type_):
-        type_ = load_type(type_, config)
+        type_ = resolve_concrete(type_, config)
 
     # Supports passing either root config or type specific config. See if we can dig deeper based
     # on type name.
@@ -130,7 +130,7 @@ def kwargs_for(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]:
     return parsed_config
 
 
-def _transform_value(value: Any, type_: Any) -> Any:
+def _transform_value(value: Any, type_: Type[Any]) -> Any:
     if type_ is Any:
         return value
     if type_ is Interval:
@@ -158,14 +158,24 @@ def _transform_value(value: Any, type_: Any) -> Any:
     return value
 
 
-def load_type(type_: type, config: Dict[str, Any]) -> Any:
+def resolve_concrete(type_: Type[Any], config: Dict[str, Any]) -> Type[Any]:
     if not inspect.isabstract(type_):
-        raise ValueError()
+        raise ValueError(f'Unable to resolve concrete type for a non-abstract type {type_}')
+
+    abstract_name = type_.__name__.lower()
+    concrete_name = config.get(abstract_name)
+    if not concrete_name:
+        raise ValueError(f'Concrete name not found for {abstract_name} in config')
+
     module_type_map = _map_type_parent_module_types(type_)
-    return module_type_map[config.get(type_.__name__.lower(), {})]
+    concrete_type = module_type_map.get(concrete_name)
+    if not concrete_type:
+        raise ValueError(f'Concrete type {concrete_name} not found')
+
+    return concrete_type
 
 
-def _map_type_parent_module_types(type_: type) -> Dict[str, type]:
+def _map_type_parent_module_types(type_: Type[Any]) -> Dict[str, Type[Any]]:
     module_name = type_.__module__
     parent_module_name = module_name[0:module_name.rfind('.')]
     return map_module_types(sys.modules[parent_module_name])

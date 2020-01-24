@@ -81,8 +81,8 @@ async def main() -> None:
     container.add_singleton_instance(
         List[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
     )
-    container.add_singleton_type(Broker, lambda: config.load_type(Broker, cfg))
-    container.add_singleton_type(Solver, lambda: config.load_type(Solver, cfg))
+    container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
+    container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
 
     # Load agents.
     agent_types = map_module_types(agents)
