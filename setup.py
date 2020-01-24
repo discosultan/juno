@@ -8,7 +8,7 @@ setup(
     install_requires=[
         'aiohttp',
         # This is a fork of original aiolimiter which adds logging support.
-        'aiolimiter @ git+ssh://git@github.com/discosultan/aiolimiter@master#egg=aiolimiter',
+        'aiolimiter @ git+https://github.com/discosultan/aiolimiter@master#egg=aiolimiter',
         'cffi',
         'colorlog',
         'deap',
