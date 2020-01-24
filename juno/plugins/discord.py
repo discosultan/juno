@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import traceback
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict
 
@@ -13,7 +12,7 @@ from juno.agents import Agent
 from juno.asyncio import cancel, cancelable
 from juno.trading import Position
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import chunks, format_attrs_as_json
+from juno.utils import chunks, exc_traceback, format_attrs_as_json
 
 _log = logging.getLogger(__name__)
 
@@ -57,8 +56,7 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
 
         @agent.on('errored')
         async def on_errored(exc: Exception) -> None:
-            msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-            await client.send_message(format_message('errored', msg, lang=''))
+            await client.send_message(format_message('errored', exc_traceback(exc), lang=''))
             await client.send_message(
                 format_message('summary', format_attrs_as_json(agent.result))
             )

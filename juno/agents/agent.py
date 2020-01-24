@@ -1,11 +1,10 @@
 import asyncio
 import logging
-import traceback
 from enum import Enum
 from typing import Any, Awaitable, Callable, Dict, List
 
 from juno.asyncio import empty_future
-from juno.utils import EventEmitter, format_attrs_as_json, generate_random_words
+from juno.utils import EventEmitter, exc_traceback, format_attrs_as_json, generate_random_words
 
 _log = logging.getLogger(__name__)
 
@@ -59,7 +58,7 @@ class Agent(EventEmitter):
     async def emit(self, event: str, *args: Any) -> List[Any]:
         results = await super().emit(event, *args)
         for e in (r for r in results if isinstance(r, Exception)):
-            _log.error(''.join(traceback.format_exception(type(e), e, e.__traceback__)))
+            _log.error(exc_traceback(e))
         return results
 
 

@@ -19,7 +19,7 @@ from juno.logging import create_handlers
 from juno.optimization import Solver
 from juno.plugins import list_plugins
 from juno.storages import Storage
-from juno.utils import full_path, map_module_types
+from juno.utils import exc_traceback, full_path, map_module_types
 
 _log = logging.getLogger(__name__)
 
@@ -60,7 +60,10 @@ async def main() -> None:
 
     # Configure loop exception handling.
     def custom_exception_handler(loop, context):
-        _log.error(sys.last_traceback)
+        # TODO: walrus
+        exc = context.get('exception')
+        if exc:
+            _log.error(exc_traceback(exc))
         _log.info('custom loop exception handler; cancelling all tasks')
         loop.default_exception_handler(context)
         for task in (task for task in asyncio.all_tasks() if not task.done()):

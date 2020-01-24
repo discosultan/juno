@@ -4,6 +4,7 @@ import itertools
 import logging
 import math
 import random
+import traceback
 from collections import defaultdict
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
@@ -222,6 +223,10 @@ def get_module_type(module: ModuleType, name: str) -> Type[Any]:
     if len(found_members) > 1:
         raise ValueError(f'Found more than one type named "{name}" in module "{module.__name__}".')
     return found_members[0][1]
+
+
+def exc_traceback(exc: Exception) -> str:
+    return ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
 
 
 class CircularBuffer(Generic[T]):
