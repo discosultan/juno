@@ -22,10 +22,16 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
     def format_message(title: str, content: str, lang: str = 'json') -> str:
         return f'{type(agent).__name__} agent {agent.name} {title}:\n```{lang}\n{content}\n```\n'
 
-    async with Discord(
-        token=plugin_config['token'],
-        channel_id=plugin_config['channel_id'][type(agent).__name__.lower()]
-    ) as client:
+    token = plugin_config.get('token')
+    if not token:
+        raise ValueError('Missing Discord token from config')
+
+    channel_name = type(agent).__name__.lower()
+    channel_id = plugin_config.get('channel_id', {}).get(channel_name)
+    if not channel_id:
+        raise ValueError(f'Missing {channel_name} channel ID from config')
+
+    async with Discord(token=token, channel_id=channel_id) as client:
 
         @agent.on('starting')
         async def on_starting() -> None:
