@@ -43,7 +43,7 @@ class Kraken(Exchange):
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = False
     can_stream_candles: bool = False
-    can_list_24hr_tickers: bool = False  # Don't know, need to check.
+    can_list_24hr_tickers: bool = False  # TODO: Don't know, need to check.
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -56,21 +56,23 @@ class Kraken(Exchange):
         self._order_placing_limiter = AsyncLimiter(1, 1, _log, logging.INFO)
 
         self._session = ClientSession(raise_for_status=True)
-        self._public_ws = KrakenPublicTopic(_PUBLIC_WS_URL)
-        self._private_ws = KrakenPrivateTopic(_PRIVATE_WS_URL, self)
+        await self._session.__aenter__()
+
+        self._public_ws = KrakenPublicFeed(_PUBLIC_WS_URL)
+        self._private_ws = KrakenPrivateFeed(_PRIVATE_WS_URL, self)
         await asyncio.gather(
-            self._session.__aenter__(),
             self._public_ws.__aenter__(),
             self._private_ws.__aenter__(),
         )
+
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await asyncio.gather(
             self._private_ws.__aexit__(exc_type, exc, tb),
             self._public_ws.__aexit__(exc_type, exc, tb),
-            self._session.__aexit__(exc_type, exc, tb),
         )
+        await self._session.__aexit__(exc_type, exc, tb)
 
     async def get_exchange_info(self) -> ExchangeInfo:
         res = await self._request_public('GET', '/0/public/AssetPairs')
@@ -159,8 +161,8 @@ class Kraken(Exchange):
         async with self._public_ws.subscribe({
             'name': 'book',
             'depth': 10,
-        }, [_ws_symbol(symbol)]) as subscription:
-            yield inner(subscription)
+        }, [_ws_symbol(symbol)]) as ws:
+            yield inner(ws)
 
     @asynccontextmanager
     async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
@@ -169,8 +171,8 @@ class Kraken(Exchange):
                 # TODO: map
                 yield o
 
-        async with self._private_ws.subscribe({'name': 'openOrders'}) as subscription:
-            yield inner(subscription)
+        async with self._private_ws.subscribe({'name': 'openOrders'}) as ws:
+            yield inner(ws)
 
     async def place_order(
         self,
@@ -295,7 +297,7 @@ class Kraken(Exchange):
             return result
 
 
-class KrakenPublicTopic:
+class KrakenPublicFeed:
     def __init__(self, url: str) -> None:
         self.url = url
 
@@ -311,7 +313,7 @@ class KrakenPublicTopic:
         )
         self.channels: Dict[int, Event[Any]] = defaultdict(lambda: Event(autoclear=True))
 
-    async def __aenter__(self) -> KrakenPublicTopic:
+    async def __aenter__(self) -> KrakenPublicFeed:
         await self.session.__aenter__()
         return self
 
@@ -325,7 +327,7 @@ class KrakenPublicTopic:
 
     @asynccontextmanager
     async def subscribe(self, subscription: Any,
-                        pairs: Optional[List[str]] = None) -> AsyncIterator[AsyncIterable[Any]]:
+                        symbols: Optional[List[str]] = None) -> AsyncIterator[AsyncIterable[Any]]:
         await self._ensure_connection()
 
         reqid = self.reqid
@@ -336,19 +338,15 @@ class KrakenPublicTopic:
             'reqid': reqid,
             'subscription': subscription,
         }
-        if pairs is not None:
-            payload['pair'] = pairs
+        if symbols is not None:
+            payload['pair'] = symbols
 
         await self._send(payload)
 
         received = await subscribed.wait()
 
-        async def inner() -> AsyncIterable[Any]:
-            while True:
-                yield await received.wait()
-
         try:
-            yield inner()
+            yield received.stream()
         finally:
             # TODO: unsubscribe
             pass
@@ -397,7 +395,7 @@ class KrakenPublicTopic:
             self.channels[channel_id].set(val)  # type: ignore
 
 
-class KrakenPrivateTopic(KrakenPublicTopic):
+class KrakenPrivateFeed(KrakenPublicFeed):
     def __init__(self, url: str, kraken: Kraken) -> None:
         super().__init__(url)
         self.kraken = kraken

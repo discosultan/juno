@@ -37,7 +37,6 @@ class Exchange(ABC):
                                         end: int) -> AsyncIterable[Candle]:
         yield  # type: ignore
 
-    @abstractmethod
     @asynccontextmanager
     async def connect_stream_candles(self, symbol: str,
                                      interval: int) -> AsyncIterator[AsyncIterable[Candle]]:

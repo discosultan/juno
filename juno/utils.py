@@ -153,6 +153,13 @@ def map_module_types(module: ModuleType) -> Dict[str, type]:
     return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
 
 
+def get_concretes_from_module(module: ModuleType, abstract: Type[Any]) -> List[Type[Any]]:
+    return [t for _n, t in inspect.getmembers(
+        module,
+        lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract)
+    )]
+
+
 # TODO: Generalize typing to lists.
 # Ref: https://stackoverflow.com/a/312464/1466456
 def chunks(l: str, n: int) -> Iterable[str]:
