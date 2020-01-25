@@ -34,9 +34,6 @@ setup(
         ],
         'discord': [
             'discord.py',
-            # Required by discord.py. Forces install to latest.
-            # https://github.com/Rapptz/discord.py/issues/1996#issuecomment-515816238
-            'websockets>=8.0.0',
         ]
     }
 )
