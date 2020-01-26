@@ -5,23 +5,19 @@ from typing import Dict, List
 import aiohttp
 import pytest
 
+import juno
 from juno import (
     Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, OrderType, Side, Ticker, Trade
 )
 from juno.config import init_instance
-from juno.exchanges import Binance, Coinbase, Kraken
-from juno.time import HOUR_MS, strptimestamp
+from juno.exchanges import Binance, Coinbase, Exchange, Kraken
+from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.typing import types_match
+from juno.utils import list_concretes_from_module
 
-exchange_types = [
-    Binance,
-    Coinbase,
-    Kraken,
-]
+exchange_types = list_concretes_from_module(juno.exchanges, Exchange)
 exchanges = [pytest.lazy_fixture(e.__name__.lower()) for e in exchange_types]
 exchange_ids = [e.__name__ for e in exchange_types]
-
-# TODO: implement missing exchange methods.
 
 
 # We use a session-scoped loop for shared rate-limiting.
@@ -53,7 +49,7 @@ async def kraken(loop, config):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_get_exchange_info(loop, request, exchange):
-    skip_non_configured(request, exchange)
+    skip_not_configured(request, exchange)
 
     res = await exchange.get_exchange_info()
 
@@ -77,8 +73,8 @@ async def test_get_exchange_info(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_list_24hr_tickers(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase, Kraken)
+    skip_not_configured(request, exchange)
+    skip_no_capability(exchange.can_list_24hr_tickers)
 
     # Note, this is an expensive call!
     res = await exchange.list_24hr_tickers()
@@ -91,7 +87,7 @@ async def test_list_24hr_tickers(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_get_balances(loop, request, exchange):
-    skip_non_configured(request, exchange)
+    skip_not_configured(request, exchange)
 
     res = await exchange.get_balances()
 
@@ -102,8 +98,9 @@ async def test_get_balances(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_historical_candles(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    skip_exchange(exchange, Kraken)
+    skip_not_configured(request, exchange)
+    skip_no_capability(exchange.can_stream_historical_candles)
+
     start = strptimestamp('2018-01-01')
 
     stream = exchange.stream_historical_candles(
@@ -122,8 +119,8 @@ async def test_stream_historical_candles(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_candles(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)
+    skip_not_configured(request, exchange)
+    skip_no_capability(exchange.can_stream_candles)
 
     async with exchange.connect_stream_candles(symbol='eth-btc', interval=HOUR_MS) as stream:
         candle = await stream.__anext__()
@@ -136,8 +133,8 @@ async def test_connect_stream_candles(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_get_depth(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase, Kraken)
+    skip_not_configured(request, exchange)
+    skip_no_capability(not exchange.can_stream_depth_snapshot)
 
     res = await exchange.get_depth('eth-btc')
 
@@ -148,14 +145,13 @@ async def test_get_depth(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_depth(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)  # TODO: Fix this. It's implemented but broken!!
+    skip_not_configured(request, exchange)
 
     async with exchange.connect_stream_depth('eth-btc') as stream:
         res = await stream.__anext__()
         await stream.aclose()
 
-    expected_type = DepthUpdate if isinstance(exchange, Binance) else DepthSnapshot
+    expected_type = DepthSnapshot if exchange.can_stream_depth_snapshot else DepthUpdate
 
     assert types_match(res, expected_type)
 
@@ -164,7 +160,7 @@ async def test_connect_stream_depth(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_place_order(loop, request, exchange):
-    skip_non_configured(request, exchange)
+    skip_not_configured(request, exchange)
     skip_exchange(exchange, Coinbase, Kraken)
 
     await exchange.place_order(
@@ -176,11 +172,17 @@ async def test_place_order(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_historical_trades(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)
-    start = strptimestamp('2018-01-01')
+    skip_not_configured(request, exchange)
 
-    stream = exchange.stream_historical_trades(symbol='eth-btc', start=start, end=start + HOUR_MS)
+    # Coinbase can only stream from most recent, hence we use current time.
+    if isinstance(exchange, Coinbase):
+        end = time_ms()
+        start = end - 5 * MIN_MS
+    else:
+        start = strptimestamp('2018-01-01')
+        end = start + HOUR_MS
+
+    stream = exchange.stream_historical_trades(symbol='eth-btc', start=start, end=end)
     trade = await stream.__anext__()
     await stream.aclose()
 
@@ -192,10 +194,10 @@ async def test_stream_historical_trades(loop, request, exchange):
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_connect_stream_trades(loop, request, exchange):
-    skip_non_configured(request, exchange)
-    skip_exchange(exchange, Coinbase)
-    # Kraken has quite low volumes. The fiat symbol market is much more active.
-    symbol = 'btc-eur' if isinstance(exchange, Kraken) else 'eth-btc'
+    skip_not_configured(request, exchange)
+
+    # FIAT pairs seem to be more active where supported.
+    symbol = 'eth-btc' if isinstance(exchange, Binance) else 'eth-eur'
 
     async with exchange.connect_stream_trades(symbol=symbol) as stream:
         trade = await stream.__anext__()
@@ -204,7 +206,7 @@ async def test_connect_stream_trades(loop, request, exchange):
     assert types_match(trade, Trade)
 
 
-def skip_non_configured(request, exchange):
+def skip_not_configured(request, exchange):
     markers = ['exchange', 'manual']
     if request.config.option.markexpr not in markers:
         pytest.skip(f'Specify {"" or "".join(markers)} marker to run!')
@@ -215,7 +217,12 @@ def skip_non_configured(request, exchange):
 def skip_exchange(exchange, *skip_exchange_types):
     type_ = type(exchange)
     if type_ in skip_exchange_types:
-        pytest.skip(f'not implemented for {type_.__name__.lower()}')
+        pytest.skip(f'Not implemented for {type_.__name__.lower()}')
+
+
+def skip_no_capability(has_capability):
+    if not has_capability:
+        pytest.skip('Does not have the capability')
 
 
 @asynccontextmanager

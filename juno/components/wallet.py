@@ -55,10 +55,15 @@ class Wallet:
     async def _stream_balances(self, exchange: str) -> AsyncIterable[Dict[str, Balance]]:
         exchange_instance = self._exchanges[exchange]
 
-        async with exchange_instance.connect_stream_balances() as stream:
-            # Get initial status from REST API.
-            yield await exchange_instance.get_balances()
+        if exchange_instance.can_stream_balances:
+            async with exchange_instance.connect_stream_balances() as stream:
+                # Get initial status from REST API.
+                yield await exchange_instance.get_balances()
 
-            # Stream future updates over WS.
-            async for balances in stream:
-                yield balances
+                # Stream future updates over WS.
+                async for balances in stream:
+                    yield balances
+        else:
+            _log.warning(f'{exchange} does not support streaming balances; fething only initial '
+                         'balances; futher updates not implemented')
+            yield await exchange_instance.get_balances()

@@ -10,20 +10,22 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
 from time import time
-from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
+from typing import (
+    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple, Union
+)
 
 from aiolimiter import AsyncLimiter
+from aiostream import stream
 from dateutil.tz import UTC
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
-    OrderType, Side, TimeInForce, json
+    OrderType, Side, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Price, Size
-from juno.http import ClientSession
-from juno.math import floor_multiple
-from juno.time import datetime_timestamp_ms, time_ms
+from juno.http import ClientSession, ClientWebSocketResponse
+from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import page
 
@@ -37,10 +39,11 @@ _log = logging.getLogger(__name__)
 
 class Coinbase(Exchange):
     # Capabilities.
+    can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = True
     can_stream_candles: bool = False
-    # Actually can but only through WS.
+    # TODO: Actually can but only through WS.
     # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
     can_list_24hr_tickers: bool = False
 
@@ -49,34 +52,23 @@ class Coinbase(Exchange):
         self._secret_key_bytes = base64.b64decode(secret_key)
         self._passphrase = passphrase
 
+        self._ws = CoinbaseFeed(_BASE_WS_URL)
+
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
         x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
         self._pub_limiter = AsyncLimiter(3 * x, 1, _log, logging.INFO)
         self._priv_limiter = AsyncLimiter(5 * x, 1, _log, logging.INFO)
 
-        # Stream.
-        self._stream_task: Optional[asyncio.Task] = None
-        self._stream_subscriptions: Dict[str, List[str]] = {}
-        self._stream_subscription_queue: asyncio.Queue[Any] = asyncio.Queue()
-        # TODO: Most probably require `autoclear=True`.
-        self._stream_heartbeat_event: Event[Any] = Event()
-        self._stream_depth_event: Event[Any] = Event()
-        self._stream_match_event: Event[Any] = Event()
-        self._stream_consumer_events = {
-            'heartbeat': self._stream_heartbeat_event,
-            'snapshot': self._stream_depth_event,
-            'l2update': self._stream_depth_event,
-            'match': self._stream_match_event
-        }
-
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()
+
+        await self._ws.__aenter__()
 
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(self._stream_task)
+        await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
     async def get_exchange_info(self) -> ExchangeInfo:
@@ -111,14 +103,6 @@ class Coinbase(Exchange):
             ] = Balance(available=Decimal(balance['available']), hold=Decimal(balance['hold']))
         return result
 
-    @asynccontextmanager
-    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
-        async def inner() -> AsyncIterable[Dict[str, Balance]]:
-            # TODO: Add support for future balance changes.
-            yield {}
-
-        yield inner()
-
     async def stream_historical_candles(self, symbol: str, interval: int, start: int,
                                         end: int) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
@@ -143,85 +127,14 @@ class Coinbase(Exchange):
                     Decimal(c[5]), True
                 )
 
-    # TODO: First candle can be partial.
-    @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str,
-                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
-        async def inner():
-            self._ensure_stream_open()
-            if symbol not in self._stream_subscriptions.get('matches', []):
-                self._stream_subscription_queue.put_nowait({
-                    'type': 'subscribe',
-                    'product_ids': [_product(symbol)],
-                    'channels': ['heartbeat', 'matches']
-                })
-
-            start = floor_multiple(time_ms(), interval)
-            trades_since_start = []
-            # TODO: pagination
-            latest_trades = await self._public_request(
-                'GET', f'/products/{_product(symbol)}/trades'
-            )
-            for trade in latest_trades:
-                trade['time'] = _from_datetime(trade['time'])
-                if trade['time'] < start:
-                    break
-                trades_since_start.append(trade)
-
-            candles: Dict[str, Dict[int, Candle]] = defaultdict(dict)
-            last_candle_map: Dict[str, Candle] = {}
-            while True:
-                data = await self._stream_match_event.wait()
-                if 'price' not in data or 'size' not in data:
-                    continue
-                product_id = data['product_id']
-                price, size = Decimal(data['price']), Decimal(data['size'])
-                time = floor_multiple(_from_datetime(data['time']), interval)
-                current_candle = candles[product_id].get(time)
-                if not current_candle:
-                    last_candle = last_candle_map.get(product_id)
-                    if last_candle:
-                        del candles[product_id][last_candle.time]
-                        yield last_candle
-                    candles[product_id][time] = Candle(
-                        time=time,
-                        open=price,
-                        high=price,
-                        low=price,
-                        close=price,
-                        volume=size,
-                        closed=True
-                    )
-                else:
-                    current_candle = Candle(
-                        time=current_candle.time,
-                        open=current_candle.open,
-                        high=max(price, current_candle.high),
-                        low=min(price, current_candle.low),
-                        close=price,
-                        volume=current_candle.volume + size,
-                        closed=True
-                    )
-                    last_candle_map[product_id] = current_candle
-
-        yield inner()
-
     @asynccontextmanager
     async def connect_stream_depth(
         self, symbol: str
     ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
-        # TODO: await till stream open
-        self._ensure_stream_open()
-        if symbol not in self._stream_subscriptions.get('level2', []):
-            self._stream_subscription_queue.put_nowait({
-                'type': 'subscribe',
-                'product_ids': [_product(symbol)],
-                'channels': ['level2']
-            })
-
-        async def inner():
-            while True:
-                data = await self._stream_depth_event.wait()
+        async def inner(
+            ws: AsyncIterable[Any]
+        ) -> AsyncIterable[Union[DepthUpdate, DepthSnapshot]]:
+            async for data in ws:
                 if data['type'] == 'snapshot':
                     yield DepthSnapshot(
                         bids=[(Decimal(p), Decimal(s)) for p, s in data['bids']],
@@ -235,7 +148,8 @@ class Coinbase(Exchange):
                         asks=[(Decimal(p), Decimal(s)) for p, s in asks]
                     )
 
-        yield inner()
+        async with self._ws.subscribe('level2', ['snapshot', 'l2update'], symbol) as ws:
+            yield inner(ws)
 
     @asynccontextmanager
     async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[Any]]:
@@ -258,23 +172,44 @@ class Coinbase(Exchange):
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         raise NotImplementedError()
 
-    def _ensure_stream_open(self) -> None:
-        if not self._stream_task:
-            self._stream_task = asyncio.create_task(cancelable(self._stream()))
+    async def stream_historical_trades(self, symbol: str, start: int,
+                                       end: int) -> AsyncIterable[Trade]:
+        trades_desc = []
+        async for batch in self._paginated_public_request(
+            'GET', f'/products/{_product(symbol)}/trades'
+        ):
+            done = False
+            for val in batch:
+                time = _from_datetime(val['time'])
+                if time >= end:
+                    continue
+                if time < start:
+                    done = True
+                    break
+                trades_desc.append(Trade(
+                    time=time,
+                    price=Decimal(val['price']),
+                    size=Decimal(val['size'])
+                ))
+            if done:
+                break
+        for trade in reversed(trades_desc):
+            yield trade
 
-    async def _stream(self) -> None:
-        async with self._session.ws_connect(_BASE_WS_URL) as ws:
-            for _ in range(0, self._stream_subscription_queue.qsize()):
-                await ws.send_json(self._stream_subscription_queue.get_nowait())
-            async for msg in ws:
-                data = json.loads(msg.data)
-                if data['type'] == 'subscriptions':
-                    self._stream_subscriptions = {
-                        c['name']: [s.lower() for s in c['product_ids']]
-                        for c in data['channels']
-                    }
-                else:
-                    self._stream_consumer_events[data['type']].set(data)
+    @asynccontextmanager
+    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
+        async def inner(ws: AsyncIterable[Any]):
+            async for val in ws:
+                if 'price' not in val or 'size' not in val:
+                    continue
+                yield Trade(
+                    time=_from_datetime(val['time']),
+                    price=Decimal(val['price']),
+                    size=Decimal(val['size'])
+                )
+
+        async with self._ws.subscribe('matches', ['match'], symbol) as ws:
+            yield inner(ws)
 
     async def _paginated_public_request(self, method: str, url: str,
                                         data: Dict[str, Any] = {}) -> AsyncIterable[Any]:
@@ -311,8 +246,103 @@ class Coinbase(Exchange):
             return await res.json(loads=json.loads)
 
 
+class CoinbaseFeed:
+    def __init__(self, url: str) -> None:
+        self.url = url
+
+        self.session = ClientSession(raise_for_status=True)
+        self.ws_ctx: Optional[AsyncContextManager[ClientWebSocketResponse]] = None
+        self.ws: Optional[ClientWebSocketResponse] = None
+        self.ws_lock = asyncio.Lock()
+        self.process_task: Optional[asyncio.Task] = None
+
+        self.subscriptions_updated: Event[None] = Event(autoclear=True)
+        self.subscriptions: Dict[str, List[str]] = {}
+        self.channels: Dict[Tuple[str, str], Event[Any]] = defaultdict(
+            lambda: Event(autoclear=True)
+        )
+
+    async def __aenter__(self) -> CoinbaseFeed:
+        await self.session.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        await cancel(self.process_task)
+        if self.ws:
+            await self.ws.close()
+        if self.ws_ctx:
+            await self.ws_ctx.__aexit__(exc_type, exc, tb)
+        await self.session.__aexit__(exc_type, exc, tb)
+
+    @asynccontextmanager
+    async def subscribe(
+        self, channel: str, types: List[str], symbol: str
+    ) -> AsyncIterator[AsyncIterable[Any]]:
+        await self._ensure_connection()
+
+        # TODO: Skip subscription if already subscribed. Maybe not a good idea because we may need
+        # messages such as depth snapshot again.
+
+        assert self.ws
+        await self.ws.send_json({
+            'type': 'subscribe',
+            'product_ids': [_product(symbol)],
+            'channels': [channel]
+        })
+
+        while True:
+            if _is_subscribed(self.subscriptions, [channel], [symbol]):
+                break
+            await self.subscriptions_updated.wait()
+
+        try:
+            yield stream.merge(*(self.channels[(t, symbol)].stream() for t in types))
+        finally:
+            # TODO: unsubscribe
+            pass
+
+    async def _ensure_connection(self) -> None:
+        async with self.ws_lock:
+            if self.ws:
+                return
+            self.ws_ctx = self.session.ws_connect(self.url)
+            self.ws = await self.ws_ctx.__aenter__()
+            self.process_task = asyncio.create_task(cancelable(self._stream_messages()))
+
+    async def _stream_messages(self) -> None:
+        assert self.ws
+        async for msg in self.ws:
+            data = json.loads(msg.data)
+            type_ = data['type']
+            if type_ == 'subscriptions':
+                self.subscriptions = {
+                    c['name']: [s.lower() for s in c['product_ids']]
+                    for c in data['channels']
+                }
+                self.subscriptions_updated.set()
+            else:
+                self.channels[(type_, _from_product(data['product_id']))].set(data)
+
+
+def _is_subscribed(
+    subscriptions: Dict[str, List[str]], channels: List[str], symbols: List[str]
+) -> bool:
+    for channel in channels:
+        channel_sub = subscriptions.get(channel)
+        if channel_sub is None:
+            return False
+        for symbol in symbols:
+            if symbol not in channel_sub:
+                return False
+    return True
+
+
 def _product(symbol: str) -> str:
     return symbol.upper()
+
+
+def _from_product(product: str) -> str:
+    return product.lower()
 
 
 def _granularity(interval: int) -> int:
@@ -324,6 +354,10 @@ def _datetime(timestamp: int) -> str:
 
 
 def _from_datetime(dt: str) -> int:
+    # Format can be either one:
+    # - '%Y-%m-%dT%H:%M:%S.%fZ'
+    # - '%Y-%m-%dT%H:%M:%SZ'
+    dt_format = '%Y-%m-%dT%H:%M:%S.%fZ' if '.' in dt else '%Y-%m-%dT%H:%M:%SZ'
     return datetime_timestamp_ms(
-        datetime.strptime(dt, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=UTC)
+        datetime.strptime(dt, dt_format).replace(tzinfo=UTC)
     )

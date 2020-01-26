@@ -107,6 +107,10 @@ class Event(Generic[T]):
         # Ugly but we can't really express ourselves clearly to the type system.
         return cast(T, self._event_data)
 
+    async def stream(self, timeout: Optional[float] = None) -> AsyncIterable[T]:
+        while True:
+            yield await self.wait(timeout)
+
     def set(self, data: Optional[T] = None) -> None:
         self._event_data = data
         self._event.set()

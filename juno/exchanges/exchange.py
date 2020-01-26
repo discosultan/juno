@@ -11,6 +11,7 @@ from juno import (
 
 class Exchange(ABC):
     # Capabilities.
+    can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = False
     can_stream_historical_candles: bool = False
     can_stream_candles: bool = False
@@ -27,7 +28,6 @@ class Exchange(ABC):
     async def get_balances(self) -> Dict[str, Balance]:
         pass
 
-    @abstractmethod
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
@@ -37,7 +37,6 @@ class Exchange(ABC):
                                         end: int) -> AsyncIterable[Candle]:
         yield  # type: ignore
 
-    @abstractmethod
     @asynccontextmanager
     async def connect_stream_candles(self, symbol: str,
                                      interval: int) -> AsyncIterator[AsyncIterable[Candle]]:

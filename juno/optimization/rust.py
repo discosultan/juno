@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import inspect
 import logging
 import os
 import platform
@@ -21,7 +20,7 @@ from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.trading import MissedCandlePolicy, Statistics
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path
+from juno.utils import home_path, list_concretes_from_module
 
 from .solver import Solver, SolverResult
 
@@ -32,12 +31,7 @@ _cdef_builder = CDefBuilder({
     Timestamp: 'uint64_t',
 })
 
-_strategy_types = [
-    t for n, t in inspect.getmembers(
-        strategies,
-        lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, Strategy)
-    )
-]
+_strategy_types = list_concretes_from_module(strategies, Strategy)
 
 
 class Rust(Solver):
