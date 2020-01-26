@@ -13,9 +13,9 @@ from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
 from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.typing import types_match
-from juno.utils import get_concretes_from_module
+from juno.utils import list_concretes_from_module
 
-exchange_types = get_concretes_from_module(juno.exchanges, Exchange)
+exchange_types = list_concretes_from_module(juno.exchanges, Exchange)
 exchanges = [pytest.lazy_fixture(e.__name__.lower()) for e in exchange_types]
 exchange_ids = [e.__name__ for e in exchange_types]
 
@@ -151,7 +151,7 @@ async def test_connect_stream_depth(loop, request, exchange):
         res = await stream.__anext__()
         await stream.aclose()
 
-    expected_type = DepthUpdate if isinstance(exchange, Binance) else DepthSnapshot
+    expected_type = DepthSnapshot if exchange.can_stream_depth_snapshot else DepthUpdate
 
     assert types_match(res, expected_type)
 
@@ -196,8 +196,8 @@ async def test_stream_historical_trades(loop, request, exchange):
 async def test_connect_stream_trades(loop, request, exchange):
     skip_not_configured(request, exchange)
 
-    # Kraken has quite low volumes. The fiat symbol market is much more active.
-    symbol = 'btc-eur' if isinstance(exchange, Kraken) else 'eth-btc'
+    # FIAT pairs seem to be more active where supported.
+    symbol = 'eth-btc' if isinstance(exchange, Binance) else 'eth-eur'
 
     async with exchange.connect_stream_trades(symbol=symbol) as stream:
         trade = await stream.__anext__()

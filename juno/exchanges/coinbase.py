@@ -15,6 +15,7 @@ from typing import (
 )
 
 from aiolimiter import AsyncLimiter
+from aiostream import stream
 from dateutil.tz import UTC
 
 from juno import (
@@ -38,6 +39,7 @@ _log = logging.getLogger(__name__)
 
 class Coinbase(Exchange):
     # Capabilities.
+    can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = True
     can_stream_candles: bool = False
@@ -101,15 +103,6 @@ class Coinbase(Exchange):
             ] = Balance(available=Decimal(balance['available']), hold=Decimal(balance['hold']))
         return result
 
-    @asynccontextmanager
-    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
-        async def inner() -> AsyncIterable[Dict[str, Balance]]:
-            # TODO: Add support for future balance changes.
-            yield {}
-
-        raise NotImplementedError()
-        yield inner()
-
     async def stream_historical_candles(self, symbol: str, interval: int, start: int,
                                         end: int) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
@@ -155,7 +148,7 @@ class Coinbase(Exchange):
                         asks=[(Decimal(p), Decimal(s)) for p, s in asks]
                     )
 
-        async with self._ws.subscribe('level2', symbol) as ws:
+        async with self._ws.subscribe('level2', ['snapshot', 'l2update'], symbol) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -215,7 +208,7 @@ class Coinbase(Exchange):
                     size=Decimal(val['size'])
                 )
 
-        async with self._ws.subscribe('match', symbol) as ws:
+        async with self._ws.subscribe('matches', ['match'], symbol) as ws:
             yield inner(ws)
 
     async def _paginated_public_request(self, method: str, url: str,
@@ -282,11 +275,13 @@ class CoinbaseFeed:
         await self.session.__aexit__(exc_type, exc, tb)
 
     @asynccontextmanager
-    async def subscribe(self, channel: str, symbol: str) -> AsyncIterator[AsyncIterable[Any]]:
+    async def subscribe(
+        self, channel: str, types: List[str], symbol: str
+    ) -> AsyncIterator[AsyncIterable[Any]]:
         await self._ensure_connection()
 
-        # TODO: Skip subscription if already subscribed.
-        # if symbols not in self._stream_subscriptions.get('matches', []):
+        # TODO: Skip subscription if already subscribed. Maybe not a good idea because we may need
+        # messages such as depth snapshot again.
 
         assert self.ws
         await self.ws.send_json({
@@ -301,7 +296,7 @@ class CoinbaseFeed:
             await self.subscriptions_updated.wait()
 
         try:
-            yield self.channels[(channel, symbol)].stream()
+            yield stream.merge(*(self.channels[(t, symbol)].stream() for t in types))
         finally:
             # TODO: unsubscribe
             pass
@@ -318,14 +313,15 @@ class CoinbaseFeed:
         assert self.ws
         async for msg in self.ws:
             data = json.loads(msg.data)
-            if data['type'] == 'subscriptions':
+            type_ = data['type']
+            if type_ == 'subscriptions':
                 self.subscriptions = {
                     c['name']: [s.lower() for s in c['product_ids']]
                     for c in data['channels']
                 }
                 self.subscriptions_updated.set()
             else:
-                self.channels[(data['type'], data['product_id'])].set(data)
+                self.channels[(type_, _from_product(data['product_id']))].set(data)
 
 
 def _is_subscribed(
@@ -343,6 +339,10 @@ def _is_subscribed(
 
 def _product(symbol: str) -> str:
     return symbol.upper()
+
+
+def _from_product(product: str) -> str:
+    return product.lower()
 
 
 def _granularity(interval: int) -> int:

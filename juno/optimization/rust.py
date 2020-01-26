@@ -21,7 +21,7 @@ from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.trading import MissedCandlePolicy, Statistics
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import get_concretes_from_module, home_path
+from juno.utils import list_concretes_from_module, home_path
 
 from .solver import Solver, SolverResult
 
@@ -32,7 +32,7 @@ _cdef_builder = CDefBuilder({
     Timestamp: 'uint64_t',
 })
 
-_strategy_types = get_concretes_from_module(strategies, Strategy)
+_strategy_types = list_concretes_from_module(strategies, Strategy)
 
 
 class Rust(Solver):

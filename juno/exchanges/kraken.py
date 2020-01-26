@@ -40,6 +40,7 @@ _log = logging.getLogger(__name__)
 
 class Kraken(Exchange):
     # Capabilities.
+    can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = False
     can_stream_candles: bool = False
@@ -100,10 +101,6 @@ class Kraken(Exchange):
                 asset = asset[1:]
             result[asset.lower()] = Balance(available=Decimal(available), hold=Decimal('0.0'))
         return result
-
-    @asynccontextmanager
-    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
-        yield  # type: ignore
 
     async def stream_historical_candles(self, symbol: str, interval: int, start: int,
                                         end: int) -> AsyncIterable[Candle]:

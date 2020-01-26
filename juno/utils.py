@@ -153,7 +153,7 @@ def map_module_types(module: ModuleType) -> Dict[str, type]:
     return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
 
 
-def get_concretes_from_module(module: ModuleType, abstract: Type[Any]) -> List[Type[Any]]:
+def list_concretes_from_module(module: ModuleType, abstract: Type[Any]) -> List[Type[Any]]:
     return [t for _n, t in inspect.getmembers(
         module,
         lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract)
