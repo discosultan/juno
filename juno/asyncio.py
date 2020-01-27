@@ -2,12 +2,15 @@ import asyncio
 import inspect
 import logging
 import traceback
-from typing import Any, AsyncIterable, Awaitable, Generic, List, Optional, Tuple, TypeVar, cast
+from typing import (
+    Any, AsyncIterable, AsyncIterator, Awaitable, Dict, Generic, List, Optional, Tuple, TypeVar,
+    cast
+)
 
 T = TypeVar('T')
 
 
-def resolved_future(result: T) -> asyncio.Future[T]:
+def resolved_future(result: T) -> asyncio.Future:
     future = asyncio.get_running_loop().create_future()
     future.set_result(result)
     return future
@@ -38,8 +41,25 @@ async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
 
 
 async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
-    # TODO: Implement
-    yield
+    iter_next: Dict[AsyncIterator[T], Optional[asyncio.Future]] = {
+        it.__aiter__(): None for it in async_iters
+    }
+    while iter_next:
+        for it, it_next in iter_next.items():
+            if it_next is None:
+                fut = asyncio.ensure_future(it.__anext__())
+                fut._orig_iter = it  # type: ignore
+                iter_next[it] = fut
+        done, _ = await asyncio.wait(iter_next.values(),  # type: ignore
+                                     return_when=asyncio.FIRST_COMPLETED)
+        for fut in done:
+            iter_next[fut._orig_iter] = None  # type: ignore
+            try:
+                ret = fut.result()
+            except StopAsyncIteration:
+                del iter_next[fut._orig_iter]  # type: ignore
+                continue
+            yield ret
 
 
 def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
