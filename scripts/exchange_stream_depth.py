@@ -8,7 +8,7 @@ EXCHANGE_TYPE = exchanges.Kraken
 SYMBOL = 'ada-eur'
 
 
-async def main():
+async def main() -> None:
     async with init_instance(EXCHANGE_TYPE, from_env()) as client:
         async with client.connect_stream_depth(SYMBOL) as stream:
             async for val in stream:

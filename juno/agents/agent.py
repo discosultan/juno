@@ -3,7 +3,7 @@ import logging
 from enum import Enum
 from typing import Any, Awaitable, Callable, Dict, List
 
-from juno.asyncio import empty_future
+from juno.asyncio import resolved_future
 from juno.utils import EventEmitter, exc_traceback, format_attrs_as_json, generate_random_words
 
 _log = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ _random_names = generate_random_words()
 
 class Agent(EventEmitter):
 
-    run: Callable[..., Awaitable[None]] = lambda: empty_future()
+    run: Callable[..., Awaitable[None]] = lambda: resolved_future(None)
 
     def __init__(self) -> None:
         super().__init__()

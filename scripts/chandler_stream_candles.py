@@ -12,7 +12,7 @@ EXCHANGE_TYPE = exchanges.Binance
 SYMBOL = 'eth-btc'
 
 
-async def main():
+async def main() -> None:
     sqlite = SQLite()
     client = init_instance(EXCHANGE_TYPE, from_env())
     name = EXCHANGE_TYPE.__name__.lower()

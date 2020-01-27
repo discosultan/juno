@@ -8,7 +8,7 @@ EXCHANGE_TYPE = exchanges.Kraken
 SYMBOL = 'btc-eur'
 
 
-async def main():
+async def main() -> None:
     async with init_instance(EXCHANGE_TYPE, from_env()) as client:
         async with client.connect_stream_trades(symbol=SYMBOL) as stream:
             i = 0

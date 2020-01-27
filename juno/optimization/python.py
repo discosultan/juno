@@ -79,7 +79,11 @@ def _trade(
                 summary.append_candle(candle)
 
                 # TODO: python 3.8 assignment expression
-                if ctx.last_candle and candle.time - ctx.last_candle.time >= interval * 2:
+                if (
+                    missed_candle_policy is not MissedCandlePolicy.IGNORE
+                    and ctx.last_candle
+                    and candle.time - ctx.last_candle.time >= interval * 2
+                ):
                     if missed_candle_policy is MissedCandlePolicy.RESTART:
                         restart = True
                         ctx.strategy = strategy_type(*args)
@@ -98,6 +102,8 @@ def _trade(
                             )
                             _tick(ctx, summary, symbol, fees, filters, trailing_stop,
                                   missed_candle)
+                    else:
+                        raise NotImplementedError()
 
                 _tick(ctx, summary, symbol, fees, filters, trailing_stop, candle)
 

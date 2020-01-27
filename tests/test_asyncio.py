@@ -1,22 +1,14 @@
 import asyncio
 
-from juno.asyncio import Barrier, Event, concat_async, enumerate_async, list_async
+from juno.asyncio import Barrier, Event, chain_async, enumerate_async, list_async, resolved_stream
 
 
-async def test_list_async():
-    async def gen():
-        for i in range(3):
-            yield i
-
-    assert await list_async(gen()) == [0, 1, 2]
-
-
-async def test_concat_async():
+async def test_chain_async():
     async def gen():
         yield 1
         yield 2
 
-    iterable = concat_async(0, gen())
+    iterable = chain_async(resolved_stream(resolved_stream(0)), gen())
 
     assert await iterable.__anext__() == 0
     assert await iterable.__anext__() == 1
@@ -34,6 +26,14 @@ async def test_enumerate_async():
     assert await iterable.__anext__() == (1, 'a')
     assert await iterable.__anext__() == (2, 'b')
     await iterable.aclose()
+
+
+async def test_list_async():
+    async def gen():
+        for i in range(3):
+            yield i
+
+    assert await list_async(gen()) == [0, 1, 2]
 
 
 async def test_barrier():

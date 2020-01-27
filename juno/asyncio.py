@@ -2,17 +2,34 @@ import asyncio
 import inspect
 import logging
 import traceback
-from typing import (
-    Any, AsyncIterable, Awaitable, Generic, List, Optional, Tuple, TypeVar, Union, cast
-)
+from typing import Any, AsyncIterable, Awaitable, Generic, List, Optional, Tuple, TypeVar, cast
 
 T = TypeVar('T')
 
 
-def empty_future() -> asyncio.Future:
+def resolved_future(result: T) -> asyncio.Future[T]:
     future = asyncio.get_running_loop().create_future()
-    future.set_result(None)
+    future.set_result(result)
     return future
+
+
+async def resolved_stream(*results: T) -> AsyncIterable[T]:
+    for result in results:
+        yield result
+
+
+async def chain_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
+    for async_iter in async_iters:
+        async for val in async_iter:
+            yield val
+
+
+async def enumerate_async(iterable: AsyncIterable[T],
+                          start: int = 0, step: int = 1) -> AsyncIterable[Tuple[int, T]]:
+    i = start
+    async for item in iterable:
+        yield i, item
+        i += step
 
 
 async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
@@ -20,21 +37,9 @@ async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
     return [item async for item in async_iter]
 
 
-async def concat_async(*args: Union[T, AsyncIterable[T]]) -> AsyncIterable[T]:
-    for arg in args:
-        if hasattr(arg, '__aiter__'):
-            async for val in arg:  # type: ignore
-                yield val
-        else:
-            yield arg  # type: ignore
-
-
-async def enumerate_async(iterable: AsyncIterable[T],
-                          start: int = 0) -> AsyncIterable[Tuple[int, T]]:
-    i = start
-    async for item in iterable:
-        yield i, item
-        i += 1
+async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
+    # TODO: Implement
+    yield
 
 
 def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
@@ -47,7 +52,11 @@ def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
             return await coro
         except asyncio.CancelledError:
             log = logging.getLogger(module.__name__)
-            log.info(f'{coro.__qualname__} task cancelled')  # type: ignore
+            # Available on coroutine.
+            qualname = getattr(coro, '__qualname__', None)
+            # Other awaitables.
+            qualname = type(coro).__qualname__ if qualname is None else qualname
+            log.info(f'{qualname} task cancelled')
         except Exception as exc:
             log = logging.getLogger(module.__name__)
             msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
