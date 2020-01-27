@@ -15,14 +15,13 @@ from typing import (
 )
 
 from aiolimiter import AsyncLimiter
-from aiostream import stream
 from dateutil.tz import UTC
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
     OrderType, Side, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel, cancelable
+from juno.asyncio import Event, cancel, cancelable, merge_async
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import datetime_timestamp_ms
@@ -296,7 +295,7 @@ class CoinbaseFeed:
             await self.subscriptions_updated.wait()
 
         try:
-            yield stream.merge(*(self.channels[(t, symbol)].stream() for t in types))
+            yield merge_async(*(self.channels[(t, symbol)].stream() for t in types))
         finally:
             # TODO: unsubscribe
             pass

@@ -9,7 +9,7 @@ EXCHANGE_TYPE = exchanges.Binance
 ASSETS = ['btc', 'eth']
 
 
-async def main():
+async def main() -> None:
     client = init_instance(EXCHANGE_TYPE, from_env())
     name = EXCHANGE_TYPE.__name__.lower()
     wallet = Wallet([client])

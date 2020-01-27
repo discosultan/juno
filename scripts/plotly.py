@@ -1,8 +1,9 @@
 import asyncio
 import logging
 
-import plotly.graph_objs as go
+import plotly.graph_objs as go  # noqa
 import plotly.offline as py
+# noqa
 from juno.asyncio import list_async
 from juno.components import Chandler, Trades
 from juno.config import from_env, init_instance
@@ -11,12 +12,12 @@ from juno.storages import SQLite
 from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strpinterval
 
 
-async def main():
+async def main() -> None:
     sqlite = SQLite()
     binance = init_instance(Binance, from_env())
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])
-    async with binance, chandler:
+    async with binance:
         candles = await list_async(
             chandler.stream_candles(
                 exchange='binance',

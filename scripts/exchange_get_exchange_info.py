@@ -7,7 +7,7 @@ from juno.config import from_env, init_instance
 EXCHANGE_TYPE = exchanges.Binance
 
 
-async def main():
+async def main() -> None:
     async with init_instance(EXCHANGE_TYPE, from_env()) as client:
         exchange_info = await client.get_exchange_info()
         logging.info(exchange_info.filters['ada-btc'])

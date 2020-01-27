@@ -10,7 +10,7 @@ from juno.storages import SQLite
 EXCHANGE_TYPES = [exchanges.Binance, exchanges.Coinbase, exchanges.Kraken]
 
 
-async def main():
+async def main() -> None:
     storage = SQLite()
     config = from_env()
     exchanges = [init_instance(e, config) for e in EXCHANGE_TYPES]

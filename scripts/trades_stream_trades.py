@@ -11,7 +11,7 @@ EXCHANGE_TYPE = exchanges.Kraken
 SYMBOL = 'eth-btc'
 
 
-async def main():
+async def main() -> None:
     storage = storages.SQLite()
     client = init_instance(EXCHANGE_TYPE, from_env())
     name = EXCHANGE_TYPE.__name__.lower()

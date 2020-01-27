@@ -30,61 +30,95 @@ class Python(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
-        summary = TradingSummary(
-            interval=interval, start=candles[0].time, quote=quote, fees=fees, filters=filters
+        summary = _trade(
+            strategy_type,
+            quote,
+            candles,
+            fees,
+            filters,
+            symbol,
+            interval,
+            missed_candle_policy,
+            trailing_stop,
+            *args,
         )
-        ctx = TradingContext(strategy_type(*args), quote)
-        try:
-            i = 0
-            while True:
-                restart = False
-
-                for candle in candles[i:]:
-                    i += 1
-                    if not candle.closed:
-                        continue
-
-                    summary.append_candle(candle)
-
-                    # TODO: python 3.8 assignment expression
-                    if ctx.last_candle and candle.time - ctx.last_candle.time >= interval * 2:
-                        if missed_candle_policy is MissedCandlePolicy.RESTART:
-                            restart = True
-                            ctx.strategy = strategy_type(*args)
-                        elif missed_candle_policy is MissedCandlePolicy.LAST:
-                            num_missed = (candle.time - ctx.last_candle.time) // interval - 1
-                            last_candle = ctx.last_candle
-                            for i in range(1, num_missed + 1):
-                                missed_candle = Candle(
-                                    time=last_candle.time + i * interval,
-                                    open=last_candle.open,
-                                    high=last_candle.high,
-                                    low=last_candle.low,
-                                    close=last_candle.close,
-                                    volume=last_candle.volume,
-                                    closed=last_candle.closed
-                                )
-                                _tick(ctx, summary, symbol, fees, filters, trailing_stop,
-                                      missed_candle)
-
-                    _tick(ctx, summary, symbol, fees, filters, trailing_stop, candle)
-
-                    if restart:
-                        break
-
-                if not restart:
-                    break
-
-            if ctx.last_candle and ctx.open_position:
-                _close_position(ctx, summary, symbol, fees, filters, ctx.last_candle)
-        except InsufficientBalance:
-            pass
 
         portfolio_stats = get_portfolio_statistics(
             benchmark_stats, base_fiat_candles, portfolio_candles, symbol, summary
         )
 
         return SolverResult.from_trading_summary(summary, portfolio_stats)
+
+
+def _trade(
+    strategy_type: Type[Strategy],
+    quote: Decimal,
+    candles: List[Candle],
+    fees: Fees,
+    filters: Filters,
+    symbol: str,
+    interval: Interval,
+    missed_candle_policy: MissedCandlePolicy,
+    trailing_stop: Decimal,
+    *args: Any,
+):
+    summary = TradingSummary(
+        interval=interval, start=candles[0].time, quote=quote, fees=fees, filters=filters
+    )
+    ctx = TradingContext(strategy_type(*args), quote)
+    try:
+        i = 0
+        while True:
+            restart = False
+
+            for candle in candles[i:]:
+                i += 1
+                if not candle.closed:
+                    continue
+
+                summary.append_candle(candle)
+
+                # TODO: python 3.8 assignment expression
+                if (
+                    missed_candle_policy is not MissedCandlePolicy.IGNORE
+                    and ctx.last_candle
+                    and candle.time - ctx.last_candle.time >= interval * 2
+                ):
+                    if missed_candle_policy is MissedCandlePolicy.RESTART:
+                        restart = True
+                        ctx.strategy = strategy_type(*args)
+                    elif missed_candle_policy is MissedCandlePolicy.LAST:
+                        num_missed = (candle.time - ctx.last_candle.time) // interval - 1
+                        last_candle = ctx.last_candle
+                        for i in range(1, num_missed + 1):
+                            missed_candle = Candle(
+                                time=last_candle.time + i * interval,
+                                open=last_candle.open,
+                                high=last_candle.high,
+                                low=last_candle.low,
+                                close=last_candle.close,
+                                volume=last_candle.volume,
+                                closed=last_candle.closed
+                            )
+                            _tick(ctx, summary, symbol, fees, filters, trailing_stop,
+                                  missed_candle)
+                    else:
+                        raise NotImplementedError()
+
+                _tick(ctx, summary, symbol, fees, filters, trailing_stop, candle)
+
+                if restart:
+                    break
+
+            if not restart:
+                break
+
+        if ctx.last_candle and ctx.open_position:
+            _close_position(ctx, summary, symbol, fees, filters, ctx.last_candle)
+    except InsufficientBalance:
+        pass
+
+    return summary
 
 
 def _tick(

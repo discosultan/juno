@@ -28,14 +28,14 @@ async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start
     return symbol, strfinterval(interval), annualized_volatility
 
 
-async def main():
+async def main() -> None:
     binance = init_instance(Binance, from_env())
     exchange = 'binance'
     sqlite = SQLite()
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])
     informant = Informant(sqlite, [binance])
-    async with binance, chandler, informant:
+    async with binance, informant:
         symbols = informant.list_symbols(exchange)[:10]
         intervals = informant.list_candle_intervals(exchange)[:3]
         now = time_ms()
@@ -45,7 +45,7 @@ async def main():
             start = end - MONTH_MS
             for symbol in symbols:
                 tasks.append(
-                    find_volatility_for_symbol(informant, exchange, symbol, interval, start, end)
+                    find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end)
                 )
         results = await asyncio.gather(*tasks)
 

@@ -15,7 +15,7 @@ from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfinterval, strfspan, strftimestamp, time_ms
-from juno.utils import generate_missing_spans, merge_adjacent_spans
+from juno.utils import generate_missing_spans, merge_adjacent_spans, unpack_symbol
 
 from .informant import Informant
 from .trades import Trades
@@ -289,3 +289,45 @@ class Chandler:
                 volume=volume,
                 closed=True
             )
+
+    async def _stream_construct_candles_by_volume(
+        self, exchange: str, symbol: str, volume: Decimal, start: int, end: int
+    ) -> AsyncIterable[Candle]:
+        if not self._trades:
+            raise ValueError('Trades component not configured. Unable to construct candles')
+
+        base_asset, _ = unpack_symbol(symbol)
+        _log.info(f'constructing {exchange} {symbol} {volume}{base_asset} candles from trades')
+
+        current_volume = Decimal('0.0')
+        is_first = True
+        async for trade in self._trades.stream_trades(exchange, symbol, start, end):
+            if is_first:
+                is_first = False
+                time = trade.time
+                open_ = trade.price
+                high = trade.price
+                low = trade.price
+                close = trade.price
+            else:
+                high = max(high, trade.price)
+                low = min(low, trade.price)
+                close = trade.price
+
+            current_volume += trade.size
+            while current_volume > volume:
+                yield Candle(
+                    time=time,
+                    open=open_,
+                    high=high,
+                    low=low,
+                    close=close,
+                    volume=volume,
+                    closed=True
+                )
+                current_volume -= volume
+                time = trade.time
+                open_ = trade.price
+                high = trade.price
+                low = trade.price
+                close = trade.price

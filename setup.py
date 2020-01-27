@@ -9,7 +9,6 @@ setup(
         'aiohttp',
         # This is a fork of original aiolimiter which adds logging support.
         'aiolimiter @ git+https://github.com/discosultan/aiolimiter@master#egg=aiolimiter',
-        'aiostream',
         'cffi',
         'colorlog',
         'deap',

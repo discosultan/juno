@@ -357,7 +357,7 @@ class Binance(Exchange):
         while True:
             batch_end = batch_start + HOUR_MS
             payload['startTime'] = batch_start
-            payload['endTime'] = batch_end - 1  # Inclusive.
+            payload['endTime'] = min(batch_end, end) - 1  # Inclusive.
 
             time = None
 
