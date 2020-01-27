@@ -40,6 +40,7 @@ async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
     return [item async for item in async_iter]
 
 
+# Ref: https://stackoverflow.com/a/50903757/1466456
 async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
     iter_next: Dict[AsyncIterator[T], Optional[asyncio.Future]] = {
         it.__aiter__(): None for it in async_iters
