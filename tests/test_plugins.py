@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, Fees, Fill, Filters
+from juno import Candle, Fill
 from juno.agents import Agent
 from juno.time import DAY_MS
 from juno.trading import Position, TradingSummary
@@ -39,6 +39,7 @@ async def test_discord(request, config):
             ]
         )
         agent.result.append_position(pos)
+        agent.result.finish(pos.closing_time + 1)
         await agent.emit('position_closed', pos)
         await agent.emit('finished')
         await agent.emit('image', full_path(__file__, '/data/dummy_img.png'))
@@ -58,9 +59,7 @@ def skip_non_configured(request, config):
 
 
 def get_dummy_trading_summary(quote, interval):
-    return TradingSummary(
-        interval=interval, start=0, quote=quote, fees=Fees(), filters=Filters()
-    )
+    return TradingSummary(start=0, quote=quote)
 
 
 class Dummy(Agent):

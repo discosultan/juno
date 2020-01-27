@@ -62,9 +62,7 @@ def _trade(
     trailing_stop: Decimal,
     *args: Any,
 ):
-    summary = TradingSummary(
-        interval=interval, start=candles[0].time, quote=quote, fees=fees, filters=filters
-    )
+    summary = TradingSummary(start=candles[0].time, quote=quote)
     ctx = TradingContext(strategy_type(*args), quote)
     try:
         i = 0
@@ -75,8 +73,6 @@ def _trade(
                 i += 1
                 if not candle.closed:
                     continue
-
-                summary.append_candle(candle)
 
                 # TODO: python 3.8 assignment expression
                 if (
@@ -118,6 +114,7 @@ def _trade(
     except InsufficientBalance:
         pass
 
+    summary.finish(candles[-1].time + interval)
     return summary
 
 
@@ -139,6 +136,8 @@ def _tick(
         if candle.close <= ctx.highest_close_since_position * trailing_factor:
             _close_position(ctx, summary, symbol, fees, filters, candle)
 
+    if not ctx.first_candle:
+        ctx.first_candle = candle
     ctx.last_candle = candle
 
 

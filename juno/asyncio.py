@@ -27,8 +27,9 @@ async def chain_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
             yield val
 
 
-async def enumerate_async(iterable: AsyncIterable[T],
-                          start: int = 0, step: int = 1) -> AsyncIterable[Tuple[int, T]]:
+async def enumerate_async(
+    iterable: AsyncIterable[T], start: int = 0, step: int = 1
+) -> AsyncIterable[Tuple[int, T]]:
     i = start
     async for item in iterable:
         yield i, item
