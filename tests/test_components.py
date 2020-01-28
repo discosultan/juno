@@ -2,11 +2,30 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, DepthSnapshot, ExchangeInfo, Fees
-from juno.components import Informant, Orderbook, Wallet
+from juno import Balance, Candle, DepthSnapshot, ExchangeInfo, Fees
+from juno.components import Historian, Informant, Orderbook, Wallet
 from juno.filters import Filters, Price, Size
 
 from . import fakes
+
+
+async def test_get_first_candle_time(storage):
+    candles = [
+        Candle(time=12),
+        Candle(time=14),
+        Candle(time=16),
+        Candle(time=18),
+    ]
+    time = fakes.Time(20)
+    historian = Historian(
+        chandler=fakes.Chandler(candles=candles),
+        storage=storage,
+        get_time_ms=time.get_time,
+        earliest_exchange_start=10)
+
+    first_candle_time = await historian.find_first_candle_time('exchange', 'eth-btc', 2)
+
+    assert first_candle_time == 12
 
 
 @pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])

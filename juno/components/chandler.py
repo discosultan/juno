@@ -39,7 +39,7 @@ class Chandler:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._informant = informant
         self._trades = trades
-        self._get_time = get_time_ms or time_ms
+        self._get_time_ms = get_time_ms or time_ms
         self._storage_batch_size = storage_batch_size
 
     async def stream_candles(
@@ -136,7 +136,7 @@ class Chandler:
                 batch = []
                 swap_batch: List[Candle] = []
                 batch_start = start
-                current = floor_multiple(self._get_time(), interval)
+                current = floor_multiple(self.__get_time_msget_time(), interval)
 
                 try:
                     async for candle in self._stream_exchange_candles(
@@ -175,7 +175,7 @@ class Chandler:
                         start = batch_end
                     raise
                 else:
-                    current = floor_multiple(self._get_time(), interval)
+                    current = floor_multiple(self.__get_time_msget_time(), interval)
                     batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
                         key=storage_key,
