@@ -15,7 +15,7 @@ class Historian:
         key = (exchange, symbol, interval, 'first_candle')
         val, _ = await self.storage.get(key, int)
         if not val:
-            val = await self._find_first_candle_time(exchange, symbol)
+            val = await self._find_first_candle_time(exchange, symbol, interval)
             await self.storage.set(key, int, val)
         return val
 
@@ -25,3 +25,4 @@ class Historian:
         end = time_ms()
         mid = start + ((end - start) / 2)
         self.chandler.stream_candles(exchange, symbol, interval)
+        return 0
