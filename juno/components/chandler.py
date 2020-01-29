@@ -39,7 +39,7 @@ class Chandler:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._informant = informant
         self._trades = trades
-        self._get_time = get_time_ms or time_ms
+        self._get_time_ms = get_time_ms or time_ms
         self._storage_batch_size = storage_batch_size
 
     async def stream_candles(
@@ -136,7 +136,7 @@ class Chandler:
                 batch = []
                 swap_batch: List[Candle] = []
                 batch_start = start
-                current = floor_multiple(self._get_time(), interval)
+                current = floor_multiple(self._get_time_ms(), interval)
 
                 try:
                     async for candle in self._stream_exchange_candles(
@@ -154,7 +154,7 @@ class Chandler:
                                 batch, swap_batch = swap_batch, batch
                                 await self._storage.store_time_series_and_span(
                                     key=storage_key,
-                                    type=Candle,
+                                    type_=Candle,
                                     items=swap_batch,
                                     start=batch_start,
                                     end=batch_end,
@@ -167,7 +167,7 @@ class Chandler:
                         batch_end = batch[-1].time + interval
                         await self._storage.store_time_series_and_span(
                             key=storage_key,
-                            type=Candle,
+                            type_=Candle,
                             items=batch,
                             start=batch_start,
                             end=batch_end,
@@ -175,11 +175,11 @@ class Chandler:
                         start = batch_end
                     raise
                 else:
-                    current = floor_multiple(self._get_time(), interval)
+                    current = floor_multiple(self._get_time_ms(), interval)
                     batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
                         key=storage_key,
-                        type=Candle,
+                        type_=Candle,
                         items=batch,
                         start=batch_start,
                         end=batch_end,

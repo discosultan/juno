@@ -19,7 +19,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = '34'
+_VERSION = '35'
 
 T = TypeVar('T')
 
@@ -48,14 +48,14 @@ class SQLite(Storage):
         self._tables: Dict[Any, Set[str]] = defaultdict(set)
         _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {_VERSION}')
 
-    async def stream_time_series_spans(self, key: Key, type: Type[T], start: int,
+    async def stream_time_series_spans(self, key: Key, type_: Type[T], start: int,
                                        end: int) -> AsyncIterable[Tuple[int, int]]:
         def inner() -> List[Tuple[int, int]]:
             _log.info(
-                f'streaming {type.__name__} span(s) between {strfspan(start, end)} from {key} db'
+                f'streaming {type_.__name__} span(s) between {strfspan(start, end)} from {key} db'
             )
             with self._connect(key) as conn:
-                span_table_name = f'{type.__name__}{Span.__name__}'
+                span_table_name = f'{type_.__name__}{Span.__name__}'
                 self._ensure_table(conn, Span, span_table_name)
                 return conn.execute(
                     f'SELECT * FROM {span_table_name} WHERE start < ? AND end > ? ORDER BY start',
@@ -66,22 +66,24 @@ class SQLite(Storage):
         for span_start, span_end in rows:
             yield max(span_start, start), min(span_end, end)
 
-    async def stream_time_series(self, key: Key, type: Type[T], start: int,
+    async def stream_time_series(self, key: Key, type_: Type[T], start: int,
                                  end: int) -> AsyncIterable[T]:
         def inner() -> List[T]:
-            _log.info(f'streaming {type.__name__}(s) between {strfspan(start, end)} from {key} db')
+            _log.info(
+                f'streaming {type_.__name__}(s) between {strfspan(start, end)} from {key} db'
+            )
             with self._connect(key) as conn:
-                self._ensure_table(conn, type)
+                self._ensure_table(conn, type_)
                 return conn.execute(
-                    f'SELECT * FROM {type.__name__} WHERE time >= ? AND time < ? ORDER BY time',
+                    f'SELECT * FROM {type_.__name__} WHERE time >= ? AND time < ? ORDER BY time',
                     [start, end]
                 ).fetchall()
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
         for row in rows:
-            yield type(*row)
+            yield type_(*row)
 
     async def store_time_series_and_span(
-        self, key: Key, type: Type[Any], items: List[Any], start: int, end: int
+        self, key: Key, type_: Type[Any], items: List[Any], start: int, end: int
     ) -> None:
         if len(items) > 0:
             if start > items[0].time:
@@ -94,20 +96,20 @@ class SQLite(Storage):
 
         def inner() -> None:
             _log.info(
-                f'storing {len(items)} {type.__name__}(s) between {strfspan(start, end)} to {key} '
-                'db'
+                f'storing {len(items)} {type_.__name__}(s) between {strfspan(start, end)} to '
+                f'{key} db'
             )
-            span_table_name = f'{type.__name__}{Span.__name__}'
+            span_table_name = f'{type_.__name__}{Span.__name__}'
             with self._connect(key) as conn:
-                self._ensure_table(conn, type)
+                self._ensure_table(conn, type_)
                 self._ensure_table(conn, Span, span_table_name)
 
                 c = conn.cursor()
                 if len(items) > 0:
                     try:
                         c.executemany(
-                            f"INSERT INTO {type.__name__} "
-                            f"VALUES ({', '.join(['?'] * len(get_type_hints(type)))})", items
+                            f"INSERT INTO {type_.__name__} "
+                            f"VALUES ({', '.join(['?'] * len(get_type_hints(type_)))})", items
                         )
                     except sqlite3.IntegrityError as err:
                         # TODO: Can we relax this constraint?
@@ -268,8 +270,8 @@ class Bag:
 
 
 class Span:
-    start: int
-    end: int
+    start: Timestamp
+    end: Timestamp
 
     @staticmethod
     def meta() -> Dict[str, str]:

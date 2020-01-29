@@ -37,7 +37,7 @@ async def test_memory_store_objects_and_span(memory, items):
     end = items[-1].time + 1
 
     await memory.store_time_series_and_span(
-        key='key', type=type_, items=items, start=start, end=end
+        key='key', type_=type_, items=items, start=start, end=end
     )
     output_spans, output_items = await asyncio.gather(
         list_async(memory.stream_time_series_spans('key', type_, start, end)),
@@ -59,7 +59,7 @@ async def test_memory_stream_missing_series(memory):
 
 
 async def test_memory_store_and_stream_empty_series(memory):
-    await memory.store_time_series_and_span(key='key', type=Candle, items=[], start=0, end=5)
+    await memory.store_time_series_and_span(key='key', type_=Candle, items=[], start=0, end=5)
     output_spans, output_items = await asyncio.gather(
         list_async(memory.stream_time_series_spans('key', Candle, 0, 5)),
         list_async(memory.stream_time_series('key', Candle, 0, 5))

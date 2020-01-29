@@ -27,7 +27,7 @@ class Trades:
     ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._get_time = get_time_ms or time_ms
+        self._get_time_ms = get_time_ms or time_ms
         self._storage_batch_size = storage_batch_size
 
     async def stream_trades(self, exchange: str, symbol: str, start: int,
@@ -74,7 +74,7 @@ class Trades:
                 batch = []
                 swap_batch: List[Trade] = []
                 batch_start = start
-                current = self._get_time()
+                current = self._get_time_ms()
 
                 try:
                     async for trade in self._stream_exchange_trades(
@@ -98,7 +98,7 @@ class Trades:
                             batch, swap_batch = swap_batch, batch
                             await self._storage.store_time_series_and_span(
                                 key=storage_key,
-                                type=Trade,
+                                type_=Trade,
                                 items=swap_batch,
                                 start=batch_start,
                                 end=batch_end,
@@ -112,7 +112,7 @@ class Trades:
                         batch_end = batch[-1].time + 1
                         await self._storage.store_time_series_and_span(
                             key=storage_key,
-                            type=Trade,
+                            type_=Trade,
                             items=batch,
                             start=batch_start,
                             end=batch[-1].time + 1,
@@ -120,11 +120,11 @@ class Trades:
                         start = batch_end
                     raise
                 else:
-                    current = self._get_time()
+                    current = self._get_time_ms()
                     batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
                         key=storage_key,
-                        type=Trade,
+                        type_=Trade,
                         items=batch,
                         start=batch_start,
                         end=batch_end,
