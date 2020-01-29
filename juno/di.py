@@ -5,7 +5,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_origin
+from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_args, get_origin
 
 from juno.utils import recursive_iter
 
@@ -51,6 +51,8 @@ class Container:
         # 4. construct implicitly
         # 5. default value
 
+        type_ = get_args(type_)[0] if isoptional(type_) else type_
+
         # 1. singleton
         instance = self._singletons.get(type_)
         if instance:
@@ -67,7 +69,7 @@ class Container:
                 instance_type = type_factory()
             # 4. construct implicitly
             else:
-                instance_type = get_origin(type_) or type_
+                instance_type = type_
 
             kwargs: Dict[str, Any] = {}
             signature = inspect.signature(instance_type.__init__)
