@@ -98,7 +98,7 @@ class Trades:
                             batch, swap_batch = swap_batch, batch
                             await self._storage.store_time_series_and_span(
                                 key=storage_key,
-                                type=Trade,
+                                type_=Trade,
                                 items=swap_batch,
                                 start=batch_start,
                                 end=batch_end,
@@ -112,7 +112,7 @@ class Trades:
                         batch_end = batch[-1].time + 1
                         await self._storage.store_time_series_and_span(
                             key=storage_key,
-                            type=Trade,
+                            type_=Trade,
                             items=batch,
                             start=batch_start,
                             end=batch[-1].time + 1,
@@ -124,7 +124,7 @@ class Trades:
                     batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
                         key=storage_key,
-                        type=Trade,
+                        type_=Trade,
                         items=batch,
                         start=batch_start,
                         end=batch_end,

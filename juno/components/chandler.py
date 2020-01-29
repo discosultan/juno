@@ -154,7 +154,7 @@ class Chandler:
                                 batch, swap_batch = swap_batch, batch
                                 await self._storage.store_time_series_and_span(
                                     key=storage_key,
-                                    type=Candle,
+                                    type_=Candle,
                                     items=swap_batch,
                                     start=batch_start,
                                     end=batch_end,
@@ -167,7 +167,7 @@ class Chandler:
                         batch_end = batch[-1].time + interval
                         await self._storage.store_time_series_and_span(
                             key=storage_key,
-                            type=Candle,
+                            type_=Candle,
                             items=batch,
                             start=batch_start,
                             end=batch_end,
@@ -179,7 +179,7 @@ class Chandler:
                     batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
                         key=storage_key,
-                        type=Candle,
+                        type_=Candle,
                         items=batch,
                         start=batch_start,
                         end=batch_end,

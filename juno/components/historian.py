@@ -20,7 +20,7 @@ class Historian:
     ):
         self._chandler = chandler
         self._storage = storage
-        self._get_time_ms = get_time_ms
+        self._get_time_ms = get_time_ms or time_ms
         self._earliest_exchange_start = earliest_exchange_start
 
     async def find_first_candle_time(self, exchange: str, symbol: str, interval: int) -> int:
@@ -35,11 +35,12 @@ class Historian:
         # TODO: Does not handle missing candles, hence, may yield incorrect results!
         # We try to find a first candle by performing a binary search.
         start = ceil_multiple(self._earliest_exchange_start, interval)
-        end = floor_multiple(time_ms(), interval)
+        end = floor_multiple(self._get_time_ms(), interval)
+        final_end = end  # We need this to not go into the future. We will mutate `end`.
         while True:
             mid = start + floor_multiple(((end - start) // 2), interval)
             candles = await list_async(self._chandler.stream_candles(
-                exchange, symbol, interval, mid, min(mid + 2 * interval, end)
+                exchange, symbol, interval, mid, min(mid + 2 * interval, final_end)
             ))
             if len(candles) == 0:
                 start = mid + 2 * interval
