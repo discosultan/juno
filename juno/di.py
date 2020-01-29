@@ -5,11 +5,11 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_origin
 
 from juno.utils import recursive_iter
 
-from .typing import ExcType, ExcValue, Traceback, get_input_type_hints
+from .typing import ExcType, ExcValue, Traceback, get_input_type_hints, isoptional
 
 T = TypeVar('T')
 
@@ -48,24 +48,26 @@ class Container:
         # 1. singleton
         # 2. instance factory
         # 3. type factory
-        # 4. default value
-        # 5. construct implicitly
+        # 4. construct implicitly
+        # 5. default value
 
+        # 1. singleton
         instance = self._singletons.get(type_)
         if instance:
             return instance
 
+        # 2. instance factory
         instance_factory = self._singleton_instances.get(type_)
         if instance_factory:
             instance = instance_factory()
         else:
+            # 3. type factory
             type_factory = self._singleton_types.get(type_)
             if type_factory:
                 instance_type = type_factory()
-            elif default is not inspect.Parameter.empty:
-                return default
+            # 4. construct implicitly
             else:
-                instance_type = type_
+                instance_type = get_origin(type_) or type_
 
             kwargs: Dict[str, Any] = {}
             signature = inspect.signature(instance_type.__init__)
@@ -77,6 +79,9 @@ class Container:
             try:
                 instance = instance_type(**kwargs)  # type: ignore
             except TypeError:
+                # 5. default value
+                if default is not inspect.Parameter.empty:
+                    return default
                 _log.exception(f'unable to construct {instance_type} as {type_}')
                 raise
             else:

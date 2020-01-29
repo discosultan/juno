@@ -8,34 +8,34 @@ from juno import di
 counter = itertools.count(start=1)
 
 
-def test_resolve_no_deps():
-    container = di.Container()
+@pytest.fixture
+def container():
+    return di.Container()
+
+
+def test_resolve_no_deps(container):
     assert container.resolve(Foo)
 
 
-def test_resolve_implicit_dep():
+def test_resolve_implicit_dep(container):
     # Foo is resolved automatically as singleton.
-    container = di.Container()
     assert container.resolve(Bar)
 
 
-def test_resolve_added_instance_dep():
-    container = di.Container()
+def test_resolve_added_instance_dep(container):
     foo = Foo()
     container.add_singleton_instance(Foo, lambda: foo)
     bar = container.resolve(Bar)
     assert bar.foo == foo
 
 
-def test_resolve_added_type_dep():
-    container = di.Container()
+def test_resolve_added_type_dep(container):
     container.add_singleton_type(Foo, lambda: Foo)
     bar = container.resolve(Bar)
     assert isinstance(bar.foo, Foo)
 
 
-async def test_aenter():
-    container = di.Container()
+async def test_aenter(container):
     baz = container.resolve(Baz)
     async with container:
         assert baz.bar.foo.count == 1
@@ -73,8 +73,7 @@ def test_list_dependencies_in_init_order():
     ]
 
 
-def test_no_duplicates_when_same_abstract_and_concrete():
-    container = di.Container()
+def test_no_duplicates_when_same_abstract_and_concrete(container):
     container.add_singleton_type(Foo, lambda: Foo2)
     result1 = container.resolve(Foo)
     result2 = container.resolve(Foo2)
@@ -82,8 +81,7 @@ def test_no_duplicates_when_same_abstract_and_concrete():
     assert result1 == result2
 
 
-def test_dependency_with_default_values():
-    container = di.Container()
+def test_dependency_with_default_values(container):
     result = container.resolve(Qux)
     assert isinstance(result, Qux)
     assert result.factory() == 1
@@ -91,10 +89,14 @@ def test_dependency_with_default_values():
     assert result.missing is None
 
 
-def test_type_error_on_missing_dep():
-    container = di.Container()
+def test_type_error_on_missing_dep(container):
     with pytest.raises(TypeError):
         container.resolve(Quux)
+
+
+def test_optional_dependency_added(container):
+    corge = container.resolve(Corge)
+    assert corge.foo
 
 
 class Foo:
@@ -145,3 +147,8 @@ class Qux:
 class Quux:
     def __init__(self, factory: Callable[[], int]) -> None:
         self.factory = factory
+
+
+class Corge:
+    def __init__(self, foo: Optional[Foo] = None):
+        self.foo = foo
