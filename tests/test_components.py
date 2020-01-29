@@ -9,23 +9,41 @@ from juno.filters import Filters, Price, Size
 from . import fakes
 
 
-async def test_get_first_candle_time(storage):
+@pytest.mark.parametrize('earliest_exchange_start,time', [
+    (10, 20),  # Simple happy flow.
+    (0, 16),  # `final_end` and start not being over-adjusted.
+])
+async def test_get_first_candle_time(storage, earliest_exchange_start, time):
     candles = [
         Candle(time=12),
         Candle(time=14),
         Candle(time=16),
         Candle(time=18),
     ]
-    time = fakes.Time(20)
     historian = Historian(
         chandler=fakes.Chandler(candles=candles),
         storage=storage,
-        get_time_ms=time.get_time,
-        earliest_exchange_start=10)
+        get_time_ms=fakes.Time(time).get_time,
+        earliest_exchange_start=earliest_exchange_start)
 
     first_candle_time = await historian.find_first_candle_time('exchange', 'eth-btc', 2)
 
     assert first_candle_time == 12
+
+
+@pytest.mark.parametrize('earliest_exchange_start,time', [
+    (1, 2),  # No candles
+    (0, 1),  # Single last candle.
+])
+async def test_get_first_candle_time_not_found(storage, earliest_exchange_start, time):
+    historian = Historian(
+        chandler=fakes.Chandler(candles=[Candle(time=0)]),
+        storage=storage,
+        get_time_ms=fakes.Time(time).get_time,
+        earliest_exchange_start=earliest_exchange_start)
+
+    with pytest.raises(ValueError):
+        await historian.find_first_candle_time('exchange', 'eth-btc', 1)
 
 
 @pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])

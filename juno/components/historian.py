@@ -39,15 +39,22 @@ class Historian:
         final_end = end  # We need this to not go into the future. We will mutate `end`.
         while True:
             mid = start + floor_multiple(((end - start) // 2), interval)
+            from_ = mid
+            to = min(from_ + 2 * interval, final_end)
             candles = await list_async(self._chandler.stream_candles(
-                exchange, symbol, interval, mid, min(mid + 2 * interval, final_end)
+                exchange, symbol, interval, from_, to
             ))
             if len(candles) == 0:
-                start = mid + 2 * interval
-            elif len(candles) == 1:
+                start = mid + interval
+            elif (
+                len(candles) == 1
+                and to - from_ > interval  # Must not be last candle.
+            ):
                 return candles[0].time
             else:
                 end = mid
 
             if start >= end:
-                raise ValueError('First candle not found.')
+                break
+
+        raise ValueError('First candle not found.')
