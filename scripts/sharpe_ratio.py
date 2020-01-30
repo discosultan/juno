@@ -7,7 +7,6 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
@@ -65,8 +64,8 @@ async def main() -> None:
         assert quote_asset == 'btc'  # TODO: Don't support others yet.
 
         btc_fiat_daily, symbol_daily = await asyncio.gather(
-            list_async(chandler.stream_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day)),
-            list_async(chandler.stream_candles('binance', SYMBOL, DAY_MS, start_day, end_day)),
+            chandler.list_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day),
+            chandler.list_candles('binance', SYMBOL, DAY_MS, start_day, end_day),
         )
         assert len(btc_fiat_daily) == length_days
         assert len(symbol_daily) == length_days

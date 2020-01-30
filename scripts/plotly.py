@@ -4,7 +4,6 @@ import logging
 import plotly.graph_objs as go  # noqa
 import plotly.offline as py
 # noqa
-from juno.asyncio import list_async
 from juno.components import Chandler, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
@@ -18,17 +17,15 @@ async def main() -> None:
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])
     async with binance:
-        candles = await list_async(
-            chandler.stream_candles(
-                exchange='binance',
-                symbol='eth-btc',
-                interval=HOUR_MS,
-                start=strpinterval('2017-01-01'),
-                end=strpinterval('2018-01-01'),
-            )
+        candles = await chandler.list_candles(
+            exchange='binance',
+            symbol='eth-btc',
+            interval=HOUR_MS,
+            start=strpinterval('2017-01-01'),
+            end=strpinterval('2018-01-01'),
         )
 
-        candles_map = {c.time: c for c, p in candles}
+        candles_map = {c.time: c for c in candles}
 
         positions = [(1500120000000, 1500181200000), (1500296400000, 1500512400000),
                      (1500850800000, 1500980400000), (1501387200000, 1501513200000),
@@ -45,7 +42,6 @@ async def main() -> None:
                      (1513584000000, 1513962000000), (1514174400000, 1514296800000),
                      (1514462400000, 1514761200000)]
 
-    candles = [c for c, p in candles]
     trace1 = go.Ohlc(
         x=[datetime_utcfromtimestamp_ms(c.time) for c in candles],
         open=[c.open for c in candles],

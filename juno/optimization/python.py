@@ -44,7 +44,7 @@ class Python(Solver):
         )
 
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, base_fiat_candles, portfolio_candles, symbol, summary
+            benchmark_stats, base_fiat_candles, {symbol: portfolio_candles}, summary
         )
 
         return SolverResult.from_trading_summary(summary, portfolio_stats)
@@ -155,6 +155,7 @@ def _try_open_position(
 
     base_asset, _ = unpack_symbol(symbol)
     ctx.open_position = Position(
+        symbol=symbol,
         time=candle.time,
         fills=[Fill(price=price, size=size, fee=fee, fee_asset=base_asset)]
     )
