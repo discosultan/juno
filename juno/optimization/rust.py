@@ -35,9 +35,7 @@ _strategy_types = list_concretes_from_module(strategies, Strategy)
 
 
 class Rust(Solver):
-    def __init__(self, chandler: Chandler, informant: Informant) -> None:
-        self.chandler = chandler
-        self.informant = informant
+    def __init__(self) -> None:
         self.c_candles: Dict[Tuple[str, int, bool], Any] = {}
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
         self.c_series: Dict[str, Any] = {}
