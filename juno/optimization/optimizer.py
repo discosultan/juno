@@ -11,7 +11,6 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 from deap import algorithms, base, creator, tools
 
 from juno import Candle, InsufficientBalance, Interval, Timestamp, strategies
-from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.strategies import Strategy
@@ -276,8 +275,7 @@ class Optimizer:
             get_portfolio_statistics(
                 benchmark_stats,
                 candles[('btc-eur', DAY_MS, True)],
-                candles[(self.result.symbol, DAY_MS, True)],
-                self.result.symbol,
+                {self.result.symbol: candles[(self.result.symbol, DAY_MS, True)]},
                 trader.summary
             )
         )
@@ -297,11 +295,9 @@ class Optimizer:
         interval: int,
         fill_missing_with_last: bool
     ) -> None:
-        candles[(symbol, interval, fill_missing_with_last)] = await list_async(
-            self.chandler.stream_candles(
-                exchange, symbol, interval, floor_multiple(self.start, interval),
-                floor_multiple(self.end, interval), fill_missing_with_last=fill_missing_with_last
-            )
+        candles[(symbol, interval, fill_missing_with_last)] = await self.chandler.list_candles(
+            exchange, symbol, interval, floor_multiple(self.start, interval),
+            floor_multiple(self.end, interval), fill_missing_with_last=fill_missing_with_last
         )
 
 

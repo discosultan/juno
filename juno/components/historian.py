@@ -1,6 +1,5 @@
 from typing import Callable
 
-from juno.asyncio import list_async
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import Storage
 from juno.time import time_ms
@@ -39,9 +38,7 @@ class Historian:
             mid = start + floor_multiple(((end - start) // 2), interval)
             from_ = mid
             to = min(from_ + 2 * interval, final_end)
-            candles = await list_async(self._chandler.stream_candles(
-                exchange, symbol, interval, from_, to
-            ))
+            candles = await self._chandler.list_candles(exchange, symbol, interval, from_, to)
             if len(candles) == 0:
                 start = mid + interval
             elif (

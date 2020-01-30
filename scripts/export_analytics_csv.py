@@ -5,7 +5,6 @@ from decimal import Decimal
 from typing import Any, Dict, List
 
 from juno import Candle, Filters
-from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
@@ -67,13 +66,13 @@ async def main() -> None:
 async def stream_and_export_daily_candles_as_csv(
     chandler: Chandler, summary: TradingSummary, exchange: str, symbol: str
 ) -> None:
-    candles = await list_async(chandler.stream_candles(
+    candles = await chandler.list_candles(
         exchange,
         symbol,
         DAY_MS,
         floor_multiple(summary.start, DAY_MS),
         ceil_multiple(summary.end, DAY_MS)
-    ))
+    )
     await asyncio.get_running_loop().run_in_executor(
         None, export_daily_candles_as_csv, symbol, candles
     )

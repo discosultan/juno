@@ -5,6 +5,7 @@ from juno import (
     CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters, OrderResult,
     OrderStatus, Side, brokers, components, exchanges, storages
 )
+from juno.asyncio import list_async
 
 
 class Exchange(exchanges.Exchange):
@@ -149,6 +150,9 @@ class Exchange(exchanges.Exchange):
 class Chandler:
     def __init__(self, candles=[]):
         self.candles = candles
+
+    async def list_candles(self, *args, **kwargs):
+        return await list_async(self.stream_candles(*args, **kwargs))
 
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False

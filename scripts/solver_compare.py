@@ -3,7 +3,6 @@ import logging
 from decimal import Decimal
 
 from juno import components, exchanges, optimization, storages, strategies, time
-from juno.asyncio import list_async
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
@@ -72,15 +71,13 @@ async def main() -> None:
     rust_solver = optimization.Rust(chandler, informant)
     python_solver = optimization.Python()
     async with binance, coinbase, informant, rust_solver:
-        candles = await list_async(chandler.stream_candles(
-            'binance', SYMBOL, INTERVAL, start, end
-        ))
+        candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
         day_start = floor_multiple(start, DAY_MS)
         day_end = floor_multiple(end, DAY_MS)
         base_quote_daily, quote_fiat_daily = await asyncio.gather(
-            list_async(chandler.stream_candles('binance', SYMBOL, DAY_MS, day_start, day_end)),
+            chandler.list_candles('binance', SYMBOL, DAY_MS, day_start, day_end),
             # TODO: hardcoded symbol
-            list_async(chandler.stream_candles('coinbase', 'btc-eur', DAY_MS, day_start, day_end)),
+            chandler.list_candles('coinbase', 'btc-eur', DAY_MS, day_start, day_end),
         )
         benchmark_stats = get_benchmark_statistics(quote_fiat_daily)
         fees, filters = informant.get_fees_filters('binance', SYMBOL)
@@ -135,18 +132,18 @@ async def main() -> None:
         )
         await trader.run()
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, quote_fiat_daily, base_quote_daily, SYMBOL, trader.summary
+            benchmark_stats, quote_fiat_daily, {SYMBOL: base_quote_daily}, trader.summary
         )
 
         logging.info('=== rust solver ===')
         logging.info(f'alpha {rust_result.alpha}')
-        logging.info(f'profit {rust_result.profit}')
-        logging.info(f'mean pos dur {rust_result.mean_position_duration}')
+        # logging.info(f'profit {rust_result.profit}')
+        # logging.info(f'mean pos dur {rust_result.mean_position_duration}')
 
         logging.info('=== python solver ===')
         logging.info(f'alpha {python_result.alpha}')
-        logging.info(f'profit {python_result.profit}')
-        logging.info(f'mean pos dur {python_result.mean_position_duration}')
+        # logging.info(f'profit {python_result.profit}')
+        # logging.info(f'mean pos dur {python_result.mean_position_duration}')
 
         logging.info('=== python trader ===')
         logging.info(f'alpha {portfolio_stats.alpha}')

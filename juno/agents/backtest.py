@@ -4,7 +4,6 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.asyncio import list_async
 from juno.components import Chandler, Informant
 from juno.config import init_module_instance
 from juno.math import floor_multiple
@@ -85,17 +84,13 @@ class Backtest(Agent):
 
         # Fetch necessary market data.
         btc_fiat_daily, symbol_daily = await asyncio.gather(
-            list_async(self.chandler.stream_candles(
-                'coinbase', 'btc-eur', DAY_MS, start_day, end_day
-            )),
-            list_async(self.chandler.stream_candles(
-                exchange, symbol, DAY_MS, start_day, end_day
-            )),
+            self.chandler.list_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day),
+            self.chandler.list_candles(exchange, symbol, DAY_MS, start_day, end_day),
         )
 
         benchmark_stats = get_benchmark_statistics(btc_fiat_daily)
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, btc_fiat_daily, symbol_daily, symbol, trader.summary
+            benchmark_stats, btc_fiat_daily, {symbol: symbol_daily}, trader.summary
         )
 
         _log.info(f'benchmark stats: {benchmark_stats}')

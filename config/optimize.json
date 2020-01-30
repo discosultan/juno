@@ -2,7 +2,7 @@
     "log_format": "colored",
     "log_level": "info",
     "storage": "sqlite",
-    "solver": "python",
+    "solver": "rust",
     "agents": [
         {
             "type": "optimize",
@@ -14,9 +14,9 @@
             "quote": 1.0,
             "missed_candle_policy": null,
             "trailing_stop": null,
-            "strategy": "rsi",
+            "strategy": "mamacx",
             "population_size": 10,
-            "max_generations": 10,
+            "max_generations": 100,
             "seed": null,
             "verbose": true
         }

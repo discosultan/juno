@@ -23,7 +23,9 @@ async def main() -> None:
         start = floor_multiple(time_ms(), MIN_MS) - 2 * MIN_MS
         end = start + HOUR_MS
         logging.info(f'start {start}')
-        stream = chandler.stream_candles(name, SYMBOL, MIN_MS, start, end, closed=False)
+        stream = chandler.stream_candles(
+            name, SYMBOL, MIN_MS, start, end, closed=False
+        ).__aiter__()
 
         # Historical.
         candle = await stream.__anext__()
