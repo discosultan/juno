@@ -22,8 +22,6 @@ from .trades import Trades
 
 _log = logging.getLogger(__name__)
 
-_DEFAULT_STORAGE_BATCH_SIZE = 1000
-
 
 class Chandler:
     def __init__(
@@ -32,20 +30,17 @@ class Chandler:
         exchanges: List[Exchange],
         informant: Optional[Informant] = None,
         trades: Optional[Trades] = None,
-        get_time_ms: Optional[Callable[[], int]] = None,
-        storage_batch_size: Optional[int] = None
+        get_time_ms: Callable[[], int] = time_ms,
+        storage_batch_size: int = 1000
     ) -> None:
-        self._storage_batch_size = (
-            _DEFAULT_STORAGE_BATCH_SIZE if storage_batch_size is None else storage_batch_size
-        )
-
-        assert self._storage_batch_size > 0
+        assert storage_batch_size > 0
 
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._informant = informant
         self._trades = trades
-        self._get_time_ms = get_time_ms or time_ms
+        self._get_time_ms = get_time_ms
+        self._storage_batch_size = storage_batch_size
 
     async def stream_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True,
