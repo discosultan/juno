@@ -14,7 +14,6 @@ import pandas as pd
 
 from juno import Candle, Fees, Filters, Interval, Timestamp, strategies
 from juno.cffi import CDefBuilder
-from juno.components import Chandler, Informant
 from juno.filters import Price, Size
 from juno.strategies import Strategy
 from juno.time import DAY_MS

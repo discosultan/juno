@@ -2,12 +2,11 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno.asyncio import list_async
 from juno.components import Chandler, Historian, Informant
 from juno.math import floor_multiple
-from juno.optimization import Optimizer, Rust
+from juno.optimization import Optimizer, Solver
 from juno.strategies import MAMACX
-from juno.time import DAY_MS, strptimestamp
+from juno.time import DAY_MS, strpinterval, strptimestamp
 from juno.trading import Trader, TradingSummary, get_benchmark_statistics, get_portfolio_statistics
 
 from .agent import Agent
@@ -16,10 +15,13 @@ _log = logging.getLogger(__name__)
 
 
 class Foo(Agent):
-    def __init__(self, chandler: Chandler, historian: Historian, informant: Informant) -> None:
+    def __init__(
+        self, chandler: Chandler, historian: Historian, informant: Informant, solver: Solver
+    ) -> None:
         super().__init__()
         self._chandler = chandler
         self._informant = informant
+        self._solver = solver
 
     async def run(self) -> None:
         optimization_start = strptimestamp('2018-01-01')
@@ -27,11 +29,12 @@ class Foo(Agent):
         end = strptimestamp('2020-01-01')
         exchange = 'binance'
         quote = Decimal('1.0')
+        num_symbols = 2
 
         tickers = [t for t in self._informant.list_tickers(exchange) if t.symbol.endswith('-btc')]
         tickers.sort(key=lambda t: t.volume, reverse=True)
-        assert len(tickers) > 5
-        tickers = tickers[:5]
+        assert len(tickers) > num_symbols
+        tickers = tickers[:num_symbols]
         symbols = [t.symbol for t in tickers]
 
         quote_per_symbol = quote / len(symbols)
@@ -50,7 +53,8 @@ class Foo(Agent):
         )
         summary.finish(end)
 
-        start_day = floor_multiple(start, DAY_MS)
+        # Statistics.
+        start_day = floor_multiple(trading_start, DAY_MS)
         end_day = floor_multiple(end, DAY_MS)
 
         # Find first exchange which supports the fiat pair.
@@ -64,18 +68,18 @@ class Foo(Agent):
         # btc_fiat_exchange = btc_fiat_exchanges[0]
 
         # Fetch necessary market data.
-        btc_fiat_daily, symbol_daily = await asyncio.gather(
-            list_async(self._chandler.stream_candles(
-                'coinbase', 'btc-eur', DAY_MS, start_day, end_day
-            )),
-            *(list_async(self._chandler.stream_candles(
+        btc_fiat_daily, *symbols_daily = await asyncio.gather(
+            self._chandler.list_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day),
+            *(self._chandler.list_candles(
                 exchange, s, DAY_MS, start_day, end_day
-            )) for s in symbols),
+            ) for s in symbols),
         )
+
+        symbols_daily_map = {s: c for s, c in zip(symbols, symbols_daily)}
 
         benchmark_stats = get_benchmark_statistics(btc_fiat_daily)
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, btc_fiat_daily, symbol_daily, symbol, summary
+            benchmark_stats, btc_fiat_daily, symbols_daily_map, summary
         )
 
         _log.info(f'benchmark stats: {benchmark_stats}')
@@ -92,16 +96,16 @@ class Foo(Agent):
         summary: TradingSummary
     ) -> None:
         optimizer = Optimizer(
-            solver=Rust(),
+            solver=self._solver,
             chandler=self._chandler,
             informant=self._informant,
             exchange=exchange,
             start=optimization_start,
             end=trading_start,
             quote=quote,
-            strategy=MAMACX,
+            strategy_type=MAMACX,
             symbols=[symbol],
-            intervals=['30m', '1h', '2h'],
+            intervals=list(map(strpinterval, ('30m', '1h', '2h'))),
             population_size=50,
             max_generations=100
         )

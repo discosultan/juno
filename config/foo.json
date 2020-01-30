@@ -1,0 +1,11 @@
+{
+    "log_format": "colored",
+    "log_level": "info",
+    "solver": "rust",
+    "storage": "sqlite",
+    "agents": [
+        {
+            "type": "foo"
+        }
+    ]
+}
