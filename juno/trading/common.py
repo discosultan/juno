@@ -18,7 +18,8 @@ class MissedCandlePolicy(IntEnum):
 
 # TODO: Add support for external token fees (i.e BNB)
 class Position:
-    def __init__(self, time: int, fills: List[Fill]) -> None:
+    def __init__(self, symbol: str, time: int, fills: List[Fill]) -> None:
+        self.symbol = symbol
         self.time = time
         self.fills = fills
         self.closing_time = 0

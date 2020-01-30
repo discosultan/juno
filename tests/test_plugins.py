@@ -22,6 +22,7 @@ async def test_discord(request, config):
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
         agent.result.append_candle(candle)
         pos = Position(
+            symbol='eth-btc',
             time=candle.time,
             fills=[
                 Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'),

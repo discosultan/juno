@@ -10,6 +10,7 @@ from . import fakes
 
 def test_position():
     pos = Position(
+        symbol='eth-btc',
         time=0,
         fills=[
             Fill(price=Decimal('2.0'), size=Decimal('6.0'), fee=Decimal('2.0'), fee_asset='btc')
@@ -35,6 +36,7 @@ def test_position():
 
 def test_position_annualized_roi_overflow():
     pos = Position(
+        symbol='eth-btc',
         time=0,
         fills=[
             Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='eth')
@@ -189,6 +191,10 @@ async def test_trader_assume_same_as_last_on_missed_candle():
 def new_closed_position(profit):
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
-    pos = Position(time=0, fills=[Fill(price=Decimal('0.0'), size=size)])
+    pos = Position(
+        symbol='eth-btc',
+        time=0,
+        fills=[Fill(price=Decimal('0.0'), size=size)]
+    )
     pos.close(time=1, fills=[Fill(price=price, size=size)])
     return pos

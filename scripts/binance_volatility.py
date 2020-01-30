@@ -5,7 +5,6 @@ import math
 import numpy as np
 import pandas as pd
 
-from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
@@ -15,7 +14,7 @@ from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
 
 
 async def find_volatility_for_symbol(chandler, exchange, symbol, interval, start, end):
-    candles = await list_async(chandler.stream_candles(exchange, symbol, interval, start, end))
+    candles = await chandler.list_candles(exchange, symbol, interval, start, end)
     df = pd.DataFrame([float(c.close) for c in candles], columns=['price'])
     # Find returns.
     df['pct_chg'] = df['price'].pct_change()

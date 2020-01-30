@@ -59,23 +59,21 @@ def get_benchmark_statistics(candles: List[Candle]) -> Statistics:
 def get_portfolio_statistics(
     benchmark_stats: Statistics,
     quote_fiat_daily: List[Candle],  # i.e btc-eur
-    symbol_daily: List[Candle],
-    symbol: str,
+    symbols_daily: Dict[str, List[Candle]],
     summary: TradingSummary
 ) -> PortfolioStatistics:
     start_day = floor_multiple(summary.start, DAY_MS)
     end_day = floor_multiple(summary.end, DAY_MS)
     length_days = (end_day - start_day) / DAY_MS
-    base_asset, quote_asset = unpack_symbol(symbol)
-    assert quote_asset == 'btc'  # TODO: We don't support other quote yet.
-    assert len(quote_fiat_daily) == length_days
-    assert len(symbol_daily) == length_days
 
-    market_data = _get_market_data(symbol, quote_fiat_daily, symbol_daily)
-    trades = _get_trades_from_summary(summary, symbol)
-    asset_performance = _get_asset_performance(
-        summary, symbol, start_day, end_day, market_data, trades
-    )
+    assert len(quote_fiat_daily) == length_days
+    assert all(len(c) == length_days for c in symbols_daily.values())
+    # TODO: We don't support other quote yet.
+    assert all(unpack_symbol(s)[1] == 'btc' for s in symbols_daily.keys())
+
+    market_data = _get_market_data(quote_fiat_daily, symbols_daily)
+    trades = _get_trades_from_summary(summary)
+    asset_performance = _get_asset_performance(summary, start_day, end_day, market_data, trades)
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance.values()]
     )
@@ -88,28 +86,27 @@ def get_portfolio_statistics(
 
 
 def _get_market_data(
-    symbol: str,
     quote_fiat_daily: List[Candle],
-    symbol_daily: List[Candle]
+    symbols_daily: Dict[str, List[Candle]]
 ) -> Dict[str, Dict[int, Decimal]]:
     # Calculate fiat value for traded base assets.
-    base_asset, quote_asset = unpack_symbol(symbol)
     market_data: Dict[str, Dict[int, Decimal]] = defaultdict(dict)
-    for quote_fiat_candle, symbol_candle in zip(quote_fiat_daily, symbol_daily):
-        time = quote_fiat_candle.time
-        market_data['btc'][time] = quote_fiat_candle.close
-        market_data[base_asset][time] = symbol_candle.close * quote_fiat_candle.close
+    for symbol, symbol_daily in symbols_daily.items():
+        base_asset, _quote_asset = unpack_symbol(symbol)
+        for quote_fiat_candle, symbol_candle in zip(quote_fiat_daily, symbol_daily):
+            time = quote_fiat_candle.time
+            market_data['btc'][time] = quote_fiat_candle.close
+            market_data[base_asset][time] = symbol_candle.close * quote_fiat_candle.close
     return market_data
 
 
 def _get_trades_from_summary(
     summary: TradingSummary,
-    symbol: str
 ) -> Dict[int, List[Tuple[str, Decimal]]]:
-    base_asset, quote_asset = unpack_symbol(symbol)
     trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
     for pos in summary.positions:
         assert pos.closing_fills
+        base_asset, quote_asset = unpack_symbol(pos.symbol)
         # Open.
         time = floor_multiple(pos.time, DAY_MS)
         day_trades = trades[time]
@@ -125,16 +122,14 @@ def _get_trades_from_summary(
 
 def _get_asset_performance(
     summary: TradingSummary,
-    symbol: str,
     start_day: int,
     end_day: int,
     market_data: Dict[str, Dict[int, Decimal]],
     trades: Dict[int, List[Tuple[str, Decimal]]]
 ) -> Dict[int, Dict[str, Decimal]]:
-    base_asset, quote_asset = unpack_symbol(symbol)
-
     asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
-    asset_holdings[quote_asset] = summary.quote
+    # TODO: Support other than BTC quote.
+    asset_holdings['btc'] = summary.quote
 
     asset_performance: Dict[int, Dict[str, Decimal]] = defaultdict(
         lambda: {k: Decimal('0.0') for k in market_data.keys()}

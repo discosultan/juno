@@ -157,7 +157,12 @@ class Trader:
                 exchange=self.exchange, symbol=self.symbol, quote=ctx.quote, test=self.test
             )
 
-            ctx.open_position = Position(candle.time, res.fills)
+            ctx.open_position = Position(
+                symbol=self.symbol,
+                time=candle.time,
+                fills=res.fills
+            )
+
             ctx.quote -= Fill.total_quote(res.fills)
         else:
             price = candle.close
@@ -170,6 +175,7 @@ class Trader:
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
             ctx.open_position = Position(
+                symbol=self.symbol,
                 time=candle.time,
                 fills=[Fill(price=price, size=size, fee=fee, fee_asset=self.base_asset)]
             )
@@ -193,7 +199,11 @@ class Trader:
                 test=self.test
             )
 
-            pos.close(candle.time, res.fills)
+            pos.close(
+                time=candle.time,
+                fills=res.fills
+            )
+
             ctx.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
         else:
             price = candle.close

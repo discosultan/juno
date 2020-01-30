@@ -42,6 +42,9 @@ class Chandler:
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
 
+    async def list_candles(self, *args, **kwargs) -> List[Candle]:
+        return await list_async(self.stream_candles(*args, **kwargs))
+
     async def stream_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True,
         fill_missing_with_last: bool = False
