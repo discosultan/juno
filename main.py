@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 import signal
 import sys
@@ -9,7 +10,7 @@ from typing import Any, Dict, List
 import pkg_resources
 
 import juno
-from juno import agents, config
+from juno import agents, components, config
 from juno.agents import Agent
 from juno.asyncio import cancelable
 from juno.brokers import Broker
@@ -83,6 +84,8 @@ async def main() -> None:
     )
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
+    for _name, type_ in inspect.getmembers(components, inspect.isclass):
+        container.add_singleton_type(type_)
 
     # Load agents.
     agent_types = map_module_types(agents)

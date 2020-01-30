@@ -17,9 +17,9 @@ def test_resolve_no_deps(container):
     assert container.resolve(Foo)
 
 
-def test_resolve_implicit_dep(container):
-    # Foo is resolved automatically as singleton.
-    assert container.resolve(Bar)
+def test_not_registered_not_resolved_implicitly(container):
+    with pytest.raises(TypeError):
+        assert container.resolve(Bar)
 
 
 def test_resolve_added_instance_dep(container):
@@ -36,6 +36,8 @@ def test_resolve_added_type_dep(container):
 
 
 async def test_aenter(container):
+    container.add_singleton_type(Foo)
+    container.add_singleton_type(Bar)
     baz = container.resolve(Baz)
     async with container:
         assert baz.bar.foo.count == 1
@@ -108,6 +110,7 @@ def test_optional_dependency_added(container):
         def __init__(self, value: Optional[int] = None):
             self.value = value
 
+    container.add_singleton_type(int)
     result = container.resolve(Qux)
     assert result.value == 0
 

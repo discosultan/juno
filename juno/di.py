@@ -5,7 +5,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_args, get_origin
+from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_args
 
 from juno.utils import recursive_iter
 
@@ -40,15 +40,21 @@ class Container:
     def add_singleton_instance(self, type_: Type[Any], factory: Callable[[], Any]) -> None:
         self._singleton_instances[type_] = factory
 
-    def add_singleton_type(self, type_: Type[Any], factory: Callable[[], Type[Any]]) -> None:
-        self._singleton_types[type_] = factory
+    def add_singleton_type(
+        self,
+        type_: Type[Any],
+        factory: Optional[Callable[[], Type[Any]]] = None
+    ) -> None:
+        self._singleton_types[type_] = factory if factory else lambda: type_
 
-    def resolve(self, type_: Type[T], default: T = inspect.Parameter.empty) -> T:
+    def resolve(
+        self, type_: Type[T], is_root: bool = True, default: T = inspect.Parameter.empty
+    ) -> T:
         # Resolution priority:
         # 1. singleton
         # 2. instance factory
         # 3. type factory
-        # 4. construct implicitly
+        # 4. construct implicitly if is_root
         # 5. default value
 
         type_ = get_args(type_)[0] if isoptional(type_) else type_
@@ -65,25 +71,32 @@ class Container:
         else:
             # 3. type factory
             type_factory = self._singleton_types.get(type_)
+            instance_type: Optional[Type[T]] = None
             if type_factory:
                 instance_type = type_factory()
             # 4. construct implicitly
-            else:
+            elif is_root:
                 instance_type = type_
+
+            if not instance_type:
+                # 5. default value
+                if default is not inspect.Parameter.empty:
+                    return default
+                _log.exception(f'unable to construct {type_}')
+                raise TypeError()
 
             kwargs: Dict[str, Any] = {}
             signature = inspect.signature(instance_type.__init__)
             for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
                                                            ).items():
-                resolved = self.resolve(dep_type, default=signature.parameters[dep_name].default)
+                resolved = self.resolve(
+                    dep_type, is_root=False, default=signature.parameters[dep_name].default
+                )
                 kwargs[dep_name] = resolved
 
             try:
                 instance = instance_type(**kwargs)  # type: ignore
             except TypeError:
-                # 5. default value
-                if default is not inspect.Parameter.empty:
-                    return default
                 _log.exception(f'unable to construct {instance_type} as {type_}')
                 raise
             else:
