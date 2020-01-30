@@ -1,4 +1,4 @@
-from typing import Dict, List, NamedTuple, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 import pytest
 
@@ -17,25 +17,33 @@ def test_get_input_type_hints():
     assert typing.get_input_type_hints(foo) == {'a': int}
 
 
-@pytest.mark.parametrize('input,expected_output', [
+@pytest.mark.parametrize('input_,expected_output', [
     (list, 'list'),
     (List[int], 'typing.List[int]'),
     (Bar, 'Bar'),
 ])
-def test_get_name(input, expected_output):
-    assert typing.get_name(input) == expected_output
+def test_get_name(input_, expected_output):
+    assert typing.get_name(input_) == expected_output
 
 
-@pytest.mark.parametrize('input,expected_output', [
+@pytest.mark.parametrize('input_,expected_output', [
     (list, False),
     (List[int], False),
     (Bar, True),
 ])
-def test_isnamedtuple(input, expected_output):
-    assert typing.isnamedtuple(input) == expected_output
+def test_isnamedtuple(input_, expected_output):
+    assert typing.isnamedtuple(input_) == expected_output
 
 
-@pytest.mark.parametrize('input,type_,expected_output', [
+@pytest.mark.parametrize('input_,expected_output', [
+    (int, False),
+    (Optional[int], True),
+])
+def test_isoptional(input_, expected_output):
+    assert typing.isoptional(input_) == expected_output
+
+
+@pytest.mark.parametrize('input_,type_,expected_output', [
     (Bar(1), Bar, True),
     ((1, ), Bar, False),
     (1, int, True),
@@ -47,5 +55,5 @@ def test_isnamedtuple(input, expected_output):
     ([1, 'x'], List[int], False),
     ((1, 'x'), Tuple[int, str], True),
 ])
-def test_types_match(input, type_, expected_output):
-    assert typing.types_match(input, type_) == expected_output
+def test_types_match(input_, type_, expected_output):
+    assert typing.types_match(input_, type_) == expected_output

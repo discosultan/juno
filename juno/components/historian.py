@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Callable
 
 from juno.asyncio import list_async
 from juno.math import ceil_multiple, floor_multiple
@@ -7,20 +7,18 @@ from juno.time import time_ms
 
 from .chandler import Chandler
 
-_EARLIEST_EXCHANGE_START = 1293840000000  # 2011-01-01
-
 
 class Historian:
     def __init__(
         self,
         chandler: Chandler,
         storage: Storage,
-        get_time_ms: Optional[Callable[[], int]] = None,
-        earliest_exchange_start: int = _EARLIEST_EXCHANGE_START
+        get_time_ms: Callable[[], int] = time_ms,
+        earliest_exchange_start: int = 1293840000000  # 2011-01-01
     ):
         self._chandler = chandler
         self._storage = storage
-        self._get_time_ms = get_time_ms or time_ms
+        self._get_time_ms = get_time_ms
         self._earliest_exchange_start = earliest_exchange_start
 
     async def find_first_candle_time(self, exchange: str, symbol: str, interval: int) -> int:

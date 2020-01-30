@@ -24,6 +24,10 @@ def isnamedtuple(obj: Any) -> bool:
     return issubclass(origin, tuple) and bool(getattr(origin, '_fields', False))
 
 
+def isoptional(obj: Any) -> bool:
+    return get_origin(obj) is Union and type(None) in get_args(obj)
+
+
 def types_match(obj: Any, type_: Type[Any]):
     origin = get_origin(type_) or type_
     if not isinstance(obj, origin):

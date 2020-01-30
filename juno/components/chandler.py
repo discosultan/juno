@@ -30,7 +30,7 @@ class Chandler:
         exchanges: List[Exchange],
         informant: Optional[Informant] = None,
         trades: Optional[Trades] = None,
-        get_time_ms: Optional[Callable[[], int]] = None,
+        get_time_ms: Callable[[], int] = time_ms,
         storage_batch_size: int = 1000
     ) -> None:
         assert storage_batch_size > 0
@@ -39,7 +39,7 @@ class Chandler:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._informant = informant
         self._trades = trades
-        self._get_time_ms = get_time_ms or time_ms
+        self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
 
     async def stream_candles(
