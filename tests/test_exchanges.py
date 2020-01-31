@@ -51,22 +51,22 @@ async def kraken(loop, config):
 async def test_get_exchange_info(loop, request, exchange):
     skip_not_configured(request, exchange)
 
-    res = await exchange.get_exchange_info()
+    info = await exchange.get_exchange_info()
 
-    assert len(res.fees) > 0
-    first_fees = next(iter(res.fees.values()))
+    assert len(info.fees) > 0
+    first_fees = next(iter(info.fees.values()))
     assert 0 <= first_fees.taker <= Decimal('0.1')
     assert 0 <= first_fees.maker <= Decimal('0.1')
     assert -4 <= first_fees.taker.as_tuple().exponent <= -1
     assert -4 <= first_fees.maker.as_tuple().exponent <= -1
-    if '__all__' not in res.fees:
-        assert res.fees['eth-btc']
+    if '__all__' not in info.fees:
+        assert info.fees['eth-btc']
 
-    assert len(res.filters) > 0
-    if '__all__' not in res.filters:
-        assert res.filters['eth-btc']
+    assert len(info.filters) > 0
+    if '__all__' not in info.filters:
+        assert info.filters['eth-btc']
 
-    assert types_match(res, ExchangeInfo)
+    assert types_match(info, ExchangeInfo)
 
 
 @pytest.mark.exchange
@@ -77,10 +77,10 @@ async def test_list_24hr_tickers(loop, request, exchange):
     skip_no_capability(exchange.can_list_24hr_tickers)
 
     # Note, this is an expensive call!
-    res = await exchange.list_24hr_tickers()
+    tickers = await exchange.list_24hr_tickers()
 
-    assert len(res) > 0
-    assert types_match(res, List[Ticker])
+    assert len(tickers) > 0
+    assert types_match(tickers, List[Ticker])
 
 
 @pytest.mark.exchange
@@ -89,9 +89,9 @@ async def test_list_24hr_tickers(loop, request, exchange):
 async def test_get_balances(loop, request, exchange):
     skip_not_configured(request, exchange)
 
-    res = await exchange.get_balances()
+    balances = await exchange.get_balances()
 
-    assert types_match(res, Dict[str, Balance])
+    assert types_match(balances, Dict[str, Balance])
 
 
 @pytest.mark.exchange
@@ -123,10 +123,9 @@ async def test_connect_stream_candles(loop, request, exchange):
     skip_no_capability(exchange.can_stream_candles)
 
     async with exchange.connect_stream_candles(symbol='eth-btc', interval=HOUR_MS) as stream:
-        candle = await stream.__anext__()
-        await stream.aclose()
-
-    assert types_match(candle, Candle)
+        async for candle in stream:
+            assert types_match(candle, Candle)
+            break
 
 
 @pytest.mark.exchange
@@ -136,9 +135,9 @@ async def test_get_depth(loop, request, exchange):
     skip_not_configured(request, exchange)
     skip_no_capability(not exchange.can_stream_depth_snapshot)
 
-    res = await exchange.get_depth('eth-btc')
+    depth = await exchange.get_depth('eth-btc')
 
-    assert types_match(res, DepthSnapshot)
+    assert types_match(depth, DepthSnapshot)
 
 
 @pytest.mark.exchange
@@ -147,13 +146,12 @@ async def test_get_depth(loop, request, exchange):
 async def test_connect_stream_depth(loop, request, exchange):
     skip_not_configured(request, exchange)
 
-    async with exchange.connect_stream_depth('eth-btc') as stream:
-        res = await stream.__anext__()
-        await stream.aclose()
-
     expected_type = DepthSnapshot if exchange.can_stream_depth_snapshot else DepthUpdate
 
-    assert types_match(res, expected_type)
+    async with exchange.connect_stream_depth('eth-btc') as stream:
+        async for depth in stream:
+            assert types_match(depth, expected_type)
+            break
 
 
 @pytest.mark.exchange
@@ -183,11 +181,10 @@ async def test_stream_historical_trades(loop, request, exchange):
         end = start + HOUR_MS
 
     stream = exchange.stream_historical_trades(symbol='eth-btc', start=start, end=end)
-    trade = await stream.__anext__()
-    await stream.aclose()
-
-    assert types_match(trade, Trade)
-    assert trade.time >= start
+    async for trade in stream:
+        assert types_match(trade, Trade)
+        assert trade.time >= start
+        break
 
 
 @pytest.mark.exchange
@@ -200,10 +197,9 @@ async def test_connect_stream_trades(loop, request, exchange):
     symbol = 'eth-btc' if isinstance(exchange, Binance) else 'eth-eur'
 
     async with exchange.connect_stream_trades(symbol=symbol) as stream:
-        trade = await stream.__anext__()
-        await stream.aclose()
-
-    assert types_match(trade, Trade)
+        async for trade in stream:
+            assert types_match(trade, Trade)
+            break
 
 
 def skip_not_configured(request, exchange):
