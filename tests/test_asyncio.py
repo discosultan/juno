@@ -10,12 +10,12 @@ async def test_chain_async():
         yield 1
         yield 2
 
+    expected_output = [0, 1, 2]
+
     target = chain_async(resolved_stream(0), gen())
 
-    assert await target.__anext__() == 0
-    assert await target.__anext__() == 1
-    assert await target.__anext__() == 2
-    await target.aclose()
+    async for result in target:
+        assert result == expected_output.pop(0)
 
 
 async def test_enumerate_async():
@@ -23,11 +23,15 @@ async def test_enumerate_async():
         yield 'a'
         yield 'b'
 
+    expected_output = [
+        (1, 'a'),
+        (2, 'b'),
+    ]
+
     target = enumerate_async(gen(), start=1)
 
-    assert await target.__anext__() == (1, 'a')
-    assert await target.__anext__() == (2, 'b')
-    await target.aclose()
+    async for result in target:
+        assert result == expected_output.pop(0)
 
 
 async def test_list_async():
@@ -46,14 +50,17 @@ async def test_merge_async():
         yield 0
         signal2.set()
         await signal1.wait()
+        await asyncio.sleep(0)
         yield 2
         signal2.set()
 
     async def gen2():
         await signal2.wait()
+        await asyncio.sleep(0)
         yield 1
         signal1.set()
         await signal2.wait()
+        await asyncio.sleep(0)
         yield 3
 
     counter = 0
