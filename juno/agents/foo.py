@@ -20,11 +20,11 @@ class Foo(Agent):
     ) -> None:
         super().__init__()
         self._chandler = chandler
+        self._historian = historian
         self._informant = informant
         self._solver = solver
 
     async def run(self) -> None:
-        optimization_start = strptimestamp('2018-01-01')
         trading_start = strptimestamp('2019-07-01')
         end = strptimestamp('2020-01-01')
         exchange = 'binance'
@@ -44,7 +44,6 @@ class Foo(Agent):
             *(self._optimize_and_trade(
                 exchange,
                 s,
-                optimization_start,
                 trading_start,
                 end,
                 quote_per_symbol,
@@ -89,12 +88,13 @@ class Foo(Agent):
         self,
         exchange: str,
         symbol: str,
-        optimization_start: int,
         trading_start: int,
         end: int,
         quote: Decimal,
         summary: TradingSummary
     ) -> None:
+        optimization_start = await self._historian.find_first_candle_time(exchange, symbol, DAY_MS)
+
         optimizer = Optimizer(
             solver=self._solver,
             chandler=self._chandler,
