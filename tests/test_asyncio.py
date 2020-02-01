@@ -64,10 +64,6 @@ async def test_merge_async():
     counter = 0
     async for val in merge_async(gen1(), gen2()):
         assert val == counter
-        # if counter % 2 == 0:
-        #     signal2.set()
-        # else:
-        #     signal1.set()
         counter += 1
 
 
