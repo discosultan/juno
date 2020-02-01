@@ -136,10 +136,9 @@ class Optimizer:
         # Prepare benchmark stats.
         benchmark_stats = get_benchmark_statistics(candles[('btc-eur', DAY_MS, True)])
 
-        # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
-        # algorithms for mutation, crossover, selection. These algos are using the random module
-        # directly and we have not way to pass our randomizer in. Hence we send the random
-        # module directly.
+        # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
+        # us because we want to be able to use multiple optimizers with different random seeds.
+        # Therefore we need to use custom algorithms to support passing in our own `random.Random`.
         random = Random(self.seed)
 
         strategy_type = get_module_type(strategies, self.strategy)
