@@ -1,11 +1,11 @@
 import asyncio
 import logging
 import math
-import random
 import sys
 from decimal import Decimal
 from functools import partial
 from itertools import product
+from random import Random, randrange
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
@@ -21,7 +21,7 @@ from juno.trading import (
 from juno.typing import get_input_type_hints
 from juno.utils import flatten, format_attrs_as_json, get_module_type
 
-from . import tools as juno_tools
+from .deap import cx_uniform, mut_individual
 from .solver import Solver, SolverResult
 
 _log = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ class Optimizer:
         assert intervals is None or len(intervals) > 0
 
         if seed is None:
-            seed = random.randrange(sys.maxsize)
+            seed = randrange(sys.maxsize)
 
         _log.info(f'randomizer seed ({seed})')
 
@@ -140,16 +140,18 @@ class Optimizer:
         # algorithms for mutation, crossover, selection. These algos are using the random module
         # directly and we have not way to pass our randomizer in. Hence we send the random
         # module directly.
-        # random = Random(self.seed)  # <-- Don't do this! Or do but use all custom operators.
-        random.seed(self.seed)
+        random = Random(self.seed)
 
         strategy_type = get_module_type(strategies, self.strategy)
 
         # Objectives.
         objectives = SolverResult.meta()
         _log.info(f'objectives: {objectives}')
-        creator.create('FitnessMulti', base.Fitness, weights=list(objectives.values()))
-        creator.create('Individual', list, fitness=creator.FitnessMulti)
+
+        # Creator generated instances are global!
+        if not getattr(creator, 'FitnessMulti', None):
+            creator.create('FitnessMulti', base.Fitness, weights=list(objectives.values()))
+            creator.create('Individual', list, fitness=creator.FitnessMulti)
 
         toolbox = base.Toolbox()
 
@@ -176,10 +178,10 @@ class Optimizer:
 
         # toolbox.register('mate', tools.tools.cxSimulatedBinaryBounded, low=BOUND_LOW,
         #                  up=BOUND_UP, eta=20.0)
-        toolbox.register('mate', tools.cxUniform, indpb=indpb)
+        toolbox.register('mate', cx_uniform(random), indpb=indpb)
         # toolbox.register('mutate', tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP,
         #                  eta=20.0, indpb=1.0 / NDIM)
-        toolbox.register('mutate', juno_tools.mut_individual, attrs=attrs, indpb=indpb)
+        toolbox.register('mutate', mut_individual(random), attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
         def evaluate(ind: List[Any]) -> SolverResult:
