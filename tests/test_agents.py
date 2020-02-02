@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import List
 
 import pytest
 
@@ -7,6 +8,7 @@ from juno.agents import Backtest, Live, Paper
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
 from juno.trading import MissedCandlePolicy, calculate_hodl_profit
+from juno.typing import load_by_typing
 from juno.utils import load_json_file
 
 from . import fakes
@@ -24,7 +26,7 @@ async def test_backtest():
         # Long. Size 5.
         Candle(time=5, close=Decimal('10.0'))
     ]
-    chandler = fakes.Chandler(candles=candles)
+    chandler = fakes.Chandler(candles={('dummy', 'eth-btc', 1): candles})
     fees = Fees(Decimal('0.0'), Decimal('0.0'))
     filters = Filters(
         price=Price(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0')),
@@ -68,11 +70,10 @@ async def test_backtest():
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
 async def test_backtest_scenarios(scenario_nr):
-    path = f'./data/backtest_scenario{scenario_nr}_candles.json'
-    chandler = fakes.Chandler(
-        # TODO: Load from JSON based on type.
-        candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(__file__, path)))
-    )
+    chandler = fakes.Chandler(candles={('binance', 'eth-btc', HOUR_MS): load_by_typing(
+        load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
+        List[Candle]
+    )})
     informant = fakes.Informant(
         fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
         filters=Filters(
@@ -107,8 +108,9 @@ async def test_backtest_scenarios(scenario_nr):
 
 
 async def test_paper():
-    chandler = fakes.Chandler(
-        candles=[
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1):
+        [
             Candle(time=0, close=Decimal('5.0')),
             Candle(time=1, close=Decimal('10.0')),
             # 1. Long. Size 5 + 1.
@@ -116,7 +118,7 @@ async def test_paper():
             Candle(time=3, close=Decimal('20.0')),
             # 2. Short. Size 4 + 2.
         ]
-    )
+    })
     informant = fakes.Informant()
     orderbook_data = {
         Side.BUY: {
@@ -153,8 +155,9 @@ async def test_paper():
 
 
 async def test_live():
-    chandler = fakes.Chandler(
-        candles=[
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1):
+        [
             Candle(time=0, close=Decimal('5.0')),
             Candle(time=1, close=Decimal('10.0')),
             # 1. Long. Size 5 + 1.
@@ -162,7 +165,7 @@ async def test_live():
             Candle(time=3, close=Decimal('20.0')),
             # 2. Short. Size 4 + 2.
         ]
-    )
+    })
     informant = fakes.Informant()
     orderbook_data = {
         Side.BUY: {

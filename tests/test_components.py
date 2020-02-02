@@ -21,7 +21,7 @@ async def test_get_first_candle_time(storage, earliest_exchange_start, time):
         Candle(time=18),
     ]
     historian = Historian(
-        chandler=fakes.Chandler(candles=candles),
+        chandler=fakes.Chandler(candles={('exchange', 'eth-btc', 2): candles}),
         storage=storage,
         get_time_ms=fakes.Time(time).get_time,
         earliest_exchange_start=earliest_exchange_start)
@@ -37,7 +37,7 @@ async def test_get_first_candle_time(storage, earliest_exchange_start, time):
 ])
 async def test_get_first_candle_time_not_found(storage, earliest_exchange_start, time):
     historian = Historian(
-        chandler=fakes.Chandler(candles=[Candle(time=0)]),
+        chandler=fakes.Chandler(candles={('exchange', 'eth-btc', 1): [Candle(time=0)]}),
         storage=storage,
         get_time_ms=fakes.Time(time).get_time,
         earliest_exchange_start=earliest_exchange_start)

@@ -81,14 +81,15 @@ def test_empty_trading_summary():
 
 
 async def test_trader_trailing_stop_loss():
-    chandler = fakes.Chandler(
-        candles=[
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1):
+        [
             Candle(time=0, close=Decimal('10.0')),  # Buy.
             Candle(time=1, close=Decimal('20.0')),
             Candle(time=2, close=Decimal('18.0')),  # Trigger trailing stop (10%).
             Candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
         ]
-    )
+    })
     trader = Trader(
         chandler=chandler,
         informant=fakes.Informant(),
@@ -111,8 +112,9 @@ async def test_trader_trailing_stop_loss():
 
 
 async def test_trader_restart_on_missed_candle():
-    chandler = fakes.Chandler(
-        candles=[
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1):
+        [
             Candle(time=0),
             Candle(time=1),
             # 1 candle skipped.
@@ -120,7 +122,7 @@ async def test_trader_restart_on_missed_candle():
             Candle(time=4),
             Candle(time=5),
         ]
-    )
+    })
     strategy1 = fakes.Strategy(None, None)
     strategy2 = fakes.Strategy(None, None, None)
     strategy_stack = [strategy2, strategy1]
@@ -153,14 +155,15 @@ async def test_trader_restart_on_missed_candle():
 
 
 async def test_trader_assume_same_as_last_on_missed_candle():
-    chandler = fakes.Chandler(
-        candles=[
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1):
+        [
             Candle(time=0),
             Candle(time=1),
             # 2 candles skipped.
             Candle(time=4),  # Generate new candles with previous data.
         ]
-    )
+    })
     strategy = fakes.Strategy(None, None, None, None, None)
 
     trader = Trader(

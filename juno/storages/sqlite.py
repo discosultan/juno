@@ -6,12 +6,12 @@ from contextlib import closing
 from decimal import Decimal
 from typing import (
     Any, AsyncIterable, ContextManager, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union,
-    cast, get_args, get_origin, get_type_hints
+    cast, get_type_hints
 )
 
 from juno import Interval, Timestamp, json
 from juno.time import strfspan, time_ms
-from juno.typing import get_name, isnamedtuple
+from juno.typing import get_name, load_by_typing
 from juno.utils import home_path
 
 from .storage import Storage
@@ -80,7 +80,7 @@ class SQLite(Storage):
                 ).fetchall()
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
         for row in rows:
-            yield type_(*row)
+            yield load_by_typing(row, type_)
 
     async def store_time_series_and_span(
         self, key: Key, type_: Type[Any], items: List[Any], start: int, end: int
@@ -129,7 +129,7 @@ class SQLite(Storage):
                     f'SELECT * FROM {Bag.__name__} WHERE key=?', [get_name(type_)]
                 ).fetchone()
                 if row:
-                    return _load_type_from_raw(type_, json.loads(row[1])), row[2]
+                    return load_by_typing(json.loads(row[1]), type_), row[2]
                 else:
                     return None, None
 
@@ -230,31 +230,6 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
     if type_ is bool:
         return 'BOOLEAN'
     raise NotImplementedError(f'Missing conversion for type {type_}')
-
-
-def _load_type_from_raw(type_: Type[Any], value: Any) -> Any:
-    # Needs to be a list because type_ can be non-hashable for lookup in a set.
-    if type_ in [bool, int, float, str, Decimal, Interval, Timestamp]:
-        return value
-
-    origin = get_origin(type_) or type_
-    if origin is list:
-        sub_type = get_args(type_)[0]
-        for i, sub_value in enumerate(value):
-            value[i] = _load_type_from_raw(sub_type, sub_value)
-        return value
-    elif origin is dict:
-        sub_type = get_args(type_)[1]
-        for key, sub_value in value.items():
-            value[key] = _load_type_from_raw(sub_type, sub_value)
-        return value
-    elif isnamedtuple(type_):
-        values = []
-        annotations = get_type_hints(type_)
-        for i, (_name, sub_type) in enumerate(annotations.items()):
-            sub_value = value[i]
-            values.append(_load_type_from_raw(sub_type, sub_value))
-        return type_(*values)
 
 
 class Bag:

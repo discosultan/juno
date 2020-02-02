@@ -148,7 +148,7 @@ class Exchange(exchanges.Exchange):
 
 
 class Chandler:
-    def __init__(self, candles=[]):
+    def __init__(self, candles={}):
         self.candles = candles
 
     async def list_candles(self, *args, **kwargs):
@@ -157,8 +157,10 @@ class Chandler:
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False
     ):
+        candles = self.candles[(exchange, symbol, interval)]
+
         last_c = None
-        for c in (c for c in self.candles if c.time >= start and c.time < end):
+        for c in (c for c in candles if c.time >= start and c.time < end):
             time_diff = c.time - last_c.time if last_c else 0
             if time_diff >= interval * 2:
                 num_missed = time_diff // interval - 1
