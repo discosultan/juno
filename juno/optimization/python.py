@@ -13,6 +13,8 @@ from juno.utils import unpack_symbol
 from .solver import Solver, SolverResult
 
 
+# We could rename the class to PythonSolver but it's more user-friendly to allow people to just
+# specify { "solver": "python" } in config.
 class Python(Solver):
     def solve(
         self,

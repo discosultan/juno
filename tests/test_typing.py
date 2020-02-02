@@ -43,6 +43,15 @@ def test_isoptional(input_, expected_output):
     assert typing.isoptional(input_) == expected_output
 
 
+@pytest.mark.parametrize('obj,type_,expected_output', [
+    ([1], Bar, Bar(value=1)),
+    ([1, [2]], Tuple[int, Bar], [1, Bar(value=2)]),
+    ([1, 2], List[int], [1, 2]),
+])
+def test_load_by_typing(obj, type_, expected_output):
+    assert typing.load_by_typing(obj, type_) == expected_output
+
+
 @pytest.mark.parametrize('input_,type_,expected_output', [
     (Bar(1), Bar, True),
     ((1, ), Bar, False),

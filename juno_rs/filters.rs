@@ -14,7 +14,11 @@ impl Price {
         if self.max > 0.0 {
             price = f64::min(price, self.max);
         }
-        (price / self.step).floor() * self.step
+        if self.step > 0.0 {
+            (price / self.step).floor() * self.step
+        } else {
+            price
+        }
     }
 
     pub fn valid(&self, price: f64) -> bool {
@@ -38,7 +42,11 @@ impl Size {
             return 0.0;
         }
         size = f64::min(size, self.max);
-        (size / self.step).floor() * self.step
+        if self.step > 0.0 {
+            (size / self.step).floor() * self.step
+        } else {
+            size
+        }
     }
 
     pub fn round_up(&self, size: f64) -> f64 {

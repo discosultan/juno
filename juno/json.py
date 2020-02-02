@@ -79,8 +79,14 @@ def _prepare_load(obj: Any) -> Any:
     return obj
 
 
-def dumps(obj: Any, indent: Optional[int] = None, use_decimal=True) -> str:
+def dump(obj: Any, fp: IO, indent: Optional[int] = None, use_decimal=True) -> None:
     # Make a deep copy so we don't accidentally mutate source obj.
+    obj = deepcopy(obj)
+    obj = _prepare_dump(obj)
+    return json.dump(obj, fp, indent=indent, use_decimal=use_decimal)
+
+
+def dumps(obj: Any, indent: Optional[int] = None, use_decimal=True) -> str:
     obj = deepcopy(obj)
     obj = _prepare_dump(obj)
     return json.dumps(obj, indent=indent, use_decimal=use_decimal)

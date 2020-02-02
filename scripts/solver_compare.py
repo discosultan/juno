@@ -68,7 +68,7 @@ async def main() -> None:
     informant = components.Informant(storage, exchange_list)
     trades = components.Trades(storage, exchange_list)
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
-    rust_solver = optimization.Rust(chandler, informant)
+    rust_solver = optimization.Rust()
     python_solver = optimization.Python()
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)

@@ -14,7 +14,6 @@ from typing import (
     Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple, Union
 )
 
-from aiolimiter import AsyncLimiter
 from dateutil.tz import UTC
 
 from juno import (
@@ -26,7 +25,7 @@ from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import page
+from juno.utils import AsyncLimiter, page
 
 from .exchange import Exchange
 
@@ -56,8 +55,8 @@ class Coinbase(Exchange):
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
         x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
-        self._pub_limiter = AsyncLimiter(3 * x, 1, _log, logging.INFO)
-        self._priv_limiter = AsyncLimiter(5 * x, 1, _log, logging.INFO)
+        self._pub_limiter = AsyncLimiter(3 * x, 1)
+        self._priv_limiter = AsyncLimiter(5 * x, 1)
 
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()

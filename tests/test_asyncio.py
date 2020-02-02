@@ -50,17 +50,15 @@ async def test_merge_async():
         yield 0
         signal2.set()
         await signal1.wait()
-        await asyncio.sleep(0)
         yield 2
         signal2.set()
 
     async def gen2():
         await signal2.wait()
-        await asyncio.sleep(0)
+        signal2.clear()
         yield 1
         signal1.set()
         await signal2.wait()
-        await asyncio.sleep(0)
         yield 3
 
     counter = 0

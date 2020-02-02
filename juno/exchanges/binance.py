@@ -12,7 +12,6 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 
 import aiohttp
-from aiolimiter import AsyncLimiter
 from tenacity import (
     before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 )
@@ -27,7 +26,7 @@ from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientJsonResponse, ClientSession, connect_refreshing_stream
 from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import page
+from juno.utils import AsyncLimiter, page
 
 from .exchange import Exchange
 
@@ -63,10 +62,10 @@ class Binance(Exchange):
 
         # Rate limiters.
         x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
-        self._reqs_per_min_limiter = AsyncLimiter(1200 * x, 60, _log, logging.INFO)
-        self._raw_reqs_limiter = AsyncLimiter(5000 * x, 300, _log, logging.INFO)
-        self._orders_per_sec_limiter = AsyncLimiter(10 * x, 1, _log, logging.INFO)
-        self._orders_per_day_limiter = AsyncLimiter(100_000 * x, DAY_SEC, _log, logging.INFO)
+        self._reqs_per_min_limiter = AsyncLimiter(1200 * x, 60)
+        self._raw_reqs_limiter = AsyncLimiter(5000 * x, 300)
+        self._orders_per_sec_limiter = AsyncLimiter(10 * x, 1)
+        self._orders_per_day_limiter = AsyncLimiter(100_000 * x, DAY_SEC)
 
         self._clock = Clock(self)
         self._user_data_stream = UserDataStream(self)

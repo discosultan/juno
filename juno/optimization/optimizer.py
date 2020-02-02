@@ -1,14 +1,14 @@
 import asyncio
 import logging
 import math
-import random
 import sys
 from decimal import Decimal
 from functools import partial
 from itertools import product
+from random import Random, randrange
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
-from deap import algorithms, base, creator, tools
+from deap import base, creator, tools
 
 from juno import Candle, InsufficientBalance, Interval, Timestamp
 from juno.components import Chandler, Informant
@@ -21,7 +21,7 @@ from juno.trading import (
 from juno.typing import get_input_type_hints
 from juno.utils import flatten, format_attrs_as_json
 
-from . import tools as juno_tools
+from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from .solver import Solver, SolverResult
 
 _log = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ class Optimizer:
         assert intervals is None or len(intervals) > 0
 
         if seed is None:
-            seed = random.randrange(sys.maxsize)
+            seed = randrange(sys.maxsize)
 
         _log.info(f'randomizer seed ({seed})')
 
@@ -136,18 +136,19 @@ class Optimizer:
         # Prepare benchmark stats.
         benchmark_stats = get_benchmark_statistics(candles[('btc-eur', DAY_MS, True)])
 
-        # NB! We cannot initialize a new randomizer here if we keep using DEAP's internal
-        # algorithms for mutation, crossover, selection. These algos are using the random module
-        # directly and we have not way to pass our randomizer in. Hence we send the random
-        # module directly.
-        # random = Random(self.seed)  # <-- Don't do this! Or do but use all custom operators.
-        random.seed(self.seed)
+        # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
+        # us because we want to be able to use multiple optimizers with different random seeds.
+        # Therefore we need to use custom algorithms to support passing in our own `random.Random`.
+        random = Random(self.seed)
 
         # Objectives.
         objectives = SolverResult.meta()
         _log.info(f'objectives: {objectives}')
-        creator.create('FitnessMulti', base.Fitness, weights=list(objectives.values()))
-        creator.create('Individual', list, fitness=creator.FitnessMulti)
+
+        # Creator generated instances are global!
+        if not getattr(creator, 'FitnessMulti', None):
+            creator.create('FitnessMulti', base.Fitness, weights=list(objectives.values()))
+            creator.create('Individual', list, fitness=creator.FitnessMulti)
 
         toolbox = base.Toolbox()
 
@@ -174,10 +175,10 @@ class Optimizer:
 
         # toolbox.register('mate', tools.tools.cxSimulatedBinaryBounded, low=BOUND_LOW,
         #                  up=BOUND_UP, eta=20.0)
-        toolbox.register('mate', tools.cxUniform, indpb=indpb)
+        toolbox.register('mate', cx_uniform(random), indpb=indpb)
         # toolbox.register('mutate', tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP,
         #                  eta=20.0, indpb=1.0 / NDIM)
-        toolbox.register('mutate', juno_tools.mut_individual, attrs=attrs, indpb=indpb)
+        toolbox.register('mutate', mut_individual(random), attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
         def evaluate(ind: List[Any]) -> SolverResult:
@@ -209,7 +210,7 @@ class Optimizer:
         # Returns the final population and logbook with the statistics of the evolution.
         final_pop, stat = await asyncio.get_running_loop().run_in_executor(
             None, partial(
-                algorithms.eaMuPlusLambda,
+                ea_mu_plus_lambda(random),
                 pop,
                 toolbox,
                 mu=toolbox.population_size,

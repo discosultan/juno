@@ -18,6 +18,18 @@ def get_name(type_: Any) -> str:
     return str(type_) if get_origin(type_) else type_.__name__
 
 
+def get_root_origin(type_: Any) -> Optional[Type[Any]]:
+    last_origin = None
+    origin = type_
+    while True:
+        origin = get_origin(origin)
+        if origin is None:
+            break
+        else:
+            last_origin = origin
+    return last_origin
+
+
 def isnamedtuple(obj: Any) -> bool:
     origin = get_origin(obj) or obj
     # Note that '_fields' is present only if the tuple has at least 1 field.
@@ -26,6 +38,37 @@ def isnamedtuple(obj: Any) -> bool:
 
 def isoptional(obj: Any) -> bool:
     return get_origin(obj) is Union and type(None) in get_args(obj)
+
+
+def load_by_typing(value: Any, type_: Type[Any]) -> Any:
+    origin = get_root_origin(type_) or type_
+
+    # Needs to be a list because type_ can be non-hashable for lookup in a set.
+    if origin in [bool, int, float, str, Decimal]:
+        return value
+
+    if origin is list:
+        sub_type = get_args(type_)[0]
+        for i, sub_value in enumerate(value):
+            value[i] = load_by_typing(sub_value, sub_type)
+        return value
+    elif origin is tuple:
+        sub_types = get_args(type_)
+        for i, (sub_value, sub_type) in enumerate(zip(value, sub_types)):
+            value[i] = load_by_typing(sub_value, sub_type)
+        return value
+    elif origin is dict:
+        sub_type = get_args(type_)[1]
+        for key, sub_value in value.items():
+            value[key] = load_by_typing(sub_value, sub_type)
+        return value
+    elif isnamedtuple(type_):
+        values = []
+        annotations = get_type_hints(type_)
+        for i, (_name, sub_type) in enumerate(annotations.items()):
+            sub_value = value[i]
+            values.append(load_by_typing(sub_value, sub_type))
+        return type_(*values)
 
 
 def types_match(obj: Any, type_: Type[Any]):
