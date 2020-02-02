@@ -10,7 +10,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import algorithms, base, creator, tools
 
-from juno import Candle, InsufficientBalance, Interval, Timestamp, strategies
+from juno import Candle, InsufficientBalance, Interval, Timestamp
 from juno.components import Chandler, Informant
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.strategies import Strategy
@@ -19,7 +19,7 @@ from juno.trading import (
     MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
 from juno.typing import get_input_type_hints
-from juno.utils import flatten, format_attrs_as_json, get_module_type
+from juno.utils import flatten, format_attrs_as_json
 
 from . import tools as juno_tools
 from .solver import Solver, SolverResult
@@ -46,7 +46,7 @@ class Optimizer:
         exchange: str,
         start: Timestamp,
         quote: Decimal,
-        strategy: str,
+        strategy_type: Type[Strategy],
         symbols: Optional[List[str]] = None,
         intervals: Optional[List[Interval]] = None,
         end: Optional[Timestamp] = None,
@@ -85,7 +85,7 @@ class Optimizer:
         self.intervals = intervals
         self.start = start
         self.quote = quote
-        self.strategy = strategy
+        self.strategy_type = strategy_type
         self.end = end
         self.missed_candle_policy = missed_candle_policy
         self.trailing_stop = trailing_stop
@@ -143,8 +143,6 @@ class Optimizer:
         # random = Random(self.seed)  # <-- Don't do this! Or do but use all custom operators.
         random.seed(self.seed)
 
-        strategy_type = get_module_type(strategies, self.strategy)
-
         # Objectives.
         objectives = SolverResult.meta()
         _log.info(f'objectives: {objectives}')
@@ -159,7 +157,7 @@ class Optimizer:
             _build_attr(intervals, Choice(intervals), random),
             _build_attr(self.missed_candle_policy, _missed_candle_policy_constraint, random),
             _build_attr(self.trailing_stop, _trailing_stop_constraint, random),
-            *(partial(c.random, random) for c in strategy_type.meta.constraints.values())
+            *(partial(c.random, random) for c in self.strategy_type.meta.constraints.values())
         ]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
@@ -187,7 +185,7 @@ class Optimizer:
                 candles[('btc-eur', DAY_MS, True)],
                 candles[(ind[0], DAY_MS, True)],
                 benchmark_stats,
-                strategy_type,
+                self.strategy_type,
                 self.quote,
                 candles[(ind[0], ind[1], False)],
                 *fees_filters[ind[0]],
@@ -232,7 +230,7 @@ class Optimizer:
             candles[('btc-eur', DAY_MS, True)],
             candles[(best_args[0], DAY_MS, True)],
             benchmark_stats,
-            strategy_type,
+            self.strategy_type,
             self.quote,
             candles[(best_args[0], best_args[1], False)],
             *fees_filters[best_args[0]],
@@ -243,7 +241,7 @@ class Optimizer:
             interval=best_args[1],
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
-            strategy_config=_output_as_strategy_config(strategy_type, best_args[4:]),
+            strategy_config=_output_as_strategy_config(self.strategy_type, best_args[4:]),
             result=best_result,
         )
 
@@ -261,7 +259,7 @@ class Optimizer:
             start=floor_multiple(self.start, self.result.interval),
             end=floor_multiple(self.end, self.result.interval),
             quote=self.quote,
-            new_strategy=lambda: strategy_type(**self.result.strategy_config),
+            new_strategy=lambda: self.strategy_type(**self.result.strategy_config),
             missed_candle_policy=self.result.missed_candle_policy,
             trailing_stop=self.result.trailing_stop,
             adjust_start=False,

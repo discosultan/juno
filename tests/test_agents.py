@@ -6,33 +6,31 @@ from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
-from juno.trading import MissedCandlePolicy
+from juno.trading import MissedCandlePolicy, calculate_hodl_profit
 from juno.utils import load_json_file
 
 from . import fakes
 
 
 async def test_backtest():
-    chandler = fakes.Chandler(
-        candles=[
-            Candle(time=0, close=Decimal('5.0')),
-            Candle(time=1, close=Decimal('10.0')),
-            # Long. Size 10.
-            Candle(time=2, close=Decimal('30.0')),
-            Candle(time=3, close=Decimal('20.0')),
-            # Short.
-            Candle(time=4, close=Decimal('40.0')),
-            # Long. Size 5.
-            Candle(time=5, close=Decimal('10.0'))
-        ]
+    candles = [
+        Candle(time=0, close=Decimal('5.0')),
+        Candle(time=1, close=Decimal('10.0')),
+        # Long. Size 10.
+        Candle(time=2, close=Decimal('30.0')),
+        Candle(time=3, close=Decimal('20.0')),
+        # Short.
+        Candle(time=4, close=Decimal('40.0')),
+        # Long. Size 5.
+        Candle(time=5, close=Decimal('10.0'))
+    ]
+    chandler = fakes.Chandler(candles=candles)
+    fees = Fees(Decimal('0.0'), Decimal('0.0'))
+    filters = Filters(
+        price=Price(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0')),
+        size=Size(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0'))
     )
-    informant = fakes.Informant(
-        fees=Fees(Decimal('0.0'), Decimal('0.0')),
-        filters=Filters(
-            price=Price(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0')),
-            size=Size(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0'))
-        )
-    )
+    informant = fakes.Informant(fees=fees, filters=filters)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -54,7 +52,6 @@ async def test_backtest():
     res = await Backtest(chandler=chandler, informant=informant).start(**agent_config)
 
     assert res.profit == -50
-    assert res.potential_hodl_profit == 100
     assert res.duration == 6
     assert res.roi == Decimal('-0.5')
     assert res.annualized_roi == -1
@@ -64,6 +61,7 @@ async def test_backtest():
     assert res.mean_position_duration == 1
     assert res.start == 0
     assert res.end == 6
+    assert calculate_hodl_profit(res.cost, candles[0], candles[-1], fees, filters) == 100
 
 
 # 1. was failing as quote was incorrectly calculated after closing a position.
@@ -129,7 +127,7 @@ async def test_paper():
             Decimal('10.0'): Decimal('2.0'),  # 2.
         }
     }
-    orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}}, )
+    orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
     broker = fakes.Market(informant, orderbook, update_orderbook=True)
     agent_config = {
         'exchange': 'dummy',

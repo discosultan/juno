@@ -1,10 +1,11 @@
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Interval, Timestamp
+from juno import Interval, Timestamp, strategies
 from juno.components import Chandler, Informant
 from juno.optimization import Optimizer, Solver
 from juno.trading import MissedCandlePolicy
+from juno.utils import get_module_type
 
 from . import Agent
 
@@ -33,6 +34,7 @@ class Optimize(Agent):
         seed: Optional[int] = None,
         verbose: bool = False,
     ) -> None:
+        strategy_type = get_module_type(strategies, strategy)
         optimizer = Optimizer(
             solver=self.solver,
             chandler=self.chandler,
@@ -42,7 +44,7 @@ class Optimize(Agent):
             intervals=intervals,
             start=start,
             quote=quote,
-            strategy=strategy,
+            strategy_type=strategy_type,
             end=end,
             missed_candle_policy=missed_candle_policy,
             trailing_stop=trailing_stop,

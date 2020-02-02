@@ -32,6 +32,7 @@ class Trader:
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
+        summary: Optional[TradingSummary] = None,
     ) -> None:
         assert start >= 0
         assert end > 0
@@ -56,9 +57,8 @@ class Trader:
 
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         fees, filters = informant.get_fees_filters(exchange, symbol)
-        self.summary = TradingSummary(
-            interval=interval, start=start, quote=quote, fees=fees, filters=filters
-        )
+        self.summary = summary or TradingSummary(start=start, quote=quote)
+        self.owns_summary = summary is None
         self.ctx = TradingContext(new_strategy(), quote)
 
     async def run(self) -> None:
@@ -122,10 +122,11 @@ class Trader:
             if ctx.last_candle and ctx.open_position:
                 _log.info('ending trading but position open; closing')
                 await self._close_position(candle=ctx.last_candle)
+            if self.owns_summary and ctx.last_candle:
+                self.summary.finish(ctx.last_candle.time + self.interval)
 
     async def _tick(self, candle: Candle) -> None:
         ctx = self.ctx
-        self.summary.append_candle(candle)
 
         ctx.strategy.update(candle)
         advice = ctx.strategy.advice
@@ -146,6 +147,7 @@ class Trader:
 
         if not ctx.last_candle:
             _log.info(f'first candle {candle}')
+            ctx.first_candle = candle
         ctx.last_candle = candle
 
     async def _open_position(self, candle: Candle) -> None:
