@@ -8,7 +8,7 @@ from itertools import product
 from random import Random, randrange
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
-from deap import algorithms, base, creator, tools
+from deap import base, creator, tools
 
 from juno import Candle, InsufficientBalance, Interval, Timestamp
 from juno.components import Chandler, Informant
@@ -21,7 +21,7 @@ from juno.trading import (
 from juno.typing import get_input_type_hints
 from juno.utils import flatten, format_attrs_as_json
 
-from .deap import cx_uniform, mut_individual
+from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from .solver import Solver, SolverResult
 
 _log = logging.getLogger(__name__)
@@ -210,7 +210,7 @@ class Optimizer:
         # Returns the final population and logbook with the statistics of the evolution.
         final_pop, stat = await asyncio.get_running_loop().run_in_executor(
             None, partial(
-                algorithms.eaMuPlusLambda,
+                ea_mu_plus_lambda(random),
                 pop,
                 toolbox,
                 mu=toolbox.population_size,
