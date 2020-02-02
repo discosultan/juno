@@ -1,3 +1,4 @@
+import math
 from decimal import Decimal
 from typing import List, Tuple
 
@@ -7,6 +8,7 @@ from juno import Candle, Fees, Filters
 from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
+from juno.trading import MissedCandlePolicy, get_benchmark_statistics
 from juno.typing import load_by_typing
 from juno.utils import load_json_file
 
@@ -82,9 +84,23 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver):
         load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
         List[Candle]
     )
+    benchmark_stats = get_benchmark_statistics(statistics_fiat_candles)
+    strategy_args = (11, 21, Decimal('-0.229'), Decimal('0.1'), 4, 0, 0)
 
-    rust_solver.solve(
+    result = rust_solver.solve(
         statistics_fiat_candles,
         statistics_candles,
-        
+        benchmark_stats,
+        MAMACX,
+        Decimal('1.0'),
+        portfolio_candles,
+        Fees(),
+        Filters(),
+        'eth-btc',
+        HOUR_MS,
+        MissedCandlePolicy.IGNORE,
+        Decimal('0.0'),
+        *strategy_args
     )
+
+    assert not math.isnan(result.alpha)
