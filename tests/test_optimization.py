@@ -67,3 +67,24 @@ async def test_optimizer_same_result_with_predefined_seed(rust_solver):
         results.append(optimizer.result.result)
 
     assert results[0].alpha == results[1].alpha
+
+
+async def test_rust_solver_works_with_default_fees_filters(rust_solver):
+    portfolio_candles = load_by_typing(
+        load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
+        List[Candle]
+    )
+    statistics_candles = load_by_typing(
+        load_json_file(__file__, './data/binance_eth-btc_86400000_candles.json'),
+        List[Candle]
+    )
+    statistics_fiat_candles = load_by_typing(
+        load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
+        List[Candle]
+    )
+
+    rust_solver.solve(
+        statistics_fiat_candles,
+        statistics_candles,
+        
+    )

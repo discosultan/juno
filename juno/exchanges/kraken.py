@@ -13,8 +13,6 @@ from typing import (
     Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 )
 
-from aiolimiter import AsyncLimiter
-
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
     OrderResult, OrderType, OrderUpdate, Side, TimeInForce, Trade, json
@@ -23,7 +21,7 @@ from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import MIN_MS, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import unpack_symbol
+from juno.utils import AsyncLimiter, unpack_symbol
 
 from .exchange import Exchange
 
@@ -53,8 +51,8 @@ class Kraken(Exchange):
     async def __aenter__(self) -> Kraken:
         # Rate limiters.
         # TODO: This is Starter rate. The rate differs for Intermediate and Pro users.
-        self._reqs_limiter = AsyncLimiter(15, 45, _log, logging.INFO)
-        self._order_placing_limiter = AsyncLimiter(1, 1, _log, logging.INFO)
+        self._reqs_limiter = AsyncLimiter(15, 45)
+        self._order_placing_limiter = AsyncLimiter(1, 1)
 
         self._session = ClientSession(raise_for_status=True)
         await self._session.__aenter__()

@@ -103,15 +103,6 @@ class Rust(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
-        # _log.critical(len(quote_fiat_candles))
-        # _log.critical(len(symbol_candles))
-        # _log.critical(benchmark_stats.sharpe_ratio)
-
-        # _log.critical(quote)
-        # _log.critical(len(candles))
-        # _log.critical(fees)
-        # _log.critical(filters)
-
         # Trading.
         c_candles = self._get_or_create_c_candles((symbol, interval, False), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
