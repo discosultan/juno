@@ -21,7 +21,11 @@ async def rust_solver(loop):
         yield rust
 
 
-async def test_optimizer_same_result_with_predefined_seed(rust_solver):
+@pytest.mark.manual
+async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
+    if request.config.option.markexpr not in ['manual']:
+        pytest.skip(f'Specify manual marker to run!')
+
     portfolio_candles = load_by_typing(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]
@@ -61,8 +65,8 @@ async def test_optimizer_same_result_with_predefined_seed(rust_solver):
             end=portfolio_candles[-1].time + HOUR_MS,
             strategy_type=MAMACX,
             quote=Decimal('1.0'),
-            population_size=50,
-            max_generations=100,
+            population_size=20,
+            max_generations=40,
             seed=1
         )
         await optimizer.run()
