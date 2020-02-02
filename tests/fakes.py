@@ -193,12 +193,14 @@ class Informant:
         fees=Fees(),
         filters=Filters(),
         exchanges_supporting_symbol=[],
-        candle_intervals=[]
+        candle_intervals=[],
+        symbols=[]
     ):
         self.fees = fees
         self.filters = filters
         self.exchanges_supporting_symbol = exchanges_supporting_symbol
         self.candle_intervals = candle_intervals
+        self.symbols = symbols
 
     def get_fees_filters(self, exchange, symbol):
         return self.fees, self.filters
@@ -208,6 +210,9 @@ class Informant:
 
     def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
+
+    def list_symbols(self, exchange, patterns=None):
+        return self.symbols
 
 
 class Orderbook(components.Orderbook):

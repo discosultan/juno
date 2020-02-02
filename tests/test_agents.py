@@ -72,6 +72,7 @@ async def test_backtest():
 async def test_backtest_scenarios(scenario_nr):
     path = f'./data/backtest_scenario{scenario_nr}_candles.json'
     chandler = fakes.Chandler(
+        # TODO: Load from JSON based on type.
         candles=list(map(lambda c: Candle(**c, closed=True), load_json_file(__file__, path)))
     )
     informant = fakes.Informant(
