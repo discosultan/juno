@@ -103,40 +103,32 @@ class Position:
 
 # TODO: both positions and candles could theoretically grow infinitely
 class TradingSummary:
-    def __init__(
-        self, interval: Interval, start: Timestamp, quote: Decimal, fees: Fees, filters: Filters
-    ) -> None:
-        self.interval = interval
+    def __init__(self, start: Timestamp, quote: Decimal) -> None:
         self._start = start
+        self._end = None
         self.quote = quote
-        self.fees = fees
-        self.filters = filters
 
-        # self.candles: List[Candle] = []
         self.positions: List[Position] = []
-        self.first_candle: Optional[Candle] = None
-        self.last_candle: Optional[Candle] = None
 
         self._drawdowns_dirty = True
         self._drawdowns: List[Decimal] = []
-
-    def append_candle(self, candle: Candle) -> None:
-        # self.candles.append(candle)
-        if not self.first_candle:
-            self.first_candle = candle
-        self.last_candle = candle
 
     def append_position(self, pos: Position) -> None:
         self.positions.append(pos)
         self._drawdowns_dirty = True
 
-    @property
-    def start(self) -> Timestamp:
-        return Timestamp(self._start)
+    def finish(self, end: Timestamp) -> None:
+        self._end = end
 
     @property
+    def start(self) -> Timestamp:
+        return self._start
+
+    # TODO: Should we add +interval like we do for summary? Or rather change summary to exclude
+    # +interval. Also needs to be adjusted in Rust code.
+    @property
     def end(self) -> Timestamp:
-        return Timestamp(self.last_candle.time + self.interval if self.last_candle else 0)
+        return self._end if self._end else 0
 
     @property
     def cost(self) -> Decimal:
@@ -160,16 +152,6 @@ class TradingSummary:
         if n == 0:
             return Decimal('0.0')
         return (1 + self.roi)**(1 / n) - 1
-
-    @property
-    def potential_hodl_profit(self) -> Decimal:
-        if not self.first_candle or not self.last_candle:
-            return Decimal('0.0')
-        base_hodl = self.filters.size.round_down(self.quote / self.first_candle.close)
-        base_hodl -= round_half_up(base_hodl * self.fees.taker, self.filters.base_precision)
-        quote_hodl = self.filters.size.round_down(base_hodl) * self.last_candle.close
-        quote_hodl -= round_half_up(quote_hodl * self.fees.taker, self.filters.quote_precision)
-        return quote_hodl - self.quote
 
     @property
     def duration(self) -> Interval:
@@ -241,5 +223,16 @@ class TradingContext:
         self.strategy = strategy
         self.quote = quote
         self.open_position: Optional[Position] = None
+        self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')
+
+
+def calculate_hodl_profit(
+    quote: Decimal, first_candle: Candle, last_candle: Candle, fees: Fees, filters: Filters
+) -> Decimal:
+    base_hodl = filters.size.round_down(quote / first_candle.close)
+    base_hodl -= round_half_up(base_hodl * fees.taker, filters.base_precision)
+    quote_hodl = filters.size.round_down(base_hodl) * last_candle.close
+    quote_hodl -= round_half_up(quote_hodl * fees.taker, filters.quote_precision)
+    return quote_hodl - quote
