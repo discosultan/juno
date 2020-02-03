@@ -11,16 +11,15 @@ from juno.utils import full_path
 
 @pytest.mark.manual
 @pytest.mark.plugin
-async def test_discord(request, config):
+async def test_discord(request, config) -> None:
     skip_non_configured(request, config)
 
     from juno.plugins import discord
 
     agent = Dummy()
-    agent.result = get_dummy_trading_summary(quote=Decimal('1.0'), interval=DAY_MS)
+    agent.result = TradingSummary(start=0, quote=Decimal('1.0'))
     async with discord.activate(agent, config['discord']):
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
-        agent.result.append_candle(candle)
         pos = Position(
             symbol='eth-btc',
             time=candle.time,
@@ -31,7 +30,6 @@ async def test_discord(request, config):
         )
         await agent.emit('position_opened', pos)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
-        agent.result.append_candle(candle)
         pos.close(
             time=candle.time,
             fills=[
@@ -57,10 +55,6 @@ def skip_non_configured(request, config):
     discord_config = config.get('discord', {})
     if 'token' not in discord_config or 'dummy' not in discord_config.get('channel_id', {}):
         pytest.skip("Discord params not configured")
-
-
-def get_dummy_trading_summary(quote, interval):
-    return TradingSummary(start=0, quote=quote)
 
 
 class Dummy(Agent):
