@@ -15,7 +15,7 @@ from typing import (
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
-    OrderResult, OrderType, OrderUpdate, Side, TimeInForce, Trade, json
+    OrderResult, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -42,7 +42,7 @@ class Kraken(Exchange):
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = False
     can_stream_candles: bool = False
-    can_list_24hr_tickers: bool = False  # TODO: Don't know, need to check.
+    can_list_all_tickers: bool = False
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -90,6 +90,10 @@ class Kraken(Exchange):
                 quote_precision=val['pair_decimals'],
             )
         return ExchangeInfo(fees=fees, filters=filters)
+
+    async def list_tickers(self) -> List[Ticker]:
+        res = await self._request_public('GET', '/0/public/Ticker')
+        for val in res['']
 
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._request_private('/0/private/Balance')

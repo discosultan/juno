@@ -43,7 +43,7 @@ class Coinbase(Exchange):
     can_stream_candles: bool = False
     # TODO: Actually can but only through WS.
     # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
-    can_list_24hr_tickers: bool = False
+    can_list_all_tickers: bool = False
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key

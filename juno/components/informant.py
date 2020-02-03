@@ -45,8 +45,8 @@ class Informant:
             cancelable(self._periodic_sync_for_all_exchanges(
                 List[Ticker],
                 tickers_synced_evt,
-                lambda e: e.list_24hr_tickers(),
-                lambda e: e.can_list_24hr_tickers,
+                lambda e: e.list_tickers(),
+                lambda e: e.can_list_all_tickers,
             ))
         )
 
