@@ -144,11 +144,14 @@ class Binance(Exchange):
             ]
         )
 
-    async def list_tickers(self, symbol: Optional[str] = None) -> List[Ticker]:
-        data = {'symbol': symbol} if symbol else None
-        weight = 1 if symbol else 40
+    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+        if len(symbols) > 1:
+            raise NotImplementedError()
+
+        data = {'symbol': symbols[0]} if symbols else None
+        weight = 1 if symbols else 40
         res = await self._api_request('GET', '/api/v3/ticker/24hr', data=data, weight=weight)
-        response_data = [res.data] if symbol else res.data
+        response_data = [res.data] if symbols else res.data
         return [
             Ticker(symbol=_from_symbol(t['symbol']), volume=Decimal(t['volume']))
             for t in response_data

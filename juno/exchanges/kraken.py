@@ -91,9 +91,18 @@ class Kraken(Exchange):
             )
         return ExchangeInfo(fees=fees, filters=filters)
 
-    async def list_tickers(self) -> List[Ticker]:
-        res = await self._request_public('GET', '/0/public/Ticker')
-        for val in res['']
+    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+        if not symbols:
+            raise ValueError('Empty symbols list not supported')
+
+        data = {'pair': ','.join(symbols)}
+
+        res = await self._request_public('GET', '/0/public/Ticker', data=data)
+        return [
+            Ticker(symbol=_from_symbol(pair), volume=Decimal(val['v'][1]))
+            for pair, val in res['result'].items()
+        ]
+
 
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._request_private('/0/private/Balance')

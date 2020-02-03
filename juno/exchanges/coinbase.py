@@ -18,7 +18,7 @@ from dateutil.tz import UTC
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
-    OrderType, Side, TimeInForce, Trade, json
+    OrderType, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable, merge_async
 from juno.filters import Price, Size
@@ -41,8 +41,6 @@ class Coinbase(Exchange):
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = True
     can_stream_candles: bool = False
-    # TODO: Actually can but only through WS.
-    # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
     can_list_all_tickers: bool = False
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
@@ -91,6 +89,11 @@ class Coinbase(Exchange):
             filters=filters,
             candle_intervals=[60000, 300000, 900000, 3600000, 21600000, 86400000]
         )
+
+    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+        # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
+        if not symbols:
+            raise ValueError('Empty symbols list not supported')
 
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._private_request('GET', '/accounts')
