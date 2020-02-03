@@ -1,5 +1,7 @@
-from typing import Callable
+from typing import Callable, List
 
+from juno.asyncio import list_async
+from juno.exchanges import Exchange
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import Storage
 from juno.time import time_ms
@@ -12,11 +14,13 @@ class Historian:
         self,
         chandler: Chandler,
         storage: Storage,
+        exchanges: List[Exchange],
         get_time_ms: Callable[[], int] = time_ms,
         earliest_exchange_start: int = 1293840000000  # 2011-01-01
     ):
         self._chandler = chandler
         self._storage = storage
+        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time_ms = get_time_ms
         self._earliest_exchange_start = earliest_exchange_start
 
@@ -28,7 +32,18 @@ class Historian:
             await self._storage.set(key, int, val)
         return val
 
-    async def _find_first_candle_time(self, exchange: str, symbol: str, interval: int) -> int:
+    async def _get_first_candle_time(self, exchange: str, symbol: str, interval: int) -> int:
+        candles = await list_async(
+            self._exchanges[exchange].stream_historical_candles(symbol, interval, start=0, limit=1)
+        )
+        if len(candles) == 0:
+            raise ValueError('First candle not found')
+        assert len(candles) < 2
+        return candles[0].time
+
+    async def _find_first_candle_time_by_binary_search(
+        self, exchange: str, symbol: str, interval: int
+    ) -> int:
         # TODO: Does not handle missing candles, hence, may yield incorrect results!
         # We try to find a first candle by performing a binary search.
         start = ceil_multiple(self._earliest_exchange_start, interval)
@@ -52,4 +67,4 @@ class Historian:
             if start >= end:
                 break
 
-        raise ValueError('First candle not found.')
+        raise ValueError('First candle not found')
