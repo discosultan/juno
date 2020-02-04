@@ -13,7 +13,7 @@ class Exchange(exchanges.Exchange):
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = True
     can_stream_candles: bool = True
-    can_list_24hr_tickers: bool = True
+    can_list_all_tickers: bool = True
 
     def __init__(
         self,
@@ -71,7 +71,7 @@ class Exchange(exchanges.Exchange):
     async def get_exchange_info(self):
         return self.exchange_info
 
-    async def list_24hr_tickers(self):
+    async def list_tickers(self):
         return self.tickers
 
     async def get_balances(self):

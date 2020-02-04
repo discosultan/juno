@@ -52,7 +52,7 @@ class Binance(Exchange):
     can_stream_depth_snapshot: bool = False
     can_stream_historical_candles: bool = True
     can_stream_candles: bool = True
-    can_list_24hr_tickers: bool = True
+    can_list_all_tickers: bool = True
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -144,24 +144,25 @@ class Binance(Exchange):
             ]
         )
 
-    async def list_24hr_tickers(self) -> List[Ticker]:
-        res = await self._api_request('GET', '/api/v3/ticker/24hr', weight=40)
-        result = []
-        for t in res.data:
-            result.append(Ticker(
-                symbol=_from_symbol(t['symbol']),
-                volume=Decimal(t['volume'])
-            ))
-        return result
+    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+        if len(symbols) > 1:
+            raise NotImplementedError()
+
+        data = {'symbol': _http_symbol(symbols[0])} if symbols else None
+        weight = 1 if symbols else 40
+        res = await self._api_request('GET', '/api/v3/ticker/24hr', data=data, weight=weight)
+        response_data = [res.data] if symbols else res.data
+        return [
+            Ticker(symbol=_from_symbol(t['symbol']), volume=Decimal(t['volume']))
+            for t in response_data
+        ]
 
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._api_request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
-        result = {}
-        for balance in res.data['balances']:
-            result[
-                balance['asset'].lower()
-            ] = Balance(available=Decimal(balance['free']), hold=Decimal(balance['locked']))
-        return result
+        return {
+            b['asset'].lower(): Balance(available=Decimal(b['free']), hold=Decimal(b['locked']))
+            for b in res.data['balances']
+        }
 
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:

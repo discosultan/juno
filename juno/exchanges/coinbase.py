@@ -4,6 +4,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import itertools
 import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -18,7 +19,7 @@ from dateutil.tz import UTC
 
 from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
-    OrderType, Side, TimeInForce, Trade, json
+    OrderType, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable, merge_async
 from juno.filters import Price, Size
@@ -41,9 +42,7 @@ class Coinbase(Exchange):
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = True
     can_stream_candles: bool = False
-    # TODO: Actually can but only through WS.
-    # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
-    can_list_24hr_tickers: bool = False
+    can_list_all_tickers: bool = False
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
@@ -91,6 +90,20 @@ class Coinbase(Exchange):
             filters=filters,
             candle_intervals=[60000, 300000, 900000, 3600000, 21600000, 86400000]
         )
+
+    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+        # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
+        if not symbols:
+            raise ValueError('Empty symbols list not supported')
+
+        tickers = {}
+        async with self._ws.subscribe('ticker', ['ticker'], symbols) as ws:
+            async for msg in ws:
+                symbol = _from_product(msg['product_id'])
+                tickers[symbol] = Ticker(symbol=symbol, volume=Decimal(msg['volume_24h']))
+                if len(tickers) == len(symbols):
+                    break
+        return list(tickers.values())
 
     async def get_balances(self) -> Dict[str, Balance]:
         res = await self._private_request('GET', '/accounts')
@@ -146,7 +159,7 @@ class Coinbase(Exchange):
                         asks=[(Decimal(p), Decimal(s)) for p, s in asks]
                     )
 
-        async with self._ws.subscribe('level2', ['snapshot', 'l2update'], symbol) as ws:
+        async with self._ws.subscribe('level2', ['snapshot', 'l2update'], [symbol]) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -206,7 +219,7 @@ class Coinbase(Exchange):
                     size=Decimal(val['size'])
                 )
 
-        async with self._ws.subscribe('matches', ['match'], symbol) as ws:
+        async with self._ws.subscribe('matches', ['match'], [symbol]) as ws:
             yield inner(ws)
 
     async def _paginated_public_request(self, method: str, url: str,
@@ -274,7 +287,7 @@ class CoinbaseFeed:
 
     @asynccontextmanager
     async def subscribe(
-        self, channel: str, types: List[str], symbol: str
+        self, channel: str, types: List[str], symbols: List[str]
     ) -> AsyncIterator[AsyncIterable[Any]]:
         await self._ensure_connection()
 
@@ -284,17 +297,19 @@ class CoinbaseFeed:
         assert self.ws
         await self.ws.send_json({
             'type': 'subscribe',
-            'product_ids': [_product(symbol)],
+            'product_ids': [_product(s) for s in symbols],
             'channels': [channel]
         })
 
         while True:
-            if _is_subscribed(self.subscriptions, [channel], [symbol]):
+            if _is_subscribed(self.subscriptions, [channel], symbols):
                 break
             await self.subscriptions_updated.wait()
 
         try:
-            yield merge_async(*(self.channels[(t, symbol)].stream() for t in types))
+            yield merge_async(
+                *(self.channels[(t, s)].stream() for t, s in itertools.product(types, symbols))
+            )
         finally:
             # TODO: unsubscribe
             pass

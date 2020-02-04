@@ -12,16 +12,17 @@ from juno import (
 class Exchange(ABC):
     # Capabilities.
     can_stream_balances: bool = False
-    can_stream_depth_snapshot: bool = False
+    can_stream_depth_snapshot: bool = False  # Streams snapshot as first depth WS message.
     can_stream_historical_candles: bool = False
     can_stream_candles: bool = False
-    can_list_24hr_tickers: bool = False
+    can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
 
     @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
         pass
 
-    async def list_24hr_tickers(self) -> List[Ticker]:
+    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+        # Empty list to disable filter.
         pass
 
     @abstractmethod

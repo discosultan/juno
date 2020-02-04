@@ -72,14 +72,26 @@ async def test_get_exchange_info(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_list_24hr_tickers(loop, request, exchange):
+async def test_list_tickers(loop, request, exchange):
     skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_list_24hr_tickers)
+    skip_no_capability(exchange.can_list_all_tickers)
 
     # Note, this is an expensive call!
-    tickers = await exchange.list_24hr_tickers()
+    tickers = await exchange.list_tickers()
 
     assert len(tickers) > 0
+    assert types_match(tickers, List[Ticker])
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_list_one_ticker(loop, request, exchange):
+    skip_not_configured(request, exchange)
+
+    tickers = await exchange.list_tickers(symbols=['eth-btc'])
+
+    assert len(tickers) == 1
     assert types_match(tickers, List[Ticker])
 
 
