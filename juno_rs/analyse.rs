@@ -148,14 +148,19 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
 
 // TODO: hax! portfolio stats shouldn't be mutable.
 fn calculate_alpha_beta(benchmark_g_returns: &[f64], mut portfolio_stats: Statistics) -> (f64, f64) {
+    println!("benchmark {}", benchmark_g_returns.len());
+    println!("portfolio {}", portfolio_stats.g_returns.len());
+
     portfolio_stats.g_returns.extend(benchmark_g_returns.iter());
 
     let matrix = Array::from_shape_vec(
         (2, benchmark_g_returns.len()),
         portfolio_stats.g_returns
-    ).unwrap();
+    ).expect("benchmark and portfolio geometric returns matrix");
 
-    let covariance_matrix = matrix.cov(1.).unwrap();
+    let covariance_matrix = matrix
+        .cov(1.)
+        .expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
     let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
