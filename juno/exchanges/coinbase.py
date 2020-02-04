@@ -101,7 +101,11 @@ class Coinbase(Exchange):
         async with self._ws.subscribe('ticker', ['ticker'], symbols) as ws:
             async for msg in ws:
                 symbol = _from_product(msg['product_id'])
-                tickers[symbol] = Ticker(symbol=symbol, volume=Decimal(msg['volume_24h']))
+                tickers[symbol] = Ticker(
+                    symbol=symbol,
+                    volume=Decimal(msg['volume_24h']),
+                    quote_volume=Decimal('0.0')  # Not supported.
+                )
                 if len(tickers) == len(symbols):
                     break
         return list(tickers.values())

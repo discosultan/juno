@@ -100,8 +100,11 @@ class Kraken(Exchange):
 
         res = await self._request_public('GET', '/0/public/Ticker', data=data)
         return [
-            Ticker(symbol=_from_symbol(pair), volume=Decimal(val['v'][1]))
-            for pair, val in res['result'].items()
+            Ticker(
+                symbol=_from_symbol(pair),
+                volume=Decimal(val['v'][1]),
+                quote_volume=Decimal('0.0')  # Not supported.
+            ) for pair, val in res['result'].items()
         ]
 
     async def get_balances(self) -> Dict[str, Balance]:
@@ -249,17 +252,19 @@ class Kraken(Exchange):
         res = await self._request_private('/0/private/GetWebSocketsToken')
         return res['result']['token']
 
-    def _request_public(self, method: str, url: str, data: Optional[Any] = None, cost: int = 1):
+    async def _request_public(
+        self, method: str, url: str, data: Optional[Any] = None, cost: int = 1
+    ) -> Any:
         data = data or {}
-        return self._request(method, url, data, {}, self._reqs_limiter, cost)
+        return await self._request(method, url, data, {}, self._reqs_limiter, cost)
 
-    def _request_private(
+    async def _request_private(
         self,
         url: str,
         data: Optional[Any] = None,
         cost: int = 1,
         limiter: Optional[AsyncLimiter] = None
-    ):
+    ) -> Any:
         if limiter is None:
             limiter = self._reqs_limiter
 
@@ -279,12 +284,12 @@ class Kraken(Exchange):
             'API-Key': self._api_key,
             'API-Sign': base64.b64encode(signature.digest()).decode()
         }
-        return self._request('POST', url, data, headers, limiter, cost)
+        return await self._request('POST', url, data, headers, limiter, cost)
 
     async def _request(
         self, method: str, url: str, data: Dict[str, Any], headers: Dict[str, str],
         limiter: AsyncLimiter, cost: int
-    ):
+    ) -> Any:
         if limiter is None:
             limiter = self._reqs_limiter
         if cost > 0:

@@ -154,8 +154,11 @@ class Binance(Exchange):
         res = await self._api_request('GET', '/api/v3/ticker/24hr', data=data, weight=weight)
         response_data = [res.data] if symbols else res.data
         return [
-            Ticker(symbol=_from_symbol(t['symbol']), volume=Decimal(t['volume']))
-            for t in response_data
+            Ticker(
+                symbol=_from_symbol(t['symbol']),
+                volume=Decimal(t['volume']),
+                quote_volume=Decimal(t['quoteVolume'])
+            ) for t in response_data
         ]
 
     async def get_balances(self) -> Dict[str, Balance]:
@@ -307,10 +310,10 @@ class Binance(Exchange):
     ) -> AsyncIterable[Candle]:
         limit = 1000  # Max possible candles per request.
         # Start 0 is a special value indicating that we try to find the earliest available candle.
+        pagination_interval = interval
         if start == 0:
-            limit = 1
-            interval = end - start
-        for page_start, page_end in page(start, end, interval, limit):
+            pagination_interval = end - start
+        for page_start, page_end in page(start, end, pagination_interval, limit):
             res = await self._api_request(
                 'GET',
                 '/api/v3/klines',

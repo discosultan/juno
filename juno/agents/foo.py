@@ -32,8 +32,9 @@ class Foo(Agent):
         num_symbols = 2
 
         tickers = [t for t in self._informant.list_tickers(exchange) if t.symbol.endswith('-btc')]
-        tickers.sort(key=lambda t: t.volume, reverse=True)
         assert len(tickers) > num_symbols
+        assert tickers[0].quote_volume > 0
+        tickers.sort(key=lambda t: t.quote_volume, reverse=True)
         tickers = tickers[:num_symbols]
         symbols = [t.symbol for t in tickers]
 

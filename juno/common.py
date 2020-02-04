@@ -152,6 +152,7 @@ class Side(Enum):
 class Ticker(NamedTuple):
     symbol: str
     volume: Decimal
+    quote_volume: Decimal
 
 
 class TimeInForce(Enum):

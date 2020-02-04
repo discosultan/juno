@@ -19,7 +19,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = '35'
+_VERSION = '36'
 
 T = TypeVar('T')
 

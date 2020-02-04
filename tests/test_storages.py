@@ -72,7 +72,7 @@ async def test_memory_store_and_stream_empty_series(memory):
 @pytest.mark.parametrize('item,type_', [
     (Candle(time=1, close=Decimal('1.0')), Candle),
     (ExchangeInfo(candle_intervals=[1, 2]), ExchangeInfo),
-    ([Ticker(symbol='eth-btc', volume=Decimal('1.0'))], List[Ticker]),
+    ([Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('0.1'))], List[Ticker]),
     ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees])
 ])
 async def test_memory_set_get(memory, item, type_):
