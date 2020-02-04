@@ -1,3 +1,4 @@
+import logging
 import sys
 from typing import Callable, List
 
@@ -9,6 +10,8 @@ from juno.storages import Storage
 from juno.time import time_ms
 
 from .chandler import Chandler
+
+_log = logging.getLogger(__name__)
 
 
 class Historian:
@@ -43,6 +46,10 @@ class Historian:
     async def _find_first_candle_by_binary_search(
         self, exchange: str, symbol: str, interval: int
     ) -> Candle:
+        _log.info(
+            f'{exchange} does not support streaming earliest candle; finding by binary search'
+        )
+
         # TODO: Does not handle missing candles, hence, may yield incorrect results!
         start = ceil_multiple(self._earliest_exchange_start, interval)
         end = floor_multiple(self._get_time_ms(), interval)
