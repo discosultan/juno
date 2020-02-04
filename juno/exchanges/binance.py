@@ -51,6 +51,7 @@ class Binance(Exchange):
     can_stream_balances: bool = True
     can_stream_depth_snapshot: bool = False
     can_stream_historical_candles: bool = True
+    can_stream_historical_earliest_candle: bool = True
     can_stream_candles: bool = True
     can_list_all_tickers: bool = True
 
@@ -301,10 +302,15 @@ class Binance(Exchange):
             raise NotImplementedError(f'No handling for binance error: {res}')
         return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
 
-    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
-                                        end: int) -> AsyncIterable[Candle]:
-        MAX_CANDLES_PER_REQUEST = 1000
-        for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
+    async def stream_historical_candles(
+        self, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
+        limit = 1000  # Max possible candles per request.
+        # Start 0 is a special value indicating that we try to find the earliest available candle.
+        if start == 0:
+            limit = 1
+            interval = end - start
+        for page_start, page_end in page(start, end, interval, limit):
             res = await self._api_request(
                 'GET',
                 '/api/v3/klines',
@@ -313,7 +319,7 @@ class Binance(Exchange):
                     'interval': strfinterval(interval),
                     'startTime': page_start,
                     'endTime': page_end - 1,
-                    'limit': MAX_CANDLES_PER_REQUEST
+                    'limit': limit
                 }
             )
             for c in res.data:
@@ -323,8 +329,9 @@ class Binance(Exchange):
                 )
 
     @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str,
-                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(
+        self, symbol: str, interval: int
+    ) -> AsyncIterator[AsyncIterable[Candle]]:
         # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
         # Note that two streams will send events with matching evt_times.
         # This can be used to switch from one stream to another and avoiding the edge case where
@@ -346,8 +353,9 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def stream_historical_trades(self, symbol: str, start: int,
-                                       end: int) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(
+        self, symbol: str, start: int, end: int
+    ) -> AsyncIterable[Trade]:
         # Aggregated trades. This means trades executed at the same time, same price and as part of
         # the same order will be aggregated by summing their size.
         batch_start = start

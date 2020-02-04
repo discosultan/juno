@@ -13,37 +13,47 @@ from . import fakes
     (10, 20),  # Simple happy flow.
     (0, 16),  # `final_end` and start not being over-adjusted.
 ])
-async def test_get_first_candle_time(storage, earliest_exchange_start, time):
+async def test_find_first_candle(storage, earliest_exchange_start, time) -> None:
     candles = [
         Candle(time=12),
         Candle(time=14),
         Candle(time=16),
         Candle(time=18),
     ]
+    exchange = fakes.Exchange()
+    exchange.can_stream_historical_earliest_candle = False
     historian = Historian(
-        chandler=fakes.Chandler(candles={('exchange', 'eth-btc', 2): candles}),
+        chandler=fakes.Chandler(candles={('exchange', 'eth-btc', 2): candles}),  # type: ignore
         storage=storage,
+        exchanges=[exchange],
         get_time_ms=fakes.Time(time).get_time,
-        earliest_exchange_start=earliest_exchange_start)
+        earliest_exchange_start=earliest_exchange_start
+    )
 
-    first_candle_time = await historian.find_first_candle_time('exchange', 'eth-btc', 2)
+    first_candle = await historian.find_first_candle('exchange', 'eth-btc', 2)
 
-    assert first_candle_time == 12
+    assert first_candle.time == 12
 
 
 @pytest.mark.parametrize('earliest_exchange_start,time', [
     (1, 2),  # No candles
     (0, 1),  # Single last candle.
 ])
-async def test_get_first_candle_time_not_found(storage, earliest_exchange_start, time):
+async def test_find_first_candle_not_found(storage, earliest_exchange_start, time) -> None:
+    exchange = fakes.Exchange()
+    exchange.can_stream_historical_earliest_candle = False
     historian = Historian(
-        chandler=fakes.Chandler(candles={('exchange', 'eth-btc', 1): [Candle(time=0)]}),
+        chandler=fakes.Chandler(
+            candles={('exchange', 'eth-btc', 1): [Candle(time=0)]}
+        ),  # type: ignore
         storage=storage,
+        exchanges=[exchange],
         get_time_ms=fakes.Time(time).get_time,
-        earliest_exchange_start=earliest_exchange_start)
+        earliest_exchange_start=earliest_exchange_start
+    )
 
     with pytest.raises(ValueError):
-        await historian.find_first_candle_time('exchange', 'eth-btc', 1)
+        await historian.find_first_candle('exchange', 'eth-btc', 1)
 
 
 @pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])

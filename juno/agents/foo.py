@@ -6,7 +6,7 @@ from juno.components import Chandler, Historian, Informant
 from juno.math import floor_multiple
 from juno.optimization import Optimizer, Solver
 from juno.strategies import MAMACX
-from juno.time import DAY_MS, strpinterval, strptimestamp
+from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import Trader, TradingSummary, get_benchmark_statistics, get_portfolio_statistics
 
 from .agent import Agent
@@ -36,6 +36,8 @@ class Foo(Agent):
         assert len(tickers) > num_symbols
         tickers = tickers[:num_symbols]
         symbols = [t.symbol for t in tickers]
+
+        _log.info(f'found following top {num_symbols} symbols with highest 24h volume: {symbols}')
 
         quote_per_symbol = quote / len(symbols)
 
@@ -93,7 +95,15 @@ class Foo(Agent):
         quote: Decimal,
         summary: TradingSummary
     ) -> None:
-        optimization_start = await self._historian.find_first_candle_time(exchange, symbol, DAY_MS)
+        optimization_start = (
+            await self._historian.find_first_candle(exchange, symbol, DAY_MS)
+        ).time
+
+        if optimization_start > trading_start:
+            raise ValueError(
+                f'Requested {exchange} {symbol} trading start {strftimestamp(trading_start)} but '
+                f'first candle found at {strftimestamp(optimization_start)}'
+            )
 
         optimizer = Optimizer(
             solver=self._solver,

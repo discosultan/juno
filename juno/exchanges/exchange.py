@@ -14,6 +14,7 @@ class Exchange(ABC):
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = False  # Streams snapshot as first depth WS message.
     can_stream_historical_candles: bool = False
+    can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
 
@@ -34,13 +35,15 @@ class Exchange(ABC):
         yield  # type: ignore
 
     @abstractmethod
-    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
-                                        end: int) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(
+        self, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
         yield  # type: ignore
 
     @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str,
-                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(
+        self, symbol: str, interval: int
+    ) -> AsyncIterator[AsyncIterable[Candle]]:
         yield  # type: ignore
 
     async def get_depth(self, symbol: str) -> DepthSnapshot:
@@ -76,8 +79,9 @@ class Exchange(ABC):
     async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
         pass
 
-    async def stream_historical_trades(self, symbol: str, start: int,
-                                       end: int) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(
+        self, symbol: str, start: int, end: int
+    ) -> AsyncIterable[Trade]:
         yield  # type: ignore
 
     @asynccontextmanager

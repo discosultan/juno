@@ -41,6 +41,7 @@ class Coinbase(Exchange):
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = True
     can_stream_historical_candles: bool = True
+    can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
 
