@@ -34,19 +34,22 @@ class Informant:
         tickers_synced_evt = asyncio.Event()
 
         self._exchange_info_sync_task = asyncio.create_task(
-            cancelable(self._periodic_sync_for_all_exchanges(
+            cancelable(self._periodic_sync_for_exchanges(
                 ExchangeInfo,
                 exchange_info_synced_evt,
                 lambda e: e.get_exchange_info(),
+                list(self._exchanges.keys())
             ))
         )
         # TODO: Do we want to always kick this sync off? Maybe extract to a different component.
+        # TODO: Exchanges which don't support listing all tickers, we can do `list_symbols` first
+        #       and then get tickers by symbols.
         self._tickers_sync_task = asyncio.create_task(
-            cancelable(self._periodic_sync_for_all_exchanges(
+            cancelable(self._periodic_sync_for_exchanges(
                 List[Ticker],
                 tickers_synced_evt,
-                lambda e: e.list_24hr_tickers(),
-                lambda e: e.can_list_24hr_tickers,
+                lambda e: e.list_tickers(),
+                [n for n, e in self._exchanges.items() if e.can_list_all_tickers]
             ))
         )
 
@@ -120,13 +123,11 @@ class Informant:
     def list_exchanges_supporting_symbol(self, symbol: str) -> List[str]:
         return [e for e in self.list_exchanges() if symbol in self.list_symbols(e)]
 
-    async def _periodic_sync_for_all_exchanges(
+    async def _periodic_sync_for_exchanges(
         self, type_: Type[Any], initial_sync_event: asyncio.Event,
-        fetch: Callable[[Exchange], Awaitable[Any]],
-        exchange_predicate: Callable[[Exchange], bool] = lambda _: True
+        fetch: Callable[[Exchange], Awaitable[Any]], exchanges: List[str]
     ) -> None:
         period = DAY_MS
-        exchanges = [n for n, e in self._exchanges.items() if exchange_predicate(e)]
         _log.info(
             f'starting periodic sync of {get_name(type_)} for {", ".join(exchanges)} every '
             f'{strfinterval(period)}'
