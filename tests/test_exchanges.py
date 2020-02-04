@@ -89,7 +89,7 @@ async def test_list_tickers(loop, request, exchange):
 async def test_list_one_ticker(loop, request, exchange):
     skip_not_configured(request, exchange)
 
-    tickers = await exchange.list_tickers(symbol='eth-btc')
+    tickers = await exchange.list_tickers(symbols=['eth-btc'])
 
     assert len(tickers) == 1
     assert types_match(tickers, List[Ticker])

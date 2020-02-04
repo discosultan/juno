@@ -21,7 +21,7 @@ class Exchange(ABC):
     async def get_exchange_info(self) -> ExchangeInfo:
         pass
 
-    async def list_tickers(self, symbols: List[str]) -> List[Ticker]:
+    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
         # Empty list to disable filter.
         pass
 
