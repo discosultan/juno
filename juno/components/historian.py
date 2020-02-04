@@ -1,6 +1,8 @@
+import sys
 from typing import Callable, List
 
-from juno.asyncio import list_async
+from juno import Candle
+from juno.asyncio import first_async
 from juno.exchanges import Exchange
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import Storage
@@ -24,28 +26,24 @@ class Historian:
         self._get_time_ms = get_time_ms
         self._earliest_exchange_start = earliest_exchange_start
 
-    async def find_first_candle_time(self, exchange: str, symbol: str, interval: int) -> int:
-        key = (exchange, symbol, interval, 'first_candle')
-        val, _ = await self._storage.get(key, int)
-        if not val:
-            val = await self._find_first_candle_time(exchange, symbol, interval)
-            await self._storage.set(key, int, val)
-        return val
+    async def find_first_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
+        key = (exchange, symbol, interval)
+        candle, _ = await self._storage.get(key, Candle)
+        if not candle:
+            if self._exchanges[exchange].can_stream_historical_earliest_candle:
+                candle = await first_async(self._exchanges[exchange].stream_historical_candles(
+                    symbol=symbol, interval=interval, start=0, end=sys.maxsize
+                ))
+            else:
+                candle = await self._find_first_candle_by_binary_search(exchange, symbol, interval)
+            await self._storage.set(key, Candle, candle)
+        assert candle
+        return candle
 
-    async def _get_first_candle_time(self, exchange: str, symbol: str, interval: int) -> int:
-        candles = await list_async(
-            self._exchanges[exchange].stream_historical_candles(symbol, interval, start=0, limit=1)
-        )
-        if len(candles) == 0:
-            raise ValueError('First candle not found')
-        assert len(candles) < 2
-        return candles[0].time
-
-    async def _find_first_candle_time_by_binary_search(
+    async def _find_first_candle_by_binary_search(
         self, exchange: str, symbol: str, interval: int
-    ) -> int:
+    ) -> Candle:
         # TODO: Does not handle missing candles, hence, may yield incorrect results!
-        # We try to find a first candle by performing a binary search.
         start = ceil_multiple(self._earliest_exchange_start, interval)
         end = floor_multiple(self._get_time_ms(), interval)
         final_end = end  # We need this to not go into the future. We will mutate `end`.
@@ -60,7 +58,7 @@ class Historian:
                 len(candles) == 1
                 and to - from_ > interval  # Must not be last candle.
             ):
-                return candles[0].time
+                return candles[0]
             else:
                 end = mid
 

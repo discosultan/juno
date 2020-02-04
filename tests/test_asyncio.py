@@ -1,7 +1,8 @@
 import asyncio
 
 from juno.asyncio import (
-    Barrier, Event, chain_async, enumerate_async, list_async, merge_async, resolved_stream
+    Barrier, Event, chain_async, enumerate_async, first_async, list_async, merge_async,
+    resolved_stream
 )
 
 
@@ -40,6 +41,14 @@ async def test_list_async():
             yield i
 
     assert await list_async(gen()) == [0, 1, 2]
+
+
+async def test_first_async():
+    async def gen():
+        yield 1
+        yield 2
+
+    assert await first_async(gen()) == 1
 
 
 async def test_merge_async():

@@ -51,6 +51,7 @@ class Binance(Exchange):
     can_stream_balances: bool = True
     can_stream_depth_snapshot: bool = False
     can_stream_historical_candles: bool = True
+    can_stream_historical_earliest_candle: bool = True
     can_stream_candles: bool = True
     can_list_all_tickers: bool = True
 
@@ -302,11 +303,13 @@ class Binance(Exchange):
         return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
 
     async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: Optional[int] = None,
-        limit: Optional[int] = 1000
+        self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
-        if not limit:
-            raise NotImplementedError()
+        limit = 1000  # Max possible candles per request.
+        # Start 0 is a special value indicating that we try to find the earliest available candle.
+        if start == 0:
+            limit = 1
+            interval = end - start
         for page_start, page_end in page(start, end, interval, limit):
             res = await self._api_request(
                 'GET',
@@ -316,7 +319,7 @@ class Binance(Exchange):
                     'interval': strfinterval(interval),
                     'startTime': page_start,
                     'endTime': page_end - 1,
-                    'limit': MAX_CANDLES_PER_REQUEST
+                    'limit': limit
                 }
             )
             for c in res.data:

@@ -65,7 +65,6 @@ class Optimizer:
 
         # We normalize `start` and `end` later to take all potential intervals into account.
 
-        _log.critical([start, end])
         assert end <= now
         assert end > start
         assert quote > 0

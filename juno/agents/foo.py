@@ -95,7 +95,9 @@ class Foo(Agent):
         quote: Decimal,
         summary: TradingSummary
     ) -> None:
-        optimization_start = await self._historian.find_first_candle_time(exchange, symbol, DAY_MS)
+        optimization_start = (
+            await self._historian.find_first_candle(exchange, symbol, DAY_MS)
+        ).time
 
         if optimization_start > trading_start:
             raise ValueError(

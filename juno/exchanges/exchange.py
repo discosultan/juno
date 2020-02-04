@@ -14,6 +14,7 @@ class Exchange(ABC):
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = False  # Streams snapshot as first depth WS message.
     can_stream_historical_candles: bool = False
+    can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
 
@@ -35,7 +36,7 @@ class Exchange(ABC):
 
     @abstractmethod
     async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: Optional[int], limit: Optional[int]
+        self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         yield  # type: ignore
 
