@@ -147,7 +147,6 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
 }
 
 fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistics) -> (f64, f64) {
-    println!("(benchmark, portfolio) ({}, {})", benchmark_g_returns.len(), portfolio_stats.g_returns.len());
     assert!(benchmark_g_returns.len() == portfolio_stats.g_returns.len());
 
     // TODO: Inefficient making this copy.

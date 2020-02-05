@@ -97,17 +97,14 @@ class Rust(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
-        self.c_analysis_info = self.ffi.new('AnalysisInfo *')
-        self.c_trading_info = self.ffi.new('TradingInfo *')
-        self.c_strategy_infos = {
-            t: self.ffi.new(f'{t.__name__}Info *') for t in _strategy_types
-        }
+        c_trading_info = self.ffi.new('TradingInfo *')
+        c_strategy_info = self.ffi.new(f'{strategy_type.__name__}Info *')
+        c_analysis_info = self.ffi.new('AnalysisInfo *')
 
         # Trading.
         c_candles = self._get_or_create_c_candles((symbol, interval, False), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
 
-        c_trading_info = self.c_trading_info
         c_trading_info.candles = c_candles
         c_trading_info.candles_length = len(candles)
         c_trading_info.fees = c_fees
@@ -118,7 +115,6 @@ class Rust(Solver):
         c_trading_info.trailing_stop = trailing_stop
 
         # Strategy.
-        c_strategy_info = self.c_strategy_infos[strategy_type]
         for i, n in enumerate(get_input_type_hints(strategy_type.__init__).keys()):
             setattr(c_strategy_info, n, args[i])
 
@@ -133,7 +129,6 @@ class Rust(Solver):
             'benchmark_g_returns', benchmark_stats.g_returns
         )
 
-        c_analysis_info = self.c_analysis_info
         c_analysis_info.quote_fiat_daily = c_quote_fiat_daily
         c_analysis_info.quote_fiat_daily_length = len(quote_fiat_candles)
         c_analysis_info.base_fiat_daily = c_base_fiat_daily
