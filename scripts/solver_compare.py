@@ -6,15 +6,14 @@ from juno import components, exchanges, optimization, storages, strategies, time
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
-from juno.time import DAY_MS, strptimestamp
 from juno.trading import (
     MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
 
 # SYMBOL = 'eth-btc'
 # INTERVAL = time.HOUR_MS
-# START = '2017-07-01'
-# END = '2019-12-07'
+# START = time.strptimestamp('2017-07-01')
+# END = time.strptimestamp('2019-12-07')
 # MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
 # TRAILING_STOP = Decimal('0.8486')
 
@@ -28,8 +27,8 @@ from juno.trading import (
 
 # SYMBOL = 'enj-bnb'
 # INTERVAL = time.DAY_MS
-# START = '2019-01-01'
-# END = '2019-12-22'
+# START = time.strptimestamp('2019-01-01')
+# END = time.strptimestamp('2019-12-22')
 # MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
 # TRAILING_STOP = Decimal('0.0')
 
@@ -41,25 +40,40 @@ from juno.trading import (
 # SHORT_MA = MA.SMMA
 # LONG_MA = MA.SMMA
 
-SYMBOL = 'eth-btc'
-INTERVAL = time.DAY_MS
-START = '2019-01-01'
-END = '2019-02-01'
+# SYMBOL = 'eth-btc'
+# INTERVAL = time.DAY_MS
+# START = time.strptimestamp('2019-01-01')
+# END = time.strptimestamp('2019-02-01')
+# MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
+# TRAILING_STOP = Decimal('0.0')
+
+# SHORT_PERIOD = 17
+# LONG_PERIOD = 24
+# NEG_THRESHOLD = Decimal('-0.667')
+# POS_THRESHOLD = Decimal('0.926')
+# PERSISTENCE = 0
+# SHORT_MA = MA.SMMA
+# LONG_MA = MA.SMA
+
+SYMBOL = 'xrp-btc'
+INTERVAL = 1800000
+START = 1509580800000
+END = 1561939200000
 MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
 TRAILING_STOP = Decimal('0.0')
 
-SHORT_PERIOD = 17
-LONG_PERIOD = 24
-NEG_THRESHOLD = Decimal('-0.667')
-POS_THRESHOLD = Decimal('0.926')
-PERSISTENCE = 0
-SHORT_MA = MA.SMMA
-LONG_MA = MA.SMA
+SHORT_PERIOD = 93
+LONG_PERIOD = 94
+NEG_THRESHOLD = Decimal('-0.646')
+POS_THRESHOLD = Decimal('0.53')
+PERSISTENCE = 4
+SHORT_MA = MA.EMA2
+LONG_MA = MA.EMA2
 
 
 async def main() -> None:
-    start = floor_multiple(strptimestamp(START), INTERVAL)
-    end = floor_multiple(strptimestamp(END), INTERVAL)
+    start = floor_multiple(START, INTERVAL)
+    end = floor_multiple(END, INTERVAL)
 
     storage = storages.SQLite()
     binance = init_instance(exchanges.Binance, from_env())
@@ -72,12 +86,12 @@ async def main() -> None:
     python_solver = optimization.Python()
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        day_start = floor_multiple(start, DAY_MS)
-        day_end = floor_multiple(end, DAY_MS)
+        day_start = floor_multiple(start, time.DAY_MS)
+        day_end = floor_multiple(end, time.DAY_MS)
         base_quote_daily, quote_fiat_daily = await asyncio.gather(
-            chandler.list_candles('binance', SYMBOL, DAY_MS, day_start, day_end),
+            chandler.list_candles('binance', SYMBOL, time.DAY_MS, day_start, day_end),
             # TODO: hardcoded symbol
-            chandler.list_candles('coinbase', 'btc-eur', DAY_MS, day_start, day_end),
+            chandler.list_candles('coinbase', 'btc-eur', time.DAY_MS, day_start, day_end),
         )
         benchmark_stats = get_benchmark_statistics(quote_fiat_daily)
         fees, filters = informant.get_fees_filters('binance', SYMBOL)

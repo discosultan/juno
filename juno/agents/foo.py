@@ -36,7 +36,8 @@ class Foo(Agent):
         assert tickers[0].quote_volume > 0
         tickers.sort(key=lambda t: t.quote_volume, reverse=True)
         tickers = tickers[:num_symbols]
-        symbols = [t.symbol for t in tickers]
+        # symbols = [t.symbol for t in tickers]
+        symbols = ['xrp-btc']
 
         _log.info(f'found following top {num_symbols} symbols with highest 24h volume: {symbols}')
 
@@ -122,7 +123,8 @@ class Foo(Agent):
             symbols=[symbol],
             intervals=list(map(strpinterval, ('30m', '1h', '2h'))),
             population_size=50,
-            max_generations=100
+            max_generations=100,
+            seed=4842474260746992508
         )
         await optimizer.run()
 

@@ -14,7 +14,7 @@ class Solver(ABC):
     def solve(
         self,
         quote_fiat_candles: List[Candle],
-        portfolio_candles: List[Candle],
+        symbol_candles: List[Candle],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,

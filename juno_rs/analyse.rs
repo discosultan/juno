@@ -169,5 +169,7 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     let alpha = portfolio_stats.annualized_return
                      - (beta * 365.0 * mean(&benchmark_g_returns));
 
+    println!("{}", alpha);
+
     (alpha, beta)
 }

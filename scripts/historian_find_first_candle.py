@@ -18,10 +18,10 @@ async def main() -> None:
     exchange_name = EXCHANGE_TYPE.__name__.lower()
     trades = Trades(sqlite, [client])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[client])
-    historian = Historian(chandler=chandler, storage=sqlite)
+    historian = Historian(chandler=chandler, storage=sqlite, exchanges=[client])
     async with client:
-        time = await historian.find_first_candle_time(exchange_name, SYMBOL, INTERVAL)
-        logging.info(strftimestamp(time))
+        candle = await historian.find_first_candle(exchange_name, SYMBOL, INTERVAL)
+        logging.info(strftimestamp(candle.time))
         logging.info('done')
 
 
