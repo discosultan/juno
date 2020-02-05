@@ -76,12 +76,6 @@ class Rust(Solver):
             None, self.ffi.dlopen, str(dst_path)
         )
 
-        self.c_analysis_info = self.ffi.new('AnalysisInfo *')
-        self.c_trading_info = self.ffi.new('TradingInfo *')
-        self.c_strategy_infos = {
-            t: self.ffi.new(f'{t.__name__}Info *') for t in _strategy_types
-        }
-
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
@@ -103,6 +97,12 @@ class Rust(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
+        self.c_analysis_info = self.ffi.new('AnalysisInfo *')
+        self.c_trading_info = self.ffi.new('TradingInfo *')
+        self.c_strategy_infos = {
+            t: self.ffi.new(f'{t.__name__}Info *') for t in _strategy_types
+        }
+
         # Trading.
         c_candles = self._get_or_create_c_candles((symbol, interval, False), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)

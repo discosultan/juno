@@ -105,6 +105,10 @@ class Foo(Agent):
                 f'Requested {exchange} {symbol} trading start {strftimestamp(trading_start)} but '
                 f'first candle found at {strftimestamp(optimization_start)}'
             )
+        else:
+            _log.info(
+                f'first {exchange} {symbol} candle found from {strftimestamp(optimization_start)}'
+            )
 
         optimizer = Optimizer(
             solver=self._solver,

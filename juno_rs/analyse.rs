@@ -46,7 +46,7 @@ pub fn analyse(
         .map(|d| d.values().sum())
         .collect::<Vec<f64>>();
     let portfolio_stats = calculate_statistics(&portfolio_performance);
-    let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, portfolio_stats);
+    let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
     (alpha, )
 }
 
@@ -146,16 +146,20 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
     }
 }
 
-// TODO: hax! portfolio stats shouldn't be mutable.
-fn calculate_alpha_beta(benchmark_g_returns: &[f64], mut portfolio_stats: Statistics) -> (f64, f64) {
-    println!("benchmark {}", benchmark_g_returns.len());
-    println!("portfolio {}", portfolio_stats.g_returns.len());
+fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistics) -> (f64, f64) {
+    println!("(benchmark, portfolio) ({}, {})", benchmark_g_returns.len(), portfolio_stats.g_returns.len());
+    assert!(benchmark_g_returns.len() == portfolio_stats.g_returns.len());
 
-    portfolio_stats.g_returns.extend(benchmark_g_returns.iter());
+    // TODO: Inefficient making this copy.
+    let mut combined: Vec<f64> = Vec::with_capacity(benchmark_g_returns.len() * 2);
+    combined.extend(portfolio_stats.g_returns.iter());
+    combined.extend(benchmark_g_returns.iter());
+    
+    // portfolio_stats.g_returns.extend(benchmark_g_returns.iter());
 
     let matrix = Array::from_shape_vec(
         (2, benchmark_g_returns.len()),
-        portfolio_stats.g_returns
+        combined
     ).expect("benchmark and portfolio geometric returns matrix");
 
     let covariance_matrix = matrix
