@@ -97,6 +97,7 @@ class Rust(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
+        # TODO: Pool it. No need for allocations per run.
         c_trading_info = self.ffi.new('TradingInfo *')
         c_strategy_info = self.ffi.new(f'{strategy_type.__name__}Info *')
         c_analysis_info = self.ffi.new('AnalysisInfo *')

@@ -16,7 +16,7 @@ from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, f
 from juno.strategies import Strategy
 from juno.time import DAY_MS, strfinterval, strfspan, time_ms
 from juno.trading import (
-    MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
+    MissedCandlePolicy, Statistics, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
 from juno.typing import get_input_type_hints
 from juno.utils import flatten, format_attrs_as_json
@@ -35,6 +35,15 @@ _trailing_stop_constraint = ConstraintChoice([
     Constant(Decimal('0.0')),
     Uniform(Decimal('0.0001'), Decimal('0.9999')),
 ])
+
+
+class OptimizationResult(NamedTuple):
+    symbol: str = ''
+    interval: Interval = 0
+    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
+    trailing_stop: Decimal = Decimal('0.0')
+    strategy_config: Dict[str, Any] = {}
+    result: SolverResult = SolverResult()
 
 
 class Optimizer:
@@ -246,24 +255,34 @@ class Optimizer:
             result=best_result,
         )
 
+        await self._validate(self.result, candles, benchmark_stats)
+
+    async def _validate(
+        self, result: OptimizationResult, candles, benchmark_stats: Statistics
+    ) -> None:
         # Validate our results by running a backtest in actual trader to ensure correctness.
         solver_name = type(self.solver).__name__.lower()
         _log.info(
             f'validating {solver_name} solver result with best args against actual trader'
         )
+
+        trading_config = {
+            'exchange': self.exchange,
+            'symbol': result.symbol,
+            'interval': result.interval,
+            'start': floor_multiple(self.start, result.interval),
+            'end': floor_multiple(self.end, result.interval),
+            'quote': self.quote,
+            'missed_candle_policy': result.missed_candle_policy,
+            'trailing_stop': result.trailing_stop,
+            'adjust_start': False,
+        }
+
         trader = Trader(
             chandler=self.chandler,
             informant=self.informant,
-            exchange=self.exchange,
-            symbol=self.result.symbol,
-            interval=self.result.interval,
-            start=floor_multiple(self.start, self.result.interval),
-            end=floor_multiple(self.end, self.result.interval),
-            quote=self.quote,
-            new_strategy=lambda: self.strategy_type(**self.result.strategy_config),
-            missed_candle_policy=self.result.missed_candle_policy,
-            trailing_stop=self.result.trailing_stop,
-            adjust_start=False,
+            new_strategy=lambda: self.strategy_type(**result.strategy_config),
+            **trading_config,
         )
         try:
             await trader.run()
@@ -278,13 +297,15 @@ class Optimizer:
                 trader.summary
             )
         )
-        if not _isclose(validation_result, best_result):
+        if not _isclose(validation_result, result.result):
             raise Exception(
-                f'Optimizer results differ for input {self.result} between trader and '
-                f'{solver_name} solver:\n{format_attrs_as_json(validation_result)}'
-                f'\n{format_attrs_as_json(best_result)}'
+                f'Optimizer results differ between trader and '
+                f'{solver_name} solver.\nTrading config: {trading_config}\nStrategy config: '
+                f'{result.strategy_config}\nTrader result: '
+                f'{format_attrs_as_json(validation_result)}\nSolver result: '
+                f'{format_attrs_as_json(result.result)}'
             )
-        _log.info(f'Trading summary: {format_attrs_as_json(trader.summary)}')
+        _log.info(f'Validation trading summary: {format_attrs_as_json(trader.summary)}')
 
     async def _fetch_candles(
         self,
@@ -313,21 +334,12 @@ def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> A
         return get_constant
 
 
-class OptimizationResult(NamedTuple):
-    symbol: str = ''
-    interval: Interval = 0
-    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-    trailing_stop: Decimal = Decimal('0.0')
-    strategy_config: Dict[str, Any] = {}
-    result: SolverResult = SolverResult()
-
-
+# TODO: Generalize.
 def _output_as_strategy_config(strategy_type: Type[Strategy],
                                strategy_args: List[Any]) -> Dict[str, Any]:
-    strategy_config = {}
-    for key, value in zip(get_input_type_hints(strategy_type.__init__).keys(), strategy_args):
-        strategy_config[key] = value
-    return strategy_config
+    return {k: v for k, v in zip(
+        get_input_type_hints(strategy_type.__init__).keys(), strategy_args
+    )}
 
 
 def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:

@@ -71,10 +71,10 @@ class MinNotional(NamedTuple):
 
 
 class Filters(NamedTuple):
-    base_precision: int = 8
-    quote_precision: int = 8
-
     price: Price = Price()
     percent_price: PercentPrice = PercentPrice()
     size: Size = Size()
     min_notional: MinNotional = MinNotional()
+
+    base_precision: int = 8
+    quote_precision: int = 8

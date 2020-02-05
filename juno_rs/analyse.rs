@@ -166,7 +166,8 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
         .expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
+    let alpha = portfolio_stats.annualized_return
+                     - (beta * 365.0 * mean(&benchmark_g_returns));
 
     (alpha, beta)
 }

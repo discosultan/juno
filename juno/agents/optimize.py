@@ -56,3 +56,5 @@ class Optimize(Agent):
         )
         await optimizer.run()
         self.result = optimizer.result
+
+        # TODO: Print best config in pretty format.
