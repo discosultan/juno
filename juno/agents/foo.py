@@ -36,8 +36,7 @@ class Foo(Agent):
         assert tickers[0].quote_volume > 0
         tickers.sort(key=lambda t: t.quote_volume, reverse=True)
         tickers = tickers[:num_symbols]
-        # symbols = [t.symbol for t in tickers]
-        symbols = ['xrp-btc']
+        symbols = [t.symbol for t in tickers]
 
         _log.info(f'found following top {num_symbols} symbols with highest 24h volume: {symbols}')
 
