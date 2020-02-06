@@ -8,6 +8,7 @@ from typing import (
 )
 
 T = TypeVar('T')
+U = TypeVar('U')
 
 
 def resolved_future(result: T) -> asyncio.Future:
@@ -25,6 +26,17 @@ async def chain_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
     for async_iter in async_iters:
         async for val in async_iter:
             yield val
+
+
+async def zip_async(
+    async_iter1: AsyncIterable[T], async_iter2: AsyncIterable[U]
+) -> AsyncIterable[Tuple[T, U]]:
+    iter1 = async_iter1.__aiter__()
+    iter2 = async_iter2.__aiter__()
+    try:
+        yield await asyncio.gather(iter1.__anext__(), iter2.__anext__())
+    except StopAsyncIteration:
+        pass
 
 
 async def enumerate_async(

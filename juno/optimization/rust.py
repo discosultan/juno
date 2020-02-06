@@ -19,7 +19,7 @@ from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.trading import MissedCandlePolicy, Statistics
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path, list_concretes_from_module
+from juno.utils import home_path, list_concretes_from_module, unpack_symbol
 
 from .solver import Solver, SolverResult
 
@@ -32,14 +32,11 @@ _cdef_builder = CDefBuilder({
 
 _strategy_types = list_concretes_from_module(strategies, Strategy)
 
-# (symbol, interval, empty_filled_with_last)
-CandleKey = Tuple[str, int, bool]
-
 
 class Rust(Solver):
     def __init__(self) -> None:
-        self.c_candles: Dict[Tuple[str, int, bool], Any] = {}
-        self.c_prices: Dict[Tuple[str, int, bool], Any] = {}
+        self.c_candles: Dict[Tuple[str, int], Any] = {}
+        self.c_fiat_prices: Dict[Tuple[str, int], Any] = {}
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
         self.c_series: Dict[str, Any] = {}
         self.keep_alive: List[Any] = []
@@ -87,8 +84,7 @@ class Rust(Solver):
 
     def solve(
         self,
-        quote_fiat_candles: List[Candle],
-        base_fiat_prices: List[Decimal],
+        fiat_daily_prices: Dict[str, List[Decimal]],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,
@@ -107,7 +103,7 @@ class Rust(Solver):
         c_analysis_info = self.ffi.new('AnalysisInfo *')
 
         # Trading.
-        c_candles = self._get_or_create_c_candles((symbol, interval, False), candles)
+        c_candles = self._get_or_create_c_candles((symbol, interval), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
 
         c_trading_info.candles = c_candles
@@ -124,19 +120,22 @@ class Rust(Solver):
             setattr(c_strategy_info, n, args[i])
 
         # Analysis.
-        c_quote_fiat_daily = self._get_or_create_c_candles(
-            ('btc-eur', DAY_MS, True), quote_fiat_candles
+        c_quote_fiat_daily = self._get_or_create_c_fiat_prices(
+            ('btc', DAY_MS), fiat_daily_prices['btc']
         )
-        c_base_fiat_daily = self._get_or_create_c_prices((symbol, DAY_MS, True), base_fiat_prices)
+        base_asset, _ = unpack_symbol(symbol)
+        c_base_fiat_daily = self._get_or_create_c_fiat_prices(
+            (base_asset, DAY_MS), fiat_daily_prices[base_asset]
+        )
 
         c_benchmark_g_returns = self._get_or_create_c_series(
             'benchmark_g_returns', benchmark_stats.g_returns
         )
 
         c_analysis_info.quote_fiat_daily = c_quote_fiat_daily
-        c_analysis_info.quote_fiat_daily_length = len(quote_fiat_candles)
+        c_analysis_info.quote_fiat_daily_length = len(c_quote_fiat_daily)
         c_analysis_info.base_fiat_daily = c_base_fiat_daily
-        c_analysis_info.base_fiat_daily_length = len(base_fiat_prices)
+        c_analysis_info.base_fiat_daily_length = len(c_base_fiat_daily)
         c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
         c_analysis_info.benchmark_g_returns_length = benchmark_stats.g_returns.size
 
@@ -145,16 +144,16 @@ class Rust(Solver):
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 
-    def _get_or_create_c_prices(self, key: CandleKey, prices: List[Decimal]) -> Any:
-        c_prices = self.c_prices.get(key)
-        if not c_prices:
-            c_prices = self.ffi.new(f'double[{len(prices)}]')
+    def _get_or_create_c_fiat_prices(self, key: Tuple[str, int], prices: List[Decimal]) -> Any:
+        c_fiat_prices = self.c_fiat_prices.get(key)
+        if not c_fiat_prices:
+            c_fiat_prices = self.ffi.new(f'double[{len(prices)}]')
             for i, p in enumerate(prices):
-                c_prices[i] = p
-            self.c_prices[key] = c_prices
-        return c_prices
+                c_fiat_prices[i] = p
+            self.c_fiat_prices[key] = c_fiat_prices
+        return c_fiat_prices
 
-    def _get_or_create_c_candles(self, key: CandleKey, candles: List[Candle]) -> Any:
+    def _get_or_create_c_candles(self, key: Tuple[str, int], candles: List[Candle]) -> Any:
         c_candles = self.c_candles.get(key)
         if not c_candles:
             c_candles = self.ffi.new(f'Candle[{len(candles)}]')
@@ -215,7 +214,7 @@ def _build_cdef() -> str:
         _cdef_builder.struct(SolverResult),
         _cdef_builder.struct_from_fields(
             'AnalysisInfo',
-            ('quote_fiat_daily', List[Candle]),
+            ('quote_fiat_daily', List[Decimal]),
             ('base_fiat_daily', List[Decimal]),
             ('benchmark_g_returns', List[Decimal])
         ),

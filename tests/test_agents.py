@@ -40,7 +40,6 @@ async def test_backtest():
         'start': 0,
         'end': 6,
         'quote': Decimal('100.0'),
-        'analyze': False,
         'strategy_config': {
             'type': 'mamacx',
             'short_period': 1,
@@ -93,7 +92,6 @@ async def test_backtest_scenarios(scenario_nr):
         'interval': HOUR_MS,
         'quote': Decimal('100.0'),
         'missed_candle_policy': MissedCandlePolicy.IGNORE,
-        'analyze': False,
         'strategy_config': {
             'type': 'mamacx',
             'short_period': 18,

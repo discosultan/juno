@@ -13,8 +13,7 @@ class Solver(ABC):
     @abstractmethod
     def solve(
         self,
-        quote_fiat_candles: List[Candle],
-        base_fiat_prices: List[Decimal],
+        fiat_daily_prices: Dict[str, List[Decimal]],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,

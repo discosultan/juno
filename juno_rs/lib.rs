@@ -173,7 +173,7 @@ pub struct Result(f64, ); // (f64, f64, f64, f64, f64, u64, u32, u32);
 
 #[repr(C)]
 pub struct AnalysisInfo {
-    quote_fiat_daily: *const Candle,
+    quote_fiat_daily: *const f64,
     quote_fiat_daily_length: u32,
     base_fiat_daily: *const f64,
     base_fiat_daily_length: u32,

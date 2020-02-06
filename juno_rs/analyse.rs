@@ -34,7 +34,7 @@ struct Statistics {
 }
 
 pub fn analyse(
-    quote_fiat_daily: &[Candle],
+    quote_fiat_daily: &[f64],
     base_fiat_daily: &[f64],
     benchmark_g_returns: &[f64],
     summary: &TradingSummary,
@@ -73,7 +73,7 @@ fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset,
 
 fn get_asset_performance(
     summary: &TradingSummary,
-    quote_fiat_daily: &[Candle],
+    quote_fiat_daily: &[f64],
     base_fiat_daily: &[f64],
     trades: &HashMap<u64, Vec<(Asset, f64)>>,
 ) -> Vec<HashMap<Asset, f64>> {
@@ -103,7 +103,7 @@ fn get_asset_performance(
             let asset_fiat_value = if *asset == Asset::Base {
                 base_fiat_daily[i as usize]
             } else {
-                quote_fiat_daily[i as usize].close
+                quote_fiat_daily[i as usize]
             };
             *asset_performance_day
                 .entry(*asset)
