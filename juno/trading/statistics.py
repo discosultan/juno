@@ -59,7 +59,7 @@ def get_benchmark_statistics(candles: List[Candle]) -> Statistics:
 def get_portfolio_statistics(
     benchmark_stats: Statistics,
     quote_fiat_daily: List[Candle],  # i.e btc-eur
-    symbols_daily: Dict[str, List[Candle]],
+    base_quote_daily_prices: Dict[str, List[Decimal]],
     summary: TradingSummary
 ) -> PortfolioStatistics:
     start_day = floor_multiple(summary.start, DAY_MS)
@@ -67,11 +67,11 @@ def get_portfolio_statistics(
     length_days = (end_day - start_day) / DAY_MS
 
     assert len(quote_fiat_daily) == length_days
-    assert all(len(c) == length_days for c in symbols_daily.values())
+    assert all(len(c) == length_days for c in base_quote_daily_prices.values())
     # TODO: We don't support other quote yet.
-    assert all(unpack_symbol(s)[1] == 'btc' for s in symbols_daily.keys())
+    assert all(unpack_symbol(s)[1] == 'btc' for s in base_quote_daily_prices.keys())
 
-    market_data = _get_market_data(quote_fiat_daily, symbols_daily)
+    market_data = _get_market_data(quote_fiat_daily, base_quote_daily_prices)
     trades = _get_trades_from_summary(summary)
     asset_performance = _get_asset_performance(summary, start_day, end_day, market_data, trades)
     portfolio_performance = pd.Series(
@@ -87,16 +87,16 @@ def get_portfolio_statistics(
 
 def _get_market_data(
     quote_fiat_daily: List[Candle],
-    symbols_daily: Dict[str, List[Candle]]
+    base_quote_daily_prices_map: Dict[str, List[Decimal]]
 ) -> Dict[str, Dict[int, Decimal]]:
     # Calculate fiat value for traded base assets.
     market_data: Dict[str, Dict[int, Decimal]] = defaultdict(dict)
-    for symbol, symbol_daily in symbols_daily.items():
+    for symbol, base_quote_daily_prices in base_quote_daily_prices_map.items():
         base_asset, _quote_asset = unpack_symbol(symbol)
-        for quote_fiat_candle, symbol_candle in zip(quote_fiat_daily, symbol_daily):
+        for quote_fiat_candle, base_quote_price in zip(quote_fiat_daily, base_quote_daily_prices):
             time = quote_fiat_candle.time
             market_data['btc'][time] = quote_fiat_candle.close
-            market_data[base_asset][time] = symbol_candle.close * quote_fiat_candle.close
+            market_data[base_asset][time] = quote_fiat_candle.close * base_quote_price
     return market_data
 
 

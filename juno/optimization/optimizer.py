@@ -135,6 +135,16 @@ class Optimizer:
               for s, i in product(symbols, intervals))
         )
 
+        base_fiat_daily_prices: Dict[str, List[Decimal]] = {}
+        quote_fiat_daily_candles = candles[('btc-eur', DAY_MS, True)]
+        for s in symbols:
+            base_fiat_daily_prices[s] = [
+                qb.close * bf.close for qb, bf in zip(
+                    candles[(s, DAY_MS, True)],
+                    quote_fiat_daily_candles
+                )
+            ]
+
         for (s, i, _f), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
@@ -193,7 +203,7 @@ class Optimizer:
         def evaluate(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
                 candles[('btc-eur', DAY_MS, True)],
-                candles[(ind[0], DAY_MS, True)],
+                base_fiat_daily_prices[ind[0]],
                 benchmark_stats,
                 self.strategy_type,
                 self.quote,

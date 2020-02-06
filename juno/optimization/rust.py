@@ -32,10 +32,14 @@ _cdef_builder = CDefBuilder({
 
 _strategy_types = list_concretes_from_module(strategies, Strategy)
 
+# (symbol, interval, empty_filled_with_last)
+CandleKey = Tuple[str, int, bool]
+
 
 class Rust(Solver):
     def __init__(self) -> None:
         self.c_candles: Dict[Tuple[str, int, bool], Any] = {}
+        self.c_prices: Dict[Tuple[str, int, bool], Any] = {}
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
         self.c_series: Dict[str, Any] = {}
         self.keep_alive: List[Any] = []
@@ -84,7 +88,7 @@ class Rust(Solver):
     def solve(
         self,
         quote_fiat_candles: List[Candle],
-        symbol_candles: List[Candle],
+        base_fiat_prices: List[Decimal],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,
@@ -123,8 +127,7 @@ class Rust(Solver):
         c_quote_fiat_daily = self._get_or_create_c_candles(
             ('btc-eur', DAY_MS, True), quote_fiat_candles
         )
-        # c_portfolio_candles = self._get_or_create_c_candles((symbol, DAY_MS), symbol_candles)
-        c_base_fiat_daily = self._get_c_base_fiat_daily(symbol, quote_fiat_candles, symbol_candles)
+        c_base_fiat_daily = self._get_or_create_c_prices((symbol, DAY_MS, True), base_fiat_prices)
 
         c_benchmark_g_returns = self._get_or_create_c_series(
             'benchmark_g_returns', benchmark_stats.g_returns
@@ -133,7 +136,7 @@ class Rust(Solver):
         c_analysis_info.quote_fiat_daily = c_quote_fiat_daily
         c_analysis_info.quote_fiat_daily_length = len(quote_fiat_candles)
         c_analysis_info.base_fiat_daily = c_base_fiat_daily
-        c_analysis_info.base_fiat_daily_length = len(symbol_candles)
+        c_analysis_info.base_fiat_daily_length = len(base_fiat_prices)
         c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
         c_analysis_info.benchmark_g_returns_length = benchmark_stats.g_returns.size
 
@@ -142,20 +145,16 @@ class Rust(Solver):
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 
-    # TODO: Temp! Noob! Move out of solver! Must be computed in optimizer!
-    def _get_c_base_fiat_daily(self, symbol, quote_fiat_daily, symbol_daily) -> Any:
-        c_base_fiat_daily = self.c_series.get(symbol)  # TODO: WTF
-        if not c_base_fiat_daily:
-            assert len(quote_fiat_daily) == len(symbol_daily), (
-                f'{len(quote_fiat_daily)=} {len(symbol_daily)=}'
-            )
-            c_base_fiat_daily = self.ffi.new(f'double[{len(quote_fiat_daily)}]')
-            for i, (qfd, sd) in enumerate(zip(quote_fiat_daily, symbol_daily)):
-                c_base_fiat_daily[i] = sd.close * qfd.close
-            self.c_series[symbol] = c_base_fiat_daily
-        return c_base_fiat_daily
+    def _get_or_create_c_prices(self, key: CandleKey, prices: List[Decimal]) -> Any:
+        c_prices = self.c_prices.get(key)
+        if not c_prices:
+            c_prices = self.ffi.new(f'double[{len(prices)}]')
+            for i, p in enumerate(prices):
+                c_prices[i] = p
+            self.c_prices[key] = c_prices
+        return c_prices
 
-    def _get_or_create_c_candles(self, key: Tuple[str, int, bool], candles: List[Candle]) -> Any:
+    def _get_or_create_c_candles(self, key: CandleKey, candles: List[Candle]) -> Any:
         c_candles = self.c_candles.get(key)
         if not c_candles:
             c_candles = self.ffi.new(f'Candle[{len(candles)}]')

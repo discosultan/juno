@@ -19,7 +19,7 @@ class Python(Solver):
     def solve(
         self,
         quote_fiat_candles: List[Candle],
-        symbol_candles: List[Candle],
+        base_fiat_prices: List[Decimal],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,
@@ -46,7 +46,7 @@ class Python(Solver):
         )
 
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, quote_fiat_candles, {symbol: symbol_candles}, summary
+            benchmark_stats, quote_fiat_candles, {symbol: base_fiat_prices}, summary
         )
 
         return SolverResult.from_trading_summary(summary, portfolio_stats)
