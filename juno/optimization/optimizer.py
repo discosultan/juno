@@ -107,32 +107,17 @@ class Optimizer:
             {a for s in symbols for a in unpack_symbol(s)}, self.start, self.end
         )
 
-        # TODO: How to resolve best exchange / symbol for FIAT statistical analysis.
-        # btc_fiat_symbol = 'btc-eur'
-        # btc_fiat_exchange = 'coinbase'
-        # btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
-        # if len(btc_fiat_exchanges) == 0:
-        #     _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
-        #                  'calculating further statistics')
-        #     return
-        # btc_fiat_exchange = btc_fiat_exchanges[0]
+        candles: Dict[Tuple[str, int], List[Candle]] = {}
 
-        candles: Dict[Tuple[str, int, bool], List[Candle]] = {}
-        # Fetch candles specific to statistical analysis.
-        await asyncio.gather(
-            # Binance also supports FIAT symbols but has limited candle data, hence Coinbase.
-            self._fetch_candles(candles, 'coinbase', 'btc-eur', DAY_MS,
-                                fill_missing_with_last=True),
-            *(self._fetch_candles(candles, self.exchange, s, DAY_MS, fill_missing_with_last=True)
-              for s in symbols)
-        )
+        async def assign(symbol: str, interval: int) -> None:
+            candles[(symbol, interval)] = await self.chandler.list_candles(
+                self.exchange, symbol, interval, floor_multiple(self.start, interval),
+                floor_multiple(self.end, interval)
+            )
         # Fetch candles for backtesting.
-        await asyncio.gather(
-            *(self._fetch_candles(candles, self.exchange, s, i, fill_missing_with_last=False)
-              for s, i in product(symbols, intervals))
-        )
+        await asyncio.gather(*(assign(s, i) for s, i in product(symbols, intervals)))
 
-        for (s, i, _f), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
+        for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
                          f'{strfspan(self.start, self.end)}')
@@ -189,12 +174,11 @@ class Optimizer:
 
         def evaluate(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
-                candles[('btc-eur', DAY_MS, True)],
-                candles[(ind[0], DAY_MS, True)],
+                daily_fiat_candles,
                 benchmark_stats,
                 self.strategy_type,
                 self.quote,
-                candles[(ind[0], ind[1], False)],
+                candles[(ind[0], ind[1])],
                 *fees_filters[ind[0]],
                 *flatten(ind)
             )
@@ -291,19 +275,6 @@ class Optimizer:
                 f'\n{format_attrs_as_json(best_result)}'
             )
         _log.info(f'Trading summary: {format_attrs_as_json(trader.summary)}')
-
-    async def _fetch_candles(
-        self,
-        candles: Dict[Tuple[str, int, bool], List[Candle]],
-        exchange: str,
-        symbol: str,
-        interval: int,
-        fill_missing_with_last: bool
-    ) -> None:
-        candles[(symbol, interval, fill_missing_with_last)] = await self.chandler.list_candles(
-            exchange, symbol, interval, floor_multiple(self.start, interval),
-            floor_multiple(self.end, interval), fill_missing_with_last=fill_missing_with_last
-        )
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

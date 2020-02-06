@@ -89,8 +89,7 @@ class Rust(Solver):
 
     def solve(
         self,
-        quote_fiat_candles: List[Candle],
-        symbol_candles: List[Candle],
+        fiat_daily_prices: Dict[str, List[Decimal]],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
         quote: Decimal,
@@ -146,18 +145,14 @@ class Rust(Solver):
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 
-    # TODO: Temp! Noob! Move out of solver! Must be computed in optimizer!
-    def _get_c_base_fiat_daily(self, symbol, quote_fiat_daily, symbol_daily) -> Any:
-        c_base_fiat_daily = self.c_series.get(symbol)  # TODO: WTF
-        if not c_base_fiat_daily:
-            assert len(quote_fiat_daily) == len(symbol_daily), (
-                f'{len(quote_fiat_daily)=} {len(symbol_daily)=}'
-            )
-            c_base_fiat_daily = self.ffi.new(f'double[{len(quote_fiat_daily)}]')
-            for i, (qfd, sd) in enumerate(zip(quote_fiat_daily, symbol_daily)):
-                c_base_fiat_daily[i] = sd.close * qfd.close
-            self.c_series[symbol] = c_base_fiat_daily
-        return c_base_fiat_daily
+    def _get_or_create_c_prices(self, key: CandleKey, prices: List[Decimal]) -> Any:
+        c_prices = self.c_prices.get(key)
+        if not c_prices:
+            c_prices = self.ffi.new(f'double[{len(prices)}]')
+            for i, p in enumerate(prices):
+                c_prices[i] = p
+            self.c_prices[key] = c_prices
+        return c_prices
 
     def _get_or_create_c_candles(self, key: Tuple[str, int, bool], candles: List[Candle]) -> Any:
         c_candles = self.c_candles.get(key)
