@@ -11,7 +11,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 from deap import base, creator, tools
 
 from juno import Candle, InsufficientBalance, Interval, Timestamp
-from juno.components import Chandler, Informant
+from juno.components import Chandler, Informant, Prices
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.strategies import Strategy
 from juno.time import DAY_MS, strfinterval, strfspan, time_ms
@@ -19,7 +19,7 @@ from juno.trading import (
     MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
 from juno.typing import get_input_type_hints
-from juno.utils import flatten, format_attrs_as_json
+from juno.utils import flatten, format_attrs_as_json, unpack_symbol
 
 from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from .solver import Solver, SolverResult
@@ -43,6 +43,7 @@ class Optimizer:
         solver: Solver,
         chandler: Chandler,
         informant: Informant,
+        prices: Prices,
         exchange: str,
         start: Timestamp,
         quote: Decimal,
@@ -80,6 +81,7 @@ class Optimizer:
         self.solver = solver
         self.chandler = chandler
         self.informant = informant
+        self.prices = prices
         self.exchange = exchange
         self.symbols = symbols
         self.intervals = intervals
@@ -100,6 +102,10 @@ class Optimizer:
     async def run(self) -> None:
         symbols = self.informant.list_symbols(self.exchange, self.symbols)
         intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
+
+        daily_fiat_candles = await self.prices.map_daily_fiat_prices(
+            {a for s in symbols for a in unpack_symbol(s)}, self.start, self.end
+        )
 
         # TODO: How to resolve best exchange / symbol for FIAT statistical analysis.
         # btc_fiat_symbol = 'btc-eur'
