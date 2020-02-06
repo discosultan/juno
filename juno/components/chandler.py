@@ -45,8 +45,13 @@ class Chandler:
 
         self._streaming_locks: Dict[Tuple[str, str, int], asyncio.Lock] = defaultdict(asyncio.Lock)
 
-    async def list_candles(self, *args, **kwargs) -> List[Candle]:
-        return await list_async(self.stream_candles(*args, **kwargs))
+    async def list_candles(
+        self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True,
+        fill_missing_with_last: bool = False
+    ) -> List[Candle]:
+        return await list_async(self.stream_candles(
+            exchange, symbol, interval, start, end, closed, fill_missing_with_last
+        ))
 
     async def stream_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True,
