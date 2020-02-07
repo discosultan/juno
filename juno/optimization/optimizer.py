@@ -277,14 +277,11 @@ class Optimizer:
             await trader.run()
         except InsufficientBalance:
             pass
-        validation_result = SolverResult.from_trading_summary(
-            trader.summary,
-            get_portfolio_statistics(
-                benchmark_stats,
-                daily_fiat_prices,
-                trader.summary
-            )
+        portfolio_stats = get_portfolio_statistics(
+            benchmark_stats, daily_fiat_prices, trader.summary
         )
+        validation_result = SolverResult.from_trading_summary(trader.summary, portfolio_stats)
+
         if not _isclose(validation_result, result.result):
             raise Exception(
                 f'Optimizer results differ between trader and '

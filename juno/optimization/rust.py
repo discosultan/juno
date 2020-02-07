@@ -97,15 +97,12 @@ class Rust(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
-        # TODO: Pool it. No need for allocations per run.
-        c_trading_info = self.ffi.new('TradingInfo *')
-        c_strategy_info = self.ffi.new(f'{strategy_type.__name__}Info *')
-        c_analysis_info = self.ffi.new('AnalysisInfo *')
-
         # Trading.
         c_candles = self._get_or_create_c_candles((symbol, interval), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
 
+        # TODO: Pool it. No need for allocations per run.
+        c_trading_info = self.ffi.new('TradingInfo *')
         c_trading_info.candles = c_candles
         c_trading_info.candles_length = len(candles)
         c_trading_info.fees = c_fees
@@ -116,10 +113,12 @@ class Rust(Solver):
         c_trading_info.trailing_stop = trailing_stop
 
         # Strategy.
+        c_strategy_info = self.ffi.new(f'{strategy_type.__name__}Info *')
         for i, n in enumerate(get_input_type_hints(strategy_type.__init__).keys()):
             setattr(c_strategy_info, n, args[i])
 
         # Analysis.
+        num_days = len(fiat_daily_prices['btc'])
         c_quote_fiat_daily = self._get_or_create_c_fiat_prices(
             ('btc', DAY_MS), fiat_daily_prices['btc']
         )
@@ -132,10 +131,11 @@ class Rust(Solver):
             'benchmark_g_returns', benchmark_stats.g_returns
         )
 
+        c_analysis_info = self.ffi.new('AnalysisInfo *')
         c_analysis_info.quote_fiat_daily = c_quote_fiat_daily
-        c_analysis_info.quote_fiat_daily_length = len(c_quote_fiat_daily)
+        c_analysis_info.quote_fiat_daily_length = num_days
         c_analysis_info.base_fiat_daily = c_base_fiat_daily
-        c_analysis_info.base_fiat_daily_length = len(c_base_fiat_daily)
+        c_analysis_info.base_fiat_daily_length = num_days
         c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
         c_analysis_info.benchmark_g_returns_length = benchmark_stats.g_returns.size
 
@@ -177,8 +177,6 @@ class Rust(Solver):
             c_fees.taker = float(fees.taker)
 
             c_filters = self.ffi.new('Filters *')
-            c_filters.base_precision = filters.base_precision
-            c_filters.quote_precision = filters.quote_precision
             c_filters.price = {
                 'min': float(filters.price.min),
                 'max': float(filters.price.max),
@@ -189,6 +187,8 @@ class Rust(Solver):
                 'max': float(filters.size.max),
                 'step': float(filters.size.step),
             }
+            c_filters.base_precision = filters.base_precision
+            c_filters.quote_precision = filters.quote_precision
 
             self.c_fees_filters[key] = c_fees, c_filters
             c_fees_filters = c_fees, c_filters

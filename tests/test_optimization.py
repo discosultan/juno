@@ -5,6 +5,7 @@ from typing import List, Tuple
 import pytest
 
 from juno import Candle, Fees, Filters
+from juno.components import Prices
 from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
@@ -43,10 +44,11 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
         Tuple[Fees, Filters]
     )
     chandler = fakes.Chandler(candles={
-        ('exchange', 'eth-btc', HOUR_MS): portfolio_candles,
-        ('exchange', 'eth-btc', DAY_MS): statistics_candles,
+        ('binance', 'eth-btc', HOUR_MS): portfolio_candles,
+        ('binance', 'eth-btc', DAY_MS): statistics_candles,
         ('coinbase', 'btc-eur', DAY_MS): statistics_fiat_candles,
     })
+    prices = Prices(chandler)
     informant = fakes.Informant(
         candle_intervals=[HOUR_MS],
         symbols=['eth-btc'],
@@ -60,7 +62,8 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
             solver=rust_solver,
             chandler=chandler,
             informant=informant,
-            exchange='exchange',
+            prices=prices,
+            exchange='binance',
             start=portfolio_candles[0].time,
             end=portfolio_candles[-1].time + HOUR_MS,
             strategy_type=MAMACX,

@@ -62,12 +62,9 @@ def get_portfolio_statistics(
 ) -> PortfolioStatistics:
     start_day = floor_multiple(summary.start, DAY_MS)
     end_day = floor_multiple(summary.end, DAY_MS)
-    # length_days = (end_day - start_day) / DAY_MS
+    num_days = (end_day - start_day) // DAY_MS
 
-    # assert len(quote_fiat_daily) == length_days
-    # assert all(len(c) == length_days for c in base_quote_daily_prices.values())
-    # TODO: We don't support other quote yet.
-    # assert all(unpack_symbol(s)[1] == 'btc' for s in base_quote_daily_prices.keys())
+    assert all(len(prices) == num_days for prices in fiat_daily_prices.values())
 
     trades = _get_trades_from_summary(summary)
     asset_performance = _get_asset_performance(
@@ -127,9 +124,8 @@ def _get_asset_performance(
 
         # Update asset performance (mark-to-market portfolio).
         asset_performance_day = {k: Decimal('0.0') for k in market_data.keys()}
-        for asset in market_data.keys():
-            asset_fiat_value = market_data[asset][i]
-            asset_performance_day[asset] = asset_holdings[asset] * asset_fiat_value
+        for asset, asset_prices in market_data.items():
+            asset_performance_day[asset] = asset_holdings[asset] * asset_prices[i]
 
         asset_performance.append(asset_performance_day)
         i += 1

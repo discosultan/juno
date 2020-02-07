@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
 use crate::{
-    Candle,
     math::{floor_multiple, mean},
     trading::TradingSummary
 };
@@ -171,11 +170,11 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
 
     
 
-    if alpha.is_nan() {
-        println!("WOOWOOWEEEWAAAAAAAAAAAAAAAAAAAAAAAAA {:?}", benchmark_g_returns.len());
-    } else {
-        println!("ALLL GOOOOOOOD");
-    }
+    // if alpha.is_nan() {
+    //     println!("WOOWOOWEEEWAAAAAAAAAAAAAAAAAAAAAAAAA {:?}", benchmark_g_returns.len());
+    // } else {
+    //     println!("ALLL GOOOOOOOD");
+    // }
 
     (alpha, beta)
 }

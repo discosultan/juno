@@ -33,10 +33,11 @@ async def zip_async(
 ) -> AsyncIterable[Tuple[T, U]]:
     iter1 = async_iter1.__aiter__()
     iter2 = async_iter2.__aiter__()
-    try:
-        yield await asyncio.gather(iter1.__anext__(), iter2.__anext__())
-    except StopAsyncIteration:
-        pass
+    while True:
+        try:
+            yield await asyncio.gather(iter1.__anext__(), iter2.__anext__())
+        except StopAsyncIteration:
+            break
 
 
 async def enumerate_async(
