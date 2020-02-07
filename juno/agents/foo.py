@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
+from typing import List
 
 from juno.components import Chandler, Historian, Informant, Prices
 from juno.optimization import Optimizer, Solver
@@ -27,21 +28,16 @@ class Foo(Agent):
         self._solver = solver
 
     async def run(self) -> None:
+        required_start = strptimestamp('2019-01-01')
         trading_start = strptimestamp('2019-07-01')
         end = strptimestamp('2020-01-01')
         exchange = 'binance'
         quote = Decimal('1.0')
         num_symbols = 2
 
-        tickers = [t for t in self._informant.list_tickers(exchange) if t.symbol.endswith('-btc')]
-        assert len(tickers) > num_symbols
-        assert tickers[0].quote_volume > 0
-        tickers.sort(key=lambda t: t.quote_volume, reverse=True)
-        tickers = tickers[:num_symbols]
-        symbols = [t.symbol for t in tickers]
-
-        _log.info(f'found following top {num_symbols} symbols with highest 24h volume: {symbols}')
-
+        symbols = await self._find_top_symbols_by_volume_with_sufficient_history(
+            exchange, required_start, num_symbols
+        )
         quote_per_symbol = quote / len(symbols)
 
         summary = TradingSummary(quote=quote, start=trading_start)
@@ -67,6 +63,38 @@ class Foo(Agent):
 
         _log.info(f'benchmark stats: {benchmark_stats}')
         _log.info(f'portfolio stats: {portfolio_stats}')
+
+    async def _find_top_symbols_by_volume_with_sufficient_history(
+        self, exchange: str, required_start: int, count: int
+    ) -> List[str]:
+        tickers = [t for t in self._informant.list_tickers(exchange) if t.symbol.endswith('-btc')]
+
+        assert any(t.quote_volume > 0 for t in tickers)
+        tickers.sort(key=lambda t: t.quote_volume, reverse=True)
+
+        symbols = []
+        skipped_symbols = []
+        for ticker in tickers:
+            first_candle = await self._historian.find_first_candle(exchange, ticker.symbol, DAY_MS)
+            if first_candle.time > required_start:
+                skipped_symbols.append(ticker.symbol)
+                continue
+
+            symbols.append(ticker.symbol)
+            if len(symbols) == count:
+                break
+
+        assert len(symbols) > 0
+
+        msg = f'found following top {count} symbols with highest 24h volume: {symbols}'
+        if len(skipped_symbols) > 0:
+            msg += (
+                f'; skipped the following {len(skipped_symbols)} symbols because they were '
+                f'launched after {strftimestamp(required_start)}: {", ".join(skipped_symbols)}'
+            )
+        _log.info(msg)
+
+        return symbols
 
     async def _optimize_and_trade(
         self,
