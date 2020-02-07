@@ -2,13 +2,14 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import components, exchanges, optimization, storages, strategies, time
+from juno import components, exchanges, optimization, storages, strategies
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
 from juno.trading import (
     MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
+from juno.utils import unpack_symbol
 
 # SYMBOL = 'eth-btc'
 # INTERVAL = time.HOUR_MS
@@ -55,9 +56,24 @@ from juno.trading import (
 # SHORT_MA = MA.SMMA
 # LONG_MA = MA.SMA
 
-SYMBOL = 'xrp-btc'
+# SYMBOL = 'xrp-btc'
+# INTERVAL = 1800000
+# START = 1509580800000
+# END = 1561939200000
+# MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
+# TRAILING_STOP = Decimal('0.0')
+
+# SHORT_PERIOD = 93
+# LONG_PERIOD = 94
+# NEG_THRESHOLD = Decimal('-0.646')
+# POS_THRESHOLD = Decimal('0.53')
+# PERSISTENCE = 4
+# SHORT_MA = MA.EMA2
+# LONG_MA = MA.EMA2
+
+SYMBOL = 'eth-btc'
 INTERVAL = 1800000
-START = 1509580800000
+START = 1499990400000
 END = 1561939200000
 MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
 TRAILING_STOP = Decimal('0.0')
@@ -82,25 +98,21 @@ async def main() -> None:
     informant = components.Informant(storage, exchange_list)
     trades = components.Trades(storage, exchange_list)
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
+    prices = components.Prices(chandler)
     rust_solver = optimization.Rust()
     python_solver = optimization.Python()
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        day_start = floor_multiple(start, time.DAY_MS)
-        day_end = floor_multiple(end, time.DAY_MS)
-        base_quote_daily, quote_fiat_daily = await asyncio.gather(
-            chandler.list_candles('binance', SYMBOL, time.DAY_MS, day_start, day_end),
-            # TODO: hardcoded symbol
-            chandler.list_candles('coinbase', 'btc-eur', time.DAY_MS, day_start, day_end),
+        daily_fiat_prices = await prices.map_daily_fiat_prices(
+            ('btc', unpack_symbol(SYMBOL)[0]), start, end
         )
-        benchmark_stats = get_benchmark_statistics(quote_fiat_daily)
+        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
         fees, filters = informant.get_fees_filters('binance', SYMBOL)
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
         args = (
-            quote_fiat_daily,
-            base_quote_daily,
+            daily_fiat_prices,
             benchmark_stats,
             strategies.MAMACX,
             Decimal('1.0'),
@@ -146,7 +158,7 @@ async def main() -> None:
         )
         await trader.run()
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, quote_fiat_daily, {SYMBOL: base_quote_daily}, trader.summary
+            benchmark_stats, daily_fiat_prices, trader.summary
         )
 
         logging.info('=== rust solver ===')

@@ -33,7 +33,7 @@ class Foo(Agent):
         end = strptimestamp('2020-01-01')
         exchange = 'binance'
         quote = Decimal('1.0')
-        num_symbols = 2
+        num_symbols = 4
 
         symbols = await self._find_top_symbols_by_volume_with_sufficient_history(
             exchange, required_start, num_symbols
