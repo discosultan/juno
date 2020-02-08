@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, Dict, List, Type
 
-from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval
+from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval, Timestamp
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.trading import (
@@ -21,6 +21,8 @@ class Python(Solver):
         fiat_daily_prices: Dict[str, List[Decimal]],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
+        start: Timestamp,
+        end: Timestamp,
         quote: Decimal,
         candles: List[Candle],
         fees: Fees,

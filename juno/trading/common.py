@@ -118,6 +118,7 @@ class TradingSummary:
         self._drawdowns_dirty = True
 
     def finish(self, end: Timestamp) -> None:
+        assert not self._end
         self._end = end
 
     @property

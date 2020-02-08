@@ -56,21 +56,6 @@ from juno.utils import unpack_symbol
 # SHORT_MA = MA.SMMA
 # LONG_MA = MA.SMA
 
-# SYMBOL = 'xrp-btc'
-# INTERVAL = 1800000
-# START = 1509580800000
-# END = 1561939200000
-# MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
-# TRAILING_STOP = Decimal('0.0')
-
-# SHORT_PERIOD = 93
-# LONG_PERIOD = 94
-# NEG_THRESHOLD = Decimal('-0.646')
-# POS_THRESHOLD = Decimal('0.53')
-# PERSISTENCE = 4
-# SHORT_MA = MA.EMA2
-# LONG_MA = MA.EMA2
-
 SYMBOL = 'eth-btc'
 INTERVAL = 1800000
 START = 1499990400000
@@ -115,6 +100,8 @@ async def main() -> None:
             daily_fiat_prices,
             benchmark_stats,
             strategies.MAMACX,
+            start,
+            end,
             Decimal('1.0'),
             candles,
             fees,

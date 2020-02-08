@@ -131,9 +131,8 @@ class Foo(Agent):
             strategy_type=MAMACX,
             symbols=[symbol],
             intervals=list(map(strpinterval, ('30m', '1h', '2h'))),
-            population_size=50,
-            max_generations=100,
-            seed=4842474260746992508
+            population_size=100,
+            max_generations=1000
         )
         await optimizer.run()
 

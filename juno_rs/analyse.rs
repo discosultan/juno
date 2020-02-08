@@ -161,20 +161,21 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     ).expect("benchmark and portfolio geometric returns matrix");
 
     let covariance_matrix = matrix
-        .cov(1.)
+        .cov(1.0)
         .expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
     let alpha = portfolio_stats.annualized_return
                      - (beta * 365.0 * mean(&benchmark_g_returns));
 
-    
-
-    // if alpha.is_nan() {
-    //     println!("WOOWOOWEEEWAAAAAAAAAAAAAAAAAAAAAAAAA {:?}", benchmark_g_returns.len());
-    // } else {
-    //     println!("ALLL GOOOOOOOD");
-    // }
+    if beta.is_nan() {
+        println!("WOOWOOWEEEWAAAAAAAAAAAAAAAAAAAAAAAAA");
+        println!("benchmark_g_returns {:?}", benchmark_g_returns);
+        // println!("portfolio_g_returns {:?}", portfolio_stats.g_returns);
+        // println!("beta: {}", beta);
+    } else {
+        // println!("ALLL GOOOOOOOD");
+    }
 
     (alpha, beta)
 }

@@ -32,14 +32,16 @@ _cdef_builder = CDefBuilder({
 
 _strategy_types = list_concretes_from_module(strategies, Strategy)
 
+# (symbol, interval, start, end)
+TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
+
 
 class Rust(Solver):
     def __init__(self) -> None:
-        self.c_candles: Dict[Tuple[str, int], Any] = {}
-        self.c_fiat_prices: Dict[Tuple[str, int], Any] = {}
         self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
-        self.c_series: Dict[str, Any] = {}
-        self.keep_alive: List[Any] = []
+        self.c_candles: Dict[TimeSeriesKey, Any] = {}
+        self.c_prices: Dict[TimeSeriesKey, Any] = {}
+        self.c_series: Dict[TimeSeriesKey, Any] = {}
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
@@ -87,6 +89,8 @@ class Rust(Solver):
         fiat_daily_prices: Dict[str, List[Decimal]],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
+        start: Timestamp,
+        end: Timestamp,
         quote: Decimal,
         candles: List[Candle],
         fees: Fees,
@@ -98,7 +102,7 @@ class Rust(Solver):
         *args: Any,
     ) -> SolverResult:
         # Trading.
-        c_candles = self._get_or_create_c_candles((symbol, interval), candles)
+        c_candles = self._get_or_create_c_candles((symbol, interval, start, end), candles)
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
 
         # TODO: Pool it. No need for allocations per run.
@@ -119,16 +123,16 @@ class Rust(Solver):
 
         # Analysis.
         num_days = len(fiat_daily_prices['btc'])
-        c_quote_fiat_daily = self._get_or_create_c_fiat_prices(
-            ('btc', DAY_MS), fiat_daily_prices['btc']
+        c_quote_fiat_daily = self._get_or_create_c_prices(
+            ('btc-eur', DAY_MS, start, end), fiat_daily_prices['btc']
         )
         base_asset, _ = unpack_symbol(symbol)
-        c_base_fiat_daily = self._get_or_create_c_fiat_prices(
-            (base_asset, DAY_MS), fiat_daily_prices[base_asset]
+        c_base_fiat_daily = self._get_or_create_c_prices(
+            (f'{base_asset}-eur', DAY_MS, start, end), fiat_daily_prices[base_asset]
         )
 
         c_benchmark_g_returns = self._get_or_create_c_series(
-            'benchmark_g_returns', benchmark_stats.g_returns
+            ('btc-eur', DAY_MS, start, end), benchmark_stats.g_returns
         )
 
         c_analysis_info = self.ffi.new('AnalysisInfo *')
@@ -143,31 +147,6 @@ class Rust(Solver):
         fn = getattr(self.libjuno, strategy_type.__name__.lower())
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
-
-    def _get_or_create_c_fiat_prices(self, key: Tuple[str, int], prices: List[Decimal]) -> Any:
-        c_fiat_prices = self.c_fiat_prices.get(key)
-        if not c_fiat_prices:
-            c_fiat_prices = self.ffi.new(f'double[{len(prices)}]')
-            for i, p in enumerate(prices):
-                c_fiat_prices[i] = p
-            self.c_fiat_prices[key] = c_fiat_prices
-        return c_fiat_prices
-
-    def _get_or_create_c_candles(self, key: Tuple[str, int], candles: List[Candle]) -> Any:
-        c_candles = self.c_candles.get(key)
-        if not c_candles:
-            c_candles = self.ffi.new(f'Candle[{len(candles)}]')
-            for i, c in enumerate(candles):
-                c_candles[i] = {
-                    'time': c[0],
-                    'open': float(c[1]),
-                    'high': float(c[2]),
-                    'low': float(c[3]),
-                    'close': float(c[4]),
-                    'volume': float(c[5]),
-                }
-            self.c_candles[key] = c_candles
-        return c_candles
 
     def _get_or_create_c_fees_filters(self, key: str, fees: Fees, filters: Filters) -> Any:
         c_fees_filters = self.c_fees_filters.get(key)
@@ -194,12 +173,37 @@ class Rust(Solver):
             c_fees_filters = c_fees, c_filters
         return c_fees_filters
 
-    def _get_or_create_c_series(self, key: str, series: pd.Series) -> Any:
+    def _get_or_create_c_candles(self, key: TimeSeriesKey, candles: List[Candle]) -> Any:
+        c_candles = self.c_candles.get(key)
+        if not c_candles:
+            c_candles = self.ffi.new(f'Candle[{len(candles)}]')
+            for i, c in enumerate(candles):
+                c_candles[i] = {
+                    'time': c[0],
+                    'open': float(c[1]),
+                    'high': float(c[2]),
+                    'low': float(c[3]),
+                    'close': float(c[4]),
+                    'volume': float(c[5]),
+                }
+            self.c_candles[key] = c_candles
+        return c_candles
+
+    def _get_or_create_c_prices(self, key: TimeSeriesKey, prices: List[Decimal]) -> Any:
+        c_prices = self.c_prices.get(key)
+        if not c_prices:
+            c_prices = self.ffi.new(f'double[{len(prices)}]')
+            for i, p in enumerate(prices):
+                c_prices[i] = p
+            self.c_prices[key] = c_prices
+        return c_prices
+
+    def _get_or_create_c_series(self, key: TimeSeriesKey, series: pd.Series) -> Any:
         c_series = self.c_series.get(key)
         if not c_series:
-            np_array = series.to_numpy()
-            self.keep_alive.append(np_array)
-            c_series = self.ffi.cast('double *', np_array.ctypes.data)
+            c_series = self.ffi.new(f'double[{series.size}]')
+            for i, p in enumerate(series.values):
+                c_series[i] = p
             self.c_series[key] = c_series
         return c_series
 
