@@ -5,6 +5,7 @@ from typing import List, Tuple
 import pytest
 
 from juno import Candle, Fees, Filters
+from juno.components import Prices
 from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
@@ -21,11 +22,7 @@ async def rust_solver(loop):
         yield rust
 
 
-@pytest.mark.manual
 async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
-    if request.config.option.markexpr not in ['manual']:
-        pytest.skip(f'Specify manual marker to run!')
-
     portfolio_candles = load_by_typing(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]
@@ -43,10 +40,11 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
         Tuple[Fees, Filters]
     )
     chandler = fakes.Chandler(candles={
-        ('exchange', 'eth-btc', HOUR_MS): portfolio_candles,
-        ('exchange', 'eth-btc', DAY_MS): statistics_candles,
+        ('binance', 'eth-btc', HOUR_MS): portfolio_candles,
+        ('binance', 'eth-btc', DAY_MS): statistics_candles,
         ('coinbase', 'btc-eur', DAY_MS): statistics_fiat_candles,
     })
+    prices = Prices(chandler)
     informant = fakes.Informant(
         candle_intervals=[HOUR_MS],
         symbols=['eth-btc'],
@@ -60,13 +58,14 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
             solver=rust_solver,
             chandler=chandler,
             informant=informant,
-            exchange='exchange',
+            prices=prices,
+            exchange='binance',
             start=portfolio_candles[0].time,
             end=portfolio_candles[-1].time + HOUR_MS,
             strategy_type=MAMACX,
             quote=Decimal('1.0'),
-            population_size=20,
-            max_generations=40,
+            population_size=5,
+            max_generations=10,
             seed=1
         )
         await optimizer.run()
@@ -75,7 +74,7 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
     assert results[0].alpha == results[1].alpha
 
 
-async def test_rust_solver_works_with_default_fees_filters(rust_solver):
+async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) -> None:
     portfolio_candles = load_by_typing(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]
@@ -88,14 +87,19 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver):
         load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
         List[Candle]
     )
-    benchmark_stats = get_benchmark_statistics(statistics_fiat_candles)
+    fiat_daily_candles = {
+        'btc': [c.close for c in statistics_fiat_candles],
+        'eth': [c1.close * c2.close for c1, c2 in zip(statistics_candles, statistics_fiat_candles)]
+    }
+    benchmark_stats = get_benchmark_statistics(fiat_daily_candles['btc'])
     strategy_args = (11, 21, Decimal('-0.229'), Decimal('0.1'), 4, 0, 0)
 
     result = rust_solver.solve(
-        statistics_fiat_candles,
-        statistics_candles,
+        fiat_daily_candles,
         benchmark_stats,
         MAMACX,
+        portfolio_candles[0].time,
+        portfolio_candles[-1].time + HOUR_MS,
         Decimal('1.0'),
         portfolio_candles,
         Fees(),

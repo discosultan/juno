@@ -1,4 +1,5 @@
 #[derive(Debug)]
+#[repr(C)]
 pub struct Price {
     pub min: f64,
     pub max: f64,
@@ -29,6 +30,7 @@ impl Price {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct Size {
     pub min: f64,
     pub max: f64,
@@ -66,8 +68,9 @@ impl Size {
 #[derive(Debug)]
 #[repr(C)]
 pub struct Filters {
-    pub base_precision: u32,
-    pub quote_precision: u32,
     pub price: Price,
     pub size: Size,
+
+    pub base_precision: u32,
+    pub quote_precision: u32,
 }

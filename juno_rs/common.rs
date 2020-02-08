@@ -5,6 +5,7 @@ pub enum Advice {
 }
 
 #[derive(Debug, Clone, Copy)]
+#[repr(C)]
 pub struct Candle {
     pub time: u64,
     pub open: f64,
@@ -15,6 +16,7 @@ pub struct Candle {
 }
 
 #[derive(Debug)]
+#[repr(C)]
 pub struct Fees {
     pub maker: f64,
     pub taker: f64,

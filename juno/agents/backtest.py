@@ -1,16 +1,16 @@
-import asyncio
 import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.components import Chandler, Informant
+from juno.components import Chandler, Informant, Prices
 from juno.config import init_module_instance
 from juno.math import floor_multiple
-from juno.time import DAY_MS, time_ms
+from juno.time import time_ms
 from juno.trading import (
     MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
+from juno.utils import unpack_symbol
 
 from .agent import Agent
 
@@ -18,10 +18,13 @@ _log = logging.getLogger(__name__)
 
 
 class Backtest(Agent):
-    def __init__(self, chandler: Chandler, informant: Informant) -> None:
+    def __init__(
+        self, chandler: Chandler, informant: Informant, prices: Optional[Prices] = None
+    ) -> None:
         super().__init__()
         self.chandler = chandler
         self.informant = informant
+        self.prices = prices
 
     async def run(
         self,
@@ -35,7 +38,6 @@ class Backtest(Agent):
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
-        analyze: bool = True,
     ) -> None:
         now = time_ms()
 
@@ -66,31 +68,18 @@ class Backtest(Agent):
         self.result = trader.summary
         await trader.run()
 
-        if not analyze:
+        if not self.prices:
             return
 
-        start_day = floor_multiple(start, DAY_MS)
-        end_day = floor_multiple(end, DAY_MS)
-
-        # Find first exchange which supports the fiat pair.
-        # btc_fiat_symbol = 'btc-eur'
-        # btc_fiat_exchange = 'coinbase'
-        # btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
-        # if len(btc_fiat_exchanges) == 0:
-        #     _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
-        #                  'calculating further statistics')
-        #     return
-        # btc_fiat_exchange = btc_fiat_exchanges[0]
-
         # Fetch necessary market data.
-        btc_fiat_daily, symbol_daily = await asyncio.gather(
-            self.chandler.list_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day),
-            self.chandler.list_candles(exchange, symbol, DAY_MS, start_day, end_day),
+        base_asset, quote_asset = unpack_symbol(symbol)
+        fiat_daily_prices = await self.prices.map_daily_fiat_prices(
+            (base_asset, quote_asset), start, end
         )
 
-        benchmark_stats = get_benchmark_statistics(btc_fiat_daily)
+        benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, btc_fiat_daily, {symbol: symbol_daily}, trader.summary
+            benchmark_stats, fiat_daily_prices, trader.summary
         )
 
         _log.info(f'benchmark stats: {benchmark_stats}')

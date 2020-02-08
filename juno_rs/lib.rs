@@ -156,7 +156,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     );
 
     // Combine.
-    (
+    Result(
         analysis_result.0,
         // trading_result.profit,
         // trading_result.mean_drawdown,
@@ -168,11 +168,12 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     )
 }
 
-pub type Result = (f64, ); // (f64, f64, f64, f64, f64, u64, u32, u32);
+#[repr(C)]
+pub struct Result(f64, ); // (f64, f64, f64, f64, f64, u64, u32, u32);
 
 #[repr(C)]
 pub struct AnalysisInfo {
-    quote_fiat_daily: *const Candle,
+    quote_fiat_daily: *const f64,
     quote_fiat_daily_length: u32,
     base_fiat_daily: *const f64,
     base_fiat_daily_length: u32,

@@ -20,7 +20,7 @@ class Prices:
         end = floor_multiple(end, DAY_MS)
 
         result: Dict[str, List[Decimal]] = {}
-        # Currently only support calculating against BTC.
+        # Currently only supports calculating against BTC.
         quote_fiat_prices = [c.close async for c in self._chandler.stream_candles(
             'coinbase', f'btc-{self._fiat_asset}', DAY_MS, start, end, fill_missing_with_last=True
         )]
@@ -29,11 +29,11 @@ class Prices:
         async def assign(asset: str) -> None:
             result[asset] = [c.close * p async for c, p in zip_async(
                 self._chandler.stream_candles(
-                    'binance', f'{asset}-{self._fiat_asset}', DAY_MS, start, end,
+                    'binance', f'{asset}-btc', DAY_MS, start, end,
                     fill_missing_with_last=True
                 ),
                 resolved_stream(*quote_fiat_prices)
             )]
-        await asyncio.gather(*(assign(a) for a in assets))
+        await asyncio.gather(*(assign(a) for a in assets if a != 'btc'))
 
         return result

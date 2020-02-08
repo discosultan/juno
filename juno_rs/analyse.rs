@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
 use crate::{
-    Candle,
     math::{floor_multiple, mean},
     trading::TradingSummary
 };
@@ -34,7 +33,7 @@ struct Statistics {
 }
 
 pub fn analyse(
-    quote_fiat_daily: &[Candle],
+    quote_fiat_daily: &[f64],
     base_fiat_daily: &[f64],
     benchmark_g_returns: &[f64],
     summary: &TradingSummary,
@@ -46,7 +45,7 @@ pub fn analyse(
         .map(|d| d.values().sum())
         .collect::<Vec<f64>>();
     let portfolio_stats = calculate_statistics(&portfolio_performance);
-    let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, portfolio_stats);
+    let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
     (alpha, )
 }
 
@@ -73,7 +72,7 @@ fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset,
 
 fn get_asset_performance(
     summary: &TradingSummary,
-    quote_fiat_daily: &[Candle],
+    quote_fiat_daily: &[f64],
     base_fiat_daily: &[f64],
     trades: &HashMap<u64, Vec<(Asset, f64)>>,
 ) -> Vec<HashMap<Asset, f64>> {
@@ -103,7 +102,7 @@ fn get_asset_performance(
             let asset_fiat_value = if *asset == Asset::Base {
                 base_fiat_daily[i as usize]
             } else {
-                quote_fiat_daily[i as usize].close
+                quote_fiat_daily[i as usize]
             };
             *asset_performance_day
                 .entry(*asset)
@@ -146,19 +145,26 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
     }
 }
 
-// TODO: hax! portfolio stats shouldn't be mutable.
-fn calculate_alpha_beta(benchmark_g_returns: &[f64], mut portfolio_stats: Statistics) -> (f64, f64) {
-    portfolio_stats.g_returns.extend(benchmark_g_returns.iter());
+fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistics) -> (f64, f64) {
+    assert!(benchmark_g_returns.len() == portfolio_stats.g_returns.len());
+
+    // TODO: Inefficient making this copy.
+    let mut combined: Vec<f64> = Vec::with_capacity(benchmark_g_returns.len() * 2);
+    combined.extend(portfolio_stats.g_returns.iter());
+    combined.extend(benchmark_g_returns.iter());
 
     let matrix = Array::from_shape_vec(
         (2, benchmark_g_returns.len()),
-        portfolio_stats.g_returns
-    ).unwrap();
+        combined
+    ).expect("benchmark and portfolio geometric returns matrix");
 
-    let covariance_matrix = matrix.cov(1.).unwrap();
+    let covariance_matrix = matrix
+        .cov(1.0)
+        .expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
+    let alpha = portfolio_stats.annualized_return
+                     - (beta * 365.0 * mean(&benchmark_g_returns));
 
     (alpha, beta)
 }

@@ -21,6 +21,7 @@ def test_get_input_type_hints():
     (list, 'list'),
     (List[int], 'typing.List[int]'),
     (Bar, 'Bar'),
+    # (Optional[int], 'typing.Optional[int]'),  # 'typing.Union[int, None]'
 ])
 def test_get_name(input_, expected_output):
     assert typing.get_name(input_) == expected_output

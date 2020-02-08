@@ -1,7 +1,7 @@
 from decimal import Decimal
-from typing import Any, List, Type
+from typing import Any, Dict, List, Type
 
-from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval
+from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval, Timestamp
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.trading import (
@@ -18,10 +18,11 @@ from .solver import Solver, SolverResult
 class Python(Solver):
     def solve(
         self,
-        base_fiat_candles: List[Candle],
-        portfolio_candles: List[Candle],
+        fiat_daily_prices: Dict[str, List[Decimal]],
         benchmark_stats: Statistics,
         strategy_type: Type[Strategy],
+        start: Timestamp,
+        end: Timestamp,
         quote: Decimal,
         candles: List[Candle],
         fees: Fees,
@@ -45,9 +46,7 @@ class Python(Solver):
             *args,
         )
 
-        portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, base_fiat_candles, {symbol: portfolio_candles}, summary
-        )
+        portfolio_stats = get_portfolio_statistics(benchmark_stats, fiat_daily_prices, summary)
 
         return SolverResult.from_trading_summary(summary, portfolio_stats)
 

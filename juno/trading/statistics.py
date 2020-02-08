@@ -6,7 +6,6 @@ from typing import Callable, Dict, List, NamedTuple, Tuple
 import numpy as np
 import pandas as pd
 
-from juno import Candle
 from juno.math import floor_multiple
 from juno.time import DAY_MS
 from juno.utils import unpack_symbol
@@ -51,31 +50,28 @@ class PortfolioStatistics(NamedTuple):
     beta: float
 
 
-def get_benchmark_statistics(candles: List[Candle]) -> Statistics:
-    performance = pd.Series([float(c.close) for c in candles])
+def get_benchmark_statistics(prices: List[Decimal]) -> Statistics:
+    performance = pd.Series([float(p) for p in prices])
     return _calculate_statistics(performance)
 
 
 def get_portfolio_statistics(
     benchmark_stats: Statistics,
-    quote_fiat_daily: List[Candle],  # i.e btc-eur
-    symbols_daily: Dict[str, List[Candle]],
+    fiat_daily_prices: Dict[str, List[Decimal]],
     summary: TradingSummary
 ) -> PortfolioStatistics:
     start_day = floor_multiple(summary.start, DAY_MS)
     end_day = floor_multiple(summary.end, DAY_MS)
-    length_days = (end_day - start_day) / DAY_MS
+    num_days = (end_day - start_day) // DAY_MS
 
-    assert len(quote_fiat_daily) == length_days
-    assert all(len(c) == length_days for c in symbols_daily.values())
-    # TODO: We don't support other quote yet.
-    assert all(unpack_symbol(s)[1] == 'btc' for s in symbols_daily.keys())
+    assert all(len(prices) == num_days for prices in fiat_daily_prices.values())
 
-    market_data = _get_market_data(quote_fiat_daily, symbols_daily)
     trades = _get_trades_from_summary(summary)
-    asset_performance = _get_asset_performance(summary, start_day, end_day, market_data, trades)
+    asset_performance = _get_asset_performance(
+        summary, start_day, end_day, fiat_daily_prices, trades
+    )
     portfolio_performance = pd.Series(
-        [float(sum(v for v in apd.values())) for apd in asset_performance.values()]
+        [float(sum(v for v in apd.values())) for apd in asset_performance]
     )
 
     portfolio_stats = _calculate_statistics(portfolio_performance)
@@ -83,21 +79,6 @@ def get_portfolio_statistics(
         *portfolio_stats,
         *_calculate_alpha_beta(benchmark_stats, portfolio_stats),
     )
-
-
-def _get_market_data(
-    quote_fiat_daily: List[Candle],
-    symbols_daily: Dict[str, List[Candle]]
-) -> Dict[str, Dict[int, Decimal]]:
-    # Calculate fiat value for traded base assets.
-    market_data: Dict[str, Dict[int, Decimal]] = defaultdict(dict)
-    for symbol, symbol_daily in symbols_daily.items():
-        base_asset, _quote_asset = unpack_symbol(symbol)
-        for quote_fiat_candle, symbol_candle in zip(quote_fiat_daily, symbol_daily):
-            time = quote_fiat_candle.time
-            market_data['btc'][time] = quote_fiat_candle.close
-            market_data[base_asset][time] = symbol_candle.close * quote_fiat_candle.close
-    return market_data
 
 
 def _get_trades_from_summary(
@@ -124,17 +105,16 @@ def _get_asset_performance(
     summary: TradingSummary,
     start_day: int,
     end_day: int,
-    market_data: Dict[str, Dict[int, Decimal]],
+    market_data: Dict[str, List[Decimal]],
     trades: Dict[int, List[Tuple[str, Decimal]]]
-) -> Dict[int, Dict[str, Decimal]]:
+) -> List[Dict[str, Decimal]]:
     asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
     # TODO: Support other than BTC quote.
     asset_holdings['btc'] = summary.quote
 
-    asset_performance: Dict[int, Dict[str, Decimal]] = defaultdict(
-        lambda: {k: Decimal('0.0') for k in market_data.keys()}
-    )
+    asset_performance: List[Dict[str, Decimal]] = []
 
+    i = 0
     for time_day in range(start_day, end_day, DAY_MS):
         # Update holdings.
         day_trades = trades.get(time_day)
@@ -143,16 +123,12 @@ def _get_asset_performance(
                 asset_holdings[asset] = asset_holdings[asset] + size
 
         # Update asset performance (mark-to-market portfolio).
-        asset_performance_day = asset_performance[time_day]
-        for asset in market_data.keys():
-            asset_fiat_value = market_data[asset].get(time_day)
-            if asset_fiat_value is not None:
-                asset_performance_day[asset] = asset_holdings[asset] * asset_fiat_value
-            else:  # Missing asset market data for the day.
-                _log.warning('missing market data for day')
-                # TODO: What if previous day also missing?? Maybe better to fill missing
-                # candles?? Remove assert above.
-                asset_performance_day[asset] = asset_performance[time_day - DAY_MS][asset]
+        asset_performance_day = {k: Decimal('0.0') for k in market_data.keys()}
+        for asset, asset_prices in market_data.items():
+            asset_performance_day[asset] = asset_holdings[asset] * asset_prices[i]
+
+        asset_performance.append(asset_performance_day)
+        i += 1
 
     return asset_performance
 

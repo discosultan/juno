@@ -2,19 +2,19 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import components, exchanges, optimization, storages, strategies, time
+from juno import components, exchanges, optimization, storages, strategies
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
-from juno.time import DAY_MS, strptimestamp
 from juno.trading import (
     MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
+from juno.utils import unpack_symbol
 
 # SYMBOL = 'eth-btc'
 # INTERVAL = time.HOUR_MS
-# START = '2017-07-01'
-# END = '2019-12-07'
+# START = time.strptimestamp('2017-07-01')
+# END = time.strptimestamp('2019-12-07')
 # MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
 # TRAILING_STOP = Decimal('0.8486')
 
@@ -28,8 +28,8 @@ from juno.trading import (
 
 # SYMBOL = 'enj-bnb'
 # INTERVAL = time.DAY_MS
-# START = '2019-01-01'
-# END = '2019-12-22'
+# START = time.strptimestamp('2019-01-01')
+# END = time.strptimestamp('2019-12-22')
 # MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
 # TRAILING_STOP = Decimal('0.0')
 
@@ -41,25 +41,40 @@ from juno.trading import (
 # SHORT_MA = MA.SMMA
 # LONG_MA = MA.SMMA
 
+# SYMBOL = 'eth-btc'
+# INTERVAL = time.DAY_MS
+# START = time.strptimestamp('2019-01-01')
+# END = time.strptimestamp('2019-02-01')
+# MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
+# TRAILING_STOP = Decimal('0.0')
+
+# SHORT_PERIOD = 17
+# LONG_PERIOD = 24
+# NEG_THRESHOLD = Decimal('-0.667')
+# POS_THRESHOLD = Decimal('0.926')
+# PERSISTENCE = 0
+# SHORT_MA = MA.SMMA
+# LONG_MA = MA.SMA
+
 SYMBOL = 'eth-btc'
-INTERVAL = time.DAY_MS
-START = '2019-01-01'
-END = '2019-02-01'
+INTERVAL = 1800000
+START = 1499990400000
+END = 1561939200000
 MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
 TRAILING_STOP = Decimal('0.0')
 
-SHORT_PERIOD = 17
-LONG_PERIOD = 24
-NEG_THRESHOLD = Decimal('-0.667')
-POS_THRESHOLD = Decimal('0.926')
-PERSISTENCE = 0
-SHORT_MA = MA.SMMA
-LONG_MA = MA.SMA
+SHORT_PERIOD = 93
+LONG_PERIOD = 94
+NEG_THRESHOLD = Decimal('-0.646')
+POS_THRESHOLD = Decimal('0.53')
+PERSISTENCE = 4
+SHORT_MA = MA.EMA2
+LONG_MA = MA.EMA2
 
 
 async def main() -> None:
-    start = floor_multiple(strptimestamp(START), INTERVAL)
-    end = floor_multiple(strptimestamp(END), INTERVAL)
+    start = floor_multiple(START, INTERVAL)
+    end = floor_multiple(END, INTERVAL)
 
     storage = storages.SQLite()
     binance = init_instance(exchanges.Binance, from_env())
@@ -68,27 +83,25 @@ async def main() -> None:
     informant = components.Informant(storage, exchange_list)
     trades = components.Trades(storage, exchange_list)
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
+    prices = components.Prices(chandler)
     rust_solver = optimization.Rust()
     python_solver = optimization.Python()
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        day_start = floor_multiple(start, DAY_MS)
-        day_end = floor_multiple(end, DAY_MS)
-        base_quote_daily, quote_fiat_daily = await asyncio.gather(
-            chandler.list_candles('binance', SYMBOL, DAY_MS, day_start, day_end),
-            # TODO: hardcoded symbol
-            chandler.list_candles('coinbase', 'btc-eur', DAY_MS, day_start, day_end),
+        daily_fiat_prices = await prices.map_daily_fiat_prices(
+            ('btc', unpack_symbol(SYMBOL)[0]), start, end
         )
-        benchmark_stats = get_benchmark_statistics(quote_fiat_daily)
+        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
         fees, filters = informant.get_fees_filters('binance', SYMBOL)
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
         args = (
-            quote_fiat_daily,
-            base_quote_daily,
+            daily_fiat_prices,
             benchmark_stats,
             strategies.MAMACX,
+            start,
+            end,
             Decimal('1.0'),
             candles,
             fees,
@@ -132,7 +145,7 @@ async def main() -> None:
         )
         await trader.run()
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, quote_fiat_daily, {SYMBOL: base_quote_daily}, trader.summary
+            benchmark_stats, daily_fiat_prices, trader.summary
         )
 
         logging.info('=== rust solver ===')

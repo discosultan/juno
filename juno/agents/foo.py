@@ -1,13 +1,14 @@
 import asyncio
 import logging
 from decimal import Decimal
+from typing import List
 
-from juno.components import Chandler, Historian, Informant
-from juno.math import floor_multiple
+from juno.components import Chandler, Historian, Informant, Prices
 from juno.optimization import Optimizer, Solver
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import Trader, TradingSummary, get_benchmark_statistics, get_portfolio_statistics
+from juno.utils import unpack_symbol
 
 from .agent import Agent
 
@@ -16,30 +17,27 @@ _log = logging.getLogger(__name__)
 
 class Foo(Agent):
     def __init__(
-        self, chandler: Chandler, historian: Historian, informant: Informant, solver: Solver
+        self, chandler: Chandler, historian: Historian, informant: Informant, prices: Prices,
+        solver: Solver
     ) -> None:
         super().__init__()
         self._chandler = chandler
         self._historian = historian
         self._informant = informant
+        self._prices = prices
         self._solver = solver
 
     async def run(self) -> None:
+        required_start = strptimestamp('2019-01-01')
         trading_start = strptimestamp('2019-07-01')
         end = strptimestamp('2020-01-01')
         exchange = 'binance'
         quote = Decimal('1.0')
-        num_symbols = 2
+        num_symbols = 4
 
-        tickers = [t for t in self._informant.list_tickers(exchange) if t.symbol.endswith('-btc')]
-        assert len(tickers) > num_symbols
-        assert tickers[0].quote_volume > 0
-        tickers.sort(key=lambda t: t.quote_volume, reverse=True)
-        tickers = tickers[:num_symbols]
-        symbols = [t.symbol for t in tickers]
-
-        _log.info(f'found following top {num_symbols} symbols with highest 24h volume: {symbols}')
-
+        symbols = await self._find_top_symbols_by_volume_with_sufficient_history(
+            exchange, required_start, num_symbols
+        )
         quote_per_symbol = quote / len(symbols)
 
         summary = TradingSummary(quote=quote, start=trading_start)
@@ -56,36 +54,47 @@ class Foo(Agent):
         summary.finish(end)
 
         # Statistics.
-        start_day = floor_multiple(trading_start, DAY_MS)
-        end_day = floor_multiple(end, DAY_MS)
-
-        # Find first exchange which supports the fiat pair.
-        # btc_fiat_symbol = 'btc-eur'
-        # btc_fiat_exchange = 'coinbase'
-        # btc_fiat_exchanges = self.informant.list_exchanges_supporting_symbol(btc_fiat_symbol)
-        # if len(btc_fiat_exchanges) == 0:
-        #     _log.warning(f'no exchange with fiat symbol {btc_fiat_symbol} found; skipping '
-        #                  'calculating further statistics')
-        #     return
-        # btc_fiat_exchange = btc_fiat_exchanges[0]
-
-        # Fetch necessary market data.
-        btc_fiat_daily, *symbols_daily = await asyncio.gather(
-            self._chandler.list_candles('coinbase', 'btc-eur', DAY_MS, start_day, end_day),
-            *(self._chandler.list_candles(
-                exchange, s, DAY_MS, start_day, end_day
-            ) for s in symbols),
+        daily_fiat_prices = await self._prices.map_daily_fiat_prices(
+            {a for s in symbols for a in unpack_symbol(s)}, trading_start, end
         )
 
-        symbols_daily_map = {s: c for s, c in zip(symbols, symbols_daily)}
-
-        benchmark_stats = get_benchmark_statistics(btc_fiat_daily)
-        portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, btc_fiat_daily, symbols_daily_map, summary
-        )
+        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
+        portfolio_stats = get_portfolio_statistics(benchmark_stats, daily_fiat_prices, summary)
 
         _log.info(f'benchmark stats: {benchmark_stats}')
         _log.info(f'portfolio stats: {portfolio_stats}')
+
+    async def _find_top_symbols_by_volume_with_sufficient_history(
+        self, exchange: str, required_start: int, count: int
+    ) -> List[str]:
+        tickers = [t for t in self._informant.list_tickers(exchange) if t.symbol.endswith('-btc')]
+
+        assert any(t.quote_volume > 0 for t in tickers)
+        tickers.sort(key=lambda t: t.quote_volume, reverse=True)
+
+        symbols = []
+        skipped_symbols = []
+        for ticker in tickers:
+            first_candle = await self._historian.find_first_candle(exchange, ticker.symbol, DAY_MS)
+            if first_candle.time > required_start:
+                skipped_symbols.append(ticker.symbol)
+                continue
+
+            symbols.append(ticker.symbol)
+            if len(symbols) == count:
+                break
+
+        assert len(symbols) > 0
+
+        msg = f'found following top {count} symbols with highest 24h volume: {symbols}'
+        if len(skipped_symbols) > 0:
+            msg += (
+                f'; skipped the following {len(skipped_symbols)} symbols because they were '
+                f'launched after {strftimestamp(required_start)}: {", ".join(skipped_symbols)}'
+            )
+        _log.info(msg)
+
+        return symbols
 
     async def _optimize_and_trade(
         self,
@@ -105,11 +114,16 @@ class Foo(Agent):
                 f'Requested {exchange} {symbol} trading start {strftimestamp(trading_start)} but '
                 f'first candle found at {strftimestamp(optimization_start)}'
             )
+        else:
+            _log.info(
+                f'first {exchange} {symbol} candle found from {strftimestamp(optimization_start)}'
+            )
 
         optimizer = Optimizer(
             solver=self._solver,
             chandler=self._chandler,
             informant=self._informant,
+            prices=self._prices,
             exchange=exchange,
             start=optimization_start,
             end=trading_start,
@@ -117,8 +131,8 @@ class Foo(Agent):
             strategy_type=MAMACX,
             symbols=[symbol],
             intervals=list(map(strpinterval, ('30m', '1h', '2h'))),
-            population_size=50,
-            max_generations=100
+            population_size=100,
+            max_generations=1000
         )
         await optimizer.run()
 
