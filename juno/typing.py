@@ -1,6 +1,8 @@
 from decimal import Decimal
 from types import TracebackType
-from typing import Any, Dict, List, Optional, Type, Union, get_args, get_origin, get_type_hints
+from typing import (
+    Any, Dict, Iterable, List, Optional, Type, Union, get_args, get_origin, get_type_hints
+)
 
 ExcType = Optional[Type[BaseException]]
 ExcValue = Optional[BaseException]
@@ -94,3 +96,7 @@ def types_match(obj: Any, type_: Type[Any]):
         return all(types_match(so, subtype) for so in obj)
     else:
         raise NotImplementedError(f'Type matching not implemented for {type_}')
+
+
+def map_input_args(obj: Any, args: Iterable[Any]) -> Dict[str, Any]:
+    return {k: v for k, v in zip(get_input_type_hints(obj).keys(), args)}

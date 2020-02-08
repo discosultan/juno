@@ -18,7 +18,7 @@ from juno.time import strfinterval, strfspan, time_ms
 from juno.trading import (
     MissedCandlePolicy, Statistics, Trader, get_benchmark_statistics, get_portfolio_statistics
 )
-from juno.typing import get_input_type_hints
+from juno.typing import map_input_args
 from juno.utils import flatten, format_attrs_as_json, unpack_symbol
 
 from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
@@ -244,7 +244,7 @@ class Optimizer:
             interval=best_args[1],
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
-            strategy_config=_output_as_strategy_config(self.strategy_type, best_args[4:]),
+            strategy_config=map_input_args(self.strategy_type.__init__, best_args[4:]),
             result=best_result,
         )
 
@@ -308,14 +308,6 @@ def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> A
         def get_constant() -> Any:
             return value
         return get_constant
-
-
-# TODO: Generalize.
-def _output_as_strategy_config(strategy_type: Type[Strategy],
-                               strategy_args: List[Any]) -> Dict[str, Any]:
-    return {k: v for k, v in zip(
-        get_input_type_hints(strategy_type.__init__).keys(), strategy_args
-    )}
 
 
 def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:

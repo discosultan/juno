@@ -152,8 +152,6 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     let mut combined: Vec<f64> = Vec::with_capacity(benchmark_g_returns.len() * 2);
     combined.extend(portfolio_stats.g_returns.iter());
     combined.extend(benchmark_g_returns.iter());
-    
-    // portfolio_stats.g_returns.extend(benchmark_g_returns.iter());
 
     let matrix = Array::from_shape_vec(
         (2, benchmark_g_returns.len()),
@@ -167,15 +165,6 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
     let alpha = portfolio_stats.annualized_return
                      - (beta * 365.0 * mean(&benchmark_g_returns));
-
-    if beta.is_nan() {
-        println!("WOOWOOWEEEWAAAAAAAAAAAAAAAAAAAAAAAAA");
-        println!("benchmark_g_returns {:?}", benchmark_g_returns);
-        // println!("portfolio_g_returns {:?}", portfolio_stats.g_returns);
-        // println!("beta: {}", beta);
-    } else {
-        // println!("ALLL GOOOOOOOD");
-    }
 
     (alpha, beta)
 }
