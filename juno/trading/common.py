@@ -8,6 +8,7 @@ from juno.filters import Filters
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.time import YEAR_MS
+from juno.utils import EventEmitter, unpack_symbol
 
 
 class MissedCandlePolicy(IntEnum):
@@ -220,13 +221,28 @@ class TradingSummary:
 
 
 class TradingContext:
-    def __init__(self, strategy: Strategy, quote: Decimal) -> None:
+    def __init__(
+        self, strategy: Strategy, start: int, quote: Decimal, exchange: str, symbol: str,
+        trailing_stop: Decimal, test: bool = True, summary: Optional[TradingSummary] = None,
+        event: EventEmitter = EventEmitter()
+    ) -> None:
+        # Mutable.
         self.strategy = strategy
         self.quote = quote
         self.open_position: Optional[Position] = None
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')
+        self.summary = summary or TradingSummary(start=start, quote=quote)
+        self.owns_summary = summary is None
+
+        # Immutable.
+        self.exchange = exchange
+        self.symbol = symbol
+        self.base_asset, self.quote_asset = unpack_symbol(symbol)
+        self.trailing_stop = trailing_stop
+        self.test = test
+        self.event = event
 
 
 def calculate_hodl_profit(

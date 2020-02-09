@@ -2,8 +2,8 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.brokers import Broker
-from juno.components import Chandler, Informant, Wallet
+from juno.asyncio import JunoCancelledError
+from juno.components import Informant, Wallet
 from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
@@ -14,14 +14,11 @@ from .agent import Agent
 
 
 class Live(Agent):
-    def __init__(
-        self, chandler: Chandler, informant: Informant, wallet: Wallet, broker: Broker
-    ) -> None:
+    def __init__(self, informant: Informant, wallet: Wallet, trader: Trader) -> None:
         super().__init__()
-        self.chandler = chandler
         self.informant = informant
         self.wallet = wallet
-        self.broker = broker
+        self.trader = trader
 
     async def run(
         self,
@@ -48,22 +45,21 @@ class Live(Agent):
         _, filters = self.informant.get_fees_filters(exchange, symbol)
         assert quote > filters.price.min
 
-        trader = Trader(
-            chandler=self.chandler,
-            informant=self.informant,
-            exchange=exchange,
-            symbol=symbol,
-            interval=interval,
-            start=current,
-            end=end,
-            quote=quote,
-            new_strategy=lambda: init_module_instance(strategies, strategy_config),
-            broker=self.broker,
-            test=False,
-            event=self,
-            missed_candle_policy=missed_candle_policy,
-            adjust_start=adjust_start,
-            trailing_stop=trailing_stop,
-        )
-        self.result = trader.summary
-        await trader.run()
+        try:
+            self.result = await self.trader.run(
+                exchange=exchange,
+                symbol=symbol,
+                interval=interval,
+                start=current,
+                end=end,
+                quote=quote,
+                new_strategy=lambda: init_module_instance(strategies, strategy_config),
+                test=False,
+                event=self,
+                missed_candle_policy=missed_candle_policy,
+                adjust_start=adjust_start,
+                trailing_stop=trailing_stop,
+            )
+        except JunoCancelledError as exc:
+            self.result = exc.result
+            raise

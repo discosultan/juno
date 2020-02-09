@@ -37,6 +37,17 @@ _trailing_stop_constraint = ConstraintChoice([
 ])
 
 
+# TODO: Store result in ctx.
+# TODO: Converge on summary vs result naming in trader and optimizer.
+class OptimizationContext:
+    def __init__(self, exchange: str, start: Timestamp, end: Timestamp, quote: Decimal):
+        # Immutable.
+        self.exchange = exchange
+        self.start = start
+        self.end = end
+        self.quote = quote
+
+
 class OptimizationResult(NamedTuple):
     symbol: str = ''
     interval: Interval = 0
@@ -53,6 +64,16 @@ class Optimizer:
         chandler: Chandler,
         informant: Informant,
         prices: Prices,
+        trader: Trader
+    ) -> None:
+        self.solver = solver
+        self.chandler = chandler
+        self.informant = informant
+        self.prices = prices
+        self.trader = trader
+
+    async def run(
+        self,
         exchange: str,
         start: Timestamp,
         quote: Decimal,
@@ -66,8 +87,8 @@ class Optimizer:
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
         seed: Optional[int] = None,
-        verbose: bool = False,
-    ) -> None:
+        verbose: bool = False
+    ) -> OptimizationResult:
         now = time_ms()
 
         if end is None:
@@ -87,41 +108,27 @@ class Optimizer:
 
         _log.info(f'randomizer seed ({seed})')
 
-        self.solver = solver
-        self.chandler = chandler
-        self.informant = informant
-        self.prices = prices
-        self.exchange = exchange
-        self.symbols = symbols
-        self.intervals = intervals
-        self.start = start
-        self.quote = quote
-        self.strategy_type = strategy_type
-        self.end = end
-        self.missed_candle_policy = missed_candle_policy
-        self.trailing_stop = trailing_stop
-        self.population_size = population_size
-        self.max_generations = max_generations
-        self.mutation_probability = mutation_probability
-        self.seed = seed
-        self.verbose = verbose
+        ctx = OptimizationContext(
+            exchange=exchange,
+            start=start,
+            end=end,
+            quote=quote
+        )
 
-        self.result = OptimizationResult()
-
-    async def run(self) -> None:
-        symbols = self.informant.list_symbols(self.exchange, self.symbols)
-        intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
+        symbols = self.informant.list_symbols(exchange, symbols)
+        intervals = self.informant.list_candle_intervals(exchange, intervals)
 
         daily_fiat_prices = await self.prices.map_daily_fiat_prices(
-            {a for s in symbols for a in unpack_symbol(s)}, self.start, self.end
+            {a for s in symbols for a in unpack_symbol(s)}, start, end
         )
 
         candles: Dict[Tuple[str, int], List[Candle]] = {}
 
         async def assign(symbol: str, interval: int) -> None:
+            assert end
             candles[(symbol, interval)] = await self.chandler.list_candles(
-                self.exchange, symbol, interval, floor_multiple(self.start, interval),
-                floor_multiple(self.end, interval)
+                exchange, symbol, interval, floor_multiple(start, interval),
+                floor_multiple(end, interval)
             )
         # Fetch candles for backtesting.
         await asyncio.gather(*(assign(s, i) for s, i in product(symbols, intervals)))
@@ -129,9 +136,7 @@ class Optimizer:
         for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
-                         f'{strfspan(self.start, self.end)}')
-
-        fees_filters = {s: self.informant.get_fees_filters(self.exchange, s) for s in symbols}
+                         f'{strfspan(start, end)}')
 
         # Prepare benchmark stats.
         benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
@@ -139,7 +144,7 @@ class Optimizer:
         # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
         # us because we want to be able to use multiple optimizers with different random seeds.
         # Therefore we need to use custom algorithms to support passing in our own `random.Random`.
-        random = Random(self.seed)
+        random = Random(seed)
 
         # Objectives.
         objectives = SolverResult.meta()
@@ -156,9 +161,9 @@ class Optimizer:
         attrs = [
             _build_attr(symbols, Choice(symbols), random),
             _build_attr(intervals, Choice(intervals), random),
-            _build_attr(self.missed_candle_policy, _missed_candle_policy_constraint, random),
-            _build_attr(self.trailing_stop, _trailing_stop_constraint, random),
-            *(partial(c.random, random) for c in self.strategy_type.meta.constraints.values())
+            _build_attr(missed_candle_policy, _missed_candle_policy_constraint, random),
+            _build_attr(trailing_stop, _trailing_stop_constraint, random),
+            *(partial(c.random, random) for c in strategy_type.meta.constraints.values())
         ]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
@@ -185,20 +190,20 @@ class Optimizer:
             return self.solver.solve(
                 daily_fiat_prices,
                 benchmark_stats,
-                self.strategy_type,
-                self.start,
-                self.end,
-                self.quote,
+                strategy_type,
+                start,
+                end,
+                quote,
                 candles[(ind[0], ind[1])],
-                *fees_filters[ind[0]],
+                exchange,
                 *flatten(ind)
             )
 
         toolbox.register('evaluate', evaluate)
 
-        toolbox.population_size = self.population_size
-        toolbox.max_generations = self.max_generations
-        toolbox.mutation_probability = self.mutation_probability
+        toolbox.population_size = population_size
+        toolbox.max_generations = max_generations
+        toolbox.mutation_probability = mutation_probability
 
         pop = toolbox.population(n=toolbox.population_size)
         pop = toolbox.select(pop, len(pop))
@@ -221,7 +226,7 @@ class Optimizer:
                 stats=None,
                 ngen=toolbox.max_generations,
                 halloffame=hall,
-                verbose=self.verbose,
+                verbose=verbose,
             )
         )
 
@@ -231,27 +236,30 @@ class Optimizer:
         best_result = self.solver.solve(
             daily_fiat_prices,
             benchmark_stats,
-            self.strategy_type,
-            self.start,
-            self.end,
-            self.quote,
+            strategy_type,
+            start,
+            end,
+            quote,
             candles[(best_args[0], best_args[1])],
-            *fees_filters[best_args[0]],
+            exchange,
             *best_args
         )
-        self.result = OptimizationResult(
+        result = OptimizationResult(
             symbol=best_args[0],
             interval=best_args[1],
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
-            strategy_config=map_input_args(self.strategy_type.__init__, best_args[4:]),
+            strategy_config=map_input_args(strategy_type.__init__, best_args[4:]),
             result=best_result,
         )
 
-        await self._validate(self.result, daily_fiat_prices, benchmark_stats)
+        await self._validate(ctx, result, daily_fiat_prices, benchmark_stats)
+
+        return result
 
     async def _validate(
-        self, result: OptimizationResult, daily_fiat_prices, benchmark_stats: Statistics
+        self, ctx: OptimizationContext, result: OptimizationResult, daily_fiat_prices,
+        benchmark_stats: Statistics
     ) -> None:
         # Validate our results by running a backtest in actual trader to ensure correctness.
         solver_name = type(self.solver).__name__.lower()
@@ -260,31 +268,27 @@ class Optimizer:
         )
 
         trading_config = {
-            'exchange': self.exchange,
+            'exchange': ctx.exchange,
             'symbol': result.symbol,
             'interval': result.interval,
-            'start': floor_multiple(self.start, result.interval),
-            'end': floor_multiple(self.end, result.interval),
-            'quote': self.quote,
+            'start': floor_multiple(ctx.start, result.interval),
+            'end': floor_multiple(ctx.end, result.interval),
+            'quote': ctx.quote,
             'missed_candle_policy': result.missed_candle_policy,
             'trailing_stop': result.trailing_stop,
             'adjust_start': False,
         }
-
-        trader = Trader(
-            chandler=self.chandler,
-            informant=self.informant,
-            new_strategy=lambda: self.strategy_type(**result.strategy_config),
-            **trading_config,
-        )
         try:
-            await trader.run()
-        except InsufficientBalance:
-            pass
-        portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, daily_fiat_prices, trader.summary
-        )
-        validation_result = SolverResult.from_trading_summary(trader.summary, portfolio_stats)
+            summary = await self.trader.run(
+                new_strategy=lambda: self.strategy_type(**result.strategy_config),
+                **trading_config
+            )
+        # TODO: properly differentiate between insufficientbalanec and cancellederror
+        except JunoCancelled as exc:
+            summary = exc.result
+
+        portfolio_stats = get_portfolio_statistics(benchmark_stats, daily_fiat_prices, summary)
+        validation_result = SolverResult.from_trading_summary(summary, portfolio_stats)
 
         if not _isclose(validation_result, result.result):
             raise Exception(
@@ -294,7 +298,7 @@ class Optimizer:
                 f'{format_attrs_as_json(validation_result)}\nSolver result: '
                 f'{format_attrs_as_json(result.result)}'
             )
-        _log.info(f'Validation trading summary: {format_attrs_as_json(trader.summary)}')
+        _log.info(f'Validation trading summary: {format_attrs_as_json(summary)}')
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

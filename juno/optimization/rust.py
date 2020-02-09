@@ -14,6 +14,7 @@ import pandas as pd
 
 from juno import Candle, Fees, Filters, Interval, Timestamp, strategies
 from juno.cffi import CDefBuilder
+from juno.components import Informant
 from juno.filters import Price, Size
 from juno.strategies import Strategy
 from juno.time import DAY_MS
@@ -37,8 +38,10 @@ TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
 
 
 class Rust(Solver):
-    def __init__(self) -> None:
-        self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
+    def __init__(self, informant: Informant) -> None:
+        self.informant = informant
+
+        self.c_fees_filters: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
         self.c_candles: Dict[TimeSeriesKey, Any] = {}
         self.c_prices: Dict[TimeSeriesKey, Any] = {}
         self.c_series: Dict[TimeSeriesKey, Any] = {}
@@ -93,8 +96,7 @@ class Rust(Solver):
         end: Timestamp,
         quote: Decimal,
         candles: List[Candle],
-        fees: Fees,
-        filters: Filters,
+        exchange: str,
         symbol: str,
         interval: Interval,
         missed_candle_policy: MissedCandlePolicy,
@@ -103,7 +105,9 @@ class Rust(Solver):
     ) -> SolverResult:
         # Trading.
         c_candles = self._get_or_create_c_candles((symbol, interval, start, end), candles)
-        c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
+        c_fees, c_filters = self._get_or_create_c_fees_filters(
+            (exchange, symbol), exchange, symbol
+        )
 
         # TODO: Pool it. No need for allocations per run.
         c_trading_info = self.ffi.new('TradingInfo *')
@@ -148,9 +152,13 @@ class Rust(Solver):
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 
-    def _get_or_create_c_fees_filters(self, key: str, fees: Fees, filters: Filters) -> Any:
+    def _get_or_create_c_fees_filters(
+        self, key: Tuple[str, str], exchange: str, symbol: str
+    ) -> Any:
         c_fees_filters = self.c_fees_filters.get(key)
         if not c_fees_filters:
+            fees, filters = self.informant.get_fees_filters(exchange, symbol)
+
             c_fees = self.ffi.new('Fees *')
             c_fees.maker = float(fees.maker)
             c_fees.taker = float(fees.taker)
