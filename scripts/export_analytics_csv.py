@@ -12,7 +12,7 @@ from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
 from juno.strategies import MA, MAMACX
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
-from juno.trading import MissedCandlePolicy, Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, Trader, TradingResult
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -64,7 +64,7 @@ async def main() -> None:
 
 
 async def stream_and_export_daily_candles_as_csv(
-    chandler: Chandler, summary: TradingSummary, exchange: str, symbol: str
+    chandler: Chandler, summary: TradingResult, exchange: str, symbol: str
 ) -> None:
     candles = await chandler.list_candles(
         exchange,
@@ -97,7 +97,7 @@ def candle_row(candle: Candle) -> Dict[str, Any]:
     }
 
 
-def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, symbol: str) -> None:
+def export_trading_summary_as_csv(filters: Filters, summary: TradingResult, symbol: str) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
 
     with open('tradesheet.csv', 'w', newline='') as csvfile:

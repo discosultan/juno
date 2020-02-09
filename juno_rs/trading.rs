@@ -51,7 +51,7 @@ impl Position {
 }
 
 #[derive(Debug)]
-pub struct TradingSummary {
+pub struct TradingResult {
     pub positions: Vec<Position>,
 
     pub interval: u64,
@@ -75,7 +75,7 @@ pub struct TradingSummary {
     pub num_positions_in_loss: u32,
 }
 
-impl TradingSummary {
+impl TradingResult {
     pub fn new(interval: u64, start: u64, end: u64, quote: f64) -> Self {
         Self {
             positions: Vec::new(),

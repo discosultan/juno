@@ -5,7 +5,7 @@ import pytest
 from juno import Candle, Fill
 from juno.agents import Agent
 from juno.time import DAY_MS
-from juno.trading import Position, TradingSummary
+from juno.trading import Position, TradingResult
 from juno.utils import full_path
 
 
@@ -17,7 +17,7 @@ async def test_discord(request, config) -> None:
     from juno.plugins import discord
 
     agent = Dummy()
-    agent.result = TradingSummary(start=0, quote=Decimal('1.0'))
+    agent.result = TradingResult(start=0, quote=Decimal('1.0'))
     async with discord.activate(agent, config['discord']):
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
         pos = Position(

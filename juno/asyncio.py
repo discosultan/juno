@@ -170,8 +170,3 @@ class Event(Generic[T]):
 
     def is_set(self) -> bool:
         return self._event.is_set()
-
-
-class JunoCancelledError(asyncio.CancelledError):
-    def __init__(self, result: Any) -> None:
-        self.result = result

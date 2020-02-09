@@ -10,13 +10,14 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import base, creator, tools
 
-from juno import Candle, InsufficientBalance, Interval, Timestamp
+from juno import Candle, Interval, Timestamp
 from juno.components import Chandler, Informant, Prices
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms
 from juno.trading import (
-    MissedCandlePolicy, Statistics, Trader, get_benchmark_statistics, get_portfolio_statistics
+    MissedCandlePolicy, Statistics, Trader, TradingResult, get_benchmark_statistics,
+    get_portfolio_statistics
 )
 from juno.typing import map_input_args
 from juno.utils import flatten, format_attrs_as_json, unpack_symbol
@@ -40,8 +41,12 @@ _trailing_stop_constraint = ConstraintChoice([
 # TODO: Store result in ctx.
 # TODO: Converge on summary vs result naming in trader and optimizer.
 class OptimizationContext:
-    def __init__(self, exchange: str, start: Timestamp, end: Timestamp, quote: Decimal):
+    def __init__(
+        self, strategy_type: Type[Strategy], exchange: str, start: Timestamp, end: Timestamp,
+        quote: Decimal
+    ) -> None:
         # Immutable.
+        self.strategy_type = strategy_type
         self.exchange = exchange
         self.start = start
         self.end = end
@@ -74,6 +79,7 @@ class Optimizer:
 
     async def run(
         self,
+        result: OptimizationResult,
         exchange: str,
         start: Timestamp,
         quote: Decimal,
@@ -88,7 +94,7 @@ class Optimizer:
         mutation_probability: Decimal = Decimal('0.2'),
         seed: Optional[int] = None,
         verbose: bool = False
-    ) -> OptimizationResult:
+    ) -> None:
         now = time_ms()
 
         if end is None:
@@ -109,6 +115,7 @@ class Optimizer:
         _log.info(f'randomizer seed ({seed})')
 
         ctx = OptimizationContext(
+            strategy_type=strategy_type,
             exchange=exchange,
             start=start,
             end=end,
@@ -258,7 +265,7 @@ class Optimizer:
         return result
 
     async def _validate(
-        self, ctx: OptimizationContext, result: OptimizationResult, daily_fiat_prices,
+        self, ctx: OptimizationContext, optimization_result: OptimizationResult, daily_fiat_prices,
         benchmark_stats: Statistics
     ) -> None:
         # Validate our results by running a backtest in actual trader to ensure correctness.
@@ -267,38 +274,37 @@ class Optimizer:
             f'validating {solver_name} solver result with best args against actual trader'
         )
 
+        start = floor_multiple(ctx.start, optimization_result.interval)
+        end = floor_multiple(ctx.end, optimization_result.interval)
         trading_config = {
             'exchange': ctx.exchange,
-            'symbol': result.symbol,
-            'interval': result.interval,
-            'start': floor_multiple(ctx.start, result.interval),
-            'end': floor_multiple(ctx.end, result.interval),
+            'symbol': optimization_result.symbol,
+            'interval': optimization_result.interval,
+            'start': start,
+            'end': end,
             'quote': ctx.quote,
-            'missed_candle_policy': result.missed_candle_policy,
-            'trailing_stop': result.trailing_stop,
+            'missed_candle_policy': optimization_result.missed_candle_policy,
+            'trailing_stop': optimization_result.trailing_stop,
             'adjust_start': False,
+            'new_strategy': lambda: ctx.strategy_type(**optimization_result.strategy_config),
         }
-        try:
-            summary = await self.trader.run(
-                new_strategy=lambda: self.strategy_type(**result.strategy_config),
-                **trading_config
-            )
-        # TODO: properly differentiate between insufficientbalanec and cancellederror
-        except JunoCancelled as exc:
-            summary = exc.result
+        trading_result = TradingResult(start=start, quote=ctx.quote)
+        await self.trader.run(**trading_config)
 
-        portfolio_stats = get_portfolio_statistics(benchmark_stats, daily_fiat_prices, summary)
-        validation_result = SolverResult.from_trading_summary(summary, portfolio_stats)
+        portfolio_stats = get_portfolio_statistics(
+            benchmark_stats, daily_fiat_prices, trading_result
+        )
+        validation_result = SolverResult.from_trading_result(trading_result, portfolio_stats)
 
-        if not _isclose(validation_result, result.result):
+        if not _isclose(validation_result, optimization_result.result):
             raise Exception(
                 f'Optimizer results differ between trader and '
                 f'{solver_name} solver.\nTrading config: {trading_config}\nStrategy config: '
-                f'{result.strategy_config}\nTrader result: '
+                f'{optimization_result.strategy_config}\nTrader result: '
                 f'{format_attrs_as_json(validation_result)}\nSolver result: '
-                f'{format_attrs_as_json(result.result)}'
+                f'{format_attrs_as_json(optimization_result.result)}'
             )
-        _log.info(f'Validation trading summary: {format_attrs_as_json(summary)}')
+        _log.info(f'Validation trading result: {format_attrs_as_json(trading_result)}')
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

@@ -18,7 +18,7 @@ from . import fakes
 
 @pytest.fixture
 async def rust_solver(loop):
-    async with Rust() as rust:
+    async with Rust(fakes.Informant()) as rust:
         yield rust
 
 
@@ -58,7 +58,9 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
             solver=rust_solver,
             chandler=chandler,
             informant=informant,
-            prices=prices,
+            prices=prices
+        )
+        await optimizer.run(
             exchange='binance',
             start=portfolio_candles[0].time,
             end=portfolio_candles[-1].time + HOUR_MS,
@@ -68,7 +70,6 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
             max_generations=10,
             seed=1
         )
-        await optimizer.run()
         results.append(optimizer.result.result)
 
     assert results[0].alpha == results[1].alpha
@@ -102,8 +103,7 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) ->
         portfolio_candles[-1].time + HOUR_MS,
         Decimal('1.0'),
         portfolio_candles,
-        Fees(),
-        Filters(),
+        'exchange',
         'eth-btc',
         HOUR_MS,
         MissedCandlePolicy.IGNORE,

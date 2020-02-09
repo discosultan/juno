@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from juno import Advice, Candle, Fill
-from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, Position, Trader, TradingResult
 
 from . import fakes
 
@@ -53,7 +53,7 @@ def test_position_annualized_roi_overflow():
 
 
 def test_trading_summary():
-    summary = TradingSummary(start=0, quote=Decimal('100.0'))
+    summary = TradingResult(start=0, quote=Decimal('100.0'))
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
     positions = [
@@ -73,7 +73,7 @@ def test_trading_summary():
 
 
 def test_empty_trading_summary():
-    summary = TradingSummary(start=0, quote=Decimal('100.0'))
+    summary = TradingResult(start=0, quote=Decimal('100.0'))
     assert summary.cost == 100
     assert summary.gain == 100
     assert summary.profit == 0

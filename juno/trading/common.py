@@ -3,7 +3,7 @@ from decimal import Decimal, Overflow
 from enum import IntEnum
 from typing import List, Optional
 
-from juno import Candle, Fees, Fill, Interval, Timestamp
+from juno import Candle, Fees, Fill, Interval, JunoException, Timestamp
 from juno.filters import Filters
 from juno.math import round_half_up
 from juno.strategies import Strategy
@@ -103,7 +103,7 @@ class Position:
 
 
 # TODO: both positions and candles could theoretically grow infinitely
-class TradingSummary:
+class TradingResult:
     def __init__(self, start: Timestamp, quote: Decimal) -> None:
         self._start = start
         self._end = None
@@ -222,9 +222,8 @@ class TradingSummary:
 
 class TradingContext:
     def __init__(
-        self, strategy: Strategy, start: int, quote: Decimal, exchange: str, symbol: str,
-        trailing_stop: Decimal, test: bool = True, summary: Optional[TradingSummary] = None,
-        event: EventEmitter = EventEmitter()
+        self, result: TradingResult, strategy: Strategy, start: int, quote: Decimal, exchange: str,
+        symbol: str, trailing_stop: Decimal, test: bool = True,s event: EventEmitter = EventEmitter()
     ) -> None:
         # Mutable.
         self.strategy = strategy
@@ -233,8 +232,7 @@ class TradingContext:
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')
-        self.summary = summary or TradingSummary(start=start, quote=quote)
-        self.owns_summary = summary is None
+        self.result = result
 
         # Immutable.
         self.exchange = exchange

@@ -3,11 +3,13 @@ import logging
 from decimal import Decimal
 from typing import List
 
-from juno.components import Chandler, Historian, Informant, Prices
-from juno.optimization import Optimizer, Solver
+from juno.components import Historian, Informant, Prices
+from juno.optimization import Optimizer
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
-from juno.trading import Trader, TradingSummary, get_benchmark_statistics, get_portfolio_statistics
+from juno.trading import (
+    Trader, TradingError, TradingResult, get_benchmark_statistics, get_portfolio_statistics
+)
 from juno.utils import unpack_symbol
 
 from .agent import Agent
@@ -17,15 +19,15 @@ _log = logging.getLogger(__name__)
 
 class Foo(Agent):
     def __init__(
-        self, chandler: Chandler, historian: Historian, informant: Informant, prices: Prices,
-        solver: Solver
+        self, historian: Historian, informant: Informant, prices: Prices, optimizer: Optimizer,
+        trader: Trader
     ) -> None:
         super().__init__()
-        self._chandler = chandler
         self._historian = historian
         self._informant = informant
         self._prices = prices
-        self._solver = solver
+        self._optimizer = optimizer
+        self._trader = Trader
 
     async def run(self) -> None:
         required_start = strptimestamp('2019-01-01')
@@ -40,7 +42,7 @@ class Foo(Agent):
         )
         quote_per_symbol = quote / len(symbols)
 
-        summary = TradingSummary(quote=quote, start=trading_start)
+        summary = TradingResult(quote=quote, start=trading_start)
         await asyncio.gather(
             *(self._optimize_and_trade(
                 exchange,
@@ -103,7 +105,7 @@ class Foo(Agent):
         trading_start: int,
         end: int,
         quote: Decimal,
-        summary: TradingSummary
+        summary: TradingResult
     ) -> None:
         optimization_start = (
             await self._historian.find_first_candle(exchange, symbol, DAY_MS)
@@ -119,11 +121,7 @@ class Foo(Agent):
                 f'first {exchange} {symbol} candle found from {strftimestamp(optimization_start)}'
             )
 
-        optimizer = Optimizer(
-            solver=self._solver,
-            chandler=self._chandler,
-            informant=self._informant,
-            prices=self._prices,
+        optimization_result = await self._optimizer.run(
             exchange=exchange,
             start=optimization_start,
             end=trading_start,
@@ -134,20 +132,19 @@ class Foo(Agent):
             population_size=100,
             max_generations=1000
         )
-        await optimizer.run()
 
-        trader = Trader(
-            chandler=self._chandler,
-            informant=self._informant,
-            exchange=exchange,
-            symbol=symbol,
-            interval=optimizer.result.interval,
-            start=trading_start,
-            end=end,
-            quote=quote,
-            new_strategy=lambda: MAMACX(**optimizer.result.strategy_config),
-            missed_candle_policy=optimizer.result.missed_candle_policy,
-            trailing_stop=optimizer.result.trailing_stop,
-            summary=summary
-        )
-        await trader.run()
+        try:
+            return self._trader.run(
+                exchange=exchange,
+                symbol=symbol,
+                interval=optimization_result.interval,
+                start=trading_start,
+                end=end,
+                quote=quote,
+                new_strategy=lambda: MAMACX(**optimization_result.strategy_config),
+                missed_candle_policy=optimization_result.missed_candle_policy,
+                trailing_stop=optimization_result.trailing_stop,
+                summary=summary
+            )
+        except TradingError as exc:
+            return exc.result

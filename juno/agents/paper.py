@@ -2,12 +2,11 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.asyncio import JunoCancelledError
 from juno.components import Informant
 from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
-from juno.trading import MissedCandlePolicy, Trader
+from juno.trading import MissedCandlePolicy, Trader, TradingResult
 
 from .agent import Agent
 
@@ -42,21 +41,19 @@ class Paper(Agent):
 
         assert quote > filters.price.min
 
-        try:
-            self.result = await self.trader.run(
-                exchange=exchange,
-                symbol=symbol,
-                interval=interval,
-                start=current,
-                end=end,
-                quote=quote,
-                new_strategy=lambda: init_module_instance(strategies, strategy_config),
-                test=True,
-                event=self,
-                missed_candle_policy=missed_candle_policy,
-                adjust_start=adjust_start,
-                trailing_stop=trailing_stop,
-            )
-        except JunoCancelledError as exc:
-            self.result = exc.result
-            raise
+        self.result = TradingResult(start=current, quote=quote)
+        await self.trader.run(
+            exchange=exchange,
+            symbol=symbol,
+            interval=interval,
+            start=current,
+            end=end,
+            quote=quote,
+            new_strategy=lambda: init_module_instance(strategies, strategy_config),
+            test=True,
+            event=self,
+            missed_candle_policy=missed_candle_policy,
+            adjust_start=adjust_start,
+            trailing_stop=trailing_stop,
+            result=self.result
+        )

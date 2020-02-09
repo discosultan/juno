@@ -1,17 +1,15 @@
-import asyncio
 import logging
 from decimal import Decimal
 from typing import Callable, Optional
 
 from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp
-from juno.asyncio import JunoCancelledError
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.utils import EventEmitter, format_attrs_as_json, unpack_symbol
 
-from .common import MissedCandlePolicy, Position, TradingContext, TradingSummary
+from .common import MissedCandlePolicy, Position, TradingContext, TradingResult
 
 _log = logging.getLogger(__name__)
 
@@ -29,6 +27,7 @@ class Trader:
 
     async def run(
         self,
+        result: TradingResult,
         exchange: str,
         symbol: str,
         interval: Interval,
@@ -41,8 +40,7 @@ class Trader:
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
-        summary: Optional[TradingSummary] = None,
-    ) -> TradingSummary:
+    ) -> None:
         assert start >= 0
         assert end > 0
         assert end > start
@@ -59,7 +57,7 @@ class Trader:
             symbol=symbol,
             trailing_stop=trailing_stop,
             test=test,
-            summary=summary
+            result=result
         )
 
         restart_count = 0
@@ -116,8 +114,6 @@ class Trader:
 
                 if not restart:
                     break
-        except (asyncio.CancelledError, InsufficientBalance) as exc:
-            raise JunoCancelledError(ctx.summary) from exc
         finally:
             if ctx.last_candle and ctx.open_position:
                 _log.info('ending trading but position open; closing')

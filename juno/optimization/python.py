@@ -48,7 +48,7 @@ class Python(Solver):
 
         portfolio_stats = get_portfolio_statistics(benchmark_stats, fiat_daily_prices, summary)
 
-        return SolverResult.from_trading_summary(summary, portfolio_stats)
+        return SolverResult.from_trading_result(summary, portfolio_stats)
 
     def _trade(
         self,

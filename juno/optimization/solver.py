@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, get_ty
 
 from juno import Candle, Interval, Timestamp
 from juno.strategies import Strategy
-from juno.trading import MissedCandlePolicy, PortfolioStatistics, Statistics, TradingSummary
+from juno.trading import MissedCandlePolicy, PortfolioStatistics, Statistics, TradingResult
 
 
 class Solver(ABC):
@@ -62,13 +62,11 @@ class SolverResult(NamedTuple):
         # return {k: v for k, v in META.items() if k in _SOLVER_RESULT_KEYS}
 
     @staticmethod
-    def from_trading_summary(
-        summary: TradingSummary, stats: PortfolioStatistics
-    ) -> SolverResult:
+    def from_trading_result(result: TradingResult, stats: PortfolioStatistics) -> SolverResult:
         return SolverResult(*map(
             _decimal_to_float,
             (_coalesce(
-                getattr(summary, k, None),
+                getattr(result, k, None),
                 lambda: getattr(stats, k)
             ) for k in _SOLVER_RESULT_KEYS)
         ))

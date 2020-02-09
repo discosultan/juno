@@ -3,13 +3,12 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.asyncio import JunoCancelledError
 from juno.components import Prices
 from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import time_ms
 from juno.trading import (
-    MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
+    MissedCandlePolicy, Trader, TradingResult, get_benchmark_statistics, get_portfolio_statistics
 )
 from juno.utils import unpack_symbol
 
@@ -48,23 +47,21 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
-        try:
-            self.result = await self.trader.run(
-                exchange=exchange,
-                symbol=symbol,
-                interval=interval,
-                start=start,
-                end=end,
-                quote=quote,
-                new_strategy=lambda: init_module_instance(strategies, strategy_config),
-                event=self,
-                missed_candle_policy=missed_candle_policy,
-                adjust_start=adjust_start,
-                trailing_stop=trailing_stop,
-            )
-        except JunoCancelledError as exc:
-            self.result = exc.result
-            raise
+        self.result = TradingResult(start=start, quote=quote)
+        await self.trader.run(
+            exchange=exchange,
+            symbol=symbol,
+            interval=interval,
+            start=start,
+            end=end,
+            quote=quote,
+            new_strategy=lambda: init_module_instance(strategies, strategy_config),
+            event=self,
+            missed_candle_policy=missed_candle_policy,
+            adjust_start=adjust_start,
+            trailing_stop=trailing_stop,
+            result=self.result,
+        )
 
         if not self.prices:
             _log.info('prices component not configured; skipping statistical analysis')

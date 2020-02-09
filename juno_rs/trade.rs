@@ -1,5 +1,5 @@
 use crate::strategies::Strategy;
-use crate::{Advice, Candle, Fees, Filters, Position, TradingContext, TradingSummary};
+use crate::{Advice, Candle, Fees, Filters, Position, TradingContext, TradingResult};
 use crate::math::round_half_up;
 
 pub fn trade<TF: Fn() -> TS, TS: Strategy>(
@@ -11,7 +11,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
-) -> TradingSummary {
+) -> TradingResult {
     let two_interval = interval * 2;
 
     let candles_len = candles.len();
@@ -21,7 +21,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
 
-    let mut summary = TradingSummary::new(interval, start, end, quote);
+    let mut summary = TradingResult::new(interval, start, end, quote);
     let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
     loop {
@@ -88,7 +88,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
 
 fn tick<T: Strategy>(
     mut ctx: &mut TradingContext<T>,
-    mut summary: &mut TradingSummary,
+    mut summary: &mut TradingResult,
     fees: &Fees,
     filters: &Filters,
     trailing_stop: f64,
@@ -138,7 +138,7 @@ fn try_open_position<T: Strategy>(
 
 fn close_position<T: Strategy>(
     ctx: &mut TradingContext<T>,
-    summary: &mut TradingSummary,
+    summary: &mut TradingResult,
     fees: &Fees,
     filters: &Filters,
     candle: &Candle,

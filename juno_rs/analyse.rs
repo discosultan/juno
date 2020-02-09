@@ -3,7 +3,7 @@ use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
 use crate::{
     math::{floor_multiple, mean},
-    trading::TradingSummary
+    trading::TradingResult
 };
 
 pub type AnalysisResult = (f64, );
@@ -36,7 +36,7 @@ pub fn analyse(
     quote_fiat_daily: &[f64],
     base_fiat_daily: &[f64],
     benchmark_g_returns: &[f64],
-    summary: &TradingSummary,
+    summary: &TradingResult,
 ) -> AnalysisResult {
     let trades = get_trades_from_summary(summary);
     let asset_performance = get_asset_performance(summary, quote_fiat_daily, base_fiat_daily, &trades);
@@ -49,7 +49,7 @@ pub fn analyse(
     (alpha, )
 }
 
-fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset, f64)>> {
+fn get_trades_from_summary(summary: &TradingResult) -> HashMap<u64, Vec<(Asset, f64)>> {
     let mut trades = HashMap::new();
     for pos in &summary.positions {
         // Open.
@@ -71,7 +71,7 @@ fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset,
 }
 
 fn get_asset_performance(
-    summary: &TradingSummary,
+    summary: &TradingResult,
     quote_fiat_daily: &[f64],
     base_fiat_daily: &[f64],
     trades: &HashMap<u64, Vec<(Asset, f64)>>,

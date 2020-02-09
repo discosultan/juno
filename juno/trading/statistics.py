@@ -10,7 +10,7 @@ from juno.math import floor_multiple
 from juno.time import DAY_MS
 from juno.utils import unpack_symbol
 
-from .common import TradingSummary
+from .common import TradingResult
 
 Operator = Callable[[Decimal, Decimal], Decimal]
 
@@ -58,7 +58,7 @@ def get_benchmark_statistics(prices: List[Decimal]) -> Statistics:
 def get_portfolio_statistics(
     benchmark_stats: Statistics,
     fiat_daily_prices: Dict[str, List[Decimal]],
-    summary: TradingSummary
+    summary: TradingResult
 ) -> PortfolioStatistics:
     start_day = floor_multiple(summary.start, DAY_MS)
     end_day = floor_multiple(summary.end, DAY_MS)
@@ -82,7 +82,7 @@ def get_portfolio_statistics(
 
 
 def _get_trades_from_summary(
-    summary: TradingSummary,
+    summary: TradingResult,
 ) -> Dict[int, List[Tuple[str, Decimal]]]:
     trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
     for pos in summary.positions:
@@ -102,7 +102,7 @@ def _get_trades_from_summary(
 
 
 def _get_asset_performance(
-    summary: TradingSummary,
+    summary: TradingResult,
     start_day: int,
     end_day: int,
     market_data: Dict[str, List[Decimal]],
