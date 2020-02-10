@@ -6,7 +6,8 @@ from juno.components import Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.trading import (
-    MissedCandlePolicy, Position, Statistics, TradingContext, get_portfolio_statistics
+    MissedCandlePolicy, Position, Statistics, TradingContext, TradingResult,
+    get_portfolio_statistics
 )
 
 from .solver import Solver, SolverResult
@@ -69,6 +70,7 @@ class Python(Solver):
             exchange=exchange,
             symbol=symbol,
             trailing_stop=trailing_stop,
+            result=TradingResult(start=candles[0].time, quote=quote)
         )
         try:
             i = 0
@@ -119,8 +121,8 @@ class Python(Solver):
         except InsufficientBalance:
             pass
 
-        ctx.summary.finish(candles[-1].time + interval)
-        return ctx.summary
+        ctx.result.finish(candles[-1].time + interval)
+        return ctx.result
 
     def _tick(self, ctx: TradingContext, candle: Candle) -> None:
         ctx.strategy.update(candle)
@@ -148,7 +150,7 @@ class Python(Solver):
 
         size = filters.size.round_down(ctx.quote / price)
         if size == 0:
-            raise InsufficientBalance(ctx.summary)
+            raise InsufficientBalance()
 
         fee = round_half_up(size * fees.taker, filters.base_precision)
 
@@ -176,7 +178,7 @@ class Python(Solver):
             time=candle.time,
             fills=[Fill(price=price, size=size, fee=fee, fee_asset=ctx.quote_asset)]
         )
-        ctx.summary.append_position(pos)
+        ctx.result.append_position(pos)
 
         ctx.quote += quote - fee
 

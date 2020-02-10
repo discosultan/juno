@@ -3,7 +3,7 @@ from decimal import Decimal, Overflow
 from enum import IntEnum
 from typing import List, Optional
 
-from juno import Candle, Fees, Fill, Interval, JunoException, Timestamp
+from juno import Candle, Fees, Fill, Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_half_up
 from juno.strategies import Strategy
@@ -223,7 +223,8 @@ class TradingResult:
 class TradingContext:
     def __init__(
         self, result: TradingResult, strategy: Strategy, start: int, quote: Decimal, exchange: str,
-        symbol: str, trailing_stop: Decimal, test: bool = True,s event: EventEmitter = EventEmitter()
+        symbol: str, trailing_stop: Decimal, test: bool = True,
+        event: EventEmitter = EventEmitter()
     ) -> None:
         # Mutable.
         self.strategy = strategy

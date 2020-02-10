@@ -262,8 +262,6 @@ class Optimizer:
 
         await self._validate(ctx, result, daily_fiat_prices, benchmark_stats)
 
-        return result
-
     async def _validate(
         self, ctx: OptimizationContext, optimization_result: OptimizationResult, daily_fiat_prices,
         benchmark_stats: Statistics

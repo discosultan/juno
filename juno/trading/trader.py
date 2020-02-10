@@ -118,10 +118,8 @@ class Trader:
             if ctx.last_candle and ctx.open_position:
                 _log.info('ending trading but position open; closing')
                 await self._close_position(ctx, ctx.last_candle)
-            if ctx.owns_summary and ctx.last_candle:
-                ctx.summary.finish(ctx.last_candle.time + interval)
-
-        return ctx.summary
+            if ctx.last_candle:
+                ctx.result.finish(ctx.last_candle.time + interval)
 
     async def _tick(self, ctx: TradingContext, candle: Candle) -> None:
         ctx.strategy.update(candle)
@@ -165,7 +163,7 @@ class Trader:
 
             size = filters.size.round_down(ctx.quote / price)
             if size == 0:
-                raise InsufficientBalance(ctx.summary)
+                raise InsufficientBalance()
 
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
@@ -215,7 +213,7 @@ class Trader:
             ctx.quote += quote - fee
 
         ctx.open_position = None
-        ctx.summary.append_position(pos)
+        ctx.result.append_position(pos)
         _log.info(f'position closed: {candle}')
         _log.debug(format_attrs_as_json(pos))
         await ctx.event.emit('position_closed', pos)

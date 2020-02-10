@@ -4,12 +4,10 @@ from decimal import Decimal
 from typing import List
 
 from juno.components import Historian, Informant, Prices
-from juno.optimization import Optimizer
+from juno.optimization import OptimizationResult, Optimizer
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
-from juno.trading import (
-    Trader, TradingError, TradingResult, get_benchmark_statistics, get_portfolio_statistics
-)
+from juno.trading import Trader, TradingResult, get_benchmark_statistics, get_portfolio_statistics
 from juno.utils import unpack_symbol
 
 from .agent import Agent
@@ -105,7 +103,7 @@ class Foo(Agent):
         trading_start: int,
         end: int,
         quote: Decimal,
-        summary: TradingResult
+        trading_result: TradingResult
     ) -> None:
         optimization_start = (
             await self._historian.find_first_candle(exchange, symbol, DAY_MS)
@@ -121,7 +119,8 @@ class Foo(Agent):
                 f'first {exchange} {symbol} candle found from {strftimestamp(optimization_start)}'
             )
 
-        optimization_result = await self._optimizer.run(
+        optimization_result = OptimizationResult()
+        await self._optimizer.run(
             exchange=exchange,
             start=optimization_start,
             end=trading_start,
@@ -130,21 +129,19 @@ class Foo(Agent):
             symbols=[symbol],
             intervals=list(map(strpinterval, ('30m', '1h', '2h'))),
             population_size=100,
-            max_generations=1000
+            max_generations=1000,
+            result=optimization_result
         )
 
-        try:
-            return self._trader.run(
-                exchange=exchange,
-                symbol=symbol,
-                interval=optimization_result.interval,
-                start=trading_start,
-                end=end,
-                quote=quote,
-                new_strategy=lambda: MAMACX(**optimization_result.strategy_config),
-                missed_candle_policy=optimization_result.missed_candle_policy,
-                trailing_stop=optimization_result.trailing_stop,
-                summary=summary
-            )
-        except TradingError as exc:
-            return exc.result
+        await self._trader.run(
+            exchange=exchange,
+            symbol=symbol,
+            interval=optimization_result.interval,
+            start=trading_start,
+            end=end,
+            quote=quote,
+            new_strategy=lambda: MAMACX(**optimization_result.strategy_config),
+            missed_candle_policy=optimization_result.missed_candle_policy,
+            trailing_stop=optimization_result.trailing_stop,
+            result=trading_result
+        )
