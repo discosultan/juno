@@ -33,8 +33,10 @@ _cdef_builder = CDefBuilder({
 
 _strategy_types = list_concretes_from_module(strategies, Strategy)
 
+# (exchange, symbol, interval, start, end)
+CandleTimeSeriesKey = Tuple[str, str, Interval, Timestamp, Timestamp]
 # (symbol, interval, start, end)
-TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
+PriceTimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
 
 
 class Rust(Solver):
@@ -42,9 +44,9 @@ class Rust(Solver):
         self.informant = informant
 
         self.c_fees_filters: Dict[Tuple[str, str], Tuple[Any, Any]] = {}
-        self.c_candles: Dict[TimeSeriesKey, Any] = {}
-        self.c_prices: Dict[TimeSeriesKey, Any] = {}
-        self.c_series: Dict[TimeSeriesKey, Any] = {}
+        self.c_candles: Dict[CandleTimeSeriesKey, Any] = {}
+        self.c_prices: Dict[PriceTimeSeriesKey, Any] = {}
+        self.c_g_returns: Dict[PriceTimeSeriesKey, Any] = {}
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
@@ -104,10 +106,8 @@ class Rust(Solver):
         *args: Any,
     ) -> SolverResult:
         # Trading.
-        c_candles = self._get_or_create_c_candles((symbol, interval, start, end), candles)
-        c_fees, c_filters = self._get_or_create_c_fees_filters(
-            (exchange, symbol), exchange, symbol
-        )
+        c_candles = self._get_or_create_c_candles(exchange, symbol, interval, start, end, candles)
+        c_fees, c_filters = self._get_or_create_c_fees_filters(exchange, symbol)
 
         # TODO: Pool it. No need for allocations per run.
         c_trading_info = self.ffi.new('TradingInfo *')
@@ -128,15 +128,15 @@ class Rust(Solver):
         # Analysis.
         num_days = len(fiat_daily_prices['btc'])
         c_quote_fiat_daily = self._get_or_create_c_prices(
-            ('btc-eur', DAY_MS, start, end), fiat_daily_prices['btc']
+            'btc', DAY_MS, start, end, fiat_daily_prices['btc']
         )
         base_asset, _ = unpack_symbol(symbol)
         c_base_fiat_daily = self._get_or_create_c_prices(
-            (f'{base_asset}-eur', DAY_MS, start, end), fiat_daily_prices[base_asset]
+            base_asset, DAY_MS, start, end, fiat_daily_prices[base_asset]
         )
 
-        c_benchmark_g_returns = self._get_or_create_c_series(
-            ('btc-eur', DAY_MS, start, end), benchmark_stats.g_returns
+        c_benchmark_g_returns = self._get_or_create_c_g_returns(
+            'btc', DAY_MS, start, end, benchmark_stats.g_returns
         )
 
         c_analysis_info = self.ffi.new('AnalysisInfo *')
@@ -152,9 +152,8 @@ class Rust(Solver):
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 
-    def _get_or_create_c_fees_filters(
-        self, key: Tuple[str, str], exchange: str, symbol: str
-    ) -> Any:
+    def _get_or_create_c_fees_filters(self, exchange: str, symbol: str) -> Any:
+        key = (exchange, symbol)
         c_fees_filters = self.c_fees_filters.get(key)
         if not c_fees_filters:
             fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -181,7 +180,11 @@ class Rust(Solver):
             c_fees_filters = c_fees, c_filters
         return c_fees_filters
 
-    def _get_or_create_c_candles(self, key: TimeSeriesKey, candles: List[Candle]) -> Any:
+    def _get_or_create_c_candles(
+        self, exchange: str, symbol: str, interval: int, start: int, end: int,
+        candles: List[Candle]
+    ) -> Any:
+        key = (exchange, symbol, interval, start, end)
         c_candles = self.c_candles.get(key)
         if not c_candles:
             c_candles = self.ffi.new(f'Candle[{len(candles)}]')
@@ -197,7 +200,10 @@ class Rust(Solver):
             self.c_candles[key] = c_candles
         return c_candles
 
-    def _get_or_create_c_prices(self, key: TimeSeriesKey, prices: List[Decimal]) -> Any:
+    def _get_or_create_c_prices(
+        self, asset: str, interval: int, start: int, end: int, prices: List[Decimal]
+    ) -> Any:
+        key = (asset, interval, start, end)
         c_prices = self.c_prices.get(key)
         if not c_prices:
             c_prices = self.ffi.new(f'double[{len(prices)}]')
@@ -206,13 +212,16 @@ class Rust(Solver):
             self.c_prices[key] = c_prices
         return c_prices
 
-    def _get_or_create_c_series(self, key: TimeSeriesKey, series: pd.Series) -> Any:
-        c_series = self.c_series.get(key)
+    def _get_or_create_c_g_returns(
+        self, asset: str, interval: int, start: int, end: int, series: pd.Series
+    ) -> Any:
+        key = (asset, interval, start, end)
+        c_series = self.c_g_returns.get(key)
         if not c_series:
             c_series = self.ffi.new(f'double[{series.size}]')
             for i, p in enumerate(series.values):
                 c_series[i] = p
-            self.c_series[key] = c_series
+            self.c_g_returns[key] = c_series
         return c_series
 
 
