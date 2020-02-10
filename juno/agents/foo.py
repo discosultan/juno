@@ -25,7 +25,7 @@ class Foo(Agent):
         self._informant = informant
         self._prices = prices
         self._optimizer = optimizer
-        self._trader = Trader
+        self._trader = trader
 
     async def run(self) -> None:
         required_start = strptimestamp('2019-01-01')

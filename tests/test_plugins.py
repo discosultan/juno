@@ -16,7 +16,7 @@ async def test_discord(request, config) -> None:
 
     from juno.plugins import discord
 
-    agent = Dummy()
+    agent = Agent()
     agent.result = TradingResult(start=0, quote=Decimal('1.0'))
     async with discord.activate(agent, config['discord']):
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
@@ -48,14 +48,10 @@ async def test_discord(request, config) -> None:
             await agent.emit('errored', exc)
 
 
-def skip_non_configured(request, config):
+def skip_non_configured(request, config) -> None:
     markers = ['manual', 'plugin']
     if request.config.option.markexpr not in markers:
         pytest.skip(f"Specify {' or '.join(markers)} marker to run!")
     discord_config = config.get('discord', {})
     if 'token' not in discord_config or 'dummy' not in discord_config.get('channel_id', {}):
         pytest.skip("Discord params not configured")
-
-
-class Dummy(Agent):
-    pass

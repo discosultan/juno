@@ -8,7 +8,7 @@ from juno.trading import MissedCandlePolicy, Position, Trader, TradingResult
 from . import fakes
 
 
-def test_position():
+def test_position() -> None:
     pos = Position(
         symbol='eth-btc',
         time=0,
@@ -34,7 +34,7 @@ def test_position():
     assert pos.annualized_roi == -1
 
 
-def test_position_annualized_roi_overflow():
+def test_position_annualized_roi_overflow() -> None:
     pos = Position(
         symbol='eth-btc',
         time=0,
@@ -52,8 +52,8 @@ def test_position_annualized_roi_overflow():
     assert pos.annualized_roi == Decimal('Inf')
 
 
-def test_trading_summary():
-    summary = TradingResult(start=0, quote=Decimal('100.0'))
+def test_trading_summary() -> None:
+    result = TradingResult(start=0, quote=Decimal('100.0'))
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
     positions = [
@@ -64,23 +64,23 @@ def test_trading_summary():
         new_closed_position(Decimal('9.36')),
     ]
     for position in positions:
-        summary.append_position(position)
+        result.append_position(position)
 
-    assert summary.cost == Decimal('100.0')
-    assert summary.gain == Decimal('102.91')
-    assert summary.profit == Decimal('2.91')
-    assert summary.max_drawdown == pytest.approx(Decimal('0.1495'), Decimal('0.001'))
-
-
-def test_empty_trading_summary():
-    summary = TradingResult(start=0, quote=Decimal('100.0'))
-    assert summary.cost == 100
-    assert summary.gain == 100
-    assert summary.profit == 0
-    assert summary.max_drawdown == 0
+    assert result.cost == Decimal('100.0')
+    assert result.gain == Decimal('102.91')
+    assert result.profit == Decimal('2.91')
+    assert result.max_drawdown == pytest.approx(Decimal('0.1495'), Decimal('0.001'))
 
 
-async def test_trader_trailing_stop_loss():
+def test_empty_trading_summary() -> None:
+    result = TradingResult(start=0, quote=Decimal('100.0'))
+    assert result.cost == 100
+    assert result.gain == 100
+    assert result.profit == 0
+    assert result.max_drawdown == 0
+
+
+async def test_trader_trailing_stop_loss() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -93,25 +93,29 @@ async def test_trader_trailing_stop_loss():
     trader = Trader(
         chandler=chandler,
         informant=fakes.Informant(),
+    )
+
+    start = 0
+    quote = Decimal('10.0')
+    result = TradingResult(start=start, quote=quote)
+    await trader.run(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
-        start=0,
+        start=start,
         end=4,
-        quote=Decimal('10.0'),
+        quote=quote,
         new_strategy=lambda: fakes.Strategy(Advice.BUY, None, None, Advice.SELL),
         missed_candle_policy=MissedCandlePolicy.IGNORE,
         adjust_start=False,
         trailing_stop=Decimal('0.1'),
+        result=result
     )
 
-    await trader.run()
-    res = trader.summary
-
-    assert res.profit == 8
+    assert result.profit == 8
 
 
-async def test_trader_restart_on_missed_candle():
+async def test_trader_restart_on_missed_candle() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -123,26 +127,30 @@ async def test_trader_restart_on_missed_candle():
             Candle(time=5),
         ]
     })
+    trader = Trader(
+        chandler=chandler,
+        informant=fakes.Informant(),
+    )
     strategy1 = fakes.Strategy(None, None)
     strategy2 = fakes.Strategy(None, None, None)
     strategy_stack = [strategy2, strategy1]
 
-    trader = Trader(
-        chandler=chandler,
-        informant=fakes.Informant(),
+    start = 0
+    quote = Decimal('10.0')
+    result = TradingResult(start=start, quote=quote)
+    await trader.run(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
-        start=0,
+        start=start,
         end=6,
-        quote=Decimal('10.0'),
+        quote=quote,
         new_strategy=lambda: strategy_stack.pop(),
         missed_candle_policy=MissedCandlePolicy.RESTART,
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
+        result=result
     )
-
-    await trader.run()
 
     assert len(strategy1.updates) == 2
     assert strategy1.updates[0].time == 0
@@ -154,7 +162,7 @@ async def test_trader_restart_on_missed_candle():
     assert strategy2.updates[2].time == 5
 
 
-async def test_trader_assume_same_as_last_on_missed_candle():
+async def test_trader_assume_same_as_last_on_missed_candle() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -164,24 +172,28 @@ async def test_trader_assume_same_as_last_on_missed_candle():
             Candle(time=4),  # Generate new candles with previous data.
         ]
     })
-    strategy = fakes.Strategy(None, None, None, None, None)
-
     trader = Trader(
         chandler=chandler,
-        informant=fakes.Informant(),
+        informant=fakes.Informant()
+    )
+    strategy = fakes.Strategy(None, None, None, None, None)
+
+    start = 0
+    quote = Decimal('10.0')
+    result = TradingResult(start=start, quote=quote)
+    await trader.run(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
-        start=0,
+        start=start,
         end=5,
-        quote=Decimal('10.0'),
+        quote=quote,
         new_strategy=lambda: strategy,
         missed_candle_policy=MissedCandlePolicy.LAST,
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
+        result=result
     )
-
-    await trader.run()
 
     assert len(strategy.updates) == 5
     assert strategy.updates[0].time == 0
@@ -191,7 +203,7 @@ async def test_trader_assume_same_as_last_on_missed_candle():
     assert strategy.updates[4].time == 4
 
 
-def new_closed_position(profit):
+def new_closed_position(profit: Decimal) -> Position:
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
     pos = Position(

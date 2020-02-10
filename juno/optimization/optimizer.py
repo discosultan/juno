@@ -128,6 +128,8 @@ class Optimizer:
         daily_fiat_prices = await self.prices.map_daily_fiat_prices(
             {a for s in symbols for a in unpack_symbol(s)}, start, end
         )
+        # Prepare benchmark stats.
+        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
 
         candles: Dict[Tuple[str, int], List[Candle]] = {}
 
@@ -144,9 +146,6 @@ class Optimizer:
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
                          f'{strfspan(start, end)}')
-
-        # Prepare benchmark stats.
-        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
 
         # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
         # us because we want to be able to use multiple optimizers with different random seeds.
@@ -274,6 +273,7 @@ class Optimizer:
 
         start = floor_multiple(ctx.start, optimization_result.interval)
         end = floor_multiple(ctx.end, optimization_result.interval)
+        trading_result = TradingResult(start=start, quote=ctx.quote)
         trading_config = {
             'exchange': ctx.exchange,
             'symbol': optimization_result.symbol,
@@ -285,8 +285,8 @@ class Optimizer:
             'trailing_stop': optimization_result.trailing_stop,
             'adjust_start': False,
             'new_strategy': lambda: ctx.strategy_type(**optimization_result.strategy_config),
+            'result': trading_result
         }
-        trading_result = TradingResult(start=start, quote=ctx.quote)
         await self.trader.run(**trading_config)
 
         portfolio_stats = get_portfolio_statistics(

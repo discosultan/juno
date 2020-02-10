@@ -6,10 +6,10 @@ import pytest
 
 from juno import Candle, Fees, Filters
 from juno.components import Prices
-from juno.optimization import Optimizer, Rust
+from juno.optimization import OptimizationResult, Optimizer, Rust
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
-from juno.trading import MissedCandlePolicy, get_benchmark_statistics
+from juno.trading import MissedCandlePolicy, Trader, get_benchmark_statistics
 from juno.typing import load_by_typing
 from juno.utils import load_json_file
 
@@ -22,7 +22,7 @@ async def rust_solver(loop):
         yield rust
 
 
-async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
+async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: Rust) -> None:
     portfolio_candles = load_by_typing(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]
@@ -51,15 +51,18 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
         fees=fees,
         filters=filters
     )
+    trader = Trader(chandler=chandler, informant=informant)
+    optimizer = Optimizer(
+        solver=rust_solver,
+        chandler=chandler,
+        informant=informant,
+        prices=prices,
+        trader=trader
+    )
 
     results = []
     for _ in range(0, 2):
-        optimizer = Optimizer(
-            solver=rust_solver,
-            chandler=chandler,
-            informant=informant,
-            prices=prices
-        )
+        result = OptimizationResult()
         await optimizer.run(
             exchange='binance',
             start=portfolio_candles[0].time,
@@ -68,9 +71,10 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
             quote=Decimal('1.0'),
             population_size=5,
             max_generations=10,
-            seed=1
+            seed=1,
+            result=result
         )
-        results.append(optimizer.result.result)
+        results.append(result.result)
 
     assert results[0].alpha == results[1].alpha
 

@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from juno import (
     CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters, OrderResult,
-    OrderStatus, Side, brokers, components, exchanges, storages
+    OrderStatus, Side, brokers, components, exchanges, storages, strategies
 )
 from juno.asyncio import list_async
 
@@ -147,7 +147,7 @@ class Exchange(exchanges.Exchange):
         yield inner()
 
 
-class Chandler:
+class Chandler(components.Chandler):
     def __init__(self, candles={}):
         self.candles = candles
 
@@ -180,7 +180,7 @@ class Chandler:
             last_c = c
 
 
-class Trades:
+class Trades(components.Trades):
     def __init__(self, trades=[]):
         self.trades = trades
 
@@ -189,7 +189,7 @@ class Trades:
             yield t
 
 
-class Informant:
+class Informant(components.Informant):
     def __init__(
         self,
         fees=Fees(),
@@ -222,7 +222,7 @@ class Orderbook(components.Orderbook):
         self._data = data
 
 
-class Wallet:
+class Wallet(components.Wallet):
     def __init__(self, exchange_balances):
         self._exchange_balances = exchange_balances
 
@@ -256,7 +256,7 @@ class Market(brokers.Market):
                 del orderbook_side[fill.price]
 
 
-class Strategy:
+class Strategy(strategies.Strategy):
     def __init__(self, *advices):
         self.advices = list(reversed(advices))
         self.updates = []

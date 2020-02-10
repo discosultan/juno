@@ -2,12 +2,12 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import components, exchanges, optimization, storages, strategies
+from juno import components, exchanges, optimization, storages, strategies, time
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
 from juno.trading import (
-    MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
+    MissedCandlePolicy, Trader, TradingResult, get_benchmark_statistics, get_portfolio_statistics
 )
 from juno.utils import unpack_symbol
 
@@ -26,20 +26,20 @@ from juno.utils import unpack_symbol
 # SHORT_MA = MA.SMMA
 # LONG_MA = MA.SMA
 
-# SYMBOL = 'enj-bnb'
-# INTERVAL = time.DAY_MS
-# START = time.strptimestamp('2019-01-01')
-# END = time.strptimestamp('2019-12-22')
-# MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
-# TRAILING_STOP = Decimal('0.0')
+SYMBOL = 'enj-bnb'
+INTERVAL = time.DAY_MS
+START = time.strptimestamp('2019-01-01')
+END = time.strptimestamp('2019-12-22')
+MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
+TRAILING_STOP = Decimal('0.0')
 
-# SHORT_PERIOD = 1
-# LONG_PERIOD = 8
-# NEG_THRESHOLD = Decimal('-0.624')
-# POS_THRESHOLD = Decimal('0.893')
-# PERSISTENCE = 2
-# SHORT_MA = MA.SMMA
-# LONG_MA = MA.SMMA
+SHORT_PERIOD = 1
+LONG_PERIOD = 8
+NEG_THRESHOLD = Decimal('-0.624')
+POS_THRESHOLD = Decimal('0.893')
+PERSISTENCE = 2
+SHORT_MA = MA.SMMA
+LONG_MA = MA.SMMA
 
 # SYMBOL = 'eth-btc'
 # INTERVAL = time.DAY_MS
@@ -56,25 +56,26 @@ from juno.utils import unpack_symbol
 # SHORT_MA = MA.SMMA
 # LONG_MA = MA.SMA
 
-SYMBOL = 'eth-btc'
-INTERVAL = 1800000
-START = 1499990400000
-END = 1561939200000
-MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
-TRAILING_STOP = Decimal('0.0')
+# SYMBOL = 'eth-btc'
+# INTERVAL = 1800000
+# START = 1499990400000
+# END = 1561939200000
+# MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
+# TRAILING_STOP = Decimal('0.0')
 
-SHORT_PERIOD = 93
-LONG_PERIOD = 94
-NEG_THRESHOLD = Decimal('-0.646')
-POS_THRESHOLD = Decimal('0.53')
-PERSISTENCE = 4
-SHORT_MA = MA.EMA2
-LONG_MA = MA.EMA2
+# SHORT_PERIOD = 93
+# LONG_PERIOD = 94
+# NEG_THRESHOLD = Decimal('-0.646')
+# POS_THRESHOLD = Decimal('0.53')
+# PERSISTENCE = 4
+# SHORT_MA = MA.EMA2
+# LONG_MA = MA.EMA2
 
 
 async def main() -> None:
     start = floor_multiple(START, INTERVAL)
     end = floor_multiple(END, INTERVAL)
+    quote = Decimal('1.0')
 
     storage = storages.SQLite()
     binance = init_instance(exchanges.Binance, from_env())
@@ -84,15 +85,15 @@ async def main() -> None:
     trades = components.Trades(storage, exchange_list)
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
     prices = components.Prices(chandler)
-    rust_solver = optimization.Rust()
-    python_solver = optimization.Python()
+    rust_solver = optimization.Rust(informant)
+    python_solver = optimization.Python(informant)
+    trader = Trader(chandler, informant)
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
         daily_fiat_prices = await prices.map_daily_fiat_prices(
             ('btc', unpack_symbol(SYMBOL)[0]), start, end
         )
         benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
-        fees, filters = informant.get_fees_filters('binance', SYMBOL)
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
@@ -102,10 +103,9 @@ async def main() -> None:
             strategies.MAMACX,
             start,
             end,
-            Decimal('1.0'),
+            quote,
             candles,
-            fees,
-            filters,
+            'binance',
             SYMBOL,
             INTERVAL,
             MISSED_CANDLE_POLICY,
@@ -121,16 +121,15 @@ async def main() -> None:
         rust_result = rust_solver.solve(*args)
         python_result = python_solver.solve(*args)
 
-        trader = Trader(
-            chandler,
-            informant,
-            'binance',
-            SYMBOL,
-            INTERVAL,
-            start,
-            end,
-            Decimal('1.0'),
-            lambda: strategies.MAMACX(
+        trader_result = TradingResult(start=start, quote=quote)
+        await trader.run(
+            exchange='binance',
+            symbol=SYMBOL,
+            interval=INTERVAL,
+            start=start,
+            end=end,
+            quote=quote,
+            new_strategy=lambda: strategies.MAMACX(
                 SHORT_PERIOD,
                 LONG_PERIOD,
                 NEG_THRESHOLD,
@@ -141,11 +140,11 @@ async def main() -> None:
             ),
             missed_candle_policy=MISSED_CANDLE_POLICY,
             trailing_stop=TRAILING_STOP,
-            adjust_start=False
+            adjust_start=False,
+            result=trader_result
         )
-        await trader.run()
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, daily_fiat_prices, trader.summary
+            benchmark_stats, daily_fiat_prices, trader_result
         )
 
         logging.info('=== rust solver ===')
@@ -160,8 +159,8 @@ async def main() -> None:
 
         logging.info('=== python trader ===')
         logging.info(f'alpha {portfolio_stats.alpha}')
-        logging.info(f'profit {trader.summary.profit}')
-        logging.info(f'mean pos dur {trader.summary.mean_position_duration}')
+        logging.info(f'profit {trader_result.profit}')
+        logging.info(f'mean pos dur {trader_result.mean_position_duration}')
 
         logging.info('done')
 
