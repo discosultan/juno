@@ -122,7 +122,7 @@ async def main() -> None:
         rust_result = rust_solver.solve(*args)
         python_result = python_solver.solve(*args)
 
-        trader_result = TradingResult(start=start, quote=quote)
+        trader_result = TradingResult(quote=quote)
         await trader.run(
             exchange='binance',
             symbol=SYMBOL,

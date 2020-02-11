@@ -5,7 +5,6 @@ from juno import (
     CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters, OrderResult,
     OrderStatus, Side, brokers, components, exchanges, storages, strategies
 )
-from juno.asyncio import list_async
 
 
 class Exchange(exchanges.Exchange):

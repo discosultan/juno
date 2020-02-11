@@ -40,7 +40,7 @@ async def main() -> None:
     base_asset, quote_asset = unpack_symbol(SYMBOL)
     quote = Decimal('1.0')
     async with binance, coinbase, informant:
-        trading_result = TradingResult(start=start, quote=quote)
+        trading_result = TradingResult(quote=quote)
         await trader.run(
             exchange='binance',
             symbol=SYMBOL,

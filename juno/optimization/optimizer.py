@@ -272,7 +272,7 @@ class Optimizer:
 
         start = floor_multiple(ctx.start, optimization_result.interval)
         end = floor_multiple(ctx.end, optimization_result.interval)
-        trading_result = TradingResult(start=start, quote=ctx.quote)
+        trading_result = TradingResult(quote=ctx.quote)
         trading_config = {
             'exchange': ctx.exchange,
             'symbol': optimization_result.symbol,
@@ -287,6 +287,9 @@ class Optimizer:
             'result': trading_result
         }
         await self.trader.run(**trading_config)
+        _log.critical('\n\n\n\n\n\n\nawdjwhdkahdkawhdawhkd')
+        from juno.utils import format_attrs_as_json
+        _log.critical(format_attrs_as_json(trading_result))
 
         portfolio_stats = get_portfolio_statistics(
             benchmark_stats, fiat_daily_prices, trading_result

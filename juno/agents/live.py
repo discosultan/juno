@@ -44,7 +44,7 @@ class Live(Agent):
         _, filters = self.informant.get_fees_filters(exchange, symbol)
         assert quote > filters.price.min
 
-        self.result = TradingResult(start=current, quote=quote)
+        self.result = TradingResult(quote=quote)
         await self.trader.run(
             exchange=exchange,
             symbol=symbol,

@@ -17,9 +17,10 @@ async def test_discord(request, config) -> None:
     from juno.plugins import discord
 
     agent = Agent()
-    agent.result = TradingResult(start=0, quote=Decimal('1.0'))
+    agent.result = TradingResult(quote=Decimal('1.0'))
     async with discord.activate(agent, config['discord']):
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
+        agent.result.tick(candle)
         pos = Position(
             symbol='eth-btc',
             time=candle.time,
@@ -30,6 +31,7 @@ async def test_discord(request, config) -> None:
         )
         await agent.emit('position_opened', pos)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
+        agent.result.tick(candle)
         pos.close(
             time=candle.time,
             fills=[
@@ -38,7 +40,6 @@ async def test_discord(request, config) -> None:
             ]
         )
         agent.result.append_position(pos)
-        agent.result.finish(pos.closing_time + 1)
         await agent.emit('position_closed', pos)
         await agent.emit('finished')
         await agent.emit('image', full_path(__file__, '/data/dummy_img.png'))

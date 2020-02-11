@@ -56,7 +56,7 @@ async def test_backtest() -> None:
     res = await Backtest(trader=trader).start(**agent_config)
 
     assert res.profit == -50
-    assert res.duration == 6
+    assert res.duration == 5
     assert res.roi == Decimal('-0.5')
     assert res.annualized_roi == -1
     assert res.max_drawdown == Decimal('0.75')
@@ -64,7 +64,7 @@ async def test_backtest() -> None:
     assert res.mean_position_profit == -25
     assert res.mean_position_duration == 1
     assert res.start == 0
-    assert res.end == 6
+    assert res.end == 5
     assert calculate_hodl_profit(res.cost, candles[0], candles[-1], fees, filters) == 100
 
 

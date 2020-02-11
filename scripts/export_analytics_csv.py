@@ -32,7 +32,7 @@ async def main() -> None:
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     quote = Decimal('1.0')
     async with binance, coinbase, informant:
-        result = TradingResult(start=start, quote=quote)
+        result = TradingResult(quote=quote)
         await trader.run(
             exchange='binance',
             symbol=SYMBOL,

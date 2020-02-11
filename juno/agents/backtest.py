@@ -47,7 +47,7 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
-        self.result = TradingResult(start=start, quote=quote)
+        self.result = TradingResult(quote=quote)
         await self.trader.run(
             exchange=exchange,
             symbol=symbol,

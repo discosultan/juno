@@ -72,7 +72,7 @@ class Python(Solver):
             exchange=exchange,
             symbol=symbol,
             trailing_stop=trailing_stop,
-            result=TradingResult(start=candles[0].time, quote=quote)
+            result=TradingResult(quote=quote)
         )
         try:
             i = 0
@@ -123,10 +123,10 @@ class Python(Solver):
         except InsufficientBalance:
             pass
 
-        ctx.result.finish(candles[-1].time + interval)
         return ctx.result
 
     def _tick(self, ctx: TradingContext, candle: Candle) -> None:
+        ctx.result.tick(candle)
         ctx.strategy.update(candle)
         advice = ctx.strategy.advice
 

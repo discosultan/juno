@@ -60,26 +60,26 @@ class Trader:
             result=result
         )
 
-        restart_count = 0
+        adjusted_start = start
+        if adjust_start:
+            # Adjust start to accommodate for the required history before a strategy
+            # becomes effective. Only do it on first run because subsequent runs mean
+            # missed candles and we don't want to fetch passed a missed candle.
+            _log.info(
+                f'fetching {ctx.strategy.req_history} candle(s) before start time to '
+                'warm-up strategy'
+            )
+            adjusted_start -= ctx.strategy.req_history * interval
+
         try:
             while True:
                 restart = False
-
-                if adjust_start and restart_count == 0:
-                    # Adjust start to accommodate for the required history before a strategy
-                    # becomes effective. Only do it on first run because subsequent runs mean
-                    # missed candles and we don't want to fetch passed a missed candle.
-                    _log.info(
-                        f'fetching {ctx.strategy.req_history} candle(s) before start time to '
-                        'warm-up strategy'
-                    )
-                    start -= ctx.strategy.req_history * interval
 
                 async for candle in self.chandler.stream_candles(
                     exchange=exchange,
                     symbol=symbol,
                     interval=interval,
-                    start=start,
+                    start=adjusted_start,
                     end=end
                 ):
                     # Check if we have missed a candle.
@@ -90,8 +90,7 @@ class Trader:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
                             ctx.strategy = new_strategy()
-                            start = candle.time + interval
-                            restart_count += 1
+                            adjusted_start = candle.time + interval
                         elif missed_candle_policy is MissedCandlePolicy.LAST:
                             _log.info(f'filling {num_missed} missed candles with last values')
                             last_candle = ctx.last_candle
@@ -118,10 +117,11 @@ class Trader:
             if ctx.last_candle and ctx.open_position:
                 _log.info('ending trading but position open; closing')
                 await self._close_position(ctx, ctx.last_candle)
-            if ctx.last_candle:
-                ctx.result.finish(ctx.last_candle.time + interval)
 
     async def _tick(self, ctx: TradingContext, candle: Candle) -> None:
+        # We want to skip accounting for candles which are part of 'adjusted start' feature.
+        if candle.time >= ctx.start:
+            ctx.result.tick(candle)
         ctx.strategy.update(candle)
         advice = ctx.strategy.advice
 

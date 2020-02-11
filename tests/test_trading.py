@@ -53,7 +53,7 @@ def test_position_annualized_roi_overflow() -> None:
 
 
 def test_trading_result() -> None:
-    result = TradingResult(start=0, quote=Decimal('100.0'))
+    result = TradingResult(quote=Decimal('100.0'))
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
     positions = [
@@ -73,7 +73,7 @@ def test_trading_result() -> None:
 
 
 def test_empty_trading_result() -> None:
-    result = TradingResult(start=0, quote=Decimal('100.0'))
+    result = TradingResult(quote=Decimal('100.0'))
     assert result.cost == 100
     assert result.gain == 100
     assert result.profit == 0
@@ -97,7 +97,7 @@ async def test_trader_trailing_stop_loss() -> None:
 
     start = 0
     quote = Decimal('10.0')
-    result = TradingResult(start=start, quote=quote)
+    result = TradingResult(quote=quote)
     await trader.run(
         exchange='dummy',
         symbol='eth-btc',
@@ -137,7 +137,7 @@ async def test_trader_restart_on_missed_candle() -> None:
 
     start = 0
     quote = Decimal('10.0')
-    result = TradingResult(start=start, quote=quote)
+    result = TradingResult(quote=quote)
     await trader.run(
         exchange='dummy',
         symbol='eth-btc',
@@ -180,7 +180,7 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
 
     start = 0
     quote = Decimal('10.0')
-    result = TradingResult(start=start, quote=quote)
+    result = TradingResult(quote=quote)
     await trader.run(
         exchange='dummy',
         symbol='eth-btc',

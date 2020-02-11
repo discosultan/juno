@@ -132,6 +132,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         trading_info.missed_candle_policy,
         trading_info.trailing_stop,
     );
+    println!("{:#?}", trading_result);
 
     // Analysis.
     let analysis_info = &*analysis_info;

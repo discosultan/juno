@@ -102,11 +102,10 @@ class Position:
         return self.closing_time - self.time
 
 
-# TODO: both positions and candles could theoretically grow infinitely
 class TradingResult:
-    def __init__(self, start: Timestamp, quote: Decimal) -> None:
-        self._start = start
-        self._end = None
+    def __init__(self, quote: Decimal) -> None:
+        self.start = 0
+        self.end = 0
         self.quote = quote
 
         self.positions: List[Position] = []
@@ -114,23 +113,17 @@ class TradingResult:
         self._drawdowns_dirty = True
         self._drawdowns: List[Decimal] = []
 
+    def tick(self, candle: Candle) -> None:
+        if self.start == 0:
+            self.start = candle.time
+        else:
+            self.start = min(self.start, candle.time)
+
+        self.end = max(self.end, candle.time)
+
     def append_position(self, pos: Position) -> None:
         self.positions.append(pos)
         self._drawdowns_dirty = True
-
-    def finish(self, end: Timestamp) -> None:
-        assert not self._end
-        self._end = end
-
-    @property
-    def start(self) -> Timestamp:
-        return self._start
-
-    # TODO: Should we add +interval like we do for result? Or rather change result to exclude
-    # +interval. Also needs to be adjusted in Rust code.
-    @property
-    def end(self) -> Timestamp:
-        return self._end if self._end else 0
 
     @property
     def cost(self) -> Decimal:
@@ -157,7 +150,7 @@ class TradingResult:
 
     @property
     def duration(self) -> Interval:
-        return self.end - self.start if self.end > 0 else 0
+        return max(self.end - self.start, 0)
 
     @property
     def num_positions(self) -> int:
@@ -236,6 +229,7 @@ class TradingContext:
         self.result = result
 
         # Immutable.
+        self.start = start
         self.exchange = exchange
         self.symbol = symbol
         self.base_asset, self.quote_asset = unpack_symbol(symbol)

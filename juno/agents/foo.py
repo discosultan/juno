@@ -40,7 +40,7 @@ class Foo(Agent):
         )
         quote_per_symbol = quote / len(symbols)
 
-        result = TradingResult(quote=quote, start=trading_start)
+        result = TradingResult(quote=quote)
         await asyncio.gather(
             *(self._optimize_and_trade(
                 exchange,
@@ -51,7 +51,6 @@ class Foo(Agent):
                 result,
             ) for s in symbols)
         )
-        result.finish(end)
 
         # Statistics.
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
