@@ -69,7 +69,7 @@ class Backtest(Agent):
 
         # Fetch necessary market data.
         base_asset, quote_asset = unpack_symbol(symbol)
-        fiat_daily_prices = await self.prices.map_daily_fiat_prices(
+        fiat_daily_prices = await self.prices.map_fiat_daily_prices(
             (base_asset, quote_asset), start, end
         )
 

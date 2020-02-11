@@ -125,11 +125,11 @@ class Optimizer:
         symbols = self.informant.list_symbols(exchange, symbols)
         intervals = self.informant.list_candle_intervals(exchange, intervals)
 
-        daily_fiat_prices = await self.prices.map_daily_fiat_prices(
+        fiat_daily_prices = await self.prices.map_fiat_daily_prices(
             {a for s in symbols for a in unpack_symbol(s)}, start, end
         )
         # Prepare benchmark stats.
-        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
+        benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
 
         candles: Dict[Tuple[str, int], List[Candle]] = {}
 
@@ -194,7 +194,7 @@ class Optimizer:
 
         def evaluate(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
-                daily_fiat_prices,
+                fiat_daily_prices,
                 benchmark_stats,
                 strategy_type,
                 start,
@@ -240,7 +240,7 @@ class Optimizer:
 
         best_args = list(flatten(hall[0]))
         best_result = self.solver.solve(
-            daily_fiat_prices,
+            fiat_daily_prices,
             benchmark_stats,
             strategy_type,
             start,
@@ -259,10 +259,10 @@ class Optimizer:
             result=best_result,
         )
 
-        await self._validate(ctx, result, daily_fiat_prices, benchmark_stats)
+        await self._validate(ctx, result, fiat_daily_prices, benchmark_stats)
 
     async def _validate(
-        self, ctx: OptimizationContext, optimization_result: OptimizationResult, daily_fiat_prices,
+        self, ctx: OptimizationContext, optimization_result: OptimizationResult, fiat_daily_prices,
         benchmark_stats: Statistics
     ) -> None:
         # Validate our results by running a backtest in actual trader to ensure correctness.
@@ -290,7 +290,7 @@ class Optimizer:
         await self.trader.run(**trading_config)
 
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, daily_fiat_prices, trading_result
+            benchmark_stats, fiat_daily_prices, trading_result
         )
         validation_result = SolverResult.from_trading_result(trading_result, portfolio_stats)
 

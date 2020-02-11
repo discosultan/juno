@@ -35,7 +35,7 @@ class Python(Solver):
         trailing_stop: Decimal,
         *args: Any,
     ) -> SolverResult:
-        summary = self._trade(
+        trading_result = self._trade(
             strategy_type,
             quote,
             candles,
@@ -47,9 +47,11 @@ class Python(Solver):
             *args,
         )
 
-        portfolio_stats = get_portfolio_statistics(benchmark_stats, fiat_daily_prices, summary)
+        portfolio_stats = get_portfolio_statistics(
+            benchmark_stats, fiat_daily_prices, trading_result
+        )
 
-        return SolverResult.from_trading_result(summary, portfolio_stats)
+        return SolverResult.from_trading_result(trading_result, portfolio_stats)
 
     def _trade(
         self,

@@ -11,35 +11,35 @@ from juno.trading import (
 )
 from juno.utils import unpack_symbol
 
-# SYMBOL = 'eth-btc'
-# INTERVAL = time.HOUR_MS
-# START = time.strptimestamp('2017-07-01')
-# END = time.strptimestamp('2019-12-07')
-# MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
-# TRAILING_STOP = Decimal('0.8486')
-
-# SHORT_PERIOD = 7
-# LONG_PERIOD = 49
-# NEG_THRESHOLD = Decimal('-0.946')
-# POS_THRESHOLD = Decimal('0.854')
-# PERSISTENCE = 6
-# SHORT_MA = MA.SMMA
-# LONG_MA = MA.SMA
-
-SYMBOL = 'enj-bnb'
-INTERVAL = time.DAY_MS
-START = time.strptimestamp('2019-01-01')
-END = time.strptimestamp('2019-12-22')
+SYMBOL = 'eth-btc'
+INTERVAL = time.HOUR_MS
+START = time.strptimestamp('2017-07-14')
+END = time.strptimestamp('2019-12-07')
 MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
-TRAILING_STOP = Decimal('0.0')
+TRAILING_STOP = Decimal('0.8486')
 
-SHORT_PERIOD = 1
-LONG_PERIOD = 8
-NEG_THRESHOLD = Decimal('-0.624')
-POS_THRESHOLD = Decimal('0.893')
-PERSISTENCE = 2
+SHORT_PERIOD = 7
+LONG_PERIOD = 49
+NEG_THRESHOLD = Decimal('-0.946')
+POS_THRESHOLD = Decimal('0.854')
+PERSISTENCE = 6
 SHORT_MA = MA.SMMA
-LONG_MA = MA.SMMA
+LONG_MA = MA.SMA
+
+# SYMBOL = 'enj-bnb'  # NB: ONLY BTC QUOTE SUPPORTED IN STATISTICS
+# INTERVAL = time.DAY_MS
+# START = time.strptimestamp('2019-01-01')
+# END = time.strptimestamp('2019-12-22')
+# MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
+# TRAILING_STOP = Decimal('0.0')
+
+# SHORT_PERIOD = 1
+# LONG_PERIOD = 8
+# NEG_THRESHOLD = Decimal('-0.624')
+# POS_THRESHOLD = Decimal('0.893')
+# PERSISTENCE = 2
+# SHORT_MA = MA.SMMA
+# LONG_MA = MA.SMMA
 
 # SYMBOL = 'eth-btc'
 # INTERVAL = time.DAY_MS
@@ -90,15 +90,16 @@ async def main() -> None:
     trader = Trader(chandler, informant)
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        daily_fiat_prices = await prices.map_daily_fiat_prices(
-            ('btc', unpack_symbol(SYMBOL)[0]), start, end
+        base_asset, quote_asset = unpack_symbol(SYMBOL)
+        fiat_daily_prices = await prices.map_fiat_daily_prices(
+            (base_asset, quote_asset), start, end
         )
-        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
+        benchmark_stats = get_benchmark_statistics(fiat_daily_prices[quote_asset])
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
         args = (
-            daily_fiat_prices,
+            fiat_daily_prices,
             benchmark_stats,
             strategies.MAMACX,
             start,
@@ -144,7 +145,7 @@ async def main() -> None:
             result=trader_result
         )
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, daily_fiat_prices, trader_result
+            benchmark_stats, fiat_daily_prices, trader_result
         )
 
         logging.info('=== rust solver ===')

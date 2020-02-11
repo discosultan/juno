@@ -54,12 +54,12 @@ class Foo(Agent):
         summary.finish(end)
 
         # Statistics.
-        daily_fiat_prices = await self._prices.map_daily_fiat_prices(
+        fiat_daily_prices = await self._prices.map_fiat_daily_prices(
             {a for s in symbols for a in unpack_symbol(s)}, trading_start, end
         )
 
-        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
-        portfolio_stats = get_portfolio_statistics(benchmark_stats, daily_fiat_prices, summary)
+        benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
+        portfolio_stats = get_portfolio_statistics(benchmark_stats, fiat_daily_prices, summary)
 
         _log.info(f'benchmark stats: {benchmark_stats}')
         _log.info(f'portfolio stats: {portfolio_stats}')

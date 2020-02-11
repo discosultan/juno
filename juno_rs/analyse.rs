@@ -17,6 +17,7 @@ enum Asset
     Quote,
 }
 
+#[derive(Debug)]
 struct Statistics {
     // performance: Vec<f64>,
     // a_returns: Vec<f64>,
@@ -36,10 +37,10 @@ pub fn analyse(
     quote_fiat_daily: &[f64],
     base_fiat_daily: &[f64],
     benchmark_g_returns: &[f64],
-    summary: &TradingResult,
+    result: &TradingResult,
 ) -> AnalysisResult {
-    let trades = get_trades_from_summary(summary);
-    let asset_performance = get_asset_performance(summary, quote_fiat_daily, base_fiat_daily, &trades);
+    let trades = get_trades_from_summary(result);
+    let asset_performance = get_asset_performance(result, quote_fiat_daily, base_fiat_daily, &trades);
     let portfolio_performance = asset_performance
         .iter()
         .map(|d| d.values().sum())
@@ -49,9 +50,9 @@ pub fn analyse(
     (alpha, )
 }
 
-fn get_trades_from_summary(summary: &TradingResult) -> HashMap<u64, Vec<(Asset, f64)>> {
+fn get_trades_from_summary(result: &TradingResult) -> HashMap<u64, Vec<(Asset, f64)>> {
     let mut trades = HashMap::new();
-    for pos in &summary.positions {
+    for pos in &result.positions {
         // Open.
         let time = floor_multiple(pos.time, DAY_MS);
         let day_trades = trades
@@ -71,17 +72,17 @@ fn get_trades_from_summary(summary: &TradingResult) -> HashMap<u64, Vec<(Asset, 
 }
 
 fn get_asset_performance(
-    summary: &TradingResult,
+    result: &TradingResult,
     quote_fiat_daily: &[f64],
     base_fiat_daily: &[f64],
     trades: &HashMap<u64, Vec<(Asset, f64)>>,
 ) -> Vec<HashMap<Asset, f64>> {
-    let start_day = floor_multiple(summary.start, DAY_MS);
+    let start_day = floor_multiple(result.start, DAY_MS);
     let length = quote_fiat_daily.len() as u64;
 
     let mut asset_holdings = HashMap::new();
     asset_holdings.insert(Asset::Base, 0.0);
-    asset_holdings.insert(Asset::Quote, summary.cost);
+    asset_holdings.insert(Asset::Quote, result.cost);
 
     let mut asset_performance = Vec::with_capacity(length as usize);
 
@@ -98,7 +99,6 @@ fn get_asset_performance(
         // Update asset performance (mark-to-market portfolio).
         let mut asset_performance_day = HashMap::new();
         for asset in [Asset::Base, Asset::Quote].iter() {
-            // TODO: improve this shit.
             let asset_fiat_value = if *asset == Asset::Base {
                 base_fiat_daily[i as usize]
             } else {
@@ -164,7 +164,7 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
     let alpha = portfolio_stats.annualized_return
-                     - (beta * 365.0 * mean(&benchmark_g_returns));
+        - (beta * 365.0 * mean(&benchmark_g_returns));
 
     (alpha, beta)
 }
