@@ -151,8 +151,7 @@ class Chandler(components.Chandler):
     def __init__(self, candles={}):
         self.candles = candles
 
-    async def list_candles(self, *args, **kwargs):
-        return await list_async(self.stream_candles(*args, **kwargs))
+    # `list_candles` use parent impl.
 
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False
@@ -194,18 +193,25 @@ class Informant(components.Informant):
         self,
         fees=Fees(),
         filters=Filters(),
+        exchanges=[],
         exchanges_supporting_symbol=[],
         candle_intervals=[],
-        symbols=[]
+        symbols=[],
+        tickers=[]
     ):
         self.fees = fees
         self.filters = filters
+        self.exchanges = exchanges
         self.exchanges_supporting_symbol = exchanges_supporting_symbol
         self.candle_intervals = candle_intervals
         self.symbols = symbols
+        self.tickers = tickers
 
     def get_fees_filters(self, exchange, symbol):
         return self.fees, self.filters
+
+    def list_exchanges(self):
+        return self.exchanges
 
     def list_exchanges_supporting_symbol(self, symbol):
         return self.exchanges_supporting_symbol
@@ -215,6 +221,9 @@ class Informant(components.Informant):
 
     def list_symbols(self, exchange, patterns=None):
         return self.symbols
+
+    def list_tickers(self, exchange):
+        return self.tickers
 
 
 class Orderbook(components.Orderbook):

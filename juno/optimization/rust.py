@@ -216,13 +216,13 @@ class Rust(Solver):
         self, asset: str, interval: int, start: int, end: int, series: pd.Series
     ) -> Any:
         key = (asset, interval, start, end)
-        c_series = self.c_g_returns.get(key)
-        if not c_series:
-            c_series = self.ffi.new(f'double[{series.size}]')
+        c_g_returns = self.c_g_returns.get(key)
+        if not c_g_returns:
+            c_g_returns = self.ffi.new(f'double[{series.size}]')
             for i, p in enumerate(series.values):
-                c_series[i] = p
-            self.c_g_returns[key] = c_series
-        return c_series
+                c_g_returns[i] = p
+            self.c_g_returns[key] = c_g_returns
+        return c_g_returns
 
 
 def _build_cdef() -> str:
