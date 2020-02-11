@@ -1,5 +1,3 @@
-use crate::{Candle, Strategy};
-
 const YEAR_MS: f64 = 31_556_952_000.0;
 
 #[derive(Debug)]
@@ -146,27 +144,6 @@ impl TradingSummary {
             self.annualized_roi = 0.0;
         } else {
             self.annualized_roi = (1.0 + self.roi).powf(1.0 / n) - 1.0;
-        }
-    }
-}
-
-pub struct TradingContext<T: Strategy> {
-    pub strategy: T,
-    pub quote: f64,
-    pub open_position: Option<Position>,
-    pub last_candle: Option<Candle>,
-    pub highest_close_since_position: f64,
-
-}
-
-impl<T: Strategy> TradingContext<T> {
-    pub fn new(strategy: T, quote: f64) -> Self {
-        Self {
-            strategy,
-            quote,
-            open_position: None,
-            last_candle: None,
-            highest_close_since_position: 0.0,
         }
     }
 }

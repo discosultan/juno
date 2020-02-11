@@ -1,16 +1,25 @@
 from decimal import Decimal
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Optional, Type
 
 from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval, Timestamp
 from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.trading import (
-    MissedCandlePolicy, Position, Statistics, TradingContext, TradingSummary,
-    get_portfolio_statistics
+    MissedCandlePolicy, Position, Statistics, TradingSummary, get_portfolio_statistics
 )
 from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
+
+
+class _Context:
+    def __init__(self, strategy: Strategy, quote: Decimal) -> None:
+        self.strategy = strategy
+        self.quote = quote
+        self.open_position: Optional[Position] = None
+        self.first_candle: Optional[Candle] = None
+        self.last_candle: Optional[Candle] = None
+        self.highest_close_since_position = Decimal('0.0')
 
 
 # We could rename the class to PythonSolver but it's more user-friendly to allow people to just
@@ -64,7 +73,7 @@ def _trade(
     *args: Any,
 ):
     summary = TradingSummary(start=candles[0].time, quote=quote)
-    ctx = TradingContext(strategy_type(*args), quote)
+    ctx = _Context(strategy_type(*args), quote)
     try:
         i = 0
         while True:
@@ -120,8 +129,8 @@ def _trade(
 
 
 def _tick(
-    ctx: TradingContext, summary: TradingSummary, symbol: str, fees: Fees,
-    filters: Filters, trailing_stop: Decimal, candle: Candle
+    ctx: _Context, summary: TradingSummary, symbol: str, fees: Fees, filters: Filters,
+    trailing_stop: Decimal, candle: Candle
 ) -> None:
     ctx.strategy.update(candle)
     advice = ctx.strategy.advice
@@ -143,7 +152,7 @@ def _tick(
 
 
 def _try_open_position(
-    ctx: TradingContext, symbol: str, fees: Fees, filters: Filters, candle: Candle
+    ctx: _Context, symbol: str, fees: Fees, filters: Filters, candle: Candle
 ) -> None:
     price = candle.close
 
@@ -164,7 +173,7 @@ def _try_open_position(
 
 
 def _close_position(
-    ctx: TradingContext, summary: TradingSummary, symbol: str, fees: Fees, filters: Filters,
+    ctx: _Context, summary: TradingSummary, symbol: str, fees: Fees, filters: Filters,
     candle: Candle
 ) -> None:
     pos = ctx.open_position

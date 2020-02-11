@@ -9,9 +9,19 @@ from juno.math import round_half_up
 from juno.strategies import Strategy
 from juno.utils import EventEmitter, format_attrs_as_json, unpack_symbol
 
-from .common import MissedCandlePolicy, Position, TradingContext, TradingSummary
+from .common import MissedCandlePolicy, Position, TradingSummary
 
 _log = logging.getLogger(__name__)
+
+
+class _Context:
+    def __init__(self, strategy: Strategy, quote: Decimal) -> None:
+        self.strategy = strategy
+        self.quote = quote
+        self.open_position: Optional[Position] = None
+        self.first_candle: Optional[Candle] = None
+        self.last_candle: Optional[Candle] = None
+        self.highest_close_since_position = Decimal('0.0')
 
 
 class Trader:
@@ -59,31 +69,32 @@ class Trader:
         fees, filters = informant.get_fees_filters(exchange, symbol)
         self.summary = summary or TradingSummary(start=start, quote=quote)
         self.owns_summary = summary is None
-        self.ctx = TradingContext(new_strategy(), quote)
+        self.ctx = _Context(new_strategy(), quote)
 
     async def run(self) -> None:
         ctx = self.ctx
         start = self.start
-        restart_count = 0
+
+        adjusted_start = start
+        if self.adjust_start:
+            # Adjust start to accommodate for the required history before a strategy
+            # becomes effective. Only do it on first run because subsequent runs mean
+            # missed candles and we don't want to fetch passed a missed candle.
+            _log.info(
+                f'fetching {ctx.strategy.req_history} candle(s) before start time to '
+                'warm-up strategy'
+            )
+            adjusted_start -= ctx.strategy.req_history * self.interval
+
         try:
             while True:
                 restart = False
-
-                if self.adjust_start and restart_count == 0:
-                    # Adjust start to accommodate for the required history before a strategy
-                    # becomes effective. Only do it on first run because subsequent runs mean
-                    # missed candles and we don't want to fetch passed a missed candle.
-                    _log.info(
-                        f'fetching {ctx.strategy.req_history} candle(s) before start time to '
-                        'warm-up strategy'
-                    )
-                    start -= ctx.strategy.req_history * self.interval
 
                 async for candle in self.chandler.stream_candles(
                     exchange=self.exchange,
                     symbol=self.symbol,
                     interval=self.interval,
-                    start=start,
+                    start=adjusted_start,
                     end=self.end
                 ):
                     # Check if we have missed a candle.
@@ -94,8 +105,7 @@ class Trader:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
                             ctx.strategy = self.new_strategy()
-                            start = candle.time + self.interval
-                            restart_count += 1
+                            adjusted_start = candle.time + self.interval
                         elif self.missed_candle_policy is MissedCandlePolicy.LAST:
                             _log.info(f'filling {num_missed} missed candles with last values')
                             last_candle = ctx.last_candle

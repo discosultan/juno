@@ -1,6 +1,4 @@
-from .common import (
-    MissedCandlePolicy, Position, TradingContext, TradingSummary, calculate_hodl_profit
-)
+from .common import MissedCandlePolicy, Position, TradingSummary, calculate_hodl_profit
 from .statistics import (
     PortfolioStatistics, Statistics, get_benchmark_statistics, get_portfolio_statistics
 )
@@ -11,7 +9,6 @@ __all__ = [
     'PortfolioStatistics',
     'Position',
     'Statistics',
-    'TradingContext',
     'Trader',
     'TradingSummary',
     'calculate_hodl_profit',

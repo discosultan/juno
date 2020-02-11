@@ -1,6 +1,27 @@
 use crate::strategies::Strategy;
-use crate::{Advice, Candle, Fees, Filters, Position, TradingContext, TradingSummary};
+use crate::{Advice, Candle, Fees, Filters, Position, TradingSummary};
 use crate::math::round_half_up;
+
+struct Context<T: Strategy> {
+    pub strategy: T,
+    pub quote: f64,
+    pub open_position: Option<Position>,
+    pub last_candle: Option<Candle>,
+    pub highest_close_since_position: f64,
+
+}
+
+impl<T: Strategy> Context<T> {
+    pub fn new(strategy: T, quote: f64) -> Self {
+        Self {
+            strategy,
+            quote,
+            open_position: None,
+            last_candle: None,
+            highest_close_since_position: 0.0,
+        }
+    }
+}
 
 pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     strategy_factory: TF,
@@ -22,7 +43,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     };
 
     let mut summary = TradingSummary::new(interval, start, end, quote);
-    let mut ctx = TradingContext::new(strategy_factory(), quote);
+    let mut ctx = Context::new(strategy_factory(), quote);
     let mut i = 0;
     loop {
         let mut restart = false;
@@ -87,7 +108,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
 }
 
 fn tick<T: Strategy>(
-    mut ctx: &mut TradingContext<T>,
+    mut ctx: &mut Context<T>,
     mut summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
@@ -117,7 +138,7 @@ fn tick<T: Strategy>(
 }
 
 fn try_open_position<T: Strategy>(
-    ctx: &mut TradingContext<T>,
+    ctx: &mut Context<T>,
     fees: &Fees,
     filters: &Filters,
     candle: &Candle,
@@ -137,7 +158,7 @@ fn try_open_position<T: Strategy>(
 }
 
 fn close_position<T: Strategy>(
-    ctx: &mut TradingContext<T>,
+    ctx: &mut Context<T>,
     summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,

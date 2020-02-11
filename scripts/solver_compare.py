@@ -2,7 +2,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import components, exchanges, optimization, storages, strategies
+from juno import components, exchanges, optimization, storages, strategies, time
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
@@ -11,22 +11,22 @@ from juno.trading import (
 )
 from juno.utils import unpack_symbol
 
-# SYMBOL = 'eth-btc'
-# INTERVAL = time.HOUR_MS
-# START = time.strptimestamp('2017-07-01')
-# END = time.strptimestamp('2019-12-07')
-# MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
-# TRAILING_STOP = Decimal('0.8486')
+SYMBOL = 'eth-btc'
+INTERVAL = time.HOUR_MS
+START = time.strptimestamp('2017-07-14')
+END = time.strptimestamp('2019-12-07')
+MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
+TRAILING_STOP = Decimal('0.8486')
 
-# SHORT_PERIOD = 7
-# LONG_PERIOD = 49
-# NEG_THRESHOLD = Decimal('-0.946')
-# POS_THRESHOLD = Decimal('0.854')
-# PERSISTENCE = 6
-# SHORT_MA = MA.SMMA
-# LONG_MA = MA.SMA
+SHORT_PERIOD = 7
+LONG_PERIOD = 49
+NEG_THRESHOLD = Decimal('-0.946')
+POS_THRESHOLD = Decimal('0.854')
+PERSISTENCE = 6
+SHORT_MA = MA.SMMA
+LONG_MA = MA.SMA
 
-# SYMBOL = 'enj-bnb'
+# SYMBOL = 'enj-bnb'  # NB! Non-btc quote not supported in prices!
 # INTERVAL = time.DAY_MS
 # START = time.strptimestamp('2019-01-01')
 # END = time.strptimestamp('2019-12-22')
@@ -40,36 +40,6 @@ from juno.utils import unpack_symbol
 # PERSISTENCE = 2
 # SHORT_MA = MA.SMMA
 # LONG_MA = MA.SMMA
-
-# SYMBOL = 'eth-btc'
-# INTERVAL = time.DAY_MS
-# START = time.strptimestamp('2019-01-01')
-# END = time.strptimestamp('2019-02-01')
-# MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
-# TRAILING_STOP = Decimal('0.0')
-
-# SHORT_PERIOD = 17
-# LONG_PERIOD = 24
-# NEG_THRESHOLD = Decimal('-0.667')
-# POS_THRESHOLD = Decimal('0.926')
-# PERSISTENCE = 0
-# SHORT_MA = MA.SMMA
-# LONG_MA = MA.SMA
-
-SYMBOL = 'eth-btc'
-INTERVAL = 1800000
-START = 1499990400000
-END = 1561939200000
-MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
-TRAILING_STOP = Decimal('0.0')
-
-SHORT_PERIOD = 93
-LONG_PERIOD = 94
-NEG_THRESHOLD = Decimal('-0.646')
-POS_THRESHOLD = Decimal('0.53')
-PERSISTENCE = 4
-SHORT_MA = MA.EMA2
-LONG_MA = MA.EMA2
 
 
 async def main() -> None:

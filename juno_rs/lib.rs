@@ -19,7 +19,7 @@ use crate::{
 pub use crate::{
     common::{Advice, Candle, Fees},
     filters::Filters,
-    trading::{Position, TradingContext, TradingSummary},
+    trading::{Position, TradingSummary},
 };
 
 #[no_mangle]

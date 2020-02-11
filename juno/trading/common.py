@@ -6,7 +6,6 @@ from typing import List, Optional
 from juno import Candle, Fees, Fill, Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_half_up
-from juno.strategies import Strategy
 from juno.time import YEAR_MS
 
 
@@ -217,16 +216,6 @@ class TradingSummary:
         self._mean_drawdown = sum_drawdown / len(self._drawdowns)
 
         self._drawdowns_dirty = False
-
-
-class TradingContext:
-    def __init__(self, strategy: Strategy, quote: Decimal) -> None:
-        self.strategy = strategy
-        self.quote = quote
-        self.open_position: Optional[Position] = None
-        self.first_candle: Optional[Candle] = None
-        self.last_candle: Optional[Candle] = None
-        self.highest_close_since_position = Decimal('0.0')
 
 
 def calculate_hodl_profit(
