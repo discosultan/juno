@@ -39,7 +39,6 @@ _trailing_stop_constraint = ConstraintChoice([
 
 
 # TODO: Store result in ctx.
-# TODO: Converge on summary vs result naming in trader and optimizer.
 class OptimizationContext:
     def __init__(
         self, strategy_type: Type[Strategy], exchange: str, start: Timestamp, end: Timestamp,
@@ -302,6 +301,8 @@ class Optimizer:
                 f'{format_attrs_as_json(validation_result)}\nSolver result: '
                 f'{format_attrs_as_json(optimization_result.result)}'
             )
+
+        # TODO: Don't log here but attach trading result to optimizer result.
         _log.info(f'Validation trading result: {format_attrs_as_json(trading_result)}')
 
 

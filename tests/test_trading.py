@@ -52,7 +52,7 @@ def test_position_annualized_roi_overflow() -> None:
     assert pos.annualized_roi == Decimal('Inf')
 
 
-def test_trading_summary() -> None:
+def test_trading_result() -> None:
     result = TradingResult(start=0, quote=Decimal('100.0'))
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
@@ -72,7 +72,7 @@ def test_trading_summary() -> None:
     assert result.max_drawdown == pytest.approx(Decimal('0.1495'), Decimal('0.001'))
 
 
-def test_empty_trading_summary() -> None:
+def test_empty_trading_result() -> None:
     result = TradingResult(start=0, quote=Decimal('100.0'))
     assert result.cost == 100
     assert result.gain == 100

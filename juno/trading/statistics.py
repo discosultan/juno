@@ -58,17 +58,17 @@ def get_benchmark_statistics(prices: List[Decimal]) -> Statistics:
 def get_portfolio_statistics(
     benchmark_stats: Statistics,
     fiat_daily_prices: Dict[str, List[Decimal]],
-    summary: TradingResult
+    result: TradingResult
 ) -> PortfolioStatistics:
-    start_day = floor_multiple(summary.start, DAY_MS)
-    end_day = floor_multiple(summary.end, DAY_MS)
+    start_day = floor_multiple(result.start, DAY_MS)
+    end_day = floor_multiple(result.end, DAY_MS)
     num_days = (end_day - start_day) // DAY_MS
 
     assert all(len(prices) == num_days for prices in fiat_daily_prices.values())
 
-    trades = _get_trades_from_summary(summary)
+    trades = _get_trades_from_trading_result(result)
     asset_performance = _get_asset_performance(
-        summary, start_day, end_day, fiat_daily_prices, trades
+        result, start_day, end_day, fiat_daily_prices, trades
     )
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance]
@@ -81,11 +81,11 @@ def get_portfolio_statistics(
     )
 
 
-def _get_trades_from_summary(
-    summary: TradingResult,
+def _get_trades_from_trading_result(
+    result: TradingResult,
 ) -> Dict[int, List[Tuple[str, Decimal]]]:
     trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
-    for pos in summary.positions:
+    for pos in result.positions:
         assert pos.closing_fills
         base_asset, quote_asset = unpack_symbol(pos.symbol)
         # Open.
@@ -102,7 +102,7 @@ def _get_trades_from_summary(
 
 
 def _get_asset_performance(
-    summary: TradingResult,
+    result: TradingResult,
     start_day: int,
     end_day: int,
     market_data: Dict[str, List[Decimal]],
@@ -110,7 +110,7 @@ def _get_asset_performance(
 ) -> List[Dict[str, Decimal]]:
     asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
     # TODO: Support other than BTC quote.
-    asset_holdings['btc'] = summary.quote
+    asset_holdings['btc'] = result.quote
 
     asset_performance: List[Dict[str, Decimal]] = []
 

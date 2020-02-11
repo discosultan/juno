@@ -21,7 +21,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
 
-    let mut summary = TradingResult::new(interval, start, end, quote);
+    let mut result = TradingResult::new(interval, start, end, quote);
     let mut ctx = TradingContext::new(strategy_factory(), quote);
     let mut i = 0;
     loop {
@@ -48,7 +48,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
                             volume: last_candle.volume,
                         };
                         if !tick(
-                            &mut ctx, &mut summary, &fees, &filters, trailing_stop, &missed_candle
+                            &mut ctx, &mut result, &fees, &filters, trailing_stop, &missed_candle
                         ) {
                             exit = true;
                             break;
@@ -61,7 +61,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
                 break;
             }
 
-            if !tick(&mut ctx, &mut summary, &fees, &filters, trailing_stop, candle) {
+            if !tick(&mut ctx, &mut result, &fees, &filters, trailing_stop, candle) {
                 exit = true;
                 break;
             }
@@ -78,17 +78,17 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
 
     if let Some(last_candle) = ctx.last_candle {
         if ctx.open_position.is_some() {
-            close_position(&mut ctx, &mut summary, fees, filters, &last_candle);
+            close_position(&mut ctx, &mut result, fees, filters, &last_candle);
         }
     }
 
-    summary.calculate();
-    summary
+    result.calculate();
+    result
 }
 
 fn tick<T: Strategy>(
     mut ctx: &mut TradingContext<T>,
-    mut summary: &mut TradingResult,
+    mut result: &mut TradingResult,
     fees: &Fees,
     filters: &Filters,
     trailing_stop: f64,
@@ -102,13 +102,13 @@ fn tick<T: Strategy>(
         }
         ctx.highest_close_since_position = candle.close
     } else if ctx.open_position.is_some() && advice == Some(Advice::Sell) {
-        close_position(&mut ctx, &mut summary, fees, filters, &candle);
+        close_position(&mut ctx, &mut result, fees, filters, &candle);
     } else if trailing_stop != 0.0 && ctx.open_position.is_some() {
         ctx.highest_close_since_position = f64::max(
             ctx.highest_close_since_position, candle.close);
         let trailing_factor = 1.0 - trailing_stop;
         if candle.close <= ctx.highest_close_since_position * trailing_factor {
-            close_position(&mut ctx, &mut summary, fees, filters, &candle);
+            close_position(&mut ctx, &mut result, fees, filters, &candle);
         }
     }
 
@@ -138,7 +138,7 @@ fn try_open_position<T: Strategy>(
 
 fn close_position<T: Strategy>(
     ctx: &mut TradingContext<T>,
-    summary: &mut TradingResult,
+    result: &mut TradingResult,
     fees: &Fees,
     filters: &Filters,
     candle: &Candle,
@@ -151,7 +151,7 @@ fn close_position<T: Strategy>(
         let fee = round_half_up(quote * fees.taker, filters.quote_precision);
 
         pos.close(candle.time, price, size, fee);
-        summary.append_position(pos);
+        result.append_position(pos);
 
         ctx.open_position = None;
         ctx.quote += quote - fee;

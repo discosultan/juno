@@ -44,27 +44,27 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
             # We send separate messages to avoid exhausting max message length limit.
             await client.send_message(format_message('opened position', format_attrs_as_json(pos)))
             await client.send_message(
-                format_message('summary', format_attrs_as_json(agent.result))
+                format_message('trading result', format_attrs_as_json(agent.result))
             )
 
         @agent.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
             await client.send_message(format_message('closed position', format_attrs_as_json(pos)))
             await client.send_message(
-                format_message('summary', format_attrs_as_json(agent.result))
+                format_message('trading result', format_attrs_as_json(agent.result))
             )
 
         @agent.on('finished')
         async def on_finished() -> None:
             await client.send_message(
-                format_message('finished with summary', format_attrs_as_json(agent.result))
+                format_message('finished with trading result', format_attrs_as_json(agent.result))
             )
 
         @agent.on('errored')
         async def on_errored(exc: Exception) -> None:
             await client.send_message(format_message('errored', exc_traceback(exc), lang=''))
             await client.send_message(
-                format_message('summary', format_attrs_as_json(agent.result))
+                format_message('trading result', format_attrs_as_json(agent.result))
             )
 
         @agent.on('image')

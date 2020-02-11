@@ -40,7 +40,7 @@ class Foo(Agent):
         )
         quote_per_symbol = quote / len(symbols)
 
-        summary = TradingResult(quote=quote, start=trading_start)
+        result = TradingResult(quote=quote, start=trading_start)
         await asyncio.gather(
             *(self._optimize_and_trade(
                 exchange,
@@ -48,10 +48,10 @@ class Foo(Agent):
                 trading_start,
                 end,
                 quote_per_symbol,
-                summary,
+                result,
             ) for s in symbols)
         )
-        summary.finish(end)
+        result.finish(end)
 
         # Statistics.
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
@@ -59,7 +59,7 @@ class Foo(Agent):
         )
 
         benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
-        portfolio_stats = get_portfolio_statistics(benchmark_stats, fiat_daily_prices, summary)
+        portfolio_stats = get_portfolio_statistics(benchmark_stats, fiat_daily_prices, result)
 
         _log.info(f'benchmark stats: {benchmark_stats}')
         _log.info(f'portfolio stats: {portfolio_stats}')

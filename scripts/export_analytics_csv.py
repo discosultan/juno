@@ -27,12 +27,13 @@ async def main() -> None:
     trades = Trades(sqlite, [binance, coinbase])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance, coinbase])
     informant = Informant(sqlite, [binance, coinbase])
+    trader = Trader(chandler=chandler, informant=informant)
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
+    quote = Decimal('1.0')
     async with binance, coinbase, informant:
-        trader = Trader(
-            chandler=chandler,
-            informant=informant,
+        result = TradingResult(start=start, quote=quote)
+        await trader.run(
             exchange='binance',
             symbol=SYMBOL,
             interval=INTERVAL,
@@ -42,21 +43,21 @@ async def main() -> None:
             new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4, MA.SMA,
                                         MA.SMMA),
             trailing_stop=Decimal('0.0827'),
-            missed_candle_policy=MissedCandlePolicy.LAST
+            missed_candle_policy=MissedCandlePolicy.LAST,
+            result=result
         )
-        await trader.run()
 
         _, filters = informant.get_fees_filters('binance', SYMBOL)
 
         await asyncio.gather(
             stream_and_export_daily_candles_as_csv(
-                chandler, trader.summary, 'coinbase', 'btc-eur'
+                chandler, result, 'coinbase', 'btc-eur'
             ),
             stream_and_export_daily_candles_as_csv(
-                chandler, trader.summary, 'coinbase', 'eth-eur'
+                chandler, result, 'coinbase', 'eth-eur'
             ),
             asyncio.get_running_loop().run_in_executor(
-                None, export_trading_summary_as_csv, filters, trader.summary, SYMBOL
+                None, export_trading_result_as_csv, filters, result, SYMBOL
             ),
         )
 
@@ -64,14 +65,14 @@ async def main() -> None:
 
 
 async def stream_and_export_daily_candles_as_csv(
-    chandler: Chandler, summary: TradingResult, exchange: str, symbol: str
+    chandler: Chandler, result: TradingResult, exchange: str, symbol: str
 ) -> None:
     candles = await chandler.list_candles(
         exchange,
         symbol,
         DAY_MS,
-        floor_multiple(summary.start, DAY_MS),
-        ceil_multiple(summary.end, DAY_MS)
+        floor_multiple(result.start, DAY_MS),
+        ceil_multiple(result.end, DAY_MS)
     )
     await asyncio.get_running_loop().run_in_executor(
         None, export_daily_candles_as_csv, symbol, candles
@@ -97,7 +98,7 @@ def candle_row(candle: Candle) -> Dict[str, Any]:
     }
 
 
-def export_trading_summary_as_csv(filters: Filters, summary: TradingResult, symbol: str) -> None:
+def export_trading_result_as_csv(filters: Filters, result: TradingResult, symbol: str) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
 
     with open('tradesheet.csv', 'w', newline='') as csvfile:
@@ -108,12 +109,12 @@ def export_trading_summary_as_csv(filters: Filters, summary: TradingResult, symb
 
         writer.writeheader()
         writer.writerow(
-            trade_row(summary.start, 'EUR', '', summary.quote * EUR, Decimal('1.0'))
+            trade_row(result.start, 'EUR', '', result.quote * EUR, Decimal('1.0'))
         )
         writer.writerow(
-            trade_row(summary.start, quote_asset, 'EUR', summary.quote, Decimal('3347.23'))
+            trade_row(result.start, quote_asset, 'EUR', result.quote, Decimal('3347.23'))
         )
-        for pos in summary.positions:
+        for pos in result.positions:
             assert pos.closing_fills
 
             buy_size = pos.base_gain

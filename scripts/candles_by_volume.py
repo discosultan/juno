@@ -39,7 +39,7 @@ async def main() -> None:
             MA.SMA,
             MA.SMA
         )
-        summary = _trade(
+        result = _trade(
             MAMACX,
             Decimal('1.0'),
             candles,
@@ -51,7 +51,7 @@ async def main() -> None:
             Decimal('0.1255'),
             *strategy_args
         )
-        logging.info(format_attrs_as_json(summary))
+        logging.info(format_attrs_as_json(result))
 
 
 asyncio.run(main())

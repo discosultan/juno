@@ -39,7 +39,7 @@ pub fn analyse(
     benchmark_g_returns: &[f64],
     result: &TradingResult,
 ) -> AnalysisResult {
-    let trades = get_trades_from_summary(result);
+    let trades = get_trades_from_trading_result(result);
     let asset_performance = get_asset_performance(result, quote_fiat_daily, base_fiat_daily, &trades);
     let portfolio_performance = asset_performance
         .iter()
@@ -50,7 +50,7 @@ pub fn analyse(
     (alpha, )
 }
 
-fn get_trades_from_summary(result: &TradingResult) -> HashMap<u64, Vec<(Asset, f64)>> {
+fn get_trades_from_trading_result(result: &TradingResult) -> HashMap<u64, Vec<(Asset, f64)>> {
     let mut trades = HashMap::new();
     for pos in &result.positions {
         // Open.

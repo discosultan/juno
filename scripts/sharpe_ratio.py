@@ -14,7 +14,7 @@ from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.strategies import MA, MAMACX
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
-from juno.trading import MissedCandlePolicy, Trader
+from juno.trading import MissedCandlePolicy, Trader, TradingResult
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -34,25 +34,26 @@ async def main() -> None:
         exchanges=[binance, coinbase]
     )
     informant = Informant(sqlite, [binance, coinbase])
+    trader = Trader(chandler=chandler, informant=informant)
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     base_asset, quote_asset = unpack_symbol(SYMBOL)
+    quote = Decimal('1.0')
     async with binance, coinbase, informant:
-        trader = Trader(
-            chandler=chandler,
-            informant=informant,
+        trading_result = TradingResult(start=start, quote=quote)
+        await trader.run(
             exchange='binance',
             symbol=SYMBOL,
             interval=INTERVAL,
             start=start,
             end=end,
-            quote=Decimal('1.0'),
+            quote=quote,
             new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4, MA.SMA,
                                         MA.SMMA),
             trailing_stop=Decimal('0.0827'),
-            missed_candle_policy=MissedCandlePolicy.LAST
+            missed_candle_policy=MissedCandlePolicy.LAST,
+            result=trading_result
         )
-        await trader.run()
 
         start_day = floor_multiple(start, DAY_MS)
         end_day = floor_multiple(end, DAY_MS)
@@ -76,7 +77,7 @@ async def main() -> None:
             market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
         trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
-        for pos in trader.summary.positions:
+        for pos in trading_result.positions:
             assert pos.closing_fills
             # Open.
             time = floor_multiple(pos.time, DAY_MS)
@@ -90,7 +91,7 @@ async def main() -> None:
             day_trades.append((quote_asset, +pos.gain))
 
         asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
-        asset_holdings[quote_asset] = trader.summary.quote
+        asset_holdings[quote_asset] = trading_result.quote
 
         asset_performance: Dict[int, Dict[str, Decimal]] = defaultdict(
             lambda: {k: Decimal('0.0') for k in market_data.keys()}

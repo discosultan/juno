@@ -126,7 +126,7 @@ class TradingResult:
     def start(self) -> Timestamp:
         return self._start
 
-    # TODO: Should we add +interval like we do for summary? Or rather change summary to exclude
+    # TODO: Should we add +interval like we do for result? Or rather change result to exclude
     # +interval. Also needs to be adjusted in Rust code.
     @property
     def end(self) -> Timestamp:
