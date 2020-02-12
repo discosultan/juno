@@ -18,7 +18,7 @@ _log = logging.getLogger(__name__)
 class Foo(Agent):
     def __init__(
         self, chandler: Chandler, historian: Historian, informant: Informant, prices: Prices,
-        solver: Solver
+        solver: Solver, trader: Trader
     ) -> None:
         super().__init__()
         self._chandler = chandler
@@ -26,6 +26,7 @@ class Foo(Agent):
         self._informant = informant
         self._prices = prices
         self._solver = solver
+        self._trader = trader
 
     async def run(self) -> None:
         required_start = strptimestamp('2019-01-01')
@@ -124,6 +125,7 @@ class Foo(Agent):
             chandler=self._chandler,
             informant=self._informant,
             prices=self._prices,
+            trader=self._trader,
             exchange=exchange,
             start=optimization_start,
             end=trading_start,
@@ -136,9 +138,7 @@ class Foo(Agent):
         )
         await optimizer.run()
 
-        trader = Trader(
-            chandler=self._chandler,
-            informant=self._informant,
+        await self._trader.run(
             exchange=exchange,
             symbol=symbol,
             interval=optimizer.result.interval,
@@ -150,4 +150,3 @@ class Foo(Agent):
             trailing_stop=optimizer.result.trailing_stop,
             summary=summary
         )
-        await trader.run()

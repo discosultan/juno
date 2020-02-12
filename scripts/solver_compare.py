@@ -54,6 +54,7 @@ async def main() -> None:
     trades = components.Trades(storage, exchange_list)
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
     prices = components.Prices(chandler)
+    trader = Trader(chandler=chandler, informant=informant)
     rust_solver = optimization.Rust()
     python_solver = optimization.Python()
     async with binance, coinbase, informant, rust_solver:
@@ -91,9 +92,7 @@ async def main() -> None:
         rust_result = rust_solver.solve(*args)
         python_result = python_solver.solve(*args)
 
-        trader = Trader(
-            chandler,
-            informant,
+        trading_summary = await trader.run(
             'binance',
             SYMBOL,
             INTERVAL,
@@ -113,9 +112,8 @@ async def main() -> None:
             trailing_stop=TRAILING_STOP,
             adjust_start=False
         )
-        await trader.run()
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, daily_fiat_prices, trader.summary
+            benchmark_stats, daily_fiat_prices, trading_summary
         )
 
         logging.info('=== rust solver ===')
@@ -130,8 +128,8 @@ async def main() -> None:
 
         logging.info('=== python trader ===')
         logging.info(f'alpha {portfolio_stats.alpha}')
-        logging.info(f'profit {trader.summary.profit}')
-        logging.info(f'mean pos dur {trader.summary.mean_position_duration}')
+        logging.info(f'profit {trading_summary.profit}')
+        logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
 
         logging.info('done')
 

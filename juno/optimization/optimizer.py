@@ -16,7 +16,8 @@ from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, f
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms
 from juno.trading import (
-    MissedCandlePolicy, Statistics, Trader, get_benchmark_statistics, get_portfolio_statistics
+    MissedCandlePolicy, Statistics, Trader, TradingSummary, get_benchmark_statistics,
+    get_portfolio_statistics
 )
 from juno.typing import map_input_args
 from juno.utils import flatten, format_attrs_as_json, unpack_symbol
@@ -53,6 +54,7 @@ class Optimizer:
         chandler: Chandler,
         informant: Informant,
         prices: Prices,
+        trader: Trader,
         exchange: str,
         start: Timestamp,
         quote: Decimal,
@@ -91,6 +93,7 @@ class Optimizer:
         self.chandler = chandler
         self.informant = informant
         self.prices = prices
+        self.trader = trader
         self.exchange = exchange
         self.symbols = symbols
         self.intervals = intervals
@@ -259,11 +262,12 @@ class Optimizer:
             f'validating {solver_name} solver result with best args against actual trader'
         )
 
+        start = floor_multiple(self.start, result.interval)
         trading_config = {
             'exchange': self.exchange,
             'symbol': result.symbol,
             'interval': result.interval,
-            'start': floor_multiple(self.start, result.interval),
+            'start': start,
             'end': floor_multiple(self.end, result.interval),
             'quote': self.quote,
             'missed_candle_policy': result.missed_candle_policy,
@@ -271,20 +275,19 @@ class Optimizer:
             'adjust_start': False,
         }
 
-        trader = Trader(
-            chandler=self.chandler,
-            informant=self.informant,
-            new_strategy=lambda: self.strategy_type(**result.strategy_config),
-            **trading_config,
-        )
+        trading_summary = TradingSummary(start=start, quote=self.quote)
         try:
-            await trader.run()
+            await self.trader.run(
+                new_strategy=lambda: self.strategy_type(**result.strategy_config),
+                summary=trading_summary,
+                **trading_config,
+            )
         except InsufficientBalance:
             pass
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, daily_fiat_prices, trader.summary
+            benchmark_stats, daily_fiat_prices, trading_summary
         )
-        validation_result = SolverResult.from_trading_summary(trader.summary, portfolio_stats)
+        validation_result = SolverResult.from_trading_summary(trading_summary, portfolio_stats)
 
         if not _isclose(validation_result, result.result):
             raise Exception(
@@ -294,7 +297,9 @@ class Optimizer:
                 f'{format_attrs_as_json(validation_result)}\nSolver result: '
                 f'{format_attrs_as_json(result.result)}'
             )
-        _log.info(f'Validation trading summary: {format_attrs_as_json(trader.summary)}')
+
+        # TODO: Don't print here and attach to summary instead.
+        _log.info(f'Validation trading summary: {format_attrs_as_json(trading_summary)}')
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

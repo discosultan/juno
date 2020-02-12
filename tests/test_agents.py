@@ -7,7 +7,7 @@ from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
-from juno.trading import MissedCandlePolicy, calculate_hodl_profit
+from juno.trading import MissedCandlePolicy, Trader, calculate_hodl_profit
 from juno.typing import load_by_typing
 from juno.utils import load_json_file
 
@@ -33,6 +33,7 @@ async def test_backtest():
         size=Size(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0'))
     )
     informant = fakes.Informant(fees=fees, filters=filters)
+    trader = Trader(chandler=chandler, informant=informant)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -50,7 +51,7 @@ async def test_backtest():
         }
     }
 
-    res = await Backtest(chandler=chandler, informant=informant).start(**agent_config)
+    res = await Backtest(trader=trader).start(**agent_config)
 
     assert res.profit == -50
     assert res.duration == 6
@@ -84,6 +85,7 @@ async def test_backtest_scenarios(scenario_nr):
             )
         )
     )
+    trader = Trader(chandler=chandler, informant=informant)
     agent_config = {
         'exchange': 'binance',
         'symbol': 'eth-btc',
@@ -102,7 +104,7 @@ async def test_backtest_scenarios(scenario_nr):
         }
     }
 
-    assert await Backtest(chandler=chandler, informant=informant).start(**agent_config)
+    assert await Backtest(trader=trader).start(**agent_config)
 
 
 async def test_paper():
@@ -130,6 +132,7 @@ async def test_paper():
     }
     orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
     broker = fakes.Market(informant, orderbook, update_orderbook=True)
+    trader = Trader(chandler=chandler, informant=informant, broker=broker)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -147,7 +150,7 @@ async def test_paper():
         'get_time_ms': fakes.Time(increment=1).get_time
     }
 
-    assert await Paper(chandler=chandler, informant=informant, broker=broker).start(**agent_config)
+    assert await Paper(informant=informant, trader=trader).start(**agent_config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0
 
@@ -180,6 +183,7 @@ async def test_live():
         'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0')),
     }})
     broker = fakes.Market(informant, orderbook, update_orderbook=True)
+    trader = Trader(chandler=chandler, informant=informant, broker=broker)
     agent_config = {
         'exchange': 'dummy',
         'symbol': 'eth-btc',
@@ -196,7 +200,6 @@ async def test_live():
         'get_time_ms': fakes.Time(increment=1).get_time
     }
 
-    assert await Live(chandler=chandler, informant=informant, wallet=wallet,
-                      broker=broker).start(**agent_config)
+    assert await Live(informant=informant, wallet=wallet, trader=trader).start(**agent_config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0

@@ -20,6 +20,7 @@ from juno.logging import create_handlers
 from juno.optimization import Solver
 from juno.plugins import list_plugins
 from juno.storages import Storage
+from juno.trading import Trader
 from juno.utils import exc_traceback, full_path, map_module_types
 
 _log = logging.getLogger(__name__)
@@ -84,6 +85,7 @@ async def main() -> None:
     )
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
+    container.add_singleton_type(Trader)
     for _name, type_ in inspect.getmembers(components, inspect.isclass):
         container.add_singleton_type(type_)
 

@@ -4,7 +4,7 @@ from typing import List, Optional
 from juno import Interval, Timestamp, strategies
 from juno.components import Chandler, Informant, Prices
 from juno.optimization import Optimizer, Solver
-from juno.trading import MissedCandlePolicy
+from juno.trading import MissedCandlePolicy, Trader
 from juno.utils import get_module_type
 
 from . import Agent
@@ -12,13 +12,15 @@ from . import Agent
 
 class Optimize(Agent):
     def __init__(
-        self, solver: Solver, chandler: Chandler, informant: Informant, prices: Prices
+        self, solver: Solver, chandler: Chandler, informant: Informant, prices: Prices,
+        trader: Trader
     ) -> None:
         super().__init__()
         self.solver = solver
         self.chandler = chandler
         self.informant = informant
         self.prices = prices
+        self.trader = trader
 
     async def run(
         self,
@@ -43,6 +45,7 @@ class Optimize(Agent):
             chandler=self.chandler,
             informant=self.informant,
             prices=self.prices,
+            trader=self.trader,
             exchange=exchange,
             symbols=symbols,
             intervals=intervals,
