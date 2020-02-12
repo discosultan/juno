@@ -15,15 +15,15 @@ class stop_after_attempt_with_reset(stop_base):
         time_to_reset: float,
         get_time: Callable[[], float] = time
     ) -> None:
-        self.max_attempt_number = max_attempt_number
-        self.time_to_reset = time_to_reset
-        self.get_time = get_time
-        self.last_attempt_at = 0.0
-        self.attempt_offset = 0
+        self._max_attempt_number = max_attempt_number
+        self._time_to_reset = time_to_reset
+        self._get_time = get_time
+        self._last_attempt_at = 0.0
+        self._attempt_offset = 0
 
     def __call__(self, retry_state: Any) -> bool:
-        now = self.get_time()
-        if now - self.last_attempt_at >= self.time_to_reset:
-            self.attempt_offset = retry_state.attempt_number - 1
-        self.last_attempt_at = now
-        return retry_state.attempt_number - self.attempt_offset >= self.max_attempt_number
+        now = self._get_time()
+        if now - self._last_attempt_at >= self._time_to_reset:
+            self._attempt_offset = retry_state.attempt_number - 1
+        self._last_attempt_at = now
+        return retry_state.attempt_number - self._attempt_offset >= self._max_attempt_number
