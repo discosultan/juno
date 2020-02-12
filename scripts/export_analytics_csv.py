@@ -27,12 +27,11 @@ async def main() -> None:
     trades = Trades(sqlite, [binance, coinbase])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance, coinbase])
     informant = Informant(sqlite, [binance, coinbase])
+    trader = Trader(chandler=chandler, informant=informant)
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     async with binance, coinbase, informant:
-        trader = Trader(
-            chandler=chandler,
-            informant=informant,
+        trading_summary = await trader.run(
             exchange='binance',
             symbol=SYMBOL,
             interval=INTERVAL,
@@ -44,19 +43,18 @@ async def main() -> None:
             trailing_stop=Decimal('0.0827'),
             missed_candle_policy=MissedCandlePolicy.LAST
         )
-        await trader.run()
 
         _, filters = informant.get_fees_filters('binance', SYMBOL)
 
         await asyncio.gather(
             stream_and_export_daily_candles_as_csv(
-                chandler, trader.summary, 'coinbase', 'btc-eur'
+                chandler, trading_summary, 'coinbase', 'btc-eur'
             ),
             stream_and_export_daily_candles_as_csv(
-                chandler, trader.summary, 'coinbase', 'eth-eur'
+                chandler, trading_summary, 'coinbase', 'eth-eur'
             ),
             asyncio.get_running_loop().run_in_executor(
-                None, export_trading_summary_as_csv, filters, trader.summary, SYMBOL
+                None, export_trading_summary_as_csv, filters, trading_summary, SYMBOL
             ),
         )
 

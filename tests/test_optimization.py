@@ -9,7 +9,7 @@ from juno.components import Prices
 from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
-from juno.trading import MissedCandlePolicy, get_benchmark_statistics
+from juno.trading import MissedCandlePolicy, Trader, get_benchmark_statistics
 from juno.typing import load_by_typing
 from juno.utils import load_json_file
 
@@ -44,21 +44,21 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
         ('binance', 'eth-btc', DAY_MS): statistics_candles,
         ('coinbase', 'btc-eur', DAY_MS): statistics_fiat_candles,
     })
-    prices = Prices(chandler)
+    prices = Prices(chandler=chandler)
     informant = fakes.Informant(
         candle_intervals=[HOUR_MS],
         symbols=['eth-btc'],
         fees=fees,
         filters=filters
     )
+    trader = Trader(chandler=chandler, informant=informant)
+    optimizer = Optimizer(
+        solver=rust_solver, chandler=chandler, informant=informant, prices=prices, trader=trader
+    )
 
     results = []
     for _ in range(0, 2):
-        optimizer = Optimizer(
-            solver=rust_solver,
-            chandler=chandler,
-            informant=informant,
-            prices=prices,
+        summary = await optimizer.run(
             exchange='binance',
             start=portfolio_candles[0].time,
             end=portfolio_candles[-1].time + HOUR_MS,
@@ -68,8 +68,7 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
             max_generations=10,
             seed=1
         )
-        await optimizer.run()
-        results.append(optimizer.result.result)
+        results.append(summary.result)
 
     assert results[0].alpha == results[1].alpha
 

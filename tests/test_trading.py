@@ -90,9 +90,9 @@ async def test_trader_trailing_stop_loss():
             Candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
         ]
     })
-    trader = Trader(
-        chandler=chandler,
-        informant=fakes.Informant(),
+    trader = Trader(chandler=chandler, informant=fakes.Informant())
+
+    summary = await trader.run(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -105,10 +105,7 @@ async def test_trader_trailing_stop_loss():
         trailing_stop=Decimal('0.1'),
     )
 
-    await trader.run()
-    res = trader.summary
-
-    assert res.profit == 8
+    assert summary.profit == 8
 
 
 async def test_trader_restart_on_missed_candle():
@@ -123,13 +120,12 @@ async def test_trader_restart_on_missed_candle():
             Candle(time=5),
         ]
     })
+    trader = Trader(chandler=chandler, informant=fakes.Informant())
     strategy1 = fakes.Strategy(None, None)
     strategy2 = fakes.Strategy(None, None, None)
     strategy_stack = [strategy2, strategy1]
 
-    trader = Trader(
-        chandler=chandler,
-        informant=fakes.Informant(),
+    await trader.run(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -141,8 +137,6 @@ async def test_trader_restart_on_missed_candle():
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
     )
-
-    await trader.run()
 
     assert len(strategy1.updates) == 2
     assert strategy1.updates[0].time == 0
@@ -165,10 +159,9 @@ async def test_trader_assume_same_as_last_on_missed_candle():
         ]
     })
     strategy = fakes.Strategy(None, None, None, None, None)
+    trader = Trader(chandler=chandler, informant=fakes.Informant())
 
-    trader = Trader(
-        chandler=chandler,
-        informant=fakes.Informant(),
+    await trader.run(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -180,8 +173,6 @@ async def test_trader_assume_same_as_last_on_missed_candle():
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
     )
-
-    await trader.run()
 
     assert len(strategy.updates) == 5
     assert strategy.updates[0].time == 0

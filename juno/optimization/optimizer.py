@@ -16,7 +16,8 @@ from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, f
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms
 from juno.trading import (
-    MissedCandlePolicy, Statistics, Trader, get_benchmark_statistics, get_portfolio_statistics
+    MissedCandlePolicy, Statistics, Trader, TradingSummary, get_benchmark_statistics,
+    get_portfolio_statistics
 )
 from juno.typing import map_input_args
 from juno.utils import flatten, format_attrs_as_json, unpack_symbol
@@ -53,6 +54,16 @@ class Optimizer:
         chandler: Chandler,
         informant: Informant,
         prices: Prices,
+        trader: Trader,
+    ) -> None:
+        self.solver = solver
+        self.chandler = chandler
+        self.informant = informant
+        self.prices = prices
+        self.trader = trader
+
+    async def run(
+        self,
         exchange: str,
         start: Timestamp,
         quote: Decimal,
@@ -67,7 +78,7 @@ class Optimizer:
         mutation_probability: Decimal = Decimal('0.2'),
         seed: Optional[int] = None,
         verbose: bool = False,
-    ) -> None:
+    ) -> OptimizationSummary:
         now = time_ms()
 
         if end is None:
@@ -85,43 +96,24 @@ class Optimizer:
         if seed is None:
             seed = randrange(sys.maxsize)
 
+        # TODO: Use _Context similar to trader?
+
         _log.info(f'randomizer seed ({seed})')
 
-        self.solver = solver
-        self.chandler = chandler
-        self.informant = informant
-        self.prices = prices
-        self.exchange = exchange
-        self.symbols = symbols
-        self.intervals = intervals
-        self.start = start
-        self.quote = quote
-        self.strategy_type = strategy_type
-        self.end = end
-        self.missed_candle_policy = missed_candle_policy
-        self.trailing_stop = trailing_stop
-        self.population_size = population_size
-        self.max_generations = max_generations
-        self.mutation_probability = mutation_probability
-        self.seed = seed
-        self.verbose = verbose
+        symbols = self.informant.list_symbols(exchange, symbols)
+        intervals = self.informant.list_candle_intervals(exchange, intervals)
 
-        self.result = OptimizationSummary()
-
-    async def run(self) -> None:
-        symbols = self.informant.list_symbols(self.exchange, self.symbols)
-        intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
-
-        daily_fiat_prices = await self.prices.map_fiat_daily_prices(
-            {a for s in symbols for a in unpack_symbol(s)}, self.start, self.end
+        fiat_daily_prices = await self.prices.map_fiat_daily_prices(
+            {a for s in symbols for a in unpack_symbol(s)}, start, end
         )
 
         candles: Dict[Tuple[str, int], List[Candle]] = {}
 
         async def assign(symbol: str, interval: int) -> None:
+            assert end
             candles[(symbol, interval)] = await self.chandler.list_candles(
-                self.exchange, symbol, interval, floor_multiple(self.start, interval),
-                floor_multiple(self.end, interval)
+                exchange, symbol, interval, floor_multiple(start, interval),
+                floor_multiple(end, interval)
             )
         # Fetch candles for backtesting.
         await asyncio.gather(*(assign(s, i) for s, i in product(symbols, intervals)))
@@ -129,17 +121,17 @@ class Optimizer:
         for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
-                         f'{strfspan(self.start, self.end)}')
+                         f'{strfspan(start, end)}')
 
-        fees_filters = {s: self.informant.get_fees_filters(self.exchange, s) for s in symbols}
+        fees_filters = {s: self.informant.get_fees_filters(exchange, s) for s in symbols}
 
         # Prepare benchmark stats.
-        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
+        benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
 
         # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
         # us because we want to be able to use multiple optimizers with different random seeds.
         # Therefore we need to use custom algorithms to support passing in our own `random.Random`.
-        random = Random(self.seed)
+        random = Random(seed)
 
         # Objectives.
         objectives = SolverResult.meta()
@@ -156,9 +148,9 @@ class Optimizer:
         attrs = [
             _build_attr(symbols, Choice(symbols), random),
             _build_attr(intervals, Choice(intervals), random),
-            _build_attr(self.missed_candle_policy, _missed_candle_policy_constraint, random),
-            _build_attr(self.trailing_stop, _trailing_stop_constraint, random),
-            *(partial(c.random, random) for c in self.strategy_type.meta.constraints.values())
+            _build_attr(missed_candle_policy, _missed_candle_policy_constraint, random),
+            _build_attr(trailing_stop, _trailing_stop_constraint, random),
+            *(partial(c.random, random) for c in strategy_type.meta.constraints.values())
         ]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
@@ -183,12 +175,12 @@ class Optimizer:
 
         def evaluate(ind: List[Any]) -> SolverResult:
             return self.solver.solve(
-                daily_fiat_prices,
+                fiat_daily_prices,
                 benchmark_stats,
-                self.strategy_type,
-                self.start,
-                self.end,
-                self.quote,
+                strategy_type,
+                start,
+                end,
+                quote,
                 candles[(ind[0], ind[1])],
                 *fees_filters[ind[0]],
                 *flatten(ind)
@@ -196,9 +188,9 @@ class Optimizer:
 
         toolbox.register('evaluate', evaluate)
 
-        toolbox.population_size = self.population_size
-        toolbox.max_generations = self.max_generations
-        toolbox.mutation_probability = self.mutation_probability
+        toolbox.population_size = population_size
+        toolbox.max_generations = max_generations
+        toolbox.mutation_probability = mutation_probability
 
         pop = toolbox.population(n=toolbox.population_size)
         pop = toolbox.select(pop, len(pop))
@@ -221,7 +213,7 @@ class Optimizer:
                 stats=None,
                 ngen=toolbox.max_generations,
                 halloffame=hall,
-                verbose=self.verbose,
+                verbose=verbose,
             )
         )
 
@@ -229,29 +221,48 @@ class Optimizer:
 
         best_args = list(flatten(hall[0]))
         best_result = self.solver.solve(
-            daily_fiat_prices,
+            fiat_daily_prices,
             benchmark_stats,
-            self.strategy_type,
-            self.start,
-            self.end,
-            self.quote,
+            strategy_type,
+            start,
+            end,
+            quote,
             candles[(best_args[0], best_args[1])],
             *fees_filters[best_args[0]],
             *best_args
         )
-        self.result = OptimizationSummary(
+        summary = OptimizationSummary(
             symbol=best_args[0],
             interval=best_args[1],
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
-            strategy_config=map_input_args(self.strategy_type.__init__, best_args[4:]),
+            strategy_config=map_input_args(strategy_type.__init__, best_args[4:]),
             result=best_result,
         )
 
-        await self._validate(self.result, daily_fiat_prices, benchmark_stats)
+        await self._validate(
+            summary=summary,
+            fiat_daily_prices=fiat_daily_prices,
+            benchmark_stats=benchmark_stats,
+            exchange=exchange,
+            start=start,
+            end=end,
+            quote=quote,
+            strategy_type=strategy_type,
+        )
+
+        return summary
 
     async def _validate(
-        self, result: OptimizationSummary, daily_fiat_prices, benchmark_stats: Statistics
+        self,
+        summary: OptimizationSummary,
+        fiat_daily_prices,
+        benchmark_stats: Statistics,
+        exchange: str,
+        start: int,
+        end: int,
+        quote: Decimal,
+        strategy_type: Type[Strategy]
     ) -> None:
         # Validate our results by running a backtest in actual trader to ensure correctness.
         solver_name = type(self.solver).__name__.lower()
@@ -259,42 +270,44 @@ class Optimizer:
             f'validating {solver_name} solver result with best args against actual trader'
         )
 
+        start = floor_multiple(start, summary.interval)
         trading_config = {
-            'exchange': self.exchange,
-            'symbol': result.symbol,
-            'interval': result.interval,
-            'start': floor_multiple(self.start, result.interval),
-            'end': floor_multiple(self.end, result.interval),
-            'quote': self.quote,
-            'missed_candle_policy': result.missed_candle_policy,
-            'trailing_stop': result.trailing_stop,
+            'exchange': exchange,
+            'symbol': summary.symbol,
+            'interval': summary.interval,
+            'start': start,
+            'end': floor_multiple(end, summary.interval),
+            'quote': quote,
+            'missed_candle_policy': summary.missed_candle_policy,
+            'trailing_stop': summary.trailing_stop,
             'adjust_start': False,
         }
 
-        trader = Trader(
-            chandler=self.chandler,
-            informant=self.informant,
-            new_strategy=lambda: self.strategy_type(**result.strategy_config),
-            **trading_config,
-        )
+        trading_summary = TradingSummary(start=start, quote=quote)
         try:
-            await trader.run()
+            await self.trader.run(
+                new_strategy=lambda: strategy_type(**summary.strategy_config),
+                summary=trading_summary,
+                **trading_config,
+            )
         except InsufficientBalance:
             pass
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, daily_fiat_prices, trader.summary
+            benchmark_stats, fiat_daily_prices, trading_summary
         )
-        validation_result = SolverResult.from_trading_summary(trader.summary, portfolio_stats)
+        validation_result = SolverResult.from_trading_summary(trading_summary, portfolio_stats)
 
-        if not _isclose(validation_result, result.result):
+        if not _isclose(validation_result, summary.result):
             raise Exception(
                 f'Optimizer results differ between trader and '
                 f'{solver_name} solver.\nTrading config: {trading_config}\nStrategy config: '
-                f'{result.strategy_config}\nTrader result: '
+                f'{summary.strategy_config}\nTrader result: '
                 f'{format_attrs_as_json(validation_result)}\nSolver result: '
-                f'{format_attrs_as_json(result.result)}'
+                f'{format_attrs_as_json(summary.result)}'
             )
-        _log.info(f'Validation trading summary: {format_attrs_as_json(trader.summary)}')
+
+        # TODO: Don't print here and attach to summary instead.
+        _log.info(f'Validation trading summary: {format_attrs_as_json(trading_summary)}')
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:
