@@ -2,25 +2,17 @@ from decimal import Decimal
 from typing import List, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.components import Chandler, Informant, Prices
-from juno.optimization import Optimizer, Solver
-from juno.trading import MissedCandlePolicy, Trader
+from juno.optimization import Optimizer
+from juno.trading import MissedCandlePolicy
 from juno.utils import get_module_type
 
 from . import Agent
 
 
 class Optimize(Agent):
-    def __init__(
-        self, solver: Solver, chandler: Chandler, informant: Informant, prices: Prices,
-        trader: Trader
-    ) -> None:
+    def __init__(self, optimizer: Optimizer) -> None:
         super().__init__()
-        self.solver = solver
-        self.chandler = chandler
-        self.informant = informant
-        self.prices = prices
-        self.trader = trader
+        self.optimizer = optimizer
 
     async def run(
         self,
@@ -40,12 +32,7 @@ class Optimize(Agent):
         verbose: bool = False,
     ) -> None:
         strategy_type = get_module_type(strategies, strategy)
-        optimizer = Optimizer(
-            solver=self.solver,
-            chandler=self.chandler,
-            informant=self.informant,
-            prices=self.prices,
-            trader=self.trader,
+        self.result = await self.optimizer.run(
             exchange=exchange,
             symbols=symbols,
             intervals=intervals,
@@ -61,7 +48,5 @@ class Optimize(Agent):
             seed=seed,
             verbose=verbose,
         )
-        await optimizer.run()
-        self.result = optimizer.result
 
         # TODO: Print best config in pretty format.

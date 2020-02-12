@@ -22,7 +22,7 @@ async def rust_solver(loop):
         yield rust
 
 
-async def test_optimizer_same_result_with_predefined_seed(request, rust_solver) -> None:
+async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
     portfolio_candles = load_by_typing(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]
@@ -52,15 +52,13 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver) 
         filters=filters
     )
     trader = Trader(chandler=chandler, informant=informant)
+    optimizer = Optimizer(
+        solver=rust_solver, chandler=chandler, informant=informant, prices=prices, trader=trader
+    )
 
     results = []
     for _ in range(0, 2):
-        optimizer = Optimizer(
-            solver=rust_solver,
-            chandler=chandler,
-            informant=informant,
-            prices=prices,
-            trader=trader,
+        summary = await optimizer.run(
             exchange='binance',
             start=portfolio_candles[0].time,
             end=portfolio_candles[-1].time + HOUR_MS,
@@ -70,8 +68,7 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver) 
             max_generations=10,
             seed=1
         )
-        await optimizer.run()
-        results.append(optimizer.result.result)
+        results.append(summary.result)
 
     assert results[0].alpha == results[1].alpha
 

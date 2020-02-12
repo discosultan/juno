@@ -59,16 +59,16 @@ async def main() -> None:
     python_solver = optimization.Python()
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        daily_fiat_prices = await prices.map_fiat_daily_prices(
+        fiat_daily_prices = await prices.map_fiat_daily_prices(
             ('btc', unpack_symbol(SYMBOL)[0]), start, end
         )
-        benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])
+        benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
         fees, filters = informant.get_fees_filters('binance', SYMBOL)
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
         args = (
-            daily_fiat_prices,
+            fiat_daily_prices,
             benchmark_stats,
             strategies.MAMACX,
             start,
@@ -113,7 +113,7 @@ async def main() -> None:
             adjust_start=False
         )
         portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, daily_fiat_prices, trading_summary
+            benchmark_stats, fiat_daily_prices, trading_summary
         )
 
         logging.info('=== rust solver ===')

@@ -17,7 +17,7 @@ from juno.brokers import Broker
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.logging import create_handlers
-from juno.optimization import Solver
+from juno.optimization import Optimizer, Solver
 from juno.plugins import list_plugins
 from juno.storages import Storage
 from juno.trading import Trader
@@ -86,6 +86,7 @@ async def main() -> None:
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
     container.add_singleton_type(Trader)
+    container.add_singleton_type(Optimizer)
     for _name, type_ in inspect.getmembers(components, inspect.isclass):
         container.add_singleton_type(type_)
 
