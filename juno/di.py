@@ -66,14 +66,21 @@ class Container:
 
         # 2. instance factory
         instance_factory = self._singleton_instances.get(type_)
+        instance = inspect.Parameter.empty
         if instance_factory:
-            instance = instance_factory()
-        else:
+            try:
+                instance = instance_factory()
+            except Exception:
+                _log.info(f'instance factory registered but unable to resolve for {type_}')
+        if instance is inspect.Parameter.empty:
             # 3. type factory
             type_factory = self._singleton_types.get(type_)
             instance_type: Optional[Type[T]] = None
             if type_factory:
-                instance_type = type_factory()
+                try:
+                    instance_type = type_factory()
+                except Exception:
+                    _log.info(f'type factory registered but unable to resolve for {type_}')
             # 4. construct implicitly
             elif is_root:
                 instance_type = type_
