@@ -54,7 +54,7 @@ class Foo(Agent):
         summary.finish(end)
 
         # Statistics.
-        daily_fiat_prices = await self._prices.map_daily_fiat_prices(
+        daily_fiat_prices = await self._prices.map_fiat_daily_prices(
             {a for s in symbols for a in unpack_symbol(s)}, trading_start, end
         )
 

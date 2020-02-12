@@ -13,7 +13,7 @@ class Prices:
         self._chandler = chandler
         self._fiat_asset = 'eur'
 
-    async def map_daily_fiat_prices(
+    async def map_fiat_daily_prices(
         self, assets: Iterable[str], start: int, end: int
     ) -> Dict[str, List[Decimal]]:
         start = floor_multiple(start, DAY_MS)

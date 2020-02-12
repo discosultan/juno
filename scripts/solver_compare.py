@@ -58,7 +58,7 @@ async def main() -> None:
     python_solver = optimization.Python()
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        daily_fiat_prices = await prices.map_daily_fiat_prices(
+        daily_fiat_prices = await prices.map_fiat_daily_prices(
             ('btc', unpack_symbol(SYMBOL)[0]), start, end
         )
         benchmark_stats = get_benchmark_statistics(daily_fiat_prices['btc'])

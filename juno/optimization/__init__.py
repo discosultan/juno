@@ -1,10 +1,10 @@
-from .optimizer import OptimizationResult, Optimizer
+from .optimizer import OptimizationSummary, Optimizer
 from .python import Python
 from .rust import Rust
 from .solver import Solver
 
 __all__ = [
-    'OptimizationResult',
+    'OptimizationSummary',
     'Optimizer',
     'Python',
     'Rust',

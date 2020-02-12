@@ -37,7 +37,7 @@ _trailing_stop_constraint = ConstraintChoice([
 ])
 
 
-class OptimizationResult(NamedTuple):
+class OptimizationSummary(NamedTuple):
     symbol: str = ''
     interval: Interval = 0
     missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
@@ -106,13 +106,13 @@ class Optimizer:
         self.seed = seed
         self.verbose = verbose
 
-        self.result = OptimizationResult()
+        self.result = OptimizationSummary()
 
     async def run(self) -> None:
         symbols = self.informant.list_symbols(self.exchange, self.symbols)
         intervals = self.informant.list_candle_intervals(self.exchange, self.intervals)
 
-        daily_fiat_prices = await self.prices.map_daily_fiat_prices(
+        daily_fiat_prices = await self.prices.map_fiat_daily_prices(
             {a for s in symbols for a in unpack_symbol(s)}, self.start, self.end
         )
 
@@ -239,7 +239,7 @@ class Optimizer:
             *fees_filters[best_args[0]],
             *best_args
         )
-        self.result = OptimizationResult(
+        self.result = OptimizationSummary(
             symbol=best_args[0],
             interval=best_args[1],
             missed_candle_policy=best_args[2],
@@ -251,7 +251,7 @@ class Optimizer:
         await self._validate(self.result, daily_fiat_prices, benchmark_stats)
 
     async def _validate(
-        self, result: OptimizationResult, daily_fiat_prices, benchmark_stats: Statistics
+        self, result: OptimizationSummary, daily_fiat_prices, benchmark_stats: Statistics
     ) -> None:
         # Validate our results by running a backtest in actual trader to ensure correctness.
         solver_name = type(self.solver).__name__.lower()
