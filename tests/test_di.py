@@ -107,12 +107,22 @@ def test_type_error_on_missing_dep(container):
 
 def test_optional_dependency_added(container):
     class Qux:
-        def __init__(self, value: Optional[int] = None):
+        def __init__(self, value: Optional[int] = None) -> None:
             self.value = value
 
     container.add_singleton_type(int)
     result = container.resolve(Qux)
     assert result.value == 0
+
+
+def test_falls_back_to_default_if_factories_fail(container: di.Container):
+    class Qux:
+        def __init__(self, value: int = 1) -> None:
+            self.value = value
+
+    container.add_singleton_instance(int, lambda: raise_type_error())
+    container.add_singleton_type(int, lambda: raise_type_error())
+    assert container.resolve(Qux).value == 1
 
 
 class Foo:
@@ -142,3 +152,7 @@ class Bar:
 class Baz:
     def __init__(self, bar: Bar) -> None:
         self.bar = bar
+
+
+def raise_type_error():
+    raise TypeError()
