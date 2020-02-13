@@ -73,7 +73,7 @@ order_client_id = str(uuid4())
         ),
     ]
 )
-async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expected_output):
+async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expected_output) -> None:
     snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
     updates = [DepthUpdate(asks=update_asks, bids=[])]
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
@@ -130,7 +130,7 @@ async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expecte
         ),
     ],
 )
-async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected_output):
+async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected_output) -> None:
     snapshot = DepthSnapshot(asks=[], bids=snapshot_bids)
     updates = [DepthUpdate(asks=[], bids=update_bids)]
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
@@ -140,7 +140,7 @@ async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected
         assert_fills(output, expected_output)
 
 
-async def test_market_insufficient_balance():
+async def test_market_insufficient_balance() -> None:
     snapshot = DepthSnapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
     exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
     exchange.can_stream_depth_snapshot = False
@@ -150,7 +150,7 @@ async def test_market_insufficient_balance():
             await broker.buy('exchange', 'eth-btc', Decimal('0.1'), True)
 
 
-async def test_limit_fill_immediately():
+async def test_limit_fill_immediately() -> None:
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))])
     exchange = fakes.Exchange(
         depth=snapshot,
@@ -174,7 +174,7 @@ async def test_limit_fill_immediately():
         await broker.buy('exchange', 'eth-btc', Decimal('1.0'), False)
 
 
-async def test_limit_fill_partially():
+async def test_limit_fill_partially() -> None:
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))])
     exchange = fakes.Exchange(
         depth=snapshot,
@@ -210,7 +210,7 @@ async def test_limit_fill_partially():
         await broker.buy('exchange', 'eth-btc', Decimal('1.0'), False)
 
 
-async def test_limit_insufficient_balance():
+async def test_limit_insufficient_balance() -> None:
     snapshot = DepthSnapshot(asks=[], bids=[(Decimal('1.0'), Decimal('1.0'))])
     exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
     exchange.can_stream_depth_snapshot = False
@@ -220,7 +220,7 @@ async def test_limit_insufficient_balance():
             await broker.buy('exchange', 'eth-btc', Decimal('0.1'), False)
 
 
-async def test_limit_partial_fill_adjust_fill():
+async def test_limit_partial_fill_adjust_fill() -> None:
     snapshot = DepthSnapshot(
         asks=[(Decimal('5.0'), Decimal('1.0'))],
         bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],

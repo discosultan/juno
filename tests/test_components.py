@@ -57,7 +57,7 @@ async def test_find_first_candle_not_found(storage, earliest_exchange_start, tim
 
 
 @pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])
-async def test_get_fees_filters(storage, exchange_key):
+async def test_get_fees_filters(storage, exchange_key) -> None:
     fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
     filters = Filters(
         price=Price(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0')),
@@ -79,7 +79,7 @@ async def test_get_fees_filters(storage, exchange_key):
     (['eth-btc', 'ltc-btc', 'ltc-eth'], ['*-btc'], ['eth-btc', 'ltc-btc']),
     (['eth-btc', 'ltc-btc', 'ltc-eth'], ['eth-btc', 'ltc-btc'], ['eth-btc', 'ltc-btc']),
 ])
-async def test_list_symbols(storage, symbols, patterns, expected_output):
+async def test_list_symbols(storage, symbols, patterns, expected_output) -> None:
     exchange = fakes.Exchange(
         exchange_info=ExchangeInfo(filters={s: Filters() for s in symbols})
     )
@@ -95,7 +95,7 @@ async def test_list_symbols(storage, symbols, patterns, expected_output):
     ([1, 2], None, [1, 2]),
     ([1, 2, 3], [1, 2], [1, 2]),
 ])
-async def test_list_candle_intervals(storage, intervals, patterns, expected_output):
+async def test_list_candle_intervals(storage, intervals, patterns, expected_output) -> None:
     exchange = fakes.Exchange(
         exchange_info=ExchangeInfo(candle_intervals=intervals)
     )
@@ -107,7 +107,7 @@ async def test_list_candle_intervals(storage, intervals, patterns, expected_outp
     assert set(output) == set(expected_output)
 
 
-async def test_list_asks_bids(storage):
+async def test_list_asks_bids(storage) -> None:
     snapshot = DepthSnapshot(
         asks=[
             (Decimal('1.0'), Decimal('1.0')),
@@ -139,7 +139,7 @@ async def test_list_asks_bids(storage):
     ]
 
 
-async def test_get_balance():
+async def test_get_balance() -> None:
     balance = Balance(available=Decimal('1.0'), hold=Decimal('0.0'))
     exchange = fakes.Exchange(balances={'btc': balance})
 

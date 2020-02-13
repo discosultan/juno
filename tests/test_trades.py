@@ -6,11 +6,12 @@ import pytest
 from juno import Trade
 from juno.asyncio import cancel, cancelable, list_async
 from juno.components import Trades
+from juno.storages import Storage
 
 from . import fakes
 
 
-async def test_stream_future_trades_span_stored_until_stopped(storage):
+async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) -> None:
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     START = 0
@@ -47,7 +48,7 @@ async def test_stream_future_trades_span_stored_until_stopped(storage):
         [0, 4, 0, 2, [(0, 4)]],  # Middle trades with cap at the end.
     ]
 )
-async def test_stream_trades(storage, start, end, efrom, eto, espans):
+async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -> None:
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     CURRENT = 6

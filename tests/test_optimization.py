@@ -22,7 +22,7 @@ async def rust_solver(loop):
         yield rust
 
 
-async def test_optimizer_same_result_with_predefined_seed(request, rust_solver):
+async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: Rust) -> None:
     portfolio_candles = load_by_typing(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]

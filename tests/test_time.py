@@ -5,12 +5,12 @@ import pytest
 from juno import time
 
 
-def test_datetime_timestamp_ms():
+def test_datetime_timestamp_ms() -> None:
     output = time.datetime_timestamp_ms(datetime(2000, 1, 1, tzinfo=time.UTC))
     assert output == 946_684_800_000
 
 
-def test_datetime_utcfromtimestamp_ms():
+def test_datetime_utcfromtimestamp_ms() -> None:
     output = time.datetime_utcfromtimestamp_ms(946_684_800_000)
     assert output == datetime(2000, 1, 1, tzinfo=time.UTC)
 
@@ -23,7 +23,7 @@ def test_datetime_utcfromtimestamp_ms():
         [0, '0ms'],
     ]
 )
-def test_strfinterval(input, expected_output):
+def test_strfinterval(input, expected_output) -> None:
     assert time.strfinterval(input) == expected_output
 
 
@@ -37,10 +37,10 @@ def test_strftimestamp():
         ['2d', time.DAY_MS * 2],
     ]
 )
-def test_strpinterval(input, expected_output):
+def test_strpinterval(input, expected_output) -> None:
     output = time.strpinterval(input)
     assert output == expected_output
 
 
-def test_strptimestamp():
+def test_strptimestamp() -> None:
     assert time.strptimestamp('2019-01-01') == 1546300800000

@@ -13,7 +13,7 @@ class Bar(NamedTuple):
     value: int
 
 
-def test_get_input_type_hints():
+def test_get_input_type_hints() -> None:
     assert typing.get_input_type_hints(foo) == {'a': int}
 
 
@@ -23,7 +23,7 @@ def test_get_input_type_hints():
     (Bar, 'Bar'),
     # (Optional[int], 'typing.Optional[int]'),  # 'typing.Union[int, None]'
 ])
-def test_get_name(input_, expected_output):
+def test_get_name(input_, expected_output) -> None:
     assert typing.get_name(input_) == expected_output
 
 
@@ -32,7 +32,7 @@ def test_get_name(input_, expected_output):
     (List[int], False),
     (Bar, True),
 ])
-def test_isnamedtuple(input_, expected_output):
+def test_isnamedtuple(input_, expected_output) -> None:
     assert typing.isnamedtuple(input_) == expected_output
 
 
@@ -40,7 +40,7 @@ def test_isnamedtuple(input_, expected_output):
     (int, False),
     (Optional[int], True),
 ])
-def test_isoptional(input_, expected_output):
+def test_isoptional(input_, expected_output) -> None:
     assert typing.isoptional(input_) == expected_output
 
 
@@ -49,7 +49,7 @@ def test_isoptional(input_, expected_output):
     ([1, [2]], Tuple[int, Bar], [1, Bar(value=2)]),
     ([1, 2], List[int], [1, 2]),
 ])
-def test_load_by_typing(obj, type_, expected_output):
+def test_load_by_typing(obj, type_, expected_output) -> None:
     assert typing.load_by_typing(obj, type_) == expected_output
 
 
@@ -65,5 +65,5 @@ def test_load_by_typing(obj, type_, expected_output):
     ([1, 'x'], List[int], False),
     ((1, 'x'), Tuple[int, str], True),
 ])
-def test_types_match(input_, type_, expected_output):
+def test_types_match(input_, type_, expected_output) -> None:
     assert typing.types_match(input_, type_) == expected_output

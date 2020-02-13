@@ -30,11 +30,11 @@ class MyNamedTuple(NamedTuple):
         ('foo', '"foo"'),
     ]
 )
-def test_dumps(input, expected_output):
+def test_dumps(input, expected_output) -> None:
     assert json.dumps(input, use_decimal=True) == expected_output
 
 
-def test_dumps_complicated():
+def test_dumps_complicated() -> None:
     input = {
         'foo': Decimal('0.1'),
         'bar': 'hello',
@@ -61,7 +61,7 @@ def test_dumps_complicated():
         ('"foo"', 'foo'),
     ]
 )
-def test_loads(input, expected_output):
+def test_loads(input, expected_output) -> None:
     res = json.loads(input, use_decimal=True)
     assert type(res) == type(expected_output)
     assert res == expected_output

@@ -3,9 +3,8 @@ from contextlib import asynccontextmanager
 
 from juno import (
     CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters, OrderResult,
-    OrderStatus, Side, brokers, components, exchanges, storages
+    OrderStatus, Side, brokers, components, exchanges, storages, strategies
 )
-from juno.asyncio import list_async
 
 
 class Exchange(exchanges.Exchange):
@@ -147,12 +146,9 @@ class Exchange(exchanges.Exchange):
         yield inner()
 
 
-class Chandler:
+class Chandler(components.Chandler):
     def __init__(self, candles={}):
         self.candles = candles
-
-    async def list_candles(self, *args, **kwargs):
-        return await list_async(self.stream_candles(*args, **kwargs))
 
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False
@@ -180,7 +176,7 @@ class Chandler:
             last_c = c
 
 
-class Trades:
+class Trades(components.Trades):
     def __init__(self, trades=[]):
         self.trades = trades
 
@@ -189,32 +185,42 @@ class Trades:
             yield t
 
 
-class Informant:
+class Informant(components.Informant):
     def __init__(
         self,
         fees=Fees(),
         filters=Filters(),
-        exchanges_supporting_symbol=[],
+        symbols=[],
         candle_intervals=[],
-        symbols=[]
+        tickers=[],
+        exchanges=[],
+        exchanges_supporting_symbol=[],
     ):
         self.fees = fees
         self.filters = filters
-        self.exchanges_supporting_symbol = exchanges_supporting_symbol
-        self.candle_intervals = candle_intervals
         self.symbols = symbols
+        self.candle_intervals = candle_intervals
+        self.tickers = tickers
+        self.exchanges = exchanges
+        self.exchanges_supporting_symbol = exchanges_supporting_symbol
 
     def get_fees_filters(self, exchange, symbol):
         return self.fees, self.filters
 
-    def list_exchanges_supporting_symbol(self, symbol):
-        return self.exchanges_supporting_symbol
+    def list_symbols(self, exchange, patterns=None):
+        return self.symbols
 
     def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
 
-    def list_symbols(self, exchange, patterns=None):
-        return self.symbols
+    def list_tickers(self, exchange):
+        return self.tickers
+
+    def list_exchanges(self, exchange):
+        return self.exchanges
+
+    def list_exchanges_supporting_symbol(self, symbol):
+        return self.exchanges_supporting_symbol
 
 
 class Orderbook(components.Orderbook):
@@ -222,7 +228,7 @@ class Orderbook(components.Orderbook):
         self._data = data
 
 
-class Wallet:
+class Wallet(components.Wallet):
     def __init__(self, exchange_balances):
         self._exchange_balances = exchange_balances
 
@@ -256,7 +262,7 @@ class Market(brokers.Market):
                 del orderbook_side[fill.price]
 
 
-class Strategy:
+class Strategy(strategies.Strategy):
     def __init__(self, *advices):
         self.advices = list(reversed(advices))
         self.updates = []

@@ -22,7 +22,7 @@ class Foo(NamedTuple):
     enum: SomeEnum
 
 
-def test_init_module_instance():
+def test_init_module_instance() -> None:
     input = {
         'type': 'foo',
         'name': 'bar',
@@ -49,7 +49,7 @@ def test_init_module_instance():
     assert output.enum == SomeEnum.KEY
 
 
-def test_load_from_env():
+def test_load_from_env() -> None:
     input = {
         'JUNO__FOO__BAR': 'a',
         'JUNO__FOO__BAZ': 'b',
@@ -71,7 +71,7 @@ def test_load_from_env():
     assert output == expected_output
 
 
-def test_list_names():
+def test_list_names() -> None:
     input = {
         'foo': {
             'bar': 'a'

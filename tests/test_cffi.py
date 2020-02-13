@@ -11,7 +11,7 @@ def cdef_builder():
     return cffi.CDefBuilder()
 
 
-def test_cdef_builder_function(cdef_builder):
+def test_cdef_builder_function(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.function(bar)
     assert output == '''uint32_t bar(
     uint32_t x,
@@ -19,7 +19,7 @@ def test_cdef_builder_function(cdef_builder):
 '''
 
 
-def test_cdef_builder_function_from_params(cdef_builder):
+def test_cdef_builder_function_from_params(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.function_from_params('bar', int, ('x', int), ('y', Decimal))
     assert output == '''uint32_t bar(
     uint32_t x,
@@ -27,7 +27,7 @@ def test_cdef_builder_function_from_params(cdef_builder):
 '''
 
 
-def test_cdef_builder_function_from_params_custom_mapping():
+def test_cdef_builder_function_from_params_custom_mapping() -> None:
     cdef_builder = cffi.CDefBuilder({Baz: 'uint64_t'})
     output = cdef_builder.function_from_params('baz', Baz, ('x', int), ('y', Baz))
     assert output == '''uint64_t baz(
@@ -36,19 +36,19 @@ def test_cdef_builder_function_from_params_custom_mapping():
 '''
 
 
-def test_cdef_builder_function_from_params_missing_mapping(cdef_builder):
+def test_cdef_builder_function_from_params_missing_mapping(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.function_from_params('temp', Foo)
     assert output == '''Foo temp();
 '''
 
 
-def test_build_function_from_params_void_return(cdef_builder):
+def test_build_function_from_params_void_return(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.function_from_params('temp', None)
     assert output == '''void temp();
 '''
 
 
-def test_cdef_builder_function_from_params_list(cdef_builder):
+def test_cdef_builder_function_from_params_list(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.function_from_params('temp', int, ('values', List[int]))
     assert output == '''uint32_t temp(
     const uint32_t* values,
@@ -56,7 +56,7 @@ def test_cdef_builder_function_from_params_list(cdef_builder):
 '''
 
 
-def test_cdef_builder_struct(cdef_builder):
+def test_cdef_builder_struct(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.struct(Foo)
     assert output == '''typedef struct {
     uint32_t x;
@@ -65,7 +65,7 @@ def test_cdef_builder_struct(cdef_builder):
 '''
 
 
-def test_cdef_builder_struct_exclude_field(cdef_builder):
+def test_cdef_builder_struct_exclude_field(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.struct(Foo, exclude=['x'])
     assert output == '''typedef struct {
     double y;
@@ -73,7 +73,7 @@ def test_cdef_builder_struct_exclude_field(cdef_builder):
 '''
 
 
-def test_cdef_builder_struct_from_fields(cdef_builder):
+def test_cdef_builder_struct_from_fields(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.struct_from_fields('Temp', ('x', int), ('y', Decimal))
     assert output == '''typedef struct {
     uint32_t x;
@@ -82,7 +82,7 @@ def test_cdef_builder_struct_from_fields(cdef_builder):
 '''
 
 
-def test_cdef_builder_struct_from_fields_refs(cdef_builder):
+def test_cdef_builder_struct_from_fields_refs(cdef_builder: cffi.CDefBuilder) -> None:
     output = cdef_builder.struct_from_fields('Temp', ('x', Foo), refs=['x'])
     assert output == '''typedef struct {
     const Foo* x;

@@ -48,7 +48,7 @@ async def kraken(loop, config):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_exchange_info(loop, request, exchange):
+async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     info = await exchange.get_exchange_info()
@@ -72,7 +72,7 @@ async def test_get_exchange_info(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_list_tickers(loop, request, exchange):
+async def test_list_tickers(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_list_all_tickers)
 
@@ -86,7 +86,7 @@ async def test_list_tickers(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_list_one_ticker(loop, request, exchange):
+async def test_list_one_ticker(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     tickers = await exchange.list_tickers(symbols=['eth-btc'])
@@ -98,7 +98,7 @@ async def test_list_one_ticker(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_balances(loop, request, exchange):
+async def test_get_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     balances = await exchange.get_balances()
@@ -109,28 +109,28 @@ async def test_get_balances(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_stream_historical_candles(loop, request, exchange):
+async def test_stream_historical_candles(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_stream_historical_candles)
 
     start = strptimestamp('2018-01-01')
 
-    stream = exchange.stream_historical_candles(
+    count = 0
+    async for candle in exchange.stream_historical_candles(
         symbol='eth-btc', interval=HOUR_MS, start=start, end=start + HOUR_MS
-    )
-    candle = await stream.__anext__()
+    ):
+        if count == 1:
+            pytest.fail('Expected a single candle')
+        count += 1
 
-    assert types_match(candle, Candle)
-    assert candle.time == start
-
-    with pytest.raises(StopAsyncIteration):
-        await stream.__anext__()
+        assert types_match(candle, Candle)
+        assert candle.time == start
 
 
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_connect_stream_candles(loop, request, exchange):
+async def test_connect_stream_candles(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_stream_candles)
 
@@ -143,7 +143,7 @@ async def test_connect_stream_candles(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_depth(loop, request, exchange):
+async def test_get_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(not exchange.can_stream_depth_snapshot)
 
@@ -155,7 +155,7 @@ async def test_get_depth(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_connect_stream_depth(loop, request, exchange):
+async def test_connect_stream_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     expected_type = DepthSnapshot if exchange.can_stream_depth_snapshot else DepthUpdate
@@ -169,7 +169,7 @@ async def test_connect_stream_depth(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_place_order(loop, request, exchange):
+async def test_place_order(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_exchange(exchange, Coinbase, Kraken)
 
@@ -181,7 +181,7 @@ async def test_place_order(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_stream_historical_trades(loop, request, exchange):
+async def test_stream_historical_trades(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     # Coinbase can only stream from most recent, hence we use current time.
@@ -202,7 +202,7 @@ async def test_stream_historical_trades(loop, request, exchange):
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_connect_stream_trades(loop, request, exchange):
+async def test_connect_stream_trades(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     # FIAT pairs seem to be more active where supported.

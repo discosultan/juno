@@ -31,7 +31,7 @@ async def memory(loop):
         ],
     ]
 )
-async def test_memory_store_objects_and_span(memory, items):
+async def test_memory_store_objects_and_span(memory: storages.Memory, items) -> None:
     type_ = type(items[0])
     start = items[0].time
     end = items[-1].time + 1
@@ -48,7 +48,7 @@ async def test_memory_store_objects_and_span(memory, items):
     assert output_items == items
 
 
-async def test_memory_stream_missing_series(memory):
+async def test_memory_stream_missing_series(memory: storages.Memory) -> None:
     output_spans, output_items = await asyncio.gather(
         list_async(memory.stream_time_series_spans('key', Candle, 0, 10)),
         list_async(memory.stream_time_series('key', Candle, 0, 10))
@@ -58,7 +58,7 @@ async def test_memory_stream_missing_series(memory):
     assert output_items == []
 
 
-async def test_memory_store_and_stream_empty_series(memory):
+async def test_memory_store_and_stream_empty_series(memory: storages.Memory) -> None:
     await memory.store_time_series_and_span(key='key', type_=Candle, items=[], start=0, end=5)
     output_spans, output_items = await asyncio.gather(
         list_async(memory.stream_time_series_spans('key', Candle, 0, 5)),
@@ -75,7 +75,7 @@ async def test_memory_store_and_stream_empty_series(memory):
     ([Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('0.1'))], List[Ticker]),
     ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees])
 ])
-async def test_memory_set_get(memory, item, type_):
+async def test_memory_set_get(memory: storages.Memory, item, type_) -> None:
     await memory.set(key='key', type_=type_, item=item)
     out_item, _ = await memory.get(key='key', type_=type_)
 
@@ -83,13 +83,13 @@ async def test_memory_set_get(memory, item, type_):
     assert types_match(out_item, type_)
 
 
-async def test_memory_get_missing(memory):
+async def test_memory_get_missing(memory: storages.Memory) -> None:
     item, _ = await memory.get(key='key', type_=Candle)
 
     assert item is None
 
 
-async def test_memory_set_twice_get(memory):
+async def test_memory_set_twice_get(memory: storages.Memory) -> None:
     candle1 = Candle(time=1)
     candle2 = Candle(time=2)
 
@@ -100,7 +100,7 @@ async def test_memory_set_twice_get(memory):
     assert out_candle == candle2
 
 
-async def test_memory_set_get_different(memory):
+async def test_memory_set_get_different(memory: storages.Memory) -> None:
     fees = {'foo': Fees()}
     filters = {'foo': Filters()}
 

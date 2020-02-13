@@ -6,7 +6,7 @@ from juno.asyncio import (
 )
 
 
-async def test_chain_async():
+async def test_chain_async() -> None:
     async def gen():
         yield 1
         yield 2
@@ -19,7 +19,7 @@ async def test_chain_async():
         assert result == expected_output.pop(0)
 
 
-async def test_enumerate_async():
+async def test_enumerate_async() -> None:
     async def gen():
         yield 'a'
         yield 'b'
@@ -35,7 +35,7 @@ async def test_enumerate_async():
         assert result == expected_output.pop(0)
 
 
-async def test_list_async():
+async def test_list_async() -> None:
     async def gen():
         for i in range(3):
             yield i
@@ -43,7 +43,7 @@ async def test_list_async():
     assert await list_async(gen()) == [0, 1, 2]
 
 
-async def test_first_async():
+async def test_first_async() -> None:
     async def gen():
         yield 1
         yield 2
@@ -51,7 +51,7 @@ async def test_first_async():
     assert await first_async(gen()) == 1
 
 
-async def test_merge_async():
+async def test_merge_async() -> None:
     signal1 = asyncio.Event()
     signal2 = asyncio.Event()
 
@@ -77,7 +77,7 @@ async def test_merge_async():
     assert counter == 4
 
 
-async def test_zip_async():
+async def test_zip_async() -> None:
     async def gen1():
         yield 0
         yield 2
@@ -94,7 +94,7 @@ async def test_zip_async():
     assert counter == 4
 
 
-async def test_barrier():
+async def test_barrier() -> None:
     barrier = Barrier(2)
     event = asyncio.Event()
 
@@ -115,13 +115,13 @@ async def test_barrier():
     assert process_event_task.done()
 
 
-async def test_empty_barrier():
+async def test_empty_barrier() -> None:
     barrier = Barrier(0)
     await asyncio.wait_for(barrier.wait(), timeout=0.001)
 
 
-async def test_event_multiple_receivers():
-    event = Event()
+async def test_event_multiple_receivers() -> None:
+    event: Event[str] = Event()
 
     t1 = event.wait()
     t2 = event.wait()
@@ -135,8 +135,8 @@ async def test_event_multiple_receivers():
     assert event.is_set()
 
 
-async def test_event_autoclear():
-    event = Event(autoclear=True)
+async def test_event_autoclear() -> None:
+    event: Event[str] = Event(autoclear=True)
 
     t = event.wait()
 

@@ -14,7 +14,7 @@ from juno.utils import load_json_file
 from . import fakes
 
 
-async def test_backtest():
+async def test_backtest() -> None:
     candles = [
         Candle(time=0, close=Decimal('5.0')),
         Candle(time=1, close=Decimal('10.0')),
@@ -69,7 +69,7 @@ async def test_backtest():
 # 1. was failing as quote was incorrectly calculated after closing a position.
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
-async def test_backtest_scenarios(scenario_nr):
+async def test_backtest_scenarios(scenario_nr: int) -> None:
     chandler = fakes.Chandler(candles={('binance', 'eth-btc', HOUR_MS): load_by_typing(
         load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
         List[Candle]
@@ -107,7 +107,7 @@ async def test_backtest_scenarios(scenario_nr):
     assert await Backtest(trader=trader).start(**agent_config)
 
 
-async def test_paper():
+async def test_paper() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -155,7 +155,7 @@ async def test_paper():
     assert len(orderbook_data[Side.SELL]) == 0
 
 
-async def test_live():
+async def test_live() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [

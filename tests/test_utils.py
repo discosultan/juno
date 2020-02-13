@@ -8,7 +8,7 @@ from juno import utils
 @pytest.mark.parametrize(
     'input,expected_output', [([(0, 1), (1, 2), (3, 4), (4, 5)], [(0, 2), (3, 5)])]
 )
-def test_merge_adjacent_spans(input, expected_output):
+def test_merge_adjacent_spans(input, expected_output) -> None:
     output = list(utils.merge_adjacent_spans(input))
     assert output == expected_output
 
@@ -17,12 +17,12 @@ def test_merge_adjacent_spans(input, expected_output):
     'start,end,spans,expected_output', [(0, 5, [(1, 2), (3, 4)], [(0, 1), (2, 3), (4, 5)]),
                                         (2, 5, [(1, 3), (4, 6)], [(3, 4)])]
 )
-def test_generate_missing_spans(start, end, spans, expected_output):
+def test_generate_missing_spans(start, end, spans, expected_output) -> None:
     output = list(utils.generate_missing_spans(start, end, spans))
     assert output == expected_output
 
 
-def test_page():
+def test_page() -> None:
     pages = list(utils.page(start=0, end=5, interval=1, limit=2))
     assert len(pages) == 3
     assert pages[0][0] == 0
@@ -33,7 +33,7 @@ def test_page():
     assert pages[2][1] == 5
 
 
-def test_recursive_iter():
+def test_recursive_iter() -> None:
     input = {
         'aa': 'ab',
         'ba': {
@@ -52,7 +52,7 @@ def test_recursive_iter():
     assert output == expected_output
 
 
-def test_replace_secrets():
+def test_replace_secrets() -> None:
     input = {'foo': 'hello', 'secret_bar': 'world'}
     output = utils.replace_secrets(input)
 
@@ -61,17 +61,17 @@ def test_replace_secrets():
     assert output['secret_bar'] != input['secret_bar']
 
 
-def test_unpack_symbol():
+def test_unpack_symbol() -> None:
     assert utils.unpack_symbol('eth-btc') == ('eth', 'btc')
 
 
-def test_flatten():
+def test_flatten() -> None:
     expected_output = [35, 53, 525, 6743, 64, 63, 743, 754, 757]
     output = list(utils.flatten([35, 53, [525, 6743], 64, 63, [743, 754, 757]]))
     assert output == expected_output
 
 
-def test_circular_buffer():
+def test_circular_buffer() -> None:
     buffer = utils.CircularBuffer(size=2, default=0)
 
     buffer.push(2)
@@ -92,7 +92,7 @@ def test_circular_buffer():
     assert max(buffer) == 6
 
 
-async def test_event_emitter():
+async def test_event_emitter() -> None:
     ee = utils.EventEmitter()
     exc = Exception('Expected error.')
 
@@ -113,6 +113,6 @@ async def test_event_emitter():
         ('ab', 2, ['ab']),
     ]
 )
-def test_chunks(input, count, expected_output):
+def test_chunks(input, count, expected_output) -> None:
     output = list(utils.chunks(input, count))
     assert output == expected_output

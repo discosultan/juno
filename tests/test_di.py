@@ -1,5 +1,5 @@
 import itertools
-from typing import Callable, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import pytest
 
@@ -13,29 +13,29 @@ def container():
     return di.Container()
 
 
-def test_resolve_no_deps(container):
+def test_resolve_no_deps(container: di.Container) -> None:
     assert container.resolve(Foo)
 
 
-def test_not_registered_not_resolved_implicitly(container):
+def test_not_registered_not_resolved_implicitly(container: di.Container) -> None:
     with pytest.raises(TypeError):
         assert container.resolve(Bar)
 
 
-def test_resolve_added_instance_dep(container):
+def test_resolve_added_instance_dep(container: di.Container) -> None:
     foo = Foo()
     container.add_singleton_instance(Foo, lambda: foo)
     bar = container.resolve(Bar)
     assert bar.foo == foo
 
 
-def test_resolve_added_type_dep(container):
+def test_resolve_added_type_dep(container: di.Container) -> None:
     container.add_singleton_type(Foo, lambda: Foo)
     bar = container.resolve(Bar)
     assert isinstance(bar.foo, Foo)
 
 
-async def test_aenter(container):
+async def test_aenter(container: di.Container) -> None:
     container.add_singleton_type(Foo)
     container.add_singleton_type(Bar)
     baz = container.resolve(Baz)
@@ -44,7 +44,7 @@ async def test_aenter(container):
         assert baz.bar.count == 2
 
 
-def test_map_dependencies():
+def test_map_dependencies() -> None:
     foo = Foo()
     bar = Bar(foo)
     baz = Baz(bar)
@@ -59,11 +59,11 @@ def test_map_dependencies():
     }
 
 
-def test_list_dependencies_in_init_order():
+def test_list_dependencies_in_init_order() -> None:
     foo = Foo()
     bar = Bar(foo)
     baz = Baz(bar)
-    dep_map = {
+    dep_map: Dict[Any, List[Any]] = {
         baz: [bar],
         bar: [foo],
         foo: [],
@@ -75,7 +75,7 @@ def test_list_dependencies_in_init_order():
     ]
 
 
-def test_no_duplicates_when_same_abstract_and_concrete(container):
+def test_no_duplicates_when_same_abstract_and_concrete(container: di.Container) -> None:
     class Qux(Foo):
         pass
 
@@ -86,7 +86,7 @@ def test_no_duplicates_when_same_abstract_and_concrete(container):
     assert result1 == result2
 
 
-def test_dependency_with_default_value(container):
+def test_dependency_with_default_value(container: di.Container) -> None:
     class Qux:
         def __init__(self, factory: Callable[[], int] = lambda: 1) -> None:
             self.factory = factory
@@ -96,7 +96,7 @@ def test_dependency_with_default_value(container):
     assert result.factory() == 1
 
 
-def test_type_error_on_missing_dep(container):
+def test_type_error_on_missing_dep(container: di.Container) -> None:
     class Qux:
         def __init__(self, factory: Callable[[], int]) -> None:
             self.factory = factory
@@ -105,7 +105,7 @@ def test_type_error_on_missing_dep(container):
         container.resolve(Qux)
 
 
-def test_optional_dependency_added(container):
+def test_optional_dependency_added(container: di.Container) -> None:
     class Qux:
         def __init__(self, value: Optional[int] = None) -> None:
             self.value = value
@@ -115,7 +115,7 @@ def test_optional_dependency_added(container):
     assert result.value == 0
 
 
-def test_falls_back_to_default_if_factories_fail(container: di.Container):
+def test_falls_back_to_default_if_factories_fail(container: di.Container) -> None:
     class Qux:
         def __init__(self, value: int = 1) -> None:
             self.value = value

@@ -31,7 +31,7 @@ from juno import filters
         ),
     ]
 )
-def test_price_round_down(price, min_, max_, step, expected_output):
+def test_price_round_down(price, min_, max_, step, expected_output) -> None:
     filter_ = filters.Price(min=min_, max=max_, step=step)
     output = filter_.round_down(price)
     assert output == expected_output
@@ -82,7 +82,7 @@ def test_price_round_down(price, min_, max_, step, expected_output):
         ),
     ]
 )
-def test_size_round_down(size, min_, max_, step, expected_output):
+def test_size_round_down(size, min_, max_, step, expected_output) -> None:
     filter_ = filters.Size(min=min_, max=max_, step=step)
     output = filter_.round_down(size)
     assert output == expected_output

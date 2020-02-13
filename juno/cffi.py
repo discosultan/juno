@@ -1,7 +1,8 @@
 from decimal import Decimal
 from enum import IntEnum
 from typing import (
-    Any, Callable, Dict, Iterable, List, Tuple, Type, get_args, get_origin, get_type_hints
+    Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, get_args, get_origin,
+    get_type_hints
 )
 
 _DEFAULT_MAPPINGS = {
@@ -22,7 +23,7 @@ class CDefBuilder:
         return self.function_from_params(function.__name__, hints['return'], *params)
 
     def function_from_params(
-        self, name: str, return_param: Type[Any], *params: Tuple[str, Type[Any]],
+        self, name: str, return_param: Optional[Type[Any]], *params: Tuple[str, Type[Any]],
         refs: List[str] = []
     ) -> str:
         param_strings = (
@@ -42,7 +43,7 @@ class CDefBuilder:
         )
         return f'typedef struct {{\n{"".join(field_strings)}}} {name};\n'
 
-    def _map_type(self, type_: Type[Any], is_ref: bool = False) -> str:
+    def _map_type(self, type_: Optional[Type[Any]], is_ref: bool = False) -> str:
         for k, v in self._custom_mappings.items():
             if type_ is k:
                 return v

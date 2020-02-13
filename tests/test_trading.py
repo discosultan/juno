@@ -8,7 +8,7 @@ from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
 from . import fakes
 
 
-def test_position():
+def test_position() -> None:
     pos = Position(
         symbol='eth-btc',
         time=0,
@@ -34,7 +34,7 @@ def test_position():
     assert pos.annualized_roi == -1
 
 
-def test_position_annualized_roi_overflow():
+def test_position_annualized_roi_overflow() -> None:
     pos = Position(
         symbol='eth-btc',
         time=0,
@@ -52,7 +52,7 @@ def test_position_annualized_roi_overflow():
     assert pos.annualized_roi == Decimal('Inf')
 
 
-def test_trading_summary():
+def test_trading_summary() -> None:
     summary = TradingSummary(start=0, quote=Decimal('100.0'))
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
@@ -72,7 +72,7 @@ def test_trading_summary():
     assert summary.max_drawdown == pytest.approx(Decimal('0.1495'), Decimal('0.001'))
 
 
-def test_empty_trading_summary():
+def test_empty_trading_summary() -> None:
     summary = TradingSummary(start=0, quote=Decimal('100.0'))
     assert summary.cost == 100
     assert summary.gain == 100
@@ -80,7 +80,7 @@ def test_empty_trading_summary():
     assert summary.max_drawdown == 0
 
 
-async def test_trader_trailing_stop_loss():
+async def test_trader_trailing_stop_loss() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -108,7 +108,7 @@ async def test_trader_trailing_stop_loss():
     assert summary.profit == 8
 
 
-async def test_trader_restart_on_missed_candle():
+async def test_trader_restart_on_missed_candle() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -148,7 +148,7 @@ async def test_trader_restart_on_missed_candle():
     assert strategy2.updates[2].time == 5
 
 
-async def test_trader_assume_same_as_last_on_missed_candle():
+async def test_trader_assume_same_as_last_on_missed_candle() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [

@@ -7,7 +7,7 @@ from juno.indicators import (
 )
 
 
-def test_adx():
+def test_adx() -> None:
     inputs = [
         [  # High.
             94.1875, 94.5000, 93.5000, 92.7500, 92.8750, 90.7500, 89.8750, 89.1250, 90.4375,
@@ -35,7 +35,7 @@ def test_adx():
     _assert(Adx(14), inputs, outputs, 4)
 
 
-def test_adxr():
+def test_adxr() -> None:
     inputs = [
         [  # High.
             94.1875, 94.5000, 93.5000, 92.7500, 92.8750, 90.7500, 89.8750, 89.1250, 90.4375,
@@ -61,7 +61,7 @@ def test_adxr():
     _assert(Adxr(14), inputs, outputs, 4)
 
 
-def test_cci():
+def test_cci() -> None:
     inputs = [
         [  # High.
             15.1250, 15.0520, 14.8173, 14.6900, 14.7967, 14.7940, 14.0930, 14.7000, 14.5255,
@@ -80,7 +80,7 @@ def test_cci():
     _assert(Cci(5), inputs, outputs, 4)
 
 
-def test_dema():
+def test_dema() -> None:
     inputs = [[
         122.906, 126.500, 140.406, 174.000, 159.812, 170.000, 176.750, 175.531, 166.562, 163.750,
         170.500, 175.000, 184.750, 202.781
@@ -89,7 +89,7 @@ def test_dema():
     _assert(Dema(5), inputs, outputs, 4)
 
 
-def test_di():
+def test_di() -> None:
     inputs = [
         [  # High.
             94.1875, 94.5000, 93.5000, 92.7500, 92.8750, 90.7500, 89.8750, 89.1250, 90.4375,
@@ -135,7 +135,7 @@ def test_di():
     _assert(DI(14), inputs, outputs, 4)
 
 
-def test_dm():
+def test_dm() -> None:
     inputs = [
         [  # High.
             94.1875, 94.5000, 93.5000, 92.7500, 92.8750, 90.7500, 89.8750, 89.1250, 90.4375,
@@ -173,7 +173,7 @@ def test_dm():
     _assert(DM(14), inputs, outputs, 4)
 
 
-def test_dx():
+def test_dx() -> None:
     inputs = [
         [  # High.
             94.1875, 94.5000, 93.5000, 92.7500, 92.8750, 90.7500, 89.8750, 89.1250, 90.4375,
@@ -202,19 +202,19 @@ def test_dx():
     _assert(DX(14), inputs, outputs, 4)
 
 
-def test_ema():
+def test_ema() -> None:
     inputs = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
     outputs = [[25.000, 24.958, 24.899, 24.797, 24.698, 24.674, 24.856, 25.654]]
     _assert(Ema(5), inputs, outputs, 3)
 
 
-def test_sma():
+def test_sma() -> None:
     inputs = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
     outputs = [[24.750, 24.675, 24.744, 25.238]]
     _assert(Sma(5), inputs, outputs, 3)
 
 
-def test_macd():
+def test_macd() -> None:
     inputs = [[
         63.750, 63.625, 63.000, 62.750, 63.250, 65.375, 66.000, 65.000, 64.875, 64.750, 64.375,
         64.375, 64.625, 64.375, 64.500, 65.250, 67.875, 68.000, 66.875, 66.250, 65.875, 66.000,
@@ -248,7 +248,7 @@ def test_macd():
     _assert(Macd(12, 26, 9), inputs, outputs, 9)
 
 
-def test_rsi():
+def test_rsi() -> None:
     inputs = [[
         37.8750, 39.5000, 38.7500, 39.8125, 40.0000, 39.8750, 40.1875, 41.2500, 41.1250, 41.6250,
         41.2500, 40.1875, 39.9375, 39.9375, 40.5000, 41.9375, 42.2500, 42.2500, 41.8750, 41.8750
@@ -260,7 +260,7 @@ def test_rsi():
     _assert(Rsi(5), inputs, outputs, 4)
 
 
-def test_stoch():
+def test_stoch() -> None:
     inputs = [
         [  # High.
             34.3750, 34.7500, 34.2188, 33.8281, 33.4375, 33.4688, 34.3750, 34.7188, 34.6250,
@@ -291,7 +291,7 @@ def test_stoch():
     _assert(Stoch(5, 3, 3), inputs, outputs, 4)
 
 
-def test_stochrsi():
+def test_stochrsi() -> None:
     inputs = [[
         37.8750, 39.5000, 38.7500, 39.8125, 40.0000, 39.8750, 40.1875, 41.2500, 41.1250, 41.6250,
         41.2500, 40.1875, 39.9375, 39.9375, 40.5000, 41.9375, 42.2500, 42.2500, 41.8750, 41.8750
@@ -304,7 +304,7 @@ def test_stochrsi():
 
 # Data taken from:
 # https://stockcharts.com/school/doku.php?id=chart_school:technical_indicators:true_strength_index
-def test_tsi():
+def test_tsi() -> None:
     inputs = [[
         1080.29, 1090.10, 1104.51, 1091.84, 1098.87, 1104.18, 1109.55, 1121.90, 1121.10, 1125.07,
         1124.66, 1125.59, 1142.71, 1139.78, 1134.28, 1124.83, 1148.67, 1142.16, 1147.70, 1144.73,

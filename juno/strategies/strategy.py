@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple, Union
 
 from juno import Advice, Candle
@@ -13,7 +12,7 @@ class Meta:
         self.constraints = constraints
 
 
-class Strategy(ABC):
+class Strategy:
     meta: Meta
 
     def __init__(self, maturity: int = 0, persistence: int = 0) -> None:
@@ -40,7 +39,6 @@ class Strategy(ABC):
         self._persistence.update(self._advice)
         self._age = min(self._age + 1, self._maturity)
 
-    @abstractmethod
     def tick(self, candle: Candle) -> Optional[Advice]:
         pass
 

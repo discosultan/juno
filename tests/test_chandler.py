@@ -6,6 +6,7 @@ import pytest
 from juno import Candle, JunoException, Trade
 from juno.asyncio import cancel, cancelable, list_async
 from juno.components import Chandler
+from juno.storages import Storage
 
 from . import fakes
 
@@ -21,7 +22,9 @@ from . import fakes
         [5, 6, False, 5, 6, [(5, 6)]],  # Only future candle.
     ]
 )
-async def test_stream_candles(storage, start, end, closed, efrom, eto, espans):
+async def test_stream_candles(
+    storage: fakes.Storage, start, end, closed, efrom, eto, espans
+) -> None:
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     INTERVAL = 1
@@ -67,7 +70,7 @@ async def test_stream_candles(storage, start, end, closed, efrom, eto, espans):
     assert stored_spans == espans
 
 
-async def test_stream_future_candles_span_stored_until_stopped(storage):
+async def test_stream_future_candles_span_stored_until_stopped(storage: fakes.Storage) -> None:
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     INTERVAL = 1
@@ -100,7 +103,7 @@ async def test_stream_future_candles_span_stored_until_stopped(storage):
     assert stored_spans == [(START, candles[-1].time + INTERVAL)]
 
 
-async def test_stream_candles_construct_from_trades(storage):
+async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
     exchange = fakes.Exchange()
     exchange.can_stream_historical_candles = False
     exchange.can_stream_candles = False
@@ -131,7 +134,7 @@ async def test_stream_candles_construct_from_trades(storage):
     ]
 
 
-async def test_stream_candles_cancel_does_not_store_twice(storage):
+async def test_stream_candles_cancel_does_not_store_twice(storage: fakes.Storage) -> None:
     candles = [Candle(time=1)]
     exchange = fakes.Exchange(historical_candles=candles)
     chandler = Chandler(storage=storage, exchanges=[exchange], storage_batch_size=1)
@@ -149,7 +152,7 @@ async def test_stream_candles_cancel_does_not_store_twice(storage):
     assert stored_candles == candles
 
 
-async def test_stream_candles_on_ws_disconnect(storage):
+async def test_stream_candles_on_ws_disconnect(storage: fakes.Storage) -> None:
     time = fakes.Time(0)
     exchange = fakes.Exchange(future_candles=[
         Candle(time=0),
@@ -183,24 +186,26 @@ async def test_stream_candles_on_ws_disconnect(storage):
         assert candle.time == i
 
 
-async def test_stream_candles_fill_missing_with_last(storage):
+async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> None:
     exchange = fakes.Exchange(historical_candles=[
-        Candle(time=0, close=1),
+        Candle(time=0, close=Decimal('1.0')),
         # Missed candle.
-        Candle(time=2, close=2),
+        Candle(time=2, close=Decimal('2.0')),
     ])
     chandler = Chandler(storage=storage, exchanges=[exchange])
     output = await list_async(
         chandler.stream_candles('exchange', 'eth-btc', 1, 0, 3, fill_missing_with_last=True)
     )
     assert output == [
-        Candle(time=0, close=1),
-        Candle(time=1, close=1),
-        Candle(time=2, close=2),
+        Candle(time=0, close=Decimal('1.0')),
+        Candle(time=1, close=Decimal('1.0')),
+        Candle(time=2, close=Decimal('2.0')),
     ]
 
 
-async def test_stream_candles_construct_from_trades_if_interval_not_supported(storage):
+async def test_stream_candles_construct_from_trades_if_interval_not_supported(
+    storage: fakes.Storage
+) -> None:
     exchange = fakes.Exchange()
     exchange.can_stream_historical_candles = True
 

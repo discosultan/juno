@@ -10,7 +10,7 @@ class CustomException(Exception):
     pass
 
 
-def test_stop_after_attempt_with_reset_failure_before_reset():
+def test_stop_after_attempt_with_reset_failure_before_reset() -> None:
     @retry(stop=stop_after_attempt_with_reset(max_attempt_number=3, time_to_reset=1.0))
     def target():
         raise CustomException()
@@ -21,7 +21,7 @@ def test_stop_after_attempt_with_reset_failure_before_reset():
     assert target.retry.statistics['attempt_number'] == 3
 
 
-def test_stop_after_attempt_with_reset_success():
+def test_stop_after_attempt_with_reset_success() -> None:
     time = Time(time=0)
     steps = [
         ('raise', CustomException()),
@@ -47,7 +47,7 @@ def test_stop_after_attempt_with_reset_success():
     assert target.retry.statistics['attempt_number'] == 5
 
 
-def test_stop_after_attempt_with_reset_failure_after_reset():
+def test_stop_after_attempt_with_reset_failure_after_reset() -> None:
     time = Time(time=0)
     steps = [
         ('raise', CustomException()),

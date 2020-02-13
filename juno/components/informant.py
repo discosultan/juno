@@ -121,7 +121,7 @@ class Informant:
         return list(self._exchanges.keys())
 
     def list_exchanges_supporting_symbol(self, symbol: str) -> List[str]:
-        return [e for e in self.list_exchanges() if symbol in self.list_symbols(e)]
+        return [e for e in self._exchanges.keys() if symbol in self.list_symbols(e)]
 
     async def _periodic_sync_for_exchanges(
         self, type_: Type[Any], initial_sync_event: asyncio.Event,
