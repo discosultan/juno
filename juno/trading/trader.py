@@ -51,9 +51,9 @@ class Trader:
         informant: Informant,
         broker: Optional[Broker] = None,
     ) -> None:
-        self.chandler = chandler
-        self.informant = informant
-        self.broker = broker
+        self._chandler = chandler
+        self._informant = informant
+        self._broker = broker
 
     async def run(
         self,
@@ -75,9 +75,6 @@ class Trader:
         assert end > 0
         assert end > start
         assert 0 <= trailing_stop < 1
-
-        self.base_asset, self.quote_asset = unpack_symbol(symbol)
-        fees, filters = self.informant.get_fees_filters(exchange, symbol)
 
         summary = summary or TradingSummary(start=start, quote=quote)
         ctx = _Context(
@@ -106,7 +103,7 @@ class Trader:
             while True:
                 restart = False
 
-                async for candle in self.chandler.stream_candles(
+                async for candle in self._chandler.stream_candles(
                     exchange=exchange, symbol=symbol, interval=interval, start=adjusted_start,
                     end=end
                 ):
@@ -176,8 +173,8 @@ class Trader:
         ctx.last_candle = candle
 
     async def _open_position(self, ctx: _Context, candle: Candle) -> None:
-        if self.broker:
-            res = await self.broker.buy(
+        if self._broker:
+            res = await self._broker.buy(
                 exchange=ctx.exchange,
                 symbol=ctx.symbol,
                 quote=ctx.quote,
@@ -189,7 +186,7 @@ class Trader:
             ctx.quote -= Fill.total_quote(res.fills)
         else:
             price = candle.close
-            fees, filters = self.informant.get_fees_filters(ctx.exchange, ctx.symbol)
+            fees, filters = self._informant.get_fees_filters(ctx.exchange, ctx.symbol)
 
             size = filters.size.round_down(ctx.quote / price)
             if size == 0:
@@ -213,8 +210,8 @@ class Trader:
         pos = ctx.open_position
         assert pos
 
-        if self.broker:
-            res = await self.broker.sell(
+        if self._broker:
+            res = await self._broker.sell(
                 exchange=ctx.exchange,
                 symbol=ctx.symbol,
                 base=pos.base_gain,
@@ -229,7 +226,7 @@ class Trader:
             ctx.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
         else:
             price = candle.close
-            fees, filters = self.informant.get_fees_filters(ctx.exchange, ctx.symbol)
+            fees, filters = self._informant.get_fees_filters(ctx.exchange, ctx.symbol)
             size = filters.size.round_down(pos.base_gain)
 
             quote = size * price

@@ -243,21 +243,21 @@ class CircularBuffer(Generic[T]):
         if size < 0:
             raise ValueError('Size must be positive')
 
-        self.values = [default] * size
-        self.index = 0
+        self._values = [default] * size
+        self._index = 0
 
     def __len__(self) -> int:
-        return len(self.values)
+        return len(self._values)
 
     def __iter__(self) -> Iterator[T]:
-        return iter(self.values)
+        return iter(self._values)
 
     def push(self, value: T) -> None:
-        if len(self.values) == 0:
+        if len(self._values) == 0:
             raise ValueError('Unable to push to buffer of size 0')
 
-        self.values[self.index] = value
-        self.index = (self.index + 1) % len(self.values)
+        self._values[self._index] = value
+        self._index = (self._index + 1) % len(self._values)
 
 
 class EventEmitter:

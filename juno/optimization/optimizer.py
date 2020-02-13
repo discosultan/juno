@@ -56,11 +56,11 @@ class Optimizer:
         prices: Prices,
         trader: Trader,
     ) -> None:
-        self.solver = solver
-        self.chandler = chandler
-        self.informant = informant
-        self.prices = prices
-        self.trader = trader
+        self._solver = solver
+        self._chandler = chandler
+        self._informant = informant
+        self._prices = prices
+        self._trader = trader
 
     async def run(
         self,
@@ -100,10 +100,10 @@ class Optimizer:
 
         _log.info(f'randomizer seed ({seed})')
 
-        symbols = self.informant.list_symbols(exchange, symbols)
-        intervals = self.informant.list_candle_intervals(exchange, intervals)
+        symbols = self._informant.list_symbols(exchange, symbols)
+        intervals = self._informant.list_candle_intervals(exchange, intervals)
 
-        fiat_daily_prices = await self.prices.map_fiat_daily_prices(
+        fiat_daily_prices = await self._prices.map_fiat_daily_prices(
             {a for s in symbols for a in unpack_symbol(s)}, start, end
         )
 
@@ -111,7 +111,7 @@ class Optimizer:
 
         async def assign(symbol: str, interval: int) -> None:
             assert end
-            candles[(symbol, interval)] = await self.chandler.list_candles(
+            candles[(symbol, interval)] = await self._chandler.list_candles(
                 exchange, symbol, interval, floor_multiple(start, interval),
                 floor_multiple(end, interval)
             )
@@ -123,7 +123,7 @@ class Optimizer:
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
                          f'{strfspan(start, end)}')
 
-        fees_filters = {s: self.informant.get_fees_filters(exchange, s) for s in symbols}
+        fees_filters = {s: self._informant.get_fees_filters(exchange, s) for s in symbols}
 
         # Prepare benchmark stats.
         benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
@@ -174,7 +174,7 @@ class Optimizer:
         toolbox.register('select', tools.selNSGA2)
 
         def evaluate(ind: List[Any]) -> SolverResult:
-            return self.solver.solve(
+            return self._solver.solve(
                 fiat_daily_prices,
                 benchmark_stats,
                 strategy_type,
@@ -220,7 +220,7 @@ class Optimizer:
         _log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
 
         best_args = list(flatten(hall[0]))
-        best_result = self.solver.solve(
+        best_result = self._solver.solve(
             fiat_daily_prices,
             benchmark_stats,
             strategy_type,
@@ -265,7 +265,7 @@ class Optimizer:
         strategy_type: Type[Strategy]
     ) -> None:
         # Validate our results by running a backtest in actual trader to ensure correctness.
-        solver_name = type(self.solver).__name__.lower()
+        solver_name = type(self._solver).__name__.lower()
         _log.info(
             f'validating {solver_name} solver result with best args against actual trader'
         )
@@ -285,7 +285,7 @@ class Optimizer:
 
         trading_summary = TradingSummary(start=start, quote=quote)
         try:
-            await self.trader.run(
+            await self._trader.run(
                 new_strategy=lambda: strategy_type(**summary.strategy_config),
                 summary=trading_summary,
                 **trading_config,
