@@ -38,10 +38,10 @@ TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
 
 class Rust(Solver):
     def __init__(self) -> None:
-        self.c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
-        self.c_candles: Dict[TimeSeriesKey, Any] = {}
-        self.c_prices: Dict[TimeSeriesKey, Any] = {}
-        self.c_series: Dict[TimeSeriesKey, Any] = {}
+        self._c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
+        self._c_candles: Dict[TimeSeriesKey, Any] = {}
+        self._c_prices: Dict[TimeSeriesKey, Any] = {}
+        self._c_series: Dict[TimeSeriesKey, Any] = {}
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
@@ -73,10 +73,10 @@ class Rust(Solver):
                 None, shutil.copy2, str(compiled_path), str(dst_path)
             )
 
-        self.ffi = cffi.FFI()
-        self.ffi.cdef(_build_cdef())
-        self.libjuno = await asyncio.get_running_loop().run_in_executor(
-            None, self.ffi.dlopen, str(dst_path)
+        self._ffi = cffi.FFI()
+        self._ffi.cdef(_build_cdef())
+        self._libjuno = await asyncio.get_running_loop().run_in_executor(
+            None, self._ffi.dlopen, str(dst_path)
         )
 
         return self
@@ -106,7 +106,7 @@ class Rust(Solver):
         c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
 
         # TODO: Pool it. No need for allocations per run.
-        c_trading_info = self.ffi.new('TradingInfo *')
+        c_trading_info = self._ffi.new('TradingInfo *')
         c_trading_info.candles = c_candles
         c_trading_info.candles_length = len(candles)
         c_trading_info.fees = c_fees
@@ -117,7 +117,7 @@ class Rust(Solver):
         c_trading_info.trailing_stop = trailing_stop
 
         # Strategy.
-        c_strategy_info = self.ffi.new(f'{strategy_type.__name__}Info *')
+        c_strategy_info = self._ffi.new(f'{strategy_type.__name__}Info *')
         for i, n in enumerate(get_input_type_hints(strategy_type.__init__).keys()):
             setattr(c_strategy_info, n, args[i])
 
@@ -135,7 +135,7 @@ class Rust(Solver):
             ('btc-eur', DAY_MS, start, end), benchmark_stats.g_returns
         )
 
-        c_analysis_info = self.ffi.new('AnalysisInfo *')
+        c_analysis_info = self._ffi.new('AnalysisInfo *')
         c_analysis_info.quote_fiat_daily = c_quote_fiat_daily
         c_analysis_info.quote_fiat_daily_length = num_days
         c_analysis_info.base_fiat_daily = c_base_fiat_daily
@@ -144,18 +144,18 @@ class Rust(Solver):
         c_analysis_info.benchmark_g_returns_length = benchmark_stats.g_returns.size
 
         # Go!
-        fn = getattr(self.libjuno, strategy_type.__name__.lower())
+        fn = getattr(self._libjuno, strategy_type.__name__.lower())
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 
     def _get_or_create_c_fees_filters(self, key: str, fees: Fees, filters: Filters) -> Any:
-        c_fees_filters = self.c_fees_filters.get(key)
+        c_fees_filters = self._c_fees_filters.get(key)
         if not c_fees_filters:
-            c_fees = self.ffi.new('Fees *')
+            c_fees = self._ffi.new('Fees *')
             c_fees.maker = float(fees.maker)
             c_fees.taker = float(fees.taker)
 
-            c_filters = self.ffi.new('Filters *')
+            c_filters = self._ffi.new('Filters *')
             c_filters.price = {
                 'min': float(filters.price.min),
                 'max': float(filters.price.max),
@@ -169,14 +169,14 @@ class Rust(Solver):
             c_filters.base_precision = filters.base_precision
             c_filters.quote_precision = filters.quote_precision
 
-            self.c_fees_filters[key] = c_fees, c_filters
+            self._c_fees_filters[key] = c_fees, c_filters
             c_fees_filters = c_fees, c_filters
         return c_fees_filters
 
     def _get_or_create_c_candles(self, key: TimeSeriesKey, candles: List[Candle]) -> Any:
-        c_candles = self.c_candles.get(key)
+        c_candles = self._c_candles.get(key)
         if not c_candles:
-            c_candles = self.ffi.new(f'Candle[{len(candles)}]')
+            c_candles = self._ffi.new(f'Candle[{len(candles)}]')
             for i, c in enumerate(candles):
                 c_candles[i] = {
                     'time': c[0],
@@ -186,25 +186,25 @@ class Rust(Solver):
                     'close': float(c[4]),
                     'volume': float(c[5]),
                 }
-            self.c_candles[key] = c_candles
+            self._c_candles[key] = c_candles
         return c_candles
 
     def _get_or_create_c_prices(self, key: TimeSeriesKey, prices: List[Decimal]) -> Any:
-        c_prices = self.c_prices.get(key)
+        c_prices = self._c_prices.get(key)
         if not c_prices:
-            c_prices = self.ffi.new(f'double[{len(prices)}]')
+            c_prices = self._ffi.new(f'double[{len(prices)}]')
             for i, p in enumerate(prices):
                 c_prices[i] = p
-            self.c_prices[key] = c_prices
+            self._c_prices[key] = c_prices
         return c_prices
 
     def _get_or_create_c_series(self, key: TimeSeriesKey, series: pd.Series) -> Any:
-        c_series = self.c_series.get(key)
+        c_series = self._c_series.get(key)
         if not c_series:
-            c_series = self.ffi.new(f'double[{series.size}]')
+            c_series = self._ffi.new(f'double[{series.size}]')
             for i, p in enumerate(series.values):
                 c_series[i] = p
-            self.c_series[key] = c_series
+            self._c_series[key] = c_series
         return c_series
 
 
