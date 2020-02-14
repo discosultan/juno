@@ -78,6 +78,7 @@ async def test_get_fees_filters(storage, exchange_key) -> None:
     (['eth-btc', 'ltc-btc'], None, ['eth-btc', 'ltc-btc']),
     (['eth-btc', 'ltc-btc', 'ltc-eth'], ['*-btc'], ['eth-btc', 'ltc-btc']),
     (['eth-btc', 'ltc-btc', 'ltc-eth'], ['eth-btc', 'ltc-btc'], ['eth-btc', 'ltc-btc']),
+    (['eth-btc', 'ltc-eur'], ['*-*'], ['eth-btc', 'ltc-eur']),
 ])
 async def test_list_symbols(storage, symbols, patterns, expected_output) -> None:
     exchange = fakes.Exchange(
