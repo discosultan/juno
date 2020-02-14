@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import fnmatch
 import logging
 from collections import defaultdict
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Type, TypeVar
@@ -13,7 +14,6 @@ from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.time import DAY_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
-from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
 
@@ -79,21 +79,11 @@ class Informant:
         # Dict is ordered.
         result: Dict[str, None] = {}
         for pattern in patterns:
-            added = 0
-            base_pattern, quote_pattern = unpack_symbol(pattern)
-            for symbol in all_symbols:
-                base_asset, quote_asset = unpack_symbol(symbol)
-                match = True
-                if base_pattern != '*' and base_pattern != base_asset:
-                    match = False
-                if quote_pattern != '*' and quote_pattern != quote_asset:
-                    match = False
-                if match:
-                    result[symbol] = None
-                    added += 1
-            if added == 0:
+            found_symbols = fnmatch.filter(all_symbols, pattern)
+            if len(found_symbols) == 0:
                 raise ValueError(f'Exchange {exchange} does not support any symbol matching '
                                  f'{pattern}')
+            result.update({s: None for s in found_symbols})
 
         return list(result.keys())
 
