@@ -1,12 +1,15 @@
+import logging
 from decimal import Decimal
 from typing import List, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.optimization import Optimizer
 from juno.trading import MissedCandlePolicy
-from juno.utils import get_module_type
+from juno.utils import format_attrs_as_json, get_module_type
 
 from . import Agent
+
+_log = logging.getLogger(__name__)
 
 
 class Optimize(Agent):
@@ -49,4 +52,8 @@ class Optimize(Agent):
             verbose=verbose,
         )
 
-        # TODO: Print best config in pretty format.
+        _log.info(f'trading config: {format_attrs_as_json(self.result.trading_config)}')
+        _log.info(f'strategy type: {self.result.strategy_type}')
+        _log.info(f'strategy config: {self.result.strategy_config}')
+        _log.info(f'trading summary: {format_attrs_as_json(self.result.trading_summary)}')
+        _log.info(f'portfolio stats: {format_attrs_as_json(self.result.portfolio_stats)}')

@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from decimal import Decimal
-from typing import Callable, Dict, List, NamedTuple, Tuple
+from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -18,11 +18,6 @@ _log = logging.getLogger(__name__)
 
 
 class Statistics(NamedTuple):
-    performance: pd.Series
-    a_returns: pd.Series
-    g_returns: pd.Series
-    neg_g_returns: pd.Series
-
     total_return: float
     annualized_return: float
     annualized_volatility: float
@@ -31,54 +26,44 @@ class Statistics(NamedTuple):
     sortino_ratio: float
     cagr: float
 
+    alpha: float = 0.0
+    beta: float = 0.0
 
-class PortfolioStatistics(NamedTuple):
+
+class AnalysisSummary(NamedTuple):
     performance: pd.Series
     a_returns: pd.Series
     g_returns: pd.Series
     neg_g_returns: pd.Series
 
-    total_return: float
-    annualized_return: float
-    annualized_volatility: float
-    annualized_downside_risk: float
-    sharpe_ratio: float
-    sortino_ratio: float
-    cagr: float
-
-    alpha: float
-    beta: float
+    stats: Statistics
 
 
-def get_benchmark_statistics(prices: List[Decimal]) -> Statistics:
+def get_benchmark_stats(prices: List[Decimal]) -> AnalysisSummary:
     performance = pd.Series([float(p) for p in prices])
     return _calculate_statistics(performance)
 
 
-def get_portfolio_statistics(
-    benchmark_stats: Statistics,
+def get_portfolio_stats(
+    benchmark_g_returns: pd.Series,
     fiat_daily_prices: Dict[str, List[Decimal]],
-    summary: TradingSummary
-) -> PortfolioStatistics:
-    start_day = floor_multiple(summary.start, DAY_MS)
-    end_day = floor_multiple(summary.end, DAY_MS)
+    trading_summary: TradingSummary
+) -> AnalysisSummary:
+    start_day = floor_multiple(trading_summary.start, DAY_MS)
+    end_day = floor_multiple(trading_summary.end, DAY_MS)
     num_days = (end_day - start_day) // DAY_MS
 
     assert all(len(prices) == num_days for prices in fiat_daily_prices.values())
 
-    trades = _get_trades_from_summary(summary)
+    trades = _get_trades_from_summary(trading_summary)
     asset_performance = _get_asset_performance(
-        summary, start_day, end_day, fiat_daily_prices, trades
+        trading_summary, start_day, end_day, fiat_daily_prices, trades
     )
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance]
     )
 
-    portfolio_stats = _calculate_statistics(portfolio_performance)
-    return PortfolioStatistics(
-        *portfolio_stats,
-        *_calculate_alpha_beta(benchmark_stats, portfolio_stats),
-    )
+    return _calculate_statistics(portfolio_performance, benchmark_g_returns)
 
 
 def _get_trades_from_summary(
@@ -133,7 +118,9 @@ def _get_asset_performance(
     return asset_performance
 
 
-def _calculate_statistics(performance: pd.Series) -> Statistics:
+def _calculate_statistics(
+    performance: pd.Series, benchmark_g_returns: Optional[pd.Series] = None
+) -> AnalysisSummary:
     a_returns = performance.pct_change().dropna()
     g_returns = np.log(a_returns + 1)
     neg_g_returns = g_returns[g_returns < 0].dropna()
@@ -150,28 +137,29 @@ def _calculate_statistics(performance: pd.Series) -> Statistics:
         ** (1 / (performance.size / 365))
     ) - 1
 
-    return Statistics(
+    # If benchmark provided, calculate alpha and beta.
+    alpha, beta = 0.0, 0.0
+    if benchmark_g_returns is not None:
+        covariance_matrix = pd.concat(
+            [g_returns, benchmark_g_returns], axis=1
+        ).dropna().cov()
+        beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
+        alpha = annualized_return - (beta * 365 * benchmark_g_returns.mean())
+
+    return AnalysisSummary(
         performance=performance,
         a_returns=a_returns,
         g_returns=g_returns,
         neg_g_returns=neg_g_returns,
-        total_return=total_return,
-        annualized_return=annualized_return,
-        annualized_volatility=annualized_volatility,
-        annualized_downside_risk=annualized_downside_risk,
-        sharpe_ratio=sharpe_ratio,
-        sortino_ratio=sortino_ratio,
-        cagr=cagr
+        stats=Statistics(
+            total_return=total_return,
+            annualized_return=annualized_return,
+            annualized_volatility=annualized_volatility,
+            annualized_downside_risk=annualized_downside_risk,
+            sharpe_ratio=sharpe_ratio,
+            sortino_ratio=sortino_ratio,
+            cagr=cagr,
+            alpha=alpha,
+            beta=beta
+        )
     )
-
-
-def _calculate_alpha_beta(
-    benchmark_stats: Statistics, portfolio_stats: Statistics
-) -> Tuple[float, float]:
-    covariance_matrix = pd.concat(
-        [portfolio_stats.g_returns, benchmark_stats.g_returns], axis=1
-    ).dropna().cov()
-    beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
-    alpha = portfolio_stats.annualized_return - (beta * 365 * benchmark_stats.g_returns.mean())
-
-    return alpha, beta

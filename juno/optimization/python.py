@@ -1,12 +1,12 @@
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Type
 
+import pandas as pd
+
 from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval, Timestamp
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.trading import (
-    MissedCandlePolicy, Position, Statistics, TradingSummary, get_portfolio_statistics
-)
+from juno.trading import MissedCandlePolicy, Position, TradingSummary, get_portfolio_stats
 from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
@@ -28,7 +28,7 @@ class Python(Solver):
     def solve(
         self,
         fiat_daily_prices: Dict[str, List[Decimal]],
-        benchmark_stats: Statistics,
+        benchmark_g_returns: pd.Series,
         strategy_type: Type[Strategy],
         start: Timestamp,
         end: Timestamp,
@@ -55,9 +55,9 @@ class Python(Solver):
             *args,
         )
 
-        portfolio_stats = get_portfolio_statistics(benchmark_stats, fiat_daily_prices, summary)
+        portfolio_stats = get_portfolio_stats(benchmark_g_returns, fiat_daily_prices, summary)
 
-        return SolverResult.from_trading_summary(summary, portfolio_stats)
+        return SolverResult.from_trading_summary(summary, portfolio_stats.stats)
 
 
 def _trade(

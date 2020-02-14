@@ -7,7 +7,7 @@ from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
 from juno.trading import (
-    MissedCandlePolicy, Trader, get_benchmark_statistics, get_portfolio_statistics
+    MissedCandlePolicy, Trader, get_benchmark_stats, get_portfolio_stats
 )
 from juno.utils import unpack_symbol
 
@@ -62,7 +62,7 @@ async def main() -> None:
         fiat_daily_prices = await prices.map_fiat_daily_prices(
             ('btc', unpack_symbol(SYMBOL)[0]), start, end
         )
-        benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
+        benchmark_stats = get_benchmark_stats(fiat_daily_prices['btc'])
         fees, filters = informant.get_fees_filters('binance', SYMBOL)
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
@@ -112,7 +112,7 @@ async def main() -> None:
             trailing_stop=TRAILING_STOP,
             adjust_start=False
         )
-        portfolio_stats = get_portfolio_statistics(
+        portfolio_stats = get_portfolio_stats(
             benchmark_stats, fiat_daily_prices, trading_summary
         )
 

@@ -219,12 +219,11 @@ class TradingSummary:
 
         self._drawdowns_dirty = False
 
-
-def calculate_hodl_profit(
-    quote: Decimal, first_candle: Candle, last_candle: Candle, fees: Fees, filters: Filters
-) -> Decimal:
-    base_hodl = filters.size.round_down(quote / first_candle.close)
-    base_hodl -= round_half_up(base_hodl * fees.taker, filters.base_precision)
-    quote_hodl = filters.size.round_down(base_hodl) * last_candle.close
-    quote_hodl -= round_half_up(quote_hodl * fees.taker, filters.quote_precision)
-    return quote_hodl - quote
+    def calculate_hodl_profit(
+        self, first_candle: Candle, last_candle: Candle, fees: Fees, filters: Filters
+    ) -> Decimal:
+        base_hodl = filters.size.round_down(self.quote / first_candle.close)
+        base_hodl -= round_half_up(base_hodl * fees.taker, filters.base_precision)
+        quote_hodl = filters.size.round_down(base_hodl) * last_candle.close
+        quote_hodl -= round_half_up(quote_hodl * fees.taker, filters.quote_precision)
+        return quote_hodl - self.quote
