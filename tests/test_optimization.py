@@ -9,7 +9,7 @@ from juno.components import Prices
 from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
-from juno.trading import MissedCandlePolicy, Trader, get_benchmark_stats
+from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark
 from juno.typing import load_by_typing
 from juno.utils import load_json_file
 
@@ -90,7 +90,7 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) ->
         'btc': [c.close for c in statistics_fiat_candles],
         'eth': [c1.close * c2.close for c1, c2 in zip(statistics_candles, statistics_fiat_candles)]
     }
-    benchmark_stats = get_benchmark_stats(fiat_daily_candles['btc'])
+    benchmark_stats = analyse_benchmark(fiat_daily_candles['btc'])
     strategy_args = (11, 21, Decimal('-0.229'), Decimal('0.1'), 4, 0, 0)
 
     result = rust_solver.solve(

@@ -8,7 +8,7 @@ from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import time_ms
 from juno.trading import (
-    MissedCandlePolicy, Trader, TradingSummary, get_benchmark_stats, get_portfolio_stats
+    MissedCandlePolicy, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
 from juno.utils import format_attrs_as_json, unpack_symbol
 
@@ -74,8 +74,8 @@ class Backtest(Agent):
             (base_asset, quote_asset), start, end
         )
 
-        benchmark = get_benchmark_stats(fiat_daily_prices['btc'])
-        portfolio = get_portfolio_stats(
+        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
+        portfolio = analyse_portfolio(
             benchmark.g_returns, fiat_daily_prices, self.result
         )
 

@@ -39,12 +39,12 @@ class AnalysisSummary(NamedTuple):
     stats: Statistics
 
 
-def get_benchmark_stats(prices: List[Decimal]) -> AnalysisSummary:
+def analyse_benchmark(prices: List[Decimal]) -> AnalysisSummary:
     performance = pd.Series([float(p) for p in prices])
     return _calculate_statistics(performance)
 
 
-def get_portfolio_stats(
+def analyse_portfolio(
     benchmark_g_returns: pd.Series,
     fiat_daily_prices: Dict[str, List[Decimal]],
     trading_summary: TradingSummary

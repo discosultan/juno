@@ -1,7 +1,5 @@
 from .common import MissedCandlePolicy, Position, TradingSummary
-from .statistics import (
-    AnalysisSummary, Statistics, get_benchmark_stats, get_portfolio_stats
-)
+from .statistics import AnalysisSummary, Statistics, analyse_benchmark, analyse_portfolio
 from .trader import Trader
 
 __all__ = [
@@ -12,6 +10,6 @@ __all__ = [
     'Statistics',
     'Trader',
     'TradingSummary',
-    'get_benchmark_stats',
-    'get_portfolio_stats',
+    'analyse_benchmark',
+    'analyse_portfolio',
 ]

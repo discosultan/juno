@@ -16,8 +16,7 @@ from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, f
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms
 from juno.trading import (
-    MissedCandlePolicy, Statistics, Trader, TradingSummary, get_benchmark_stats,
-    get_portfolio_stats
+    MissedCandlePolicy, Statistics, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
 from juno.typing import map_input_args
 from juno.utils import flatten, format_attrs_as_json, unpack_symbol
@@ -137,7 +136,7 @@ class Optimizer:
         fees_filters = {s: self._informant.get_fees_filters(exchange, s) for s in symbols}
 
         # Prepare benchmark stats.
-        benchmark_stats = get_benchmark_stats(fiat_daily_prices['btc'])
+        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
 
         # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
         # us because we want to be able to use multiple optimizers with different random seeds.
@@ -187,7 +186,7 @@ class Optimizer:
         def evaluate(ind: List[Any]) -> SolverResult:
             return self._solver.solve(
                 fiat_daily_prices,
-                benchmark_stats.g_returns,
+                benchmark.g_returns,
                 strategy_type,
                 start,
                 end,
@@ -233,7 +232,7 @@ class Optimizer:
         best_args = list(flatten(hall[0]))
         best_result = self._solver.solve(
             fiat_daily_prices,
-            benchmark_stats.g_returns,
+            benchmark.g_returns,
             strategy_type,
             start,
             end,
@@ -274,8 +273,8 @@ class Optimizer:
             )
         except InsufficientBalance:
             pass
-        portfolio_summary = get_portfolio_stats(
-            benchmark_stats.g_returns, fiat_daily_prices, trading_summary
+        portfolio_summary = analyse_portfolio(
+            benchmark.g_returns, fiat_daily_prices, trading_summary
         )
 
         optimization_summary = OptimizationSummary(
@@ -311,10 +310,6 @@ class Optimizer:
                 f'{format_attrs_as_json(trader_result)}\nSolver result: '
                 f'{format_attrs_as_json(solver_result)}'
             )
-
-        # TODO: Don't print here and attach to summary instead.
-        # _log.info('Validation trading summary: '
-        #           f'{format_attrs_as_json(optimization_summary.trading_summary)}')
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

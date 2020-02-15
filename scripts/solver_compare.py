@@ -6,9 +6,7 @@ from juno import components, exchanges, optimization, storages, strategies, time
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.strategies import MA
-from juno.trading import (
-    MissedCandlePolicy, Trader, get_benchmark_stats, get_portfolio_stats
-)
+from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -62,14 +60,14 @@ async def main() -> None:
         fiat_daily_prices = await prices.map_fiat_daily_prices(
             ('btc', unpack_symbol(SYMBOL)[0]), start, end
         )
-        benchmark_stats = get_benchmark_stats(fiat_daily_prices['btc'])
+        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         fees, filters = informant.get_fees_filters('binance', SYMBOL)
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
         args = (
             fiat_daily_prices,
-            benchmark_stats,
+            benchmark.g_returns,
             strategies.MAMACX,
             start,
             end,
@@ -112,8 +110,8 @@ async def main() -> None:
             trailing_stop=TRAILING_STOP,
             adjust_start=False
         )
-        portfolio_stats = get_portfolio_stats(
-            benchmark_stats, fiat_daily_prices, trading_summary
+        portfolio = analyse_portfolio(
+            benchmark.g_returns, fiat_daily_prices, trading_summary
         )
 
         logging.info('=== rust solver ===')
@@ -127,7 +125,7 @@ async def main() -> None:
         # logging.info(f'mean pos dur {python_result.mean_position_duration}')
 
         logging.info('=== python trader ===')
-        logging.info(f'alpha {portfolio_stats.alpha}')
+        logging.info(f'alpha {portfolio.stats.alpha}')
         logging.info(f'profit {trading_summary.profit}')
         logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
 

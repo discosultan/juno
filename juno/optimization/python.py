@@ -6,7 +6,7 @@ import pandas as pd
 from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval, Timestamp
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.trading import MissedCandlePolicy, Position, TradingSummary, get_portfolio_stats
+from juno.trading import MissedCandlePolicy, Position, TradingSummary, analyse_portfolio
 from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
@@ -55,9 +55,9 @@ class Python(Solver):
             *args,
         )
 
-        portfolio_stats = get_portfolio_stats(benchmark_g_returns, fiat_daily_prices, summary)
+        portfolio = analyse_portfolio(benchmark_g_returns, fiat_daily_prices, summary)
 
-        return SolverResult.from_trading_summary(summary, portfolio_stats.stats)
+        return SolverResult.from_trading_summary(summary, portfolio.stats)
 
 
 def _trade(
