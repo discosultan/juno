@@ -16,8 +16,7 @@ from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, f
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms
 from juno.trading import (
-    MissedCandlePolicy, Statistics, Trader, TradingSummary, get_benchmark_statistics,
-    get_portfolio_statistics
+    MissedCandlePolicy, Statistics, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
 from juno.typing import map_input_args
 from juno.utils import flatten, format_attrs_as_json, unpack_symbol
@@ -38,13 +37,24 @@ _trailing_stop_constraint = ConstraintChoice([
 ])
 
 
+class TradingConfig(NamedTuple):
+    exchange: str
+    symbol: str
+    interval: Interval
+    start: Timestamp
+    end: Timestamp
+    quote: Decimal
+    missed_candle_policy: MissedCandlePolicy
+    trailing_stop: Decimal
+    adjust_start: bool
+
+
 class OptimizationSummary(NamedTuple):
-    symbol: str = ''
-    interval: Interval = 0
-    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-    trailing_stop: Decimal = Decimal('0.0')
-    strategy_config: Dict[str, Any] = {}
-    result: SolverResult = SolverResult()
+    trading_config: TradingConfig
+    strategy_type: Type[Strategy]
+    strategy_config: Dict[str, Any]
+    trading_summary: TradingSummary
+    portfolio_stats: Statistics
 
 
 class Optimizer:
@@ -126,7 +136,7 @@ class Optimizer:
         fees_filters = {s: self._informant.get_fees_filters(exchange, s) for s in symbols}
 
         # Prepare benchmark stats.
-        benchmark_stats = get_benchmark_statistics(fiat_daily_prices['btc'])
+        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
 
         # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
         # us because we want to be able to use multiple optimizers with different random seeds.
@@ -176,7 +186,7 @@ class Optimizer:
         def evaluate(ind: List[Any]) -> SolverResult:
             return self._solver.solve(
                 fiat_daily_prices,
-                benchmark_stats,
+                benchmark.g_returns,
                 strategy_type,
                 start,
                 end,
@@ -222,7 +232,7 @@ class Optimizer:
         best_args = list(flatten(hall[0]))
         best_result = self._solver.solve(
             fiat_daily_prices,
-            benchmark_stats,
+            benchmark.g_returns,
             strategy_type,
             start,
             end,
@@ -231,83 +241,75 @@ class Optimizer:
             *fees_filters[best_args[0]],
             *best_args
         )
-        summary = OptimizationSummary(
+
+        start = floor_multiple(start, best_args[1])
+        strategy_config = map_input_args(strategy_type.__init__, best_args[4:])
+        trading_config = TradingConfig(
+            exchange=exchange,
             symbol=best_args[0],
             interval=best_args[1],
+            start=start,
+            end=floor_multiple(end, best_args[1]),
+            quote=quote,
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
-            strategy_config=map_input_args(strategy_type.__init__, best_args[4:]),
-            result=best_result,
+            adjust_start=False,
         )
 
-        await self._validate(
-            summary=summary,
-            fiat_daily_prices=fiat_daily_prices,
-            benchmark_stats=benchmark_stats,
-            exchange=exchange,
-            start=start,
-            end=end,
-            quote=quote,
+        trading_summary = TradingSummary(start=start, quote=quote)
+        try:
+            await self._trader.run(
+                new_strategy=lambda: strategy_type(**strategy_config),
+                summary=trading_summary,
+                exchange=trading_config.exchange,
+                symbol=trading_config.symbol,
+                interval=trading_config.interval,
+                start=trading_config.start,
+                end=trading_config.end,
+                quote=trading_config.quote,
+                missed_candle_policy=trading_config.missed_candle_policy,
+                trailing_stop=trading_config.trailing_stop,
+                adjust_start=trading_config.adjust_start,
+            )
+        except InsufficientBalance:
+            pass
+        portfolio_summary = analyse_portfolio(
+            benchmark.g_returns, fiat_daily_prices, trading_summary
+        )
+
+        optimization_summary = OptimizationSummary(
+            trading_config=trading_config,
             strategy_type=strategy_type,
+            strategy_config=strategy_config,
+            trading_summary=trading_summary,
+            portfolio_stats=portfolio_summary.stats
         )
 
-        return summary
+        await self._validate(optimization_summary, best_result)
+
+        return optimization_summary
 
     async def _validate(
-        self,
-        summary: OptimizationSummary,
-        fiat_daily_prices,
-        benchmark_stats: Statistics,
-        exchange: str,
-        start: int,
-        end: int,
-        quote: Decimal,
-        strategy_type: Type[Strategy]
+        self, optimization_summary: OptimizationSummary, solver_result: SolverResult,
     ) -> None:
-        # Validate our results by running a backtest in actual trader to ensure correctness.
+        # Validate trader backtest result with solver result.
         solver_name = type(self._solver).__name__.lower()
         _log.info(
             f'validating {solver_name} solver result with best args against actual trader'
         )
 
-        start = floor_multiple(start, summary.interval)
-        trading_config = {
-            'exchange': exchange,
-            'symbol': summary.symbol,
-            'interval': summary.interval,
-            'start': start,
-            'end': floor_multiple(end, summary.interval),
-            'quote': quote,
-            'missed_candle_policy': summary.missed_candle_policy,
-            'trailing_stop': summary.trailing_stop,
-            'adjust_start': False,
-        }
-
-        trading_summary = TradingSummary(start=start, quote=quote)
-        try:
-            await self._trader.run(
-                new_strategy=lambda: strategy_type(**summary.strategy_config),
-                summary=trading_summary,
-                **trading_config,
-            )
-        except InsufficientBalance:
-            pass
-        portfolio_stats = get_portfolio_statistics(
-            benchmark_stats, fiat_daily_prices, trading_summary
+        trader_result = SolverResult.from_trading_summary(
+            optimization_summary.trading_summary, optimization_summary.portfolio_stats
         )
-        validation_result = SolverResult.from_trading_summary(trading_summary, portfolio_stats)
 
-        if not _isclose(validation_result, summary.result):
+        if not _isclose(trader_result, solver_result):
             raise Exception(
                 f'Optimizer results differ between trader and '
-                f'{solver_name} solver.\nTrading config: {trading_config}\nStrategy config: '
-                f'{summary.strategy_config}\nTrader result: '
-                f'{format_attrs_as_json(validation_result)}\nSolver result: '
-                f'{format_attrs_as_json(summary.result)}'
+                f'{solver_name} solver.\nTrading config: {optimization_summary.trading_config}\n'
+                f'Strategy config: {optimization_summary.strategy_config}\nTrader result: '
+                f'{format_attrs_as_json(trader_result)}\nSolver result: '
+                f'{format_attrs_as_json(solver_result)}'
             )
-
-        # TODO: Don't print here and attach to summary instead.
-        _log.info(f'Validation trading summary: {format_attrs_as_json(trading_summary)}')
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

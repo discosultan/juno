@@ -17,7 +17,7 @@ from juno.cffi import CDefBuilder
 from juno.filters import Price, Size
 from juno.strategies import Strategy
 from juno.time import DAY_MS
-from juno.trading import MissedCandlePolicy, Statistics
+from juno.trading import MissedCandlePolicy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path, list_concretes_from_module, unpack_symbol
 
@@ -87,7 +87,7 @@ class Rust(Solver):
     def solve(
         self,
         fiat_daily_prices: Dict[str, List[Decimal]],
-        benchmark_stats: Statistics,
+        benchmark_g_returns: pd.Series,
         strategy_type: Type[Strategy],
         start: Timestamp,
         end: Timestamp,
@@ -132,7 +132,7 @@ class Rust(Solver):
         )
 
         c_benchmark_g_returns = self._get_or_create_c_series(
-            ('btc-eur', DAY_MS, start, end), benchmark_stats.g_returns
+            ('btc-eur', DAY_MS, start, end), benchmark_g_returns
         )
 
         c_analysis_info = self._ffi.new('AnalysisInfo *')
@@ -141,7 +141,7 @@ class Rust(Solver):
         c_analysis_info.base_fiat_daily = c_base_fiat_daily
         c_analysis_info.base_fiat_daily_length = num_days
         c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
-        c_analysis_info.benchmark_g_returns_length = benchmark_stats.g_returns.size
+        c_analysis_info.benchmark_g_returns_length = benchmark_g_returns.size
 
         # Go!
         fn = getattr(self._libjuno, strategy_type.__name__.lower())

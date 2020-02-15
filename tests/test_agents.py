@@ -7,7 +7,7 @@ from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
 from juno.filters import Filters, Price, Size
 from juno.time import HOUR_MS
-from juno.trading import MissedCandlePolicy, Trader, calculate_hodl_profit
+from juno.trading import MissedCandlePolicy, Trader
 from juno.typing import load_by_typing
 from juno.utils import load_json_file
 
@@ -63,7 +63,7 @@ async def test_backtest() -> None:
     assert res.mean_position_duration == 1
     assert res.start == 0
     assert res.end == 6
-    assert calculate_hodl_profit(res.cost, candles[0], candles[-1], fees, filters) == 100
+    assert res.calculate_hodl_profit(candles[0], candles[-1], fees, filters) == 100
 
 
 # 1. was failing as quote was incorrectly calculated after closing a position.

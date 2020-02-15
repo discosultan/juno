@@ -4,9 +4,11 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, get_type_hints
 
+import pandas as pd
+
 from juno import Candle, Fees, Filters, Interval, Timestamp
 from juno.strategies import Strategy
-from juno.trading import MissedCandlePolicy, PortfolioStatistics, Statistics, TradingSummary
+from juno.trading import MissedCandlePolicy, Statistics, TradingSummary
 
 
 class Solver(ABC):
@@ -14,7 +16,7 @@ class Solver(ABC):
     def solve(
         self,
         fiat_daily_prices: Dict[str, List[Decimal]],
-        benchmark_stats: Statistics,
+        benchmark_g_returns: pd.Series,
         strategy_type: Type[Strategy],
         start: Timestamp,
         end: Timestamp,
@@ -64,7 +66,7 @@ class SolverResult(NamedTuple):
 
     @staticmethod
     def from_trading_summary(
-        summary: TradingSummary, stats: PortfolioStatistics
+        summary: TradingSummary, stats: Statistics
     ) -> SolverResult:
         return SolverResult(*map(
             _decimal_to_float,

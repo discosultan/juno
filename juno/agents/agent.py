@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any, Awaitable, Callable, Dict, List
 
 from juno.asyncio import resolved_future
-from juno.utils import EventEmitter, exc_traceback, format_attrs_as_json, generate_random_words
+from juno.utils import EventEmitter, exc_traceback, generate_random_words
 
 _log = logging.getLogger(__name__)
 
@@ -26,14 +26,13 @@ class Agent(EventEmitter):
         assert self.state is not AgentState.RUNNING
 
         self.config = agent_config
-        if 'name' in agent_config:
-            self.name = agent_config['name']
+        self.name = agent_config.get('name', self.name)
 
         await self.emit('starting')
-
         self.state = AgentState.RUNNING
         type_name = type(self).__name__.lower()
         _log.info(f'running {self.name} ({type_name}): {agent_config}')
+
         try:
             await self.run(**agent_config)
         except asyncio.CancelledError:
@@ -43,17 +42,9 @@ class Agent(EventEmitter):
             await self.emit('errored', exc)
             raise
 
-        _log.info('finalizing')
-        await self.finalize()
-
         self.state = AgentState.STOPPED
-        _log.info(f'{self.name} ({type_name}) finished:\n{format_attrs_as_json(self.result)}')
         await self.emit('finished')
-
         return self.result
-
-    async def finalize(self) -> None:
-        pass
 
     async def emit(self, event: str, *args: Any) -> List[Any]:
         results = await super().emit(event, *args)
