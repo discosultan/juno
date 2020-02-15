@@ -12,7 +12,7 @@ from juno.storages import SQLite
 from juno.trading import Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import format_attrs_as_json, unpack_symbol
 
-SYMBOLS = 'eth-btc'
+SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
 TRAINING_VALIDATION_SPLIT = 0.80
 QUOTE = Decimal('1.0')
