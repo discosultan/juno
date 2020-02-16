@@ -15,7 +15,7 @@ _log = logging.getLogger(__name__)
 class Optimize(Agent):
     def __init__(self, optimizer: Optimizer) -> None:
         super().__init__()
-        self.optimizer = optimizer
+        self._optimizer = optimizer
 
     async def run(
         self,
@@ -35,7 +35,7 @@ class Optimize(Agent):
         verbose: bool = False,
     ) -> None:
         strategy_type = get_module_type(strategies, strategy)
-        self.result = await self.optimizer.run(
+        self.result = await self._optimizer.run(
             exchange=exchange,
             symbols=symbols,
             intervals=intervals,

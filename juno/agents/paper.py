@@ -14,8 +14,8 @@ from .agent import Agent
 class Paper(Agent):
     def __init__(self, informant: Informant, trader: Trader) -> None:
         super().__init__()
-        self.informant = informant
-        self.trader = trader
+        self._informant = informant
+        self._trader = trader
 
     async def run(
         self,
@@ -37,12 +37,12 @@ class Paper(Agent):
         end = floor_multiple(end, interval)
         assert end > current
 
-        fees, filters = self.informant.get_fees_filters(exchange, symbol)
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         assert quote > filters.price.min
 
         self.result = TradingSummary(start=current, quote=quote)
-        await self.trader.run(
+        await self._trader.run(
             exchange=exchange,
             symbol=symbol,
             interval=interval,

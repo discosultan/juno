@@ -8,7 +8,7 @@ from juno.storages import SQLite
 from juno.time import HOUR_MS, strftimestamp
 
 EXCHANGE_TYPE = exchanges.Binance
-SYMBOL = 'eth-btc'
+SYMBOL = 'eos-btc'
 INTERVAL = HOUR_MS
 
 

@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.components import Prices
+from juno.components import Historian, Prices
 from juno.config import init_module_instance
 from juno.math import floor_multiple
 from juno.time import time_ms
@@ -18,24 +18,38 @@ _log = logging.getLogger(__name__)
 
 
 class Backtest(Agent):
-    def __init__(self, trader: Trader, prices: Optional[Prices] = None) -> None:
+    def __init__(
+        self,
+        trader: Trader,
+        historian: Optional[Historian] = None,
+        prices: Optional[Prices] = None,
+    ) -> None:
         super().__init__()
-        self.trader = trader
-        self.prices = prices
+        self._trader = trader
+        self._historian = historian
+        self._prices = prices
 
     async def run(
         self,
         exchange: str,
         symbol: str,
         interval: Interval,
-        start: Timestamp,
         quote: Decimal,
         strategy_config: Dict[str, Any],
+        start: Optional[Timestamp] = None,
         end: Optional[Timestamp] = None,
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
     ) -> None:
+        if self._historian:
+            first_candle = await self._historian.find_first_candle(exchange, symbol, interval)
+            if not start or start < first_candle.time:
+                start = first_candle.time
+
+        if start is None:
+            raise ValueError('Must manually specify backtest start time; historian not configured')
+
         now = time_ms()
 
         start = floor_multiple(start, interval)
@@ -48,7 +62,7 @@ class Backtest(Agent):
         assert quote > 0
 
         self.result = TradingSummary(start=start, quote=quote)
-        await self.trader.run(
+        await self._trader.run(
             exchange=exchange,
             symbol=symbol,
             interval=interval,
@@ -65,12 +79,12 @@ class Backtest(Agent):
 
         _log.info(f'trading summary: {format_attrs_as_json(self.result)}')
 
-        if not self.prices:
+        if not self._prices:
             return
 
         # Fetch necessary market data.
         base_asset, quote_asset = unpack_symbol(symbol)
-        fiat_daily_prices = await self.prices.map_fiat_daily_prices(
+        fiat_daily_prices = await self._prices.map_fiat_daily_prices(
             (base_asset, quote_asset), start, end
         )
 

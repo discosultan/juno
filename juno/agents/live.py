@@ -15,9 +15,9 @@ from .agent import Agent
 class Live(Agent):
     def __init__(self, informant: Informant, wallet: Wallet, trader: Trader) -> None:
         super().__init__()
-        self.informant = informant
-        self.wallet = wallet
-        self.trader = trader
+        self._informant = informant
+        self._wallet = wallet
+        self._trader = trader
 
     async def run(
         self,
@@ -39,13 +39,13 @@ class Live(Agent):
         assert end > current
 
         _, quote_asset = unpack_symbol(symbol)
-        quote = self.wallet.get_balance(exchange, quote_asset).available
+        quote = self._wallet.get_balance(exchange, quote_asset).available
 
-        _, filters = self.informant.get_fees_filters(exchange, symbol)
+        _, filters = self._informant.get_fees_filters(exchange, symbol)
         assert quote > filters.price.min
 
         self.result = TradingSummary(start=current, quote=quote)
-        await self.trader.run(
+        await self._trader.run(
             exchange=exchange,
             symbol=symbol,
             interval=interval,

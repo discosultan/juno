@@ -33,20 +33,14 @@ def test_round_half_up() -> None:
     assert math.round_half_up(Decimal('0.123'), 2) == Decimal('0.12')
 
 
-@pytest.mark.manual
-@pytest.mark.chaos
 def test_constant_constraint() -> None:
     assert_constraint_chaos(math.Constant('foo'))
 
 
-@pytest.mark.manual
-@pytest.mark.chaos
 def test_choice_constraint() -> None:
     assert_constraint_chaos(math.Choice(['foo', 'bar']))
 
 
-@pytest.mark.manual
-@pytest.mark.chaos
 def test_constraint_choice_constraint() -> None:
     assert_constraint_chaos(math.ConstraintChoice([
         math.Constant(Decimal('0.0')),
@@ -54,20 +48,14 @@ def test_constraint_choice_constraint() -> None:
     ]))
 
 
-@pytest.mark.manual
-@pytest.mark.chaos
 def test_uniform_constraint() -> None:
     assert_constraint_chaos(math.Uniform(Decimal('-0.10'), Decimal('2.00')))
 
 
-@pytest.mark.manual
-@pytest.mark.chaos
 def test_int_constraint() -> None:
     assert_constraint_chaos(math.Int(-10, 10))
 
 
-@pytest.mark.manual
-@pytest.mark.chaos
 def test_int_pair_constraint() -> None:
     assert_constraint_chaos(math.Pair(math.Int(-10, 10), operator.lt, math.Int(5, 20)))
 
