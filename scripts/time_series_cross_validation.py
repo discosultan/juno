@@ -14,7 +14,7 @@ from juno.utils import format_attrs_as_json, unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
-TRAINING_VALIDATION_SPLIT = 0.80
+TRAINING_VALIDATION_SPLIT = 0.75
 QUOTE = Decimal('1.0')
 STRATEGY_TYPE = strategies.MAMACX
 

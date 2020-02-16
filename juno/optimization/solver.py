@@ -40,6 +40,7 @@ class SolverResult(NamedTuple):
     # max_drawdown: float = 0.0
     # mean_position_profit: float = 0.0
     # mean_position_duration: Interval = 0
+    # num_positions: int = 0
     # num_positions_in_profit: int = 0
     # num_positions_in_loss: int = 0
 
@@ -50,14 +51,15 @@ class SolverResult(NamedTuple):
         # We try to maximize properties with positive weight, minimize properties with negative
         # weight.
         META = {
-            'alpha': 1.0,  # +
-            # 'profit': 1.0,  # +
-            # 'mean_drawdown': -1.0,  # -
-            # 'max_drawdown': -1.0,  # -
-            # 'mean_position_profit': 1.0,  # +
-            # 'mean_position_duration': -1.0,  # -
-            # 'num_positions_in_profit': 1.0,  # +
-            # 'num_positions_in_loss': -1.0,  # -
+            'alpha': +1.0,
+            'profit': +1.0,
+            'mean_drawdown': -1.0,
+            'max_drawdown': -1.0,
+            'mean_position_profit': +1.0,
+            'mean_position_duration': -1.0,
+            'num_positions': +1.0,
+            'num_positions_in_profit': +1.0,
+            'num_positions_in_loss': -1.0,
         }
         return {k: META.get(k, 0.00000001) for k in _SOLVER_RESULT_KEYS}
         # if include_disabled:

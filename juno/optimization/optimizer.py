@@ -171,15 +171,7 @@ class Optimizer:
         # Operators.
 
         indpb = 1.0 / len(attrs)
-
-        # eta - Crowding degree of the crossover. A high eta will produce children resembling to
-        # their parents, while a small eta will produce solutions much more different.
-
-        # toolbox.register('mate', tools.tools.cxSimulatedBinaryBounded, low=BOUND_LOW,
-        #                  up=BOUND_UP, eta=20.0)
         toolbox.register('mate', cx_uniform(random), indpb=indpb)
-        # toolbox.register('mutate', tools.mutPolynomialBounded, low=BOUND_LOW, up=BOUND_UP,
-        #                  eta=20.0, indpb=1.0 / NDIM)
         toolbox.register('mutate', mut_individual(random), attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
@@ -214,8 +206,8 @@ class Optimizer:
         final_pop, stat = await asyncio.get_running_loop().run_in_executor(
             None, partial(
                 ea_mu_plus_lambda(random),
-                pop,
-                toolbox,
+                population=pop,
+                toolbox=toolbox,
                 mu=toolbox.population_size,
                 lambda_=toolbox.population_size,
                 cxpb=Decimal('1.0') - toolbox.mutation_probability,
