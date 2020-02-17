@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
@@ -10,6 +11,8 @@ from juno.trading import MissedCandlePolicy, Trader, TradingSummary
 from juno.utils import unpack_symbol
 
 from .agent import Agent
+
+_log = logging.getLogger(__name__)
 
 
 class Live(Agent):
@@ -25,6 +28,7 @@ class Live(Agent):
         symbol: str,
         interval: Interval,
         strategy_config: Dict[str, Any],
+        quote: Optional[Decimal] = None,
         end: Timestamp = MAX_TIME_MS,
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
@@ -39,10 +43,17 @@ class Live(Agent):
         assert end > current
 
         _, quote_asset = unpack_symbol(symbol)
-        quote = self._wallet.get_balance(exchange, quote_asset).available
+        available_quote = self._wallet.get_balance(exchange, quote_asset).available
 
         _, filters = self._informant.get_fees_filters(exchange, symbol)
-        assert quote > filters.price.min
+        assert available_quote > filters.price.min
+
+        if quote is None:
+            quote = available_quote
+            _log.info(f'quote not defined; using available {available_quote} {quote_asset}')
+        else:
+            assert quote <= available_quote
+            _log.info(f'using pre-defined quote {quote} {quote_asset}')
 
         self.result = TradingSummary(start=current, quote=quote)
         await self._trader.run(
