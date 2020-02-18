@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import List, Tuple
 
 import pytest
 
@@ -99,7 +100,8 @@ async def test_trader_trailing_stop_loss() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        new_strategy=lambda: fakes.Strategy(Advice.BUY, None, None, Advice.SELL),
+        strategy_type=fakes.Strategy,
+        strategy_kwargs={'advices': [Advice.BUY, None, None, Advice.SELL]},
         missed_candle_policy=MissedCandlePolicy.IGNORE,
         adjust_start=False,
         trailing_stop=Decimal('0.1'),
@@ -121,9 +123,7 @@ async def test_trader_restart_on_missed_candle() -> None:
         ]
     })
     trader = Trader(chandler=chandler, informant=fakes.Informant())
-    strategy1 = fakes.Strategy(None, None)
-    strategy2 = fakes.Strategy(None, None, None)
-    strategy_stack = [strategy2, strategy1]
+    updates: List[Tuple[int, Candle]] = []
 
     await trader.run(
         exchange='dummy',
@@ -132,20 +132,28 @@ async def test_trader_restart_on_missed_candle() -> None:
         start=0,
         end=6,
         quote=Decimal('10.0'),
-        new_strategy=lambda: strategy_stack.pop(),
+        strategy_type=fakes.Strategy,
+        strategy_kwargs={'advices': [None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.RESTART,
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
     )
 
-    assert len(strategy1.updates) == 2
-    assert strategy1.updates[0].time == 0
-    assert strategy1.updates[1].time == 1
+    assert len(updates) == 5
 
-    assert len(strategy2.updates) == 3
-    assert strategy2.updates[0].time == 3
-    assert strategy2.updates[1].time == 4
-    assert strategy2.updates[2].time == 5
+    ids = [id_ for id_, _ in updates]
+    id1 = ids[0]
+    id2 = ids[2]
+    assert id1 != id2
+    assert all(id_ == id1 for id_ in ids[:2])
+    assert all(id_ == id2 for id_ in ids[2:])
+
+    candle_times = [c.time for _, c in updates]
+    assert candle_times[0] == 0
+    assert candle_times[1] == 1
+    assert candle_times[2] == 3
+    assert candle_times[3] == 4
+    assert candle_times[4] == 5
 
 
 async def test_trader_assume_same_as_last_on_missed_candle() -> None:
@@ -158,8 +166,8 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
             Candle(time=4),  # Generate new candles with previous data.
         ]
     })
-    strategy = fakes.Strategy(None, None, None, None, None)
     trader = Trader(chandler=chandler, informant=fakes.Informant())
+    updates: List[Tuple[int, Candle]] = []
 
     await trader.run(
         exchange='dummy',
@@ -168,18 +176,20 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         start=0,
         end=5,
         quote=Decimal('10.0'),
-        new_strategy=lambda: strategy,
+        strategy_type=fakes.Strategy,
+        strategy_kwargs={'advices': [None, None, None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.LAST,
         adjust_start=False,
         trailing_stop=Decimal('0.0'),
     )
 
-    assert len(strategy.updates) == 5
-    assert strategy.updates[0].time == 0
-    assert strategy.updates[1].time == 1
-    assert strategy.updates[2].time == 2
-    assert strategy.updates[3].time == 3
-    assert strategy.updates[4].time == 4
+    candle_times = [c.time for _, c in updates]
+    assert len(candle_times) == 5
+    assert candle_times[0] == 0
+    assert candle_times[1] == 1
+    assert candle_times[2] == 2
+    assert candle_times[3] == 3
+    assert candle_times[4] == 4
 
 
 def new_closed_position(profit):

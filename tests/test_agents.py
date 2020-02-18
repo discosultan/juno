@@ -41,7 +41,7 @@ async def test_backtest() -> None:
         'start': 0,
         'end': 6,
         'quote': Decimal('100.0'),
-        'strategy_config': {
+        'strategy': {
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
@@ -94,7 +94,7 @@ async def test_backtest_scenarios(scenario_nr: int) -> None:
         'interval': HOUR_MS,
         'quote': Decimal('100.0'),
         'missed_candle_policy': MissedCandlePolicy.IGNORE,
-        'strategy_config': {
+        'strategy': {
             'type': 'mamacx',
             'short_period': 18,
             'long_period': 29,
@@ -139,7 +139,7 @@ async def test_paper() -> None:
         'interval': 1,
         'end': 4,
         'quote': Decimal('100.0'),
-        'strategy_config': {
+        'strategy': {
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
@@ -189,7 +189,7 @@ async def test_live() -> None:
         'symbol': 'eth-btc',
         'interval': 1,
         'end': 4,
-        'strategy_config': {
+        'strategy': {
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,

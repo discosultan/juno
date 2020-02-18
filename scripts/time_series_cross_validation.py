@@ -67,19 +67,17 @@ async def main() -> None:
 
         tc = optimization_summary.trading_config
 
-        # TODO: Ensure we can pass trading config directly as kwargs.
         trading_summary = await trader.run(
+            start=validation_start,
+            end=validation_end,
             exchange=tc.exchange,
             symbol=tc.symbol,
             interval=tc.interval,
-            start=validation_start,
-            end=validation_end,
             quote=tc.quote,
-            new_strategy=lambda: optimization_summary.strategy_type(
-                **optimization_summary.strategy_config
-            ),
             missed_candle_policy=tc.missed_candle_policy,
             trailing_stop=tc.trailing_stop,
+            strategy_type=tc.strategy_type,
+            strategy_kwargs=tc.strategy_kwargs,
         )
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)

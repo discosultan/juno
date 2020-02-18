@@ -13,7 +13,7 @@
             "interval": "1h",
             "missed_candle_policy": "last",
             "trailing_stop": 0.0,
-            "strategy_config": {
+            "strategy": {
                 "type": "mamacx",
                 "short_period": 11,
                 "long_period": 21,

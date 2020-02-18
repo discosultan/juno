@@ -1,3 +1,4 @@
+import inspect
 from decimal import Decimal
 from types import TracebackType
 from typing import (
@@ -35,7 +36,11 @@ def get_root_origin(type_: Any) -> Optional[Type[Any]]:
 def isnamedtuple(obj: Any) -> bool:
     origin = get_origin(obj) or obj
     # Note that '_fields' is present only if the tuple has at least 1 field.
-    return issubclass(origin, tuple) and bool(getattr(origin, '_fields', False))
+    return (
+        inspect.isclass(obj)
+        and issubclass(origin, tuple)
+        and bool(getattr(origin, '_fields', False))
+    )
 
 
 def isoptional(obj: Any) -> bool:

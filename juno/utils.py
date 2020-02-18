@@ -19,7 +19,9 @@ from typing import (
 import aiolimiter
 
 from juno import Interval, Timestamp, json
+from juno.config import to_config
 from juno.time import strfinterval, strftimestamp
+from juno.typing import isnamedtuple
 
 T = TypeVar('T')
 
@@ -175,7 +177,7 @@ def chunks(l: str, n: int) -> Iterable[str]:
 
 
 def format_attrs_as_json(obj: Any) -> str:
-    return json.dumps(_get_attrs(obj), indent=4)
+    return json.dumps(to_config(obj), indent=4)
 
 
 def _get_attrs(obj: Any) -> Dict[str, Any]:
@@ -211,7 +213,7 @@ def _transform(type_: Type[Any], value: Any) -> Any:
         return value
 
     # NamedTuple.
-    if issubclass(type_, tuple) and get_type_hints(type_):
+    if isnamedtuple(type_):
         return _get_attrs(value)
 
     return value

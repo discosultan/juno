@@ -16,7 +16,7 @@
             "interval": "1h",
             "missed_candle_policy": "restart",
             "trailing_stop": 0.1832,
-            "strategy_config": {
+            "strategy": {
                 "type": "mamacx",
                 "short_period": 19,
                 "long_period": 31,

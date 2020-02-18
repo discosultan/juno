@@ -53,7 +53,5 @@ class Optimize(Agent):
         )
 
         _log.info(f'trading config: {format_attrs_as_json(self.result.trading_config)}')
-        _log.info(f'strategy type: {self.result.strategy_type}')
-        _log.info(f'strategy config: {self.result.strategy_config}')
         _log.info(f'trading summary: {format_attrs_as_json(self.result.trading_summary)}')
         _log.info(f'portfolio stats: {format_attrs_as_json(self.result.portfolio_stats)}')

@@ -1,14 +1,16 @@
+import functools
 import inspect
 import os
 import sys
 from enum import Enum
 from types import ModuleType
 from typing import (
-    Any, Dict, List, Mapping, Optional, Set, Type, TypeVar, Union, get_args, get_origin
+    Any, Dict, List, Mapping, Optional, Set, Tuple, Type, TypeVar, Union, get_args, get_origin,
+    get_type_hints
 )
 
 from juno import Interval, Timestamp, json
-from juno.time import strpinterval, strptimestamp
+from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
 from juno.typing import get_input_type_hints, isnamedtuple
 from juno.utils import get_module_type, map_module_types, recursive_iter
 
@@ -104,6 +106,16 @@ def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
     return init_instance(type_, config)
 
 
+def get_module_type_and_config(
+    module: ModuleType, config: Dict[str, Any]
+) -> Tuple[type, Dict[str, Any]]:
+    type_name = config.get('type')
+    if not type_name:
+        raise ValueError('Unable to get module type. Property "type" missing in config')
+    type_ = get_module_type(module, type_name)
+    return type_, kwargs_for(type_.__init__, config)
+
+
 def init_instance(type_: Type[Any], config: Dict[str, Any]) -> Any:
     # Supports loading abstract types by resolving concrete type from config.
     if inspect.isabstract(type_):
@@ -126,36 +138,74 @@ def kwargs_for(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]:
     for k, t in type_hints.items():
         config_val = config.get(k, '__missing__')
         if config_val != '__missing__':
-            parsed_config[k] = _transform_value(config_val, t)
+            parsed_config[k] = from_config(config_val, t)
     return parsed_config
 
 
-def _transform_value(value: Any, type_: Type[Any]) -> Any:
+def _from_config_enum(value, type_):
+    return type_[value.upper()]
+
+
+def _to_config_enum(value, _type_):
+    return value.name.lower()
+
+
+def _transform_config(
+    value: Any,
+    type_: Any,
+    transform_interval,
+    transform_timestamp,
+    transform_enum,
+) -> Any:
+    # Aliases.
     if type_ is Any:
         return value
     if type_ is Interval:
-        return strpinterval(value)
+        return transform_interval(value)
     if type_ is Timestamp:
-        return strptimestamp(value)
+        return transform_timestamp(value)
 
     origin = get_origin(type_)
     if origin:
-        if origin is list:
-            st, = get_args(type_)
-            return [_transform_value(sv, st) for sv in value]
-        elif origin is dict:
-            skt, svt = get_args(type_)
-            return {
-                _transform_value(sk, skt): _transform_value(sv, svt) for sk, sv in value.items()
-            }
-        elif origin is Union:  # Most probably Optional[T].
+        if origin is Union:  # Most probably Optional[T].
             st, _ = get_args(type_)
-            return _transform_value(value, st) if value is not None else None
+            return to_config(value, st) if value is not None else None
+        isclass = inspect.isclass(origin)
+        if isclass and issubclass(origin, list):
+            st, = get_args(type_)
+            return origin((to_config(sv, st) for sv in value))
+        if isclass and issubclass(origin, tuple):
+            args = get_args(type_)
+            return type_((to_config(sv, st) for sv, st in zip(value, args)))
+        if isclass and issubclass(origin, dict):
+            skt, svt = get_args(type_)
+            return origin({
+                to_config(sk, skt): to_config(sv, svt) for sk, sv in value.items()
+            })
 
-    if issubclass(type_, Enum):
-        return type_[value.upper()]
+    if inspect.isclass(type_) and issubclass(type_, Enum):
+        return transform_enum(value)
+    if isnamedtuple(type_):
+        type_hints = get_type_hints(type_)
+        return type_((to_config(sv, st) for sv, st in zip(value, type_hints.values())))
 
     return value
+
+
+from_config = functools.partial(
+    _transform_config,
+    transform_interval=strpinterval,
+    transform_timestamp=strptimestamp,
+    transform_enum=_from_config_enum
+)
+
+
+to_config = functools.partial(
+    _transform_config,
+    transform_interval=strfinterval,
+    transform_timestamp=strftimestamp,
+    transform_enum=_to_config_enum
+)
 
 
 def resolve_concrete(type_: Type[Any], config: Dict[str, Any]) -> Type[Any]:

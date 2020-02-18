@@ -1,8 +1,9 @@
 import asyncio
 from contextlib import asynccontextmanager
+from typing import List, Tuple
 
 from juno import (
-    CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters, OrderResult,
+    Advice, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters, OrderResult,
     OrderStatus, Side, brokers, components, exchanges, storages, strategies
 )
 
@@ -263,12 +264,12 @@ class Market(brokers.Market):
 
 
 class Strategy(strategies.Strategy):
-    def __init__(self, *advices):
+    def __init__(self, advices: List[Advice], updates: List[Tuple[int, Candle]] = []):
         self.advices = list(reversed(advices))
-        self.updates = []
+        self.updates = updates
 
     def update(self, candle):
-        self.updates.append(candle)
+        self.updates.append((id(self), candle))
 
     @property
     def advice(self):

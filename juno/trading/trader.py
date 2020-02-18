@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Callable, Optional
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp
 from juno.brokers import Broker
@@ -63,7 +63,9 @@ class Trader:
         start: Timestamp,
         end: Timestamp,
         quote: Decimal,
-        new_strategy: Callable[[], Strategy],
+        strategy_type: Type[Strategy],
+        strategy_args: Union[List[Any], Tuple[Any]] = [],
+        strategy_kwargs: Dict[str, Any] = {},
         test: bool = True,  # No effect if broker is None.
         event: EventEmitter = EventEmitter(),
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
@@ -78,7 +80,7 @@ class Trader:
 
         summary = summary or TradingSummary(start=start, quote=quote)
         ctx = _Context(
-            strategy=new_strategy(),
+            strategy=strategy_type(*strategy_args, **strategy_kwargs),
             quote=quote,
             exchange=exchange,
             symbol=symbol,
@@ -114,7 +116,7 @@ class Trader:
                         if missed_candle_policy is MissedCandlePolicy.RESTART:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
-                            ctx.strategy = new_strategy()
+                            ctx.strategy = strategy_type(*strategy_args, **strategy_kwargs)
                             adjusted_start = candle.time + interval
                         elif missed_candle_policy is MissedCandlePolicy.LAST:
                             _log.info(f'filling {num_missed} missed candles with last values')

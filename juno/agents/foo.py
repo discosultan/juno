@@ -128,20 +128,20 @@ class Foo(Agent):
             symbols=[symbol],
             intervals=list(map(strpinterval, ('30m', '1h', '2h'))),
             population_size=100,
-            max_generations=1000
+            max_generations=1000,
         )
+        tc = optimization_summary.trading_config
 
         await self._trader.run(
-            exchange=exchange,
-            symbol=symbol,
-            interval=optimization_summary.trading_config.interval,
             start=trading_start,
             end=end,
-            quote=quote,
-            new_strategy=lambda: optimization_summary.strategy_type(
-                **optimization_summary.strategy_config
-            ),
-            missed_candle_policy=optimization_summary.trading_config.missed_candle_policy,
-            trailing_stop=optimization_summary.trading_config.trailing_stop,
-            summary=summary
+            exchange=tc.exchange,
+            symbol=tc.symbol,
+            interval=tc.interval,
+            quote=tc.quote,
+            strategy_type=tc.strategy_type,
+            strategy_kwargs=tc.strategy_kwargs,
+            missed_candle_policy=tc.missed_candle_policy,
+            trailing_stop=tc.trailing_stop,
+            summary=summary,
         )

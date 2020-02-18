@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Historian, Prices
-from juno.config import init_module_instance
+from juno.config import get_module_type_and_config
 from juno.math import floor_multiple
 from juno.time import time_ms
 from juno.trading import (
@@ -35,7 +35,7 @@ class Backtest(Agent):
         symbol: str,
         interval: Interval,
         quote: Decimal,
-        strategy_config: Dict[str, Any],
+        strategy: Dict[str, Any],
         start: Optional[Timestamp] = None,
         end: Optional[Timestamp] = None,
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
@@ -61,6 +61,7 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
+        strategy_type, strategy_config = get_module_type_and_config(strategies, strategy)
         self.result = TradingSummary(start=start, quote=quote)
         await self._trader.run(
             exchange=exchange,
@@ -69,7 +70,8 @@ class Backtest(Agent):
             start=start,
             end=end,
             quote=quote,
-            new_strategy=lambda: init_module_instance(strategies, strategy_config),
+            strategy_type=strategy_type,
+            strategy_kwargs=strategy_config,
             event=self,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,

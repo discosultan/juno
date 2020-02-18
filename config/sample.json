@@ -24,7 +24,7 @@
             "missed_candle_policy": "ignore",
             "adjust_start": true,
             "trailing_stop": 0.1,
-            "strategy_config": {
+            "strategy": {
                 "type": "mamacx",
                 "short_period": 18,
                 "long_period": 29,

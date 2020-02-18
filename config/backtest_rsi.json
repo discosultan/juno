@@ -13,7 +13,7 @@
             "quote": 1.0,
             "missed_candle_policy": "last",
             "trailing_stop": 0.0,
-            "strategy_config": {
+            "strategy": {
                 "type": "rsi",
                 "period": 14,
                 "up_threshold": 70.0,
