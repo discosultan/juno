@@ -10,7 +10,7 @@ from juno.math import floor_multiple
 from juno.optimization import Optimizer, Rust
 from juno.storages import SQLite
 from juno.trading import Trader, analyse_benchmark, analyse_portfolio
-from juno.utils import format_attrs_as_json, unpack_symbol
+from juno.utils import asdict, unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
@@ -58,11 +58,11 @@ async def main() -> None:
 
         logging.info(
             'training trading summary: '
-            f'{format_attrs_as_json(optimization_summary.trading_summary)}'
+            f'{asdict(optimization_summary.trading_summary)}'
         )
         logging.info(
             'training portfolio stats: '
-            f'{format_attrs_as_json(optimization_summary.portfolio_stats)}'
+            f'{asdict(optimization_summary.portfolio_stats)}'
         )
 
         tc = optimization_summary.trading_config
@@ -87,9 +87,9 @@ async def main() -> None:
         benchmark = analyse_benchmark(fiat_daily_prices[quote_asset])
         portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, trading_summary)
 
-        logging.info(f'trading summary: {format_attrs_as_json(trading_summary)}')
-        logging.info(f'benchmark stats: {format_attrs_as_json(benchmark.stats)}')
-        logging.info(f'portfolio stats: {format_attrs_as_json(portfolio.stats)}')
+        logging.info(f'trading summary: {asdict(trading_summary)}')
+        logging.info(f'benchmark stats: {asdict(benchmark.stats)}')
+        logging.info(f'portfolio stats: {asdict(portfolio.stats)}')
 
     logging.info('done')
 

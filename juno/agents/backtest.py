@@ -10,7 +10,7 @@ from juno.time import time_ms
 from juno.trading import (
     MissedCandlePolicy, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
-from juno.utils import format_attrs_as_json, unpack_symbol
+from juno.utils import unpack_symbol
 
 from .agent import Agent
 
@@ -79,7 +79,7 @@ class Backtest(Agent):
             summary=self.result
         )
 
-        _log.info(f'trading summary: {format_attrs_as_json(self.result)}')
+        _log.info(f'trading summary: {self.format_as_config(self.result)}')
 
         if not self._prices:
             return
@@ -95,5 +95,5 @@ class Backtest(Agent):
             benchmark.g_returns, fiat_daily_prices, self.result
         )
 
-        _log.info(f'benchmark stats: {format_attrs_as_json(benchmark.stats)}')
-        _log.info(f'portfolio stats: {format_attrs_as_json(portfolio.stats)}')
+        _log.info(f'benchmark stats: {self.format_as_config(benchmark.stats)}')
+        _log.info(f'portfolio stats: {self.format_as_config(portfolio.stats)}')

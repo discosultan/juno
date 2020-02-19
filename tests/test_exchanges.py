@@ -134,7 +134,7 @@ async def test_connect_stream_candles(loop, request, exchange: Exchange) -> None
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_stream_candles)
 
-    async with exchange.connect_stream_candles(symbol='eth-btc', interval=HOUR_MS) as stream:
+    async with exchange.connect_stream_candles(symbol='eth-btc', interval=MIN_MS) as stream:
         async for candle in stream:
             assert types_match(candle, Candle)
             break

@@ -5,7 +5,7 @@ from typing import List, Optional
 from juno import Interval, Timestamp, strategies
 from juno.optimization import Optimizer
 from juno.trading import MissedCandlePolicy
-from juno.utils import format_attrs_as_json, get_module_type
+from juno.utils import get_module_type
 
 from . import Agent
 
@@ -52,6 +52,6 @@ class Optimize(Agent):
             verbose=verbose,
         )
 
-        _log.info(f'trading config: {format_attrs_as_json(self.result.trading_config)}')
-        _log.info(f'trading summary: {format_attrs_as_json(self.result.trading_summary)}')
-        _log.info(f'portfolio stats: {format_attrs_as_json(self.result.portfolio_stats)}')
+        _log.info(f'trading config: {self.format_as_config(self.result.trading_config)}')
+        _log.info(f'trading summary: {self.format_as_config(self.result.trading_summary)}')
+        _log.info(f'portfolio stats: {self.format_as_config(self.result.portfolio_stats)}')

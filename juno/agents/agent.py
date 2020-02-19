@@ -3,8 +3,11 @@ import logging
 from enum import Enum
 from typing import Any, Awaitable, Callable, Dict, List
 
+import juno.json as json
 from juno.asyncio import resolved_future
-from juno.utils import EventEmitter, exc_traceback, generate_random_words
+from juno.config import to_config
+from juno.typing import isnamedtuple
+from juno.utils import EventEmitter, asdict, exc_traceback, generate_random_words
 
 _log = logging.getLogger(__name__)
 
@@ -51,6 +54,13 @@ class Agent(EventEmitter):
         for e in (r for r in results if isinstance(r, Exception)):
             _log.error(exc_traceback(e))
         return results
+
+    def format_as_config(self, obj: Any):
+        type_ = type(obj)
+        if not isnamedtuple(type_):
+            # Extracts only public fields and properties.
+            obj = asdict(obj)
+        return json.dumps(to_config(obj, type_), indent=4)
 
 
 class AgentState(Enum):

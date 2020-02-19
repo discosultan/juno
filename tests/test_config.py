@@ -23,7 +23,7 @@ class Foo(NamedTuple):
 
 
 def test_init_module_instance() -> None:
-    input = {
+    input_ = {
         'type': 'foo',
         'name': 'bar',
         'timestamp': '2000-01-01T00:00:00+00:00',
@@ -36,7 +36,7 @@ def test_init_module_instance() -> None:
         'enum': 'key'
     }
 
-    output = config.init_module_instance(sys.modules[__name__], input)
+    output = config.init_module_instance(sys.modules[__name__], input_)
 
     assert output.name == 'bar'
     assert output.timestamp == 946_684_800_000
@@ -50,7 +50,7 @@ def test_init_module_instance() -> None:
 
 
 def test_load_from_env() -> None:
-    input = {
+    input_ = {
         'JUNO__FOO__BAR': 'a',
         'JUNO__FOO__BAZ': 'b',
         'JUNO__QUX__0': 'c',
@@ -67,12 +67,12 @@ def test_load_from_env() -> None:
             'corge': 'e'
         }],
     }
-    output = config.from_env(input)
+    output = config.from_env(input_)
     assert output == expected_output
 
 
 def test_list_names() -> None:
-    input = {
+    input_ = {
         'foo': {
             'bar': 'a'
         },
@@ -83,5 +83,5 @@ def test_list_names() -> None:
         }],
     }
     expected_output = {'a', 'b', 'c', 'e'}
-    output = config.list_names(input, 'bar')
+    output = config.list_names(input_, 'bar')
     assert output == expected_output

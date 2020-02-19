@@ -7,7 +7,7 @@ from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.utils import EventEmitter, format_attrs_as_json, unpack_symbol
+from juno.utils import EventEmitter, asdict, unpack_symbol
 
 from .common import MissedCandlePolicy, Position, TradingSummary
 
@@ -205,7 +205,7 @@ class Trader:
             ctx.quote -= size * price
 
         _log.info(f'position opened: {candle}')
-        _log.debug(format_attrs_as_json(ctx.open_position))
+        _log.debug(asdict(ctx.open_position))
         await ctx.event.emit('position_opened', ctx.open_position)
 
     async def _close_position(self, ctx: _Context, candle: Candle) -> None:
@@ -244,5 +244,5 @@ class Trader:
         ctx.open_position = None
         ctx.summary.append_position(pos)
         _log.info(f'position closed: {candle}')
-        _log.debug(format_attrs_as_json(pos))
+        _log.debug(asdict(pos))
         await ctx.event.emit('position_closed', pos)

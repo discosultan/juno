@@ -34,12 +34,11 @@ def get_root_origin(type_: Any) -> Optional[Type[Any]]:
 
 
 def isnamedtuple(obj: Any) -> bool:
-    origin = get_origin(obj) or obj
     # Note that '_fields' is present only if the tuple has at least 1 field.
     return (
         inspect.isclass(obj)
-        and issubclass(origin, tuple)
-        and bool(getattr(origin, '_fields', False))
+        and issubclass(obj, tuple)
+        and bool(getattr(obj, '_fields', False))
     )
 
 

@@ -8,7 +8,6 @@ import traceback
 from collections import defaultdict
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
-from decimal import Decimal
 from os import path
 from pathlib import Path
 from types import ModuleType
@@ -174,21 +173,17 @@ def chunks(l: str, n: int) -> Iterable[str]:
             yield l[i:i + n]
 
 
-def format_attrs_as_json(obj: Any) -> str:
-    return json.dumps(to_config(obj), indent=4)
-
-
-def _get_attrs(obj: Any) -> Dict[str, Any]:
+def asdict(obj: Any) -> Dict[str, Any]:
     type_ = type(obj)
-    if type_ in [int, float, bool, str, Decimal, tuple, list, dict]:
-        return obj
+    # if type_ in [int, float, bool, str, Decimal, tuple, list, dict]:
+    #     return obj
 
     output = {}
 
     # Fields.
     fields = [(n, v) for (n, v) in get_type_hints(type_).items() if not n.startswith('_')]
     for name, _field_type in fields:
-        output[name] = _get_attrs(getattr(obj, name))  # type: ignore
+        output[name] = getattr(obj, name)  # type: ignore
 
     # Properties.
     props = [(n, v) for (n, v) in inspect.getmembers(type_, _isprop) if not n.startswith('_')]
@@ -196,7 +191,7 @@ def _get_attrs(obj: Any) -> Dict[str, Any]:
     props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
     for name, prop in props:
         # prop_type = get_type_hints(prop.fget)['return']
-        output[name] = _get_attrs(prop.fget(obj))
+        output[name] = prop.fget(obj)
 
     return output
 
