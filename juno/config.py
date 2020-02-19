@@ -185,9 +185,6 @@ def _transform_config(
         transform_namedtuple=transform_namedtuple,
     )
 
-
-    breakpoint()
-
     # Aliases.
     if type_ is Any:
         return value
