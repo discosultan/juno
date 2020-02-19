@@ -8,20 +8,18 @@ import traceback
 from collections import defaultdict
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
+from decimal import Decimal
 from os import path
 from pathlib import Path
 from types import ModuleType
 from typing import (
     Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, Type,
-    TypeVar, Union, get_origin, get_type_hints
+    TypeVar, Union, get_type_hints
 )
 
 import aiolimiter
 
-from juno import Interval, Timestamp, json
-from juno.config import to_config
-from juno.time import strfinterval, strftimestamp
-from juno.typing import isnamedtuple
+from juno import json
 
 T = TypeVar('T')
 
@@ -181,42 +179,26 @@ def format_attrs_as_json(obj: Any) -> str:
 
 
 def _get_attrs(obj: Any) -> Dict[str, Any]:
-    output = {}
     type_ = type(obj)
+    if type_ in [int, float, bool, str, Decimal, tuple, list, dict]:
+        return obj
+
+    output = {}
 
     # Fields.
     fields = [(n, v) for (n, v) in get_type_hints(type_).items() if not n.startswith('_')]
-    for name, field_type in fields:
-        output[name] = _transform(field_type, getattr(obj, name))  # type: ignore
+    for name, _field_type in fields:
+        output[name] = _get_attrs(getattr(obj, name))  # type: ignore
 
     # Properties.
     props = [(n, v) for (n, v) in inspect.getmembers(type_, _isprop) if not n.startswith('_')]
     # Inspect orders members alphabetically. We want to preserve source ordering.
     props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
     for name, prop in props:
-        prop_type = get_type_hints(prop.fget)['return']
-        output[name] = _transform(prop_type, prop.fget(obj))
+        # prop_type = get_type_hints(prop.fget)['return']
+        output[name] = _get_attrs(prop.fget(obj))
 
     return output
-
-
-def _transform(type_: Type[Any], value: Any) -> Any:
-    # Aliases.
-    if type_ is Interval:
-        return strfinterval(value)
-    if type_ is Timestamp:
-        return strftimestamp(value)
-
-    # Dict.
-    origin = get_origin(type_)
-    if origin and issubclass(origin, dict):
-        return value
-
-    # NamedTuple.
-    if isnamedtuple(type_):
-        return _get_attrs(value)
-
-    return value
 
 
 def _isprop(v: object) -> bool:
