@@ -4,11 +4,13 @@
 from .adx import Adx
 from .adxr import Adxr
 from .cci import Cci
+from .chaikin_oscillator import ChaikinOscillator
 from .dema import Dema
 from .di import DI
 from .dm import DM
 from .dx import DX
 from .ema import Ema, Ema2
+from .klinger_oscillator import KlingerOscillator
 from .macd import Macd
 from .obv import Obv
 from .rsi import Rsi
@@ -22,12 +24,14 @@ __all__ = [
     'Adx',
     'Adxr',
     'Cci',
+    'ChaikinOscillator',
     'Dema',
     'DI',
     'DM',
     'DX',
     'Ema',
     'Ema2',
+    'KlingerOscillator',
     'Macd',
     'Obv',
     'Rsi',
