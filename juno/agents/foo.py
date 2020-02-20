@@ -126,22 +126,15 @@ class Foo(Agent):
             quote=quote,
             strategy_type=MAMACX,
             symbols=[symbol],
-            intervals=list(map(strpinterval, ('30m', '1h', '2h'))),
-            population_size=100,
-            max_generations=1000,
+            intervals=list(map(strpinterval, ('2h',))),
+            population_size=10,
+            max_generations=100,
         )
-        tc = optimization_summary.trading_config
+        tc = optimization_summary.trading_config._asdict()
+        tc.update({
+            'start': trading_start,
+            'end': end,
+            'summary': summary
+        })
 
-        await self._trader.run(
-            start=trading_start,
-            end=end,
-            exchange=tc.exchange,
-            symbol=tc.symbol,
-            interval=tc.interval,
-            quote=tc.quote,
-            strategy_type=tc.strategy_type,
-            strategy_kwargs=tc.strategy_kwargs,
-            missed_candle_policy=tc.missed_candle_policy,
-            trailing_stop=tc.trailing_stop,
-            summary=summary,
-        )
+        await self._trader.run(**tc)
