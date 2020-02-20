@@ -1,13 +1,13 @@
 import logging
 from decimal import Decimal
-from typing import Callable, Optional
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.utils import EventEmitter, format_attrs_as_json, unpack_symbol
+from juno.utils import EventEmitter, tonamedtuple, unpack_symbol
 
 from .common import MissedCandlePolicy, Position, TradingSummary
 
@@ -63,7 +63,9 @@ class Trader:
         start: Timestamp,
         end: Timestamp,
         quote: Decimal,
-        new_strategy: Callable[[], Strategy],
+        strategy_type: Type[Strategy],
+        strategy_args: Union[List[Any], Tuple[Any]] = [],
+        strategy_kwargs: Dict[str, Any] = {},
         test: bool = True,  # No effect if broker is None.
         event: EventEmitter = EventEmitter(),
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
@@ -78,7 +80,7 @@ class Trader:
 
         summary = summary or TradingSummary(start=start, quote=quote)
         ctx = _Context(
-            strategy=new_strategy(),
+            strategy=strategy_type(*strategy_args, **strategy_kwargs),
             quote=quote,
             exchange=exchange,
             symbol=symbol,
@@ -114,7 +116,7 @@ class Trader:
                         if missed_candle_policy is MissedCandlePolicy.RESTART:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
-                            ctx.strategy = new_strategy()
+                            ctx.strategy = strategy_type(*strategy_args, **strategy_kwargs)
                             adjusted_start = candle.time + interval
                         elif missed_candle_policy is MissedCandlePolicy.LAST:
                             _log.info(f'filling {num_missed} missed candles with last values')
@@ -203,7 +205,7 @@ class Trader:
             ctx.quote -= size * price
 
         _log.info(f'position opened: {candle}')
-        _log.debug(format_attrs_as_json(ctx.open_position))
+        _log.debug(tonamedtuple(ctx.open_position))
         await ctx.event.emit('position_opened', ctx.open_position)
 
     async def _close_position(self, ctx: _Context, candle: Candle) -> None:
@@ -242,5 +244,5 @@ class Trader:
         ctx.open_position = None
         ctx.summary.append_position(pos)
         _log.info(f'position closed: {candle}')
-        _log.debug(format_attrs_as_json(pos))
+        _log.debug(tonamedtuple(pos))
         await ctx.event.emit('position_closed', pos)

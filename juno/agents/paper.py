@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Informant
-from juno.config import init_module_instance
+from juno.config import get_module_type_and_config
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader, TradingSummary
@@ -23,7 +23,7 @@ class Paper(Agent):
         symbol: str,
         interval: Interval,
         quote: Decimal,
-        strategy_config: Dict[str, Any],
+        strategy: Dict[str, Any],
         end: Timestamp = MAX_TIME_MS,
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
@@ -41,6 +41,7 @@ class Paper(Agent):
 
         assert quote > filters.price.min
 
+        strategy_type, strategy_config = get_module_type_and_config(strategies, strategy)
         self.result = TradingSummary(start=current, quote=quote)
         await self._trader.run(
             exchange=exchange,
@@ -49,7 +50,8 @@ class Paper(Agent):
             start=current,
             end=end,
             quote=quote,
-            new_strategy=lambda: init_module_instance(strategies, strategy_config),
+            strategy_type=strategy_type,
+            strategy_kwargs=strategy_config,
             test=True,
             event=self,
             missed_candle_policy=missed_candle_policy,

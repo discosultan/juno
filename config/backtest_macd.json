@@ -13,7 +13,7 @@
             "quote": 1.0,
             "missed_candle_policy": "last",
             "trailing_stop": 0.0,
-            "strategy_config": {
+            "strategy": {
                 "type": "macd",
                 "short_period": 12,
                 "long_period": 26,

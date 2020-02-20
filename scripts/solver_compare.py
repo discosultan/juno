@@ -97,15 +97,16 @@ async def main() -> None:
             start,
             end,
             Decimal('1.0'),
-            lambda: strategies.MAMACX(
-                SHORT_PERIOD,
-                LONG_PERIOD,
-                NEG_THRESHOLD,
-                POS_THRESHOLD,
-                PERSISTENCE,
-                SHORT_MA,
-                LONG_MA
-            ),
+            strategy_type=strategies.MAMACX,
+            strategy_kwargs={
+                'short_period': SHORT_PERIOD,
+                'long_period': LONG_PERIOD,
+                'neg_threshold': NEG_THRESHOLD,
+                'pos_threshold': POS_THRESHOLD,
+                'persistence': PERSISTENCE,
+                'short_ma': SHORT_MA,
+                'long_ma': LONG_MA,
+            },
             missed_candle_policy=MISSED_CANDLE_POLICY,
             trailing_stop=TRAILING_STOP,
             adjust_start=False

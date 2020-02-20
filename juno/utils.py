@@ -12,14 +12,13 @@ from os import path
 from pathlib import Path
 from types import ModuleType
 from typing import (
-    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, Type,
-    TypeVar, Union, get_origin, get_type_hints
+    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, NamedTuple, Optional, Tuple,
+    Type, TypeVar, Union, get_type_hints
 )
 
 import aiolimiter
 
-from juno import Interval, Timestamp, json
-from juno.time import strfinterval, strftimestamp
+from juno import json
 
 T = TypeVar('T')
 
@@ -174,18 +173,21 @@ def chunks(l: str, n: int) -> Iterable[str]:
             yield l[i:i + n]
 
 
-def format_attrs_as_json(obj: Any) -> str:
-    return json.dumps(_get_attrs(obj), indent=4)
+def tonamedtuple(obj: Any) -> Any:
+    """Turns all public fields and properties of an object into typed named tuple. Non-recursive.
+    """
 
-
-def _get_attrs(obj: Any) -> Dict[str, Any]:
-    output = {}
     type_ = type(obj)
+
+    # TODO: We can cache the named tuple based on input type.
+    attrs = []
+    vals = []
 
     # Fields.
     fields = [(n, v) for (n, v) in get_type_hints(type_).items() if not n.startswith('_')]
     for name, field_type in fields:
-        output[name] = _transform(field_type, getattr(obj, name))  # type: ignore
+        attrs.append((name, field_type))
+        vals.append(getattr(obj, name))
 
     # Properties.
     props = [(n, v) for (n, v) in inspect.getmembers(type_, _isprop) if not n.startswith('_')]
@@ -193,28 +195,14 @@ def _get_attrs(obj: Any) -> Dict[str, Any]:
     props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
     for name, prop in props:
         prop_type = get_type_hints(prop.fget)['return']
-        output[name] = _transform(prop_type, prop.fget(obj))
+        attrs.append((name, prop_type))
+        vals.append(prop.fget(obj))
 
-    return output
+    # TODO: mypy doesn't like when NamedTuples are created dynamically. It's okay for our use case
+    # because we only use them like this for log output formatting.
+    namedtuple = NamedTuple(type_.__name__, attrs)  # type: ignore
 
-
-def _transform(type_: Type[Any], value: Any) -> Any:
-    # Aliases.
-    if type_ is Interval:
-        return strfinterval(value)
-    if type_ is Timestamp:
-        return strftimestamp(value)
-
-    # Dict.
-    origin = get_origin(type_)
-    if origin and issubclass(origin, dict):
-        return value
-
-    # NamedTuple.
-    if issubclass(type_, tuple) and get_type_hints(type_):
-        return _get_attrs(value)
-
-    return value
+    return namedtuple(*vals)
 
 
 def _isprop(v: object) -> bool:

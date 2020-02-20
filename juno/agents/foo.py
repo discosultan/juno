@@ -8,7 +8,7 @@ from juno.optimization import Optimizer
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import Trader, TradingSummary, analyse_benchmark, analyse_portfolio
-from juno.utils import format_attrs_as_json, unpack_symbol
+from juno.utils import unpack_symbol
 
 from .agent import Agent
 
@@ -61,8 +61,8 @@ class Foo(Agent):
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, summary)
 
-        _log.info(f'benchmark stats: {format_attrs_as_json(benchmark.stats)}')
-        _log.info(f'portfolio stats: {format_attrs_as_json(portfolio.stats)}')
+        _log.info(f'benchmark stats: {self.format_as_config(benchmark.stats)}')
+        _log.info(f'portfolio stats: {self.format_as_config(portfolio.stats)}')
 
     async def _find_top_symbols_by_volume_with_sufficient_history(
         self, exchange: str, required_start: int, count: int
@@ -126,22 +126,15 @@ class Foo(Agent):
             quote=quote,
             strategy_type=MAMACX,
             symbols=[symbol],
-            intervals=list(map(strpinterval, ('30m', '1h', '2h'))),
-            population_size=100,
-            max_generations=1000
+            intervals=list(map(strpinterval, ('2h',))),
+            population_size=10,
+            max_generations=100,
         )
+        tc = optimization_summary.trading_config._asdict()
+        tc.update({
+            'start': trading_start,
+            'end': end,
+            'summary': summary
+        })
 
-        await self._trader.run(
-            exchange=exchange,
-            symbol=symbol,
-            interval=optimization_summary.trading_config.interval,
-            start=trading_start,
-            end=end,
-            quote=quote,
-            new_strategy=lambda: optimization_summary.strategy_type(
-                **optimization_summary.strategy_config
-            ),
-            missed_candle_policy=optimization_summary.trading_config.missed_candle_policy,
-            trailing_stop=optimization_summary.trading_config.trailing_stop,
-            summary=summary
-        )
+        await self._trader.run(**tc)

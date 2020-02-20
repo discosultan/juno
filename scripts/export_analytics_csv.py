@@ -38,8 +38,16 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            new_strategy=lambda: MAMACX(3, 73, Decimal('-0.102'), Decimal('0.239'), 4, MA.SMA,
-                                        MA.SMMA),
+            strategy_type=MAMACX,
+            strategy_kwargs={
+                'short_period': 3,
+                'long_period': 73,
+                'neg_threshold': Decimal('-0.102'),
+                'pos_threshold': Decimal('0.239'),
+                'persistence': 4,
+                'short_ma': MA.SMA,
+                'long_ma': MA.SMMA,
+            },
             trailing_stop=Decimal('0.0827'),
             missed_candle_policy=MissedCandlePolicy.LAST
         )

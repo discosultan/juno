@@ -4,13 +4,13 @@ from typing import Any, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Historian, Prices
-from juno.config import init_module_instance
+from juno.config import get_module_type_and_config
 from juno.math import floor_multiple
 from juno.time import time_ms
 from juno.trading import (
     MissedCandlePolicy, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
-from juno.utils import format_attrs_as_json, unpack_symbol
+from juno.utils import unpack_symbol
 
 from .agent import Agent
 
@@ -35,7 +35,7 @@ class Backtest(Agent):
         symbol: str,
         interval: Interval,
         quote: Decimal,
-        strategy_config: Dict[str, Any],
+        strategy: Dict[str, Any],
         start: Optional[Timestamp] = None,
         end: Optional[Timestamp] = None,
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
@@ -61,6 +61,7 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
+        strategy_type, strategy_config = get_module_type_and_config(strategies, strategy)
         self.result = TradingSummary(start=start, quote=quote)
         await self._trader.run(
             exchange=exchange,
@@ -69,7 +70,8 @@ class Backtest(Agent):
             start=start,
             end=end,
             quote=quote,
-            new_strategy=lambda: init_module_instance(strategies, strategy_config),
+            strategy_type=strategy_type,
+            strategy_kwargs=strategy_config,
             event=self,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
@@ -77,7 +79,7 @@ class Backtest(Agent):
             summary=self.result
         )
 
-        _log.info(f'trading summary: {format_attrs_as_json(self.result)}')
+        _log.info(f'trading summary: {self.format_as_config(self.result)}')
 
         if not self._prices:
             return
@@ -93,5 +95,5 @@ class Backtest(Agent):
             benchmark.g_returns, fiat_daily_prices, self.result
         )
 
-        _log.info(f'benchmark stats: {format_attrs_as_json(benchmark.stats)}')
-        _log.info(f'portfolio stats: {format_attrs_as_json(portfolio.stats)}')
+        _log.info(f'benchmark stats: {self.format_as_config(benchmark.stats)}')
+        _log.info(f'portfolio stats: {self.format_as_config(portfolio.stats)}')

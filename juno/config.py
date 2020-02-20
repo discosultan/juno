@@ -4,11 +4,12 @@ import sys
 from enum import Enum
 from types import ModuleType
 from typing import (
-    Any, Dict, List, Mapping, Optional, Set, Type, TypeVar, Union, get_args, get_origin
+    Any, Dict, List, Mapping, Optional, Set, Tuple, Type, TypeVar, Union, get_args, get_origin,
+    get_type_hints
 )
 
 from juno import Interval, Timestamp, json
-from juno.time import strpinterval, strptimestamp
+from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
 from juno.typing import get_input_type_hints, isnamedtuple
 from juno.utils import get_module_type, map_module_types, recursive_iter
 
@@ -104,6 +105,16 @@ def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
     return init_instance(type_, config)
 
 
+def get_module_type_and_config(
+    module: ModuleType, config: Dict[str, Any]
+) -> Tuple[type, Dict[str, Any]]:
+    type_name = config.get('type')
+    if not type_name:
+        raise ValueError('Unable to get module type. Property "type" missing in config')
+    type_ = get_module_type(module, type_name)
+    return type_, kwargs_for(type_.__init__, config)
+
+
 def init_instance(type_: Type[Any], config: Dict[str, Any]) -> Any:
     # Supports loading abstract types by resolving concrete type from config.
     if inspect.isabstract(type_):
@@ -126,11 +137,12 @@ def kwargs_for(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]:
     for k, t in type_hints.items():
         config_val = config.get(k, '__missing__')
         if config_val != '__missing__':
-            parsed_config[k] = _transform_value(config_val, t)
+            parsed_config[k] = from_config(config_val, t)
     return parsed_config
 
 
-def _transform_value(value: Any, type_: Type[Any]) -> Any:
+def from_config(value: Any, type_: Any) -> Any:
+    # Aliases.
     if type_ is Any:
         return value
     if type_ is Interval:
@@ -140,20 +152,55 @@ def _transform_value(value: Any, type_: Type[Any]) -> Any:
 
     origin = get_origin(type_)
     if origin:
-        if origin is list:
-            st, = get_args(type_)
-            return [_transform_value(sv, st) for sv in value]
-        elif origin is dict:
-            skt, svt = get_args(type_)
-            return {
-                _transform_value(sk, skt): _transform_value(sv, svt) for sk, sv in value.items()
-            }
-        elif origin is Union:  # Most probably Optional[T].
+        if origin is Union:  # Most probably Optional[T].
             st, _ = get_args(type_)
-            return _transform_value(value, st) if value is not None else None
+            return from_config(value, st) if value is not None else None
+        if origin is type:  # typing.Type[T]
+            raise NotImplementedError()
+        if origin is list:  # typing.List[T]
+            st, = get_args(type_)
+            return [from_config(sv, st) for sv in value]
+        if origin is dict:  # typing.Dict[T, Y]
+            skt, svt = get_args(type_)
+            return {from_config(sk, skt): from_config(sv, svt) for sk, sv in value.items()}
 
-    if issubclass(type_, Enum):
+    if inspect.isclass(type_) and issubclass(type_, Enum):
         return type_[value.upper()]
+    if isnamedtuple(type_):
+        type_hints = get_type_hints(type_)
+        return type_(*(from_config(value[sn], st) for sn, st in type_hints.items()))
+
+    return value
+
+
+def to_config(value: Any, type_: Any) -> Any:
+    # Aliases.
+    if type_ is Any:
+        return value
+    if type_ is Interval:
+        return strfinterval(value)
+    if type_ is Timestamp:
+        return strftimestamp(value)
+
+    origin = get_origin(type_)
+    if origin:
+        if origin is Union:  # Most probably Optional[T].
+            st, _ = get_args(type_)
+            return to_config(value, st) if value is not None else None
+        if origin is type:  # typing.Type[T]
+            return value.__name__.lower()
+        if origin is list:  # typing.List[T]
+            st, = get_args(type_)
+            return [to_config(sv, st) for sv in value]
+        if origin is dict:  # typing.Dict[T, Y]
+            skt, svt = get_args(type_)
+            return {to_config(sk, skt): to_config(sv, svt) for sk, sv in value.items()}
+
+    if inspect.isclass(type_) and issubclass(type_, Enum):
+        return value.name.lower()
+    if isnamedtuple(type_):
+        type_hints = get_type_hints(type_)
+        return {sn: to_config(getattr(value, sn), st) for sn, st in type_hints.items()}
 
     return value
 

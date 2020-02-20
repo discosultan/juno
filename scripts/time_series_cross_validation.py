@@ -10,7 +10,7 @@ from juno.math import floor_multiple
 from juno.optimization import Optimizer, Rust
 from juno.storages import SQLite
 from juno.trading import Trader, analyse_benchmark, analyse_portfolio
-from juno.utils import format_attrs_as_json, unpack_symbol
+from juno.utils import tonamedtuple, unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
@@ -57,29 +57,23 @@ async def main() -> None:
         )
 
         logging.info(
-            'training trading summary: '
-            f'{format_attrs_as_json(optimization_summary.trading_summary)}'
+            f'training trading summary: {tonamedtuple(optimization_summary.trading_summary)}'
         )
-        logging.info(
-            'training portfolio stats: '
-            f'{format_attrs_as_json(optimization_summary.portfolio_stats)}'
-        )
+        logging.info(f'training portfolio stats: {optimization_summary.portfolio_stats}')
 
         tc = optimization_summary.trading_config
 
-        # TODO: Ensure we can pass trading config directly as kwargs.
         trading_summary = await trader.run(
+            start=validation_start,
+            end=validation_end,
             exchange=tc.exchange,
             symbol=tc.symbol,
             interval=tc.interval,
-            start=validation_start,
-            end=validation_end,
             quote=tc.quote,
-            new_strategy=lambda: optimization_summary.strategy_type(
-                **optimization_summary.strategy_config
-            ),
             missed_candle_policy=tc.missed_candle_policy,
             trailing_stop=tc.trailing_stop,
+            strategy_type=tc.strategy_type,
+            strategy_kwargs=tc.strategy_kwargs,
         )
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
@@ -89,9 +83,9 @@ async def main() -> None:
         benchmark = analyse_benchmark(fiat_daily_prices[quote_asset])
         portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, trading_summary)
 
-        logging.info(f'trading summary: {format_attrs_as_json(trading_summary)}')
-        logging.info(f'benchmark stats: {format_attrs_as_json(benchmark.stats)}')
-        logging.info(f'portfolio stats: {format_attrs_as_json(portfolio.stats)}')
+        logging.info(f'trading summary: {tonamedtuple(trading_summary)}')
+        logging.info(f'benchmark stats: {benchmark.stats}')
+        logging.info(f'portfolio stats: {portfolio.stats}')
 
     logging.info('done')
 

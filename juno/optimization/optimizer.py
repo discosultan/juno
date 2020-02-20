@@ -19,7 +19,7 @@ from juno.trading import (
     MissedCandlePolicy, Statistics, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
 from juno.typing import map_input_args
-from juno.utils import flatten, format_attrs_as_json, unpack_symbol
+from juno.utils import flatten, unpack_symbol
 
 from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from .solver import Solver, SolverResult
@@ -47,12 +47,12 @@ class TradingConfig(NamedTuple):
     missed_candle_policy: MissedCandlePolicy
     trailing_stop: Decimal
     adjust_start: bool
+    strategy_type: Type[Strategy]
+    strategy_kwargs: Dict[str, Any]
 
 
 class OptimizationSummary(NamedTuple):
     trading_config: TradingConfig
-    strategy_type: Type[Strategy]
-    strategy_config: Dict[str, Any]
     trading_summary: TradingSummary
     portfolio_stats: Statistics
 
@@ -125,6 +125,7 @@ class Optimizer:
                 exchange, symbol, interval, floor_multiple(start, interval),
                 floor_multiple(end, interval)
             )
+
         # Fetch candles for backtesting.
         await asyncio.gather(*(assign(s, i) for s, i in product(symbols, intervals)))
 
@@ -235,7 +236,6 @@ class Optimizer:
         )
 
         start = floor_multiple(start, best_args[1])
-        strategy_config = map_input_args(strategy_type.__init__, best_args[4:])
         trading_config = TradingConfig(
             exchange=exchange,
             symbol=best_args[0],
@@ -246,23 +246,13 @@ class Optimizer:
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
             adjust_start=False,
+            strategy_type=strategy_type,
+            strategy_kwargs=map_input_args(strategy_type.__init__, best_args[4:])
         )
 
         trading_summary = TradingSummary(start=start, quote=quote)
         try:
-            await self._trader.run(
-                new_strategy=lambda: strategy_type(**strategy_config),
-                summary=trading_summary,
-                exchange=trading_config.exchange,
-                symbol=trading_config.symbol,
-                interval=trading_config.interval,
-                start=trading_config.start,
-                end=trading_config.end,
-                quote=trading_config.quote,
-                missed_candle_policy=trading_config.missed_candle_policy,
-                trailing_stop=trading_config.trailing_stop,
-                adjust_start=trading_config.adjust_start,
-            )
+            await self._trader.run(summary=trading_summary, **trading_config._asdict())
         except InsufficientBalance:
             pass
         portfolio_summary = analyse_portfolio(
@@ -271,8 +261,6 @@ class Optimizer:
 
         optimization_summary = OptimizationSummary(
             trading_config=trading_config,
-            strategy_type=strategy_type,
-            strategy_config=strategy_config,
             trading_summary=trading_summary,
             portfolio_stats=portfolio_summary.stats
         )
@@ -296,11 +284,9 @@ class Optimizer:
 
         if not _isclose(trader_result, solver_result):
             raise Exception(
-                f'Optimizer results differ between trader and '
-                f'{solver_name} solver.\nTrading config: {optimization_summary.trading_config}\n'
-                f'Strategy config: {optimization_summary.strategy_config}\nTrader result: '
-                f'{format_attrs_as_json(trader_result)}\nSolver result: '
-                f'{format_attrs_as_json(solver_result)}'
+                f'Optimizer results differ between trader and {solver_name} solver.\nTrading '
+                f'config: {optimization_summary.trading_config}\nTrader result: {trader_result}\n'
+                f'Solver result: {solver_result}'
             )
 
 

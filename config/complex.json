@@ -13,7 +13,7 @@
             "interval": "1h",
             "quote": 10.0,
             "missed_candle_policy": "ignore",
-            "strategy_config": {
+            "strategy": {
                 "type": "mamacx",
                 "short_period": 18,
                 "long_period": 29,
@@ -29,7 +29,7 @@
             "interval": "1h",
             "quote": 1.0,
             "missed_candle_policy": "ignore",
-            "strategy_config": {
+            "strategy": {
                 "type": "mamacx",
                 "short_period": 18,
                 "long_period": 29,

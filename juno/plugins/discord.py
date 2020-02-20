@@ -12,14 +12,15 @@ from juno.agents import Agent
 from juno.asyncio import cancel, cancelable
 from juno.trading import Position
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import chunks, exc_traceback, format_attrs_as_json
+from juno.utils import chunks, exc_traceback, tonamedtuple
 
 _log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator[None]:
-    def format_message(title: str, content: str, lang: str = 'json') -> str:
+    def format_message(title: str, content: Any, lang: str = 'json') -> str:
+        content = json.dumps(content, indent=4)
         return f'{type(agent).__name__} agent {agent.name} {title}:\n```{lang}\n{content}\n```\n'
 
     token = plugin_config.get('token')
@@ -36,35 +37,35 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
         @agent.on('starting')
         async def on_starting() -> None:
             await client.send_message(
-                format_message('starting with config', json.dumps(agent.config, indent=4))
+                format_message('starting with config', agent.config)
             )
 
         @agent.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
             # We send separate messages to avoid exhausting max message length limit.
-            await client.send_message(format_message('opened position', format_attrs_as_json(pos)))
+            await client.send_message(format_message('opened position', tonamedtuple(pos)))
             await client.send_message(
-                format_message('summary', format_attrs_as_json(agent.result))
+                format_message('summary', tonamedtuple(agent.result))
             )
 
         @agent.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
-            await client.send_message(format_message('closed position', format_attrs_as_json(pos)))
+            await client.send_message(format_message('closed position', tonamedtuple(pos)))
             await client.send_message(
-                format_message('summary', format_attrs_as_json(agent.result))
+                format_message('summary', tonamedtuple(agent.result))
             )
 
         @agent.on('finished')
         async def on_finished() -> None:
             await client.send_message(
-                format_message('finished with summary', format_attrs_as_json(agent.result))
+                format_message('finished with summary', tonamedtuple(agent.result))
             )
 
         @agent.on('errored')
         async def on_errored(exc: Exception) -> None:
             await client.send_message(format_message('errored', exc_traceback(exc), lang=''))
             await client.send_message(
-                format_message('summary', format_attrs_as_json(agent.result))
+                format_message('summary', tonamedtuple(agent.result))
             )
 
         @agent.on('image')
