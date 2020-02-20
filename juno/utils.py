@@ -174,9 +174,10 @@ def chunks(l: str, n: int) -> Iterable[str]:
 
 
 def tonamedtuple(obj: Any) -> Any:
+    """Turns all public fields and properties of an object into typed named tuple. Non-recursive.
+    """
+
     type_ = type(obj)
-    # if type_ in [int, float, bool, str, Decimal, tuple, list, dict]:
-    #     return obj
 
     # TODO: We can cache the named tuple based on input type.
     attrs = []
@@ -197,7 +198,8 @@ def tonamedtuple(obj: Any) -> Any:
         attrs.append((name, prop_type))
         vals.append(prop.fget(obj))
 
-    # TODO: NamedTuples are not meant to be created dynamically.
+    # TODO: mypy doesn't like when NamedTuples are created dynamically. It's okay for our use case
+    # because we only use them like this for log output formatting.
     namedtuple = NamedTuple(type_.__name__, attrs)  # type: ignore
 
     return namedtuple(*vals)
