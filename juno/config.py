@@ -1,4 +1,3 @@
-import functools
 import inspect
 import os
 import sys
@@ -131,7 +130,6 @@ def init_instance(type_: Type[Any], config: Dict[str, Any]) -> Any:
     return type_(**kwargs_for(signature, config))  # type: ignore
 
 
-# TODO: Get rid of this function, use get_module_type_and_config_instead.
 def kwargs_for(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]:
     type_hints = get_input_type_hints(signature)
     parsed_config = {}
@@ -143,125 +141,68 @@ def kwargs_for(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]:
     return parsed_config
 
 
-def _from_config_enum(value, type_):
-    return type_[value.upper()]
-
-
-def _to_config_enum(value, _type_):
-    return value.name.lower()
-
-
-def _from_config_type(value, type_):
-    return type_(value)
-
-
-def _to_config_list(value, type_):
-    return list(value)
-
-
-def _to_config_dict(value, _type_):
-    return dict(value)
-
-
-def _from_config_type_meta(value, type_):
-    raise NotImplementedError()
-
-
-def _to_config_type_meta(value, type_):
-    return value.__name__.lower()
-
-
-def _transform_config(
-    value: Any,
-    type_: Any,
-    transform_interval,
-    transform_timestamp,
-    transform_enum,
-    transform_list,
-    transform_tuple,
-    transform_dict,
-    transform_namedtuple,
-    transform_type,
-) -> Any:
-    self_ = functools.partial(
-        _transform_config,
-        transform_interval=transform_interval,
-        transform_timestamp=transform_timestamp,
-        transform_enum=transform_enum,
-        transform_list=transform_list,
-        transform_tuple=transform_tuple,
-        transform_dict=transform_dict,
-        transform_namedtuple=transform_namedtuple,
-        transform_type=transform_type,
-    )
-
+def from_config(value: Any, type_: Any) -> Any:
     # Aliases.
     if type_ is Any:
         return value
     if type_ is Interval:
-        return transform_interval(value)
+        return strpinterval(value)
     if type_ is Timestamp:
-        return transform_timestamp(value)
+        return strptimestamp(value)
 
-    # if getattr(type_, '__name__', '') == 'TradingSummary':
-    #     breakpoint()
     origin = get_origin(type_)
     if origin:
         if origin is Union:  # Most probably Optional[T].
             st, _ = get_args(type_)
-            return self_(value, st) if value is not None else None
-        if origin is type:
-            return transform_type(value, type_)
-        isclass = inspect.isclass(origin)
-        if isclass and issubclass(origin, list):
+            return from_config(value, st) if value is not None else None
+        if origin is type:  # typing.Type[T]
+            raise NotImplementedError()
+        if origin is list:  # typing.List[T]
             st, = get_args(type_)
-            return transform_list((self_(sv, st) for sv in value), origin)
-        if isclass and issubclass(origin, tuple):
-            args = get_args(type_)
-            return transform_tuple((self_(sv, st) for sv, st in zip(value, args)), type_)
-        if isclass and issubclass(origin, dict):
+            return [from_config(sv, st) for sv in value]
+        if origin is dict:  # typing.Dict[T, Y]
             skt, svt = get_args(type_)
-            return transform_dict(
-                {self_(sk, skt): self_(sv, svt) for sk, sv in value.items()},
-                origin
-            )
+            return {from_config(sk, skt): from_config(sv, svt) for sk, sv in value.items()}
 
     if inspect.isclass(type_) and issubclass(type_, Enum):
-        return transform_enum(value, type_)
+        return type_[value.upper()]
     if isnamedtuple(type_):
         type_hints = get_type_hints(type_)
-        return transform_namedtuple(
-            {sn: self_(sv, st) for sv, (sn, st) in zip(value, type_hints.items())},
-            type_
-        )
+        return type_(*(from_config(value[sn], st) for sn, st in type_hints.items()))
 
     return value
 
 
-from_config = functools.partial(
-    _transform_config,
-    transform_interval=strpinterval,
-    transform_timestamp=strptimestamp,
-    transform_enum=_from_config_enum,
-    transform_list=_from_config_type,
-    transform_tuple=_from_config_type,
-    transform_dict=_from_config_type,
-    transform_namedtuple=_from_config_type,
-    transform_type=_from_config_type_meta,
-)
+def to_config(value: Any, type_: Any) -> Any:
+    # Aliases.
+    if type_ is Any:
+        return value
+    if type_ is Interval:
+        return strfinterval(value)
+    if type_ is Timestamp:
+        return strftimestamp(value)
 
+    origin = get_origin(type_)
+    if origin:
+        if origin is Union:  # Most probably Optional[T].
+            st, _ = get_args(type_)
+            return to_config(value, st) if value is not None else None
+        if origin is type:  # typing.Type[T]
+            return value.__name__.lower()
+        if origin is list:  # typing.List[T]
+            st, = get_args(type_)
+            return [to_config(sv, st) for sv in value]
+        if origin is dict:  # typing.Dict[T, Y]
+            skt, svt = get_args(type_)
+            return {to_config(sk, skt): to_config(sv, svt) for sk, sv in value.items()}
 
-to_config = functools.partial(
-    _transform_config,
-    transform_interval=strfinterval,
-    transform_timestamp=strftimestamp,
-    transform_enum=_to_config_enum,
-    transform_list=_to_config_list,
-    transform_tuple=_to_config_list,
-    transform_dict=_to_config_dict,
-    transform_namedtuple=_to_config_dict,
-    transform_type=_to_config_type_meta,
-)
+    if inspect.isclass(type_) and issubclass(type_, Enum):
+        return value.name.lower()
+    if isnamedtuple(type_):
+        type_hints = get_type_hints(type_)
+        return {sn: to_config(getattr(value, sn), st) for sn, st in type_hints.items()}
+
+    return value
 
 
 def resolve_concrete(type_: Type[Any], config: Dict[str, Any]) -> Type[Any]:

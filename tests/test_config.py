@@ -1,32 +1,30 @@
 import sys
 from decimal import Decimal
 from enum import IntEnum
-from typing import Dict, List, NamedTuple, Optional
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 from juno import Interval, Timestamp, config
+from juno.time import HOUR_MS
 
 
-class SomeEnum(IntEnum):
-    KEY = 1
+def test_from_config_to_config() -> None:
+    class SomeEnum(IntEnum):
+        KEY = 1
 
+    class Foo(NamedTuple):
+        name: str
+        timestamp: Timestamp
+        interval: Interval
+        optional_interval: Optional[Interval]
+        missing_optional_interval: Optional[Interval]
+        decimal: Decimal
+        list_of_intervals: List[Interval]
+        dict_of_intervals: Dict[Interval, Interval]
+        enum: SomeEnum
 
-class Foo(NamedTuple):
-    name: str
-    timestamp: Timestamp
-    interval: Interval
-    optional_interval: Optional[Interval]
-    missing_optional_interval: Optional[Interval]
-    decimal: Decimal
-    list_of_intervals: List[Interval]
-    dict_of_intervals: Dict[Interval, Interval]
-    enum: SomeEnum
-
-
-def test_init_module_instance() -> None:
-    input_ = {
-        'type': 'foo',
+    input_: Dict[str, Any] = {
         'name': 'bar',
-        'timestamp': '2000-01-01T00:00:00+00:00',
+        'timestamp': '2000-01-01 00:00:00+00:00',
         'interval': '1h',
         'optional_interval': '2h',
         'missing_optional_interval': None,
@@ -35,18 +33,42 @@ def test_init_module_instance() -> None:
         'dict_of_intervals': {'1h': '2h'},
         'enum': 'key'
     }
+    expected_output: Union[Dict[str, Any], Foo] = Foo(
+        name='bar',
+        timestamp=946_684_800_000,
+        interval=HOUR_MS,
+        optional_interval=2 * HOUR_MS,
+        missing_optional_interval=None,
+        decimal=Decimal('1.5'),
+        list_of_intervals=[HOUR_MS, 2 * HOUR_MS],
+        dict_of_intervals={HOUR_MS: 2 * HOUR_MS},
+        enum=SomeEnum.KEY
+    )
+
+    output = config.from_config(input_, Foo)
+    assert output == expected_output
+
+    expected_output = input_
+    input_ = output
+
+    output = config.to_config(input_, Foo)
+    assert output == expected_output
+
+
+class Foo(NamedTuple):
+    value: Interval
+
+
+def test_init_module_instance() -> None:
+    input_ = {
+        'type': 'foo',
+        'value': '1h',
+    }
 
     output = config.init_module_instance(sys.modules[__name__], input_)
 
-    assert output.name == 'bar'
-    assert output.timestamp == 946_684_800_000
-    assert output.interval == 3_600_000
-    assert output.optional_interval == 7_200_000
-    assert output.missing_optional_interval is None
-    assert output.decimal == Decimal('1.5')
-    assert output.list_of_intervals == [3_600_000, 7_200_000]
-    assert output.dict_of_intervals.get(3_600_000) == 7_200_000
-    assert output.enum == SomeEnum.KEY
+    assert isinstance(output, Foo)
+    assert output.value == HOUR_MS
 
 
 def test_load_from_env() -> None:
