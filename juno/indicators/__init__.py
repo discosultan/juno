@@ -1,4 +1,4 @@
-# Indicators are adapted and verified using the Tulip Indicators C library:
+# Most of the indicators are adapted and verified using the Tulip Indicators C library:
 # https://github.com/TulipCharts/tulipindicators
 
 from .adx import Adx
@@ -10,6 +10,7 @@ from .dm import DM
 from .dx import DX
 from .ema import Ema, Ema2
 from .macd import Macd
+from .obv import Obv
 from .rsi import Rsi
 from .sma import Sma
 from .smma import Smma
@@ -28,6 +29,7 @@ __all__ = [
     'Ema',
     'Ema2',
     'Macd',
+    'Obv',
     'Rsi',
     'Sma',
     'Smma',
