@@ -7,7 +7,7 @@ import juno.json as json
 from juno.asyncio import resolved_future
 from juno.config import to_config
 from juno.typing import isnamedtuple
-from juno.utils import EventEmitter, asdict, exc_traceback, generate_random_words
+from juno.utils import EventEmitter, exc_traceback, generate_random_words, tonamedtuple
 
 _log = logging.getLogger(__name__)
 
@@ -59,7 +59,8 @@ class Agent(EventEmitter):
         type_ = type(obj)
         if not isnamedtuple(type_):
             # Extracts only public fields and properties.
-            obj = asdict(obj)
+            obj = tonamedtuple(obj)
+            type_ = type(obj)
         return json.dumps(to_config(obj, type_), indent=4)
 
 

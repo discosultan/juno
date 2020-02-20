@@ -19,7 +19,7 @@ from juno.trading import (
     MissedCandlePolicy, Statistics, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
 from juno.typing import map_input_args
-from juno.utils import asdict, flatten, unpack_symbol
+from juno.utils import flatten, unpack_symbol
 
 from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from .solver import Solver, SolverResult
@@ -285,8 +285,8 @@ class Optimizer:
         if not _isclose(trader_result, solver_result):
             raise Exception(
                 f'Optimizer results differ between trader and {solver_name} solver.\nTrading '
-                f'config: {optimization_summary.trading_config}\nTrader result: '
-                f'{asdict(trader_result)}\nSolver result: {(solver_result)}'
+                f'config: {optimization_summary.trading_config}\nTrader result: {trader_result}\n'
+                f'Solver result: {solver_result}'
             )
 
 

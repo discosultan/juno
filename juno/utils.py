@@ -12,8 +12,8 @@ from os import path
 from pathlib import Path
 from types import ModuleType
 from typing import (
-    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, Optional, Tuple, Type,
-    TypeVar, Union, get_type_hints
+    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, NamedTuple, Optional, Tuple,
+    Type, TypeVar, Union, get_type_hints
 )
 
 import aiolimiter
@@ -173,27 +173,34 @@ def chunks(l: str, n: int) -> Iterable[str]:
             yield l[i:i + n]
 
 
-def asdict(obj: Any) -> Dict[str, Any]:
+def tonamedtuple(obj: Any) -> Any:
     type_ = type(obj)
     # if type_ in [int, float, bool, str, Decimal, tuple, list, dict]:
     #     return obj
 
-    output = {}
+    # TODO: We can cache the named tuple based on input type.
+    attrs = []
+    vals = []
 
     # Fields.
     fields = [(n, v) for (n, v) in get_type_hints(type_).items() if not n.startswith('_')]
-    for name, _field_type in fields:
-        output[name] = getattr(obj, name)  # type: ignore
+    for name, field_type in fields:
+        attrs.append((name, field_type))
+        vals.append(getattr(obj, name))
 
     # Properties.
     props = [(n, v) for (n, v) in inspect.getmembers(type_, _isprop) if not n.startswith('_')]
     # Inspect orders members alphabetically. We want to preserve source ordering.
     props.sort(key=lambda prop: prop[1].fget.__code__.co_firstlineno)
     for name, prop in props:
-        # prop_type = get_type_hints(prop.fget)['return']
-        output[name] = prop.fget(obj)
+        prop_type = get_type_hints(prop.fget)['return']
+        attrs.append((name, prop_type))
+        vals.append(prop.fget(obj))
 
-    return output
+    # TODO: NamedTuples are not meant to be created dynamically.
+    namedtuple = NamedTuple(type_.__name__, attrs)  # type: ignore
+
+    return namedtuple(*vals)
 
 
 def _isprop(v: object) -> bool:

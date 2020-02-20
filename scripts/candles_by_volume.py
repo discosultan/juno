@@ -11,7 +11,7 @@ from juno.storages import SQLite
 from juno.strategies import MA, MAMACX
 from juno.time import strptimestamp
 from juno.trading import MissedCandlePolicy
-from juno.utils import asdict
+from juno.utils import tonamedtuple
 
 
 async def main() -> None:
@@ -51,7 +51,7 @@ async def main() -> None:
             Decimal('0.1255'),
             *strategy_args
         )
-        logging.info(asdict(summary))
+        logging.info(tonamedtuple(summary))
 
 
 asyncio.run(main())

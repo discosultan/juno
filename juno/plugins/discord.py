@@ -12,7 +12,7 @@ from juno.agents import Agent
 from juno.asyncio import cancel, cancelable
 from juno.trading import Position
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import asdict, chunks, exc_traceback
+from juno.utils import chunks, exc_traceback, tonamedtuple
 
 _log = logging.getLogger(__name__)
 
@@ -43,29 +43,29 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
         @agent.on('position_opened')
         async def on_position_opened(pos: Position) -> None:
             # We send separate messages to avoid exhausting max message length limit.
-            await client.send_message(format_message('opened position', asdict(pos)))
+            await client.send_message(format_message('opened position', tonamedtuple(pos)))
             await client.send_message(
-                format_message('summary', asdict(agent.result))
+                format_message('summary', tonamedtuple(agent.result))
             )
 
         @agent.on('position_closed')
         async def on_position_closed(pos: Position) -> None:
-            await client.send_message(format_message('closed position', asdict(pos)))
+            await client.send_message(format_message('closed position', tonamedtuple(pos)))
             await client.send_message(
-                format_message('summary', asdict(agent.result))
+                format_message('summary', tonamedtuple(agent.result))
             )
 
         @agent.on('finished')
         async def on_finished() -> None:
             await client.send_message(
-                format_message('finished with summary', asdict(agent.result))
+                format_message('finished with summary', tonamedtuple(agent.result))
             )
 
         @agent.on('errored')
         async def on_errored(exc: Exception) -> None:
             await client.send_message(format_message('errored', exc_traceback(exc), lang=''))
             await client.send_message(
-                format_message('summary', asdict(agent.result))
+                format_message('summary', tonamedtuple(agent.result))
             )
 
         @agent.on('image')

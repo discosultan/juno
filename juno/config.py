@@ -163,6 +163,14 @@ def _to_config_dict(value, _type_):
     return dict(value)
 
 
+def _from_config_type_meta(value, type_):
+    raise NotImplementedError()
+
+
+def _to_config_type_meta(value, type_):
+    return value.__name__.lower()
+
+
 def _transform_config(
     value: Any,
     type_: Any,
@@ -173,6 +181,7 @@ def _transform_config(
     transform_tuple,
     transform_dict,
     transform_namedtuple,
+    transform_type,
 ) -> Any:
     self_ = functools.partial(
         _transform_config,
@@ -183,6 +192,7 @@ def _transform_config(
         transform_tuple=transform_tuple,
         transform_dict=transform_dict,
         transform_namedtuple=transform_namedtuple,
+        transform_type=transform_type,
     )
 
     # Aliases.
@@ -193,11 +203,15 @@ def _transform_config(
     if type_ is Timestamp:
         return transform_timestamp(value)
 
+    # if getattr(type_, '__name__', '') == 'TradingSummary':
+    #     breakpoint()
     origin = get_origin(type_)
     if origin:
         if origin is Union:  # Most probably Optional[T].
             st, _ = get_args(type_)
             return self_(value, st) if value is not None else None
+        if origin is type:
+            return transform_type(value, type_)
         isclass = inspect.isclass(origin)
         if isclass and issubclass(origin, list):
             st, = get_args(type_)
@@ -233,6 +247,7 @@ from_config = functools.partial(
     transform_tuple=_from_config_type,
     transform_dict=_from_config_type,
     transform_namedtuple=_from_config_type,
+    transform_type=_from_config_type_meta,
 )
 
 
@@ -245,6 +260,7 @@ to_config = functools.partial(
     transform_tuple=_to_config_list,
     transform_dict=_to_config_dict,
     transform_namedtuple=_to_config_dict,
+    transform_type=_to_config_type_meta,
 )
 
 
