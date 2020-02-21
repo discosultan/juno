@@ -784,7 +784,3 @@ def _from_order_status(status: str) -> OrderStatus:
     if not mapped_status:
         raise NotImplementedError(f'Handling of status {status} not implemented')
     return mapped_status
-
-
-class Reset(JunoException):
-    pass
