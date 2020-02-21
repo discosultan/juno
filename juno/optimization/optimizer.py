@@ -51,10 +51,19 @@ class TradingConfig(NamedTuple):
     strategy_kwargs: Dict[str, Any]
 
 
-class OptimizationSummary(NamedTuple):
+class OptimizationSummary:
     trading_config: TradingConfig
     trading_summary: TradingSummary
     portfolio_stats: Statistics
+    _population: Optional[Any] = None
+
+
+class _Context:
+    def __init__(
+        self,
+        summary: OptimizationSummary,
+    ) -> None:
+        self.summary = summary
 
 
 class Optimizer:
@@ -88,6 +97,7 @@ class Optimizer:
         mutation_probability: Decimal = Decimal('0.2'),
         seed: Optional[int] = None,
         verbose: bool = False,
+        summary: Optional[OptimizationSummary] = None,
     ) -> OptimizationSummary:
         now = time_ms()
 
@@ -109,6 +119,10 @@ class Optimizer:
         # TODO: Use _Context similar to trader?
 
         _log.info(f'randomizer seed ({seed})')
+
+        ctx = _Context(
+            summary=summary or OptimizationSummary(),
+        )
 
         symbols = self._informant.list_symbols(exchange, symbols)
         intervals = self._informant.list_candle_intervals(exchange, intervals)
@@ -195,8 +209,9 @@ class Optimizer:
         toolbox.max_generations = max_generations
         toolbox.mutation_probability = mutation_probability
 
-        pop = toolbox.population(n=toolbox.population_size)
-        pop = toolbox.select(pop, len(pop))
+        if summary._population is None:
+            summary._population = toolbox.population(n=toolbox.population_size)
+            summary._population = toolbox.select(summary._population, len(summary._population))
 
         hall = tools.HallOfFame(1)
 
@@ -207,7 +222,7 @@ class Optimizer:
         final_pop, stat = await asyncio.get_running_loop().run_in_executor(
             None, partial(
                 ea_mu_plus_lambda(random),
-                population=pop,
+                population=summary._population,
                 toolbox=toolbox,
                 mu=toolbox.population_size,
                 lambda_=toolbox.population_size,
@@ -223,6 +238,14 @@ class Optimizer:
         _log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
 
         best_args = list(flatten(hall[0]))
+
+        await self._finalize(ctx)
+
+        await self._validate(summary, best_result)
+
+        return summary
+
+    async def _finalize():
         best_result = self._solver.solve(
             fiat_daily_prices,
             benchmark.g_returns,
@@ -259,15 +282,9 @@ class Optimizer:
             benchmark.g_returns, fiat_daily_prices, trading_summary
         )
 
-        optimization_summary = OptimizationSummary(
-            trading_config=trading_config,
-            trading_summary=trading_summary,
-            portfolio_stats=portfolio_summary.stats
-        )
-
-        await self._validate(optimization_summary, best_result)
-
-        return optimization_summary
+        summary.trading_config = trading_config
+        summary.trading_summary = trading_summary
+        summary.portfolio_stats = portfolio_summary.stats
 
     async def _validate(
         self, optimization_summary: OptimizationSummary, solver_result: SolverResult,

@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import List, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.optimization import Optimizer
+from juno.optimization import OptimizationSummary, Optimizer
 from juno.trading import MissedCandlePolicy
 from juno.utils import get_module_type
 
@@ -35,7 +35,8 @@ class Optimize(Agent):
         verbose: bool = False,
     ) -> None:
         strategy_type = get_module_type(strategies, strategy)
-        self.result = await self._optimizer.run(
+        self.result = OptimizationSummary()
+        await self._optimizer.run(
             exchange=exchange,
             symbols=symbols,
             intervals=intervals,
@@ -50,6 +51,7 @@ class Optimize(Agent):
             mutation_probability=mutation_probability,
             seed=seed,
             verbose=verbose,
+            summary=self.result,
         )
 
         _log.info(f'trading config: {self.format_as_config(self.result.trading_config)}')
