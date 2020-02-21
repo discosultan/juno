@@ -116,3 +116,21 @@ async def test_event_emitter() -> None:
 def test_chunks(input, count, expected_output) -> None:
     output = list(utils.chunks(input, count))
     assert output == expected_output
+
+
+def test_tonamedtuple() -> None:
+    class Foo:
+        a: int = 1
+        _b: int = 2
+
+        @property
+        def c(self) -> int:
+            return 3
+
+    foo = Foo()
+    x = utils.tonamedtuple(foo)
+
+    assert x.a == 1
+    assert not getattr(x, 'b', None)
+    assert x.c == 3
+    utils.tonamedtuple(foo)  # Ensure can be called twice.
