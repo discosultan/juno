@@ -7,7 +7,7 @@ from collections import defaultdict
 from collections.abc import Hashable
 from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_args
 
-from juno.utils import recursive_iter
+from juno.itertools import recursive_iter
 
 from .typing import ExcType, ExcValue, Traceback, get_input_type_hints, isoptional
 

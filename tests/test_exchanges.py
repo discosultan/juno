@@ -11,9 +11,9 @@ from juno import (
 )
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
+from juno.modules import list_concretes_from_module
 from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.typing import types_match
-from juno.utils import list_concretes_from_module
 
 exchange_types = list_concretes_from_module(juno.exchanges, Exchange)
 exchanges = [pytest.lazy_fixture(e.__name__.lower()) for e in exchange_types]

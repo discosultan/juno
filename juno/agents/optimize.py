@@ -3,11 +3,12 @@ from decimal import Decimal
 from typing import List, Optional
 
 from juno import Interval, Timestamp, strategies
+from juno.modules import get_module_type
 from juno.optimization import OptimizationSummary, Optimizer
 from juno.trading import MissedCandlePolicy
-from juno.utils import get_module_type
+from juno.utils import format_as_config
 
-from . import Agent
+from .agent import Agent
 
 _log = logging.getLogger(__name__)
 
@@ -54,6 +55,8 @@ class Optimize(Agent):
             summary=self.result,
         )
 
-        _log.info(f'trading config: {self.format_as_config(self.result.trading_config)}')
-        _log.info(f'trading summary: {self.format_as_config(self.result.trading_summary)}')
-        _log.info(f'portfolio stats: {self.format_as_config(self.result.portfolio_stats)}')
+    def on_finally(self) -> None:
+        for ind in self.result.best:
+            _log.info(f'trading config: {format_as_config(ind.trading_config)}')
+            _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
+            _log.info(f'portfolio stats: {format_as_config(ind.portfolio_stats)}')
