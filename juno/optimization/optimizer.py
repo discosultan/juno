@@ -2,6 +2,7 @@ import asyncio
 import logging
 import math
 import sys
+import threading
 from decimal import Decimal
 from functools import partial
 from itertools import product
@@ -212,6 +213,8 @@ class Optimizer:
         evolve_start = time_ms()
 
         try:
+            cancellation_request = threading.Event()
+            cancellation_response = asyncio.Event()
             cancelled_exc = None
             # Returns the final population and logbook with the statistics of the evolution.
             # TODO: Cancelling does not cancel the actual threadpool executor work. See
@@ -229,12 +232,16 @@ class Optimizer:
                     ngen=toolbox.max_generations,
                     halloffame=hall_of_fame,
                     verbose=verbose,
+                    cancellation_request=cancellation_request,
+                    cancellation_response=cancellation_response,
                 )
             )
 
             _log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
         except asyncio.CancelledError as exc:
             cancelled_exc = exc
+            cancellation_request.set()
+            await cancellation_response.wait()
 
         best_args = list(flatten(hall_of_fame[0]))
 

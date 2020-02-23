@@ -48,10 +48,11 @@ def cx_uniform(random: Random) -> Callable[[list, list, float], Tuple[list, list
     return inner
 
 
+# In addition to supporting passing in random, it also accepts a pair cancellation tokens.
 def ea_mu_plus_lambda(random: Random):
     def inner(
         population, toolbox, mu, lambda_, cxpb, mutpb, ngen, stats=None, halloffame=None,
-        verbose=__debug__
+        verbose=__debug__, cancellation_request=None, cancellation_response=None
     ):
         logbook = tools.Logbook()
         logbook.header = ['gen', 'nevals'] + (stats.fields if stats else [])
@@ -93,6 +94,12 @@ def ea_mu_plus_lambda(random: Random):
             logbook.record(gen=gen, nevals=len(invalid_ind), **record)
             if verbose:
                 print(logbook.stream)
+
+            # Cancel if requested
+            if cancellation_request and cancellation_request.is_set():
+                if cancellation_response:
+                    cancellation_response.set()
+                break
 
         return population, logbook
     return inner
