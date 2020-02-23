@@ -10,10 +10,11 @@ from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 from juno import JunoException, Trade
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
+from juno.itertools import generate_missing_spans, merge_adjacent_spans
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfspan, time_ms
-from juno.utils import CircularBuffer, generate_missing_spans, merge_adjacent_spans
+from juno.utils import CircularBuffer
 
 _log = logging.getLogger(__name__)
 

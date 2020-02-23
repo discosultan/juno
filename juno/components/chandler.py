@@ -12,11 +12,12 @@ from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 from juno import Candle, JunoException
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
+from juno.itertools import generate_missing_spans, merge_adjacent_spans
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfinterval, strfspan, strftimestamp, time_ms
-from juno.utils import generate_missing_spans, merge_adjacent_spans, unpack_symbol
+from juno.utils import unpack_symbol
 
 from .informant import Informant
 from .trades import Trades

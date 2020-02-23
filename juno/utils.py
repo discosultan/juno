@@ -2,7 +2,6 @@ import asyncio
 import inspect
 import itertools
 import logging
-import math
 import random
 import traceback
 from collections import defaultdict
@@ -10,60 +9,20 @@ from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
 from os import path
 from pathlib import Path
-from types import ModuleType
 from typing import (
-    Any, Awaitable, Callable, Dict, Generic, Iterable, Iterator, List, NamedTuple, Optional, Tuple,
-    Type, TypeVar, Union, get_type_hints
+    Any, Awaitable, Callable, Dict, Generic, Iterator, List, NamedTuple, Optional, Tuple, TypeVar,
+    get_type_hints
 )
 
 import aiolimiter
 
 from juno import json
+from juno.config import to_config
+from juno.typing import isnamedtuple
 
 T = TypeVar('T')
 
 _log = logging.getLogger(__name__)
-
-
-def merge_adjacent_spans(spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
-    merged_start, merged_end = None, None
-
-    for start, end in spans:
-        if merged_start is None:
-            merged_start, merged_end = start, end
-        elif merged_end == start:
-            merged_end = end
-        else:
-            yield merged_start, merged_end
-            merged_start, merged_end = start, end
-
-    if merged_start is not None:
-        yield merged_start, merged_end  # type: ignore
-
-
-def generate_missing_spans(start: int, end: int,
-                           existing_spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
-    # Initially assume entire span missing.
-    missing_start, missing_end = start, end
-
-    # Spans are ordered by start_date. Spans do not overlap with each other.
-    for existing_start, existing_end in existing_spans:
-        if existing_start > missing_start:
-            yield missing_start, existing_start
-        missing_start = existing_end
-
-    if missing_start < missing_end:
-        yield missing_start, missing_end
-
-
-def page(start: int, end: int, interval: int, limit: int) -> Iterable[Tuple[int, int]]:
-    total_size = (end - start) / interval
-    max_count = limit * interval
-    page_size = math.ceil(total_size / limit)
-    for i in range(0, page_size):
-        page_start = start + i * max_count
-        page_end = min(page_start + max_count, end)
-        yield page_start, page_end
 
 
 # TODO: Remove if not used.
@@ -91,18 +50,6 @@ def replace_secrets(obj: Dict[str, Any]) -> Dict[str, Any]:
     return obj
 
 
-# Ref: https://stackoverflow.com/a/38397347/1466456
-def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple[Any, ...], Any]]:
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            yield from recursive_iter(v, keys + (k, ))
-    elif isinstance(obj, (list, tuple)):
-        for idx, item in enumerate(obj):
-            yield from recursive_iter(item, keys + (idx, ))
-    else:
-        yield keys, obj
-
-
 _words = None
 
 
@@ -117,6 +64,15 @@ def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
         _words = itertools.cycle(sorted(iter(_words), key=lambda _: random.random()))
 
     return filter(lambda w: len(w) == length, _words) if length else _words
+
+
+def format_as_config(obj: Any):
+    type_ = type(obj)
+    if not isnamedtuple(type_):
+        # Extracts only public fields and properties.
+        obj = tonamedtuple(obj)
+        type_ = type(obj)
+    return json.dumps(to_config(obj, type_), indent=4)
 
 
 def unpack_symbol(symbol: str) -> Tuple[str, str]:
@@ -137,40 +93,6 @@ def full_path(root: str, rel_path: str) -> str:
 def load_json_file(root: str, rel_path: str) -> Any:
     with open(full_path(root, rel_path)) as f:
         return json.load(f)
-
-
-# TODO: Use `recursive_iter` instead?
-# Ref: https://stackoverflow.com/a/10632356/1466456
-def flatten(items: Iterable[Union[T, List[T]]]) -> Iterable[T]:
-    for item in items:
-        if isinstance(item, (list, tuple)):
-            for subitem in item:
-                yield subitem
-        else:
-            yield item
-
-
-def map_module_types(module: ModuleType) -> Dict[str, type]:
-    return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
-
-
-def list_concretes_from_module(module: ModuleType, abstract: Type[Any]) -> List[Type[Any]]:
-    return [t for _n, t in inspect.getmembers(
-        module,
-        lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract)
-    )]
-
-
-# TODO: Generalize typing to lists.
-# Ref: https://stackoverflow.com/a/312464/1466456
-def chunks(l: str, n: int) -> Iterable[str]:
-    """Yield successive n-sized chunks from l."""
-    length = len(l)
-    if length <= n:
-        yield l
-    else:
-        for i in range(0, length, n):
-            yield l[i:i + n]
 
 
 def tonamedtuple(obj: Any) -> Any:
@@ -207,19 +129,6 @@ def tonamedtuple(obj: Any) -> Any:
 
 def _isprop(v: object) -> bool:
     return isinstance(v, property)
-
-
-def get_module_type(module: ModuleType, name: str) -> Type[Any]:
-    name_lower = name.lower()
-    found_members = inspect.getmembers(
-        module,
-        lambda obj: inspect.isclass(obj) and obj.__name__.lower() == name_lower
-    )
-    if len(found_members) == 0:
-        raise ValueError(f'Type named "{name}" not found in module "{module.__name__}".')
-    if len(found_members) > 1:
-        raise ValueError(f'Found more than one type named "{name}" in module "{module.__name__}".')
-    return found_members[0][1]
 
 
 def exc_traceback(exc: Exception) -> str:

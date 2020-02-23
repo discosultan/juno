@@ -24,9 +24,10 @@ from juno import (
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientJsonResponse, ClientSession, connect_refreshing_stream
+from juno.itertools import page
 from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter, page
+from juno.utils import AsyncLimiter
 
 from .exchange import Exchange
 
@@ -784,7 +785,3 @@ def _from_order_status(status: str) -> OrderStatus:
     if not mapped_status:
         raise NotImplementedError(f'Handling of status {status} not implemented')
     return mapped_status
-
-
-class Reset(JunoException):
-    pass

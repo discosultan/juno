@@ -10,9 +10,10 @@ import discord
 from juno import json
 from juno.agents import Agent
 from juno.asyncio import cancel, cancelable
+from juno.itertools import chunks
 from juno.trading import Position
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import chunks, exc_traceback, tonamedtuple
+from juno.utils import exc_traceback, tonamedtuple
 
 _log = logging.getLogger(__name__)
 

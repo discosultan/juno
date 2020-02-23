@@ -1,3 +1,4 @@
+import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
@@ -7,8 +8,11 @@ from juno.config import get_module_type_and_config
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader, TradingSummary
+from juno.utils import format_as_config
 
 from .agent import Agent
+
+_log = logging.getLogger(__name__)
 
 
 class Paper(Agent):
@@ -59,3 +63,6 @@ class Paper(Agent):
             trailing_stop=trailing_stop,
             summary=self.result
         )
+
+    def on_finally(self) -> None:
+        _log.info(f'trading summary: {format_as_config(self.result)}')
