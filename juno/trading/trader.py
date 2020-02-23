@@ -24,7 +24,7 @@ class _Context:
         trailing_stop: Decimal,
         test: bool,
         event: EventEmitter,
-        summary: TradingSummary
+        summary: TradingSummary,
     ) -> None:
         # Mutable.
         self.strategy = strategy

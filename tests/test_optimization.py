@@ -68,7 +68,7 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: 
             max_generations=10,
             seed=1
         )
-        results.append(summary.portfolio_stats)
+        results.append(summary.best[0].portfolio_stats)
 
     assert results[0].alpha == results[1].alpha
 

@@ -4,7 +4,7 @@ from enum import IntEnum
 from typing import Optional
 
 from juno import Advice, Candle, indicators, math
-from juno.utils import get_module_type
+from juno.modules import get_module_type
 
 from .strategy import Meta, Strategy
 

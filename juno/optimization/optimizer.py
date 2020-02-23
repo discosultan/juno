@@ -12,6 +12,7 @@ from deap import base, creator, tools
 
 from juno import Candle, InsufficientBalance, Interval, Timestamp
 from juno.components import Chandler, Informant, Prices
+from juno.itertools import flatten
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms
@@ -19,7 +20,7 @@ from juno.trading import (
     MissedCandlePolicy, Statistics, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
 from juno.typing import map_input_args
-from juno.utils import flatten, unpack_symbol
+from juno.utils import unpack_symbol
 
 from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from .solver import Solver, SolverResult
@@ -51,10 +52,15 @@ class TradingConfig(NamedTuple):
     strategy_kwargs: Dict[str, Any]
 
 
-class OptimizationSummary(NamedTuple):
+class OptimizationRecord(NamedTuple):
     trading_config: TradingConfig
     trading_summary: TradingSummary
     portfolio_stats: Statistics
+
+
+class OptimizationSummary:
+    best: List[OptimizationRecord] = []
+    population: Optional[List[Any]] = None
 
 
 class Optimizer:
@@ -88,6 +94,7 @@ class Optimizer:
         mutation_probability: Decimal = Decimal('0.2'),
         seed: Optional[int] = None,
         verbose: bool = False,
+        summary: Optional[OptimizationSummary] = None,
     ) -> OptimizationSummary:
         now = time_ms()
 
@@ -106,9 +113,9 @@ class Optimizer:
         if seed is None:
             seed = randrange(sys.maxsize)
 
-        # TODO: Use _Context similar to trader?
-
         _log.info(f'randomizer seed ({seed})')
+
+        summary = summary or OptimizationSummary()
 
         symbols = self._informant.list_symbols(exchange, symbols)
         intervals = self._informant.list_candle_intervals(exchange, intervals)
@@ -195,45 +202,41 @@ class Optimizer:
         toolbox.max_generations = max_generations
         toolbox.mutation_probability = mutation_probability
 
-        pop = toolbox.population(n=toolbox.population_size)
-        pop = toolbox.select(pop, len(pop))
+        if summary.population is None:
+            pop = toolbox.population(n=toolbox.population_size)
+            summary.population = toolbox.select(pop, len(pop))
 
-        hall = tools.HallOfFame(1)
+        hall_of_fame = tools.HallOfFame(1)
 
         _log.info('evolving')
         evolve_start = time_ms()
 
-        # Returns the final population and logbook with the statistics of the evolution.
-        final_pop, stat = await asyncio.get_running_loop().run_in_executor(
-            None, partial(
-                ea_mu_plus_lambda(random),
-                population=pop,
-                toolbox=toolbox,
-                mu=toolbox.population_size,
-                lambda_=toolbox.population_size,
-                cxpb=Decimal('1.0') - toolbox.mutation_probability,
-                mutpb=toolbox.mutation_probability,
-                stats=None,
-                ngen=toolbox.max_generations,
-                halloffame=hall,
-                verbose=verbose,
+        try:
+            cancelled_exc = None
+            # Returns the final population and logbook with the statistics of the evolution.
+            # TODO: Cancelling does not cancel the actual threadpool executor work. See
+            # https://gist.github.com/yeraydiazdiaz/b8c059c6dcfaf3255c65806de39175a7
+            final_pop, stat = await asyncio.get_running_loop().run_in_executor(
+                None, partial(
+                    ea_mu_plus_lambda(random),
+                    population=summary.population,
+                    toolbox=toolbox,
+                    mu=toolbox.population_size,
+                    lambda_=toolbox.population_size,
+                    cxpb=Decimal('1.0') - toolbox.mutation_probability,
+                    mutpb=toolbox.mutation_probability,
+                    stats=None,
+                    ngen=toolbox.max_generations,
+                    halloffame=hall_of_fame,
+                    verbose=verbose,
+                )
             )
-        )
 
-        _log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
+            _log.info(f'evolution finished in {strfinterval(time_ms() - evolve_start)}')
+        except asyncio.CancelledError as exc:
+            cancelled_exc = exc
 
-        best_args = list(flatten(hall[0]))
-        best_result = self._solver.solve(
-            fiat_daily_prices,
-            benchmark.g_returns,
-            strategy_type,
-            start,
-            end,
-            quote,
-            candles[(best_args[0], best_args[1])],
-            *fees_filters[best_args[0]],
-            *best_args
-        )
+        best_args = list(flatten(hall_of_fame[0]))
 
         start = floor_multiple(start, best_args[1])
         trading_config = TradingConfig(
@@ -259,35 +262,45 @@ class Optimizer:
             benchmark.g_returns, fiat_daily_prices, trading_summary
         )
 
-        optimization_summary = OptimizationSummary(
+        best_individual = OptimizationRecord(
             trading_config=trading_config,
             trading_summary=trading_summary,
-            portfolio_stats=portfolio_summary.stats
+            portfolio_stats=portfolio_summary.stats,
         )
+        summary.best.append(best_individual)
 
-        await self._validate(optimization_summary, best_result)
-
-        return optimization_summary
-
-    async def _validate(
-        self, optimization_summary: OptimizationSummary, solver_result: SolverResult,
-    ) -> None:
         # Validate trader backtest result with solver result.
         solver_name = type(self._solver).__name__.lower()
         _log.info(
             f'validating {solver_name} solver result with best args against actual trader'
         )
 
+        solver_result = self._solver.solve(
+            fiat_daily_prices,
+            benchmark.g_returns,
+            strategy_type,
+            start,
+            end,
+            quote,
+            candles[(best_args[0], best_args[1])],
+            *fees_filters[best_args[0]],
+            *best_args
+        )
+
         trader_result = SolverResult.from_trading_summary(
-            optimization_summary.trading_summary, optimization_summary.portfolio_stats
+            best_individual.trading_summary, best_individual.portfolio_stats
         )
 
         if not _isclose(trader_result, solver_result):
             raise Exception(
                 f'Optimizer results differ between trader and {solver_name} solver.\nTrading '
-                f'config: {optimization_summary.trading_config}\nTrader result: {trader_result}\n'
+                f'config: {best_individual.trading_config}\nTrader result: {trader_result}\n'
                 f'Solver result: {solver_result}'
             )
+
+        if cancelled_exc:
+            raise cancelled_exc
+        return summary
 
 
 def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:

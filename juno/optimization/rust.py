@@ -15,11 +15,12 @@ import pandas as pd
 from juno import Candle, Fees, Filters, Interval, Timestamp, strategies
 from juno.cffi import CDefBuilder
 from juno.filters import Price, Size
+from juno.modules import list_concretes_from_module
 from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.trading import MissedCandlePolicy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path, list_concretes_from_module, unpack_symbol
+from juno.utils import home_path, unpack_symbol
 
 from .solver import Solver, SolverResult
 

@@ -55,13 +55,14 @@ async def main() -> None:
             mutation_probability=Decimal('0.2'),
             verbose=True,
         )
+        best = optimization_summary.best[0]
 
         logging.info(
-            f'training trading summary: {tonamedtuple(optimization_summary.trading_summary)}'
+            f'training trading summary: {tonamedtuple(best.trading_summary)}'
         )
-        logging.info(f'training portfolio stats: {optimization_summary.portfolio_stats}')
+        logging.info(f'training portfolio stats: {best.portfolio_stats}')
 
-        tc = optimization_summary.trading_config
+        tc = best.trading_config
 
         trading_summary = await trader.run(
             start=validation_start,

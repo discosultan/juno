@@ -17,11 +17,12 @@ from juno.brokers import Broker
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.logging import create_handlers
+from juno.modules import map_module_types
 from juno.optimization import Optimizer, Solver
 from juno.plugins import list_plugins
 from juno.storages import Storage
 from juno.trading import Trader
-from juno.utils import exc_traceback, full_path, map_module_types
+from juno.utils import exc_traceback, full_path
 
 _log = logging.getLogger(__name__)
 

@@ -9,9 +9,10 @@ from typing import (
 )
 
 from juno import Interval, Timestamp, json
+from juno.itertools import recursive_iter
+from juno.modules import get_module_type, map_module_types
 from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
 from juno.typing import get_input_type_hints, isnamedtuple
-from juno.utils import get_module_type, map_module_types, recursive_iter
 
 T = TypeVar('T')
 

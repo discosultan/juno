@@ -24,9 +24,10 @@ from juno import (
 from juno.asyncio import Event, cancel, cancelable, merge_async
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
+from juno.itertools import page
 from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter, page
+from juno.utils import AsyncLimiter
 
 from .exchange import Exchange
 
