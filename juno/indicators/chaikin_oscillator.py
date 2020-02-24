@@ -2,7 +2,7 @@ from decimal import Decimal
 
 
 class ChaikinOscillator:
-    def __init__(self) -> None:
+    def __init__(self, short_period: int, long_period: int) -> None:
         self.value = Decimal('0.0')
         self._t = 0
         self._t1 = 0

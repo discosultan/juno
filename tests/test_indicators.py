@@ -2,9 +2,11 @@ from decimal import Decimal
 
 import pytest
 
-from juno.indicators import (
-    DI, DM, DX, Adx, Adxr, Cci, Dema, Ema, Macd, Rsi, Sma, Stoch, StochRsi, Tsi
-)
+from juno import indicators
+
+#########################
+# TULIP INDICATOR TESTS #
+#########################
 
 
 def test_adx() -> None:
@@ -32,7 +34,7 @@ def test_adx() -> None:
         31.3907, 33.2726, 34.7625, 36.1460, 37.3151, 38.6246, 39.4151, 38.3660, 37.3919, 35.4565,
         33.3321, 31.0167, 29.3056, 27.5566
     ]]
-    _assert(Adx(14), inputs, outputs, 4)
+    _assert(indicators.Adx(14), inputs, outputs, 4)
 
 
 def test_adxr() -> None:
@@ -58,7 +60,7 @@ def test_adxr() -> None:
         27.3129, 27.5240, 27.6324, 27.9379, 27.9615, 28.6838, 29.1905, 29.5928, 29.3351, 29.4087,
         29.4736
     ]]
-    _assert(Adxr(14), inputs, outputs, 4)
+    _assert(indicators.Adxr(14), inputs, outputs, 4)
 
 
 def test_cci() -> None:
@@ -77,7 +79,7 @@ def test_cci() -> None:
         ]
     ]
     outputs = [[18.0890, 84.4605, 109.1186, 46.6540]]
-    _assert(Cci(5), inputs, outputs, 4)
+    _assert(indicators.Cci(5), inputs, outputs, 4)
 
 
 def test_dema() -> None:
@@ -86,7 +88,7 @@ def test_dema() -> None:
         170.500, 175.000, 184.750, 202.781
     ]]
     outputs = [[172.0780, 168.5718, 170.2278, 173.4940, 180.5297, 194.1428]]
-    _assert(Dema(5), inputs, outputs, 4)
+    _assert(indicators.Dema(5), inputs, outputs, 4)
 
 
 def test_di() -> None:
@@ -132,7 +134,7 @@ def test_di() -> None:
             22.6700
         ]
     ]
-    _assert(DI(14), inputs, outputs, 4)
+    _assert(indicators.DI(14), inputs, outputs, 4)
 
 
 def test_dm() -> None:
@@ -170,7 +172,7 @@ def test_dm() -> None:
             12.6902
         ]
     ]
-    _assert(DM(14), inputs, outputs, 4)
+    _assert(indicators.DM(14), inputs, outputs, 4)
 
 
 def test_dx() -> None:
@@ -199,19 +201,19 @@ def test_dx() -> None:
         63.9309, 51.0546, 53.6679, 55.8176, 57.7373, 54.1312, 54.1312, 52.5138, 55.6475, 49.6919,
         24.7277, 24.7277, 10.2966, 05.7150, 00.9162, 07.0623, 04.8185
     ]]
-    _assert(DX(14), inputs, outputs, 4)
+    _assert(indicators.DX(14), inputs, outputs, 4)
 
 
 def test_ema() -> None:
     inputs = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
     outputs = [[25.000, 24.958, 24.899, 24.797, 24.698, 24.674, 24.856, 25.654]]
-    _assert(Ema(5), inputs, outputs, 3)
+    _assert(indicators.Ema(5), inputs, outputs, 3)
 
 
 def test_sma() -> None:
     inputs = [[25.000, 24.875, 24.781, 24.594, 24.500, 24.625, 25.219, 27.250]]
     outputs = [[24.750, 24.675, 24.744, 25.238]]
-    _assert(Sma(5), inputs, outputs, 3)
+    _assert(indicators.Sma(5), inputs, outputs, 3)
 
 
 def test_macd() -> None:
@@ -245,7 +247,7 @@ def test_macd() -> None:
             +0.105597654, +0.219777438, +0.281981844, +0.337640199, +0.445541078, +0.542216167
         ]
     ]
-    _assert(Macd(12, 26, 9), inputs, outputs, 9)
+    _assert(indicators.Macd(12, 26, 9), inputs, outputs, 9)
 
 
 def test_rsi() -> None:
@@ -257,7 +259,7 @@ def test_rsi() -> None:
         76.6667, 78.8679, 84.9158, 81.4863, 84.5968, 73.0851, 49.3173, 45.0119, 45.0119, 57.9252,
         75.9596, 78.4676, 78.4676, 65.6299, 65.6299
     ]]
-    _assert(Rsi(5), inputs, outputs, 4)
+    _assert(indicators.Rsi(5), inputs, outputs, 4)
 
 
 def test_stoch() -> None:
@@ -288,7 +290,7 @@ def test_stoch() -> None:
             40.1115, 40.0008, 38.4405, 41.4415, 48.3518, 49.8770, 48.5631
         ]
     ]
-    _assert(Stoch(5, 3, 3), inputs, outputs, 4)
+    _assert(indicators.Stoch(5, 3, 3), inputs, outputs, 4)
 
 
 def test_stochrsi() -> None:
@@ -299,7 +301,7 @@ def test_stochrsi() -> None:
     outputs = [[
         0.9613, 0.0000, 0.0000, 0.0000, 0.0000, 0.4600, 1.0000, 1.0000, 1.0000, 0.3751, 0.0000
     ]]
-    _assert(StochRsi(5), inputs, outputs, 4)
+    _assert(indicators.StochRsi(5), inputs, outputs, 4)
 
 
 # Data taken from:
@@ -401,10 +403,28 @@ def test_tsi() -> None:
         +18.06, +19.43, +20.84, +21.77, +22.53, +23.33, +24.97, +26.61, +28.00, +28.29, +28.57,
         +26.60, +25.99, +25.35, +24.59, +24.09
     ]]
-    _assert(Tsi(25, 13), inputs, outputs, 1)  # Precision should be 2 but it's drifting off.
+    # Precision should be 2 but it's drifting off.
+    _assert(indicators.Tsi(25, 13), inputs, outputs, 1)
 
 
-def _assert(indicator, inputs, outputs, precision):
+################################
+# STOCK MARKET INDICATOR TESTS #
+################################
+
+
+def test_chaikin_oscillator() -> None:
+    inputs = [[]]
+    outputs = [[]]
+    _assert(indicators.ChaikinOscillator(3, 10), inputs, outputs, 12)
+
+
+def test_obv() -> None:
+    inputs = [[]]
+    outputs = [[]]
+    _assert(indicators.Obv(), inputs, outputs, 12)
+
+
+def _assert(indicator, inputs, outputs, precision) -> None:
     input_len, output_len = len(inputs[0]), len(outputs[0])
     offset = input_len - output_len
     for i in range(0, input_len):
