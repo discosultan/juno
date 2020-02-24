@@ -11,6 +11,6 @@ class ChaikinOscillator:
     def req_history(self) -> int:
         return 0
 
-    def update(self, volume: Decimal, price: Decimal) -> None:
+    def update(self, high: Decimal, low: Decimal, close: Decimal, volume: Decimal) -> None:
         raise NotImplementedError()
         self._t = min(self._t + 1, self._t1)
