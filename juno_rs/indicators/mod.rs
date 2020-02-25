@@ -1,4 +1,5 @@
 mod adx;
+mod dema;
 mod di;
 mod dm;
 mod dx;
@@ -10,6 +11,7 @@ mod smma;
 mod stoch;
 
 pub use adx::Adx;
+pub use dema::Dema;
 pub use di::DI;
 pub use dm::DM;
 pub use dx::DX;
