@@ -14,9 +14,10 @@ class MA(IntEnum):
     EMA2 = 1
     SMA = 2
     SMMA = 3
+    DEMA = 4
 
 
-_ma_choices = math.Choice([MA.EMA, MA.EMA2, MA.SMA, MA.SMMA])
+_ma_choices = math.Choice([MA.EMA, MA.EMA2, MA.SMA, MA.SMMA, MA.DEMA])
 
 
 # Moving average moving average crossover.
