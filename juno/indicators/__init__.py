@@ -1,5 +1,6 @@
-# Most of the indicators are adapted and verified using the Tulip Indicators C library:
-# https://github.com/TulipCharts/tulipindicators
+# The indicators are taken from (and verified against) the following open source projects:
+# - https://github.com/TulipCharts/tulipindicators
+# - https://github.com/voice32/stock_market_indicators
 
 from .adx import Adx
 from .adxr import Adxr
@@ -10,7 +11,6 @@ from .di import DI
 from .dm import DM
 from .dx import DX
 from .ema import Ema, Ema2
-from .klinger_oscillator import KlingerOscillator
 from .macd import Macd
 from .obv import Obv
 from .rsi import Rsi
@@ -31,7 +31,6 @@ __all__ = [
     'DX',
     'Ema',
     'Ema2',
-    'KlingerOscillator',
     'Macd',
     'Obv',
     'Rsi',

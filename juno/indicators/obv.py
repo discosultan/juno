@@ -5,6 +5,7 @@ from decimal import Decimal
 class Obv:
     def __init__(self) -> None:
         self.value = Decimal('0.0')
+        self.ema = Decimal('0.0')
         self._last_price = Decimal('0.0')
         self._t = 0
         self._t1 = 0

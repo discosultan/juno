@@ -10,6 +10,7 @@ class PivotPoint:
         return 0
 
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+        raise NotImplementedError()
         diff = high - low
         self.value = (high + low + close) / 3
         self.support1 = 2 * self.value - high
