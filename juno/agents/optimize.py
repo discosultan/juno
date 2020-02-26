@@ -1,11 +1,12 @@
 import logging
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, NamedTuple, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.modules import get_module_type
 from juno.optimization import OptimizationSummary, Optimizer
 from juno.trading import MissedCandlePolicy
+from juno.typing import get_input_type_hints
 from juno.utils import format_as_config
 
 from .agent import Agent
@@ -57,6 +58,24 @@ class Optimize(Agent):
 
     def on_finally(self) -> None:
         for ind in self.result.best:
-            _log.info(f'trading config: {format_as_config(ind.trading_config)}')
+            # Create a new typed named tuple for correctly formatting strategy kwargs for the
+            # particular strategy type.
+
+            trading_config = ind.trading_config
+            strategy_type = trading_config.strategy_type
+            strategy_kwargs = trading_config.strategy_kwargs
+
+            strategy_kwargs_typings = get_input_type_hints(strategy_type.__init__)  # type: ignore
+            strategy_kwargs_type = NamedTuple('_', strategy_kwargs_typings.items())  # type: ignore
+            strategy_kwargs_instance = strategy_kwargs_type(*strategy_kwargs.values())
+
+            trading_config_typings = get_input_type_hints(trading_config)
+            trading_config_typings['strategy_kwargs'] = strategy_kwargs_type
+            trading_config_type = NamedTuple('_', trading_config_typings.items())  # type: ignore
+            x = ind.trading_config._asdict()
+            x['strategy_kwargs'] = strategy_kwargs_instance
+            trading_config = trading_config_type(*x.values())
+
+            _log.info(f'trading config: {format_as_config(trading_config)}')
             _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
             _log.info(f'portfolio stats: {format_as_config(ind.portfolio_stats)}')
