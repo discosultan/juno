@@ -60,19 +60,22 @@ class Optimize(Agent):
         for ind in self.result.best:
             # Create a new typed named tuple for correctly formatting strategy kwargs for the
             # particular strategy type.
-            strategy_kwargs_type_hints = get_input_type_hints(ind.trading_config.strategy_type)
-            strategy_kwargs_type = NamedTuple('foo', strategy_kwargs_type_hints.items())  # type: ignore
-            strategy_kwargs_instance = strategy_kwargs_type(*ind.trading_config.strategy_kwargs.values())
 
-            trading_config_type_hints = get_input_type_hints(ind.trading_config)
-            trading_config_type_hints['strategy_kwargs'] = strategy_kwargs_type
-            trading_config_type = NamedTuple('bar', trading_config_type_hints.items())  # type: ignore
+            trading_config = ind.trading_config
+            strategy_type = trading_config.strategy_type
+            strategy_kwargs = trading_config.strategy_kwargs
+
+            strategy_kwargs_typings = get_input_type_hints(strategy_type.__init__)  # type: ignore
+            strategy_kwargs_type = NamedTuple('_', strategy_kwargs_typings.items())  # type: ignore
+            strategy_kwargs_instance = strategy_kwargs_type(*strategy_kwargs.values())
+
+            trading_config_typings = get_input_type_hints(trading_config)
+            trading_config_typings['strategy_kwargs'] = strategy_kwargs_type
+            trading_config_type = NamedTuple('_', trading_config_typings.items())  # type: ignore
             x = ind.trading_config._asdict()
             x['strategy_kwargs'] = strategy_kwargs_instance
-            trading_config_instance = trading_config_type(**x)
+            trading_config = trading_config_type(*x.values())
 
-            # tc = ind.trading_config
-
-            _log.info(f'trading config: {format_as_config(trading_config_instance)}')
+            _log.info(f'trading config: {format_as_config(trading_config)}')
             _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
             _log.info(f'portfolio stats: {format_as_config(ind.portfolio_stats)}')
