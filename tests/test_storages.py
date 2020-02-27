@@ -37,11 +37,11 @@ async def test_memory_store_objects_and_span(memory: storages.Memory, items) -> 
     end = items[-1].time + 1
 
     await memory.store_time_series_and_span(
-        shard='shard', name='item', items=items, start=start, end=end
+        shard='shard', key='key', items=items, start=start, end=end
     )
     output_spans, output_items = await asyncio.gather(
-        list_async(memory.stream_time_series_spans('shard', 'name', start, end)),
-        list_async(memory.stream_time_series('shard', 'name', type_, start, end))
+        list_async(memory.stream_time_series_spans('shard', 'key', start, end)),
+        list_async(memory.stream_time_series('shard', 'key', type_, start, end))
     )
 
     assert output_spans == [(start, end)]
@@ -50,8 +50,8 @@ async def test_memory_store_objects_and_span(memory: storages.Memory, items) -> 
 
 async def test_memory_stream_missing_series(memory: storages.Memory) -> None:
     output_spans, output_items = await asyncio.gather(
-        list_async(memory.stream_time_series_spans('shard', 'name', 0, 10)),
-        list_async(memory.stream_time_series('shard', 'name', Candle, 0, 10))
+        list_async(memory.stream_time_series_spans('shard', 'key', 0, 10)),
+        list_async(memory.stream_time_series('shard', 'key', Candle, 0, 10))
     )
 
     assert output_spans == []
@@ -59,10 +59,10 @@ async def test_memory_stream_missing_series(memory: storages.Memory) -> None:
 
 
 async def test_memory_store_and_stream_empty_series(memory: storages.Memory) -> None:
-    await memory.store_time_series_and_span('shard', 'name', items=[], start=0, end=5)
+    await memory.store_time_series_and_span('shard', 'key', items=[], start=0, end=5)
     output_spans, output_items = await asyncio.gather(
-        list_async(memory.stream_time_series_spans('shard', 'name', 0, 5)),
-        list_async(memory.stream_time_series('shard', 'name', Candle, 0, 5))
+        list_async(memory.stream_time_series_spans('shard', 'key', 0, 5)),
+        list_async(memory.stream_time_series('shard', 'key', Candle, 0, 5))
     )
 
     assert output_spans == [(0, 5)]
@@ -76,15 +76,15 @@ async def test_memory_store_and_stream_empty_series(memory: storages.Memory) -> 
     ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees]),
 ])
 async def test_memory_set_get(memory: storages.Memory, item, type_) -> None:
-    await memory.set('shard', 'name', item)
-    out_item = await memory.get('shard', 'name', type_)
+    await memory.set('shard', 'key', item)
+    out_item = await memory.get('shard', 'key', type_)
 
     assert out_item == item
     assert types_match(out_item, type_)
 
 
 async def test_memory_get_missing(memory: storages.Memory) -> None:
-    item = await memory.get('shard', 'name', Candle)
+    item = await memory.get('shard', 'key', Candle)
 
     assert item is None
 
@@ -93,9 +93,9 @@ async def test_memory_set_twice_get(memory: storages.Memory) -> None:
     candle1 = Candle(time=1)
     candle2 = Candle(time=2)
 
-    await memory.set('shard', 'name', candle1)
-    await memory.set('shard', 'name', candle2)
-    out_candle = await memory.get('shard', 'name', Candle)
+    await memory.set('shard', 'key', candle1)
+    await memory.set('shard', 'key', candle2)
+    out_candle = await memory.get('shard', 'key', Candle)
 
     assert out_candle == candle2
 
@@ -105,12 +105,12 @@ async def test_memory_set_get_different(memory: storages.Memory) -> None:
     filters = {'foo': Filters()}
 
     await asyncio.gather(
-        memory.set('shard', 'name', fees),
-        memory.set('shard', 'name', filters)
+        memory.set('shard', 'fees', fees),
+        memory.set('shard', 'filters', filters)
     )
     out_fees, out_filters = await asyncio.gather(
-        memory.get('shard', 'name', Dict[str, Fees]),
-        memory.get('shard', 'name', Dict[str, Filters]),
+        memory.get('shard', 'fees', Dict[str, Fees]),
+        memory.get('shard', 'filters', Dict[str, Filters]),
     )
 
     assert out_fees == fees

@@ -71,13 +71,12 @@ class SQLite(Storage):
     ) -> AsyncIterable[T]:
         def inner() -> List[T]:
             _log.info(
-                f'from shard {shard} {key} streaming {type_.__name__}(s) between '
-                f'{strfspan(start, end)}'
+                f'from shard {shard} {key} streaming items between {strfspan(start, end)}'
             )
             with self._connect(shard) as conn:
                 self._ensure_table(conn, key, type_)
                 return conn.execute(
-                    f'SELECT * FROM {type_.__name__} WHERE time >= ? AND time < ? ORDER BY time',
+                    f'SELECT * FROM {key} WHERE time >= ? AND time < ? ORDER BY time',
                     [start, end]
                 ).fetchall()
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
@@ -87,33 +86,35 @@ class SQLite(Storage):
     async def store_time_series_and_span(
         self, shard: str, key: str, items: List[Any], start: int, end: int
     ) -> None:
-        if len(items) == 0:
-            return
+        # Even if items list is empty, we still want to store a span for the period!
 
-        if start > items[0].time:
-            raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
-        if end <= items[-1].time:
-            raise ValueError(
-                f'Span end {end} smaller than or equal to last item time {items[-1].time}'
-            )
+        if len(items) > 0:
+            type_ = type(items[0])
+            if start > items[0].time:
+                raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
+            if end <= items[-1].time:
+                raise ValueError(
+                    f'Span end {end} smaller than or equal to last item time {items[-1].time}'
+                )
 
         def inner() -> None:
-            type_ = type(items[0])
             _log.info(
-                f'to shard {shard} {key} inserting {len(items)} {type_.__name__}(s) between '
+                f'to shard {shard} {key} inserting {len(items)} item(s) between '
                 f'{strfspan(start, end)}'
             )
             span_key = f'{key}_{SPAN_KEY}'
             with self._connect(shard) as conn:
-                self._ensure_table(conn, key, type_)
                 self._ensure_table(conn, span_key, Span)
+                if len(items) > 0:
+                    self._ensure_table(conn, key, type_)
 
                 c = conn.cursor()
                 if len(items) > 0:
                     try:
                         c.executemany(
-                            f"INSERT INTO {type_.__name__} "
-                            f"VALUES ({', '.join(['?'] * len(get_type_hints(type_)))})", items
+                            f"INSERT INTO {key} "
+                            f"VALUES ({', '.join(['?'] * len(get_type_hints(type_)))})",
+                            items
                         )
                     except sqlite3.IntegrityError as err:
                         # TODO: Can we relax this constraint?
