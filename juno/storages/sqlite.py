@@ -6,12 +6,12 @@ from contextlib import closing
 from decimal import Decimal
 from typing import (
     Any, AsyncIterable, ContextManager, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union,
-    cast, get_type_hints
+    get_type_hints
 )
 
 from juno import Interval, Timestamp, json
-from juno.time import strfspan, time_ms
-from juno.typing import get_name, load_by_typing
+from juno.time import strfspan
+from juno.typing import load_by_typing
 from juno.utils import home_path
 
 from .storage import Storage
@@ -19,11 +19,10 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = '37'
+_VERSION = '38'
 
 T = TypeVar('T')
 
-Key = Union[str, Tuple[Any, ...]]
 Primitive = Union[bool, int, float, Decimal, str]
 
 
@@ -48,17 +47,18 @@ class SQLite(Storage):
         self._tables: Dict[Any, Set[str]] = defaultdict(set)
         _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {_VERSION}')
 
-    async def stream_time_series_spans(self, key: Key, type_: Type[T], start: int,
-                                       end: int) -> AsyncIterable[Tuple[int, int]]:
+    async def stream_time_series_spans(
+        self, shard: str, key: str, start: int, end: int
+    ) -> AsyncIterable[Tuple[int, int]]:
         def inner() -> List[Tuple[int, int]]:
             _log.info(
-                f'streaming {type_.__name__} span(s) between {strfspan(start, end)} from {key} db'
+                f'from shard {shard} {key} streaming span(s) between {strfspan(start, end)}'
             )
-            with self._connect(key) as conn:
-                span_table_name = f'{type_.__name__}{Span.__name__}'
-                self._ensure_table(conn, Span, span_table_name)
+            with self._connect(shard) as conn:
+                span_key = f'{key}_{SPAN_KEY}'
+                self._ensure_table(conn, span_key, Span)
                 return conn.execute(
-                    f'SELECT * FROM {span_table_name} WHERE start < ? AND end > ? ORDER BY start',
+                    f'SELECT * FROM {span_key} WHERE start < ? AND end > ? ORDER BY start',
                     [end, start]
                 ).fetchall()
 
@@ -66,14 +66,16 @@ class SQLite(Storage):
         for span_start, span_end in rows:
             yield max(span_start, start), min(span_end, end)
 
-    async def stream_time_series(self, key: Key, type_: Type[T], start: int,
-                                 end: int) -> AsyncIterable[T]:
+    async def stream_time_series(
+        self, shard: str, key: str, type_: Type[T], start: int, end: int
+    ) -> AsyncIterable[T]:
         def inner() -> List[T]:
             _log.info(
-                f'streaming {type_.__name__}(s) between {strfspan(start, end)} from {key} db'
+                f'from shard {shard} {key} streaming {type_.__name__}(s) between '
+                f'{strfspan(start, end)}'
             )
-            with self._connect(key) as conn:
-                self._ensure_table(conn, type_)
+            with self._connect(shard) as conn:
+                self._ensure_table(conn, key, type_)
                 return conn.execute(
                     f'SELECT * FROM {type_.__name__} WHERE time >= ? AND time < ? ORDER BY time',
                     [start, end]
@@ -83,26 +85,28 @@ class SQLite(Storage):
             yield load_by_typing(row, type_)
 
     async def store_time_series_and_span(
-        self, key: Key, type_: Type[Any], items: List[Any], start: int, end: int
+        self, shard: str, key: str, items: List[Any], start: int, end: int
     ) -> None:
-        if len(items) > 0:
-            if start > items[0].time:
-                raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
-            if end <= items[-1].time:
-                raise ValueError(
-                    f'Span end {end} smaller than or equal to last item time '
-                    f'{items[-1].time}'
-                )
+        if len(items) == 0:
+            return
+
+        if start > items[0].time:
+            raise ValueError(f'Span start {start} bigger than first item time {items[0].time}')
+        if end <= items[-1].time:
+            raise ValueError(
+                f'Span end {end} smaller than or equal to last item time {items[-1].time}'
+            )
 
         def inner() -> None:
+            type_ = type(items[0])
             _log.info(
-                f'storing {len(items)} {type_.__name__}(s) between {strfspan(start, end)} to '
-                f'{key} db'
+                f'to shard {shard} {key} inserting {len(items)} {type_.__name__}(s) between '
+                f'{strfspan(start, end)}'
             )
-            span_table_name = f'{type_.__name__}{Span.__name__}'
-            with self._connect(key) as conn:
-                self._ensure_table(conn, type_)
-                self._ensure_table(conn, Span, span_table_name)
+            span_key = f'{key}_{SPAN_KEY}'
+            with self._connect(shard) as conn:
+                self._ensure_table(conn, key, type_)
+                self._ensure_table(conn, span_key, Span)
 
                 c = conn.cursor()
                 if len(items) > 0:
@@ -113,67 +117,50 @@ class SQLite(Storage):
                         )
                     except sqlite3.IntegrityError as err:
                         # TODO: Can we relax this constraint?
-                        _log.error(f'{err} {key}')
+                        _log.error(f'{err} {shard} {key}')
                         raise
-                c.execute(f'INSERT INTO {span_table_name} VALUES (?, ?)', [start, end])
+                c.execute(f'INSERT INTO {span_key} VALUES (?, ?)', [start, end])
                 conn.commit()
 
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
-    async def get(self, key: Key, type_: Type[T]) -> Tuple[Optional[T], Optional[int]]:
-        def inner() -> Tuple[Optional[T], Optional[int]]:
-            _log.info(f'getting value of type {get_name(type_)} from {key} db')
-            with self._connect(key) as conn:
-                self._ensure_table(conn, Bag)
+    async def get(self, shard: str, key: str, type_: Type[T]) -> Optional[T]:
+        def inner() -> Optional[T]:
+            _log.info(f'from shard {shard} getting {key}')
+            with self._connect(shard) as conn:
+                self._ensure_table(conn, KEY_VALUE_PAIR_KEY, KeyValuePair)
                 row = conn.execute(
-                    f'SELECT * FROM {Bag.__name__} WHERE key=?', [get_name(type_)]
+                    f'SELECT * FROM {KEY_VALUE_PAIR_KEY} WHERE key=?', [key]
                 ).fetchone()
-                if row:
-                    return load_by_typing(json.loads(row[1]), type_), row[2]
-                else:
-                    return None, None
+                return load_by_typing(json.loads(row[1]), type_) if row else None
 
         return await asyncio.get_running_loop().run_in_executor(None, inner)
 
-    async def set(self, key: Key, type_: Type[T], item: T) -> None:
+    async def set(self, shard: str, key: str, item: T) -> None:
         def inner() -> None:
-            _log.info(f'setting value of type {get_name(type_)} to {key} db')
-            with self._connect(key) as conn:
-                self._ensure_table(conn, Bag)
+            _log.info(f'to shard {shard} setting {key}')
+            with self._connect(shard) as conn:
+                self._ensure_table(conn, KEY_VALUE_PAIR_KEY, KeyValuePair)
                 conn.execute(
-                    f'INSERT OR REPLACE INTO {Bag.__name__} VALUES (?, ?, ?)',
-                    [get_name(type_), json.dumps(item), time_ms()]
+                    f'INSERT OR REPLACE INTO {KEY_VALUE_PAIR_KEY} VALUES (?, ?)',
+                    [key, json.dumps(item)]
                 )
                 conn.commit()
 
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
-    def _connect(self, key: Key) -> ContextManager[sqlite3.Connection]:
-        name = self._normalize_key(key)
-        name = str(home_path('data') / f'v{self._version}_{name}.db')
-        _log.debug(f'opening {name}')
-        return closing(sqlite3.connect(name, detect_types=sqlite3.PARSE_DECLTYPES))
+    def _connect(self, shard: str) -> ContextManager[sqlite3.Connection]:
+        path = str(home_path('data') / f'v{self._version}_{shard}.db')
+        _log.debug(f'opening shard {path}')
+        return closing(sqlite3.connect(path, detect_types=sqlite3.PARSE_DECLTYPES))
 
-    def _ensure_table(
-        self, conn: sqlite3.Connection, type_: Type[Any], name: Optional[str] = None
-    ) -> None:
-        if name is None:
-            name = type_.__name__
+    def _ensure_table(self, conn: sqlite3.Connection, name: str, type_: Type[Any]) -> None:
         tables = self._tables[conn]
         if name not in tables:
             c = conn.cursor()
             _create_table(c, type_, name)
             conn.commit()
             tables.add(name)
-
-    def _normalize_key(self, key: Key) -> str:
-        key_type = type(key)
-        if key_type is str:
-            return cast(str, key)
-        elif key_type is tuple:
-            return '_'.join(map(str, key))
-        else:
-            raise NotImplementedError()
 
 
 def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
@@ -232,10 +219,9 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
     raise NotImplementedError(f'Missing conversion for type {type_}')
 
 
-class Bag:
+class KeyValuePair:
     key: str
     value: str
-    time: int
 
     @staticmethod
     def meta() -> Dict[str, str]:
@@ -254,3 +240,7 @@ class Span:
             'start': 'unique',
             'end': 'unique',
         }
+
+
+KEY_VALUE_PAIR_KEY = KeyValuePair.__name__.lower()
+SPAN_KEY = Span.__name__.lower()

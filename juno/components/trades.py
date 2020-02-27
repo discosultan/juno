@@ -14,9 +14,11 @@ from juno.itertools import generate_missing_spans, merge_adjacent_spans
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfspan, time_ms
-from juno.utils import CircularBuffer
+from juno.utils import CircularBuffer, key
 
 _log = logging.getLogger(__name__)
+
+TRADE_KEY = Trade.__name__.lower()
 
 
 class Trades:
@@ -50,12 +52,17 @@ class Trades:
     ) -> AsyncIterable[Trade]:
         """Tries to stream trades for the specified range from local storage. If trades don't
         exist, streams them from an exchange and stores to local storage."""
-        storage_key = (exchange, symbol)
+        shard = key(exchange, symbol)
         trade_msg = f'{exchange} {symbol} trades'
 
         _log.info(f'checking for existing {trade_msg} in local storage')
         existing_spans = await list_async(
-            self._storage.stream_time_series_spans(storage_key, Trade, start, end)
+            self._storage.stream_time_series_spans(
+                shard=shard,
+                key=TRADE_KEY,
+                start=start,
+                end=end,
+            )
         )
         merged_existing_spans = list(merge_adjacent_spans(existing_spans))
         missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
@@ -68,7 +75,13 @@ class Trades:
             period_msg = f'{strfspan(span_start, span_end)}'
             if exist_locally:
                 _log.info(f'local {trade_msg} exist between {period_msg}')
-                stream = self._storage.stream_time_series(storage_key, Trade, span_start, span_end)
+                stream = self._storage.stream_time_series(
+                    shard=shard,
+                    key=TRADE_KEY,
+                    type_=Trade,
+                    start=span_start,
+                    end=span_end,
+                )
             else:
                 _log.info(f'missing {trade_msg} between {period_msg}')
                 stream = self._stream_and_store_exchange_trades(
@@ -80,7 +93,7 @@ class Trades:
     async def _stream_and_store_exchange_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
-        storage_key = (exchange, symbol)
+        shard = key(exchange, symbol)
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
             retry=retry_if_exception_type(JunoException),
@@ -113,8 +126,8 @@ class Trades:
                             batch_end = batch[-1].time + 1
                             batch, swap_batch = swap_batch, batch
                             await self._storage.store_time_series_and_span(
-                                key=storage_key,
-                                type_=Trade,
+                                shard=shard,
+                                key=TRADE_KEY,
                                 items=swap_batch,
                                 start=batch_start,
                                 end=batch_end,
@@ -127,8 +140,8 @@ class Trades:
                     if len(batch) > 0:
                         batch_end = batch[-1].time + 1
                         await self._storage.store_time_series_and_span(
-                            key=storage_key,
-                            type_=Trade,
+                            shard=shard,
+                            key=TRADE_KEY,
                             items=batch,
                             start=batch_start,
                             end=batch[-1].time + 1,
@@ -139,8 +152,8 @@ class Trades:
                     current = self._get_time_ms()
                     batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
-                        key=storage_key,
-                        type_=Trade,
+                        shard=shard,
+                        key=TRADE_KEY,
                         items=batch,
                         start=batch_start,
                         end=batch_end,

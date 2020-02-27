@@ -25,6 +25,10 @@ T = TypeVar('T')
 _log = logging.getLogger(__name__)
 
 
+def key(*items: Any) -> str:
+    return '_'.join(map(str, items))
+
+
 # TODO: Remove if not used.
 def replace_secrets(obj: Dict[str, Any]) -> Dict[str, Any]:
     # Do not mutate source obj.
