@@ -13,6 +13,14 @@ class Bar(NamedTuple):
     value: int
 
 
+class Baz:
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+    def __eq__(self, other):
+        return isinstance(other, Baz) and self.value == other.value
+
+
 def test_get_input_type_hints() -> None:
     assert typing.get_input_type_hints(foo) == {'a': int}
 
@@ -48,6 +56,7 @@ def test_isoptional(input_, expected_output) -> None:
     ([1], Bar, Bar(value=1)),
     ([1, [2]], Tuple[int, Bar], [1, Bar(value=2)]),
     ([1, 2], List[int], [1, 2]),
+    ({'value': 1}, Baz, Baz(1)),
 ])
 def test_load_by_typing(obj, type_, expected_output) -> None:
     assert typing.load_by_typing(obj, type_) == expected_output

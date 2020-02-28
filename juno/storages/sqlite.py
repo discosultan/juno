@@ -5,8 +5,8 @@ from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
 from typing import (
-    Any, AsyncIterable, ContextManager, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union,
-    get_type_hints
+    Any, AsyncIterable, ContextManager, Dict, List, NamedTuple, Optional, Set, Tuple, Type,
+    TypeVar, Union, get_type_hints
 )
 
 from juno import Interval, Timestamp, json
@@ -220,7 +220,7 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
     raise NotImplementedError(f'Missing conversion for type {type_}')
 
 
-class KeyValuePair:
+class KeyValuePair(NamedTuple):
     key: str
     value: str
 
@@ -231,7 +231,7 @@ class KeyValuePair:
         }
 
 
-class Span:
+class Span(NamedTuple):
     start: Timestamp
     end: Timestamp
 

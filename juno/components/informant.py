@@ -165,24 +165,25 @@ class Informant:
             key=key,
             type_=type_
         )
+        _log.critical("PEEPAAA")
         if not item:
+            _log.critical('NOT ITEM!!!!')
             _log.info(
                 f'local {exchange} {get_name(type_)} missing; updating by fetching from exchange'
             )
-            item = await self._fetch_from_exchange_and_cache(exchange, key, type_, fetch, now)
+            item = await self._fetch_from_exchange_and_cache(exchange, key, fetch, now)
         elif now >= item.time + self._cache_time:
             _log.info(
                 f'local {exchange} {get_name(type_)} out-of-date; updating by fetching from '
                 'exchange'
             )
-            item = await self._fetch_from_exchange_and_cache(exchange, key, type_, fetch, now)
+            item = await self._fetch_from_exchange_and_cache(exchange, key, fetch, now)
         else:
             _log.info(f'updating {exchange} {get_name(type_)} by fetching from storage')
         self._synced_data[exchange][type_] = item
 
     async def _fetch_from_exchange_and_cache(
-        self, exchange: str, key: str, type_: Type[_Timestamped[T]],
-        fetch: Callable[[Exchange], Awaitable[T]], time: int
+        self, exchange: str, key: str, fetch: Callable[[Exchange], Awaitable[T]], time: int
     ) -> _Timestamped[T]:
         item = _Timestamped(
             time=time,

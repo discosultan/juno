@@ -69,12 +69,27 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
             value[key] = load_by_typing(sub_value, sub_type)
         return value
     elif isnamedtuple(type_):
-        values = []
         annotations = get_type_hints(type_)
+        args = []
         for i, (_name, sub_type) in enumerate(annotations.items()):
             sub_value = value[i]
-            values.append(load_by_typing(sub_value, sub_type))
-        return type_(*values)
+            args.append(load_by_typing(sub_value, sub_type))
+        return type_(*args)
+    else:  # Try constructing a regular class.
+        annotations = get_input_type_hints(origin.__init__)
+        kwargs = {}
+        import logging
+        logging.critical(get_origin(type_))
+        logging.critical('wadljwDajlwjdilawdil')
+        logging.critical(annotations)
+        for name, sub_type in annotations.items():
+            import logging
+            logging.critical('wadljwDajlwjdilawdil')
+            logging.critical(sub_type)
+            if name in annotations:
+                sub_value = value[name]
+                kwargs[name] = load_by_typing(sub_value, sub_type)
+        return type_(**kwargs)
 
 
 def types_match(obj: Any, type_: Type[Any]):
