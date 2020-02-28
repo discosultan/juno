@@ -41,6 +41,7 @@ class Exchange(exchanges.Exchange):
             self.candle_queue.put_nowait(future_candle)
 
         self.exchange_info = exchange_info
+        self.get_exchange_info_calls = []
         self.tickers = tickers
 
         self.balances = balances
@@ -69,7 +70,9 @@ class Exchange(exchanges.Exchange):
             self.trade_queue.put_nowait(future_trade)
 
     async def get_exchange_info(self):
-        return self.exchange_info
+        result = self.exchange_info
+        self.get_exchange_info_calls.append([result])
+        return result
 
     async def list_tickers(self):
         return self.tickers
@@ -291,8 +294,19 @@ class Storage(storages.Memory):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stored_time_series_and_span = asyncio.Event()
+        self.get_calls = []
+        self.set_calls = []
 
     async def store_time_series_and_span(self, *args, **kwargs):
         await super().store_time_series_and_span(*args, **kwargs)
         self.stored_time_series_and_span.set()
         await asyncio.sleep(0)
+
+    async def get(self, shard, key, type_):
+        result = await super().get(shard, key, type_)
+        self.get_calls.append([shard, key, type_, result])
+        return result
+
+    async def set(self, shard, key, item):
+        await super().set(shard, key, item)
+        self.set_calls.append([shard, key, item, None])

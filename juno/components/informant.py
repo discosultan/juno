@@ -32,12 +32,16 @@ class Informant:
         storage: Storage,
         exchanges: List[Exchange],
         get_time_ms: Callable[[], int] = time_ms,
+        cache_time: int = DAY_MS,
     ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time_ms = get_time_ms
+        self._cache_time = cache_time
 
-        self._synced_data: Dict[str, Dict[Type[_Timestamped[Any]], Any]] = defaultdict(dict)
+        self._synced_data: Dict[str, Dict[Type[_Timestamped[Any]], _Timestamped[Any]]] = (
+            defaultdict(dict)
+        )
 
     async def __aenter__(self) -> Informant:
         exchange_info_synced_evt = asyncio.Event()
@@ -76,13 +80,15 @@ class Informant:
         await cancel(self._exchange_info_sync_task, self._tickers_sync_task)
 
     def get_fees_filters(self, exchange: str, symbol: str) -> Tuple[Fees, Filters]:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]]
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         fees = exchange_info.fees.get('__all__') or exchange_info.fees[symbol]
         filters = exchange_info.filters.get('__all__') or exchange_info.filters[symbol]
         return fees, filters
 
     def list_symbols(self, exchange: str, patterns: Optional[List[str]] = None) -> List[str]:
-        all_symbols = list(self._synced_data[exchange][_Timestamped[ExchangeInfo]].filters.keys())
+        all_symbols = list(
+            self._synced_data[exchange][_Timestamped[ExchangeInfo]].item.filters.keys()
+        )
 
         if patterns is None:
             return all_symbols
@@ -102,7 +108,9 @@ class Informant:
     def list_candle_intervals(
         self, exchange: str, patterns: Optional[List[int]] = None
     ) -> List[int]:
-        all_intervals = self._synced_data[exchange][_Timestamped[ExchangeInfo]].candle_intervals
+        all_intervals = (
+            self._synced_data[exchange][_Timestamped[ExchangeInfo]].item.candle_intervals
+        )
 
         if patterns is None:
             return all_intervals
@@ -117,7 +125,7 @@ class Informant:
         return list(result.keys())
 
     def list_tickers(self, exchange: str) -> List[Ticker]:
-        return self._synced_data[exchange][_Timestamped[List[Ticker]]]
+        return self._synced_data[exchange][_Timestamped[List[Ticker]]].item
 
     def list_exchanges(self) -> List[str]:
         return list(self._exchanges.keys())
@@ -129,7 +137,7 @@ class Informant:
         self, key: str, type_: Type[_Timestamped[T]], initial_sync_event: asyncio.Event,
         fetch: Callable[[Exchange], Awaitable[T]], exchanges: List[str]
     ) -> None:
-        period = DAY_MS
+        period = self._cache_time
         _log.info(
             f'starting periodic sync of {key} for {", ".join(exchanges)} every '
             f'{strfinterval(period)}'
@@ -161,11 +169,8 @@ class Informant:
             _log.info(
                 f'local {exchange} {get_name(type_)} missing; updating by fetching from exchange'
             )
-            item = _Timestamped(
-                time=now,
-                item=(await self._fetch_from_exchange_and_cache(exchange, key, type_, fetch, now)),
-            )
-        elif now >= item.time + DAY_MS:
+            item = await self._fetch_from_exchange_and_cache(exchange, key, type_, fetch, now)
+        elif now >= item.time + self._cache_time:
             _log.info(
                 f'local {exchange} {get_name(type_)} out-of-date; updating by fetching from '
                 'exchange'
@@ -176,10 +181,10 @@ class Informant:
         self._synced_data[exchange][type_] = item
 
     async def _fetch_from_exchange_and_cache(
-        self, exchange: str, key: str, type_: Type[_Timestamped],
+        self, exchange: str, key: str, type_: Type[_Timestamped[T]],
         fetch: Callable[[Exchange], Awaitable[T]], time: int
-    ) -> Any:
-        item: _Timestamped[T] = _Timestamped(
+    ) -> _Timestamped[T]:
+        item = _Timestamped(
             time=time,
             item=(await fetch(self._exchanges[exchange])),
         )

@@ -2,9 +2,8 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Balance, Candle, DepthSnapshot, ExchangeInfo, Fees
-from juno.components import Historian, Informant, Orderbook, Wallet
-from juno.filters import Filters, Price, Size
+from juno import Balance, Candle, DepthSnapshot
+from juno.components import Historian, Orderbook, Wallet
 
 from . import fakes
 
@@ -54,58 +53,6 @@ async def test_find_first_candle_not_found(storage, earliest_exchange_start, tim
 
     with pytest.raises(ValueError):
         await historian.find_first_candle('exchange', 'eth-btc', 1)
-
-
-@pytest.mark.parametrize('exchange_key', ['__all__', 'eth-btc'])
-async def test_get_fees_filters(storage, exchange_key) -> None:
-    fees = Fees(maker=Decimal('0.001'), taker=Decimal('0.002'))
-    filters = Filters(
-        price=Price(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0')),
-        size=Size(min=Decimal('1.0'), max=Decimal('1.0'), step=Decimal('1.0'))
-    )
-    exchange = fakes.Exchange(
-        exchange_info=ExchangeInfo(fees={exchange_key: fees}, filters={exchange_key: filters})
-    )
-
-    async with Informant(storage=storage, exchanges=[exchange]) as informant:
-        out_fees, out_filters = informant.get_fees_filters('exchange', 'eth-btc')
-
-        assert out_fees == fees
-        assert out_filters == filters
-
-
-@pytest.mark.parametrize('symbols,patterns,expected_output', [
-    (['eth-btc', 'ltc-btc'], None, ['eth-btc', 'ltc-btc']),
-    (['eth-btc', 'ltc-btc', 'ltc-eth'], ['*-btc'], ['eth-btc', 'ltc-btc']),
-    (['eth-btc', 'ltc-btc', 'ltc-eth'], ['eth-btc', 'ltc-btc'], ['eth-btc', 'ltc-btc']),
-    (['eth-btc', 'ltc-eur'], ['*-*'], ['eth-btc', 'ltc-eur']),
-])
-async def test_list_symbols(storage, symbols, patterns, expected_output) -> None:
-    exchange = fakes.Exchange(
-        exchange_info=ExchangeInfo(filters={s: Filters() for s in symbols})
-    )
-
-    async with Informant(storage=storage, exchanges=[exchange]) as informant:
-        output = informant.list_symbols('exchange', patterns)
-
-    assert len(output) == len(expected_output)
-    assert set(output) == set(expected_output)
-
-
-@pytest.mark.parametrize('intervals,patterns,expected_output', [
-    ([1, 2], None, [1, 2]),
-    ([1, 2, 3], [1, 2], [1, 2]),
-])
-async def test_list_candle_intervals(storage, intervals, patterns, expected_output) -> None:
-    exchange = fakes.Exchange(
-        exchange_info=ExchangeInfo(candle_intervals=intervals)
-    )
-
-    async with Informant(storage=storage, exchanges=[exchange]) as informant:
-        output = informant.list_candle_intervals('exchange', patterns)
-
-    assert len(output) == len(expected_output)
-    assert set(output) == set(expected_output)
 
 
 async def test_list_asks_bids(storage) -> None:
