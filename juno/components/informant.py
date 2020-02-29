@@ -4,11 +4,11 @@ import asyncio
 import fnmatch
 import logging
 from collections import defaultdict
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
-from juno import ExchangeInfo, Fees, Filters, JunoException, Ticker
+from juno import ExchangeInfo, Fees, Filters, JunoException, Ticker, Timestamp
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
 from juno.storages import Storage
@@ -19,15 +19,29 @@ _log = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
-FetchMap = Callable[[Exchange], Awaitable[ExchangeInfo]]
+
+class _Timestamped(Generic[T]):
+    def __init__(self, time: Timestamp, item: T) -> None:
+        self.time = time
+        self.item = item
 
 
 class Informant:
-    def __init__(self, storage: Storage, exchanges: List[Exchange]) -> None:
+    def __init__(
+        self,
+        storage: Storage,
+        exchanges: List[Exchange],
+        get_time_ms: Callable[[], int] = time_ms,
+        cache_time: int = DAY_MS,
+    ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_time_ms = get_time_ms
+        self._cache_time = cache_time
 
-        self._synced_data: Dict[str, Dict[Type[Any], Any]] = defaultdict(dict)
+        self._synced_data: Dict[str, Dict[Type[_Timestamped[Any]], _Timestamped[Any]]] = (
+            defaultdict(dict)
+        )
 
     async def __aenter__(self) -> Informant:
         exchange_info_synced_evt = asyncio.Event()
@@ -35,10 +49,11 @@ class Informant:
 
         self._exchange_info_sync_task = asyncio.create_task(
             cancelable(self._periodic_sync_for_exchanges(
-                ExchangeInfo,
+                'exchange_info',
+                _Timestamped[ExchangeInfo],
                 exchange_info_synced_evt,
                 lambda e: e.get_exchange_info(),
-                list(self._exchanges.keys())
+                list(self._exchanges.keys()),
             ))
         )
         # TODO: Do we want to always kick this sync off? Maybe extract to a different component.
@@ -46,10 +61,11 @@ class Informant:
         #       and then get tickers by symbols.
         self._tickers_sync_task = asyncio.create_task(
             cancelable(self._periodic_sync_for_exchanges(
-                List[Ticker],
+                'tickers',
+                _Timestamped[List[Ticker]],
                 tickers_synced_evt,
                 lambda e: e.list_tickers(),
-                [n for n, e in self._exchanges.items() if e.can_list_all_tickers]
+                [n for n, e in self._exchanges.items() if e.can_list_all_tickers],
             ))
         )
 
@@ -64,13 +80,15 @@ class Informant:
         await cancel(self._exchange_info_sync_task, self._tickers_sync_task)
 
     def get_fees_filters(self, exchange: str, symbol: str) -> Tuple[Fees, Filters]:
-        exchange_info = self._synced_data[exchange][ExchangeInfo]
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         fees = exchange_info.fees.get('__all__') or exchange_info.fees[symbol]
         filters = exchange_info.filters.get('__all__') or exchange_info.filters[symbol]
         return fees, filters
 
     def list_symbols(self, exchange: str, patterns: Optional[List[str]] = None) -> List[str]:
-        all_symbols = list(self._synced_data[exchange][ExchangeInfo].filters.keys())
+        all_symbols = list(
+            self._synced_data[exchange][_Timestamped[ExchangeInfo]].item.filters.keys()
+        )
 
         if patterns is None:
             return all_symbols
@@ -90,7 +108,9 @@ class Informant:
     def list_candle_intervals(
         self, exchange: str, patterns: Optional[List[int]] = None
     ) -> List[int]:
-        all_intervals = self._synced_data[exchange][ExchangeInfo].candle_intervals
+        all_intervals = (
+            self._synced_data[exchange][_Timestamped[ExchangeInfo]].item.candle_intervals
+        )
 
         if patterns is None:
             return all_intervals
@@ -105,7 +125,7 @@ class Informant:
         return list(result.keys())
 
     def list_tickers(self, exchange: str) -> List[Ticker]:
-        return self._synced_data[exchange][List[Ticker]]
+        return self._synced_data[exchange][_Timestamped[List[Ticker]]].item
 
     def list_exchanges(self) -> List[str]:
         return list(self._exchanges.keys())
@@ -114,17 +134,17 @@ class Informant:
         return [e for e in self._exchanges.keys() if symbol in self.list_symbols(e)]
 
     async def _periodic_sync_for_exchanges(
-        self, type_: Type[Any], initial_sync_event: asyncio.Event,
-        fetch: Callable[[Exchange], Awaitable[Any]], exchanges: List[str]
+        self, key: str, type_: Type[_Timestamped[T]], initial_sync_event: asyncio.Event,
+        fetch: Callable[[Exchange], Awaitable[T]], exchanges: List[str]
     ) -> None:
-        period = DAY_MS
+        period = self._cache_time
         _log.info(
-            f'starting periodic sync of {get_name(type_)} for {", ".join(exchanges)} every '
+            f'starting periodic sync of {key} for {", ".join(exchanges)} every '
             f'{strfinterval(period)}'
         )
         while True:
             await asyncio.gather(
-                *(self._sync_for_exchange(e, type_, fetch) for e in exchanges)
+                *(self._sync_for_exchange(e, key, type_, fetch) for e in exchanges)
             )
             if not initial_sync_event.is_set():
                 initial_sync_event.set()
@@ -136,28 +156,40 @@ class Informant:
         before_sleep=before_sleep_log(_log, logging.DEBUG)
     )
     async def _sync_for_exchange(
-        self, exchange: str, type_: Type[Any], fetch: Callable[[Exchange], Awaitable[Any]]
+        self, exchange: str, key: str, type_: Type[_Timestamped[T]],
+        fetch: Callable[[Exchange], Awaitable[T]]
     ) -> None:
-        now = time_ms()
-        data, updated = await self._storage.get(exchange, type_)
-        if not data or not updated:
+        now = self._get_time_ms()
+        item = await self._storage.get(
+            shard=exchange,
+            key=key,
+            type_=type_
+        )
+        if not item:
             _log.info(
                 f'local {exchange} {get_name(type_)} missing; updating by fetching from exchange'
             )
-            data = await self._fetch_from_exchange(exchange, type_, fetch)
-        elif now >= updated + DAY_MS:
+            item = await self._fetch_from_exchange_and_cache(exchange, key, fetch, now)
+        elif now >= item.time + self._cache_time:
             _log.info(
                 f'local {exchange} {get_name(type_)} out-of-date; updating by fetching from '
                 'exchange'
             )
-            data = await self._fetch_from_exchange(exchange, type_, fetch)
+            item = await self._fetch_from_exchange_and_cache(exchange, key, fetch, now)
         else:
             _log.info(f'updating {exchange} {get_name(type_)} by fetching from storage')
-        self._synced_data[exchange][type_] = data
+        self._synced_data[exchange][type_] = item
 
-    async def _fetch_from_exchange(
-        self, exchange: str, type_: Type[Any], fetch: Callable[[Exchange], Awaitable[Any]]
-    ) -> Any:
-        data = await fetch(self._exchanges[exchange])
-        await self._storage.set(exchange, type_, data)
-        return data
+    async def _fetch_from_exchange_and_cache(
+        self, exchange: str, key: str, fetch: Callable[[Exchange], Awaitable[T]], time: int
+    ) -> _Timestamped[T]:
+        item = _Timestamped(
+            time=time,
+            item=(await fetch(self._exchanges[exchange])),
+        )
+        await self._storage.set(
+            shard=exchange,
+            key=key,
+            item=item,
+        )
+        return item

@@ -8,10 +8,13 @@ from juno.exchanges import Exchange
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import Storage
 from juno.time import time_ms
+from juno.utils import key
 
 from .chandler import Chandler
 
 _log = logging.getLogger(__name__)
+
+FIRST_CANDLE_KEY = 'first_candle'
 
 
 class Historian:
@@ -30,8 +33,12 @@ class Historian:
         self._earliest_exchange_start = earliest_exchange_start
 
     async def find_first_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
-        key = (exchange, symbol, interval)
-        candle, _ = await self._storage.get(key, Candle)
+        shard = key(exchange, symbol, interval)
+        candle = await self._storage.get(
+            shard=shard,
+            key=FIRST_CANDLE_KEY,
+            type_=Candle,
+        )
         if not candle:
             if self._exchanges[exchange].can_stream_historical_earliest_candle:
                 candle = await first_async(self._exchanges[exchange].stream_historical_candles(
@@ -39,7 +46,11 @@ class Historian:
                 ))
             else:
                 candle = await self._find_first_candle_by_binary_search(exchange, symbol, interval)
-            await self._storage.set(key, Candle, candle)
+            await self._storage.set(
+                shard=shard,
+                key=FIRST_CANDLE_KEY,
+                item=candle,
+            )
         assert candle
         return candle
 
