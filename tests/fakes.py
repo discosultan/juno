@@ -11,6 +11,7 @@ from juno import (
 class Exchange(exchanges.Exchange):
     can_stream_balances: bool = True
     can_stream_depth_snapshot: bool = True
+    can_stream_historical_earliest_candle: bool = True
     can_stream_historical_candles: bool = True
     can_stream_candles: bool = True
     can_list_all_tickers: bool = True

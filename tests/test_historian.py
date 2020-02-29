@@ -1,9 +1,7 @@
-from decimal import Decimal
-
 import pytest
 
-from juno import Balance, Candle, DepthSnapshot
-from juno.components import Historian, Orderbook, Wallet
+from juno import Candle
+from juno.components import Historian
 
 from . import fakes
 
@@ -55,43 +53,16 @@ async def test_find_first_candle_not_found(storage, earliest_exchange_start, tim
         await historian.find_first_candle('exchange', 'eth-btc', 1)
 
 
-async def test_list_asks_bids(storage) -> None:
-    snapshot = DepthSnapshot(
-        asks=[
-            (Decimal('1.0'), Decimal('1.0')),
-            (Decimal('3.0'), Decimal('1.0')),
-            (Decimal('2.0'), Decimal('1.0')),
-        ],
-        bids=[
-            (Decimal('1.0'), Decimal('1.0')),
-            (Decimal('3.0'), Decimal('1.0')),
-            (Decimal('2.0'), Decimal('1.0')),
-        ]
-    )
-    exchange = fakes.Exchange(depth=snapshot)
-    exchange.can_stream_depth_snapshot = False
+async def test_resource_caching_to_storage(storage) -> None:
+    exchange = fakes.Exchange(historical_candles=[Candle()])
 
-    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
-        asks = orderbook.list_asks(exchange='exchange', symbol='eth-btc')
-        bids = orderbook.list_bids(exchange='exchange', symbol='eth-btc')
+    historian = Historian(fakes.Chandler(), storage, [exchange], earliest_exchange_start=0)
+    await historian.find_first_candle('exchange', 'eth-btc', 1)
 
-    assert asks == [
-        (Decimal('1.0'), Decimal('1.0')),
-        (Decimal('2.0'), Decimal('1.0')),
-        (Decimal('3.0'), Decimal('1.0')),
-    ]
-    assert bids == [
-        (Decimal('3.0'), Decimal('1.0')),
-        (Decimal('2.0'), Decimal('1.0')),
-        (Decimal('1.0'), Decimal('1.0')),
-    ]
+    assert len(storage.get_calls) == 1
+    assert len(storage.set_calls) == 1
 
+    await historian.find_first_candle('exchange', 'eth-btc', 1)
 
-async def test_get_balance() -> None:
-    balance = Balance(available=Decimal('1.0'), hold=Decimal('0.0'))
-    exchange = fakes.Exchange(balances={'btc': balance})
-
-    async with Wallet(exchanges=[exchange]) as wallet:
-        out_balance = wallet.get_balance('exchange', 'btc')
-
-    assert out_balance == balance
+    assert len(storage.get_calls) == 2
+    assert len(storage.set_calls) == 1

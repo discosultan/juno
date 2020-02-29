@@ -2,7 +2,8 @@ import inspect
 from decimal import Decimal
 from types import TracebackType
 from typing import (
-    Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, get_args, get_origin, get_type_hints
+    Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, get_args, get_origin,
+    get_type_hints
 )
 
 ExcType = Optional[Type[BaseException]]
