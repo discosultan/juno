@@ -2,7 +2,7 @@ import inspect
 from decimal import Decimal
 from types import TracebackType
 from typing import (
-    Any, Dict, Iterable, List, Optional, Type, Union, get_args, get_origin, get_type_hints
+    Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, get_args, get_origin, get_type_hints
 )
 
 ExcType = Optional[Type[BaseException]]
@@ -77,16 +77,13 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
         return type_(*args)
     else:  # Try constructing a regular class.
         annotations = get_input_type_hints(origin.__init__)
+        type_args = list(get_args(type_))
         kwargs = {}
-        import logging
-        logging.critical(get_origin(type_))
-        logging.critical('wadljwDajlwjdilawdil')
-        logging.critical(annotations)
         for name, sub_type in annotations.items():
-            import logging
-            logging.critical('wadljwDajlwjdilawdil')
-            logging.critical(sub_type)
             if name in annotations:
+                # Substitute generics.
+                if type(sub_type) is TypeVar:
+                    sub_type = type_args.pop(0)
                 sub_value = value[name]
                 kwargs[name] = load_by_typing(sub_value, sub_type)
         return type_(**kwargs)

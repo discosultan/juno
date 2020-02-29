@@ -165,9 +165,7 @@ class Informant:
             key=key,
             type_=type_
         )
-        _log.critical("PEEPAAA")
         if not item:
-            _log.critical('NOT ITEM!!!!')
             _log.info(
                 f'local {exchange} {get_name(type_)} missing; updating by fetching from exchange'
             )

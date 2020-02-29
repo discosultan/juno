@@ -1,8 +1,10 @@
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar
 
 import pytest
 
 from juno import typing
+
+T = TypeVar('T')
 
 
 def foo(a: int) -> int:
@@ -13,12 +15,15 @@ class Bar(NamedTuple):
     value: int
 
 
-class Baz:
-    def __init__(self, value: int) -> None:
-        self.value = value
+class Baz(Generic[T]):
+    def __init__(self, value1: T, value2: str) -> None:
+        self.value1 = value1
+        self.value2 = value2
 
     def __eq__(self, other):
-        return isinstance(other, Baz) and self.value == other.value
+        return (
+            isinstance(other, Baz) and self.value1 == other.value1 and self.value2 == other.value2
+        )
 
 
 def test_get_input_type_hints() -> None:
@@ -56,7 +61,7 @@ def test_isoptional(input_, expected_output) -> None:
     ([1], Bar, Bar(value=1)),
     ([1, [2]], Tuple[int, Bar], [1, Bar(value=2)]),
     ([1, 2], List[int], [1, 2]),
-    ({'value': 1}, Baz, Baz(1)),
+    ({'value1': 1, 'value2': 'a'}, Baz[int], Baz(1, 'a')),
 ])
 def test_load_by_typing(obj, type_, expected_output) -> None:
     assert typing.load_by_typing(obj, type_) == expected_output
