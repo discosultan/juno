@@ -106,7 +106,7 @@ def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
     return init_instance(type_, config)
 
 
-def get_module_type_and_config(
+def get_module_type_and_kwargs(
     module: ModuleType, config: Dict[str, Any]
 ) -> Tuple[type, Dict[str, Any]]:
     type_name = config.get('type')

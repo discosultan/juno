@@ -25,12 +25,11 @@ class _Context:
         test: bool,
         event: EventEmitter,
         summary: TradingSummary,
-        open_position: Optional[Position],
     ) -> None:
         # Mutable.
         self.strategy = strategy
         self.quote = quote + sum(p.profit for p in summary.positions)
-        self.open_position = open_position
+        self.open_position: Optional[Position] = None
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')
@@ -73,7 +72,6 @@ class Trader:
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
         summary: Optional[TradingSummary] = None,
-        open_position: Optional[Position] = None,
     ) -> TradingSummary:
         assert start >= 0
         assert end > 0
@@ -90,7 +88,6 @@ class Trader:
             test=test,
             event=event,
             summary=summary,
-            open_position=open_position,
         )
 
         adjusted_start = start

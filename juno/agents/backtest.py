@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Historian, Prices
-from juno.config import get_module_type_and_config
+from juno.config import get_module_type_and_kwargs
 from juno.math import floor_multiple
 from juno.time import time_ms
 from juno.trading import (
@@ -61,7 +61,7 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
-        strategy_type, strategy_config = get_module_type_and_config(strategies, strategy)
+        strategy_type, strategy_config = get_module_type_and_kwargs(strategies, strategy)
         self.result = TradingSummary(start=start, quote=quote)
         await self._trader.run(
             exchange=exchange,

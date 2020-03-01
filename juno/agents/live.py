@@ -4,11 +4,11 @@ from typing import Any, Callable, Dict, NamedTuple, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Informant, Wallet
-from juno.config import get_module_type_and_config
+from juno.config import get_module_type_and_kwargs
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.time import MAX_TIME_MS, time_ms
-from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, Trader, TradingSummary
 from juno.utils import format_as_config, unpack_symbol
 
 from .agent import Agent
@@ -18,7 +18,7 @@ _log = logging.getLogger(__name__)
 
 class _Session(NamedTuple):
     summary: TradingSummary
-    open_position: Optional[Position]
+    status: str
 
 
 class Live(Agent):
@@ -42,7 +42,8 @@ class Live(Agent):
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
-        get_time_ms: Optional[Callable[[], int]] = None
+        get_time_ms: Optional[Callable[[], int]] = None,
+        persist_session: bool = False,
     ) -> None:
         if not get_time_ms:
             get_time_ms = time_ms
@@ -50,6 +51,13 @@ class Live(Agent):
         current = floor_multiple(get_time_ms(), interval)
         end = floor_multiple(end, interval)
         assert end > current
+
+        if persist_session:
+            existing_session = await self._storage.get(
+                'default', f'live_session_{self.name}', _Session
+            )
+            if existing_session.status == 'paused':
+                self.result = existing_session.summary
 
         _, quote_asset = unpack_symbol(symbol)
         available_quote = self._wallet.get_balance(exchange, quote_asset).available
@@ -64,8 +72,9 @@ class Live(Agent):
             assert quote <= available_quote
             _log.info(f'using pre-defined quote {quote} {quote_asset}')
 
-        strategy_type, strategy_config = get_module_type_and_config(strategies, strategy)
-        self.result = TradingSummary(start=current, quote=quote)
+        strategy_type, strategy_kwargs = get_module_type_and_kwargs(strategies, strategy)
+        if not self.result:
+            self.result = TradingSummary(start=current, quote=quote)
         await self._trader.run(
             exchange=exchange,
             symbol=symbol,
@@ -74,7 +83,7 @@ class Live(Agent):
             end=end,
             quote=quote,
             strategy_type=strategy_type,
-            strategy_kwargs=strategy_config,
+            strategy_kwargs=strategy_kwargs,
             test=False,
             event=self,
             missed_candle_policy=missed_candle_policy,
@@ -84,4 +93,5 @@ class Live(Agent):
         )
 
     def on_finally(self) -> None:
+        if self.config.get('persist_session'):
         _log.info(f'trading summary: {format_as_config(self.result)}')
