@@ -1,13 +1,14 @@
 import logging
 from decimal import Decimal
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, NamedTuple, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Informant, Wallet
 from juno.config import get_module_type_and_config
 from juno.math import floor_multiple
+from juno.storages import Storage
 from juno.time import MAX_TIME_MS, time_ms
-from juno.trading import MissedCandlePolicy, Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
 from juno.utils import format_as_config, unpack_symbol
 
 from .agent import Agent
@@ -15,12 +16,20 @@ from .agent import Agent
 _log = logging.getLogger(__name__)
 
 
+class _Session(NamedTuple):
+    summary: TradingSummary
+    open_position: Optional[Position]
+
+
 class Live(Agent):
-    def __init__(self, informant: Informant, wallet: Wallet, trader: Trader) -> None:
+    def __init__(
+        self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage
+    ) -> None:
         super().__init__()
         self._informant = informant
         self._wallet = wallet
         self._trader = trader
+        self._storage = storage
 
     async def run(
         self,

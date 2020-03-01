@@ -25,14 +25,16 @@ class _Context:
         test: bool,
         event: EventEmitter,
         summary: TradingSummary,
+        open_position: Optional[Position],
     ) -> None:
         # Mutable.
         self.strategy = strategy
-        self.quote = quote
-        self.open_position: Optional[Position] = None
+        self.quote = quote + sum(p.profit for p in summary.positions)
+        self.open_position = open_position
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')
+        self.summary = summary
 
         # Immutable.
         self.exchange = exchange
@@ -41,7 +43,6 @@ class _Context:
         self.trailing_stop = trailing_stop
         self.test = test
         self.event = event
-        self.summary = summary
 
 
 class Trader:
@@ -72,6 +73,7 @@ class Trader:
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
         summary: Optional[TradingSummary] = None,
+        open_position: Optional[Position] = None,
     ) -> TradingSummary:
         assert start >= 0
         assert end > 0
@@ -87,7 +89,8 @@ class Trader:
             trailing_stop=trailing_stop,
             test=test,
             event=event,
-            summary=summary
+            summary=summary,
+            open_position=open_position,
         )
 
         adjusted_start = start
@@ -141,13 +144,17 @@ class Trader:
                 if not restart:
                     break
         finally:
-            if ctx.last_candle and ctx.open_position:
-                _log.info('ending trading but position open; closing')
-                await self._close_position(ctx, ctx.last_candle)
+            if ctx.open_position:
+                if ctx.last_candle:
+                    _log.info('ending trading but position open; closing')
+                    await self._close_position(ctx, ctx.last_candle)
+                else:
+                    _log.warning('position open but no candles since start; cannot close')
+
             if ctx.last_candle:
                 ctx.summary.finish(ctx.last_candle.time + interval)
             else:
-                ctx.summary.finish(start)
+                ctx.summary.finish(start + interval)
 
         return ctx.summary
 
