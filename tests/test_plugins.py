@@ -38,6 +38,7 @@ async def test_discord(request, config) -> None:
             ]
         )
         agent.result.append_position(pos)
+        assert pos.closing_time
         agent.result.finish(pos.closing_time + 1)
         await agent.emit('position_closed', pos)
         await agent.emit('finished')

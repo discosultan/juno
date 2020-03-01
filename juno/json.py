@@ -10,9 +10,10 @@ from typing import IO, Any, Iterable, Optional
 import simplejson as json
 
 
-def _prepare_dump(obj: Any) -> Any:
+def _prepare_dump(obj: Any, skip_private: bool) -> Any:
     # Unwrap complex types to their dict representations.
     # Convert tuples to lists.
+    # Strip private members if requested.
 
     if isinstance(obj, tuple):
         obj = list(obj)
@@ -24,6 +25,9 @@ def _prepare_dump(obj: Any) -> Any:
         item = stack.pop()
         it: Iterable[Any]
         if isinstance(item, MutableMapping):  # Json object.
+            if skip_private:
+                for k in [k for k in item.keys() if k.startswith('_') and not k.startswith('__')]:
+                    del item[k]
             it = item.items()
         elif isinstance(item, MutableSequence):  # Json array.
             it = enumerate(item)
@@ -79,16 +83,27 @@ def _prepare_load(obj: Any) -> Any:
     return obj
 
 
-def dump(obj: Any, fp: IO, indent: Optional[int] = None, use_decimal=True) -> None:
+def dump(
+    obj: Any,
+    fp: IO,
+    indent: Optional[int] = None,
+    use_decimal: bool = True,
+    skip_private: bool = True,
+) -> None:
     # Make a deep copy so we don't accidentally mutate source obj.
     obj = deepcopy(obj)
-    obj = _prepare_dump(obj)
+    obj = _prepare_dump(obj, skip_private=skip_private)
     return json.dump(obj, fp, indent=indent, use_decimal=use_decimal)
 
 
-def dumps(obj: Any, indent: Optional[int] = None, use_decimal=True) -> str:
+def dumps(
+    obj: Any,
+    indent: Optional[int] = None,
+    use_decimal: bool = True,
+    skip_private: bool = True,
+) -> str:
     obj = deepcopy(obj)
-    obj = _prepare_dump(obj)
+    obj = _prepare_dump(obj, skip_private=skip_private)
     return json.dumps(obj, indent=indent, use_decimal=use_decimal)
 
 

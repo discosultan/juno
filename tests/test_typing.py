@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar
 
 import pytest
@@ -15,15 +16,12 @@ class Bar(NamedTuple):
     value: int
 
 
+@dataclass
 class Baz(Generic[T]):
-    def __init__(self, value1: T, value2: str) -> None:
+    def __init__(self, value1: str, value2: T, value3: Optional[float]) -> None:
         self.value1 = value1
         self.value2 = value2
-
-    def __eq__(self, other):
-        return (
-            isinstance(other, Baz) and self.value1 == other.value1 and self.value2 == other.value2
-        )
+        self.value3 = value3
 
 
 def test_get_input_type_hints() -> None:
@@ -61,7 +59,7 @@ def test_isoptional(input_, expected_output) -> None:
     ([1], Bar, Bar(value=1)),
     ([1, [2]], Tuple[int, Bar], [1, Bar(value=2)]),
     ([1, 2], List[int], [1, 2]),
-    ({'value1': 1, 'value2': 'a'}, Baz[int], Baz(1, 'a')),
+    ({'value1': 'a', 'value2': 1, 'value3': 2.0}, Baz[int], Baz('a', 1, 2.0)),
 ])
 def test_load_by_typing(obj, type_, expected_output) -> None:
     assert typing.load_by_typing(obj, type_) == expected_output
@@ -78,6 +76,8 @@ def test_load_by_typing(obj, type_, expected_output) -> None:
     ([Bar(1)], List[Bar], True),
     ([1, 'x'], List[int], False),
     ((1, 'x'), Tuple[int, str], True),
+    (Baz('a', 1, 2.0), Baz[int], True),
+    (1, Optional[int], True),
 ])
 def test_types_match(input_, type_, expected_output) -> None:
     assert typing.types_match(input_, type_) == expected_output

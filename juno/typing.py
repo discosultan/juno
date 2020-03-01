@@ -59,60 +59,79 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
         for i, sub_value in enumerate(value):
             value[i] = load_by_typing(sub_value, sub_type)
         return value
-    elif origin is tuple:
+
+    if origin is tuple:
         sub_types = get_args(type_)
         for i, (sub_value, sub_type) in enumerate(zip(value, sub_types)):
             value[i] = load_by_typing(sub_value, sub_type)
         return value
-    elif origin is dict:
+
+    if origin is dict:
         sub_type = get_args(type_)[1]
         for key, sub_value in value.items():
             value[key] = load_by_typing(sub_value, sub_type)
         return value
-    elif isnamedtuple(type_):
+
+    if origin is Union:
+        sub_type = get_args(type_)[0]
+        if value is None:
+            return value
+        return load_by_typing(value, sub_type)
+
+    if isnamedtuple(type_):
         annotations = get_type_hints(type_)
         args = []
         for i, (_name, sub_type) in enumerate(annotations.items()):
             sub_value = value[i]
             args.append(load_by_typing(sub_value, sub_type))
         return type_(*args)
-    else:  # Try constructing a regular class.
-        annotations = get_input_type_hints(origin.__init__)
-        type_args = list(get_args(type_))
-        kwargs = {}
-        for name, sub_type in annotations.items():
-            if name in annotations:
-                # Substitute generics.
-                if type(sub_type) is TypeVar:
-                    sub_type = type_args.pop(0)
-                sub_value = value[name]
-                kwargs[name] = load_by_typing(sub_value, sub_type)
-        return type_(**kwargs)
+
+    # Try constructing a regular class.
+    annotations = get_input_type_hints(origin.__init__)
+    type_args = list(get_args(type_))
+    kwargs = {}
+    for name, sub_type in annotations.items():
+        if name in annotations:
+            # Substitute generics.
+            if type(sub_type) is TypeVar:
+                sub_type = type_args.pop(0)
+            sub_value = value[name]
+            kwargs[name] = load_by_typing(sub_value, sub_type)
+    return type_(**kwargs)
 
 
 def types_match(obj: Any, type_: Type[Any]):
-    origin = get_origin(type_) or type_
+    origin = get_root_origin(type_) or type_
+
+    if origin is Union:
+        sub_type = get_args(type_)[0]
+        return obj is None or types_match(obj, sub_type)
+
     if not isinstance(obj, origin):
         return False
 
-    if origin in [bool, int, float, str, Decimal]:
-        return True
-
     if isinstance(obj, tuple):
-        if origin:  # Not named tuple.
+        if origin:  # Tuple.
             return all(types_match(so, st) for so, st, in zip(obj, get_args(type_)))
         else:  # Named tuple.
             return all(types_match(so, st) for so, st in zip(obj, get_type_hints(type_).values()))
-    elif isinstance(obj, dict):
+
+    if isinstance(obj, dict):
         assert origin
         key_type, value_type = get_args(type_)
         return all(types_match(k, key_type) and types_match(v, value_type) for k, v in obj.items())
-    elif isinstance(obj, list):
+
+    if isinstance(obj, list):
         assert origin
         subtype, = get_args(type_)
         return all(types_match(so, subtype) for so in obj)
-    else:
-        raise NotImplementedError(f'Type matching not implemented for {type_}')
+
+    # Try matching for a regular class.
+    return all(
+        types_match(
+            getattr(obj, sn), st
+        ) for sn, st in get_input_type_hints(type_.__init__).items()
+    )
 
 
 def map_input_args(obj: Any, args: Iterable[Any]) -> Dict[str, Any]:
