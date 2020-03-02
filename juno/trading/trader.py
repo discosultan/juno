@@ -19,7 +19,7 @@ T = TypeVar('T', covariant=True)
 
 @dataclass
 class TraderState(Generic[T]):
-    strategy: Optional[T]
+    strategy: Optional[T] = None
     quote: Decimal = Decimal('0.0')
     summary: Optional[TradingSummary] = None
     open_position: Optional[Position] = None
