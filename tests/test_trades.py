@@ -7,6 +7,7 @@ from juno import Trade
 from juno.asyncio import cancel, cancelable, list_async
 from juno.components import Trades
 from juno.storages import Storage
+from juno.utils import key
 
 from . import fakes
 
@@ -29,10 +30,10 @@ async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) 
     time.time = CANCEL_AT
     await cancel(task)
 
-    storage_key = (EXCHANGE, SYMBOL)
+    shard = key(EXCHANGE, SYMBOL)
     stored_spans, stored_trades = await asyncio.gather(
-        list_async(storage.stream_time_series_spans(storage_key, Trade, START, END)),
-        list_async(storage.stream_time_series(storage_key, Trade, START, END)),
+        list_async(storage.stream_time_series_spans(shard, 'trade', START, END)),
+        list_async(storage.stream_time_series(shard, 'trade', Trade, START, END)),
     )
 
     assert stored_trades == trades
@@ -77,10 +78,10 @@ async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -
     )
 
     output_trades = await list_async(trades.stream_trades(EXCHANGE, SYMBOL, start, end))
-    storage_key = (EXCHANGE, SYMBOL)
+    shard = key(EXCHANGE, SYMBOL)
     stored_spans, stored_trades = await asyncio.gather(
-        list_async(storage.stream_time_series_spans(storage_key, Trade, start, end)),
-        list_async(storage.stream_time_series(storage_key, Trade, start, end)),
+        list_async(storage.stream_time_series_spans(shard, 'trade', start, end)),
+        list_async(storage.stream_time_series(shard, 'trade', Trade, start, end)),
     )
 
     assert output_trades == expected_trades

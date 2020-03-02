@@ -5,7 +5,7 @@ import sqlite3
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import Lock
-from typing import Any, Dict, Iterator, Optional
+from typing import Dict, Iterator, Optional
 
 from juno.typing import ExcType, ExcValue, Traceback
 
@@ -29,9 +29,8 @@ class Memory(SQLite):
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
     @contextmanager
-    def _connect(self, key: Any) -> Iterator[sqlite3.Connection]:
-        name = self._normalize_key(key)
-        ctx = self._conns[name]
+    def _connect(self, shard: str) -> Iterator[sqlite3.Connection]:
+        ctx = self._conns[shard]
         with ctx.lock:
             if not ctx.connection:
                 conn = sqlite3.connect(

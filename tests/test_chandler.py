@@ -7,6 +7,7 @@ from juno import Candle, JunoException, Trade
 from juno.asyncio import cancel, cancelable, list_async
 from juno.components import Chandler
 from juno.storages import Storage
+from juno.utils import key
 
 from . import fakes
 
@@ -59,10 +60,10 @@ async def test_stream_candles(
     output_candles = await list_async(
         chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, start, end, closed)
     )
-    storage_key = (EXCHANGE, SYMBOL, INTERVAL)
+    shard = key(EXCHANGE, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
-        list_async(storage.stream_time_series_spans(storage_key, Candle, start, end)),
-        list_async(storage.stream_time_series(storage_key, Candle, start, end)),
+        list_async(storage.stream_time_series_spans(shard, 'candle', start, end)),
+        list_async(storage.stream_time_series(shard, 'candle', Candle, start, end)),
     )
 
     assert output_candles == expected_candles
@@ -93,10 +94,10 @@ async def test_stream_future_candles_span_stored_until_stopped(storage: fakes.St
     time.time = CANCEL_AT
     await cancel(task)
 
-    storage_key = (EXCHANGE, SYMBOL, INTERVAL)
+    shard = key(EXCHANGE, SYMBOL, INTERVAL)
     stored_spans, stored_candles = await asyncio.gather(
-        list_async(storage.stream_time_series_spans(storage_key, Candle, START, END)),
-        list_async(storage.stream_time_series(storage_key, Candle, START, END)),
+        list_async(storage.stream_time_series_spans(shard, 'candle', START, END)),
+        list_async(storage.stream_time_series(shard, 'candle', Candle, START, END)),
     )
 
     assert stored_candles == candles
@@ -147,7 +148,7 @@ async def test_stream_candles_cancel_does_not_store_twice(storage: fakes.Storage
     await cancel(stream_candles_task)
 
     stored_candles = await list_async(
-        storage.stream_time_series(('exchange', 'eth-btc', 1), Candle, 0, 2)
+        storage.stream_time_series(key('exchange', 'eth-btc', 1), 'candle', Candle, 0, 2)
     )
     assert stored_candles == candles
 

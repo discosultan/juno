@@ -50,6 +50,7 @@ def analyse_portfolio(
     trading_summary: TradingSummary
 ) -> AnalysisSummary:
     start_day = floor_multiple(trading_summary.start, DAY_MS)
+    assert trading_summary.end is not None
     end_day = floor_multiple(trading_summary.end, DAY_MS)
     num_days = (end_day - start_day) // DAY_MS
 
@@ -79,6 +80,7 @@ def _get_trades_from_summary(
         day_trades.append((quote_asset, -pos.cost))
         day_trades.append((base_asset, +pos.base_gain))
         # Close.
+        assert pos.closing_time is not None
         time = floor_multiple(pos.closing_time, DAY_MS)
         day_trades = trades[time]
         day_trades.append((base_asset, -pos.base_cost))

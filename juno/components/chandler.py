@@ -17,12 +17,14 @@ from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfinterval, strfspan, strftimestamp, time_ms
-from juno.utils import unpack_symbol
+from juno.utils import key, unpack_symbol
 
 from .informant import Informant
 from .trades import Trades
 
 _log = logging.getLogger(__name__)
+
+CANDLE_KEY = Candle.__name__.lower()
 
 
 class Chandler:
@@ -74,12 +76,17 @@ class Chandler:
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
-        storage_key = (exchange, symbol, interval)
+        shard = key(exchange, symbol, interval)
         candle_msg = f'{exchange} {symbol} {strfinterval(interval)} candle(s)'
 
         _log.info(f'checking for existing {candle_msg} in local storage')
         existing_spans = await list_async(
-            self._storage.stream_time_series_spans(storage_key, Candle, start, end)
+            self._storage.stream_time_series_spans(
+                shard=shard,
+                key=CANDLE_KEY,
+                start=start,
+                end=end,
+            )
         )
         merged_existing_spans = list(merge_adjacent_spans(existing_spans))
         missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
@@ -94,7 +101,11 @@ class Chandler:
             if exist_locally:
                 _log.info(f'local {candle_msg} exist between {period_msg}')
                 stream = self._storage.stream_time_series(
-                    storage_key, Candle, span_start, span_end
+                    shard=shard,
+                    key=CANDLE_KEY,
+                    type_=Candle,
+                    start=span_start,
+                    end=span_end,
                 )
             else:
                 _log.info(f'missing {candle_msg} between {period_msg}')
@@ -150,7 +161,7 @@ class Chandler:
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
-        storage_key = (exchange, symbol, interval)
+        shard = key(exchange, symbol, interval)
         # Note that we need to use a context manager based retrying because retry decorators do not
         # work with async generator functions.
         for attempt in Retrying(
@@ -179,8 +190,8 @@ class Chandler:
                                 batch_end = batch[-1].time + interval
                                 batch, swap_batch = swap_batch, batch
                                 await self._storage.store_time_series_and_span(
-                                    key=storage_key,
-                                    type_=Candle,
+                                    shard=shard,
+                                    key=CANDLE_KEY,
                                     items=swap_batch,
                                     start=batch_start,
                                     end=batch_end,
@@ -192,8 +203,8 @@ class Chandler:
                     if len(batch) > 0:
                         batch_end = batch[-1].time + interval
                         await self._storage.store_time_series_and_span(
-                            key=storage_key,
-                            type_=Candle,
+                            shard=shard,
+                            key=CANDLE_KEY,
                             items=batch,
                             start=batch_start,
                             end=batch_end,
@@ -204,8 +215,8 @@ class Chandler:
                     current = floor_multiple(self._get_time_ms(), interval)
                     batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
-                        key=storage_key,
-                        type_=Candle,
+                        shard=shard,
+                        key=CANDLE_KEY,
                         items=batch,
                         start=batch_start,
                         end=batch_end,
