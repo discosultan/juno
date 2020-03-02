@@ -6,11 +6,15 @@ from .smma import Smma
 
 # Average Directional Index
 class Adx:
+    value: Decimal = Decimal('0.0')
+    _dx: DX
+    _smma: Smma
+    _t1: int
+
     def __init__(self, period: int) -> None:
         if period < 2:
             raise ValueError(f'Invalid period ({period})')
 
-        self.value = Decimal('0.0')
         self._dx = DX(period)
         self._smma = Smma(period)
         self._t1 = (period - 1) * 2

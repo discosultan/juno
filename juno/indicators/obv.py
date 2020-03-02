@@ -3,11 +3,10 @@ from decimal import Decimal
 
 # On-Balance Volume
 class Obv:
-    def __init__(self) -> None:
-        self.value = Decimal('0.0')
-        self._last_price = Decimal('0.0')
-        self._t = 0
-        self._t1 = 0
+    value: Decimal = Decimal('0.0')
+    _last_price: Decimal = Decimal('0.0')
+    _t: int = 0
+    _t1: int = 0
 
     @property
     def req_history(self) -> int:

@@ -5,12 +5,16 @@ from .smma import Smma
 
 # Relative Strength Index
 class Rsi:
+    value: Decimal = Decimal('0.0')
+    _mean_down: Smma
+    _mean_up: Smma
+    _last_price: Decimal = Decimal('0.0')
+    _t: int = 0
+    _t1: int
+
     def __init__(self, period: int) -> None:
-        self.value = Decimal('0.0')
         self._mean_down = Smma(period)
         self._mean_up = Smma(period)
-        self._last_price = Decimal('0.0')
-        self._t = 0
         self._t1 = period
 
     @property
