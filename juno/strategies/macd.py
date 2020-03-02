@@ -20,6 +20,8 @@ class Macd(Strategy):
             }
         )
 
+    _macd: indicators.Macd
+
     def __init__(
         self,
         short_period: int,  # 12

@@ -20,6 +20,10 @@ class Rsi(Strategy):
             }
         )
 
+    _rsi: indicators.Rsi
+    _up_threshold: Decimal
+    _down_threshold: Decimal
+
     def __init__(
         self,
         period: int,  # 14
