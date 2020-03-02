@@ -1,6 +1,7 @@
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Generic, List, NamedTuple, Optional, Type, TypeVar
 
 from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp
 from juno.brokers import Broker
@@ -13,35 +14,52 @@ from .common import MissedCandlePolicy, Position, TradingSummary
 
 _log = logging.getLogger(__name__)
 
+T = TypeVar('T', covariant=True)
 
-class _Context:
-    def __init__(
-        self,
-        strategy: Strategy,
-        quote: Decimal,
-        exchange: str,
-        symbol: str,
-        trailing_stop: Decimal,
-        test: bool,
-        channel: str,
-        summary: TradingSummary,
-    ) -> None:
-        # Mutable.
-        self.strategy = strategy
-        self.quote = quote
-        self.open_position: Optional[Position] = None
-        self.first_candle: Optional[Candle] = None
-        self.last_candle: Optional[Candle] = None
-        self.highest_close_since_position = Decimal('0.0')
-        self.summary = summary
 
-        # Immutable.
-        self.exchange = exchange
-        self.symbol = symbol
-        self.base_asset, self.quote_asset = unpack_symbol(symbol)
-        self.trailing_stop = trailing_stop
-        self.test = test
-        self.channel = channel
+@dataclass
+class TraderState(Generic[T]):
+    strategy: Optional[T]
+    quote: Decimal = Decimal('0.0')
+    summary: Optional[TradingSummary] = None
+    open_position: Optional[Position] = None
+    first_candle: Optional[Candle] = None
+    last_candle: Optional[Candle] = None
+    highest_close_since_position = Decimal('0.0')  # 0 means disabled.
+    adjusted_start: Timestamp = 0
+    start_adjusted: bool = False
+
+
+class TraderConfig(NamedTuple):
+    exchange: str
+    symbol: str
+    interval: Interval
+    start: Timestamp
+    end: Timestamp
+    quote: Decimal
+    trailing_stop: Decimal
+    test: bool  # No effect if broker is None.
+    strategy_type: Type[Strategy]  # TODO: We need to get rid of this bad boy!
+    strategy_args: List[Any]
+    strategy_kwargs: Dict[str, Any]
+    channel: str = 'default'
+    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
+    adjust_start: bool = True
+
+    @property
+    def base_asset(self):
+        return unpack_symbol(self.symbol)[0]
+
+    @property
+    def quote_asset(self):
+        return unpack_symbol(self.symbol)[1]
+
+    @property
+    def trailing_factor(self):
+        return 1 - self.trailing_stop
+
+    def new_strategy(self):
+        return self.strategy_type(*self.strategy_args, **self.strategy_kwargs)
 
 
 class Trader:
@@ -57,75 +75,60 @@ class Trader:
         self._broker = broker
         self._event = event
 
-    async def run(
-        self,
-        exchange: str,
-        symbol: str,
-        interval: Interval,
-        start: Timestamp,
-        end: Timestamp,
-        quote: Decimal,
-        strategy_type: Type[Strategy],
-        strategy_args: Union[List[Any], Tuple[Any]] = [],
-        strategy_kwargs: Dict[str, Any] = {},
-        test: bool = True,  # No effect if broker is None.
-        channel: str = 'default',
-        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
-        adjust_start: bool = True,
-        trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
-        summary: Optional[TradingSummary] = None,
-    ) -> TradingSummary:
-        assert start >= 0
-        assert end > 0
-        assert end > start
-        assert 0 <= trailing_stop < 1
+    async def run(self, config: TraderConfig, state: TraderState) -> TradingSummary:
+        assert config.start >= 0
+        assert config.end > 0
+        assert config.end > config.start
+        assert 0 <= config.trailing_stop < 1
 
-        summary = summary or TradingSummary(start=start, quote=quote)
-        ctx = _Context(
-            strategy=strategy_type(*strategy_args, **strategy_kwargs),
-            quote=quote,
-            exchange=exchange,
-            symbol=symbol,
-            trailing_stop=trailing_stop,
-            test=test,
-            channel=channel,
-            summary=summary
-        )
+        if not state.summary:
+            state.summary = TradingSummary(start=config.start, quote=config.quote)
 
-        adjusted_start = start
-        if adjust_start:
+        if not state.strategy:
+            state.strategy = config.new_strategy()
+
+        if not state.adjusted_start:
+            state.adjusted_start = config.start
+
+        if config.adjust_start and not state.start_adjusted:
             # Adjust start to accommodate for the required history before a strategy
             # becomes effective. Only do it on first run because subsequent runs mean
             # missed candles and we don't want to fetch passed a missed candle.
             _log.info(
-                f'fetching {ctx.strategy.req_history} candle(s) before start time to '
+                f'fetching {state.strategy.req_history} candle(s) before start time to '
                 'warm-up strategy'
             )
-            adjusted_start -= ctx.strategy.req_history * interval
+            state.adjusted_start -= state.strategy.req_history * config.interval
 
         try:
             while True:
                 restart = False
 
                 async for candle in self._chandler.stream_candles(
-                    exchange=exchange, symbol=symbol, interval=interval, start=adjusted_start,
-                    end=end
+                    exchange=config.exchange,
+                    symbol=config.symbol,
+                    interval=config.interval,
+                    start=state.adjusted_start,
+                    end=config.end,
                 ):
                     # Check if we have missed a candle.
-                    if ctx.last_candle and candle.time - ctx.last_candle.time >= interval * 2:
+                    if (
+                        state.last_candle
+                        and candle.time - state.last_candle.time >= config.interval * 2
+                    ):
                         # TODO: walrus operator
-                        num_missed = (candle.time - ctx.last_candle.time) // interval - 1
-                        if missed_candle_policy is MissedCandlePolicy.RESTART:
+                        num_missed = (candle.time - state.last_candle.time) // config.interval - 1
+                        if config.missed_candle_policy is MissedCandlePolicy.RESTART:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
-                            ctx.strategy = strategy_type(*strategy_args, **strategy_kwargs)
-                            adjusted_start = candle.time + interval
-                        elif missed_candle_policy is MissedCandlePolicy.LAST:
+                            state.strategy = config.new_strategy()
+                            state.adjusted_start = candle.time + config.interval
+                        elif config.missed_candle_policy is MissedCandlePolicy.LAST:
                             _log.info(f'filling {num_missed} missed candles with last values')
-                            last_candle = ctx.last_candle
+                            last_candle = state.last_candle
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
-                                    time=last_candle.time + i * interval,
+                                    time=last_candle.time + i * config.interval,
                                     open=last_candle.open,
                                     high=last_candle.high,
                                     low=last_candle.low,
@@ -133,9 +136,9 @@ class Trader:
                                     volume=last_candle.volume,
                                     closed=last_candle.closed
                                 )
-                                await self._tick(ctx, missed_candle)
+                                await self._tick(config, state, missed_candle)
 
-                    await self._tick(ctx, candle)
+                    await self._tick(config, state, candle)
 
                     if restart:
                         break
@@ -143,83 +146,87 @@ class Trader:
                 if not restart:
                     break
         finally:
-            if ctx.last_candle and ctx.open_position:
+            if state.last_candle and state.open_position:
                 _log.info('ending trading but position open; closing')
-                await self._close_position(ctx, ctx.last_candle)
-            if ctx.last_candle:
-                ctx.summary.finish(ctx.last_candle.time + interval)
+                await self._close_position(config, state, state.last_candle)
+            if state.last_candle:
+                state.summary.finish(state.last_candle.time + config.interval)
             else:
-                ctx.summary.finish(start)
+                state.summary.finish(config.start)
 
-        return ctx.summary
+        return state.summary
 
-    async def _tick(self, ctx: _Context, candle: Candle) -> None:
-        ctx.strategy.update(candle)
-        advice = ctx.strategy.advice
+    async def _tick(self, config: TraderConfig, state: TraderState, candle: Candle) -> None:
+        assert state.strategy
+        state.strategy.update(candle)
+        advice = state.strategy.advice
 
-        if not ctx.open_position and advice is Advice.BUY:
-            await self._open_position(ctx, candle)
-            ctx.highest_close_since_position = candle.close
-        elif ctx.open_position and advice is Advice.SELL:
-            await self._close_position(ctx, candle)
-        elif ctx.trailing_stop != 0 and ctx.open_position:
-            ctx.highest_close_since_position = max(
-                ctx.highest_close_since_position, candle.close
+        if not state.open_position and advice is Advice.BUY:
+            await self._open_position(config, state, candle)
+            state.highest_close_since_position = candle.close
+        elif state.open_position and advice is Advice.SELL:
+            await self._close_position(config, state, candle)
+        elif config.trailing_stop != 0 and state.open_position:
+            state.highest_close_since_position = max(
+                state.highest_close_since_position, candle.close
             )
-            trailing_factor = 1 - ctx.trailing_stop
-            if candle.close <= ctx.highest_close_since_position * trailing_factor:
-                _log.info(f'trailing stop hit at {ctx.trailing_stop}; selling')
-                await self._close_position(ctx, candle)
+            if candle.close <= state.highest_close_since_position * config.trailing_factor:
+                _log.info(f'trailing stop hit at {config.trailing_stop}; selling')
+                await self._close_position(config, state, candle)
 
-        if not ctx.last_candle:
+        if not state.last_candle:
             _log.info(f'first candle {candle}')
-            ctx.first_candle = candle
-        ctx.last_candle = candle
+            state.first_candle = candle
+        state.last_candle = candle
 
-    async def _open_position(self, ctx: _Context, candle: Candle) -> None:
+    async def _open_position(
+        self, config: TraderConfig, state: TraderState, candle: Candle
+    ) -> None:
         if self._broker:
             res = await self._broker.buy(
-                exchange=ctx.exchange,
-                symbol=ctx.symbol,
-                quote=ctx.quote,
-                test=ctx.test
+                exchange=config.exchange,
+                symbol=config.symbol,
+                quote=state.quote,
+                test=config.test
             )
 
-            ctx.open_position = Position(symbol=ctx.symbol, time=candle.time, fills=res.fills)
+            state.open_position = Position(symbol=config.symbol, time=candle.time, fills=res.fills)
 
-            ctx.quote -= Fill.total_quote(res.fills)
+            state.quote -= Fill.total_quote(res.fills)
         else:
             price = candle.close
-            fees, filters = self._informant.get_fees_filters(ctx.exchange, ctx.symbol)
+            fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
 
-            size = filters.size.round_down(ctx.quote / price)
+            size = filters.size.round_down(state.quote / price)
             if size == 0:
                 raise InsufficientBalance()
 
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
-            ctx.open_position = Position(
-                symbol=ctx.symbol,
+            state.open_position = Position(
+                symbol=config.symbol,
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=ctx.base_asset)]
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)]
             )
 
-            ctx.quote -= size * price
+            state.quote -= size * price
 
         _log.info(f'position opened: {candle}')
-        _log.debug(tonamedtuple(ctx.open_position))
-        await self._event.emit(ctx.channel, 'position_opened', ctx.open_position)
+        _log.debug(tonamedtuple(state.open_position))
+        await self._event.emit(config.channel, 'position_opened', state.open_position)
 
-    async def _close_position(self, ctx: _Context, candle: Candle) -> None:
-        pos = ctx.open_position
+    async def _close_position(
+        self, config: TraderConfig, state: TraderState, candle: Candle
+    ) -> None:
+        pos = state.open_position
         assert pos
 
         if self._broker:
             res = await self._broker.sell(
-                exchange=ctx.exchange,
-                symbol=ctx.symbol,
+                exchange=config.exchange,
+                symbol=config.symbol,
                 base=pos.base_gain,
-                test=ctx.test
+                test=config.test
             )
 
             pos.close(
@@ -227,10 +234,10 @@ class Trader:
                 fills=res.fills
             )
 
-            ctx.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
+            state.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
         else:
             price = candle.close
-            fees, filters = self._informant.get_fees_filters(ctx.exchange, ctx.symbol)
+            fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
             size = filters.size.round_down(pos.base_gain)
 
             quote = size * price
@@ -241,10 +248,10 @@ class Trader:
                 fills=[Fill(price=price, size=size, fee=fee, fee_asset=ctx.quote_asset)]
             )
 
-            ctx.quote += quote - fee
+            state.quote += quote - fee
 
-        ctx.open_position = None
-        ctx.summary.append_position(pos)
+        state.open_position = None
+        state.summary.append_position(pos)
         _log.info(f'position closed: {candle}')
         _log.debug(tonamedtuple(pos))
-        await self._event.emit(ctx.channel, 'position_closed', pos)
+        await self._event.emit(config.channel, 'position_closed', pos)
