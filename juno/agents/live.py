@@ -4,7 +4,7 @@ from typing import Any, Callable, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Informant, Wallet
-from juno.config import get_module_type_and_config
+from juno.config import get_module_type_and_kwargs
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader, TradingSummary
@@ -55,7 +55,7 @@ class Live(Agent):
             assert quote <= available_quote
             _log.info(f'using pre-defined quote {quote} {quote_asset}')
 
-        strategy_type, strategy_config = get_module_type_and_config(strategies, strategy)
+        strategy_type, strategy_kwargs = get_module_type_and_kwargs(strategies, strategy)
         self.result = TradingSummary(start=current, quote=quote)
         await self._trader.run(
             exchange=exchange,
@@ -65,7 +65,7 @@ class Live(Agent):
             end=end,
             quote=quote,
             strategy_type=strategy_type,
-            strategy_kwargs=strategy_config,
+            strategy_kwargs=strategy_kwargs,
             test=False,
             event=self,
             missed_candle_policy=missed_candle_policy,
