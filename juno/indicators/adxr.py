@@ -7,11 +7,16 @@ from .adx import Adx
 
 # Average Directional Movement Index Rating
 class Adxr:
+    value: Decimal = Decimal('0.0')
+    _adx: Adx
+    _historical_adx: Deque[Decimal]
+    _t: int = 0
+    _t1: int
+    _t2: int
+
     def __init__(self, period: int) -> None:
-        self.value = Decimal('0.0')
         self._adx = Adx(period)
-        self._historical_adx: Deque[Decimal] = deque(maxlen=period)
-        self._t = 0
+        self._historical_adx = deque(maxlen=period)
         self._t1 = self._adx.req_history
         self._t2 = self._t1 + period - 1
 

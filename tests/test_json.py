@@ -6,10 +6,14 @@ import pytest
 from juno import json
 
 
-class Complex:
+class Public:
     def __init__(self, value):
         self.value = value
-        self._private = 1
+
+
+class Private:
+    def __init__(self, value):
+        self._value = value
 
 
 class MyNamedTuple(NamedTuple):
@@ -19,7 +23,7 @@ class MyNamedTuple(NamedTuple):
 @pytest.mark.parametrize(
     'input_,expected_output', [
         (Decimal('0.1'), '0.1'),
-        (Complex(Complex(Decimal('0.1'))), '{"value": {"value": 0.1}}'),
+        (Public(Public(Decimal('0.1'))), '{"value": {"value": 0.1}}'),
         ({
             'value': Decimal('0.1')
         }, '{"value": 0.1}'),
@@ -33,6 +37,11 @@ class MyNamedTuple(NamedTuple):
 )
 def test_dumps(input_, expected_output) -> None:
     assert json.dumps(input_, use_decimal=True) == expected_output
+
+
+def test_dumps_skip_private() -> None:
+    assert json.dumps(Private(1), skip_private=False) == '{"_value": 1}'
+    assert json.dumps(Private(1), skip_private=True) == '{}'
 
 
 def test_dumps_complicated() -> None:

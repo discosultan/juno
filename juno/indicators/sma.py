@@ -1,17 +1,21 @@
 from decimal import Decimal
+from typing import List
 
 
 # Simple Moving Average
 class Sma:
+    value: Decimal = Decimal('0.0')
+    _prices: List[Decimal]
+    _i: int = 0
+    _sum: Decimal = Decimal('0.0')
+    _t: int = 0
+    _t1: int
+
     def __init__(self, period: int) -> None:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')
 
-        self.value = Decimal('0.0')
         self._prices = [Decimal('0.0')] * period
-        self._i = 0
-        self._sum = Decimal('0.0')
-        self._t = 0
         self._t1 = period - 1
 
     @property

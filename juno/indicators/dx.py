@@ -5,10 +5,13 @@ from .dm import DM
 
 # Directional Movement Index
 class DX:
+    value: Decimal = Decimal('0.0')
+    _dm: DM
+    _t: int = 0
+    _t1: int
+
     def __init__(self, period: int) -> None:
-        self.value = Decimal('0.0')
         self._dm = DM(period)
-        self._t = 0
         self._t1 = period - 1
 
     @property

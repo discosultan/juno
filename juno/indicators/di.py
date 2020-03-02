@@ -5,18 +5,24 @@ from .dm import DM
 
 # Directional Indicator
 class DI:
-    def __init__(self, period: int) -> None:
-        self.plus_value = Decimal('0.0')
-        self.minus_value = Decimal('0.0')
+    plus_value: Decimal = Decimal('0.0')
+    minus_value: Decimal = Decimal('0.0')
 
+    _dm: DM
+    _atr: Decimal = Decimal('0.0')
+    _per: Decimal
+
+    _prev_close: Decimal = Decimal('0.0')
+
+    _t: int = 0
+    _t1: int = 1
+    _t2: int
+    _t3: int
+
+    def __init__(self, period: int) -> None:
         self._dm = DM(period)
-        self._atr = Decimal('0.0')
         self._per = (period - 1) / Decimal(period)
 
-        self._prev_close = Decimal('0.0')
-
-        self._t = 0
-        self._t1 = 1
         self._t2 = period - 1
         self._t3 = period
 
