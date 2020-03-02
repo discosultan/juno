@@ -138,12 +138,14 @@ def exc_traceback(exc: Exception) -> str:
 
 
 class CircularBuffer(Generic[T]):
+    _values: List[T]
+    _index: int = 0
+
     def __init__(self, size: int, default: T) -> None:
         if size < 0:
             raise ValueError('Size must be positive')
 
         self._values = [default] * size
-        self._index = 0
 
     def __len__(self) -> int:
         return len(self._values)

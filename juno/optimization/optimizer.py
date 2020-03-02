@@ -169,7 +169,7 @@ class Optimizer:
             _build_attr(intervals, Choice(intervals), random),
             _build_attr(missed_candle_policy, _missed_candle_policy_constraint, random),
             _build_attr(trailing_stop, _trailing_stop_constraint, random),
-            *(partial(c.random, random) for c in strategy_type.meta.constraints.values())
+            *(partial(c.random, random) for c in strategy_type.meta().constraints.values())
         ]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(

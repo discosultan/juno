@@ -13,7 +13,9 @@ class Meta:
 
 
 class Strategy:
-    meta: Meta
+    @staticmethod
+    def meta() -> Meta:
+        pass
 
     def __init__(self, maturity: int = 0, persistence: int = 0) -> None:
         self.req_history = maturity
@@ -45,7 +47,7 @@ class Strategy:
     def validate(self, *args: Any) -> None:
         # Assumes ordered.
         from_index = 0
-        for names, constraint in type(self).meta.constraints.items():
+        for names, constraint in type(self).meta().constraints.items():
             # Normalize scalars into a single element tuples.
             if not isinstance(names, tuple):
                 names = names,

@@ -9,14 +9,16 @@ from .strategy import Meta, Strategy
 # Simple RSI based strategy which signals buy when oversold and sell when overbought. Ineffective
 # on its own but can be useful when combining with other strategies.
 class Rsi(Strategy):
-    meta = Meta(
-        constraints={
-            'period': math.Int(1, 101),
-            'up_threshold': math.Uniform(Decimal('50.0'), Decimal('100.0')),
-            'down_threshold': math.Uniform(Decimal('0.0'), Decimal('50.0')),
-            'persistence': math.Int(0, 10),
-        }
-    )
+    @staticmethod
+    def meta() -> Meta:
+        return Meta(
+            constraints={
+                'period': math.Int(1, 101),
+                'up_threshold': math.Uniform(Decimal('50.0'), Decimal('100.0')),
+                'down_threshold': math.Uniform(Decimal('0.0'), Decimal('50.0')),
+                'persistence': math.Int(0, 10),
+            }
+        )
 
     def __init__(
         self,

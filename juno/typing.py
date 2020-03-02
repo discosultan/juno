@@ -97,6 +97,8 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
                 sub_type = type_args.pop(0)
             sub_value = value[name]
             kwargs[name] = load_by_typing(sub_value, sub_type)
+    # instance = type_.__new__(type_)
+    # for
     return type_(**kwargs)
 
 

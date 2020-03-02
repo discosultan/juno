@@ -17,12 +17,13 @@ def test_strategy_meta():
 
 
 class DummyStrategy(Strategy):
-
-    meta = Meta(
-        constraints={
-            ('foo', 'bar'): math.Pair(math.Int(0, 15), operator.lt, math.Int(10, 20)),
-        }
-    )
+    @staticmethod
+    def meta() -> Meta:
+        return Meta(
+            constraints={
+                ('foo', 'bar'): math.Pair(math.Int(0, 15), operator.lt, math.Int(10, 20)),
+            }
+        )
 
     def tick(self, candle):
         pass

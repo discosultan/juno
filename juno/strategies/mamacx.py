@@ -22,22 +22,24 @@ _ma_choices = math.Choice([MA.EMA, MA.EMA2, MA.SMA, MA.SMMA, MA.DEMA])
 
 # Moving average moving average crossover.
 class MAMACX(Strategy):
-    meta = Meta(
-        constraints={
-            ('short_period', 'long_period'):
-                math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
-            'neg_threshold':
-                math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
-            'pos_threshold':
-                math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
-            'persistence':
-                math.Int(0, 10),
-            'short_ma':
-                _ma_choices,
-            'long_ma':
-                _ma_choices,
-        }
-    )
+    @staticmethod
+    def meta() -> Meta:
+        return Meta(
+            constraints={
+                ('short_period', 'long_period'):
+                    math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
+                'neg_threshold':
+                    math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
+                'pos_threshold':
+                    math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
+                'persistence':
+                    math.Int(0, 10),
+                'short_ma':
+                    _ma_choices,
+                'long_ma':
+                    _ma_choices,
+            }
+        )
 
     def __init__(
         self,

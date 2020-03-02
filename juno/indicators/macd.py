@@ -5,6 +5,17 @@ from .ema import Ema
 
 # Moving Average Convergence Divergence
 class Macd:
+    value: Decimal = Decimal('0.0')
+    signal: Decimal = Decimal('0.0')
+    divergence: Decimal = Decimal('0.0')
+
+    _short_ema: Ema
+    _long_ema: Ema
+    _signal_ema: Ema
+
+    _t: int = 0
+    _t1: int
+
     def __init__(self, short_period: int, long_period: int, signal_period: int) -> None:
         if short_period < 1 or long_period < 2 or signal_period < 1:
             raise ValueError(f'Invalid period(s) ({short_period}, {long_period}, {signal_period})')
@@ -14,10 +25,6 @@ class Macd:
                 f'({short_period})'
             )
 
-        self.value = Decimal('0.0')
-        self.signal = Decimal('0.0')
-        self.divergence = Decimal('0.0')
-
         # A bit hacky but is what is usually expected.
         if short_period == 12 and long_period == 26:
             self._short_ema = Ema.with_smoothing(Decimal('0.15'))
@@ -25,10 +32,8 @@ class Macd:
         else:
             self._short_ema = Ema(short_period)
             self._long_ema = Ema(long_period)
-
         self._signal_ema = Ema(signal_period)
 
-        self._t = 0
         self._t1 = long_period - 1
 
     @property
