@@ -93,5 +93,5 @@ class Live(Agent):
         )
 
     def on_finally(self) -> None:
-        if self.config.get('persist_session'):
+        # if self.config.get('persist_session'):
         _log.info(f'trading summary: {format_as_config(self.result)}')

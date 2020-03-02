@@ -45,7 +45,7 @@ class Paper(Agent):
 
         assert quote > filters.price.min
 
-        strategy_type, strategy_config = get_module_type_and_kwargs(strategies, strategy)
+        strategy_type, strategy_kwargs = get_module_type_and_kwargs(strategies, strategy)
         self.result = TradingSummary(start=current, quote=quote)
         await self._trader.run(
             exchange=exchange,
@@ -55,7 +55,7 @@ class Paper(Agent):
             end=end,
             quote=quote,
             strategy_type=strategy_type,
-            strategy_kwargs=strategy_config,
+            strategy_kwargs=strategy_kwargs,
             test=True,
             event=self,
             missed_candle_policy=missed_candle_policy,

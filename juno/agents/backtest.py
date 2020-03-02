@@ -61,7 +61,7 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
-        strategy_type, strategy_config = get_module_type_and_kwargs(strategies, strategy)
+        strategy_type, strategy_kwargs = get_module_type_and_kwargs(strategies, strategy)
         self.result = TradingSummary(start=start, quote=quote)
         await self._trader.run(
             exchange=exchange,
@@ -71,7 +71,7 @@ class Backtest(Agent):
             end=end,
             quote=quote,
             strategy_type=strategy_type,
-            strategy_kwargs=strategy_config,
+            strategy_kwargs=strategy_kwargs,
             event=self,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
