@@ -4,14 +4,12 @@ import itertools
 import logging
 import random
 import traceback
-from collections import defaultdict
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
 from os import path
 from pathlib import Path
 from typing import (
-    Any, Awaitable, Callable, Dict, Generic, Iterator, List, NamedTuple, Optional, Tuple, TypeVar,
-    get_type_hints
+    Any, Dict, Generic, Iterator, NamedTuple, Optional, Tuple, TypeVar, get_type_hints
 )
 
 import aiolimiter
@@ -159,22 +157,6 @@ class CircularBuffer(Generic[T]):
 
         self._values[self._index] = value
         self._index = (self._index + 1) % len(self._values)
-
-
-class EventEmitter:
-    def __init__(self) -> None:
-        self._handlers: Dict[str, List[Callable[..., Awaitable[None]]]] = defaultdict(list)
-
-    def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
-        def _on(func: Callable[..., Awaitable[None]]) -> None:
-            self._handlers[event].append(func)
-
-        return _on
-
-    async def emit(self, event: str, *args: Any) -> List[Any]:
-        return await asyncio.gather(
-            *(x(*args) for x in self._handlers[event]), return_exceptions=True
-        )
 
 
 class AsyncLimiter(aiolimiter.AsyncLimiter):

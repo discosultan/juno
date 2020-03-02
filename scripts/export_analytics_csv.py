@@ -72,6 +72,7 @@ async def main() -> None:
 async def stream_and_export_daily_candles_as_csv(
     chandler: Chandler, summary: TradingSummary, exchange: str, symbol: str
 ) -> None:
+    assert summary.end
     candles = await chandler.list_candles(
         exchange,
         symbol,
@@ -120,7 +121,7 @@ def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, sym
             trade_row(summary.start, quote_asset, 'EUR', summary.quote, Decimal('3347.23'))
         )
         for pos in summary.positions:
-            assert pos.closing_fills
+            assert pos.closing_fills and pos.closing_time
 
             buy_size = pos.base_gain
             buy_price = filters.price.round_down(pos.cost / buy_size)

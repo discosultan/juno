@@ -37,21 +37,6 @@ def test_circular_buffer() -> None:
     assert max(buffer) == 6
 
 
-async def test_event_emitter() -> None:
-    ee = utils.EventEmitter()
-    exc = Exception('Expected error.')
-
-    @ee.on('foo')
-    async def succeed():
-        return 1
-
-    @ee.on('foo')
-    async def error():
-        raise exc
-
-    assert await ee.emit('foo') == [1, exc]
-
-
 def test_tonamedtuple() -> None:
     class Foo:
         a: int = 1

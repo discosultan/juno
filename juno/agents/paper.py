@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.components import Informant
+from juno.components import Event, Informant
 from juno.config import get_module_type_and_kwargs
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
@@ -16,8 +16,8 @@ _log = logging.getLogger(__name__)
 
 
 class Paper(Agent):
-    def __init__(self, informant: Informant, trader: Trader) -> None:
-        super().__init__()
+    def __init__(self, informant: Informant, trader: Trader, event: Event = Event()) -> None:
+        super().__init__(event)
         self._informant = informant
         self._trader = trader
 
@@ -57,7 +57,7 @@ class Paper(Agent):
             strategy_type=strategy_type,
             strategy_kwargs=strategy_kwargs,
             test=True,
-            event=self,
+            channel=self.name,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
             trailing_stop=trailing_stop,
