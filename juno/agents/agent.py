@@ -13,10 +13,6 @@ _log = logging.getLogger(__name__)
 _random_names = generate_random_words()
 
 
-# TODO: Ensure agent name is unique. It is used to persist agent state to disk and also as an
-# event emitter channel.
-
-
 class Agent:
 
     run: Callable[..., Awaitable[None]] = lambda: resolved_future(None)
