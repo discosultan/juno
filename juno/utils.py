@@ -8,9 +8,7 @@ from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
 from os import path
 from pathlib import Path
-from typing import (
-    Any, Dict, Generic, Iterator, NamedTuple, Optional, Tuple, TypeVar, get_type_hints
-)
+from typing import Any, Dict, Iterator, NamedTuple, Optional, Tuple, TypeVar, get_type_hints
 
 import aiolimiter
 
@@ -135,30 +133,6 @@ def _isprop(v: object) -> bool:
 
 def exc_traceback(exc: Exception) -> str:
     return ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-
-
-class CircularBuffer(Generic[T]):
-    _values: List[T]
-    _index: int = 0
-
-    def __init__(self, size: int, default: T) -> None:
-        if size < 0:
-            raise ValueError('Size must be positive')
-
-        self._values = [default] * size
-
-    def __len__(self) -> int:
-        return len(self._values)
-
-    def __iter__(self) -> Iterator[T]:
-        return iter(self._values)
-
-    def push(self, value: T) -> None:
-        if len(self._values) == 0:
-            raise ValueError('Unable to push to buffer of size 0')
-
-        self._values[self._index] = value
-        self._index = (self._index + 1) % len(self._values)
 
 
 class AsyncLimiter(aiolimiter.AsyncLimiter):

@@ -218,6 +218,7 @@ class Trader:
     async def _close_position(
         self, config: TraderConfig, state: TraderState, candle: Candle
     ) -> None:
+        assert state.summary
         pos = state.open_position
         assert pos
 
@@ -245,7 +246,7 @@ class Trader:
 
             pos.close(
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=ctx.quote_asset)]
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)]
             )
 
             state.quote += quote - fee
