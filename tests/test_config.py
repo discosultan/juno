@@ -7,21 +7,23 @@ from juno import Interval, Timestamp, config
 from juno.time import HOUR_MS
 
 
+class SomeEnum(IntEnum):
+    KEY = 1
+
+
+class Foo(NamedTuple):
+    name: str
+    timestamp: Timestamp
+    interval: Interval
+    optional_interval: Optional[Interval]
+    missing_optional_interval: Optional[Interval]
+    decimal: Decimal
+    list_of_intervals: List[Interval]
+    dict_of_intervals: Dict[Interval, Interval]
+    enum: SomeEnum
+
+
 def test_from_config_to_config() -> None:
-    class SomeEnum(IntEnum):
-        KEY = 1
-
-    class Foo(NamedTuple):
-        name: str
-        timestamp: Timestamp
-        interval: Interval
-        optional_interval: Optional[Interval]
-        missing_optional_interval: Optional[Interval]
-        decimal: Decimal
-        list_of_intervals: List[Interval]
-        dict_of_intervals: Dict[Interval, Interval]
-        enum: SomeEnum
-
     input_: Dict[str, Any] = {
         'name': 'bar',
         'timestamp': '2000-01-01 00:00:00+00:00',
@@ -55,19 +57,19 @@ def test_from_config_to_config() -> None:
     assert output == expected_output
 
 
-class Foo(NamedTuple):
+class Bar(NamedTuple):
     value: Interval
 
 
 def test_init_module_instance() -> None:
     input_ = {
-        'type': 'foo',
+        'type': Bar.__name__.lower(),
         'value': '1h',
     }
 
     output = config.init_module_instance(sys.modules[__name__], input_)
 
-    assert isinstance(output, Foo)
+    assert isinstance(output, Bar)
     assert output.value == HOUR_MS
 
 
