@@ -17,52 +17,50 @@ _log = logging.getLogger(__name__)
 T = TypeVar('T', covariant=True)
 
 
-@dataclass
-class TraderState(Generic[T]):
-    strategy: Optional[T] = None
-    quote: Decimal = Decimal('0.0')
-    summary: Optional[TradingSummary] = None
-    open_position: Optional[Position] = None
-    first_candle: Optional[Candle] = None
-    last_candle: Optional[Candle] = None
-    highest_close_since_position = Decimal('0.0')  # 0 means disabled.
-    adjusted_start: Timestamp = 0
-    start_adjusted: bool = False
-
-
-class TraderConfig(NamedTuple):
-    exchange: str
-    symbol: str
-    interval: Interval
-    start: Timestamp
-    end: Timestamp
-    quote: Decimal
-    trailing_stop: Decimal
-    test: bool  # No effect if broker is None.
-    strategy_type: Type[Strategy]  # TODO: We need to get rid of this bad boy!
-    strategy_args: List[Any]
-    strategy_kwargs: Dict[str, Any]
-    channel: str = 'default'
-    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-    adjust_start: bool = True
-
-    @property
-    def base_asset(self):
-        return unpack_symbol(self.symbol)[0]
-
-    @property
-    def quote_asset(self):
-        return unpack_symbol(self.symbol)[1]
-
-    @property
-    def trailing_factor(self):
-        return 1 - self.trailing_stop
-
-    def new_strategy(self):
-        return self.strategy_type(*self.strategy_args, **self.strategy_kwargs)
-
-
 class Trader:
+    @dataclass
+    class State(Generic[T]):
+        strategy: Optional[T] = None
+        quote: Decimal = Decimal('0.0')
+        summary: Optional[TradingSummary] = None
+        open_position: Optional[Position] = None
+        first_candle: Optional[Candle] = None
+        last_candle: Optional[Candle] = None
+        highest_close_since_position = Decimal('0.0')
+        adjusted_start: Timestamp = 0
+        start_adjusted: bool = False
+
+    class Config(NamedTuple):
+        exchange: str
+        symbol: str
+        interval: Interval
+        start: Timestamp
+        end: Timestamp
+        quote: Decimal
+        strategy_type: Type[Strategy]  # TODO: We need to get rid of this bad boy!
+        trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
+        test: bool = True  # No effect if broquoteker is None.
+        strategy_args: List[Any] = []
+        strategy_kwargs: Dict[str, Any] = {}
+        channel: str = 'default'
+        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
+        adjust_start: bool = False
+
+        @property
+        def base_asset(self):
+            return unpack_symbol(self.symbol)[0]
+
+        @property
+        def quote_asset(self):
+            return unpack_symbol(self.symbol)[1]
+
+        @property
+        def trailing_factor(self):
+            return 1 - self.trailing_stop
+
+        def new_strategy(self):
+            return self.strategy_type(*self.strategy_args, **self.strategy_kwargs)
+
     def __init__(
         self,
         chandler: Chandler,
@@ -75,7 +73,7 @@ class Trader:
         self._broker = broker
         self._event = event
 
-    async def run(self, config: TraderConfig, state: TraderState) -> TradingSummary:
+    async def run(self, config: Config, state: State) -> TradingSummary:
         assert config.start >= 0
         assert config.end > 0
         assert config.end > config.start
@@ -156,7 +154,7 @@ class Trader:
 
         return state.summary
 
-    async def _tick(self, config: TraderConfig, state: TraderState, candle: Candle) -> None:
+    async def _tick(self, config: Config, state: State, candle: Candle) -> None:
         assert state.strategy
         state.strategy.update(candle)
         advice = state.strategy.advice
@@ -179,9 +177,7 @@ class Trader:
             state.first_candle = candle
         state.last_candle = candle
 
-    async def _open_position(
-        self, config: TraderConfig, state: TraderState, candle: Candle
-    ) -> None:
+    async def _open_position(self, config: Config, state: State, candle: Candle) -> None:
         if self._broker:
             res = await self._broker.buy(
                 exchange=config.exchange,
@@ -215,9 +211,7 @@ class Trader:
         _log.debug(tonamedtuple(state.open_position))
         await self._event.emit(config.channel, 'position_opened', state.open_position)
 
-    async def _close_position(
-        self, config: TraderConfig, state: TraderState, candle: Candle
-    ) -> None:
+    async def _close_position(self, config: Config, state: State, candle: Candle) -> None:
         assert state.summary
         pos = state.open_position
         assert pos
