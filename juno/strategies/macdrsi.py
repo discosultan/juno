@@ -24,6 +24,9 @@ class MacdRsi(Strategy):
             }
         )
 
+    _macd: Macd
+    _rsi: Rsi
+
     def __init__(
         self,
         macd_short_period: int,

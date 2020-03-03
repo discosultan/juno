@@ -1,7 +1,7 @@
 import operator
 from decimal import Decimal
 from enum import IntEnum
-from typing import Optional
+from typing import Any, Optional
 
 from juno import Advice, Candle, indicators, math
 from juno.modules import get_module_type
@@ -40,6 +40,11 @@ class MAMACX(Strategy):
                     _ma_choices,
             }
         )
+
+    _short_ma: Any  # TODO: FIX!!
+    _long_ma: Any
+    _neg_threshold: Decimal
+    _pos_threshold: Decimal
 
     def __init__(
         self,
