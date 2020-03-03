@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections import defaultdict
-from typing import AsyncIterable, Callable, Dict, List, Optional, Tuple
+from collections import defaultdict, deque
+from typing import AsyncIterable, Callable, Deque, Dict, List, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -14,7 +14,7 @@ from juno.itertools import generate_missing_spans, merge_adjacent_spans
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import strfspan, time_ms
-from juno.utils import CircularBuffer, key
+from juno.utils import key
 
 _log = logging.getLogger(__name__)
 
@@ -165,13 +165,13 @@ class Trades:
         exchange_instance = self._exchanges[exchange]
 
         async def inner(stream: Optional[AsyncIterable[Trade]]) -> AsyncIterable[Trade]:
-            last_trade_ids = CircularBuffer(20, 0)
+            last_trade_ids: Deque[int] = deque(maxlen=20)
             if start < current:  # Historical.
                 async for trade in exchange_instance.stream_historical_trades(
                     symbol, start, min(end, current)
                 ):
                     if trade.id > 0:
-                        last_trade_ids.push(trade.id)
+                        last_trade_ids.append(trade.id)
                     yield trade
             if stream:  # Future.
                 skipping_existing = True
