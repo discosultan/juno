@@ -1,6 +1,6 @@
+from collections import deque
 from decimal import Decimal
-
-from juno.utils import CircularBuffer
+from typing import Deque
 
 from .sma import Sma
 
@@ -10,14 +10,14 @@ class Cci:
     value: Decimal = Decimal('0.0')
     _sma: Sma
     _scale: Decimal
-    _typical_prices: CircularBuffer
+    _typical_prices: Deque[Decimal]
     _t: int = 0
     _t1: int
 
     def __init__(self, period: int) -> None:
         self._sma = Sma(period)
         self._scale = Decimal('1.0') / period
-        self._typical_prices = CircularBuffer(period, Decimal('0.0'))
+        self._typical_prices = deque(maxlen=period)
         self._t1 = (period - 1) * 2
 
     @property
@@ -26,7 +26,7 @@ class Cci:
 
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
         typical_price = (high + low + close) / 3
-        self._typical_prices.push(typical_price)
+        self._typical_prices.append(typical_price)
         self._sma.update(typical_price)
 
         if self._t == self._t1:
