@@ -4,17 +4,23 @@ from .ema import Ema2 as Ema
 
 
 class Tsi:
+    value: Decimal = Decimal('0.0')
+    _pc_ema_smoothed: Ema
+    _pc_ema_dbl_smoothed: Ema
+    _abs_pc_ema_smoothed: Ema
+    _abs_pc_ema_dbl_smoothed: Ema
+    _last_price: Decimal = Decimal('0.0')
+    _t: int = 0
+    _t1: int = 1
+    _t2: int
+    _t3: int
 
     # Common long: 25, short: 13
     def __init__(self, long_period: int, short_period: int) -> None:
-        self.value = Decimal('0.0')
         self._pc_ema_smoothed = Ema(long_period)
         self._pc_ema_dbl_smoothed = Ema(short_period)
         self._abs_pc_ema_smoothed = Ema(long_period)
         self._abs_pc_ema_dbl_smoothed = Ema(short_period)
-        self._last_price = Decimal('0.0')
-        self._t = 0
-        self._t1 = 1
         self._t2 = self._t1 + long_period - 1
         self._t3 = self._t2 + short_period - 1
 

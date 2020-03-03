@@ -4,22 +4,27 @@ from typing import Tuple
 
 # Directional Movement Indicator
 class DM:
+    plus_value: Decimal = Decimal('0.0')
+    minus_value: Decimal = Decimal('0.0')
+
+    _per: Decimal
+
+    _dmup: Decimal = Decimal('0.0')
+    _dmdown: Decimal = Decimal('0.0')
+    _prev_high: Decimal = Decimal('0.0')
+    _prev_low: Decimal = Decimal('0.0')
+
+    _t: int = 0
+    _t1: int = 1
+    _t2: int
+    _t3: int
+
     def __init__(self, period: int) -> None:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')
 
-        self.plus_value = Decimal('0.0')
-        self.minus_value = Decimal('0.0')
-
         self._per = (period - 1) / Decimal(period)
 
-        self._dmup = Decimal('0.0')
-        self._dmdown = Decimal('0.0')
-        self._prev_high = Decimal('0.0')
-        self._prev_low = Decimal('0.0')
-
-        self._t = 0
-        self._t1 = 1
         self._t2 = period - 1
         self._t3 = period
 

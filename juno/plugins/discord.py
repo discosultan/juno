@@ -32,7 +32,6 @@ async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator
         raise ValueError(f'Missing {channel_name} channel ID from config')
 
     async with Discord(token=token, channel_id=channel_id) as client:
-
         @agent.on('starting')
         async def on_starting() -> None:
             await client.send_message(

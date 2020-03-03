@@ -7,13 +7,15 @@ from .sma import Sma
 
 # Exponential Moving Average
 class Ema:
+    value: Decimal = Decimal('0.0')
+    _a: Decimal
+    _t: int = 0
+
     def __init__(self, period: int) -> None:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')
 
-        self.value = Decimal('0.0')
         self._a = Decimal('2.0') / (period + 1)  # Smoothing factor.
-        self._t = 0
 
     @property
     def req_history(self) -> int:
@@ -35,6 +37,10 @@ class Ema:
 
 
 class Ema2(Ema):
+    _sma: Sma
+    _t1: int
+    _t2: int
+
     def __init__(self, period: int) -> None:
         super().__init__(period)
         self._sma = Sma(period)

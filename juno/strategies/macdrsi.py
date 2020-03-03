@@ -10,17 +10,22 @@ from .strategy import Meta, Strategy
 
 
 class MacdRsi(Strategy):
-    meta = Meta(
-        constraints={
-            ('macd_short_period', 'macd_long_period'):
-                math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
-            'macd_signal_period': math.Int(1, 101),
-            'rsi_period': math.Int(1, 101),
-            'rsi_up_threshold': math.Uniform(Decimal('50.0'), Decimal('100.0')),
-            'rsi_down_threshold': math.Uniform(Decimal('0.0'), Decimal('50.0')),
-            'persistence': math.Int(0, 10),
-        }
-    )
+    @staticmethod
+    def meta() -> Meta:
+        return Meta(
+            constraints={
+                ('macd_short_period', 'macd_long_period'):
+                    math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
+                'macd_signal_period': math.Int(1, 101),
+                'rsi_period': math.Int(1, 101),
+                'rsi_up_threshold': math.Uniform(Decimal('50.0'), Decimal('100.0')),
+                'rsi_down_threshold': math.Uniform(Decimal('0.0'), Decimal('50.0')),
+                'persistence': math.Int(0, 10),
+            }
+        )
+
+    _macd: Macd
+    _rsi: Rsi
 
     def __init__(
         self,

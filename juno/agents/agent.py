@@ -4,19 +4,24 @@ from enum import Enum
 from typing import Any, Awaitable, Callable, Dict, List
 
 from juno.asyncio import resolved_future
-from juno.utils import EventEmitter, exc_traceback, generate_random_words
+from juno.components import Event
+from juno.utils import exc_traceback, generate_random_words
 
 _log = logging.getLogger(__name__)
 
 _random_names = generate_random_words()
 
 
-class Agent(EventEmitter):
+# TODO: Ensure agent name is unique. It is used to persist agent state to disk and also as an
+# event emitter channel.
+
+
+class Agent:
 
     run: Callable[..., Awaitable[None]] = lambda: resolved_future(None)
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, event: Event = Event()) -> None:
+        self._event = event
         self.state = AgentState.STOPPED
         self.result: Any = None
         self.config: Dict[str, Any] = {}
@@ -48,8 +53,11 @@ class Agent(EventEmitter):
         await self.emit('finished')
         return self.result
 
+    def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
+        return self._event.on(self.name, event)
+
     async def emit(self, event: str, *args: Any) -> List[Any]:
-        results = await super().emit(event, *args)
+        results = await self._event.emit(self.name, event, *args)
         for e in (r for r in results if isinstance(r, Exception)):
             _log.error(exc_traceback(e))
         return results

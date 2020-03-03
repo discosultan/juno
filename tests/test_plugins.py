@@ -39,7 +39,7 @@ async def test_discord(request, config) -> None:
         )
         agent.result.append_position(pos)
         assert pos.closing_time
-        agent.result.finish(pos.closing_time + 1)
+        agent.result.finish(pos.closing_time + DAY_MS)
         await agent.emit('position_closed', pos)
         await agent.emit('finished')
         await agent.emit('image', full_path(__file__, '/data/dummy_img.png'))

@@ -1,7 +1,52 @@
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Generic, Optional, Tuple, TypeVar, Union
 
 from juno import Advice, Candle
 from juno.math import Constraint
+
+T = TypeVar('T')
+
+
+class Persistence(Generic[T]):
+    _age: int = 0
+    _level: int
+    _allow_next: bool
+    _value: Optional[T] = None
+    _potential: Optional[T] = None
+    _changed: bool = False
+
+    """The number of ticks required to confirm a value."""
+    def __init__(self, level: int, allow_initial: bool = False) -> None:
+        self._level = level
+        self._allow_next = allow_initial
+
+    @property
+    def persisted(self) -> bool:
+        return self._value is not None and self._age >= self._level
+
+    def update(self, value: Optional[T]) -> Tuple[bool, bool]:
+        if (
+            value is None
+            or (self._potential is not None and value is not self._potential)
+        ):
+            self._allow_next = True
+
+        if value is not self._potential:
+            self._age = 0
+            self._potential = value
+
+        if (
+            self._allow_next
+            and self._age == self._level
+            and self._potential is not self._value
+        ):
+            self._value = self._potential
+            self._changed = True
+        else:
+            self._changed = False
+
+        self._age = min(self._age + 1, self._level)
+
+        return self.persisted, self._changed
 
 
 class Meta:
@@ -13,15 +58,22 @@ class Meta:
 
 
 class Strategy:
-    meta: Meta
+    req_history: int
+
+    _maturity: int
+    _persistence: Persistence[Advice]
+    _advice: Optional[Advice] = None
+    _age: int = 0
+
+    @staticmethod
+    def meta() -> Meta:
+        pass
 
     def __init__(self, maturity: int = 0, persistence: int = 0) -> None:
         self.req_history = maturity
 
         self._maturity = maturity
         self._persistence = Persistence(persistence)
-        self._advice: Optional[Advice] = None
-        self._age = 0
 
     @property
     def advice(self) -> Optional[Advice]:
@@ -45,7 +97,7 @@ class Strategy:
     def validate(self, *args: Any) -> None:
         # Assumes ordered.
         from_index = 0
-        for names, constraint in type(self).meta.constraints.items():
+        for names, constraint in type(self).meta().constraints.items():
             # Normalize scalars into a single element tuples.
             if not isinstance(names, tuple):
                 names = names,
@@ -60,43 +112,3 @@ class Strategy:
                 )
 
             from_index = to_index
-
-
-class Persistence:
-    """The number of ticks required to confirm a value."""
-    def __init__(self, level: int, allow_initial: bool = False) -> None:
-        self.age = 0
-        self.level = level
-        self.allow_next = allow_initial
-        self.value = None
-        self.potential = None
-        self.changed = False
-
-    @property
-    def persisted(self) -> bool:
-        return self.value is not None and self.age >= self.level
-
-    def update(self, value: Optional[Any]) -> Tuple[bool, bool]:
-        if (
-            value is None
-            or (self.potential is not None and value is not self.potential)
-        ):
-            self.allow_next = True
-
-        if value is not self.potential:
-            self.age = 0
-            self.potential = value
-
-        if (
-            self.allow_next
-            and self.age == self.level
-            and self.potential is not self.value
-        ):
-            self.value = self.potential
-            self.changed = True
-        else:
-            self.changed = False
-
-        self.age = min(self.age + 1, self.level)
-
-        return self.persisted, self.changed

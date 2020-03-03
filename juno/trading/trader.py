@@ -4,10 +4,10 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp
 from juno.brokers import Broker
-from juno.components import Chandler, Informant
+from juno.components import Chandler, Event, Informant
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.utils import EventEmitter, tonamedtuple, unpack_symbol
+from juno.utils import tonamedtuple, unpack_symbol
 
 from .common import MissedCandlePolicy, Position, TradingSummary
 
@@ -23,7 +23,7 @@ class _Context:
         symbol: str,
         trailing_stop: Decimal,
         test: bool,
-        event: EventEmitter,
+        channel: str,
         summary: TradingSummary,
     ) -> None:
         # Mutable.
@@ -33,6 +33,7 @@ class _Context:
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')
+        self.summary = summary
 
         # Immutable.
         self.exchange = exchange
@@ -40,8 +41,7 @@ class _Context:
         self.base_asset, self.quote_asset = unpack_symbol(symbol)
         self.trailing_stop = trailing_stop
         self.test = test
-        self.event = event
-        self.summary = summary
+        self.channel = channel
 
 
 class Trader:
@@ -50,10 +50,12 @@ class Trader:
         chandler: Chandler,
         informant: Informant,
         broker: Optional[Broker] = None,
+        event: Event = Event(),
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._broker = broker
+        self._event = event
 
     async def run(
         self,
@@ -67,7 +69,7 @@ class Trader:
         strategy_args: Union[List[Any], Tuple[Any]] = [],
         strategy_kwargs: Dict[str, Any] = {},
         test: bool = True,  # No effect if broker is None.
-        event: EventEmitter = EventEmitter(),
+        channel: str = 'default',
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),  # 0 means disabled.
@@ -86,7 +88,7 @@ class Trader:
             symbol=symbol,
             trailing_stop=trailing_stop,
             test=test,
-            event=event,
+            channel=channel,
             summary=summary
         )
 
@@ -206,7 +208,7 @@ class Trader:
 
         _log.info(f'position opened: {candle}')
         _log.debug(tonamedtuple(ctx.open_position))
-        await ctx.event.emit('position_opened', ctx.open_position)
+        await self._event.emit(ctx.channel, 'position_opened', ctx.open_position)
 
     async def _close_position(self, ctx: _Context, candle: Candle) -> None:
         pos = ctx.open_position
@@ -245,4 +247,4 @@ class Trader:
         ctx.summary.append_position(pos)
         _log.info(f'position closed: {candle}')
         _log.debug(tonamedtuple(pos))
-        await ctx.event.emit('position_closed', pos)
+        await self._event.emit(ctx.channel, 'position_closed', pos)

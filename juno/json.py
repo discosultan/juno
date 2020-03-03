@@ -88,7 +88,7 @@ def dump(
     fp: IO,
     indent: Optional[int] = None,
     use_decimal: bool = True,
-    skip_private: bool = True,
+    skip_private: bool = False,
 ) -> None:
     # Make a deep copy so we don't accidentally mutate source obj.
     obj = deepcopy(obj)
@@ -100,7 +100,7 @@ def dumps(
     obj: Any,
     indent: Optional[int] = None,
     use_decimal: bool = True,
-    skip_private: bool = True,
+    skip_private: bool = False,
 ) -> str:
     obj = deepcopy(obj)
     obj = _prepare_dump(obj, skip_private=skip_private)
