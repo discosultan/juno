@@ -1,5 +1,7 @@
+from collections import deque
 from dataclasses import dataclass
-from typing import Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar
+from decimal import Decimal
+from typing import Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar
 
 import pytest
 
@@ -60,6 +62,7 @@ def test_isoptional(input_, expected_output) -> None:
     ([1, [2]], Tuple[int, Bar], [1, Bar(value=2)]),
     ([1, 2], List[int], [1, 2]),
     ({'value1': 'a', 'value2': 1, 'value3': 2.0}, Baz[int], Baz('a', 1, 2.0)),
+    ([1.0, 2.0], Deque[Decimal], deque([Decimal('1.0'), Decimal('2.0')])),
 ])
 def test_load_by_typing(obj, type_, expected_output) -> None:
     assert typing.load_by_typing(obj, type_) == expected_output
@@ -78,6 +81,8 @@ def test_load_by_typing(obj, type_, expected_output) -> None:
     ((1, 'x'), Tuple[int, str], True),
     (Baz('a', 1, 2.0), Baz[int], True),
     (1, Optional[int], True),
+    (deque([Decimal('1.0')]), Deque[Decimal], True),
+    (deque([1]), Deque[str], False),
 ])
 def test_types_match(input_, type_, expected_output) -> None:
     assert typing.types_match(input_, type_) == expected_output

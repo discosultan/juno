@@ -1,4 +1,5 @@
 import inspect
+from collections import deque
 from decimal import Decimal
 from types import TracebackType
 from typing import (
@@ -55,10 +56,14 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
         return value
 
     if origin is list:
-        sub_type = get_args(type_)[0]
+        sub_type, = get_args(type_)
         for i, sub_value in enumerate(value):
             value[i] = load_by_typing(sub_value, sub_type)
         return value
+
+    if origin is deque:
+        sub_type, = get_args(type_)
+        return deque((load_by_typing(sv, sub_type) for sv in value), maxlen=len(value))
 
     if origin is tuple:
         sub_types = get_args(type_)
@@ -67,13 +72,13 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
         return value
 
     if origin is dict:
-        sub_type = get_args(type_)[1]
+        _, sub_type = get_args(type_)
         for key, sub_value in value.items():
             value[key] = load_by_typing(sub_value, sub_type)
         return value
 
     if origin is Union:
-        sub_type = get_args(type_)[0]
+        sub_type, _ = get_args(type_)
         if value is None:
             return value
         return load_by_typing(value, sub_type)
@@ -106,7 +111,7 @@ def types_match(obj: Any, type_: Type[Any]):
     origin = get_root_origin(type_) or type_
 
     if origin is Union:
-        sub_type = get_args(type_)[0]
+        sub_type, _ = get_args(type_)
         return obj is None or types_match(obj, sub_type)
 
     if not isinstance(obj, origin):
@@ -123,7 +128,7 @@ def types_match(obj: Any, type_: Type[Any]):
         key_type, value_type = get_args(type_)
         return all(types_match(k, key_type) and types_match(v, value_type) for k, v in obj.items())
 
-    if isinstance(obj, list):
+    if isinstance(obj, (list, deque)):
         assert origin
         subtype, = get_args(type_)
         return all(types_match(so, subtype) for so in obj)
