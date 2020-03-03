@@ -90,6 +90,7 @@ async def main() -> None:
             day_trades.append((quote_asset, -pos.cost))
             day_trades.append((base_asset, +pos.base_gain))
             # Close.
+            assert pos.closing_time
             time = floor_multiple(pos.closing_time, DAY_MS)
             day_trades = trades[time]
             day_trades.append((base_asset, -pos.base_cost))

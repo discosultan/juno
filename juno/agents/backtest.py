@@ -72,7 +72,7 @@ class Backtest(Agent):
             quote=quote,
             strategy_type=strategy_type,
             strategy_kwargs=strategy_kwargs,
-            event=self,
+            channel=self.name,
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
             trailing_stop=trailing_stop,
