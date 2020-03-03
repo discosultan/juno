@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import uuid
 from enum import Enum
 from typing import Any, Awaitable, Callable, Dict, List
 
@@ -25,7 +26,7 @@ class Agent:
         self.state = AgentState.STOPPED
         self.result: Any = None
         self.config: Dict[str, Any] = {}
-        self.name = next(_random_names)
+        self.name = f'{next(_random_names)}-{uuid.uuid4()}'
 
     async def start(self, **agent_config: Any) -> Any:
         assert self.state is not AgentState.RUNNING
