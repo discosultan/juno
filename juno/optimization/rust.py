@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import os
 import platform
 import shutil
+import zlib
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Type
@@ -29,6 +31,7 @@ _log = logging.getLogger(__name__)
 _cdef_builder = CDefBuilder({
     Interval: 'uint64_t',
     Timestamp: 'uint64_t',
+    str: 'uint32_t',  # Will be Adler32 checksum of the string.
 })
 
 _strategy_types = list_concretes_from_module(strategies, Strategy)
@@ -119,8 +122,9 @@ class Rust(Solver):
 
         # Strategy.
         c_strategy_info = self._ffi.new(f'{strategy_type.__name__}Info *')
-        for i, n in enumerate(get_input_type_hints(strategy_type.__init__).keys()):
-            setattr(c_strategy_info, n, args[i])
+        for i, (n, t) in enumerate(get_input_type_hints(strategy_type.__init__).items()):
+            value = _adler32(args[i]) if t is str else args[i]
+            setattr(c_strategy_info, n, value)
 
         # Analysis.
         num_days = len(fiat_daily_prices['btc'])
@@ -254,3 +258,8 @@ def _build_cdef() -> str:
         ))
 
     return ''.join(members)
+
+
+@functools.lru_cache
+def _adler32(value: str) -> int:
+    return zlib.adler32(value.encode())

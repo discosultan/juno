@@ -61,6 +61,13 @@ pub unsafe extern "C" fn macdrsi(
     run_test(trading_info, strategy_factory, analysis_info)
 }
 
+// Adler32 of lowercased indicator name.
+const EMA_: u32 = 40698164;
+const EMA2: u32 = 64160102;
+const SMA_: u32 = 43450690;
+const SMMA: u32 = 72483247;
+const DEMA: u32 = 66978200;
+
 #[no_mangle]
 pub unsafe extern "C" fn mamacx(
     trading_info: *const TradingInfo,
@@ -69,31 +76,31 @@ pub unsafe extern "C" fn mamacx(
 ) -> Result {
     let mamacx_info = &*mamacx_info;
     match (mamacx_info.short_ma, mamacx_info.long_ma) {
-        (0, 0) => run_mamacx_test::<Ema, Ema>  (trading_info, mamacx_info, analysis_info),
-        (0, 1) => run_mamacx_test::<Ema, Ema2> (trading_info, mamacx_info, analysis_info),
-        (0, 2) => run_mamacx_test::<Ema, Sma>  (trading_info, mamacx_info, analysis_info),
-        (0, 3) => run_mamacx_test::<Ema, Smma> (trading_info, mamacx_info, analysis_info),
-        (0, 4) => run_mamacx_test::<Ema, Dema> (trading_info, mamacx_info, analysis_info),
-        (1, 0) => run_mamacx_test::<Ema2, Ema> (trading_info, mamacx_info, analysis_info),
-        (1, 1) => run_mamacx_test::<Ema2, Ema2>(trading_info, mamacx_info, analysis_info),
-        (1, 2) => run_mamacx_test::<Ema2, Sma> (trading_info, mamacx_info, analysis_info),
-        (1, 3) => run_mamacx_test::<Ema2, Smma>(trading_info, mamacx_info, analysis_info),
-        (1, 4) => run_mamacx_test::<Ema2, Dema>(trading_info, mamacx_info, analysis_info),
-        (2, 0) => run_mamacx_test::<Sma, Ema>  (trading_info, mamacx_info, analysis_info),
-        (2, 1) => run_mamacx_test::<Sma, Ema2> (trading_info, mamacx_info, analysis_info),
-        (2, 2) => run_mamacx_test::<Sma, Sma>  (trading_info, mamacx_info, analysis_info),
-        (2, 3) => run_mamacx_test::<Sma, Smma> (trading_info, mamacx_info, analysis_info),
-        (2, 4) => run_mamacx_test::<Sma, Dema> (trading_info, mamacx_info, analysis_info),
-        (3, 0) => run_mamacx_test::<Smma, Ema> (trading_info, mamacx_info, analysis_info),
-        (3, 1) => run_mamacx_test::<Smma, Ema2>(trading_info, mamacx_info, analysis_info),
-        (3, 2) => run_mamacx_test::<Smma, Sma> (trading_info, mamacx_info, analysis_info),
-        (3, 3) => run_mamacx_test::<Smma, Smma>(trading_info, mamacx_info, analysis_info),
-        (3, 4) => run_mamacx_test::<Smma, Dema>(trading_info, mamacx_info, analysis_info),
-        (4, 0) => run_mamacx_test::<Dema, Ema> (trading_info, mamacx_info, analysis_info),
-        (4, 1) => run_mamacx_test::<Dema, Ema2>(trading_info, mamacx_info, analysis_info),
-        (4, 2) => run_mamacx_test::<Dema, Sma> (trading_info, mamacx_info, analysis_info),
-        (4, 3) => run_mamacx_test::<Dema, Smma>(trading_info, mamacx_info, analysis_info),
-        (4, 4) => run_mamacx_test::<Dema, Dema>(trading_info, mamacx_info, analysis_info),
+        (EMA_, EMA_) => run_mamacx_test::<Ema, Ema>  (trading_info, mamacx_info, analysis_info),
+        (EMA_, EMA2) => run_mamacx_test::<Ema, Ema2> (trading_info, mamacx_info, analysis_info),
+        (EMA_, SMA_) => run_mamacx_test::<Ema, Sma>  (trading_info, mamacx_info, analysis_info),
+        (EMA_, SMMA) => run_mamacx_test::<Ema, Smma> (trading_info, mamacx_info, analysis_info),
+        (EMA_, DEMA) => run_mamacx_test::<Ema, Dema> (trading_info, mamacx_info, analysis_info),
+        (EMA2, EMA_) => run_mamacx_test::<Ema2, Ema> (trading_info, mamacx_info, analysis_info),
+        (EMA2, EMA2) => run_mamacx_test::<Ema2, Ema2>(trading_info, mamacx_info, analysis_info),
+        (EMA2, SMA_) => run_mamacx_test::<Ema2, Sma> (trading_info, mamacx_info, analysis_info),
+        (EMA2, SMMA) => run_mamacx_test::<Ema2, Smma>(trading_info, mamacx_info, analysis_info),
+        (EMA2, DEMA) => run_mamacx_test::<Ema2, Dema>(trading_info, mamacx_info, analysis_info),
+        (SMA_, EMA_) => run_mamacx_test::<Sma, Ema>  (trading_info, mamacx_info, analysis_info),
+        (SMA_, EMA2) => run_mamacx_test::<Sma, Ema2> (trading_info, mamacx_info, analysis_info),
+        (SMA_, SMA_) => run_mamacx_test::<Sma, Sma>  (trading_info, mamacx_info, analysis_info),
+        (SMA_, SMMA) => run_mamacx_test::<Sma, Smma> (trading_info, mamacx_info, analysis_info),
+        (SMA_, DEMA) => run_mamacx_test::<Sma, Dema> (trading_info, mamacx_info, analysis_info),
+        (SMMA, EMA_) => run_mamacx_test::<Smma, Ema> (trading_info, mamacx_info, analysis_info),
+        (SMMA, EMA2) => run_mamacx_test::<Smma, Ema2>(trading_info, mamacx_info, analysis_info),
+        (SMMA, SMA_) => run_mamacx_test::<Smma, Sma> (trading_info, mamacx_info, analysis_info),
+        (SMMA, SMMA) => run_mamacx_test::<Smma, Smma>(trading_info, mamacx_info, analysis_info),
+        (SMMA, DEMA) => run_mamacx_test::<Smma, Dema>(trading_info, mamacx_info, analysis_info),
+        (DEMA, EMA_) => run_mamacx_test::<Dema, Ema> (trading_info, mamacx_info, analysis_info),
+        (DEMA, EMA2) => run_mamacx_test::<Dema, Ema2>(trading_info, mamacx_info, analysis_info),
+        (DEMA, SMA_) => run_mamacx_test::<Dema, Sma> (trading_info, mamacx_info, analysis_info),
+        (DEMA, SMMA) => run_mamacx_test::<Dema, Smma>(trading_info, mamacx_info, analysis_info),
+        (DEMA, DEMA) => run_mamacx_test::<Dema, Dema>(trading_info, mamacx_info, analysis_info),
         _ => panic!(
             "Moving average ({}, {}) not implemented!",
             mamacx_info.short_ma,
