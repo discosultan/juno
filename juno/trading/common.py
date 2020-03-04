@@ -19,15 +19,11 @@ class MissedCandlePolicy(IntEnum):
 # TODO: Add support for external token fees (i.e BNB)
 @dataclass
 class Position:
-    def __init__(
-        self, symbol: str, time: Timestamp, fills: List[Fill],
-        closing_time: Optional[Timestamp] = None, closing_fills: Optional[List[Fill]] = None
-    ) -> None:
-        self.symbol = symbol
-        self.time = time
-        self.fills = fills
-        self.closing_time = closing_time
-        self.closing_fills = closing_fills
+    symbol: str
+    time: Timestamp
+    fills: List[Fill]
+    closing_time: Optional[Timestamp] = None
+    closing_fills: Optional[List[Fill]] = None
 
     def close(self, time: Timestamp, fills: List[Fill]) -> None:
         assert Fill.total_size(fills) <= self.base_gain
@@ -106,22 +102,26 @@ class Position:
 
 
 # TODO: both positions and candles could theoretically grow infinitely
-@dataclass
+@dataclass(init=False)
 class TradingSummary:
-    def __init__(
-        self, start: Timestamp, quote: Decimal, end: Optional[Timestamp] = None,
-        positions: Optional[List[Position]] = None
-    ) -> None:
+    start: Timestamp
+    quote: Decimal
+
+    positions: List[Position]
+    _drawdowns: List[Decimal]
+
+    # TODO: Should we add +interval like we do for summary? Or rather change summary to exclude
+    # +interval. Also needs to be adjusted in Rust code.
+    end: Optional[Timestamp] = None
+
+    _drawdowns_dirty: bool = True
+
+    def __init__(self, start: Timestamp, quote: Decimal) -> None:
         self.start = start
         self.quote = quote
 
-        # TODO: Should we add +interval like we do for summary? Or rather change summary to exclude
-        # +interval. Also needs to be adjusted in Rust code.
-        self.end = end
-        self.positions: List[Position] = positions if positions is not None else []
-
-        self._drawdowns_dirty = True
-        self._drawdowns: List[Decimal] = []
+        self.positions = []
+        self._drawdowns = []
 
     def append_position(self, pos: Position) -> None:
         self.positions.append(pos)
