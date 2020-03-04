@@ -21,7 +21,7 @@ class Trader:
     @dataclass
     class State(Generic[T]):
         strategy: Optional[T] = None
-        quote: Decimal = Decimal('0.0')
+        quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
         open_position: Optional[Position] = None
         first_candle: Optional[Candle] = None
@@ -39,7 +39,7 @@ class Trader:
         quote: Decimal
         strategy_type: Type[Strategy]  # TODO: We need to get rid of this bad boy!
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
-        test: bool = True  # No effect if broquoteker is None.
+        test: bool = True  # No effect if broker is None.
         strategy_args: List[Any] = []
         strategy_kwargs: Dict[str, Any] = {}
         channel: str = 'default'
@@ -79,6 +79,9 @@ class Trader:
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
 
+        if state.quote == -1:
+            state.quote = config.quote
+
         if not state.summary:
             state.summary = TradingSummary(start=config.start, quote=config.quote)
 
@@ -97,6 +100,7 @@ class Trader:
                 'warm-up strategy'
             )
             state.adjusted_start -= state.strategy.req_history * config.interval
+            state.start_adjusted = True
 
         try:
             while True:
