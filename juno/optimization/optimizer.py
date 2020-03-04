@@ -7,15 +7,15 @@ from decimal import Decimal
 from functools import partial
 from itertools import product
 from random import Random, randrange
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from deap import base, creator, tools
 
-from juno import Candle, InsufficientBalance, Interval, Timestamp
+from juno import Candle, InsufficientBalance, Interval, Timestamp, strategies
 from juno.components import Chandler, Informant, Prices
 from juno.itertools import flatten
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
-from juno.strategies import Strategy
+from juno.modules import get_module_type
 from juno.time import strfinterval, strfspan, time_ms
 from juno.trading import (
     MissedCandlePolicy, Statistics, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
@@ -70,7 +70,7 @@ class Optimizer:
         exchange: str,
         start: Timestamp,
         quote: Decimal,
-        strategy_type: Type[Strategy],
+        strategy: str,
         symbols: Optional[List[str]] = None,
         intervals: Optional[List[Interval]] = None,
         end: Optional[Timestamp] = None,
@@ -96,6 +96,8 @@ class Optimizer:
 
         assert symbols is None or len(symbols) > 0
         assert intervals is None or len(intervals) > 0
+
+        strategy_type = get_module_type(strategies, strategy)
 
         if seed is None:
             seed = randrange(sys.maxsize)
@@ -242,7 +244,7 @@ class Optimizer:
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
             adjust_start=False,
-            strategy_type=strategy_type,
+            strategy=strategy,
             strategy_kwargs=map_input_args(strategy_type.__init__, best_args[4:])
         )
 

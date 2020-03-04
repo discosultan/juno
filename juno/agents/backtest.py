@@ -2,9 +2,9 @@ import logging
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
-from juno import Interval, Timestamp, strategies
+from juno import Interval, Timestamp
 from juno.components import Historian, Prices
-from juno.config import get_module_type_and_kwargs
+from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.time import time_ms
 from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
@@ -59,7 +59,7 @@ class Backtest(Agent):
         assert end > start
         assert quote > 0
 
-        strategy_type, strategy_kwargs = get_module_type_and_kwargs(strategies, strategy)
+        strategy_name, strategy_kwargs = get_type_name_and_kwargs(strategy)
         config = Trader.Config(
             exchange=exchange,
             symbol=symbol,
@@ -67,7 +67,7 @@ class Backtest(Agent):
             start=start,
             end=end,
             quote=quote,
-            strategy_type=strategy_type,
+            strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
             channel=self.name,
             missed_candle_policy=missed_candle_policy,

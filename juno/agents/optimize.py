@@ -36,7 +36,6 @@ class Optimize(Agent):
         seed: Optional[int] = None,
         verbose: bool = False,
     ) -> None:
-        strategy_type = get_module_type(strategies, strategy)
         self.result = OptimizationSummary()
         await self._optimizer.run(
             exchange=exchange,
@@ -44,7 +43,7 @@ class Optimize(Agent):
             intervals=intervals,
             start=start,
             quote=quote,
-            strategy_type=strategy_type,
+            strategy=strategy,
             end=end,
             missed_candle_policy=missed_candle_policy,
             trailing_stop=trailing_stop,
@@ -62,8 +61,9 @@ class Optimize(Agent):
             # particular strategy type.
 
             trading_config = ind.trading_config
-            strategy_type = trading_config.strategy_type
+            strategy = trading_config.strategy
             strategy_kwargs = trading_config.strategy_kwargs
+            strategy_type = get_module_type(strategies, strategy)
 
             strategy_kwargs_typings = get_input_type_hints(strategy_type.__init__)  # type: ignore
             strategy_kwargs_type = NamedTuple('_', strategy_kwargs_typings.items())  # type: ignore
