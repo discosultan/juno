@@ -100,7 +100,8 @@ async def test_trader_trailing_stop_loss() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy_type=fakes.Strategy,
+        strategy_module='tests.fakes',
+        strategy='strategy',
         strategy_kwargs={'advices': [Advice.BUY, None, None, Advice.SELL]},
         trailing_stop=Decimal('0.1'),
     )
@@ -133,7 +134,8 @@ async def test_trader_restart_on_missed_candle() -> None:
         start=0,
         end=6,
         quote=Decimal('10.0'),
-        strategy_type=fakes.Strategy,
+        strategy_module='tests.fakes',
+        strategy='strategy',
         strategy_kwargs={'advices': [None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
@@ -177,7 +179,8 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         start=0,
         end=5,
         quote=Decimal('10.0'),
-        strategy_type=fakes.Strategy,
+        strategy_module='tests.fakes',
+        strategy='strategy',
         strategy_kwargs={'advices': [None, None, None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.LAST,
     )

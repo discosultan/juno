@@ -1,6 +1,5 @@
 import operator
 from decimal import Decimal
-from enum import IntEnum
 from typing import Any, Optional
 
 from juno import Advice, Candle, indicators, math
@@ -8,16 +7,13 @@ from juno.modules import get_module_type
 
 from .strategy import Meta, Strategy
 
-
-class MA(IntEnum):
-    EMA = 0
-    EMA2 = 1
-    SMA = 2
-    SMMA = 3
-    DEMA = 4
-
-
-_ma_choices = math.Choice([MA.EMA, MA.EMA2, MA.SMA, MA.SMMA, MA.DEMA])
+_ma_choices = math.Choice([
+    indicators.Ema.__name__.lower(),
+    indicators.Ema2.__name__.lower(),
+    indicators.Sma.__name__.lower(),
+    indicators.Smma.__name__.lower(),
+    indicators.Dema.__name__.lower(),
+])
 
 
 # Moving average moving average crossover.
@@ -53,16 +49,16 @@ class MAMACX(Strategy):
         neg_threshold: Decimal,
         pos_threshold: Decimal,
         persistence: int,
-        short_ma: MA = MA.EMA,
-        long_ma: MA = MA.EMA
+        short_ma: str = indicators.Ema.__name__.lower(),
+        long_ma: str = indicators.Ema.__name__.lower(),
     ) -> None:
         super().__init__(maturity=long_period - 1, persistence=persistence)
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
 
-        self._short_ma = get_module_type(indicators, short_ma.name.lower())(short_period)
-        self._long_ma = get_module_type(indicators, long_ma.name.lower())(long_period)
+        self._short_ma = get_module_type(indicators, short_ma)(short_period)
+        self._long_ma = get_module_type(indicators, long_ma)(long_period)
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
 

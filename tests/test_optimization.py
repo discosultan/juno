@@ -62,7 +62,7 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: 
             exchange='binance',
             start=portfolio_candles[0].time,
             end=portfolio_candles[-1].time + HOUR_MS,
-            strategy_type=MAMACX,
+            strategy='mamacx',
             quote=Decimal('1.0'),
             population_size=5,
             max_generations=10,
@@ -91,7 +91,7 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) ->
         'eth': [c1.close * c2.close for c1, c2 in zip(statistics_candles, statistics_fiat_candles)]
     }
     benchmark_stats = analyse_benchmark(fiat_daily_candles['btc'])
-    strategy_args = (11, 21, Decimal('-0.229'), Decimal('0.1'), 4, 0, 0)
+    strategy_args = (11, 21, Decimal('-0.229'), Decimal('0.1'), 4, 'ema', 'ema')
 
     result = rust_solver.solve(
         fiat_daily_candles,

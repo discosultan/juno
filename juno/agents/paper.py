@@ -2,9 +2,9 @@ import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, Optional
 
-from juno import Interval, Timestamp, strategies
+from juno import Interval, Timestamp
 from juno.components import Event, Informant
-from juno.config import get_module_type_and_kwargs
+from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader
@@ -45,7 +45,7 @@ class Paper(Agent):
 
         assert quote > filters.price.min
 
-        strategy_type, strategy_kwargs = get_module_type_and_kwargs(strategies, strategy)
+        strategy_name, strategy_kwargs = get_type_name_and_kwargs(strategy)
         config = Trader.Config(
             exchange=exchange,
             symbol=symbol,
@@ -53,7 +53,7 @@ class Paper(Agent):
             start=current,
             end=end,
             quote=quote,
-            strategy_type=strategy_type,
+            strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
             test=True,
             channel=self.name,

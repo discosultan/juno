@@ -106,6 +106,13 @@ def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
     return init_instance(type_, config)
 
 
+def get_type_name_and_kwargs(config: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
+    type_name = config.get('type')
+    if not type_name:
+        raise ValueError('Unable to get type name. Property "type" missing in config')
+    return type_name, {k: v for k, v in config.items() if k != 'type'}
+
+
 def get_module_type_and_kwargs(
     module: ModuleType, config: Dict[str, Any]
 ) -> Tuple[type, Dict[str, Any]]:

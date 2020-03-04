@@ -1,12 +1,14 @@
+import importlib
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, Generic, List, NamedTuple, Optional, Type, TypeVar
+from typing import Any, Dict, List, NamedTuple, Optional
 
-from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp
+from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp, strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Event, Informant
 from juno.math import round_half_up
+from juno.modules import get_module_type
 from juno.strategies import Strategy
 from juno.utils import tonamedtuple, unpack_symbol
 
@@ -14,13 +16,11 @@ from .common import MissedCandlePolicy, Position, TradingSummary
 
 _log = logging.getLogger(__name__)
 
-T = TypeVar('T', covariant=True)
-
 
 class Trader:
     @dataclass
-    class State(Generic[T]):
-        strategy: Optional[T] = None
+    class State:
+        strategy: Optional[Strategy] = None  # TODO: Generic?
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
         open_position: Optional[Position] = None
@@ -37,7 +37,8 @@ class Trader:
         start: Timestamp
         end: Timestamp
         quote: Decimal
-        strategy_type: Type[Strategy]  # TODO: We need to get rid of this bad boy!
+        strategy: str
+        strategy_module: str = strategies.__name__
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
         strategy_args: List[Any] = []
@@ -47,19 +48,21 @@ class Trader:
         adjust_start: bool = False
 
         @property
-        def base_asset(self):
+        def base_asset(self) -> str:
             return unpack_symbol(self.symbol)[0]
 
         @property
-        def quote_asset(self):
+        def quote_asset(self) -> str:
             return unpack_symbol(self.symbol)[1]
 
         @property
-        def trailing_factor(self):
+        def trailing_factor(self) -> Decimal:
             return 1 - self.trailing_stop
 
-        def new_strategy(self):
-            return self.strategy_type(*self.strategy_args, **self.strategy_kwargs)
+        def new_strategy(self) -> Strategy:
+            return get_module_type(importlib.import_module(self.strategy_module), self.strategy)(
+                *self.strategy_args, **self.strategy_kwargs
+            )
 
     def __init__(
         self,
@@ -96,8 +99,8 @@ class Trader:
             # becomes effective. Only do it on first run because subsequent runs mean
             # missed candles and we don't want to fetch passed a missed candle.
             _log.info(
-                f'fetching {state.strategy.req_history} candle(s) before start time to '
-                'warm-up strategy'
+                f'fetching {state.strategy.req_history} candle(s) before start time to warm-up '
+                'strategy'
             )
             state.adjusted_start -= state.strategy.req_history * config.interval
             state.start_adjusted = True

@@ -5,7 +5,6 @@ from typing import List
 
 from juno.components import Historian, Informant, Prices
 from juno.optimization import Optimizer
-from juno.strategies import MAMACX
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import format_as_config, unpack_symbol
@@ -125,7 +124,7 @@ class Foo(Agent):
             start=optimization_start,
             end=trading_start,
             quote=quote,
-            strategy_type=MAMACX,
+            strategy='mamacx',
             symbols=[symbol],
             intervals=list(map(strpinterval, ('2h',))),
             population_size=10,

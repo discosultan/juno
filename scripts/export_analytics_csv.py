@@ -10,7 +10,7 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
-from juno.strategies import MA, MAMACX
+from juno.strategies import MA
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
 from juno.trading import MissedCandlePolicy, Trader, TradingSummary
 from juno.utils import unpack_symbol
@@ -31,14 +31,14 @@ async def main() -> None:
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     async with binance, coinbase, informant:
-        trading_summary = await trader.run(
+        trader_config = Trader.Config(
             exchange='binance',
             symbol=SYMBOL,
             interval=INTERVAL,
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy_type=MAMACX,
+            strategy='mamacx',
             strategy_kwargs={
                 'short_period': 3,
                 'long_period': 73,
@@ -51,6 +51,10 @@ async def main() -> None:
             trailing_stop=Decimal('0.0827'),
             missed_candle_policy=MissedCandlePolicy.LAST
         )
+        trading_state = Trader.State()
+        await trader.run(trader_config, trading_state)
+        trading_summary = trading_state.summary
+        assert TradingSummary
 
         _, filters = informant.get_fees_filters('binance', SYMBOL)
 
