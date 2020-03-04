@@ -7,7 +7,7 @@ from juno.components import Historian, Informant, Prices
 from juno.optimization import Optimizer
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
-from juno.trading import Trader, TradingSummary, analyse_benchmark, analyse_portfolio
+from juno.trading import Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import format_as_config, unpack_symbol
 
 from .agent import Agent
@@ -40,7 +40,7 @@ class Foo(Agent):
         )
         quote_per_symbol = quote / len(symbols)
 
-        summary = TradingSummary(quote=quote, start=trading_start)
+        state = Trader.State()
         await asyncio.gather(
             *(self._optimize_and_trade(
                 exchange,
@@ -48,10 +48,11 @@ class Foo(Agent):
                 trading_start,
                 end,
                 quote_per_symbol,
-                summary,
+                state,
             ) for s in symbols)
         )
-        summary.finish(end)
+        assert state.summary
+        state.summary.finish(end)
 
         # Statistics.
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
@@ -59,7 +60,7 @@ class Foo(Agent):
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, summary)
+        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, state.summary)
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
         _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')
@@ -103,7 +104,7 @@ class Foo(Agent):
         trading_start: int,
         end: int,
         quote: Decimal,
-        summary: TradingSummary
+        state: Trader.State
     ) -> None:
         optimization_start = (
             await self._historian.find_first_candle(exchange, symbol, DAY_MS)
@@ -134,7 +135,6 @@ class Foo(Agent):
         tc.update({
             'start': trading_start,
             'end': end,
-            'summary': summary
         })
 
-        await self._trader.run(**tc)
+        await self._trader.run(Trader.Config(**tc), state)

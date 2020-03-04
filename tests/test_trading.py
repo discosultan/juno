@@ -93,7 +93,7 @@ async def test_trader_trailing_stop_loss() -> None:
     })
     trader = Trader(chandler=chandler, informant=fakes.Informant())
 
-    summary = await trader.run(
+    config = Trader.Config(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -102,12 +102,13 @@ async def test_trader_trailing_stop_loss() -> None:
         quote=Decimal('10.0'),
         strategy_type=fakes.Strategy,
         strategy_kwargs={'advices': [Advice.BUY, None, None, Advice.SELL]},
-        missed_candle_policy=MissedCandlePolicy.IGNORE,
-        adjust_start=False,
         trailing_stop=Decimal('0.1'),
     )
+    state = Trader.State()
+    await trader.run(config, state)
+    assert state.summary
 
-    assert summary.profit == 8
+    assert state.summary.profit == 8
 
 
 async def test_trader_restart_on_missed_candle() -> None:
@@ -125,7 +126,7 @@ async def test_trader_restart_on_missed_candle() -> None:
     trader = Trader(chandler=chandler, informant=fakes.Informant())
     updates: List[Tuple[int, Candle]] = []
 
-    await trader.run(
+    config = Trader.Config(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -135,9 +136,9 @@ async def test_trader_restart_on_missed_candle() -> None:
         strategy_type=fakes.Strategy,
         strategy_kwargs={'advices': [None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.RESTART,
-        adjust_start=False,
-        trailing_stop=Decimal('0.0'),
     )
+    state = Trader.State()
+    await trader.run(config, state)
 
     assert len(updates) == 5
 
@@ -169,7 +170,7 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
     trader = Trader(chandler=chandler, informant=fakes.Informant())
     updates: List[Tuple[int, Candle]] = []
 
-    await trader.run(
+    config = Trader.Config(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -179,9 +180,9 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         strategy_type=fakes.Strategy,
         strategy_kwargs={'advices': [None, None, None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.LAST,
-        adjust_start=False,
-        trailing_stop=Decimal('0.0'),
     )
+    state = Trader.State()
+    await trader.run(config, state)
 
     candle_times = [c.time for _, c in updates]
     assert len(candle_times) == 5

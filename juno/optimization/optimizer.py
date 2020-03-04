@@ -39,22 +39,8 @@ _trailing_stop_constraint = ConstraintChoice([
 ])
 
 
-class TradingConfig(NamedTuple):
-    exchange: str
-    symbol: str
-    interval: Interval
-    start: Timestamp
-    end: Timestamp
-    quote: Decimal
-    missed_candle_policy: MissedCandlePolicy
-    trailing_stop: Decimal
-    adjust_start: bool
-    strategy_type: Type[Strategy]
-    strategy_kwargs: Dict[str, Any]
-
-
 class OptimizationRecord(NamedTuple):
-    trading_config: TradingConfig
+    trading_config: Trader.Config
     trading_summary: TradingSummary
     portfolio_stats: Statistics
 
@@ -246,7 +232,7 @@ class Optimizer:
         best_args = list(flatten(hall_of_fame[0]))
 
         start = floor_multiple(start, best_args[1])
-        trading_config = TradingConfig(
+        trading_config = Trader.Config(
             exchange=exchange,
             symbol=best_args[0],
             interval=best_args[1],
@@ -260,18 +246,19 @@ class Optimizer:
             strategy_kwargs=map_input_args(strategy_type.__init__, best_args[4:])
         )
 
-        trading_summary = TradingSummary(start=start, quote=quote)
+        state = Trader.State()
         try:
-            await self._trader.run(summary=trading_summary, **trading_config._asdict())
+            await self._trader.run(trading_config, state)
         except InsufficientBalance:
             pass
+        assert state.summary
         portfolio_summary = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, trading_summary
+            benchmark.g_returns, fiat_daily_prices, state.summary
         )
 
         best_individual = OptimizationRecord(
             trading_config=trading_config,
-            trading_summary=trading_summary,
+            trading_summary=state.summary,
             portfolio_stats=portfolio_summary.stats,
         )
         summary.best.append(best_individual)

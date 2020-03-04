@@ -7,9 +7,7 @@ from juno.components import Historian, Prices
 from juno.config import get_module_type_and_kwargs
 from juno.math import floor_multiple
 from juno.time import time_ms
-from juno.trading import (
-    MissedCandlePolicy, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
-)
+from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import format_as_config, unpack_symbol
 
 from .agent import Agent
@@ -62,8 +60,7 @@ class Backtest(Agent):
         assert quote > 0
 
         strategy_type, strategy_kwargs = get_module_type_and_kwargs(strategies, strategy)
-        self.result = TradingSummary(start=start, quote=quote)
-        await self._trader.run(
+        config = Trader.Config(
             exchange=exchange,
             symbol=symbol,
             interval=interval,
@@ -76,10 +73,12 @@ class Backtest(Agent):
             missed_candle_policy=missed_candle_policy,
             adjust_start=adjust_start,
             trailing_stop=trailing_stop,
-            summary=self.result
         )
+        self.result = Trader.State()
+        await self._trader.run(config, self.result)
+        assert self.result.summary
 
-        _log.info(f'trading summary: {format_as_config(self.result)}')
+        _log.info(f'trading summary: {format_as_config(self.result.summary)}')
 
         if not self._prices:
             return
@@ -92,7 +91,7 @@ class Backtest(Agent):
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         portfolio = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, self.result
+            benchmark.g_returns, fiat_daily_prices, self.result.summary
         )
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
