@@ -49,7 +49,7 @@ class Live(Agent):
         adjust_start: bool = True,
         trailing_stop: Decimal = Decimal('0.0'),
         get_time_ms: Optional[Callable[[], int]] = None,
-        store_state: bool = False,
+        store_state: bool = True,
     ) -> None:
         if not get_time_ms:
             get_time_ms = time_ms
@@ -91,9 +91,10 @@ class Live(Agent):
         await self._trader.run(config, self.result)
 
     async def on_finally(self) -> None:
-        _log.info(f'trading summary: {format_as_config(self.result.summary)}')
-        if self.config.get('store_state'):
-            await self._save_state(self.result)
+        if self.result:
+            _log.info(f'trading summary: {format_as_config(self.result.summary)}')
+            if self.config.get('store_state'):
+                await self._save_state(self.result)
 
     async def _get_or_create_state(self, config: Trader.Config) -> Trader.State[Any]:
         # Create dummy strategy from config to figure out runtime type.
@@ -113,12 +114,15 @@ class Live(Agent):
             _Session[type_],  # type: ignore
         )
         if not session:
+            _log.info(f'existing live session with name {self.name} not found; starting new')
             return Trader.State()
         if session.status in [AgentStatus.RUNNING, AgentStatus.FINISHED]:
             raise NotImplementedError()
+        _log.info(f'existing live session with name {self.name} found; continuing previous')
         return session.state
 
     async def _save_state(self, state: Trader.State[Any]) -> None:
+        _log.info(f'storing current session with name {self.name} and status {self.status}')
         await self._storage.set(
             'default',
             f'{self.name}_live_trader_state',

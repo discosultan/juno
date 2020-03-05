@@ -4,11 +4,8 @@
     "storage": "sqlite",
     "agents": [
         {
-            "type": "backtest",
+            "type": "live",
             "exchange": "binance",
-            "quote": 1.0,
-            "start": "2018-01-01",
-            "end": "2020-01-01",
             "symbol": "eos-btc",
             "interval": "1h",
             "missed_candle_policy": "last",
