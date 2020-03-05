@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import List
+from typing import Any, List
 
 from juno.components import Historian, Informant, Prices
 from juno.optimization import Optimizer
@@ -39,7 +39,7 @@ class Foo(Agent):
         )
         quote_per_symbol = quote / len(symbols)
 
-        state = Trader.State()
+        state: Trader.State[Any] = Trader.State()
         await asyncio.gather(
             *(self._optimize_and_trade(
                 exchange,

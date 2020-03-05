@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import pytest
 
@@ -105,7 +105,7 @@ async def test_trader_trailing_stop_loss() -> None:
         strategy_kwargs={'advices': [Advice.BUY, None, None, Advice.SELL]},
         trailing_stop=Decimal('0.1'),
     )
-    state = Trader.State()
+    state: Trader.State[Any] = Trader.State()
     await trader.run(config, state)
     assert state.summary
 
@@ -139,7 +139,7 @@ async def test_trader_restart_on_missed_candle() -> None:
         strategy_kwargs={'advices': [None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
-    state = Trader.State()
+    state: Trader.State[Any] = Trader.State()
     await trader.run(config, state)
 
     assert len(updates) == 5
@@ -184,7 +184,7 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         strategy_kwargs={'advices': [None, None, None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
-    state = Trader.State()
+    state: Trader.State[Any] = Trader.State()
     await trader.run(config, state)
 
     candle_times = [c.time for _, c in updates]

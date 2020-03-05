@@ -2,7 +2,7 @@ import importlib
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Dict, Generic, List, NamedTuple, Optional, TypeVar
 
 from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp, strategies
 from juno.brokers import Broker
@@ -16,11 +16,13 @@ from .common import MissedCandlePolicy, Position, TradingSummary
 
 _log = logging.getLogger(__name__)
 
+TStrategy = TypeVar('TStrategy', bound=Strategy)
+
 
 class Trader:
     @dataclass
-    class State:
-        strategy: Optional[Strategy] = None  # TODO: Generic?
+    class State(Generic[TStrategy]):
+        strategy: Optional[TStrategy] = None
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
         open_position: Optional[Position] = None
