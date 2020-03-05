@@ -20,10 +20,9 @@ class Bar(NamedTuple):
 
 @dataclass
 class Baz(Generic[T]):
-    def __init__(self, value1: str, value2: T, value3: Optional[float]) -> None:
-        self.value1 = value1
-        self.value2 = value2
-        self.value3 = value3
+    value1: str
+    value2: T
+    value3: Optional[float]
 
 
 def test_get_input_type_hints() -> None:

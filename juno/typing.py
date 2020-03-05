@@ -91,20 +91,17 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
             args.append(load_by_typing(sub_value, sub_type))
         return type_(*args)
 
-    # Try constructing a regular class.
-    annotations = get_input_type_hints(origin.__init__)
+    # Try constructing a regular dataclass.
+    annotations = get_type_hints(origin)
     type_args = list(get_args(type_))
-    kwargs = {}
-    for name, sub_type in annotations.items():
-        if name in annotations:
-            # Substitute generics.
-            if type(sub_type) is TypeVar:
-                sub_type = type_args.pop(0)
-            sub_value = value[name]
-            kwargs[name] = load_by_typing(sub_value, sub_type)
-    # instance = type_.__new__(type_)
-    # for
-    return type_(**kwargs)
+    instance = origin.__new__(origin)  # type: ignore
+    for name, sub_type in ((k, v) for k, v in annotations.items() if k in annotations):
+        # Substitute generics.
+        if type(sub_type) is TypeVar:
+            sub_type = type_args.pop(0)
+        sub_value = value[name]
+        setattr(instance, name, load_by_typing(sub_value, sub_type))
+    return instance
 
 
 def types_match(obj: Any, type_: Type[Any]):
@@ -113,6 +110,9 @@ def types_match(obj: Any, type_: Type[Any]):
     if origin is Union:
         sub_type, _ = get_args(type_)
         return obj is None or types_match(obj, sub_type)
+
+    if type(origin) is TypeVar:
+        return types_match(obj, type(obj))
 
     if not isinstance(obj, origin):
         return False
@@ -133,11 +133,11 @@ def types_match(obj: Any, type_: Type[Any]):
         subtype, = get_args(type_)
         return all(types_match(so, subtype) for so in obj)
 
-    # Try matching for a regular class.
+    # Try matching for a regular dataclass.
     return all(
         types_match(
             getattr(obj, sn), st
-        ) for sn, st in get_input_type_hints(type_.__init__).items()
+        ) for sn, st in get_type_hints(origin).items()
     )
 
 
