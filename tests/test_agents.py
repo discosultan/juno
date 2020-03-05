@@ -6,6 +6,7 @@ import pytest
 from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
 from juno.filters import Filters, Price, Size
+from juno.storages import Storage
 from juno.time import HOUR_MS
 from juno.trading import MissedCandlePolicy, Trader
 from juno.typing import load_by_typing
@@ -156,7 +157,7 @@ async def test_paper() -> None:
     assert len(orderbook_data[Side.SELL]) == 0
 
 
-async def test_live() -> None:
+async def test_live(storage: Storage) -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -201,6 +202,8 @@ async def test_live() -> None:
         'get_time_ms': fakes.Time(increment=1).get_time
     }
 
-    assert await Live(informant=informant, wallet=wallet, trader=trader).start(**agent_config)
+    assert await Live(
+        informant=informant, wallet=wallet, trader=trader, storage=storage
+    ).start(**agent_config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0

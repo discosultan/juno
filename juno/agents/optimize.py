@@ -55,7 +55,7 @@ class Optimize(Agent):
             summary=self.result,
         )
 
-    def on_finally(self) -> None:
+    async def on_finally(self) -> None:
         for ind in self.result.best:
             # Create a new typed named tuple for correctly formatting strategy kwargs for the
             # particular strategy type.

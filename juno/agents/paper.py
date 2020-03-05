@@ -64,5 +64,5 @@ class Paper(Agent):
         self.result = Trader.State()
         await self._trader.run(config, self.result)
 
-    def on_finally(self) -> None:
+    async def on_finally(self) -> None:
         _log.info(f'trading summary: {format_as_config(self.result.summary)}')

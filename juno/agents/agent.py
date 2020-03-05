@@ -19,19 +19,16 @@ class Agent:
 
     def __init__(self, event: Event = Event()) -> None:
         self._event = event
-        self.state = AgentState.STOPPED
+        self.status = AgentStatus.RUNNING
         self.result: Any = None
         self.config: Dict[str, Any] = {}
         self.name = f'{next(_random_names)}-{uuid.uuid4()}'
 
     async def start(self, **agent_config: Any) -> Any:
-        assert self.state is not AgentState.RUNNING
-
         self.config = agent_config
         self.name = agent_config.get('name', self.name)
 
         await self.emit('starting')
-        self.state = AgentState.RUNNING
         type_name = type(self).__name__.lower()
         _log.info(f'running {self.name} ({type_name}): {agent_config}')
 
@@ -39,14 +36,19 @@ class Agent:
             await self.run(**agent_config)
         except asyncio.CancelledError:
             _log.info('agent cancelled')
+            self.status = AgentStatus.CANCELLED
+            await self.on_cancelled()
         except Exception as exc:
             _log.error(f'unhandled exception in agent ({exc})')
+            self.status = AgentStatus.ERRORED
+            await self.on_errored()
             await self.emit('errored', exc)
             raise
+        else:
+            self.status = AgentStatus.FINISHED
         finally:
-            self.on_finally()
+            await self.on_finally()
 
-        self.state = AgentState.STOPPED
         await self.emit('finished')
         return self.result
 
@@ -59,10 +61,18 @@ class Agent:
             _log.error(exc_traceback(e))
         return results
 
-    def on_finally(self) -> None:
+    async def on_cancelled(self) -> None:
+        pass
+
+    async def on_errored(self) -> None:
+        pass
+
+    async def on_finally(self) -> None:
         pass
 
 
-class AgentState(Enum):
-    STOPPED = 0
-    RUNNING = 1
+class AgentStatus(Enum):
+    RUNNING = 0
+    CANCELLED = 1
+    ERRORED = 2
+    FINISHED = 3
