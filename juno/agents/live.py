@@ -94,26 +94,29 @@ class Live(Agent[LiveConfig, LiveState]):
             adjust_start=config.adjust_start,
             trailing_stop=config.trailing_stop,
         )
+        await self._resume_or_start_session(trader_config, state)
         state.result = (
             await self._get_or_create_state(trader_config) if config.store_state
             else Trader.State()
         )
         await self._trader.run(trader_config, state.result)
         if config.store_state:
-            await self._save_state(AgentStatus.FINISHED, self.result)
+            await self._save_state(state)
 
     async def on_cancelled(self, config: LiveConfig, state: LiveState) -> None:
         if config.store_state:
-            await self._save_state(AgentStatus.CANCELLED, state.result)
+            await self._save_state(state)
 
     async def on_errored(self, config: LiveConfig, state: LiveState) -> None:
         if config.store_state:
-            await self._save_state(AgentStatus.ERRORED, state.result)
+            await self._save_state(state)
 
     async def on_finally(self, config: LiveConfig, state: LiveState) -> None:
         _log.info(f'trading summary: {format_as_config(state.result.summary)}')
 
-    async def _get_or_create_state(self, trader_config: Trader.Config, state: LiveState) -> Trader.State[Any]:
+    async def _resume_or_start_session(
+        self, trader_config: Trader.Config, state: LiveState
+    ) -> LiveState:
         # Create dummy strategy from config to figure out runtime type.
         dummy_strategy = trader_config.new_strategy()
         strategy_type = type(dummy_strategy)
