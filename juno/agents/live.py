@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
@@ -14,20 +13,41 @@ from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader
 from juno.utils import format_as_config, unpack_symbol
 
-from .agent import Agent, AgentStatus
+from .agent import Agent, AgentConfig, AgentState, AgentStatus
 
 _log = logging.getLogger(__name__)
 
 TStrategy = TypeVar('TStrategy', bound=Strategy)
 
 
+@dataclass(frozen=True)
+class LiveConfig(AgentConfig):
+    exchange: str
+    symbol: str
+    interval: Interval
+    strategy: Dict[str, Any]
+    name: Optional[str] = None
+    quote: Optional[Decimal] = None
+    end: Timestamp = MAX_TIME_MS
+    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
+    adjust_start: bool = True
+    trailing_stop: Decimal = Decimal('0.0')
+    get_time_ms: Optional[Callable[[], int]] = None
+    store_state: bool = True
+
+    @property
+    def quote_asset(self) -> str:
+        return unpack_symbol(self.symbol)[1]
+
+
 @dataclass
-class _Session(Generic[TStrategy]):
+class LiveState(Generic[TStrategy], AgentState):
     status: AgentStatus
-    state: Trader.State[TStrategy]
+    name: str
+    result: Trader.State[TStrategy]
 
 
-class Live(Agent):
+class Live(Agent[LiveConfig, LiveState]):
     def __init__(
         self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage,
         event: Event = Event()
@@ -38,77 +58,64 @@ class Live(Agent):
         self._trader = trader
         self._storage = storage
 
-    async def run(
-        self,
-        name: str,
-        exchange: str,
-        symbol: str,
-        interval: Interval,
-        strategy: Dict[str, Any],
-        quote: Optional[Decimal] = None,
-        end: Timestamp = MAX_TIME_MS,
-        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
-        adjust_start: bool = True,
-        trailing_stop: Decimal = Decimal('0.0'),
-        get_time_ms: Optional[Callable[[], int]] = None,
-        store_state: bool = True,
-    ) -> None:
-        if not get_time_ms:
-            get_time_ms = time_ms
+    async def on_running(self, config: LiveConfig, state: LiveState) -> None:
+        get_time_ms = config.get_time_ms if config.get_time_ms else time_ms
 
-        current = floor_multiple(get_time_ms(), interval)
-        end = floor_multiple(end, interval)
+        current = floor_multiple(get_time_ms(), config.interval)
+        end = floor_multiple(config.end, config.interval)
         assert end > current
 
-        _, quote_asset = unpack_symbol(symbol)
-        available_quote = self._wallet.get_balance(exchange, quote_asset).available
+        available_quote = self._wallet.get_balance(config.exchange, config.quote_asset).available
 
-        _, filters = self._informant.get_fees_filters(exchange, symbol)
+        _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         assert available_quote > filters.price.min
 
+        quote = config.quote
         if quote is None:
             quote = available_quote
-            _log.info(f'quote not defined; using available {available_quote} {quote_asset}')
+            _log.info(f'quote not defined; using available {available_quote} {config.quote_asset}')
         else:
             assert quote <= available_quote
-            _log.info(f'using pre-defined quote {quote} {quote_asset}')
+            _log.info(f'using pre-defined quote {quote} {config.quote_asset}')
 
-        strategy_name, strategy_kwargs = get_type_name_and_kwargs(strategy)
-        config = Trader.Config(
-            exchange=exchange,
-            symbol=symbol,
-            interval=interval,
+        strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
+        trader_config = Trader.Config(
+            exchange=config.exchange,
+            symbol=config.symbol,
+            interval=config.interval,
             start=current,
             end=end,
             quote=quote,
             strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
             test=True,  # TODO: TEMP
-            channel=self.name,
-            missed_candle_policy=missed_candle_policy,
-            adjust_start=adjust_start,
-            trailing_stop=trailing_stop,
+            channel=state.name,
+            missed_candle_policy=config.missed_candle_policy,
+            adjust_start=config.adjust_start,
+            trailing_stop=config.trailing_stop,
         )
-        self.result = await self._get_or_create_state(config) if store_state else Trader.State()
-        try:
-            await self._trader.run(config, self.result)
-        except asyncio.CancelledError:
-            if store_state:
-                await self._save_state(AgentStatus.CANCELLED, self.result)
-            raise
-        except Exception:
-            if store_state:
-                await self._save_state(AgentStatus.ERRORED, self.result)
-            raise
-        else:
-            if store_state:
-                await self._save_state(AgentStatus.FINISHED, self.result)
-        finally:
-            _log.info(f'trading summary: {format_as_config(self.result.summary)}')
+        state.result = (
+            await self._get_or_create_state(trader_config) if config.store_state
+            else Trader.State()
+        )
+        await self._trader.run(trader_config, state.result)
+        if config.store_state:
+            await self._save_state(AgentStatus.FINISHED, self.result)
 
-    async def _get_or_create_state(self, config: Trader.Config) -> Trader.State[Any]:
+    async def on_cancelled(self, config: LiveConfig, state: LiveState) -> None:
+        if config.store_state:
+            await self._save_state(AgentStatus.CANCELLED, state.result)
+
+    async def on_errored(self, config: LiveConfig, state: LiveState) -> None:
+        if config.store_state:
+            await self._save_state(AgentStatus.ERRORED, state.result)
+
+    async def on_finally(self, config: LiveConfig, state: LiveState) -> None:
+        _log.info(f'trading summary: {format_as_config(state.result.summary)}')
+
+    async def _get_or_create_state(self, trader_config: Trader.Config, state: LiveState) -> Trader.State[Any]:
         # Create dummy strategy from config to figure out runtime type.
-        dummy_strategy = config.new_strategy()
+        dummy_strategy = trader_config.new_strategy()
         strategy_type = type(dummy_strategy)
         resolved_params = _resolve_generic_types(dummy_strategy)  # type: ignore
         if len(resolved_params) == 1:
@@ -120,8 +127,8 @@ class Live(Agent):
         type_ = Trader.State[strategy_type]  # type: ignore
         session = await self._storage.get(
             'default',
-            f'{self.name}_live_trader_state',
-            _Session[type_],  # type: ignore
+            f'{state.name}_live_trader_state',
+            LiveState,
         )
         if not session:
             _log.info(f'existing live session with name {self.name} not found; starting new')
@@ -131,13 +138,9 @@ class Live(Agent):
         _log.info(f'existing live session with name {self.name} found; continuing previous')
         return session.state
 
-    async def _save_state(self, status: AgentStatus, state: Trader.State[Any]) -> None:
-        _log.info(f'storing current session with name {self.name} and status {status.name}')
-        await self._storage.set(
-            'default',
-            f'{self.name}_live_trader_state',
-            _Session(status=status, state=state),
-        )
+    async def _save_state(self, state: LiveState) -> None:
+        _log.info(f'storing current session with name {state.name} and status {state.status.name}')
+        await self._storage.set('default', f'{state.name}_live_trader_state', state)
 
 
 def _resolve_generic_types(container):

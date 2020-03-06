@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -10,12 +11,35 @@ from juno.time import time_ms
 from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import format_as_config, unpack_symbol
 
-from .agent import Agent
+from .agent import Agent, AgentConfig, AgentState
 
 _log = logging.getLogger(__name__)
 
 
-class Backtest(Agent):
+@dataclass(frozen=True)
+class BacktestConfig(AgentConfig):
+    exchange: str
+    symbol: str
+    interval: Interval
+    quote: Decimal
+    strategy: Dict[str, Any]
+    name: Optional[str] = None
+    start: Optional[Timestamp] = None
+    end: Optional[Timestamp] = None
+    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
+    adjust_start: bool = True
+    trailing_stop: Decimal = Decimal('0.0')
+
+    @property
+    def base_asset(self) -> str:
+        return unpack_symbol(self.symbol)[0]
+
+    @property
+    def quote_asset(self) -> str:
+        return unpack_symbol(self.symbol)[1]
+
+
+class Backtest(Agent[BacktestConfig, AgentState]):
     def __init__(
         self,
         trader: Trader,
@@ -27,21 +51,12 @@ class Backtest(Agent):
         self._historian = historian
         self._prices = prices
 
-    async def run(
-        self,
-        exchange: str,
-        symbol: str,
-        interval: Interval,
-        quote: Decimal,
-        strategy: Dict[str, Any],
-        start: Optional[Timestamp] = None,
-        end: Optional[Timestamp] = None,
-        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE,
-        adjust_start: bool = True,
-        trailing_stop: Decimal = Decimal('0.0'),
-    ) -> None:
+    async def on_running(self, config: BacktestConfig, state: AgentState) -> None:
+        start = config.start
         if self._historian:
-            first_candle = await self._historian.find_first_candle(exchange, symbol, interval)
+            first_candle = await self._historian.find_first_candle(
+                config.exchange, config.symbol, config.interval
+            )
             if not start or start < first_candle.time:
                 start = first_candle.time
 
@@ -50,48 +65,48 @@ class Backtest(Agent):
 
         now = time_ms()
 
-        start = floor_multiple(start, interval)
+        start = floor_multiple(start, config.interval)
+        end = config.end
         if end is None:
             end = now
-        end = floor_multiple(end, interval)
+        end = floor_multiple(end, config.interval)
 
         assert end <= now
         assert end > start
-        assert quote > 0
+        assert config.quote > 0
 
-        strategy_name, strategy_kwargs = get_type_name_and_kwargs(strategy)
-        config = Trader.Config(
-            exchange=exchange,
-            symbol=symbol,
-            interval=interval,
+        strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
+        trader_config = Trader.Config(
+            exchange=config.exchange,
+            symbol=config.symbol,
+            interval=config.interval,
             start=start,
             end=end,
-            quote=quote,
+            quote=config.quote,
             strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
-            channel=self.name,
-            missed_candle_policy=missed_candle_policy,
-            adjust_start=adjust_start,
-            trailing_stop=trailing_stop,
+            channel=state.name,
+            missed_candle_policy=config.missed_candle_policy,
+            adjust_start=config.adjust_start,
+            trailing_stop=config.trailing_stop,
         )
-        self.result = Trader.State()
-        await self._trader.run(config, self.result)
-        assert self.result.summary
+        result: Trader.State[Any] = Trader.State()
+        await self._trader.run(trader_config, result)
+        assert result.summary
 
-        _log.info(f'trading summary: {format_as_config(self.result.summary)}')
+        _log.info(f'trading summary: {format_as_config(result.summary)}')
 
         if not self._prices:
             return
 
         # Fetch necessary market data.
-        base_asset, quote_asset = unpack_symbol(symbol)
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
-            (base_asset, quote_asset), start, end
+            (config.base_asset, config.quote_asset), start, end
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         portfolio = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, self.result.summary
+            benchmark.g_returns, fiat_daily_prices, result.summary
         )
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')

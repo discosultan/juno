@@ -1,10 +1,10 @@
 import asyncio
 import logging
 import uuid
+from abc import ABC
 from enum import IntEnum
-from typing import Any, Awaitable, Callable, Dict, List
+from typing import Any, Generic, List, Optional, TypeVar
 
-from juno.asyncio import resolved_future
 from juno.components import Event
 from juno.utils import exc_traceback, generate_random_words
 
@@ -13,62 +13,8 @@ _log = logging.getLogger(__name__)
 _random_names = generate_random_words()
 
 
-class Agent:
-
-    run: Callable[..., Awaitable[None]] = lambda: resolved_future(None)
-
-    def __init__(self, event: Event = Event()) -> None:
-        self._event = event
-        self.status = AgentStatus.RUNNING
-        self.result: Any = None
-        self.config: Dict[str, Any] = {}
-        self.name = f'{next(_random_names)}-{uuid.uuid4()}'
-
-    async def start(self, **agent_config: Any) -> Any:
-        self.config = agent_config
-        self.name = agent_config.get('name', self.name)
-
-        await self.emit('starting')
-        type_name = type(self).__name__.lower()
-        _log.info(f'running {self.name} ({type_name}): {agent_config}')
-
-        try:
-            await self.run(**agent_config)
-        except asyncio.CancelledError:
-            _log.info('agent cancelled')
-            self.status = AgentStatus.CANCELLED
-            await self.on_cancelled()
-        except Exception as exc:
-            _log.error(f'unhandled exception in agent ({exc})')
-            self.status = AgentStatus.ERRORED
-            await self.on_errored()
-            await self.emit('errored', exc)
-            raise
-        else:
-            self.status = AgentStatus.FINISHED
-        finally:
-            await self.on_finally()
-
-        await self.emit('finished')
-        return self.result
-
-    def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
-        return self._event.on(self.name, event)
-
-    async def emit(self, event: str, *args: Any) -> List[Any]:
-        results = await self._event.emit(self.name, event, *args)
-        for e in (r for r in results if isinstance(r, Exception)):
-            _log.error(exc_traceback(e))
-        return results
-
-    async def on_cancelled(self) -> None:
-        pass
-
-    async def on_errored(self) -> None:
-        pass
-
-    async def on_finally(self) -> None:
-        pass
+class AgentConfig(ABC):
+    name: Optional[str]
 
 
 class AgentStatus(IntEnum):
@@ -76,3 +22,65 @@ class AgentStatus(IntEnum):
     CANCELLED = 1
     ERRORED = 2
     FINISHED = 3
+
+
+class AgentState(ABC):
+    status: AgentStatus
+    name: str
+
+
+TConfig = TypeVar('TConfig', bound=AgentConfig)
+TState = TypeVar('TState', bound=AgentState)
+
+
+class Agent(Generic[TConfig, TState]):
+
+    def __init__(self, event: Event = Event()) -> None:
+        self._event = event
+
+    async def run(self, config: TConfig) -> None:
+        state = TState(  # type: ignore
+            status=AgentStatus.RUNNING,
+            name=config.name or f'{next(_random_names)}-{uuid.uuid4()}',
+        )
+
+        await self.emit(state.name, 'starting')
+        type_name = type(self).__name__.lower()
+        _log.info(f'running {state.name} ({type_name}): {config}')
+
+        try:
+            await self.on_running(config, state)
+        except asyncio.CancelledError:
+            _log.info('agent cancelled')
+            state.status = AgentStatus.CANCELLED
+            await self.on_cancelled(config, state)
+        except Exception as exc:
+            _log.error(f'unhandled exception in agent ({exc})')
+            state.status = AgentStatus.ERRORED
+            await self.on_errored(config, state)
+            await self.emit(state.name, 'errored', exc)
+            raise
+        else:
+            state.status = AgentStatus.FINISHED
+        finally:
+            await self.on_finally(config, state)
+
+        await self.emit(state.name, 'finished')
+
+    async def on_running(self, config: TConfig, state: TState) -> None:
+        pass
+
+    async def on_cancelled(self, config: TConfig, state: TState) -> None:
+        pass
+
+    async def on_errored(self, config: TConfig, state: TState) -> None:
+        pass
+
+    async def on_finally(self, config: TConfig, state: TState) -> None:
+        pass
+
+    async def emit(self, channel: str, event: str, *args: Any) -> List[Any]:
+        results = await self._event.emit(channel, event, *args)
+        for e in (r for r in results if isinstance(r, Exception)):
+            _log.error(exc_traceback(e))
+        return results
