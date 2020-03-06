@@ -5,6 +5,7 @@
     "agents": [
         {
             "type": "live",
+            "name": "tupsu",
             "exchange": "binance",
             "symbol": "eos-btc",
             "interval": "1h",

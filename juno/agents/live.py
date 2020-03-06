@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
@@ -39,6 +40,7 @@ class Live(Agent):
 
     async def run(
         self,
+        name: str,
         exchange: str,
         symbol: str,
         interval: Interval,
@@ -88,13 +90,21 @@ class Live(Agent):
             trailing_stop=trailing_stop,
         )
         self.result = await self._get_or_create_state(config) if store_state else Trader.State()
-        await self._trader.run(config, self.result)
-
-    async def on_finally(self) -> None:
-        if self.result:
+        try:
+            await self._trader.run(config, self.result)
+        except asyncio.CancelledError:
+            if store_state:
+                await self._save_state(AgentStatus.CANCELLED, self.result)
+            raise
+        except Exception:
+            if store_state:
+                await self._save_state(AgentStatus.ERRORED, self.result)
+            raise
+        else:
+            if store_state:
+                await self._save_state(AgentStatus.FINISHED, self.result)
+        finally:
             _log.info(f'trading summary: {format_as_config(self.result.summary)}')
-            if self.config.get('store_state'):
-                await self._save_state(self.result)
 
     async def _get_or_create_state(self, config: Trader.Config) -> Trader.State[Any]:
         # Create dummy strategy from config to figure out runtime type.
@@ -121,12 +131,12 @@ class Live(Agent):
         _log.info(f'existing live session with name {self.name} found; continuing previous')
         return session.state
 
-    async def _save_state(self, state: Trader.State[Any]) -> None:
-        _log.info(f'storing current session with name {self.name} and status {self.status}')
+    async def _save_state(self, status: AgentStatus, state: Trader.State[Any]) -> None:
+        _log.info(f'storing current session with name {self.name} and status {status.name}')
         await self._storage.set(
             'default',
             f'{self.name}_live_trader_state',
-            _Session(status=self.status, state=state),
+            _Session(status=status, state=state),
         )
 
 

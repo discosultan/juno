@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from enum import Enum
+from enum import IntEnum
 from typing import Any, Awaitable, Callable, Dict, List
 
 from juno.asyncio import resolved_future
@@ -71,7 +71,7 @@ class Agent:
         pass
 
 
-class AgentStatus(Enum):
+class AgentStatus(IntEnum):
     RUNNING = 0
     CANCELLED = 1
     ERRORED = 2

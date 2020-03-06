@@ -96,6 +96,8 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
     type_args = list(get_args(type_))
     instance = origin.__new__(origin)  # type: ignore
     for name, sub_type in ((k, v) for k, v in annotations.items() if k in annotations):
+        if name not in value:
+            continue
         # Substitute generics.
         if type(sub_type) is TypeVar:
             sub_type = type_args.pop(0)
