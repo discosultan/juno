@@ -96,19 +96,11 @@ class Live(Agent):
             else Trader.State()
         )
         await self._trader.run(trader_config, state.result)
-        if config.store_state:
-            await self._save_trader_state(state)
-
-    async def on_cancelled(self, config: Config, state: State) -> None:
-        if config.store_state:
-            await self._save_trader_state(state)
-
-    async def on_errored(self, config: Config, state: State) -> None:
-        if config.store_state:
-            await self._save_trader_state(state)
 
     async def on_finally(self, config: Config, state: State) -> None:
         _log.info(f'trading summary: {format_as_config(state.result.summary)}')
+        if config.store_state:
+            await self._save_trader_state(state)
 
     async def _get_or_create_trader_state(
         self, trader_config: Trader.Config, name: str
