@@ -98,18 +98,19 @@ async def main() -> None:
     }
 
     # Load plugins.
-    plugins = list_plugins(agent_config_map, cfg)
+    # plugins = list_plugins(agent_config_map, cfg)
 
     async with AsyncExitStack() as stack:
 
         # Init all deps and plugins.
         await asyncio.gather(
-            stack.enter_async_context(container), *(stack.enter_async_context(p) for p in plugins)
+            stack.enter_async_context(container),
+            # *(stack.enter_async_context(p) for p in plugins),
         )
 
         # Run agents.
         await asyncio.gather(
-            *(a.start(**config.kwargs_for(a.run, c)) for a, c in agent_config_map.items())
+            *(a.run(config.config_to_type(c, a.Config)) for a, c in agent_config_map.items())
         )
 
     _log.info('main finished')

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Dict
+from typing import Any, AsyncIterator, Dict, Type
 
 import discord
 
@@ -18,9 +18,19 @@ _log = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def activate(agent: Agent, plugin_config: Dict[str, Any]) -> AsyncIterator[None]:
-    def format_message(title: str, content: Any, lang: str = 'json') -> str:
-        return f'{type(agent).__name__} agent {agent.name} {title}:\n```{lang}\n{content}\n```\n'
+async def activate(
+    agent_config: Dict[str, Any], plugin_config: Dict[str, Any]
+) -> AsyncIterator[None]:
+    def format_message(
+        agent_type: Type[Agent],
+        agent_name: str,
+        title: str,
+        content: Any,
+        lang: str = 'json',
+    ) -> str:
+        return (
+            f'{type(agent_type).__name__} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'
+        )
 
     token = plugin_config.get('token')
     if not token:

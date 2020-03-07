@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
@@ -9,54 +10,60 @@ from juno.trading import MissedCandlePolicy
 from juno.typing import get_input_type_hints
 from juno.utils import format_as_config
 
-from .agent import Agent
+from .agent import Agent, AgentStatus
 
 _log = logging.getLogger(__name__)
 
 
 class Optimize(Agent):
+    class Config(NamedTuple):
+        exchange: str
+        symbols: Optional[List[str]]
+        intervals: Optional[List[Interval]]
+        start: Timestamp
+        quote: Decimal
+        strategy: str
+        end: Optional[Timestamp] = None
+        missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
+        trailing_stop: Optional[Decimal] = Decimal('0.0')
+        population_size: int = 50
+        max_generations: int = 1000
+        mutation_probability: Decimal = Decimal('0.2')
+        seed: Optional[int] = None
+        verbose: bool = False
+
+    @dataclass
+    class State:
+        status: AgentStatus
+        name: str
+        result: OptimizationSummary
+
     def __init__(self, optimizer: Optimizer) -> None:
         super().__init__()
         self._optimizer = optimizer
 
-    async def run(
-        self,
-        exchange: str,
-        symbols: Optional[List[str]],
-        intervals: Optional[List[Interval]],
-        start: Timestamp,
-        quote: Decimal,
-        strategy: str,
-        end: Optional[Timestamp] = None,
-        missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE,
-        trailing_stop: Optional[Decimal] = Decimal('0.0'),
-        population_size: int = 50,
-        max_generations: int = 1000,
-        mutation_probability: Decimal = Decimal('0.2'),
-        seed: Optional[int] = None,
-        verbose: bool = False,
-    ) -> None:
-        self.result = OptimizationSummary()
+    async def on_running(self, config: Config, state: State) -> None:
+        state.result = OptimizationSummary()
         await self._optimizer.run(
-            exchange=exchange,
-            symbols=symbols,
-            intervals=intervals,
-            start=start,
-            quote=quote,
-            strategy=strategy,
-            end=end,
-            missed_candle_policy=missed_candle_policy,
-            trailing_stop=trailing_stop,
-            population_size=population_size,
-            max_generations=max_generations,
-            mutation_probability=mutation_probability,
-            seed=seed,
-            verbose=verbose,
-            summary=self.result,
+            exchange=config.exchange,
+            symbols=config.symbols,
+            intervals=config.intervals,
+            start=config.start,
+            quote=config.quote,
+            strategy=config.strategy,
+            end=config.end,
+            missed_candle_policy=config.missed_candle_policy,
+            trailing_stop=config.trailing_stop,
+            population_size=config.population_size,
+            max_generations=config.max_generations,
+            mutation_probability=config.mutation_probability,
+            seed=config.seed,
+            verbose=config.verbose,
+            summary=state.result,
         )
 
-    async def on_finally(self) -> None:
-        for ind in self.result.best:
+    async def on_finally(self, config: Config, state: State) -> None:
+        for ind in state.result.best:
             # Create a new typed named tuple for correctly formatting strategy kwargs for the
             # particular strategy type.
 
@@ -74,7 +81,7 @@ class Optimize(Agent):
             trading_config_type = NamedTuple('_', trading_config_typings.items())  # type: ignore
             x = ind.trading_config._asdict()
             x['strategy_kwargs'] = strategy_kwargs_instance
-            trading_config = trading_config_type(*x.values())
+            trading_config = trading_config_type(*x.values())  # type: ignore
 
             _log.info(f'trading config: {format_as_config(trading_config)}')
             _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')

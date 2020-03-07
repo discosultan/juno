@@ -1,9 +1,9 @@
 import asyncio
 import logging
 import uuid
-from abc import ABC
+from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Generic, List, Optional, TypeVar
+from typing import Any, List
 
 from juno.components import Event
 from juno.utils import exc_traceback, generate_random_words
@@ -13,10 +13,6 @@ _log = logging.getLogger(__name__)
 _random_names = generate_random_words()
 
 
-class AgentConfig(ABC):
-    name: Optional[str]
-
-
 class AgentStatus(IntEnum):
     RUNNING = 0
     CANCELLED = 1
@@ -24,24 +20,20 @@ class AgentStatus(IntEnum):
     FINISHED = 3
 
 
-class AgentState(ABC):
-    status: AgentStatus
-    name: str
-
-
-TConfig = TypeVar('TConfig', bound=AgentConfig)
-TState = TypeVar('TState', bound=AgentState)
-
-
-class Agent(Generic[TConfig, TState]):
+class Agent:
+    @dataclass
+    class State:
+        status: AgentStatus
+        name: str
+        result: Any = None
 
     def __init__(self, event: Event = Event()) -> None:
         self._event = event
 
-    async def run(self, config: TConfig) -> None:
-        state = TState(  # type: ignore
+    async def run(self, config: Any) -> Any:
+        state = Agent.State(
             status=AgentStatus.RUNNING,
-            name=config.name or f'{next(_random_names)}-{uuid.uuid4()}',
+            name=getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}',
         )
 
         await self.emit(state.name, 'starting')
@@ -67,16 +59,18 @@ class Agent(Generic[TConfig, TState]):
 
         await self.emit(state.name, 'finished')
 
-    async def on_running(self, config: TConfig, state: TState) -> None:
+        return state.result
+
+    async def on_running(self, config: Any, state: Any) -> None:
         pass
 
-    async def on_cancelled(self, config: TConfig, state: TState) -> None:
+    async def on_cancelled(self, config: Any, state: Any) -> None:
         pass
 
-    async def on_errored(self, config: TConfig, state: TState) -> None:
+    async def on_errored(self, config: Any, state: Any) -> None:
         pass
 
-    async def on_finally(self, config: TConfig, state: TState) -> None:
+    async def on_finally(self, config: Any, state: Any) -> None:
         pass
 
     async def emit(self, channel: str, event: str, *args: Any) -> List[Any]:

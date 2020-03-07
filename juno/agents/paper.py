@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, NamedTuple, Optional
 
 from juno import Interval, Timestamp
 from juno.components import Event, Informant
@@ -11,37 +11,37 @@ from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader
 from juno.utils import format_as_config
 
-from .agent import Agent, AgentConfig, AgentState
+from .agent import Agent, AgentStatus
 
 _log = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class PaperConfig(AgentConfig):
-    exchange: str
-    symbol: str
-    interval: Interval
-    quote: Decimal
-    strategy: Dict[str, Any]
-    end: Timestamp = MAX_TIME_MS
-    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-    adjust_start: bool = True
-    trailing_stop: Decimal = Decimal('0.0')
-    get_time_ms: Optional[Callable[[], int]] = None
+class Paper(Agent):
+    class Config(NamedTuple):
+        exchange: str
+        symbol: str
+        interval: Interval
+        quote: Decimal
+        strategy: Dict[str, Any]
+        name: Optional[str] = None
+        end: Timestamp = MAX_TIME_MS
+        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
+        adjust_start: bool = True
+        trailing_stop: Decimal = Decimal('0.0')
+        get_time_ms: Optional[Callable[[], int]] = None
 
+    @dataclass
+    class State:
+        status: AgentStatus
+        name: str
+        result: Trader.State
 
-@dataclass
-class PaperState(AgentState):
-    result: Trader.State
-
-
-class Paper(Agent[PaperConfig, PaperState]):
     def __init__(self, informant: Informant, trader: Trader, event: Event = Event()) -> None:
         super().__init__(event)
         self._informant = informant
         self._trader = trader
 
-    async def on_running(self, config: PaperConfig, state: PaperState) -> None:
+    async def on_running(self, config: Config, state: State) -> None:
         get_time_ms = config.get_time_ms if config.get_time_ms else time_ms
 
         current = floor_multiple(get_time_ms(), config.interval)
@@ -71,6 +71,6 @@ class Paper(Agent[PaperConfig, PaperState]):
         state.result = Trader.State()
         await self._trader.run(trader_config, state.result)
 
-    async def on_finally(self, config: PaperConfig, state: PaperState) -> None:
+    async def on_finally(self, config: Config, state: State) -> None:
         if state.result:
             _log.info(f'trading summary: {format_as_config(state.result.summary)}')

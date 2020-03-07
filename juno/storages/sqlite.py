@@ -11,7 +11,7 @@ from typing import (
 
 from juno import Interval, Timestamp, json
 from juno.time import strfspan
-from juno.typing import load_by_typing
+from juno.typing import raw_to_type
 from juno.utils import home_path
 
 from .storage import Storage
@@ -19,7 +19,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = '38'
+_VERSION = '39'
 
 T = TypeVar('T')
 
@@ -81,7 +81,7 @@ class SQLite(Storage):
                 ).fetchall()
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
         for row in rows:
-            yield load_by_typing(row, type_)
+            yield raw_to_type(row, type_)
 
     async def store_time_series_and_span(
         self, shard: str, key: str, items: List[Any], start: int, end: int
@@ -133,7 +133,7 @@ class SQLite(Storage):
                 row = conn.execute(
                     f'SELECT * FROM {KEY_VALUE_PAIR_KEY} WHERE key=?', [key]
                 ).fetchone()
-                return load_by_typing(json.loads(row[1]), type_) if row else None
+                return raw_to_type(json.loads(row[1]), type_) if row else None
 
         return await asyncio.get_running_loop().run_in_executor(None, inner)
 

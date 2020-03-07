@@ -1,6 +1,7 @@
 from collections import deque
 from dataclasses import dataclass
 from decimal import Decimal
+from enum import IntEnum
 from typing import Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar
 
 import pytest
@@ -23,6 +24,10 @@ class Baz(Generic[T]):
     value1: str
     value2: T
     value3: Optional[float]
+
+
+class Qux(IntEnum):
+    VALUE = 1
 
 
 def test_get_input_type_hints() -> None:
@@ -62,9 +67,10 @@ def test_isoptional(input_, expected_output) -> None:
     ([1, 2], List[int], [1, 2]),
     ({'value1': 'a', 'value2': 1, 'value3': 2.0}, Baz[int], Baz('a', 1, 2.0)),
     ([1.0, 2.0], Deque[Decimal], deque([Decimal('1.0'), Decimal('2.0')])),
+    (1, Qux, Qux.VALUE),
 ])
-def test_load_by_typing(obj, type_, expected_output) -> None:
-    assert typing.load_by_typing(obj, type_) == expected_output
+def test_raw_to_type(obj, type_, expected_output) -> None:
+    assert typing.raw_to_type(obj, type_) == expected_output
 
 
 @pytest.mark.parametrize('input_,type_,expected_output', [

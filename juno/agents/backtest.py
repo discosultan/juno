@@ -1,7 +1,6 @@
 import logging
-from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
 from juno import Interval, Timestamp
 from juno.components import Historian, Prices
@@ -11,35 +10,33 @@ from juno.time import time_ms
 from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import format_as_config, unpack_symbol
 
-from .agent import Agent, AgentConfig, AgentState
+from .agent import Agent
 
 _log = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class BacktestConfig(AgentConfig):
-    exchange: str
-    symbol: str
-    interval: Interval
-    quote: Decimal
-    strategy: Dict[str, Any]
-    name: Optional[str] = None
-    start: Optional[Timestamp] = None
-    end: Optional[Timestamp] = None
-    missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-    adjust_start: bool = True
-    trailing_stop: Decimal = Decimal('0.0')
+class Backtest(Agent):
+    class Config(NamedTuple):
+        exchange: str
+        symbol: str
+        interval: Interval
+        quote: Decimal
+        strategy: Dict[str, Any]
+        name: Optional[str] = None
+        start: Optional[Timestamp] = None
+        end: Optional[Timestamp] = None
+        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
+        adjust_start: bool = True
+        trailing_stop: Decimal = Decimal('0.0')
 
-    @property
-    def base_asset(self) -> str:
-        return unpack_symbol(self.symbol)[0]
+        @property
+        def base_asset(self) -> str:
+            return unpack_symbol(self.symbol)[0]
 
-    @property
-    def quote_asset(self) -> str:
-        return unpack_symbol(self.symbol)[1]
+        @property
+        def quote_asset(self) -> str:
+            return unpack_symbol(self.symbol)[1]
 
-
-class Backtest(Agent[BacktestConfig, AgentState]):
     def __init__(
         self,
         trader: Trader,
@@ -51,7 +48,7 @@ class Backtest(Agent[BacktestConfig, AgentState]):
         self._historian = historian
         self._prices = prices
 
-    async def on_running(self, config: BacktestConfig, state: AgentState) -> None:
+    async def on_running(self, config: Config, state: Agent.State) -> None:
         start = config.start
         if self._historian:
             first_candle = await self._historian.find_first_candle(
