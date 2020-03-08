@@ -48,14 +48,14 @@ class Live(Agent):
 
     def __init__(
         self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage,
-        event: Event = Event(), get_time_ms: Optional[Callable[[], int]] = None
+        event: Event = Event(), get_time_ms: Callable[[], int] = time_ms
     ) -> None:
         super().__init__(event)
         self._informant = informant
         self._wallet = wallet
         self._trader = trader
         self._storage = storage
-        self._get_time_ms = get_time_ms or time_ms
+        self._get_time_ms = get_time_ms
 
     async def on_running(self, config: Config, state: State) -> None:
         current = floor_multiple(self._get_time_ms(), config.interval)

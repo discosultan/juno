@@ -54,7 +54,7 @@ async def test_backtest() -> None:
 
     res = await Backtest(trader=trader).run(config)
 
-    summary = res.summary
+    summary = res.result.summary
     assert summary.profit == -50
     assert summary.duration == 6
     assert summary.roi == Decimal('-0.5')
@@ -106,7 +106,7 @@ async def test_backtest_scenarios(scenario_nr: int) -> None:
         },
     )
 
-    assert await Backtest(trader=trader).run(config)
+    await Backtest(trader=trader).run(config)
 
 
 async def test_paper() -> None:
@@ -149,10 +149,11 @@ async def test_paper() -> None:
             'pos_threshold': Decimal('1.0'),
             'persistence': 0,
         },
-        get_time_ms=fakes.Time(increment=1).get_time,
     )
 
-    assert await Paper(informant=informant, trader=trader).run(config)
+    await Paper(
+        informant=informant, trader=trader, get_time_ms=fakes.Time(increment=1).get_time,
+    ).run(config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0
 
@@ -199,11 +200,11 @@ async def test_live(storage: Storage) -> None:
             'pos_threshold': Decimal('1.0'),
             'persistence': 0,
         },
-        get_time_ms=fakes.Time(increment=1).get_time,
     )
 
-    assert await Live(
-        informant=informant, wallet=wallet, trader=trader, storage=storage
+    await Live(
+        informant=informant, wallet=wallet, trader=trader, storage=storage,
+        get_time_ms=fakes.Time(increment=1).get_time,
     ).run(config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0

@@ -87,11 +87,11 @@ class Backtest(Agent):
             adjust_start=config.adjust_start,
             trailing_stop=config.trailing_stop,
         )
-        result: Trader.State[Any] = Trader.State()
-        await self._trader.run(trader_config, result)
-        assert result.summary
+        state.result: Trader.State[Any] = Trader.State()
+        await self._trader.run(trader_config, state.result)
+        assert state.result.summary
 
-        _log.info(f'trading summary: {format_as_config(result.summary)}')
+        _log.info(f'trading summary: {format_as_config(state.result.summary)}')
 
         if not self._prices:
             return
@@ -103,7 +103,7 @@ class Backtest(Agent):
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         portfolio = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, result.summary
+            benchmark.g_returns, fiat_daily_prices, state.result.summary
         )
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')

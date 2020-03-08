@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import uuid
@@ -30,7 +32,7 @@ class Agent:
     def __init__(self, event: Event = Event()) -> None:
         self._event = event
 
-    async def run(self, config: Any) -> Any:
+    async def run(self, config: Any) -> Agent.State:
         state = Agent.State(
             status=AgentStatus.RUNNING,
             name=getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}',
@@ -59,7 +61,7 @@ class Agent:
 
         await self.emit(state.name, 'finished')
 
-        return state.result
+        return state
 
     async def on_running(self, config: Any, state: Any) -> None:
         pass

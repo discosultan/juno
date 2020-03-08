@@ -28,7 +28,6 @@ class Paper(Agent):
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
         adjust_start: bool = True
         trailing_stop: Decimal = Decimal('0.0')
-        get_time_ms: Optional[Callable[[], int]] = None
 
     @dataclass
     class State:
@@ -36,15 +35,17 @@ class Paper(Agent):
         name: str
         result: Trader.State
 
-    def __init__(self, informant: Informant, trader: Trader, event: Event = Event()) -> None:
+    def __init__(
+        self, informant: Informant, trader: Trader, event: Event = Event(),
+        get_time_ms: Callable[[], int] = time_ms
+    ) -> None:
         super().__init__(event)
         self._informant = informant
         self._trader = trader
+        self._get_time_ms = get_time_ms
 
     async def on_running(self, config: Config, state: State) -> None:
-        get_time_ms = config.get_time_ms if config.get_time_ms else time_ms
-
-        current = floor_multiple(get_time_ms(), config.interval)
+        current = floor_multiple(self._get_time_ms(), config.interval)
         end = floor_multiple(config.end, config.interval)
         assert end > current
 
