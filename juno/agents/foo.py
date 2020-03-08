@@ -26,7 +26,7 @@ class Foo(Agent):
         self._trader = trader
         self._optimizer = optimizer
 
-    async def run(self) -> None:
+    async def on_running(self, _config: Any, _state: Agent.State) -> None:
         required_start = strptimestamp('2019-01-01')
         trading_start = strptimestamp('2019-07-01')
         end = strptimestamp('2020-01-01')
