@@ -98,6 +98,7 @@ async def main() -> None:
     }
 
     # Load plugins.
+    plugin_names = list_names(cfg, 'plugin')
     # plugins = list_plugins(agent_config_map, cfg)
 
     async with AsyncExitStack() as stack:
