@@ -87,7 +87,7 @@ class Backtest(Agent):
             adjust_start=config.adjust_start,
             trailing_stop=config.trailing_stop,
         )
-        state.result: Trader.State[Any] = Trader.State()
+        state.result = Trader.State()
         await self._trader.run(trader_config, state.result)
         assert state.result.summary
 
