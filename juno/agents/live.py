@@ -115,11 +115,10 @@ class Live(Agent):
             strategy_type = strategy_type[resolved_params[0], resolved_params[1]]  # type: ignore
         elif len(resolved_params) > 2:
             raise NotImplementedError()
-        trader_state_type = Trader.State[strategy_type]  # type: ignore
         state = await self._storage.get(
             'default',
             f'{name}_live_trader_state',
-            Live.State[trader_state_type],  # type: ignore
+            Live.State[strategy_type],  # type: ignore
         )
         if not state:
             _log.info(f'existing state with name {name} not found; starting new')

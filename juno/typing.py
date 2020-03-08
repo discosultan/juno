@@ -8,6 +8,8 @@ from typing import (
     get_type_hints
 )
 
+from typing_inspect import is_generic_type, is_optional_type, is_typevar
+
 ExcType = Optional[Type[BaseException]]
 ExcValue = Optional[BaseException]
 Traceback = Optional[TracebackType]
@@ -47,10 +49,6 @@ def isnamedtuple(obj: Any) -> bool:
 
 def isenum(obj: Any) -> bool:
     return inspect.isclass(obj) and issubclass(obj, Enum)
-
-
-def isoptional(obj: Any) -> bool:
-    return get_origin(obj) is Union and type(None) in get_args(obj)
 
 
 def raw_to_type(value: Any, type_: Type[Any]) -> Any:
@@ -104,15 +102,20 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
     type_args = list(get_args(type_))
     instance = origin.__new__(origin)  # type: ignore
     for name, sub_type in ((k, v) for k, v in annotations.items() if k in annotations):
-        import logging
-        logging.critical(name)
-        logging.critical(value)
-        logging.critical(sub_type)
         if name not in value:
             continue
         # Substitute generics.
-        if type(sub_type) is TypeVar:
+        # TODO: Generalize
+        if is_typevar(sub_type):
             sub_type = type_args.pop(0)
+        if is_optional_type(sub_type):
+            sub_type_arg, _ = get_args(sub_type)
+            if is_typevar(sub_type_arg):
+                sub_type = Optional[type_args.pop(0)]
+        if is_generic_type(sub_type):
+            sub_type_args = get_args(sub_type)
+            if len(sub_type_args) == 1 and is_typevar(sub_type_args[0]):
+                sub_type = sub_type[type_args.pop(0)]
         sub_value = value[name]
         setattr(instance, name, raw_to_type(sub_value, sub_type))
     return instance

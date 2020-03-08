@@ -7,9 +7,11 @@ from collections import defaultdict
 from collections.abc import Hashable
 from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_args
 
+from typing_inspect import is_optional_type
+
 from juno.itertools import recursive_iter
 
-from .typing import ExcType, ExcValue, Traceback, get_input_type_hints, isoptional
+from .typing import ExcType, ExcValue, Traceback, get_input_type_hints
 
 T = TypeVar('T')
 
@@ -57,7 +59,7 @@ class Container:
         # 4. construct implicitly if is_root
         # 5. default value
 
-        type_ = get_args(type_)[0] if isoptional(type_) else type_
+        type_ = get_args(type_)[0] if is_optional_type(type_) else type_
 
         # 1. singleton
         instance = self._singletons.get(type_)
