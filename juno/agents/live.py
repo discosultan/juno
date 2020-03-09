@@ -1,9 +1,6 @@
 import logging
-from dataclasses import dataclass
 from decimal import Decimal
-from typing import (
-    Any, Callable, Dict, Generic, List, NamedTuple, Optional, TypeVar, get_type_hints
-)
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar, get_type_hints
 
 from juno import Interval, Timestamp
 from juno.components import Event, Informant, Wallet
@@ -40,12 +37,6 @@ class Live(Agent):
         def quote_asset(self) -> str:
             return unpack_symbol(self.symbol)[1]
 
-    @dataclass
-    class State(Generic[TStrategy]):
-        status: AgentStatus
-        name: str
-        result: Trader.State[TStrategy]
-
     def __init__(
         self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage,
         event: Event = Event(), get_time_ms: Callable[[], int] = time_ms
@@ -57,7 +48,7 @@ class Live(Agent):
         self._storage = storage
         self._get_time_ms = get_time_ms
 
-    async def on_running(self, config: Config, state: State) -> None:
+    async def on_running(self, config: Config, state: Agent.State) -> None:
         current = floor_multiple(self._get_time_ms(), config.interval)
         end = floor_multiple(config.end, config.interval)
         assert end > current
@@ -97,7 +88,7 @@ class Live(Agent):
         )
         await self._trader.run(trader_config, state.result)
 
-    async def on_finally(self, config: Config, state: State) -> None:
+    async def on_finally(self, config: Config, state: Agent.State) -> None:
         _log.info(f'trading summary: {format_as_config(state.result.summary)}')
         if config.store_state:
             await self._save_trader_state(state)
@@ -119,7 +110,7 @@ class Live(Agent):
         state = await self._storage.get(
             'default',
             f'{name}_live_trader_state',
-            Live.State[strategy_type],  # type: ignore
+            Agent.State[Trader.State[strategy_type]],  # type: ignore
         )
         if not state:
             _log.info(f'existing state with name {name} not found; starting new')
@@ -129,7 +120,7 @@ class Live(Agent):
         _log.info(f'existing live session with name {name} found; continuing previous')
         return state.result
 
-    async def _save_trader_state(self, state: State) -> None:
+    async def _save_trader_state(self, state: Agent.State) -> None:
         _log.info(f'storing current state with name {state.name} and status {state.status.name}')
         await self._storage.set('default', f'{state.name}_live_trader_state', state)
 

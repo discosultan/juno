@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Dict, NamedTuple, Optional
 
@@ -11,7 +10,7 @@ from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader
 from juno.utils import format_as_config
 
-from .agent import Agent, AgentStatus
+from .agent import Agent
 
 _log = logging.getLogger(__name__)
 
@@ -29,12 +28,6 @@ class Paper(Agent):
         adjust_start: bool = True
         trailing_stop: Decimal = Decimal('0.0')
 
-    @dataclass
-    class State:
-        status: AgentStatus
-        name: str
-        result: Trader.State
-
     def __init__(
         self, informant: Informant, trader: Trader, event: Event = Event(),
         get_time_ms: Callable[[], int] = time_ms
@@ -44,7 +37,7 @@ class Paper(Agent):
         self._trader = trader
         self._get_time_ms = get_time_ms
 
-    async def on_running(self, config: Config, state: State) -> None:
+    async def on_running(self, config: Config, state: Agent.State[Trader.State]) -> None:
         current = floor_multiple(self._get_time_ms(), config.interval)
         end = floor_multiple(config.end, config.interval)
         assert end > current
@@ -72,6 +65,6 @@ class Paper(Agent):
         state.result = Trader.State()
         await self._trader.run(trader_config, state.result)
 
-    async def on_finally(self, config: Config, state: State) -> None:
+    async def on_finally(self, config: Config, state: Agent.State[Trader.State]) -> None:
         if state.result:
             _log.info(f'trading summary: {format_as_config(state.result.summary)}')

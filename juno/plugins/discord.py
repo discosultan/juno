@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, Type
+from typing import Any, Dict
 
 import discord
 
-from juno.agents import Agent
 from juno.asyncio import cancel, cancelable
 from juno.components import Event
 from juno.itertools import chunks
@@ -34,8 +33,8 @@ class Discord(discord.Client, Plugin):
         await cancel(self._start_task)
         await self.close()
 
-    async def activate(self, agent_name: str, agent_type: Type[Agent]) -> None:
-        channel_name = agent_type.__name__.lower()
+    async def activate(self, agent_name: str, agent_type: str) -> None:
+        channel_name = agent_type
 
         def format_message(
             title: str,

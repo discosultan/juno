@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
@@ -10,7 +9,7 @@ from juno.trading import MissedCandlePolicy
 from juno.typing import get_input_type_hints
 from juno.utils import format_as_config
 
-from .agent import Agent, AgentStatus
+from .agent import Agent
 
 _log = logging.getLogger(__name__)
 
@@ -32,17 +31,11 @@ class Optimize(Agent):
         seed: Optional[int] = None
         verbose: bool = False
 
-    @dataclass
-    class State:
-        status: AgentStatus
-        name: str
-        result: OptimizationSummary
-
     def __init__(self, optimizer: Optimizer) -> None:
         super().__init__()
         self._optimizer = optimizer
 
-    async def on_running(self, config: Config, state: State) -> None:
+    async def on_running(self, config: Config, state: Agent.State[OptimizationSummary]) -> None:
         state.result = OptimizationSummary()
         await self._optimizer.run(
             exchange=config.exchange,
@@ -62,7 +55,7 @@ class Optimize(Agent):
             summary=state.result,
         )
 
-    async def on_finally(self, config: Config, state: State) -> None:
+    async def on_finally(self, config: Config, state: Agent.State[OptimizationSummary]) -> None:
         for ind in state.result.best:
             # Create a new typed named tuple for correctly formatting strategy kwargs for the
             # particular strategy type.
@@ -81,8 +74,8 @@ class Optimize(Agent):
             trading_config_type = NamedTuple('_', trading_config_typings.items())  # type: ignore
             x = ind.trading_config._asdict()
             x['strategy_kwargs'] = strategy_kwargs_instance
-            trading_config = trading_config_type(*x.values())  # type: ignore
+            trading_config_instance = trading_config_type(*x.values())
 
-            _log.info(f'trading config: {format_as_config(trading_config)}')
+            _log.info(f'trading config: {format_as_config(trading_config_instance)}')
             _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
             _log.info(f'portfolio stats: {format_as_config(ind.portfolio_stats)}')

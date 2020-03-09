@@ -18,3 +18,9 @@ def map_plugin_types(names: Iterable[str]) -> Dict[str, Type[Plugin]]:
             raise ValueError(f'Did not find exactly one plugin {name} in {plugin_module.__name__}')
         plugins[name] = members[0][1]
     return plugins
+
+
+__all__ = [
+    'Plugin',
+    'map_plugin_types',
+]
