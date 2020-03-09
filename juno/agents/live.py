@@ -109,6 +109,7 @@ class Live(Agent):
         dummy_strategy = trader_config.new_strategy()
         strategy_type = type(dummy_strategy)
         resolved_params = _resolve_generic_types(dummy_strategy)  # type: ignore
+        # TODO: Can we spread it into type?
         if len(resolved_params) == 1:
             strategy_type = strategy_type[resolved_params[0]]  # type: ignore
         elif len(resolved_params) == 2:

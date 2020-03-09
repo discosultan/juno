@@ -3,9 +3,8 @@ import inspect
 import logging
 import signal
 import sys
-from contextlib import AsyncExitStack
 from types import FrameType
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import pkg_resources
 
@@ -19,7 +18,7 @@ from juno.exchanges import Exchange
 from juno.logging import create_handlers
 from juno.modules import map_module_types
 from juno.optimization import Optimizer, Solver
-from juno.plugins import map_plugin_types
+from juno.plugins import Plugin, map_plugin_types
 from juno.storages import Storage
 from juno.trading import Trader
 from juno.utils import exc_traceback, full_path
@@ -94,29 +93,16 @@ async def main() -> None:
     # Load agents and plugins.
     agent_types = map_module_types(agents)
     plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
+    agent_ctxs: List[Tuple[Agent, Any, List[Plugin]]] = [(
+        container.resolve(agent_types[c['type']]),
+        config.config_to_type(c, agent_types[c['type']]),
+        [container.resolve(plugin_types[p]) for p in c.get('plugins', [])],
+    ) for c in cfg['agents']]
 
-    agents = []
-    # for agent_config in cfg['agents']:
-
-    # agent_config_map: Dict[Agent, Dict[str, Any]] = {
-    #     container.resolve(agent_types[c['type']]): c for c in cfg['agents']
-    # }
-
-    # Load plugins.
-    # plugins = list_plugins(agent_config_map, cfg)
-
-    async with AsyncExitStack() as stack:
-
-        # Init all deps and plugins.
-        await asyncio.gather(
-            stack.enter_async_context(container),
-            # *(stack.enter_async_context(p) for p in plugins),
-        )
-
+    # Enter deps.
+    async with container:
         # Run agents.
-        await asyncio.gather(
-            *(a.run(config.config_to_type(c, a.Config)) for a, c in agent_config_map.items())
-        )
+        await asyncio.gather(*(a.run(c, p) for a, c, p in agent_ctxs))
 
     _log.info('main finished')
 

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import strategies, time
+from juno import time
 from juno.components import Chandler, Historian, Informant, Prices, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase

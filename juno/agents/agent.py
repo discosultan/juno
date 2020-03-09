@@ -8,6 +8,7 @@ from enum import IntEnum
 from typing import Any, List
 
 from juno.components import Event
+from juno.plugins import Plugin
 from juno.utils import exc_traceback, generate_random_words
 
 _log = logging.getLogger(__name__)
@@ -32,11 +33,14 @@ class Agent:
     def __init__(self, event: Event = Event()) -> None:
         self._event = event
 
-    async def run(self, config: Any) -> Agent.State:
+    async def run(self, config: Any, plugins: List[Plugin] = []) -> Agent.State:
         state = Agent.State(
             status=AgentStatus.RUNNING,
             name=getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}',
         )
+
+        # Activate plugins.
+        await asyncio.gather(*(p.activate(state.name, type(self)) for p in plugins))
 
         await self.emit(state.name, 'starting')
         type_name = type(self).__name__.lower()
