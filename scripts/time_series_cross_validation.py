@@ -16,7 +16,7 @@ SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
 TRAINING_VALIDATION_SPLIT = 0.75
 QUOTE = Decimal('1.0')
-STRATEGY_TYPE = strategies.MAMACX
+STRATEGY_TYPE = 'mamacx'
 
 
 async def main() -> None:
@@ -47,7 +47,7 @@ async def main() -> None:
             start=training_start,
             end=validation_start,
             quote=QUOTE,
-            strategy_type=STRATEGY_TYPE,
+            strategy=STRATEGY_TYPE,
             symbols=[SYMBOL],
             intervals=[INTERVAL],
             population_size=50,
@@ -64,7 +64,7 @@ async def main() -> None:
 
         tc = best.trading_config
 
-        trading_summary = await trader.run(
+        trading_summary = await trader.run(Trader.Config(
             start=validation_start,
             end=validation_end,
             exchange=tc.exchange,
@@ -73,9 +73,9 @@ async def main() -> None:
             quote=tc.quote,
             missed_candle_policy=tc.missed_candle_policy,
             trailing_stop=tc.trailing_stop,
-            strategy_type=tc.strategy_type,
+            strategy=tc.strategy,
             strategy_kwargs=tc.strategy_kwargs,
-        )
+        ))
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         fiat_daily_prices = await prices.map_fiat_daily_prices(

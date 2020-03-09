@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -38,8 +38,7 @@ async def main() -> None:
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     base_asset, quote_asset = unpack_symbol(SYMBOL)
     async with binance, coinbase, informant:
-        trading_state: Trader.State[Any] = Trader.State()
-        await trader.run(
+        trading_summary = await trader.run(
             config=Trader.Config(
                 exchange='binance',
                 symbol=SYMBOL,
@@ -60,7 +59,6 @@ async def main() -> None:
                 trailing_stop=Decimal('0.0827'),
                 missed_candle_policy=MissedCandlePolicy.LAST,
             ),
-            state=trading_state,
         )
 
         start_day = floor_multiple(start, DAY_MS)
@@ -85,7 +83,7 @@ async def main() -> None:
             market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
         trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
-        for pos in trading_state.summary.positions:
+        for pos in trading_summary.positions:
             assert pos.closing_fills
             # Open.
             time = floor_multiple(pos.time, DAY_MS)
@@ -100,7 +98,7 @@ async def main() -> None:
             day_trades.append((quote_asset, +pos.gain))
 
         asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
-        asset_holdings[quote_asset] = trading_state.summary.quote
+        asset_holdings[quote_asset] = trading_summary.quote
 
         asset_performance: Dict[int, Dict[str, Decimal]] = defaultdict(
             lambda: {k: Decimal('0.0') for k in market_data.keys()}
