@@ -19,7 +19,7 @@ from juno.exchanges import Exchange
 from juno.logging import create_handlers
 from juno.modules import map_module_types
 from juno.optimization import Optimizer, Solver
-from juno.plugins import list_plugins
+from juno.plugins import map_plugin_types
 from juno.storages import Storage
 from juno.trading import Trader
 from juno.utils import exc_traceback, full_path
@@ -91,14 +91,18 @@ async def main() -> None:
     for _name, type_ in inspect.getmembers(components, inspect.isclass):
         container.add_singleton_type(type_)
 
-    # Load agents.
+    # Load agents and plugins.
     agent_types = map_module_types(agents)
-    agent_config_map: Dict[Agent, Dict[str, Any]] = {
-        container.resolve(agent_types[c['type']]): c for c in cfg['agents']
-    }
+    plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
+
+    agents = []
+    # for agent_config in cfg['agents']:
+
+    # agent_config_map: Dict[Agent, Dict[str, Any]] = {
+    #     container.resolve(agent_types[c['type']]): c for c in cfg['agents']
+    # }
 
     # Load plugins.
-    plugin_names = list_names(cfg, 'plugin')
     # plugins = list_plugins(agent_config_map, cfg)
 
     async with AsyncExitStack() as stack:

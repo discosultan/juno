@@ -1,24 +1,20 @@
 import importlib
-from typing import Any, AsyncContextManager, Dict, Iterable, List, Type, cast
-
-from juno.agents import Agent
+import inspect
+from typing import Dict, Iterable, Type
 
 from .plugin import Plugin
 
 
-
-# Only supports loading a type of plugin once (not the same plugin with different configs).
-def list_plugin_types(names: Iterable[str]) -> List[Type[Plugin]]:
-    agent_plugin_names = {a: c.get('plugins', []) for a, c in agent_config_map.items()}
-
-    plugins = []
+def map_plugin_types(names: Iterable[str]) -> Dict[str, Type[Plugin]]:
+    plugins = {}
     for name in names:
         plugin_module = importlib.import_module(f'juno.plugins.{name}')
         if not plugin_module:
-            raise ValueError(f'Plugin {name} not found')
-        plugin_module = cast(PluginModuleType, plugin_module)
-        activation_fn = plugin_module.activate
-        if not activation_fn:
-            raise ValueError(f'Plugin {name} is missing "activate" function')
-        plugins.append(activation_fn(agent, config.get(name, {})))
+            raise ValueError(f'Module for plugin {name} not found')
+        members = inspect.getmembers(
+            plugin_module, lambda o: inspect.isclass(o) and issubclass(o, Plugin)
+        )
+        if len(members) != 1:
+            raise ValueError(f'Did not find exactly one plugin {name} in {plugin_module.__name__}')
+        plugins[name] = members[0][1]
     return plugins
