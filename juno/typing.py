@@ -1,11 +1,14 @@
 import inspect
 from collections import deque
 from decimal import Decimal
+from enum import Enum
 from types import TracebackType
 from typing import (
     Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, get_args, get_origin,
     get_type_hints
 )
+
+from typing_inspect import is_generic_type, is_optional_type, is_typevar
 
 ExcType = Optional[Type[BaseException]]
 ExcValue = Optional[BaseException]
@@ -44,11 +47,11 @@ def isnamedtuple(obj: Any) -> bool:
     )
 
 
-def isoptional(obj: Any) -> bool:
-    return get_origin(obj) is Union and type(None) in get_args(obj)
+def isenum(obj: Any) -> bool:
+    return inspect.isclass(obj) and issubclass(obj, Enum)
 
 
-def load_by_typing(value: Any, type_: Type[Any]) -> Any:
+def raw_to_type(value: Any, type_: Type[Any]) -> Any:
     origin = get_root_origin(type_) or type_
 
     # Needs to be a list because type_ can be non-hashable for lookup in a set.
@@ -58,37 +61,40 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
     if origin is list:
         sub_type, = get_args(type_)
         for i, sub_value in enumerate(value):
-            value[i] = load_by_typing(sub_value, sub_type)
+            value[i] = raw_to_type(sub_value, sub_type)
         return value
 
     if origin is deque:
         sub_type, = get_args(type_)
-        return deque((load_by_typing(sv, sub_type) for sv in value), maxlen=len(value))
+        return deque((raw_to_type(sv, sub_type) for sv in value), maxlen=len(value))
 
     if origin is tuple:
         sub_types = get_args(type_)
         for i, (sub_value, sub_type) in enumerate(zip(value, sub_types)):
-            value[i] = load_by_typing(sub_value, sub_type)
+            value[i] = raw_to_type(sub_value, sub_type)
         return value
 
     if origin is dict:
         _, sub_type = get_args(type_)
         for key, sub_value in value.items():
-            value[key] = load_by_typing(sub_value, sub_type)
+            value[key] = raw_to_type(sub_value, sub_type)
         return value
 
     if origin is Union:
         sub_type, _ = get_args(type_)
         if value is None:
             return value
-        return load_by_typing(value, sub_type)
+        return raw_to_type(value, sub_type)
+
+    if isenum(origin):
+        return origin(value)
 
     if isnamedtuple(type_):
         annotations = get_type_hints(type_)
         args = []
         for i, (_name, sub_type) in enumerate(annotations.items()):
             sub_value = value[i]
-            args.append(load_by_typing(sub_value, sub_type))
+            args.append(raw_to_type(sub_value, sub_type))
         return type_(*args)
 
     # Try constructing a regular dataclass.
@@ -99,10 +105,19 @@ def load_by_typing(value: Any, type_: Type[Any]) -> Any:
         if name not in value:
             continue
         # Substitute generics.
-        if type(sub_type) is TypeVar:
+        # TODO: Generalize
+        if is_typevar(sub_type):
             sub_type = type_args.pop(0)
+        if is_optional_type(sub_type):
+            sub_type_arg, _ = get_args(sub_type)
+            if is_typevar(sub_type_arg):
+                sub_type = Optional[type_args.pop(0)]
+        if is_generic_type(sub_type):
+            sub_type_args = get_args(sub_type)
+            if len(sub_type_args) == 1 and is_typevar(sub_type_args[0]):
+                sub_type = sub_type[type_args.pop(0)]
         sub_value = value[name]
-        setattr(instance, name, load_by_typing(sub_value, sub_type))
+        setattr(instance, name, raw_to_type(sub_value, sub_type))
     return instance
 
 

@@ -10,7 +10,7 @@ from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
 from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark
-from juno.typing import load_by_typing
+from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
 from . import fakes
@@ -23,19 +23,19 @@ async def rust_solver(loop):
 
 
 async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: Rust) -> None:
-    portfolio_candles = load_by_typing(
+    portfolio_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]
     )
-    statistics_candles = load_by_typing(
+    statistics_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_86400000_candles.json'),
         List[Candle]
     )
-    statistics_fiat_candles = load_by_typing(
+    statistics_fiat_candles = raw_to_type(
         load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
         List[Candle]
     )
-    fees, filters = load_by_typing(
+    fees, filters = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_fees_filters.json'),
         Tuple[Fees, Filters]
     )
@@ -74,15 +74,15 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: 
 
 
 async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) -> None:
-    portfolio_candles = load_by_typing(
+    portfolio_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]
     )
-    statistics_candles = load_by_typing(
+    statistics_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_86400000_candles.json'),
         List[Candle]
     )
-    statistics_fiat_candles = load_by_typing(
+    statistics_fiat_candles = raw_to_type(
         load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
         List[Candle]
     )

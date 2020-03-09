@@ -16,6 +16,7 @@ setup(
         'python-dateutil',
         'simplejson',
         'tenacity',
+        'typing-inspect',
     ],
     extras_require={
         'dev': [
