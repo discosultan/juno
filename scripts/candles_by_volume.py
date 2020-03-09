@@ -8,7 +8,7 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.optimization.python import _trade
 from juno.storages import SQLite
-from juno.strategies import MA, MAMACX
+from juno.strategies import MAMACX
 from juno.time import strptimestamp
 from juno.trading import MissedCandlePolicy
 from juno.utils import tonamedtuple
@@ -36,8 +36,8 @@ async def main() -> None:
             Decimal('-0.294'),
             Decimal('0.149'),
             8,
-            MA.SMA,
-            MA.SMA
+            'sma',
+            'sma',
         )
         summary = _trade(
             MAMACX,

@@ -12,7 +12,6 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.storages import SQLite
-from juno.strategies import MA, MAMACX
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
 from juno.trading import MissedCandlePolicy, Trader
 from juno.utils import unpack_symbol
@@ -40,24 +39,26 @@ async def main() -> None:
     base_asset, quote_asset = unpack_symbol(SYMBOL)
     async with binance, coinbase, informant:
         trading_summary = await trader.run(
-            exchange='binance',
-            symbol=SYMBOL,
-            interval=INTERVAL,
-            start=start,
-            end=end,
-            quote=Decimal('1.0'),
-            strategy_type=MAMACX,
-            strategy_kwargs={
-                'short_period': 3,
-                'long_period': 73,
-                'neg_threshold': Decimal('-0.102'),
-                'pos_threshold': Decimal('0.239'),
-                'persistence': 4,
-                'short_ma': MA.SMA,
-                'long_ma': MA.SMMA,
-            },
-            trailing_stop=Decimal('0.0827'),
-            missed_candle_policy=MissedCandlePolicy.LAST
+            config=Trader.Config(
+                exchange='binance',
+                symbol=SYMBOL,
+                interval=INTERVAL,
+                start=start,
+                end=end,
+                quote=Decimal('1.0'),
+                strategy='mamacx',
+                strategy_kwargs={
+                    'short_period': 3,
+                    'long_period': 73,
+                    'neg_threshold': Decimal('-0.102'),
+                    'pos_threshold': Decimal('0.239'),
+                    'persistence': 4,
+                    'short_ma': 'sma',
+                    'long_ma': 'smma',
+                },
+                trailing_stop=Decimal('0.0827'),
+                missed_candle_policy=MissedCandlePolicy.LAST,
+            ),
         )
 
         start_day = floor_multiple(start, DAY_MS)

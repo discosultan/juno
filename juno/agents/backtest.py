@@ -48,7 +48,7 @@ class Backtest(Agent):
         self._historian = historian
         self._prices = prices
 
-    async def on_running(self, config: Config, state: Agent.State) -> None:
+    async def on_running(self, config: Config, state: Agent.State[Trader.State]) -> None:
         start = config.start
         if self._historian:
             first_candle = await self._historian.find_first_candle(

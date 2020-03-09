@@ -78,11 +78,13 @@ class Trader:
         self._broker = broker
         self._event = event
 
-    async def run(self, config: Config, state: State) -> TradingSummary:
+    async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start >= 0
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
+
+        state = state or Trader.State()
 
         if state.quote == -1:
             state.quote = config.quote

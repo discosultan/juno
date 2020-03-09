@@ -9,8 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_
 
 from typing_inspect import is_optional_type
 
-from juno.itertools import recursive_iter
-
+from .itertools import recursive_iter
 from .typing import ExcType, ExcValue, Traceback, get_input_type_hints
 
 T = TypeVar('T')

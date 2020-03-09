@@ -5,14 +5,17 @@ import logging
 import uuid
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, List
+from typing import Any, Generic, List, TypeVar
 
 from juno.components import Event
+from juno.plugins import Plugin
 from juno.utils import exc_traceback, generate_random_words
 
 _log = logging.getLogger(__name__)
 
 _random_names = generate_random_words()
+
+T = TypeVar('T')
 
 
 class AgentStatus(IntEnum):
@@ -24,19 +27,23 @@ class AgentStatus(IntEnum):
 
 class Agent:
     @dataclass
-    class State:
-        status: AgentStatus
+    class State(Generic[T]):
         name: str
-        result: Any = None
+        status: AgentStatus
+        result: T
 
     def __init__(self, event: Event = Event()) -> None:
         self._event = event
 
-    async def run(self, config: Any) -> Agent.State:
-        state = Agent.State(
-            status=AgentStatus.RUNNING,
+    async def run(self, config: Any, plugins: List[Plugin] = []) -> Agent.State:
+        state: Agent.State[Any] = Agent.State(
             name=getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}',
+            status=AgentStatus.RUNNING,
+            result=None,
         )
+
+        # Activate plugins.
+        await asyncio.gather(*(p.activate(state.name, type(self)) for p in plugins))
 
         await self.emit(state.name, 'starting')
         type_name = type(self).__name__.lower()
@@ -75,6 +82,7 @@ class Agent:
     async def on_finally(self, config: Any, state: Any) -> None:
         pass
 
+    # TODO: Move to event comp?
     async def emit(self, channel: str, event: str, *args: Any) -> List[Any]:
         results = await self._event.emit(channel, event, *args)
         for e in (r for r in results if isinstance(r, Exception)):

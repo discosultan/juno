@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from juno import Candle, Fill
-from juno.agents import Agent
+from juno.components import Event
 from juno.time import DAY_MS
 from juno.trading import Position, TradingSummary
 from juno.utils import full_path
@@ -14,11 +14,13 @@ from juno.utils import full_path
 async def test_discord(request, config) -> None:
     skip_non_configured(request, config)
 
-    from juno.plugins import discord
+    from juno.plugins.discord import Discord
 
-    agent = Dummy()
-    agent.result = TradingSummary(start=0, quote=Decimal('1.0'))
-    async with discord.activate(agent, config['discord']):
+    trading_summary = TradingSummary(start=0, quote=Decimal('1.0'))
+    event = Event()
+    async with Discord(event, config['discord']['token'], config) as discord:
+        await discord.activate('agent', 'test')
+
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
         pos = Position(
             symbol='eth-btc',
@@ -28,7 +30,7 @@ async def test_discord(request, config) -> None:
                      fee_asset='btc')
             ]
         )
-        await agent.emit('position_opened', pos)
+        await event.emit('agent', 'position_opened', pos)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
         pos.close(
             time=candle.time,
@@ -37,16 +39,16 @@ async def test_discord(request, config) -> None:
                      fee_asset='eth')
             ]
         )
-        agent.result.append_position(pos)
+        trading_summary.append_position(pos)
         assert pos.closing_time
-        agent.result.finish(pos.closing_time + DAY_MS)
-        await agent.emit('position_closed', pos)
-        await agent.emit('finished')
-        await agent.emit('image', full_path(__file__, '/data/dummy_img.png'))
+        trading_summary.finish(pos.closing_time + DAY_MS)
+        await event.emit('agent', 'position_closed', pos)
+        await event.emit('agent', 'finished')
+        await event.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
         try:
             raise Exception('Expected error.')
         except Exception as exc:
-            await agent.emit('errored', exc)
+            await event.emit('agent', 'errored', exc)
 
 
 def skip_non_configured(request, config):
@@ -56,7 +58,3 @@ def skip_non_configured(request, config):
     discord_config = config.get('discord', {})
     if 'token' not in discord_config or 'dummy' not in discord_config.get('channel_id', {}):
         pytest.skip("Discord params not configured")
-
-
-class Dummy(Agent):
-    pass
