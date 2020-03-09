@@ -4,11 +4,13 @@
     "storage": "sqlite",
     "agents": [
         {
-            "type": "live",
-            "name": "tupsu",
+            "type": "backtest",
             "exchange": "binance",
             "symbol": "eos-btc",
             "interval": "1h",
+            "quote": 1.0,
+            "start": "2018-01-01",
+            "end": "2020-01-01",
             "missed_candle_policy": "last",
             "trailing_stop": 0.0,
             "strategy": {

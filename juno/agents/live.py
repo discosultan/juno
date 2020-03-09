@@ -76,7 +76,7 @@ class Live(Agent):
             quote=quote,
             strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
-            test=True,  # TODO: TEMP
+            test=False,
             channel=state.name,
             missed_candle_policy=config.missed_candle_policy,
             adjust_start=config.adjust_start,
