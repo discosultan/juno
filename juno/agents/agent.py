@@ -41,12 +41,12 @@ class Agent:
             status=AgentStatus.RUNNING,
             result=None,
         )
+        type_name = type(self).__name__.lower()
 
         # Activate plugins.
-        await asyncio.gather(*(p.activate(state.name, type(self)) for p in plugins))
+        await asyncio.gather(*(p.activate(state.name, type_name) for p in plugins))
 
         await self.emit(state.name, 'starting')
-        type_name = type(self).__name__.lower()
         _log.info(f'running {state.name} ({type_name}): {config}')
 
         try:
