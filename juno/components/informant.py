@@ -4,6 +4,7 @@ import asyncio
 import fnmatch
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
@@ -20,10 +21,10 @@ _log = logging.getLogger(__name__)
 T = TypeVar('T')
 
 
+@dataclass
 class _Timestamped(Generic[T]):
-    def __init__(self, time: Timestamp, item: T) -> None:
-        self.time = time
-        self.item = item
+    time: Timestamp
+    item: T
 
 
 class Informant:

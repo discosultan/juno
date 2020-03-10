@@ -6,9 +6,10 @@ import pytest
 from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
 from juno.filters import Filters, Price, Size
+from juno.storages import Storage
 from juno.time import HOUR_MS
 from juno.trading import MissedCandlePolicy, Trader
-from juno.typing import load_by_typing
+from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
 from . import fakes
@@ -34,14 +35,14 @@ async def test_backtest() -> None:
     )
     informant = fakes.Informant(fees=fees, filters=filters)
     trader = Trader(chandler=chandler, informant=informant)
-    agent_config = {
-        'exchange': 'dummy',
-        'symbol': 'eth-btc',
-        'interval': 1,
-        'start': 0,
-        'end': 6,
-        'quote': Decimal('100.0'),
-        'strategy': {
+    config = Backtest.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=6,
+        quote=Decimal('100.0'),
+        strategy={
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
@@ -49,11 +50,11 @@ async def test_backtest() -> None:
             'pos_threshold': Decimal('1.0'),
             'persistence': 0
         }
-    }
+    )
 
-    res = await Backtest(trader=trader).start(**agent_config)
+    res = await Backtest(trader=trader).run(config)
 
-    summary = res.summary
+    summary = res.result.summary
     assert summary.profit == -50
     assert summary.duration == 6
     assert summary.roi == Decimal('-0.5')
@@ -71,7 +72,7 @@ async def test_backtest() -> None:
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
 async def test_backtest_scenarios(scenario_nr: int) -> None:
-    chandler = fakes.Chandler(candles={('binance', 'eth-btc', HOUR_MS): load_by_typing(
+    chandler = fakes.Chandler(candles={('binance', 'eth-btc', HOUR_MS): raw_to_type(
         load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
         List[Candle]
     )})
@@ -82,30 +83,30 @@ async def test_backtest_scenarios(scenario_nr: int) -> None:
             size=Size(
                 min=Decimal('0.00100000'),
                 max=Decimal('100000.00000000'),
-                step=Decimal('0.00100000')
+                step=Decimal('0.00100000'),
             )
         )
     )
     trader = Trader(chandler=chandler, informant=informant)
-    agent_config = {
-        'exchange': 'binance',
-        'symbol': 'eth-btc',
-        'start': 1483225200000,
-        'end': 1514761200000,
-        'interval': HOUR_MS,
-        'quote': Decimal('100.0'),
-        'missed_candle_policy': MissedCandlePolicy.IGNORE,
-        'strategy': {
+    config = Backtest.Config(
+        exchange='binance',
+        symbol='eth-btc',
+        start=1483225200000,
+        end=1514761200000,
+        interval=HOUR_MS,
+        quote=Decimal('100.0'),
+        missed_candle_policy=MissedCandlePolicy.IGNORE,
+        strategy={
             'type': 'mamacx',
             'short_period': 18,
             'long_period': 29,
             'neg_threshold': Decimal('-0.25'),
             'pos_threshold': Decimal('0.25'),
-            'persistence': 4
-        }
-    }
+            'persistence': 4,
+        },
+    )
 
-    assert await Backtest(trader=trader).start(**agent_config)
+    await Backtest(trader=trader).run(config)
 
 
 async def test_paper() -> None:
@@ -134,29 +135,30 @@ async def test_paper() -> None:
     orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
     broker = fakes.Market(informant, orderbook, update_orderbook=True)
     trader = Trader(chandler=chandler, informant=informant, broker=broker)
-    agent_config = {
-        'exchange': 'dummy',
-        'symbol': 'eth-btc',
-        'interval': 1,
-        'end': 4,
-        'quote': Decimal('100.0'),
-        'strategy': {
+    config = Paper.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        end=4,
+        quote=Decimal('100.0'),
+        strategy={
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
             'neg_threshold': Decimal('-1.0'),
             'pos_threshold': Decimal('1.0'),
-            'persistence': 0
+            'persistence': 0,
         },
-        'get_time_ms': fakes.Time(increment=1).get_time
-    }
+    )
 
-    assert await Paper(informant=informant, trader=trader).start(**agent_config)
+    await Paper(
+        informant=informant, trader=trader, get_time_ms=fakes.Time(increment=1).get_time,
+    ).run(config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0
 
 
-async def test_live() -> None:
+async def test_live(storage: Storage) -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -185,22 +187,24 @@ async def test_live() -> None:
     }})
     broker = fakes.Market(informant, orderbook, update_orderbook=True)
     trader = Trader(chandler=chandler, informant=informant, broker=broker)
-    agent_config = {
-        'exchange': 'dummy',
-        'symbol': 'eth-btc',
-        'interval': 1,
-        'end': 4,
-        'strategy': {
+    config = Live.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        end=4,
+        strategy={
             'type': 'mamacx',
             'short_period': 1,
             'long_period': 2,
             'neg_threshold': Decimal('-1.0'),
             'pos_threshold': Decimal('1.0'),
-            'persistence': 0
+            'persistence': 0,
         },
-        'get_time_ms': fakes.Time(increment=1).get_time
-    }
+    )
 
-    assert await Live(informant=informant, wallet=wallet, trader=trader).start(**agent_config)
+    await Live(
+        informant=informant, wallet=wallet, trader=trader, storage=storage,
+        get_time_ms=fakes.Time(increment=1).get_time,
+    ).run(config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0

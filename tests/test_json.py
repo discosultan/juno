@@ -1,19 +1,20 @@
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import NamedTuple
+from typing import Any, NamedTuple
 
 import pytest
 
 from juno import json
 
 
+@dataclass
 class Public:
-    def __init__(self, value):
-        self.value = value
+    value: Any
 
 
+@dataclass
 class Private:
-    def __init__(self, value):
-        self._value = value
+    _value: Any
 
 
 class MyNamedTuple(NamedTuple):

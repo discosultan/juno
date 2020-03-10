@@ -1,68 +1,86 @@
+from __future__ import annotations
+
 import asyncio
 import logging
 import uuid
-from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, List
+from dataclasses import dataclass
+from enum import IntEnum
+from typing import Any, Generic, List, TypeVar
 
-from juno.asyncio import resolved_future
 from juno.components import Event
-from juno.utils import exc_traceback, generate_random_words
+from juno.plugins import Plugin
+from juno.utils import generate_random_words
 
 _log = logging.getLogger(__name__)
 
 _random_names = generate_random_words()
 
+T = TypeVar('T')
+
+
+class AgentStatus(IntEnum):
+    RUNNING = 0
+    CANCELLED = 1
+    ERRORED = 2
+    FINISHED = 3
+
 
 class Agent:
+    class Config:
+        pass
 
-    run: Callable[..., Awaitable[None]] = lambda: resolved_future(None)
+    @dataclass
+    class State(Generic[T]):
+        name: str
+        status: AgentStatus
+        result: T
 
     def __init__(self, event: Event = Event()) -> None:
         self._event = event
-        self.state = AgentState.STOPPED
-        self.result: Any = None
-        self.config: Dict[str, Any] = {}
-        self.name = f'{next(_random_names)}-{uuid.uuid4()}'
 
-    async def start(self, **agent_config: Any) -> Any:
-        assert self.state is not AgentState.RUNNING
-
-        self.config = agent_config
-        self.name = agent_config.get('name', self.name)
-
-        await self.emit('starting')
-        self.state = AgentState.RUNNING
+    async def run(self, config: Any, plugins: List[Plugin] = []) -> Agent.State:
+        state: Agent.State[Any] = Agent.State(
+            name=getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}',
+            status=AgentStatus.RUNNING,
+            result=None,
+        )
         type_name = type(self).__name__.lower()
-        _log.info(f'running {self.name} ({type_name}): {agent_config}')
+
+        # Activate plugins.
+        await asyncio.gather(*(p.activate(state.name, type_name) for p in plugins))
+
+        await self._event.emit(state.name, 'starting')
+        _log.info(f'running {state.name} ({type_name}): {config}')
 
         try:
-            await self.run(**agent_config)
+            await self.on_running(config, state)
         except asyncio.CancelledError:
             _log.info('agent cancelled')
+            state.status = AgentStatus.CANCELLED
+            await self.on_cancelled(config, state)
         except Exception as exc:
             _log.error(f'unhandled exception in agent ({exc})')
-            await self.emit('errored', exc)
+            state.status = AgentStatus.ERRORED
+            await self.on_errored(config, state)
+            await self._event.emit(state.name, 'errored', exc)
             raise
+        else:
+            state.status = AgentStatus.FINISHED
         finally:
-            self.on_finally()
+            await self.on_finally(config, state)
 
-        self.state = AgentState.STOPPED
-        await self.emit('finished')
-        return self.result
+        await self._event.emit(state.name, 'finished')
 
-    def on(self, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
-        return self._event.on(self.name, event)
+        return state
 
-    async def emit(self, event: str, *args: Any) -> List[Any]:
-        results = await self._event.emit(self.name, event, *args)
-        for e in (r for r in results if isinstance(r, Exception)):
-            _log.error(exc_traceback(e))
-        return results
-
-    def on_finally(self) -> None:
+    async def on_running(self, config: Any, state: Any) -> None:
         pass
 
+    async def on_cancelled(self, config: Any, state: Any) -> None:
+        pass
 
-class AgentState(Enum):
-    STOPPED = 0
-    RUNNING = 1
+    async def on_errored(self, config: Any, state: Any) -> None:
+        pass
+
+    async def on_finally(self, config: Any, state: Any) -> None:
+        pass

@@ -1,23 +1,36 @@
 import operator
+from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Generic, Optional, TypeVar
 
 from juno import Advice, Candle, indicators, math
 from juno.modules import get_module_type
 
 from .strategy import Meta, Strategy
 
-_ma_choices = math.Choice([
-    indicators.Ema.__name__.lower(),
-    indicators.Ema2.__name__.lower(),
-    indicators.Sma.__name__.lower(),
-    indicators.Smma.__name__.lower(),
-    indicators.Dema.__name__.lower(),
-])
+_ma_choices = math.Choice([i.__name__.lower() for i in [
+    indicators.Ema,
+    indicators.Ema2,
+    indicators.Sma,
+    indicators.Smma,
+    indicators.Dema,
+]])
+
+
+class MovingAverage(ABC):
+    value: Decimal
+
+    @abstractmethod
+    def update(self, price: Decimal) -> None:
+        ...
+
+
+T = TypeVar('T', bound=MovingAverage)
+Y = TypeVar('Y', bound=MovingAverage)
 
 
 # Moving average moving average crossover.
-class MAMACX(Strategy):
+class MAMACX(Generic[T, Y], Strategy):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -37,8 +50,8 @@ class MAMACX(Strategy):
             }
         )
 
-    _short_ma: Any  # TODO: FIX!!
-    _long_ma: Any
+    _short_ma: T
+    _long_ma: Y
     _neg_threshold: Decimal
     _pos_threshold: Decimal
 

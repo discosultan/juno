@@ -1,52 +1,54 @@
 from decimal import Decimal
+from typing import Any, Dict
 
 import pytest
 
 from juno import Candle, Fill
-from juno.agents import Agent
+from juno.components import Event
 from juno.time import DAY_MS
-from juno.trading import Position, TradingSummary
+from juno.trading import OpenPosition, TradingSummary
 from juno.utils import full_path
 
 
 @pytest.mark.manual
 @pytest.mark.plugin
-async def test_discord(request, config) -> None:
+async def test_discord(request, config: Dict[str, Any]) -> None:
     skip_non_configured(request, config)
 
-    from juno.plugins import discord
+    from juno.plugins.discord import Discord
 
-    agent = Dummy()
-    agent.result = TradingSummary(start=0, quote=Decimal('1.0'))
-    async with discord.activate(agent, config['discord']):
+    trading_summary = TradingSummary(start=0, quote=Decimal('1.0'))
+    event = Event()
+    async with Discord(event, config['discord']['token'], config) as discord:
+        await discord.activate('agent', 'test')
+
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
-        pos = Position(
+        open_pos = OpenPosition(
             symbol='eth-btc',
             time=candle.time,
             fills=[
                 Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
                      fee_asset='btc')
-            ]
+            ],
         )
-        await agent.emit('position_opened', pos)
+        await event.emit('agent', 'position_opened', open_pos, trading_summary)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
-        pos.close(
+        pos = open_pos.close(
             time=candle.time,
             fills=[
                 Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
                      fee_asset='eth')
-            ]
+            ],
         )
-        agent.result.append_position(pos)
-        assert pos.closing_time
-        agent.result.finish(pos.closing_time + DAY_MS)
-        await agent.emit('position_closed', pos)
-        await agent.emit('finished')
-        await agent.emit('image', full_path(__file__, '/data/dummy_img.png'))
+        trading_summary.append_position(pos)
+        trading_summary.finish(pos.close_time + DAY_MS)
+        await event.emit('agent', 'position_closed', pos, trading_summary)
+        await event.emit('agent', 'finished', trading_summary)
+        await event.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
         try:
             raise Exception('Expected error.')
         except Exception as exc:
-            await agent.emit('errored', exc)
+            await event.emit('agent', 'errored', exc, trading_summary)
 
 
 def skip_non_configured(request, config):
@@ -56,7 +58,3 @@ def skip_non_configured(request, config):
     discord_config = config.get('discord', {})
     if 'token' not in discord_config or 'dummy' not in discord_config.get('channel_id', {}):
         pytest.skip("Discord params not configured")
-
-
-class Dummy(Agent):
-    pass

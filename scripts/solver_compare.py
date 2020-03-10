@@ -5,7 +5,6 @@ from decimal import Decimal
 from juno import components, exchanges, optimization, storages, strategies, time
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
-from juno.strategies import MA
 from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import unpack_symbol
 
@@ -21,8 +20,8 @@ LONG_PERIOD = 49
 NEG_THRESHOLD = Decimal('-0.946')
 POS_THRESHOLD = Decimal('0.854')
 PERSISTENCE = 6
-SHORT_MA = MA.SMMA
-LONG_MA = MA.SMA
+SHORT_MA = 'smma'
+LONG_MA = 'sma'
 
 # SYMBOL = 'enj-bnb'  # NB! Non-btc quote not supported in prices!
 # INTERVAL = time.DAY_MS
@@ -36,8 +35,8 @@ LONG_MA = MA.SMA
 # NEG_THRESHOLD = Decimal('-0.624')
 # POS_THRESHOLD = Decimal('0.893')
 # PERSISTENCE = 2
-# SHORT_MA = MA.SMMA
-# LONG_MA = MA.SMMA
+# SHORT_MA = 'smma'
+# LONG_MA = 'smma'
 
 
 async def main() -> None:
@@ -90,14 +89,14 @@ async def main() -> None:
         rust_result = rust_solver.solve(*args)
         python_result = python_solver.solve(*args)
 
-        trading_summary = await trader.run(
+        trading_summary = await trader.run(Trader.Config(
             'binance',
             SYMBOL,
             INTERVAL,
             start,
             end,
             Decimal('1.0'),
-            strategy_type=strategies.MAMACX,
+            strategy='mamacx',
             strategy_kwargs={
                 'short_period': SHORT_PERIOD,
                 'long_period': LONG_PERIOD,
@@ -109,8 +108,8 @@ async def main() -> None:
             },
             missed_candle_policy=MISSED_CANDLE_POLICY,
             trailing_stop=TRAILING_STOP,
-            adjust_start=False
-        )
+            adjust_start=False,
+        ))
         portfolio = analyse_portfolio(
             benchmark.g_returns, fiat_daily_prices, trading_summary
         )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from enum import Enum
+from enum import IntEnum
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from juno.aliases import Timestamp
@@ -9,7 +9,7 @@ from juno.filters import Filters
 from juno.time import datetime_utcfromtimestamp_ms
 
 
-class Advice(Enum):
+class Advice(IntEnum):
     BUY = 1
     SELL = 2
 
@@ -31,7 +31,7 @@ class CancelOrderResult(NamedTuple):
     status: CancelOrderStatus
 
 
-class CancelOrderStatus(Enum):
+class CancelOrderStatus(IntEnum):
     SUCCESS = 0
     REJECTED = 1
 
@@ -114,7 +114,7 @@ class OrderResult(NamedTuple):
         return OrderResult(status=OrderStatus.NOT_PLACED, fills=[])
 
 
-class OrderStatus(Enum):
+class OrderStatus(IntEnum):
     NOT_PLACED = 0
     NEW = 1
     FILLED = 2
@@ -122,7 +122,7 @@ class OrderStatus(Enum):
     CANCELED = 4
 
 
-class OrderType(Enum):
+class OrderType(IntEnum):
     MARKET = 0
     LIMIT = 1
     STOP_LOSS = 2
@@ -144,7 +144,7 @@ class OrderUpdate(NamedTuple):
     fee_asset: Optional[str] = None  # Last.
 
 
-class Side(Enum):
+class Side(IntEnum):
     BUY = 0
     SELL = 1
 
@@ -155,7 +155,7 @@ class Ticker(NamedTuple):
     quote_volume: Decimal
 
 
-class TimeInForce(Enum):
+class TimeInForce(IntEnum):
     # A Good-Til-Canceled order will continue to work within the system and in the marketplace
     # until it executes or is canceled.
     GTC = 0

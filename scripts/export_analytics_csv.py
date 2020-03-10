@@ -10,7 +10,6 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
-from juno.strategies import MA
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
 from juno.trading import MissedCandlePolicy, Trader, TradingSummary
 from juno.utils import unpack_symbol
@@ -45,16 +44,13 @@ async def main() -> None:
                 'neg_threshold': Decimal('-0.102'),
                 'pos_threshold': Decimal('0.239'),
                 'persistence': 4,
-                'short_ma': MA.SMA,
-                'long_ma': MA.SMMA,
+                'short_ma': 'sma',
+                'long_ma': 'smma',
             },
             trailing_stop=Decimal('0.0827'),
             missed_candle_policy=MissedCandlePolicy.LAST
         )
-        trading_state = Trader.State()
-        await trader.run(trader_config, trading_state)
-        trading_summary = trading_state.summary
-        assert TradingSummary
+        trading_summary = await trader.run(trader_config)
 
         _, filters = informant.get_fees_filters('binance', SYMBOL)
 
@@ -124,17 +120,15 @@ def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, sym
         writer.writerow(
             trade_row(summary.start, quote_asset, 'EUR', summary.quote, Decimal('3347.23'))
         )
-        for pos in summary.positions:
-            assert pos.closing_fills and pos.closing_time
-
+        for pos in summary.get_positions():
             buy_size = pos.base_gain
             buy_price = filters.price.round_down(pos.cost / buy_size)
-            writer.writerow(trade_row(pos.time, base_asset, quote_asset, buy_size, buy_price))
+            writer.writerow(trade_row(pos.open_time, base_asset, quote_asset, buy_size, buy_price))
 
             sell_size = pos.gain
             sell_price = filters.price.round_down(buy_size / sell_size)
             writer.writerow(
-                trade_row(pos.closing_time, quote_asset, base_asset, sell_size, sell_price)
+                trade_row(pos.close_time, quote_asset, base_asset, sell_size, sell_price)
             )
 
 

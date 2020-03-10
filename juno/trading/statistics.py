@@ -71,17 +71,15 @@ def _get_trades_from_summary(
     summary: TradingSummary,
 ) -> Dict[int, List[Tuple[str, Decimal]]]:
     trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
-    for pos in summary.positions:
-        assert pos.closing_fills
+    for pos in summary.get_positions():
         base_asset, quote_asset = unpack_symbol(pos.symbol)
         # Open.
-        time = floor_multiple(pos.time, DAY_MS)
+        time = floor_multiple(pos.open_time, DAY_MS)
         day_trades = trades[time]
         day_trades.append((quote_asset, -pos.cost))
         day_trades.append((base_asset, +pos.base_gain))
         # Close.
-        assert pos.closing_time is not None
-        time = floor_multiple(pos.closing_time, DAY_MS)
+        time = floor_multiple(pos.close_time, DAY_MS)
         day_trades = trades[time]
         day_trades.append((base_asset, -pos.base_cost))
         day_trades.append((quote_asset, +pos.gain))

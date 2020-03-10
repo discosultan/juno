@@ -1,27 +1,27 @@
 from decimal import Decimal
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import pytest
 
 from juno import Advice, Candle, Fill
-from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, OpenPosition, Position, Trader, TradingSummary
 
 from . import fakes
 
 
 def test_position() -> None:
-    pos = Position(
+    open_pos = OpenPosition(
         symbol='eth-btc',
         time=0,
         fills=[
             Fill(price=Decimal('2.0'), size=Decimal('6.0'), fee=Decimal('2.0'), fee_asset='btc')
-        ]
+        ],
     )
-    pos.close(
+    pos = open_pos.close(
         time=1,
         fills=[
             Fill(price=Decimal('2.0'), size=Decimal('2.0'), fee=Decimal('1.0'), fee_asset='eth')
-        ]
+        ],
     )
 
     assert pos.cost == 12  # 6 * 2
@@ -29,25 +29,25 @@ def test_position() -> None:
     assert pos.dust == 2  # 6 - 2 - 2
     assert pos.profit == -9
     assert pos.duration == 1
-    assert pos.start == 0
-    assert pos.end == 1
+    assert pos.open_time == 0
+    assert pos.close_time == 1
     assert pos.roi == Decimal('-0.75')
     assert pos.annualized_roi == -1
 
 
 def test_position_annualized_roi_overflow() -> None:
-    pos = Position(
+    open_pos = OpenPosition(
         symbol='eth-btc',
         time=0,
         fills=[
             Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='eth')
-        ]
+        ],
     )
-    pos.close(
+    pos = open_pos.close(
         time=2,
         fills=[
             Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='btc')
-        ]
+        ],
     )
 
     assert pos.annualized_roi == Decimal('Inf')
@@ -105,7 +105,7 @@ async def test_trader_trailing_stop_loss() -> None:
         strategy_kwargs={'advices': [Advice.BUY, None, None, Advice.SELL]},
         trailing_stop=Decimal('0.1'),
     )
-    state = Trader.State()
+    state: Trader.State[Any] = Trader.State()
     await trader.run(config, state)
     assert state.summary
 
@@ -139,7 +139,7 @@ async def test_trader_restart_on_missed_candle() -> None:
         strategy_kwargs={'advices': [None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
-    state = Trader.State()
+    state: Trader.State[Any] = Trader.State()
     await trader.run(config, state)
 
     assert len(updates) == 5
@@ -184,7 +184,7 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         strategy_kwargs={'advices': [None, None, None, None, None], 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
-    state = Trader.State()
+    state: Trader.State[Any] = Trader.State()
     await trader.run(config, state)
 
     candle_times = [c.time for _, c in updates]
@@ -196,13 +196,12 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
     assert candle_times[4] == 4
 
 
-def new_closed_position(profit):
+def new_closed_position(profit: Decimal) -> Position:
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
-    pos = Position(
+    open_pos = OpenPosition(
         symbol='eth-btc',
         time=0,
-        fills=[Fill(price=Decimal('0.0'), size=size)]
+        fills=[Fill(price=Decimal('0.0'), size=size)],
     )
-    pos.close(time=1, fills=[Fill(price=price, size=size)])
-    return pos
+    return open_pos.close(time=1, fills=[Fill(price=price, size=size)])
