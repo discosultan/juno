@@ -6,7 +6,7 @@ import pytest
 from juno import Candle, Fill
 from juno.components import Event
 from juno.time import DAY_MS
-from juno.trading import Position, TradingSummary
+from juno.trading import OpenPosition, TradingSummary
 from juno.utils import full_path
 
 
@@ -23,26 +23,25 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
         await discord.activate('agent', 'test')
 
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
-        pos = Position(
+        open_pos = OpenPosition(
             symbol='eth-btc',
             time=candle.time,
             fills=[
                 Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
                      fee_asset='btc')
-            ]
+            ],
         )
-        await event.emit('agent', 'position_opened', pos, trading_summary)
+        await event.emit('agent', 'position_opened', open_pos, trading_summary)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
-        pos.close(
+        pos = open_pos.close(
             time=candle.time,
             fills=[
                 Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
                      fee_asset='eth')
-            ]
+            ],
         )
         trading_summary.append_position(pos)
-        assert pos.closing_time
-        trading_summary.finish(pos.closing_time + DAY_MS)
+        trading_summary.finish(pos.close_time + DAY_MS)
         await event.emit('agent', 'position_closed', pos, trading_summary)
         await event.emit('agent', 'finished', trading_summary)
         await event.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))

@@ -6,17 +6,18 @@ import pandas as pd
 from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval, Timestamp
 from juno.math import round_half_up
 from juno.strategies import Strategy
-from juno.trading import MissedCandlePolicy, Position, TradingSummary, analyse_portfolio
+from juno.trading import MissedCandlePolicy, OpenPosition, TradingSummary, analyse_portfolio
 from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
 
 
+# TODO: Refactor to state object.
 class _Context:
     def __init__(self, strategy: Strategy, quote: Decimal) -> None:
         self.strategy = strategy
         self.quote = quote
-        self.open_position: Optional[Position] = None
+        self.open_position: Optional[OpenPosition] = None
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')
@@ -163,10 +164,10 @@ def _try_open_position(
     fee = round_half_up(size * fees.taker, filters.base_precision)
 
     base_asset, _ = unpack_symbol(symbol)
-    ctx.open_position = Position(
+    ctx.open_position = OpenPosition(
         symbol=symbol,
         time=candle.time,
-        fills=[Fill(price=price, size=size, fee=fee, fee_asset=base_asset)]
+        fills=[Fill(price=price, size=size, fee=fee, fee_asset=base_asset)],
     )
 
     ctx.quote -= size * price
@@ -176,22 +177,22 @@ def _close_position(
     ctx: _Context, summary: TradingSummary, symbol: str, fees: Fees, filters: Filters,
     candle: Candle
 ) -> None:
-    pos = ctx.open_position
-    assert pos
+    assert ctx.open_position
 
     price = candle.close
 
-    size = filters.size.round_down(pos.base_gain)
+    size = filters.size.round_down(ctx.open_position.base_gain)
 
     quote = size * price
     fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
     _, quote_asset = unpack_symbol(symbol)
-    pos.close(
-        time=candle.time,
-        fills=[Fill(price=price, size=size, fee=fee, fee_asset=quote_asset)]
+    summary.append_position(
+        ctx.open_position.close(
+            time=candle.time,
+            fills=[Fill(price=price, size=size, fee=fee, fee_asset=quote_asset)]
+        )
     )
-    summary.append_position(pos)
 
     ctx.quote += quote - fee
 

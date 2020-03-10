@@ -120,17 +120,15 @@ def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, sym
         writer.writerow(
             trade_row(summary.start, quote_asset, 'EUR', summary.quote, Decimal('3347.23'))
         )
-        for pos in summary.positions:
-            assert pos.closing_fills and pos.closing_time
-
+        for pos in summary.get_positions():
             buy_size = pos.base_gain
             buy_price = filters.price.round_down(pos.cost / buy_size)
-            writer.writerow(trade_row(pos.time, base_asset, quote_asset, buy_size, buy_price))
+            writer.writerow(trade_row(pos.open_time, base_asset, quote_asset, buy_size, buy_price))
 
             sell_size = pos.gain
             sell_price = filters.price.round_down(buy_size / sell_size)
             writer.writerow(
-                trade_row(pos.closing_time, quote_asset, base_asset, sell_size, sell_price)
+                trade_row(pos.close_time, quote_asset, base_asset, sell_size, sell_price)
             )
 
 

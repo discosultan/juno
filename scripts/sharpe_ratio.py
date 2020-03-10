@@ -83,16 +83,14 @@ async def main() -> None:
             market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
         trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
-        for pos in trading_summary.positions:
-            assert pos.closing_fills
+        for pos in trading_summary.get_positions():
             # Open.
-            time = floor_multiple(pos.time, DAY_MS)
+            time = floor_multiple(pos.open_time, DAY_MS)
             day_trades = trades[time]
             day_trades.append((quote_asset, -pos.cost))
             day_trades.append((base_asset, +pos.base_gain))
             # Close.
-            assert pos.closing_time
-            time = floor_multiple(pos.closing_time, DAY_MS)
+            time = floor_multiple(pos.close_time, DAY_MS)
             day_trades = trades[time]
             day_trades.append((base_asset, -pos.base_cost))
             day_trades.append((quote_asset, +pos.gain))
