@@ -9,7 +9,7 @@ from typing import Any, Generic, List, TypeVar
 
 from juno.components import Event
 from juno.plugins import Plugin
-from juno.utils import exc_traceback, generate_random_words
+from juno.utils import generate_random_words
 
 _log = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class Agent:
         # Activate plugins.
         await asyncio.gather(*(p.activate(state.name, type_name) for p in plugins))
 
-        await self.emit(state.name, 'starting')
+        await self._event.emit(state.name, 'starting')
         _log.info(f'running {state.name} ({type_name}): {config}')
 
         try:
@@ -59,14 +59,14 @@ class Agent:
             _log.error(f'unhandled exception in agent ({exc})')
             state.status = AgentStatus.ERRORED
             await self.on_errored(config, state)
-            await self.emit(state.name, 'errored', exc)
+            await self._event.emit(state.name, 'errored', exc)
             raise
         else:
             state.status = AgentStatus.FINISHED
         finally:
             await self.on_finally(config, state)
 
-        await self.emit(state.name, 'finished')
+        await self._event.emit(state.name, 'finished')
 
         return state
 
@@ -81,10 +81,3 @@ class Agent:
 
     async def on_finally(self, config: Any, state: Any) -> None:
         pass
-
-    # TODO: Move to event comp?
-    async def emit(self, channel: str, event: str, *args: Any) -> List[Any]:
-        results = await self._event.emit(channel, event, *args)
-        for e in (r for r in results if isinstance(r, Exception)):
-            _log.error(exc_traceback(e))
-        return results

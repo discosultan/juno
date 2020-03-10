@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any, Dict
 
 import pytest
 
@@ -11,7 +12,7 @@ from juno.utils import full_path
 
 @pytest.mark.manual
 @pytest.mark.plugin
-async def test_discord(request, config) -> None:
+async def test_discord(request, config: Dict[str, Any]) -> None:
     skip_non_configured(request, config)
 
     from juno.plugins.discord import Discord
@@ -30,7 +31,7 @@ async def test_discord(request, config) -> None:
                      fee_asset='btc')
             ]
         )
-        await event.emit('agent', 'position_opened', pos)
+        await event.emit('agent', 'position_opened', pos, trading_summary)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
         pos.close(
             time=candle.time,
@@ -42,13 +43,13 @@ async def test_discord(request, config) -> None:
         trading_summary.append_position(pos)
         assert pos.closing_time
         trading_summary.finish(pos.closing_time + DAY_MS)
-        await event.emit('agent', 'position_closed', pos)
-        await event.emit('agent', 'finished')
+        await event.emit('agent', 'position_closed', pos, trading_summary)
+        await event.emit('agent', 'finished', trading_summary)
         await event.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
         try:
             raise Exception('Expected error.')
         except Exception as exc:
-            await event.emit('agent', 'errored', exc)
+            await event.emit('agent', 'errored', exc, trading_summary)
 
 
 def skip_non_configured(request, config):

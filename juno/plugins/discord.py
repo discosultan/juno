@@ -94,7 +94,7 @@ class Discord(discord.Client, Plugin):
         async def on_image(path: str):
             await self._send_file(channel_id, path)
 
-        _log.info('activated')
+        _log.info(f'activated for {agent_name} ({agent_type})')
 
     async def _send_message(self, channel_id: int, msg: str) -> None:
         await self.wait_until_ready()
