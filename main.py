@@ -4,7 +4,7 @@ import logging
 import signal
 import sys
 from types import FrameType
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Type
 
 import pkg_resources
 
@@ -91,11 +91,11 @@ async def main() -> None:
         container.add_singleton_type(type_)
 
     # Load agents and plugins.
-    agent_types = map_module_types(agents)
+    agent_types: Dict[str, Type[Agent]] = map_module_types(agents)
     plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
     agent_ctxs: List[Tuple[Agent, Any, List[Plugin]]] = [(
         container.resolve(agent_types[c['type']]),
-        config.config_to_type(c, agent_types[c['type']]),
+        config.config_to_type(c, agent_types[c['type']].Config),
         [container.resolve(plugin_types[p]) for p in c.get('plugins', [])],
     ) for c in cfg['agents']]
 

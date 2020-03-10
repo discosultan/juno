@@ -26,6 +26,9 @@ class AgentStatus(IntEnum):
 
 
 class Agent:
+    class Config:
+        pass
+
     @dataclass
     class State(Generic[T]):
         name: str

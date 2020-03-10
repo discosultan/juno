@@ -3,7 +3,7 @@ from types import ModuleType
 from typing import Any, Dict, List, Type
 
 
-def map_module_types(module: ModuleType) -> Dict[str, type]:
+def map_module_types(module: ModuleType) -> Dict[str, Type[Any]]:
     return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
 
 
