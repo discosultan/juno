@@ -45,10 +45,11 @@ IntAlias = _GenericAlias(int, (), name='IntAlias')
 @dataclass
 class Corge(Generic[T1, T2, T3]):
     value1: T1
-    value2: Optional[T2]
-    value3: Quux[T3]
-    value4: Quux[int]
-    value5: IntAlias  # type: ignore
+    value2: T1
+    value3: Optional[T2]
+    value4: Quux[T3]
+    value5: Quux[int]
+    value6: IntAlias  # type: ignore
 
 
 def test_get_input_type_hints() -> None:
@@ -83,9 +84,16 @@ def test_isnamedtuple(input_, expected_output) -> None:
     (1, Qux, Qux.VALUE),
     ({'value': 1}, Quux[int], Quux(value=1)),
     (
-        {'value1': 1, 'value2': 2, 'value3': {'value': 3}, 'value4': {'value': 4}, 'value5': 5},
+        {
+            'value1': 1,
+            'value2': 2,
+            'value3': 3,
+            'value4': {'value': 4},
+            'value5': {'value': 5},
+            'value6': 6,
+        },
         Corge[int, int, int],
-        Corge(value1=1, value2=2, value3=Quux(value=3), value4=Quux(value=4), value5=5),
+        Corge(value1=1, value2=2, value3=3, value4=Quux(value=4), value5=Quux(value=5), value6=6),
     ),
 ])
 def test_raw_to_type(obj, type_, expected_output) -> None:

@@ -8,7 +8,7 @@ from typing import (
     get_type_hints
 )
 
-from typing_inspect import is_generic_type, is_optional_type, is_typevar
+from typing_inspect import get_parameters, is_generic_type, is_optional_type, is_typevar
 
 ExcType = Optional[Type[BaseException]]
 ExcValue = Optional[BaseException]
@@ -99,7 +99,7 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
 
     # Try constructing a regular dataclass.
     annotations = get_type_hints(origin)
-    type_args = list(get_args(type_))
+    type_args_map = {p: a for p, a in zip(get_parameters(origin), get_args(type_))}
     instance = origin.__new__(origin)  # type: ignore
     for name, sub_type in ((k, v) for k, v in annotations.items() if k in annotations):
         if name not in value:
@@ -107,15 +107,15 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
         # Substitute generics.
         # TODO: Generalize
         if is_typevar(sub_type):
-            sub_type = type_args.pop(0)
+            sub_type = type_args_map[sub_type]
         if is_optional_type(sub_type):
             sub_type_arg, _ = get_args(sub_type)
             if is_typevar(sub_type_arg):
-                sub_type = Optional[type_args.pop(0)]
+                sub_type = Optional[type_args_map[sub_type_arg]]
         if is_generic_type(sub_type):
             sub_type_args = get_args(sub_type)
             if len(sub_type_args) == 1 and is_typevar(sub_type_args[0]):
-                sub_type = sub_type[type_args.pop(0)]
+                sub_type = sub_type[type_args_map[sub_type_args[0]]]
         sub_value = value[name]
         setattr(instance, name, raw_to_type(sub_value, sub_type))
     return instance

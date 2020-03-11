@@ -717,6 +717,8 @@ class UserDataStream:
         )
         if res.status == 400 and res.data.get('code') == _ERR_LISTEN_KEY_DOES_NOT_EXIST:
             raise JunoException('Listen key does not exist')
+        # TODO: If status 50X (502 for example during exchange maintenance), we may want to wait
+        # for a some kind of a successful health check before retrying.
         res.raise_for_status()
         return res
 
