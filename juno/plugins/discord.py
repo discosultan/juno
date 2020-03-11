@@ -58,16 +58,13 @@ class Discord(discord.Client, Plugin):
 
         @self._event.on(agent_name, 'position_opened')
         async def on_position_opened(pos: Position, result: Any) -> None:
-            # We send separate messages to avoid exhausting max message length limit.
             await self._send_message(
                 channel_id, format_message('opened position', format_as_config(pos))
-            )
-            await self._send_message(
-                channel_id, format_message('summary', format_as_config((result)))
             )
 
         @self._event.on(agent_name, 'position_closed')
         async def on_position_closed(pos: Position, result: Any) -> None:
+            # We send separate messages to avoid exhausting max message length limit.
             await self._send_message(
                 channel_id, format_message('closed position', format_as_config(pos))
             )

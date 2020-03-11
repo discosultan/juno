@@ -21,12 +21,9 @@ async def main() -> None:
         async for i, val in enumerate_async(
             client.stream_historical_trades(symbol=SYMBOL, start=start, end=end)
         ):
-            pass
-            # logging.info(val)
+            logging.info(val)
             # if i == 2:
             #     break
-
-    logging.info('done')
 
 
 asyncio.run(main())

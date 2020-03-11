@@ -54,7 +54,5 @@ async def main() -> None:
         with open(f'{name}_{SYMBOL}_{INTERVAL}_candles.json', 'w') as f:
             json.dump(candles, f, indent=4)
 
-    logging.info('done')
-
 
 asyncio.run(main())

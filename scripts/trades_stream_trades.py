@@ -26,7 +26,5 @@ async def main() -> None:
             if i == 2:
                 break
 
-        logging.info('done')
-
 
 asyncio.run(main())

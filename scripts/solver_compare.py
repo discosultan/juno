@@ -129,7 +129,5 @@ async def main() -> None:
         logging.info(f'profit {trading_summary.profit}')
         logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
 
-        logging.info('done')
-
 
 asyncio.run(main())

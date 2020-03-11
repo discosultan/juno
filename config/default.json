@@ -6,22 +6,22 @@
         {
             "type": "backtest",
             "exchange": "binance",
-            "symbol": "eos-btc",
-            "interval": "1h",
+            "symbol": "ada-btc",
+            "interval": "5m",
             "quote": 1.0,
             "start": "2018-01-01",
-            "end": "2020-01-01",
+            "end": "2018-07-01",
             "missed_candle_policy": "last",
-            "trailing_stop": 0.0,
+            "trailing_stop": 0.0866,
             "strategy": {
                 "type": "mamacx",
-                "short_period": 11,
-                "long_period": 21,
-                "neg_threshold": -0.229,
-                "pos_threshold": 0.1,
-                "persistence": 4,
+                "short_period": 84,
+                "long_period": 92,
+                "neg_threshold": -0.172,
+                "pos_threshold": 0.377,
+                "persistence": 0,
                 "short_ma": "sma",
-                "long_ma": "sma"
+                "long_ma": "ema2"
             }
         }
     ]

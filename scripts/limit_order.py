@@ -53,7 +53,5 @@ async def main() -> None:
         logging.info(f'in case of market order total size: {Fill.total_size(market_fills)}')
         logging.info(f'in case of market order total quote: {Fill.total_quote(market_fills)}')
 
-    logging.info('done')
-
 
 asyncio.run(main())

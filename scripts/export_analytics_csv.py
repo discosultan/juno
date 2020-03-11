@@ -1,6 +1,5 @@
 import asyncio
 import csv
-import logging
 from decimal import Decimal
 from typing import Any, Dict, List
 
@@ -65,8 +64,6 @@ async def main() -> None:
                 None, export_trading_summary_as_csv, filters, trading_summary, SYMBOL
             ),
         )
-
-    logging.info('done')
 
 
 async def stream_and_export_daily_candles_as_csv(

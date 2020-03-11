@@ -59,7 +59,6 @@ async def main() -> None:
             symbol=SYMBOL, side=SIDE, type_=OrderType.MARKET, size=size, test=TEST
         )
         logging.info(res)
-    logging.info('done')
 
 
 asyncio.run(main())

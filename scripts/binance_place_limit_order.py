@@ -76,7 +76,6 @@ async def main() -> None:
             test=TEST
         )
         logging.info(res)
-    logging.info('done')
 
 
 asyncio.run(main())

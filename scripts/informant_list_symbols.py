@@ -21,7 +21,6 @@ async def main() -> None:
             for exchange in EXCHANGE_TYPES:
                 logging.info(exchange.__name__)
                 logging.info(informant.list_symbols(exchange.__name__.lower()))
-    logging.info('done')
 
 
 asyncio.run(main())
