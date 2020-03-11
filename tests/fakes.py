@@ -1,6 +1,7 @@
 import asyncio
+from collections import defaultdict
 from contextlib import asynccontextmanager
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from juno import (
     Advice, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters, OrderResult,
@@ -152,14 +153,18 @@ class Exchange(exchanges.Exchange):
 
 
 class Chandler(components.Chandler):
-    def __init__(self, candles={}):
+    def __init__(self, candles={}, future_candles={}):
         self.candles = candles
+        self.future_candle_queues = defaultdict(asyncio.Queue)
+        for k, cl in future_candles.items():
+            future_candle_queue = self.future_candle_queues[k]
+            for c in cl:
+                future_candle_queue.put_nowait(c)
 
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False
     ):
         candles = self.candles[(exchange, symbol, interval)]
-
         last_c = None
         for c in (c for c in candles if c.time >= start and c.time < end):
             time_diff = c.time - last_c.time if last_c else 0
@@ -179,6 +184,16 @@ class Chandler(components.Chandler):
             if not closed or c.closed:
                 yield c
             last_c = c
+
+        # TODO: walrus
+        future_candles = self.future_candle_queues.get((exchange, symbol, interval))
+        if future_candles:
+            while True:
+                candle = await future_candles.get()
+                yield candle
+                future_candles.task_done()
+                if candle.time >= end - interval:
+                    break
 
 
 class Trades(components.Trades):
@@ -268,7 +283,14 @@ class Market(brokers.Market):
 
 
 class Strategy(strategies.Strategy):
-    def __init__(self, advices: List[Advice], updates: List[Tuple[int, Candle]] = []):
+    advices: List[Optional[Advice]]
+    updates: List[Tuple[int, Candle]]
+
+    def __init__(
+        self, advices: List[Optional[Advice]], updates: List[Tuple[int, Candle]] = [],
+        maturity: int = 0
+    ) -> None:
+        super().__init__(maturity=maturity)
         self.advices = list(reversed(advices))
         self.updates = updates
 

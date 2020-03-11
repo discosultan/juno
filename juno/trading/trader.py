@@ -29,7 +29,7 @@ class Trader:
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
         highest_close_since_position = Decimal('0.0')
-        adjusted_start: Timestamp = 0
+        current: Timestamp = 0
         start_adjusted: bool = False
 
     class Config(NamedTuple):
@@ -95,8 +95,8 @@ class Trader:
         if not state.strategy:
             state.strategy = config.new_strategy()
 
-        if not state.adjusted_start:
-            state.adjusted_start = config.start
+        if not state.current:
+            state.current = config.start
 
         if config.adjust_start and not state.start_adjusted:
             # Adjust start to accommodate for the required history before a strategy
@@ -106,7 +106,7 @@ class Trader:
                 f'fetching {state.strategy.req_history} candle(s) before start time to warm-up '
                 'strategy'
             )
-            state.adjusted_start -= state.strategy.req_history * config.interval
+            state.current -= state.strategy.req_history * config.interval
             state.start_adjusted = True
 
         try:
@@ -117,7 +117,7 @@ class Trader:
                     exchange=config.exchange,
                     symbol=config.symbol,
                     interval=config.interval,
-                    start=state.adjusted_start,
+                    start=state.current,
                     end=config.end,
                 ):
                     # Check if we have missed a candle.
@@ -131,7 +131,7 @@ class Trader:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
                             state.strategy = config.new_strategy()
-                            state.adjusted_start = candle.time + config.interval
+                            state.current = candle.time + config.interval
                         elif config.missed_candle_policy is MissedCandlePolicy.LAST:
                             _log.info(f'filling {num_missed} missed candles with last values')
                             last_candle = state.last_candle
@@ -187,6 +187,7 @@ class Trader:
             _log.info(f'first candle {candle}')
             state.first_candle = candle
         state.last_candle = candle
+        state.current = candle.time + config.interval
 
     async def _open_position(self, config: Config, state: State, candle: Candle) -> None:
         if self._broker:

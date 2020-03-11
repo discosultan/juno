@@ -1,9 +1,11 @@
+import asyncio
 from decimal import Decimal
-from typing import Any, List, Tuple
+from typing import List, Tuple
 
 import pytest
 
 from juno import Advice, Candle, Fill
+from juno.asyncio import cancel, cancelable
 from juno.trading import MissedCandlePolicy, OpenPosition, Position, Trader, TradingSummary
 
 from . import fakes
@@ -105,11 +107,9 @@ async def test_trader_trailing_stop_loss() -> None:
         strategy_kwargs={'advices': [Advice.BUY, None, None, Advice.SELL]},
         trailing_stop=Decimal('0.1'),
     )
-    state: Trader.State[Any] = Trader.State()
-    await trader.run(config, state)
-    assert state.summary
+    summary = await trader.run(config)
 
-    assert state.summary.profit == 8
+    assert summary.profit == 8
 
 
 async def test_trader_restart_on_missed_candle() -> None:
@@ -136,11 +136,10 @@ async def test_trader_restart_on_missed_candle() -> None:
         quote=Decimal('10.0'),
         strategy_module='tests.fakes',
         strategy='strategy',
-        strategy_kwargs={'advices': [None, None, None], 'updates': updates},
+        strategy_kwargs={'advices': [None] * 3, 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
-    state: Trader.State[Any] = Trader.State()
-    await trader.run(config, state)
+    await trader.run(config)
 
     assert len(updates) == 5
 
@@ -181,11 +180,10 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         quote=Decimal('10.0'),
         strategy_module='tests.fakes',
         strategy='strategy',
-        strategy_kwargs={'advices': [None, None, None, None, None], 'updates': updates},
+        strategy_kwargs={'advices': [None] * 5, 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
-    state: Trader.State[Any] = Trader.State()
-    await trader.run(config, state)
+    await trader.run(config)
 
     candle_times = [c.time for _, c in updates]
     assert len(candle_times) == 5
@@ -194,6 +192,66 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
     assert candle_times[2] == 2
     assert candle_times[3] == 3
     assert candle_times[4] == 4
+
+
+async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1):
+            [
+                Candle(time=0),
+                Candle(time=1),
+                Candle(time=2),
+                Candle(time=3),
+            ]
+        },
+        future_candles={
+            ('dummy', 'eth-btc', 1):
+            [
+                Candle(time=4),
+            ]
+        }
+    )
+    trader = Trader(chandler=chandler, informant=fakes.Informant())
+    updates: List[Tuple[int, Candle]] = []
+
+    config = Trader.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=2,
+        end=6,
+        quote=Decimal('1.0'),
+        strategy_module='tests.fakes',
+        strategy='strategy',
+        strategy_kwargs={'advices': [None] * 100, 'updates': updates, 'maturity': 2},
+        adjust_start=True,
+    )
+    state: Trader.State[fakes.Strategy] = Trader.State()
+
+    trader_run_task = asyncio.create_task(cancelable(trader.run(config, state)))
+
+    future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
+    await future_candle_queue.join()
+    await cancel(trader_run_task)
+    await storage.set('shard', 'key', state)
+    future_candle_queue.put_nowait(Candle(time=5))
+    state = await storage.get('shard', 'key', Trader.State[fakes.Strategy])
+    # NB! Since we reload from storage, we need to reattach the previous updates dict to assert
+    # results.
+    assert state.strategy
+    state.strategy.updates = updates
+
+    await trader.run(config, state)
+
+    candle_times = [c.time for _, c in updates]
+    assert len(candle_times) == 6
+    assert candle_times[0] == 0
+    assert candle_times[1] == 1
+    assert candle_times[2] == 2
+    assert candle_times[3] == 3
+    assert candle_times[4] == 4
+    assert candle_times[5] == 5
 
 
 def new_closed_position(profit: Decimal) -> Position:
