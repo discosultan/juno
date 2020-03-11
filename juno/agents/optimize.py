@@ -15,55 +15,55 @@ _log = logging.getLogger(__name__)
 
 
 class Optimize(Agent):
+    class Config(NamedTuple):
+        exchange: str
+        symbols: Optional[List[str]]
+        intervals: Optional[List[Interval]]
+        start: Timestamp
+        quote: Decimal
+        strategy: str
+        end: Optional[Timestamp] = None
+        missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
+        trailing_stop: Optional[Decimal] = Decimal('0.0')
+        population_size: int = 50
+        max_generations: int = 1000
+        mutation_probability: Decimal = Decimal('0.2')
+        seed: Optional[int] = None
+        verbose: bool = False
+
     def __init__(self, optimizer: Optimizer) -> None:
         super().__init__()
         self._optimizer = optimizer
 
-    async def run(
-        self,
-        exchange: str,
-        symbols: Optional[List[str]],
-        intervals: Optional[List[Interval]],
-        start: Timestamp,
-        quote: Decimal,
-        strategy: str,
-        end: Optional[Timestamp] = None,
-        missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE,
-        trailing_stop: Optional[Decimal] = Decimal('0.0'),
-        population_size: int = 50,
-        max_generations: int = 1000,
-        mutation_probability: Decimal = Decimal('0.2'),
-        seed: Optional[int] = None,
-        verbose: bool = False,
-    ) -> None:
-        strategy_type = get_module_type(strategies, strategy)
-        self.result = OptimizationSummary()
+    async def on_running(self, config: Config, state: Agent.State[OptimizationSummary]) -> None:
+        state.result = OptimizationSummary()
         await self._optimizer.run(
-            exchange=exchange,
-            symbols=symbols,
-            intervals=intervals,
-            start=start,
-            quote=quote,
-            strategy_type=strategy_type,
-            end=end,
-            missed_candle_policy=missed_candle_policy,
-            trailing_stop=trailing_stop,
-            population_size=population_size,
-            max_generations=max_generations,
-            mutation_probability=mutation_probability,
-            seed=seed,
-            verbose=verbose,
-            summary=self.result,
+            exchange=config.exchange,
+            symbols=config.symbols,
+            intervals=config.intervals,
+            start=config.start,
+            quote=config.quote,
+            strategy=config.strategy,
+            end=config.end,
+            missed_candle_policy=config.missed_candle_policy,
+            trailing_stop=config.trailing_stop,
+            population_size=config.population_size,
+            max_generations=config.max_generations,
+            mutation_probability=config.mutation_probability,
+            seed=config.seed,
+            verbose=config.verbose,
+            summary=state.result,
         )
 
-    def on_finally(self) -> None:
-        for ind in self.result.best:
+    async def on_finally(self, config: Config, state: Agent.State[OptimizationSummary]) -> None:
+        for ind in state.result.best:
             # Create a new typed named tuple for correctly formatting strategy kwargs for the
             # particular strategy type.
 
             trading_config = ind.trading_config
-            strategy_type = trading_config.strategy_type
+            strategy = trading_config.strategy
             strategy_kwargs = trading_config.strategy_kwargs
+            strategy_type = get_module_type(strategies, strategy)
 
             strategy_kwargs_typings = get_input_type_hints(strategy_type.__init__)  # type: ignore
             strategy_kwargs_type = NamedTuple('_', strategy_kwargs_typings.items())  # type: ignore
@@ -74,8 +74,8 @@ class Optimize(Agent):
             trading_config_type = NamedTuple('_', trading_config_typings.items())  # type: ignore
             x = ind.trading_config._asdict()
             x['strategy_kwargs'] = strategy_kwargs_instance
-            trading_config = trading_config_type(*x.values())
+            trading_config_instance = trading_config_type(*x.values())
 
-            _log.info(f'trading config: {format_as_config(trading_config)}')
+            _log.info(f'trading config: {format_as_config(trading_config_instance)}')
             _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
             _log.info(f'portfolio stats: {format_as_config(ind.portfolio_stats)}')

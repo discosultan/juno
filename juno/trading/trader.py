@@ -1,33 +1,35 @@
+import importlib
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, Generic, List, NamedTuple, Optional, Type, TypeVar
+from typing import Any, Dict, Generic, List, NamedTuple, Optional, TypeVar
 
-from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp
+from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp, strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Event, Informant
 from juno.math import round_half_up
+from juno.modules import get_module_type
 from juno.strategies import Strategy
 from juno.utils import tonamedtuple, unpack_symbol
 
-from .common import MissedCandlePolicy, Position, TradingSummary
+from .common import MissedCandlePolicy, OpenPosition, TradingSummary
 
 _log = logging.getLogger(__name__)
 
-T = TypeVar('T', covariant=True)
+TStrategy = TypeVar('TStrategy', bound=Strategy)
 
 
 class Trader:
     @dataclass
-    class State(Generic[T]):
-        strategy: Optional[T] = None
+    class State(Generic[TStrategy]):
+        strategy: Optional[TStrategy] = None
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
-        open_position: Optional[Position] = None
+        open_position: Optional[OpenPosition] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
         highest_close_since_position = Decimal('0.0')
-        adjusted_start: Timestamp = 0
+        current: Timestamp = 0
         start_adjusted: bool = False
 
     class Config(NamedTuple):
@@ -37,7 +39,8 @@ class Trader:
         start: Timestamp
         end: Timestamp
         quote: Decimal
-        strategy_type: Type[Strategy]  # TODO: We need to get rid of this bad boy!
+        strategy: str
+        strategy_module: str = strategies.__name__
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
         strategy_args: List[Any] = []
@@ -47,19 +50,21 @@ class Trader:
         adjust_start: bool = False
 
         @property
-        def base_asset(self):
+        def base_asset(self) -> str:
             return unpack_symbol(self.symbol)[0]
 
         @property
-        def quote_asset(self):
+        def quote_asset(self) -> str:
             return unpack_symbol(self.symbol)[1]
 
         @property
-        def trailing_factor(self):
+        def trailing_factor(self) -> Decimal:
             return 1 - self.trailing_stop
 
-        def new_strategy(self):
-            return self.strategy_type(*self.strategy_args, **self.strategy_kwargs)
+        def new_strategy(self) -> Strategy:
+            return get_module_type(importlib.import_module(self.strategy_module), self.strategy)(
+                *self.strategy_args, **self.strategy_kwargs
+            )
 
     def __init__(
         self,
@@ -73,11 +78,13 @@ class Trader:
         self._broker = broker
         self._event = event
 
-    async def run(self, config: Config, state: State) -> TradingSummary:
+    async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start >= 0
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
+
+        state = state or Trader.State()
 
         if state.quote == -1:
             state.quote = config.quote
@@ -88,18 +95,18 @@ class Trader:
         if not state.strategy:
             state.strategy = config.new_strategy()
 
-        if not state.adjusted_start:
-            state.adjusted_start = config.start
+        if not state.current:
+            state.current = config.start
 
         if config.adjust_start and not state.start_adjusted:
             # Adjust start to accommodate for the required history before a strategy
             # becomes effective. Only do it on first run because subsequent runs mean
             # missed candles and we don't want to fetch passed a missed candle.
             _log.info(
-                f'fetching {state.strategy.req_history} candle(s) before start time to '
-                'warm-up strategy'
+                f'fetching {state.strategy.req_history} candle(s) before start time to warm-up '
+                'strategy'
             )
-            state.adjusted_start -= state.strategy.req_history * config.interval
+            state.current -= state.strategy.req_history * config.interval
             state.start_adjusted = True
 
         try:
@@ -110,7 +117,7 @@ class Trader:
                     exchange=config.exchange,
                     symbol=config.symbol,
                     interval=config.interval,
-                    start=state.adjusted_start,
+                    start=state.current,
                     end=config.end,
                 ):
                     # Check if we have missed a candle.
@@ -124,7 +131,7 @@ class Trader:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
                             state.strategy = config.new_strategy()
-                            state.adjusted_start = candle.time + config.interval
+                            state.current = candle.time + config.interval
                         elif config.missed_candle_policy is MissedCandlePolicy.LAST:
                             _log.info(f'filling {num_missed} missed candles with last values')
                             last_candle = state.last_candle
@@ -180,6 +187,7 @@ class Trader:
             _log.info(f'first candle {candle}')
             state.first_candle = candle
         state.last_candle = candle
+        state.current = candle.time + config.interval
 
     async def _open_position(self, config: Config, state: State, candle: Candle) -> None:
         if self._broker:
@@ -190,7 +198,11 @@ class Trader:
                 test=config.test
             )
 
-            state.open_position = Position(symbol=config.symbol, time=candle.time, fills=res.fills)
+            state.open_position = OpenPosition(
+                symbol=config.symbol,
+                time=candle.time,
+                fills=res.fills,
+            )
 
             state.quote -= Fill.total_quote(res.fills)
         else:
@@ -203,10 +215,10 @@ class Trader:
 
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
-            state.open_position = Position(
+            state.open_position = OpenPosition(
                 symbol=config.symbol,
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)]
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
             )
 
             state.quote -= size * price
@@ -217,18 +229,17 @@ class Trader:
 
     async def _close_position(self, config: Config, state: State, candle: Candle) -> None:
         assert state.summary
-        pos = state.open_position
-        assert pos
+        assert state.open_position
 
         if self._broker:
             res = await self._broker.sell(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                base=pos.base_gain,
+                base=state.open_position.base_gain,
                 test=config.test
             )
 
-            pos.close(
+            position = state.open_position.close(
                 time=candle.time,
                 fills=res.fills
             )
@@ -237,12 +248,12 @@ class Trader:
         else:
             price = candle.close
             fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-            size = filters.size.round_down(pos.base_gain)
+            size = filters.size.round_down(state.open_position.base_gain)
 
             quote = size * price
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-            pos.close(
+            position = state.open_position.close(
                 time=candle.time,
                 fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)]
             )
@@ -250,7 +261,7 @@ class Trader:
             state.quote += quote - fee
 
         state.open_position = None
-        state.summary.append_position(pos)
+        state.summary.append_position(position)
         _log.info(f'position closed: {candle}')
-        _log.debug(tonamedtuple(pos))
-        await self._event.emit(config.channel, 'position_closed', pos)
+        _log.debug(tonamedtuple(position))
+        await self._event.emit(config.channel, 'position_closed', position)

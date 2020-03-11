@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterator, NamedTuple, Optional, Tuple, TypeVar, ge
 import aiolimiter
 
 from juno import json
-from juno.config import to_config
+from juno.config import type_to_config
 from juno.typing import isnamedtuple
 
 T = TypeVar('T')
@@ -72,7 +72,7 @@ def format_as_config(obj: Any):
         # Extracts only public fields and properties.
         obj = tonamedtuple(obj)
         type_ = type(obj)
-    return json.dumps(to_config(obj, type_), indent=4)
+    return json.dumps(type_to_config(obj, type_), indent=4)
 
 
 def unpack_symbol(symbol: str) -> Tuple[str, str]:

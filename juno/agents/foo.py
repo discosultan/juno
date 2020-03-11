@@ -1,11 +1,10 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import List
+from typing import Any, List
 
 from juno.components import Historian, Informant, Prices
 from juno.optimization import Optimizer
-from juno.strategies import MAMACX
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import format_as_config, unpack_symbol
@@ -27,7 +26,7 @@ class Foo(Agent):
         self._trader = trader
         self._optimizer = optimizer
 
-    async def run(self) -> None:
+    async def on_running(self, config: Any, state: Agent.State) -> None:
         required_start = strptimestamp('2019-01-01')
         trading_start = strptimestamp('2019-07-01')
         end = strptimestamp('2020-01-01')
@@ -40,7 +39,7 @@ class Foo(Agent):
         )
         quote_per_symbol = quote / len(symbols)
 
-        state = Trader.State()
+        trader_state: Trader.State[Any] = Trader.State()
         await asyncio.gather(
             *(self._optimize_and_trade(
                 exchange,
@@ -48,11 +47,11 @@ class Foo(Agent):
                 trading_start,
                 end,
                 quote_per_symbol,
-                state,
+                trader_state,
             ) for s in symbols)
         )
-        assert state.summary
-        state.summary.finish(end)
+        assert trader_state.summary
+        trader_state.summary.finish(end)
 
         # Statistics.
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
@@ -60,7 +59,7 @@ class Foo(Agent):
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, state.summary)
+        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, trader_state.summary)
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
         _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')
@@ -125,7 +124,7 @@ class Foo(Agent):
             start=optimization_start,
             end=trading_start,
             quote=quote,
-            strategy_type=MAMACX,
+            strategy='mamacx',
             symbols=[symbol],
             intervals=list(map(strpinterval, ('2h',))),
             population_size=10,

@@ -1,27 +1,29 @@
+import asyncio
 from decimal import Decimal
 from typing import List, Tuple
 
 import pytest
 
 from juno import Advice, Candle, Fill
-from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
+from juno.asyncio import cancel, cancelable
+from juno.trading import MissedCandlePolicy, OpenPosition, Position, Trader, TradingSummary
 
 from . import fakes
 
 
 def test_position() -> None:
-    pos = Position(
+    open_pos = OpenPosition(
         symbol='eth-btc',
         time=0,
         fills=[
             Fill(price=Decimal('2.0'), size=Decimal('6.0'), fee=Decimal('2.0'), fee_asset='btc')
-        ]
+        ],
     )
-    pos.close(
+    pos = open_pos.close(
         time=1,
         fills=[
             Fill(price=Decimal('2.0'), size=Decimal('2.0'), fee=Decimal('1.0'), fee_asset='eth')
-        ]
+        ],
     )
 
     assert pos.cost == 12  # 6 * 2
@@ -29,25 +31,25 @@ def test_position() -> None:
     assert pos.dust == 2  # 6 - 2 - 2
     assert pos.profit == -9
     assert pos.duration == 1
-    assert pos.start == 0
-    assert pos.end == 1
+    assert pos.open_time == 0
+    assert pos.close_time == 1
     assert pos.roi == Decimal('-0.75')
     assert pos.annualized_roi == -1
 
 
 def test_position_annualized_roi_overflow() -> None:
-    pos = Position(
+    open_pos = OpenPosition(
         symbol='eth-btc',
         time=0,
         fills=[
             Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='eth')
-        ]
+        ],
     )
-    pos.close(
+    pos = open_pos.close(
         time=2,
         fills=[
             Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='btc')
-        ]
+        ],
     )
 
     assert pos.annualized_roi == Decimal('Inf')
@@ -100,15 +102,14 @@ async def test_trader_trailing_stop_loss() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy_type=fakes.Strategy,
+        strategy_module='tests.fakes',
+        strategy='strategy',
         strategy_kwargs={'advices': [Advice.BUY, None, None, Advice.SELL]},
         trailing_stop=Decimal('0.1'),
     )
-    state = Trader.State()
-    await trader.run(config, state)
-    assert state.summary
+    summary = await trader.run(config)
 
-    assert state.summary.profit == 8
+    assert summary.profit == 8
 
 
 async def test_trader_restart_on_missed_candle() -> None:
@@ -133,12 +134,12 @@ async def test_trader_restart_on_missed_candle() -> None:
         start=0,
         end=6,
         quote=Decimal('10.0'),
-        strategy_type=fakes.Strategy,
-        strategy_kwargs={'advices': [None, None, None], 'updates': updates},
+        strategy_module='tests.fakes',
+        strategy='strategy',
+        strategy_kwargs={'advices': [None] * 3, 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
-    state = Trader.State()
-    await trader.run(config, state)
+    await trader.run(config)
 
     assert len(updates) == 5
 
@@ -177,12 +178,12 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         start=0,
         end=5,
         quote=Decimal('10.0'),
-        strategy_type=fakes.Strategy,
-        strategy_kwargs={'advices': [None, None, None, None, None], 'updates': updates},
+        strategy_module='tests.fakes',
+        strategy='strategy',
+        strategy_kwargs={'advices': [None] * 5, 'updates': updates},
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
-    state = Trader.State()
-    await trader.run(config, state)
+    await trader.run(config)
 
     candle_times = [c.time for _, c in updates]
     assert len(candle_times) == 5
@@ -193,13 +194,72 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
     assert candle_times[4] == 4
 
 
-def new_closed_position(profit):
+async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1):
+            [
+                Candle(time=0),
+                Candle(time=1),
+                Candle(time=2),
+                Candle(time=3),
+            ]
+        },
+        future_candles={
+            ('dummy', 'eth-btc', 1):
+            [
+                Candle(time=4),
+            ]
+        }
+    )
+    trader = Trader(chandler=chandler, informant=fakes.Informant())
+    updates: List[Tuple[int, Candle]] = []
+
+    config = Trader.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=2,
+        end=6,
+        quote=Decimal('1.0'),
+        strategy_module='tests.fakes',
+        strategy='strategy',
+        strategy_kwargs={'advices': [None] * 100, 'updates': updates, 'maturity': 2},
+        adjust_start=True,
+    )
+    state: Trader.State[fakes.Strategy] = Trader.State()
+
+    trader_run_task = asyncio.create_task(cancelable(trader.run(config, state)))
+
+    future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
+    await future_candle_queue.join()
+    await cancel(trader_run_task)
+    await storage.set('shard', 'key', state)
+    future_candle_queue.put_nowait(Candle(time=5))
+    state = await storage.get('shard', 'key', Trader.State[fakes.Strategy])
+    # NB! Since we reload from storage, we need to reattach the previous updates dict to assert
+    # results.
+    assert state.strategy
+    state.strategy.updates = updates
+
+    await trader.run(config, state)
+
+    candle_times = [c.time for _, c in updates]
+    assert len(candle_times) == 6
+    assert candle_times[0] == 0
+    assert candle_times[1] == 1
+    assert candle_times[2] == 2
+    assert candle_times[3] == 3
+    assert candle_times[4] == 4
+    assert candle_times[5] == 5
+
+
+def new_closed_position(profit: Decimal) -> Position:
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
-    pos = Position(
+    open_pos = OpenPosition(
         symbol='eth-btc',
         time=0,
-        fills=[Fill(price=Decimal('0.0'), size=size)]
+        fills=[Fill(price=Decimal('0.0'), size=size)],
     )
-    pos.close(time=1, fills=[Fill(price=price, size=size)])
-    return pos
+    return open_pos.close(time=1, fills=[Fill(price=price, size=size)])

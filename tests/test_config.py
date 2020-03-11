@@ -23,7 +23,7 @@ class Foo(NamedTuple):
     enum: SomeEnum
 
 
-def test_from_config_to_config() -> None:
+def test_config_to_type_type_to_config() -> None:
     input_: Dict[str, Any] = {
         'name': 'bar',
         'timestamp': '2000-01-01 00:00:00+00:00',
@@ -33,7 +33,7 @@ def test_from_config_to_config() -> None:
         'decimal': Decimal('1.5'),
         'list_of_intervals': ['1h', '2h'],
         'dict_of_intervals': {'1h': '2h'},
-        'enum': 'key'
+        'enum': 'key',
     }
     expected_output: Union[Dict[str, Any], Foo] = Foo(
         name='bar',
@@ -44,32 +44,46 @@ def test_from_config_to_config() -> None:
         decimal=Decimal('1.5'),
         list_of_intervals=[HOUR_MS, 2 * HOUR_MS],
         dict_of_intervals={HOUR_MS: 2 * HOUR_MS},
-        enum=SomeEnum.KEY
+        enum=SomeEnum.KEY,
+
     )
 
-    output = config.from_config(input_, Foo)
+    output = config.config_to_type(input_, Foo)
     assert output == expected_output
 
     expected_output = input_
     input_ = output
 
-    output = config.to_config(input_, Foo)
+    output = config.type_to_config(input_, Foo)
     assert output == expected_output
 
 
 class Bar(NamedTuple):
+    value1: int
+    value2: int = 2
+
+
+def test_config_to_type_with_defaults() -> None:
+    input_ = {'value1': 1}
+
+    output = config.config_to_type(input_, Bar)
+
+    assert output == Bar(value1=1, value2=2)
+
+
+class Baz(NamedTuple):
     value: Interval
 
 
 def test_init_module_instance() -> None:
     input_ = {
-        'type': Bar.__name__.lower(),
+        'type': Baz.__name__.lower(),
         'value': '1h',
     }
 
     output = config.init_module_instance(sys.modules[__name__], input_)
 
-    assert isinstance(output, Bar)
+    assert isinstance(output, Baz)
     assert output.value == HOUR_MS
 
 

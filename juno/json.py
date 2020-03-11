@@ -3,6 +3,7 @@
 
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
+from dataclasses import asdict, is_dataclass
 from decimal import Decimal
 from enum import Enum
 from typing import IO, Any, Iterable, Optional
@@ -18,7 +19,7 @@ def _prepare_dump(obj: Any, skip_private: bool) -> Any:
     if isinstance(obj, tuple):
         obj = list(obj)
     elif not isinstance(obj, Enum) and hasattr(obj, '__dict__'):
-        obj = obj.__dict__
+        obj = asdict(obj) if is_dataclass(obj) else obj.__dict__
 
     stack = [obj]
     while stack:
@@ -39,7 +40,7 @@ def _prepare_dump(obj: Any, skip_private: bool) -> Any:
                 item[k] = list(v)
                 stack.append(item[k])
             elif not isinstance(v, Enum) and hasattr(v, '__dict__'):
-                item[k] = v.__dict__
+                item[k] = asdict(v) if is_dataclass(v) else v.__dict__
                 stack.append(item[k])
             else:
                 stack.append(v)

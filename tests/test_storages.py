@@ -75,7 +75,16 @@ async def test_memory_store_and_stream_empty_series(memory: storages.Memory) -> 
     (ExchangeInfo(candle_intervals=[1, 2]), ExchangeInfo),
     ([Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('0.1'))], List[Ticker]),
     ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees]),
-    (Position('eth-btc', 1, [Fill()], 2, [Fill()]), Position),
+    (
+        Position(
+            symbol='eth-btc',
+            open_time=1,
+            open_fills=[Fill()],
+            close_time=2,
+            close_fills=[Fill()],
+        ),
+        Position,
+    ),
     (TradingSummary(start=1, quote=Decimal('1.0')), TradingSummary),
 ])
 async def test_memory_set_get(memory: storages.Memory, item, type_) -> None:

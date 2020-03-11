@@ -1,27 +1,36 @@
 import operator
+from abc import ABC, abstractmethod
 from decimal import Decimal
-from enum import IntEnum
-from typing import Any, Optional
+from typing import Generic, Optional, TypeVar
 
 from juno import Advice, Candle, indicators, math
 from juno.modules import get_module_type
 
 from .strategy import Meta, Strategy
 
+_ma_choices = math.Choice([i.__name__.lower() for i in [
+    indicators.Ema,
+    indicators.Ema2,
+    indicators.Sma,
+    indicators.Smma,
+    indicators.Dema,
+]])
 
-class MA(IntEnum):
-    EMA = 0
-    EMA2 = 1
-    SMA = 2
-    SMMA = 3
-    DEMA = 4
+
+class MovingAverage(ABC):
+    value: Decimal
+
+    @abstractmethod
+    def update(self, price: Decimal) -> None:
+        ...
 
 
-_ma_choices = math.Choice([MA.EMA, MA.EMA2, MA.SMA, MA.SMMA, MA.DEMA])
+T = TypeVar('T', bound=MovingAverage)
+Y = TypeVar('Y', bound=MovingAverage)
 
 
 # Moving average moving average crossover.
-class MAMACX(Strategy):
+class MAMACX(Generic[T, Y], Strategy):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -41,8 +50,8 @@ class MAMACX(Strategy):
             }
         )
 
-    _short_ma: Any  # TODO: FIX!!
-    _long_ma: Any
+    _short_ma: T
+    _long_ma: Y
     _neg_threshold: Decimal
     _pos_threshold: Decimal
 
@@ -53,16 +62,16 @@ class MAMACX(Strategy):
         neg_threshold: Decimal,
         pos_threshold: Decimal,
         persistence: int,
-        short_ma: MA = MA.EMA,
-        long_ma: MA = MA.EMA
+        short_ma: str = indicators.Ema.__name__.lower(),
+        long_ma: str = indicators.Ema.__name__.lower(),
     ) -> None:
         super().__init__(maturity=long_period - 1, persistence=persistence)
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
 
-        self._short_ma = get_module_type(indicators, short_ma.name.lower())(short_period)
-        self._long_ma = get_module_type(indicators, long_ma.name.lower())(long_period)
+        self._short_ma = get_module_type(indicators, short_ma)(short_period)
+        self._long_ma = get_module_type(indicators, long_ma)(long_period)
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
 
