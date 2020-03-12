@@ -19,7 +19,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
 
     trading_summary = TradingSummary(start=0, quote=Decimal('1.0'))
     event = Event()
-    async with Discord(event, config['discord']['token'], config) as discord:
+    async with Discord(event, config) as discord:
         await discord.activate('agent', 'test')
 
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))

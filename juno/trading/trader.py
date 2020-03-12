@@ -225,7 +225,9 @@ class Trader:
 
         _log.info(f'position opened: {candle}')
         _log.debug(tonamedtuple(state.open_position))
-        await self._event.emit(config.channel, 'position_opened', state.open_position)
+        await self._event.emit(
+            config.channel, 'position_opened', state.open_position, state.summary
+        )
 
     async def _close_position(self, config: Config, state: State, candle: Candle) -> None:
         assert state.summary
@@ -264,4 +266,4 @@ class Trader:
         state.summary.append_position(position)
         _log.info(f'position closed: {candle}')
         _log.debug(tonamedtuple(position))
-        await self._event.emit(config.channel, 'position_closed', position)
+        await self._event.emit(config.channel, 'position_closed', position, state.summary)

@@ -12,10 +12,13 @@ def map_plugin_types(names: Iterable[str]) -> Dict[str, Type[Plugin]]:
         if not plugin_module:
             raise ValueError(f'Module for plugin {name} not found')
         members = inspect.getmembers(
-            plugin_module, lambda o: inspect.isclass(o) and issubclass(o, Plugin)
+            plugin_module,
+            lambda o: inspect.isclass(o) and issubclass(o, Plugin) and o is not Plugin,
         )
         if len(members) != 1:
-            raise ValueError(f'Did not find exactly one plugin {name} in {plugin_module.__name__}')
+            raise ValueError(
+                f'Found more than one plugin {name} in {plugin_module.__name__}: {members}'
+            )
         plugins[name] = members[0][1]
     return plugins
 
