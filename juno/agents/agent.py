@@ -49,7 +49,7 @@ class Agent:
         # Activate plugins.
         await asyncio.gather(*(p.activate(state.name, type_name) for p in plugins))
 
-        await self._event.emit(state.name, 'starting')
+        await self._event.emit(state.name, 'starting', config)
         _log.info(f'running {state.name} ({type_name}): {config}')
 
         try:
@@ -62,14 +62,14 @@ class Agent:
             _log.error(f'unhandled exception in agent ({exc})')
             state.status = AgentStatus.ERRORED
             await self.on_errored(config, state)
-            await self._event.emit(state.name, 'errored', exc)
+            await self._event.emit(state.name, 'errored', exc, state.result)
             raise
         else:
             state.status = AgentStatus.FINISHED
         finally:
             await self.on_finally(config, state)
 
-        await self._event.emit(state.name, 'finished')
+        await self._event.emit(state.name, 'finished', state.result)
 
         return state
 
