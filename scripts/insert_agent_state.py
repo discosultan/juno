@@ -22,7 +22,7 @@ async def main() -> None:
             open_time=1582683600000,
             open_fills=[
                 Fill(
-                    price=Decimal('0.0199985000000000'),
+                    price=Decimal('5.75187032921e-06'),
                     size=Decimal('3474.52200000'),
                     fee=Decimal('0.0'),
                     fee_asset='ada',
@@ -31,7 +31,7 @@ async def main() -> None:
             close_time=1582700400000,
             close_fills=[
                 Fill(
-                    price=Decimal('0.0198861100000000'),
+                    price=Decimal('5.72426885435e-06'),
                     size=Decimal('3474.00000000'),
                     fee=Decimal('0.0'),
                     fee_asset='btc',
@@ -43,7 +43,7 @@ async def main() -> None:
             open_time=1582766400000,
             open_fills=[
                 Fill(
-                    price=Decimal('0.0198847800000000'),
+                    price=Decimal('5.4954954955e-06'),
                     size=Decimal('3618.37800000'),
                     fee=Decimal('0.0'),
                     fee_asset='ada',
@@ -52,9 +52,9 @@ async def main() -> None:
             close_time=1582782900000,
             close_fills=[
                 Fill(
-                    price=Decimal('0.0205296900000000'),
+                    price=Decimal('5.67432006633e-06'),
                     size=Decimal('3618.00000000'),
-                    fee=Decimal('0.0'),
+                    fee=Decimal('0.0000134999999901533800000'),
                     fee_asset='btc',
                 ),
             ],
@@ -77,6 +77,7 @@ async def main() -> None:
         agent_state,
     )
     logging.info(format_as_config(trading_summary))
+    assert trading_summary.profit == Decimal('0.0005325200000000')
 
 
 asyncio.run(main())
