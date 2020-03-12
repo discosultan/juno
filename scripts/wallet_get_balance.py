@@ -15,8 +15,7 @@ async def main() -> None:
     wallet = Wallet([client])
     async with client, wallet:
         for asset in ASSETS:
-            print(f'{asset} - {wallet.get_balance(name, asset)}')
-    logging.info('done')
+            logging.info(f'{asset} - {wallet.get_balance(name, asset)}')
 
 
 asyncio.run(main())

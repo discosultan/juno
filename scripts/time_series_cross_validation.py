@@ -88,7 +88,5 @@ async def main() -> None:
         logging.info(f'benchmark stats: {benchmark.stats}')
         logging.info(f'portfolio stats: {portfolio.stats}')
 
-    logging.info('done')
-
 
 asyncio.run(main())

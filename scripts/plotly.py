@@ -1,5 +1,4 @@
 import asyncio
-import logging
 
 import plotly.graph_objs as go  # noqa
 import plotly.offline as py
@@ -71,8 +70,6 @@ async def main() -> None:
     }
     data = [trace1, trace2, trace3]
     py.plot(data)
-
-    logging.info('done')
 
 
 asyncio.run(main())

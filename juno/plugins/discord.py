@@ -19,11 +19,17 @@ _log = logging.getLogger(__name__)
 
 
 class Discord(discord.Client, Plugin):
-    def __init__(self, event: Event, token: str, config: Dict[str, Any]) -> None:
+    def __init__(self, event: Event, config: Dict[str, Any]) -> None:
+        discord_config = config.get(type(self).__name__.lower(), {})
+        # TODO: walrus
+        token = discord_config.get('token')
+        if not token:
+            raise ValueError(f'Missing token from config')
+
         super().__init__()
         self._event = event
         self._token = token
-        self._config = config
+        self._channel_ids = discord_config.get('channel_id', {})
 
     async def __aenter__(self) -> Discord:
         self._start_task = asyncio.create_task(cancelable(self.start(self._token)))
@@ -45,7 +51,8 @@ class Discord(discord.Client, Plugin):
                 f'{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'
             )
 
-        channel_id = self._config.get('discord', {}).get('channel_id', {}).get(channel_name)
+        # TODO: walrus
+        channel_id = self._channel_ids.get(channel_name)
         if not channel_id:
             raise ValueError(f'Missing {channel_name} channel ID from config')
         channel_id = int(channel_id)
@@ -58,16 +65,13 @@ class Discord(discord.Client, Plugin):
 
         @self._event.on(agent_name, 'position_opened')
         async def on_position_opened(pos: Position, result: Any) -> None:
-            # We send separate messages to avoid exhausting max message length limit.
             await self._send_message(
                 channel_id, format_message('opened position', format_as_config(pos))
-            )
-            await self._send_message(
-                channel_id, format_message('summary', format_as_config((result)))
             )
 
         @self._event.on(agent_name, 'position_closed')
         async def on_position_closed(pos: Position, result: Any) -> None:
+            # We send separate messages to avoid exhausting max message length limit.
             await self._send_message(
                 channel_id, format_message('closed position', format_as_config(pos))
             )

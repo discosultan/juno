@@ -182,7 +182,5 @@ async def main() -> None:
         logging.info(f'{alpha=}')
         logging.info(f'{beta=}')
 
-    logging.info('done')
-
 
 asyncio.run(main())

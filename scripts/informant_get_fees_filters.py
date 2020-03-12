@@ -28,7 +28,5 @@ async def main() -> None:
         with open(f'{exchange_name}_{SYMBOL}_fees_filters.json', 'w') as f:
             json.dump((fees, filters), f, indent=4)
 
-    logging.info('done')
-
 
 asyncio.run(main())

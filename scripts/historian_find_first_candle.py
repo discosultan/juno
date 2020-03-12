@@ -22,7 +22,6 @@ async def main() -> None:
     async with client:
         candle = await historian.find_first_candle(exchange_name, SYMBOL, INTERVAL)
         logging.info(strftimestamp(candle.time))
-        logging.info('done')
 
 
 asyncio.run(main())

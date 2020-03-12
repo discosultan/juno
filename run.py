@@ -13,3 +13,5 @@ script_path = sys.argv[1]
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 exec(open(script_path).read())
+
+logging.info('done')

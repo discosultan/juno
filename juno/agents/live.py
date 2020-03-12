@@ -83,7 +83,7 @@ class Live(Agent):
             trailing_stop=config.trailing_stop,
         )
         state.result = (
-            await self._get_or_create_trader_state(trader_config, state.name) if config.store_state
+            await self._get_or_create_trader_state(trader_config, state) if config.store_state
             else Trader.State()
         )
         await self._trader.run(trader_config, state.result)
@@ -94,7 +94,7 @@ class Live(Agent):
             await self._save_trader_state(state)
 
     async def _get_or_create_trader_state(
-        self, trader_config: Trader.Config, name: str
+        self, trader_config: Trader.Config, state: Agent.State
     ) -> Trader.State:
         # Create dummy strategy from config to figure out runtime type.
         dummy_strategy = trader_config.new_strategy()
@@ -107,22 +107,30 @@ class Live(Agent):
             strategy_type = strategy_type[resolved_params[0], resolved_params[1]]  # type: ignore
         elif len(resolved_params) > 2:
             raise NotImplementedError()
-        state = await self._storage.get(
+        existing_state = await self._storage.get(
             'default',
-            f'{name}_live_trader_state',
+            self._get_storage_key(state),
+
             Agent.State[Trader.State[strategy_type]],  # type: ignore
         )
-        if not state:
-            _log.info(f'existing state with name {name} not found; starting new')
+        if not existing_state:
+            _log.info(f'existing state with name {state.name} not found; starting new')
             return Trader.State()
-        if state.status in [AgentStatus.RUNNING, AgentStatus.FINISHED]:
+        if existing_state.status in [AgentStatus.RUNNING, AgentStatus.FINISHED]:
             raise NotImplementedError()
-        _log.info(f'existing live session with name {name} found; continuing previous')
+        _log.info(f'existing live session with name {state.name} found; continuing previous')
         return state.result
 
     async def _save_trader_state(self, state: Agent.State) -> None:
         _log.info(f'storing current state with name {state.name} and status {state.status.name}')
-        await self._storage.set('default', f'{state.name}_live_trader_state', state)
+        await self._storage.set(
+            'default',
+            self._get_storage_key(state),
+            state,
+        )
+
+    def _get_storage_key(self, state: Agent.State) -> str:
+        return f'{type(self).__name__.lower()}_{state.name}_state'
 
 
 def _resolve_generic_types(container: Any) -> List[type]:
