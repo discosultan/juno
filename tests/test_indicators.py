@@ -455,7 +455,7 @@ def test_chaikin_oscillator() -> None:
         -129019.7915942833, -159390.8235403694, -179019.3895201931, -187528.4224322613,
         -173114.90825569804, -175341.20803624718
     ]]
-    _assert(indicators.ChaikinOscillator(3, 10), inputs, outputs, 12)
+    _assert(indicators.ChaikinOscillator(3, 10), inputs, outputs, 8)
 
 
 def test_obv() -> None:
@@ -502,7 +502,7 @@ def test_obv() -> None:
             "-948426.6652262065"
         ],
     ]
-    _assert(indicators.Obv(), inputs, outputs, 8)
+    _assert(indicators.Obv(21), inputs, outputs, 8)
 
 
 def _assert(indicator, inputs, outputs, precision) -> None:

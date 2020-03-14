@@ -7,8 +7,8 @@ class ChaikinOscillator:
     def __init__(self, short_period: int, long_period: int) -> None:
         self.value = Decimal('0.0')
         self._money_flow_volume = Decimal('0.0')
-        self._short_ema = Ema(short_period)
-        self._long_ema = Ema(long_period)
+        self._short_ema = Ema.with_com(short_period, adjust=True)
+        self._long_ema = Ema.with_com(long_period, adjust=True)
 
     @property
     def req_history(self) -> int:

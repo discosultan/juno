@@ -12,8 +12,8 @@ class Obv:
     _t: int = 0
     _t1: int = 0
 
-    def __init__(self) -> None:
-        self._ema = Ema.with_com(21, adjust=True)
+    def __init__(self, period: int) -> None:
+        self._ema = Ema.with_com(period, adjust=True)
 
     @property
     def req_history(self) -> int:
