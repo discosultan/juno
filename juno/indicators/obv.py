@@ -13,7 +13,7 @@ class Obv:
     _t1: int = 0
 
     def __init__(self) -> None:
-        self._ema = Ema(21)
+        self._ema = Ema.with_com(21, adjust=True)
 
     @property
     def req_history(self) -> int:

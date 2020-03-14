@@ -502,18 +502,18 @@ def test_obv() -> None:
             "-948426.6652262065"
         ],
     ]
-    _assert(indicators.Obv(), inputs, outputs, 12)
+    _assert(indicators.Obv(), inputs, outputs, 8)
 
 
 def _assert(indicator, inputs, outputs, precision) -> None:
     input_len, output_len = len(inputs[0]), len(outputs[0])
     offset = input_len - output_len
     for i in range(0, input_len):
-        indicator.update(*(Decimal(input[i]) for input in inputs))
+        indicator.update(*(Decimal(input_[i]) for input_ in inputs))
         # Assert public values of an indicator.
         values = [v for k, v in vars(indicator).items() if not k.startswith('_')]
         if i >= offset:
             for j in range(0, len(values)):
                 assert pytest.approx(
-                    Decimal(values[j]), abs=10**-precision
+                    values[j], abs=10**-precision
                 ) == Decimal(outputs[j][i - offset])
