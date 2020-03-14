@@ -1,9 +1,11 @@
-# Most of the indicators are adapted and verified using the Tulip Indicators C library:
-# https://github.com/TulipCharts/tulipindicators
+# The indicators are taken from (and verified against) the following open source projects:
+# - https://github.com/TulipCharts/tulipindicators
+# - https://github.com/voice32/stock_market_indicators
 
 from .adx import Adx
 from .adxr import Adxr
 from .cci import Cci
+from .chaikin_oscillator import ChaikinOscillator
 from .dema import Dema
 from .di import DI
 from .dm import DM
@@ -22,6 +24,7 @@ __all__ = [
     'Adx',
     'Adxr',
     'Cci',
+    'ChaikinOscillator',
     'Dema',
     'DI',
     'DM',
