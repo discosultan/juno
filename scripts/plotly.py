@@ -7,7 +7,7 @@ from juno.components import Chandler, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import SQLite
-from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strpinterval
+from juno.time import HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
 
 
 async def main() -> None:
@@ -20,8 +20,8 @@ async def main() -> None:
             exchange='binance',
             symbol='eth-btc',
             interval=HOUR_MS,
-            start=strpinterval('2017-01-01'),
-            end=strpinterval('2018-01-01'),
+            start=strptimestamp('2017-01-01'),
+            end=strptimestamp('2018-01-01'),
         )
 
         candles_map = {c.time: c for c in candles}
