@@ -1,4 +1,4 @@
-use super::{MA, sma::Sma};
+use super::{sma::Sma, MA};
 use std::cmp::min;
 
 pub struct Smma {

@@ -1,10 +1,9 @@
 use std::cmp::{max, min};
 
 use crate::{
-    Advice,
-    Candle,
     indicators,
     strategies::{Persistence, Strategy},
+    Advice, Candle,
 };
 
 pub struct Macd {
@@ -15,12 +14,7 @@ pub struct Macd {
 }
 
 impl Macd {
-    pub fn new(
-        short_period: u32,
-        long_period: u32,
-        signal_period: u32,
-        persistence: u32,
-    ) -> Self {
+    pub fn new(short_period: u32, long_period: u32, signal_period: u32, persistence: u32) -> Self {
         Self {
             macd: indicators::Macd::new(short_period, long_period, signal_period),
             persistence: Persistence::new(persistence, false),

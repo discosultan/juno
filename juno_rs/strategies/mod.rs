@@ -40,9 +40,7 @@ impl Persistence {
     }
 
     pub fn update(&mut self, value: Option<Advice>) -> (bool, bool) {
-        if value.is_none()
-            || (self.potential.is_some() && value != self.potential)
-        {
+        if value.is_none() || (self.potential.is_some() && value != self.potential) {
             self.allow_next = true;
         }
 

@@ -42,7 +42,11 @@ impl Kama {
 
     pub fn update(&mut self, price: f64) {
         if self.t > 0 {
-            let prev_i = if self.i > 0 { self.i - 1 } else { (self.period - 1) as usize };
+            let prev_i = if self.i > 0 {
+                self.i - 1
+            } else {
+                (self.period - 1) as usize
+            };
             self.diffs[self.i] = f64::abs(price - self.prices[prev_i]);
         }
 
@@ -59,7 +63,10 @@ impl Kama {
                 // }
                 f64::abs(price - self.prices[first_i])
             };
-            let sc = f64::powf(er * (self.short_alpha - self.long_alpha) + self.long_alpha, 2.0);
+            let sc = f64::powf(
+                er * (self.short_alpha - self.long_alpha) + self.long_alpha,
+                2.0,
+            );
 
             self.value += sc * (price - self.value);
         }
@@ -95,10 +102,12 @@ mod tests {
     #[test]
     fn test_kama() {
         let inputs = vec![
-            50.25, 50.55, 52.5, 54.5,54.1,54.12,55.5,50.2,50.45,50.24,50.24,55.12,56.54,56.12,56.1,54.12,59.54,54.52
+            50.25, 50.55, 52.5, 54.5, 54.1, 54.12, 55.5, 50.2, 50.45, 50.24, 50.24, 55.12, 56.54,
+            56.12, 56.1, 54.12, 59.54, 54.52,
         ];
         let expected_outputs = vec![
-            54.5000,54.3732,54.2948,54.6461,53.8270,53.3374,52.8621,51.8722,53.1180,54.4669,55.0451,55.4099,55.3468,55.7115,55.6875
+            54.5000, 54.3732, 54.2948, 54.6461, 53.8270, 53.3374, 52.8621, 51.8722, 53.1180,
+            54.4669, 55.0451, 55.4099, 55.3468, 55.7115, 55.6875,
         ];
         let mut indicator = Kama::new(4);
         for i in 0..inputs.len() {

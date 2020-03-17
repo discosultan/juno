@@ -1,10 +1,9 @@
 use std::cmp::min;
 
 use crate::{
-    Advice,
-    Candle,
     indicators,
     strategies::{Persistence, Strategy},
+    Advice, Candle,
 };
 
 pub struct Rsi {
@@ -17,12 +16,7 @@ pub struct Rsi {
 }
 
 impl Rsi {
-    pub fn new(
-        period: u32,
-        up_threshold: f64,
-        down_threshold: f64,
-        persistence: u32,
-    ) -> Self {
+    pub fn new(period: u32, up_threshold: f64, down_threshold: f64, persistence: u32) -> Self {
         Self {
             rsi: indicators::Rsi::new(period),
             up_threshold,

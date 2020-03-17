@@ -1,19 +1,18 @@
 #![allow(dead_code)]
 
 mod analyse;
-mod trade;
 mod common;
 mod filters;
 mod indicators;
 mod math;
 mod strategies;
+mod trade;
 mod trading;
 
-use std::slice;
 use crate::{
     analyse::analyse,
-    indicators::{Dema, Ema, Ema2, Kama, MA, Sma, Smma},
-    strategies::{Macd, MacdRsi, MAMACX, Strategy},
+    indicators::{Dema, Ema, Ema2, Kama, Sma, Smma, MA},
+    strategies::{Macd, MacdRsi, Strategy, MAMACX},
     trade::trade,
 };
 pub use crate::{
@@ -21,6 +20,7 @@ pub use crate::{
     filters::Filters,
     trading::{Position, TradingSummary},
 };
+use std::slice;
 
 #[no_mangle]
 pub unsafe extern "C" fn macd(
@@ -70,6 +70,7 @@ const DEMA: u32 = 66978200;
 const KAMA: u32 = 68026779;
 
 #[no_mangle]
+#[rustfmt::skip]
 pub unsafe extern "C" fn mamacx(
     trading_info: *const TradingInfo,
     mamacx_info: *const MAMACXInfo,
@@ -115,8 +116,7 @@ pub unsafe extern "C" fn mamacx(
         (KAMA, KAMA) => run_mamacx_test::<Kama, Kama>(trading_info, mamacx_info, analysis_info),
         _ => panic!(
             "Moving average ({}, {}) not implemented!",
-            mamacx_info.short_ma,
-            mamacx_info.long_ma
+            mamacx_info.short_ma, mamacx_info.long_ma
         ),
     }
 }
@@ -164,23 +164,23 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     // Analysis.
     let analysis_info = &*analysis_info;
     let quote_fiat_daily = slice::from_raw_parts(
-        analysis_info.quote_fiat_daily, 
-        analysis_info.quote_fiat_daily_length as usize
+        analysis_info.quote_fiat_daily,
+        analysis_info.quote_fiat_daily_length as usize,
     );
     let base_fiat_daily = slice::from_raw_parts(
-        analysis_info.base_fiat_daily, 
-        analysis_info.base_fiat_daily_length as usize
+        analysis_info.base_fiat_daily,
+        analysis_info.base_fiat_daily_length as usize,
     );
     let benchmark_g_returns = slice::from_raw_parts(
         analysis_info.benchmark_g_returns,
-        analysis_info.benchmark_g_returns_length as usize
+        analysis_info.benchmark_g_returns_length as usize,
     );
 
     let analysis_result = analyse(
         quote_fiat_daily,
         base_fiat_daily,
         benchmark_g_returns,
-        &trading_result
+        &trading_result,
     );
 
     // Combine.
@@ -197,7 +197,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
 }
 
 #[repr(C)]
-pub struct Result(f64, ); // (f64, f64, f64, f64, f64, u64, u32, u32);
+pub struct Result(f64); // (f64, f64, f64, f64, f64, u64, u32, u32);
 
 #[repr(C)]
 pub struct AnalysisInfo {
