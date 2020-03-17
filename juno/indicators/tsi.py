@@ -3,6 +3,7 @@ from decimal import Decimal
 from .ema import Ema2 as Ema
 
 
+# True Strength Index
 class Tsi:
     value: Decimal = Decimal('0.0')
     _pc_ema_smoothed: Ema

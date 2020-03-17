@@ -342,6 +342,19 @@ def test_kvo() -> None:
     _assert(indicators.Kvo(34, 55), inputs, outputs, 3)
 
 
+def test_kama() -> None:
+    inputs = [[
+        '50.25', '50.55', '52.50', '54.50', '54.10', '54.12', '55.50', '50.20', '50.45', '50.24',
+        '50.24', '55.12', '56.54', '56.12', '56.10', '54.12', '59.54', '54.52'
+    ]]
+    outputs = [[
+        '54.5000', '54.3732', '54.2948', '54.6461', '53.8270', '53.3374', '52.8621', '51.8722',
+        '53.1180', '54.4669', '55.0451', '55.4099', '55.3468', '55.7115', '55.6875'
+    ]]
+    # Precision should be 4 but is drifting off.
+    _assert(indicators.Kama(4), inputs, outputs, 3)
+
+
 ################################
 # STOCK MARKET INDICATOR TESTS #
 ################################
@@ -569,7 +582,7 @@ def test_tsi() -> None:
     _assert(indicators.Tsi(25, 13), inputs, outputs, 1)
 
 
-def _assert(indicator, inputs, outputs, precision) -> None:
+def _assert(indicator, inputs, outputs, precision: int) -> None:
     input_len, output_len = len(inputs[0]), len(outputs[0])
     offset = input_len - output_len
     for i in range(0, input_len):

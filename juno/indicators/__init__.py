@@ -12,6 +12,7 @@ from .di import DI
 from .dm import DM
 from .dx import DX
 from .ema import Ema, Ema2
+from .kama import Kama
 from .kvo import Kvo
 from .macd import Macd
 from .obv import Obv, Obv2
@@ -33,6 +34,7 @@ __all__ = [
     'DX',
     'Ema',
     'Ema2',
+    'Kama',
     'Kvo',
     'Macd',
     'Obv',
