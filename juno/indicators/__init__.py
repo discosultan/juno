@@ -3,6 +3,9 @@
 # - https://github.com/voice32/stock_market_indicators
 # - https://school.stockcharts.com/doku.php
 
+from abc import ABC, abstractmethod
+from decimal import Decimal
+
 from .adx import Adx
 from .adxr import Adxr
 from .cci import Cci
@@ -23,6 +26,15 @@ from .stoch import Stoch
 from .stochrsi import StochRsi
 from .tsi import Tsi
 
+
+class MovingAverage(ABC):
+    value: Decimal
+
+    @abstractmethod
+    def update(self, price: Decimal) -> Decimal:
+        ...
+
+
 __all__ = [
     'Adx',
     'Adxr',
@@ -37,6 +49,7 @@ __all__ = [
     'Kama',
     'Kvo',
     'Macd',
+    'MovingAverage',
     'Obv',
     'Obv2',
     'Rsi',

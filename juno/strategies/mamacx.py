@@ -1,5 +1,4 @@
 import operator
-from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Generic, Optional, TypeVar
 
@@ -18,16 +17,8 @@ _ma_choices = math.Choice([i.__name__.lower() for i in [
 ]])
 
 
-class MovingAverage(ABC):
-    value: Decimal
-
-    @abstractmethod
-    def update(self, price: Decimal) -> None:
-        ...
-
-
-T = TypeVar('T', bound=MovingAverage)
-Y = TypeVar('Y', bound=MovingAverage)
+T = TypeVar('T', bound=indicators.MovingAverage)
+Y = TypeVar('Y', bound=indicators.MovingAverage)
 
 
 # Moving average moving average crossover.

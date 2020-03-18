@@ -1,16 +1,18 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque, Optional
+from typing import Deque, Generic, Optional, TypeVar
 
-from juno import Advice, Candle
-from juno.indicators import Sma
+from juno import Advice, Candle, indicators
 from juno.math import minmax
+from juno.modules import get_module_type
 
 from .strategy import Meta, Strategy
 
+T = TypeVar('T', bound=indicators.MovingAverage)
+
 
 # Assumes daily candles.
-class FourWeekRule(Strategy):
+class FourWeekRule(Generic[T], Strategy):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -19,22 +21,22 @@ class FourWeekRule(Strategy):
         )
 
     _prices: Deque[Decimal]
-    _sma: Sma
+    _ma: T
 
-    def __init__(self) -> None:
+    def __init__(self, ma: str = indicators.Ema.__name__.lower()) -> None:
         super().__init__(maturity=28)
         self._prices = deque(maxlen=28)
-        self._sma = Sma(14)
+        self._ma = get_module_type(indicators, ma)(14)
 
     def tick(self, candle: Candle) -> Optional[Advice]:
-        self._sma.update(candle.close)
+        self._ma.update(candle.close)
         advice = None
 
         if self.mature:
             lowest, highest = minmax(self._prices)
             if candle.close >= highest:
                 advice = Advice.BUY
-            elif candle.close <= self._sma.value:
+            elif candle.close <= self._ma.value:
                 advice = Advice.SELL
             if candle.close <= lowest:
                 # TODO: Short
