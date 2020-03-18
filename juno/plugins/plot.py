@@ -37,32 +37,52 @@ class Discord(Plugin):
 
 def plot(candles_map: Dict[int, Candle], positions: List[Tuple[int, int]]) -> None:
     candles = candles_map.values()
+    times = [datetime_utcfromtimestamp_ms(c.time) for c in candles]
+
     trace1 = go.Ohlc(
-        x=[datetime_utcfromtimestamp_ms(c.time) for c in candles],
+        x=times,
+        yaxis='y2',
         open=[c.open for c in candles],
         high=[c.high for c in candles],
         low=[c.low for c in candles],
-        close=[c.close for c in candles],
+        close=[c.close for c in candles]
     )
-    trace2 = {
-        'x': [datetime_utcfromtimestamp_ms(a) for a, _ in positions],
-        'y': [candles_map[a].close for a, _ in positions],
-        'marker': {
+    trace2 = go.Scatter(
+        x=[datetime_utcfromtimestamp_ms(a) for a, _ in positions],
+        y=[candles_map[a].close for a, _ in positions],
+        yaxis='y2',
+        marker={
             'color': 'green',
-            'size': 12
+            'size': 12,
         },
-        'type': 'scatter',
-        'mode': 'markers',
-    }
-    trace3 = {
-        'x': [datetime_utcfromtimestamp_ms(b) for _, b in positions],
-        'y': [candles_map[b].close for _, b in positions],
-        'marker': {
+        mode='markers',
+    )
+    trace3 = go.Scatter(
+        x=[datetime_utcfromtimestamp_ms(b) for _, b in positions],
+        y=[candles_map[b].close for _, b in positions],
+        yaxis='y2',
+        marker={
             'color': 'red',
-            'size': 12
+            'size': 12,
         },
-        'mode': 'markers',
-        'type': 'scatter',
+        mode='markers',
+    )
+    trace4 = go.Bar(
+        x=times,
+        y=[c.volume for c in candles],
+        yaxis='y',
+        marker={
+            'color': ['#006400' if c.close >= c.open else '#8b0000' for c in candles]
+        }
+    )
+    data = [trace1, trace2, trace3, trace4]
+    layout = {
+        'yaxis': {
+            'domain': [0, 0.2],
+        },
+        'yaxis2': {
+            'domain': [0.2, 0.8],
+        },
     }
-    data = [trace1, trace2, trace3]
-    py.plot(data)
+    fig = go.Figure(data=data, layout=layout)
+    py.plot(fig)
