@@ -1,18 +1,17 @@
-use std::collections::HashMap;
-use ndarray::prelude::*;
-use ndarray_stats::CorrelationExt;
 use crate::{
     math::{floor_multiple, mean},
-    trading::TradingSummary
+    trading::TradingSummary,
 };
+use ndarray::prelude::*;
+use ndarray_stats::CorrelationExt;
+use std::collections::HashMap;
 
-pub type AnalysisResult = (f64, );
+pub type AnalysisResult = (f64,);
 
 const DAY_MS: u64 = 86_400_000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum Asset
-{
+enum Asset {
     Base,
     Quote,
 }
@@ -39,14 +38,15 @@ pub fn analyse(
     summary: &TradingSummary,
 ) -> AnalysisResult {
     let trades = get_trades_from_summary(summary);
-    let asset_performance = get_asset_performance(summary, quote_fiat_daily, base_fiat_daily, &trades);
+    let asset_performance =
+        get_asset_performance(summary, quote_fiat_daily, base_fiat_daily, &trades);
     let portfolio_performance = asset_performance
         .iter()
         .map(|d| d.values().sum())
         .collect::<Vec<f64>>();
     let portfolio_stats = calculate_statistics(&portfolio_performance);
     let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
-    (alpha, )
+    (alpha,)
 }
 
 fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset, f64)>> {
@@ -54,16 +54,12 @@ fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset,
     for pos in &summary.positions {
         // Open.
         let time = floor_multiple(pos.time, DAY_MS);
-        let day_trades = trades
-            .entry(time)
-            .or_insert(Vec::<(Asset, f64)>::new());
+        let day_trades = trades.entry(time).or_insert(Vec::<(Asset, f64)>::new());
         day_trades.push((Asset::Quote, -pos.cost));
         day_trades.push((Asset::Base, pos.base_gain));
         // Close.
         let time = floor_multiple(pos.close_time, DAY_MS);
-        let day_trades = trades
-            .entry(time)
-            .or_insert(Vec::<(Asset, f64)>::new());
+        let day_trades = trades.entry(time).or_insert(Vec::<(Asset, f64)>::new());
         day_trades.push((Asset::Base, -pos.base_cost));
         day_trades.push((Asset::Quote, pos.gain));
     }
@@ -104,9 +100,8 @@ fn get_asset_performance(
             } else {
                 quote_fiat_daily[i as usize]
             };
-            *asset_performance_day
-                .entry(*asset)
-                .or_insert(0.0) = asset_holdings[asset] * asset_fiat_value;
+            *asset_performance_day.entry(*asset).or_insert(0.0) =
+                asset_holdings[asset] * asset_fiat_value;
         }
         asset_performance.push(asset_performance_day);
     }
@@ -140,8 +135,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         // a_returns,
         g_returns,
         // neg_g_returns,
-
-        annualized_return
+        annualized_return,
     }
 }
 
@@ -153,18 +147,13 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     combined.extend(portfolio_stats.g_returns.iter());
     combined.extend(benchmark_g_returns.iter());
 
-    let matrix = Array::from_shape_vec(
-        (2, benchmark_g_returns.len()),
-        combined
-    ).expect("benchmark and portfolio geometric returns matrix");
+    let matrix = Array::from_shape_vec((2, benchmark_g_returns.len()), combined)
+        .expect("benchmark and portfolio geometric returns matrix");
 
-    let covariance_matrix = matrix
-        .cov(1.0)
-        .expect("covariance matrix");
+    let covariance_matrix = matrix.cov(1.0).expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return
-                     - (beta * 365.0 * mean(&benchmark_g_returns));
+    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
 
     (alpha, beta)
 }

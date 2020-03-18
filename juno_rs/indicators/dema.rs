@@ -1,4 +1,4 @@
-use super::{MA, ema::Ema};
+use super::{ema::Ema, MA};
 use std::cmp::min;
 
 pub struct Dema {
@@ -19,7 +19,7 @@ impl Dema {
             ema2: Ema::new(period),
             t: 0,
             t1,
-            t2: t1 * 2
+            t2: t1 * 2,
         }
     }
 

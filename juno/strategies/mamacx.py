@@ -14,6 +14,7 @@ _ma_choices = math.Choice([i.__name__.lower() for i in [
     indicators.Sma,
     indicators.Smma,
     indicators.Dema,
+    indicators.Kama,
 ]])
 
 

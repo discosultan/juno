@@ -1,7 +1,6 @@
 use crate::{
-    Advice,
-    Candle,
-    strategies::{Persistence, Strategy, Macd, Rsi},
+    strategies::{Macd, Persistence, Rsi, Strategy},
+    Advice, Candle,
 };
 
 pub struct MacdRsi {
@@ -14,7 +13,7 @@ fn combine(advice1: Option<Advice>, advice2: Option<Advice>) -> Option<Advice> {
     match (advice1, advice2) {
         (Some(Advice::Buy), Some(Advice::Buy)) => Some(Advice::Buy),
         (Some(Advice::Sell), Some(Advice::Sell)) => Some(Advice::Sell),
-        _ => None
+        _ => None,
     }
 }
 

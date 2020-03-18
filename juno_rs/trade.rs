@@ -1,6 +1,6 @@
+use crate::math::round_half_up;
 use crate::strategies::Strategy;
 use crate::{Advice, Candle, Fees, Filters, Position, TradingSummary};
-use crate::math::round_half_up;
 
 struct Context<T: Strategy> {
     pub strategy: T,
@@ -8,7 +8,6 @@ struct Context<T: Strategy> {
     pub open_position: Option<Position>,
     pub last_candle: Option<Candle>,
     pub highest_close_since_position: f64,
-
 }
 
 impl<T: Strategy> Context<T> {
@@ -69,7 +68,12 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
                             volume: last_candle.volume,
                         };
                         if !tick(
-                            &mut ctx, &mut summary, &fees, &filters, trailing_stop, &missed_candle
+                            &mut ctx,
+                            &mut summary,
+                            &fees,
+                            &filters,
+                            trailing_stop,
+                            &missed_candle,
                         ) {
                             exit = true;
                             break;
@@ -82,7 +86,14 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
                 break;
             }
 
-            if !tick(&mut ctx, &mut summary, &fees, &filters, trailing_stop, candle) {
+            if !tick(
+                &mut ctx,
+                &mut summary,
+                &fees,
+                &filters,
+                trailing_stop,
+                candle,
+            ) {
                 exit = true;
                 break;
             }
@@ -125,8 +136,7 @@ fn tick<T: Strategy>(
     } else if ctx.open_position.is_some() && advice == Some(Advice::Sell) {
         close_position(&mut ctx, &mut summary, fees, filters, &candle);
     } else if trailing_stop != 0.0 && ctx.open_position.is_some() {
-        ctx.highest_close_since_position = f64::max(
-            ctx.highest_close_since_position, candle.close);
+        ctx.highest_close_since_position = f64::max(ctx.highest_close_since_position, candle.close);
         let trailing_factor = 1.0 - trailing_stop;
         if candle.close <= ctx.highest_close_since_position * trailing_factor {
             close_position(&mut ctx, &mut summary, fees, filters, &candle);

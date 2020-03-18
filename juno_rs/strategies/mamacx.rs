@@ -1,10 +1,9 @@
 use std::cmp::min;
 
 use crate::{
-    Advice,
-    Candle,
     indicators::MA,
     strategies::{Persistence, Strategy},
+    Advice, Candle,
 };
 
 pub struct MAMACX<TShort: MA, TLong: MA> {

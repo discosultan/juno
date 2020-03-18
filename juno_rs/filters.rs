@@ -1,3 +1,4 @@
+
 #[derive(Debug)]
 #[repr(C)]
 pub struct Price {
@@ -23,9 +24,9 @@ impl Price {
     }
 
     pub fn valid(&self, price: f64) -> bool {
-        ((self.min == 0.0 || price >= self.min)
+        (self.min == 0.0 || price >= self.min)
             && (self.max == 0.0 || price <= self.max)
-            && (self.step == 0.0 || (price - self.min) % self.step == 0.0))
+            && (self.step == 0.0 || (price - self.min) % self.step == 0.0)
     }
 }
 
