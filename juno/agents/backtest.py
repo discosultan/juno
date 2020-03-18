@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Any, Dict, NamedTuple, Optional
 
 from juno import Interval, Timestamp
-from juno.components import Historian, Prices
+from juno.components import Event, Historian, Prices
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.time import time_ms
@@ -42,8 +42,9 @@ class Backtest(Agent):
         trader: Trader,
         historian: Optional[Historian] = None,
         prices: Optional[Prices] = None,
+        event: Event = Event(),
     ) -> None:
-        super().__init__()
+        super().__init__(event)
         self._trader = trader
         self._historian = historian
         self._prices = prices

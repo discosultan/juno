@@ -166,6 +166,8 @@ class Trader:
         return state.summary
 
     async def _tick(self, config: Config, state: State, candle: Candle) -> None:
+        await self._event.emit(config.channel, 'candle', candle)
+
         assert state.strategy
         advice = state.strategy.update(candle)
 

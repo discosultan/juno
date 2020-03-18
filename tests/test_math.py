@@ -33,6 +33,11 @@ def test_round_half_up() -> None:
     assert math.round_half_up(Decimal('0.123'), 2) == Decimal('0.12')
 
 
+def test_minmax() -> None:
+    output = math.minmax([Decimal('2.0'), Decimal('1.0'), Decimal('3.0')])
+    assert output == (Decimal('1.0'), Decimal('3.0'))
+
+
 def test_constant_constraint() -> None:
     assert_constraint_chaos(math.Constant('foo'))
 

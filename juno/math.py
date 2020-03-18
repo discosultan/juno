@@ -2,7 +2,7 @@ import math
 from abc import ABC, abstractmethod
 from decimal import ROUND_HALF_UP, Decimal
 from random import Random
-from typing import Any, Callable, List, Tuple, TypeVar
+from typing import Any, Callable, Iterable, List, Tuple, TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
 
@@ -17,6 +17,15 @@ def floor_multiple(value: TNum, multiple: TNum) -> TNum:
 
 def round_half_up(value: Decimal, precision: int) -> Decimal:
     return value.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_HALF_UP)
+
+
+def minmax(values: Iterable[Decimal]) -> Tuple[Decimal, Decimal]:
+    min_ = Decimal('Inf')
+    max_ = Decimal('-Inf')
+    for value in values:
+        min_ = min(min_, value)
+        max_ = max(max_, value)
+    return min_, max_
 
 
 class Constraint(ABC):

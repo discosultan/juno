@@ -35,7 +35,7 @@ setup(
         'discord': [
             'discord.py',
         ],
-        'plotly': [
+        'plot': [
             'plotly',
         ],
     }
