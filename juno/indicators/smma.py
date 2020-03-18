@@ -19,10 +19,10 @@ class Smma:
         self._t2 = period
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Decimal:
         if self._t <= self._t1:
             self._sma.update(price)
 
@@ -32,3 +32,4 @@ class Smma:
             self.value = (self.value * (self._weight - 1) + price) / self._weight
 
         self._t = min(self._t + 1, self._t2)
+        return self.value

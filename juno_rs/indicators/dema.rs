@@ -23,7 +23,7 @@ impl Dema {
         }
     }
 
-    pub fn req_history(&self) -> u32 {
+    pub fn maturity(&self) -> u32 {
         self.t2
     }
 

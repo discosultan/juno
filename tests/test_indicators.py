@@ -582,14 +582,15 @@ def test_tsi() -> None:
     _assert(indicators.Tsi(25, 13), inputs, outputs, 1)
 
 
-def _assert(indicator, inputs, outputs, precision: int) -> None:
-    input_len, output_len = len(inputs[0]), len(outputs[0])
+def _assert(indicator, inputs, expected_outputs, precision: int) -> None:
+    input_len, output_len = len(inputs[0]), len(expected_outputs[0])
     offset = input_len - output_len
     for i in range(0, input_len):
-        indicator.update(*(Decimal(input_[i]) for input_ in inputs))
-        # Assert public values of an indicator.
-        values = [v for k, v in vars(indicator).items() if not k.startswith('_')]
+        outputs = indicator.update(*(Decimal(input_[i]) for input_ in inputs))
+        if type(outputs) is not tuple:
+            outputs = outputs,
         if i >= offset:
-            for j in range(0, len(values)):
-                assert pytest.approx(values[j],
-                                     abs=10**-precision) == Decimal(outputs[j][i - offset])
+            for j in range(0, len(outputs)):
+                assert pytest.approx(
+                    outputs[j], abs=10**-precision
+                ) == Decimal(expected_outputs[j][i - offset])

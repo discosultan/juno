@@ -21,10 +21,10 @@ class Cci:
         self._t1 = (period - 1) * 2
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Decimal:
         typical_price = (high + low + close) / 3
         self._typical_prices.append(typical_price)
         self._sma.update(typical_price)
@@ -34,3 +34,4 @@ class Cci:
             self.value = (typical_price - self._sma.value) / (acc * self._scale * Decimal('0.015'))
 
         self._t = min(self._t + 1, self._t1)
+        return self.value

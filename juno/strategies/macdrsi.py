@@ -40,7 +40,7 @@ class MacdRsi(Strategy):
         self._macd = Macd(macd_short_period, macd_long_period, macd_signal_period, 0)
         self._rsi = Rsi(rsi_period, rsi_up_threshold, rsi_down_threshold, 0)
         super().__init__(
-            maturity=max(self._macd._maturity, self._rsi._maturity),
+            maturity=max(self._macd.maturity, self._rsi.maturity),
             persistence=persistence
         )
         self.validate(
@@ -49,6 +49,4 @@ class MacdRsi(Strategy):
         )
 
     def tick(self, candle: Candle) -> Optional[Advice]:
-        self._macd.update(candle)
-        self._rsi.update(candle)
-        return Advice.combine(self._macd.advice, self._rsi.advice)
+        return Advice.combine(self._macd.update(candle), self._rsi.update(candle))

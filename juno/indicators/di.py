@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Tuple
 
 from .dm import DM
 
@@ -27,10 +28,10 @@ class DI:
         self._t3 = period
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
         self._dm.update(high, low)
 
         if self._t >= self._t1 and self._t < self._t3:
@@ -46,6 +47,7 @@ class DI:
 
         self._prev_close = close
         self._t = min(self._t + 1, self._t3)
+        return self.plus_value, self.minus_value
 
 
 def _calc_truerange(prev_close: Decimal, high: Decimal, low: Decimal) -> Decimal:

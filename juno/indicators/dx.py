@@ -15,13 +15,14 @@ class DX:
         self._t1 = period - 1
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, high: Decimal, low: Decimal) -> None:
+    def update(self, high: Decimal, low: Decimal) -> Decimal:
         self._dm.update(high, low)
 
         if self._t == self._t1:
             self.value = self._dm.diff / self._dm.sum * 100
 
         self._t = min(self._t + 1, self._t1)
+        return self.value

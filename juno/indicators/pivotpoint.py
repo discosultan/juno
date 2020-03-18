@@ -9,7 +9,7 @@ class PivotPoint:
     resistance2: Decimal = Decimal('0.0')
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return 0
 
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:

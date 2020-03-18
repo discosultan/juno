@@ -133,8 +133,7 @@ def _tick(
     ctx: _Context, summary: TradingSummary, symbol: str, fees: Fees, filters: Filters,
     trailing_stop: Decimal, candle: Candle
 ) -> None:
-    ctx.strategy.update(candle)
-    advice = ctx.strategy.advice
+    advice = ctx.strategy.update(candle)
 
     if not ctx.open_position and advice is Advice.BUY:
         _try_open_position(ctx, symbol, fees, filters, candle)

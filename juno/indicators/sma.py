@@ -19,10 +19,10 @@ class Sma:
         self._t1 = period - 1
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Decimal:
         last = self._prices[self._i]
         self._prices[self._i] = price
         self._i = (self._i + 1) % len(self._prices)
@@ -30,3 +30,4 @@ class Sma:
         self.value = self._sum / len(self._prices)
 
         self._t = min(self._t + 1, self._t1)
+        return self.value

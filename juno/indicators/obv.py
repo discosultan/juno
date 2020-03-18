@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Tuple
 
 from .ema import Ema
 
@@ -11,10 +12,10 @@ class Obv:
     _t1: int = 1
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return 0
 
-    def update(self, price: Decimal, volume: Decimal) -> None:
+    def update(self, price: Decimal, volume: Decimal) -> Decimal:
         if self._t > 0:
             if price > self._last_price:
                 self.value += volume
@@ -23,6 +24,7 @@ class Obv:
 
         self._last_price = price
         self._t = min(self._t + 1, self._t1)
+        return self.value
 
 
 class Obv2:
@@ -35,16 +37,16 @@ class Obv2:
         self._ema = Ema.with_com(period, adjust=True)
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return 0
 
-    def update(self, price: Decimal, volume: Decimal) -> None:
+    def update(self, price: Decimal, volume: Decimal) -> Tuple[Decimal, Decimal]:
         if price > self._last_price:
             self.value += volume
         elif price < self._last_price:
             self.value -= volume
 
-        self._ema.update(self.value)
-        self.ema = self._ema.value
+        self.ema = self._ema.update(self.value)
 
         self._last_price = price
+        return self.value, self.ema

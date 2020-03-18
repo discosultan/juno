@@ -20,13 +20,14 @@ class Adx:
         self._t1 = (period - 1) * 2
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, high: Decimal, low: Decimal) -> None:
+    def update(self, high: Decimal, low: Decimal) -> Decimal:
         self._dx.update(high, low)
         if self._dx.value == 0:
             self.value = Decimal('0.0')
         else:
             self._smma.update(self._dx.value)
             self.value = self._smma.value
+        return self.value

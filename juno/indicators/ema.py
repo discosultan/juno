@@ -30,14 +30,14 @@ class Ema:
         self.set_smoothing_factor(Decimal('2.0') / (period + 1))
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return 0
 
     def set_smoothing_factor(self, a: Decimal) -> None:
         self._a = a
         self._a_inv = 1 - self._a
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Decimal:
         if self._adjust:
             self._prices.append(price)
             numerator = sum(
@@ -56,6 +56,7 @@ class Ema:
                 self.value = price
             else:
                 self.value += (price - self.value) * self._a
+        return self.value
 
     @staticmethod
     def with_smoothing(a: Decimal, adjust: bool = False) -> Ema:
@@ -86,10 +87,10 @@ class Ema2(Ema):
         self._t2 = period
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Decimal:
         if self._t <= self._t1:
             self._sma.update(price)
 
@@ -99,3 +100,4 @@ class Ema2(Ema):
             self.value = (price - self.value) * self._a + self.value
 
         self._t = min(self._t + 1, self._t2)
+        return self.value

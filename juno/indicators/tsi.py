@@ -26,10 +26,10 @@ class Tsi:
         self._t3 = self._t2 + short_period - 1
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t3
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Decimal:
         if self._t >= self._t1:
             pc = price - self._last_price
             self._pc_ema_smoothed.update(pc)
@@ -47,3 +47,4 @@ class Tsi:
 
         self._last_price = price
         self._t = min(self._t + 1, self._t3)
+        return self.value

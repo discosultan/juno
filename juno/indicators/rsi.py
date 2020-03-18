@@ -18,10 +18,10 @@ class Rsi:
         self._t1 = period
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Decimal:
         if self._t > 0:
             up = Decimal('0.0')
             down = Decimal('0.0')
@@ -44,3 +44,4 @@ class Rsi:
 
         self._last_price = price
         self._t = min(self._t + 1, self._t1)
+        return self.value

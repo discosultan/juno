@@ -58,9 +58,7 @@ class Meta:
 
 
 class Strategy:
-    req_history: int
-
-    _maturity: int
+    maturity: int
     _persistence: Persistence[Advice]
     _advice: Optional[Advice] = None
     _age: int = 0
@@ -70,9 +68,7 @@ class Strategy:
         pass
 
     def __init__(self, maturity: int = 0, persistence: int = 0) -> None:
-        self.req_history = maturity
-
-        self._maturity = maturity
+        self.maturity = maturity
         self._persistence = Persistence(persistence)
 
     @property
@@ -84,12 +80,13 @@ class Strategy:
 
     @property
     def mature(self) -> bool:
-        return self._age >= self._maturity
+        return self._age >= self.maturity
 
-    def update(self, candle: Candle) -> None:
+    def update(self, candle: Candle) -> Optional[Advice]:
         self._advice = self.tick(candle)
         self._persistence.update(self._advice)
-        self._age = min(self._age + 1, self._maturity)
+        self._age = min(self._age + 1, self.maturity)
+        return self.advice
 
     def tick(self, candle: Candle) -> Optional[Advice]:
         pass

@@ -19,10 +19,10 @@ class Dema:
         self._t2 = self._t1 * 2
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t2
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Decimal:
         self._ema1.update(price)
 
         if self._t <= self._t1:
@@ -34,3 +34,4 @@ class Dema:
                 self.value = self._ema1.value * Decimal('2.0') - self._ema2.value
 
         self._t = min(self._t + 1, self._t2)
+        return self.value

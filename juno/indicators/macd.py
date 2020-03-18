@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Tuple
 
 from .ema import Ema
 
@@ -37,10 +38,10 @@ class Macd:
         self._t1 = long_period - 1
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Tuple[Decimal, Decimal, Decimal]:
         self._short_ema.update(price)
         self._long_ema.update(price)
 
@@ -51,3 +52,4 @@ class Macd:
             self.divergence = self.value - self.signal
 
         self._t = min(self._t + 1, self._t1)
+        return self.value, self.signal, self.divergence

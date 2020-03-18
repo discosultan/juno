@@ -34,10 +34,10 @@ class Kama:
         self._t2 = period
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t1
 
-    def update(self, price: Decimal) -> None:
+    def update(self, price: Decimal) -> Decimal:
         if self._t > 0:
             self._diffs.append(abs(price - self._prices[-1]))
 
@@ -55,3 +55,4 @@ class Kama:
 
         self._prices.append(price)
         self._t = min(self._t + 1, self._t2)
+        return self.value

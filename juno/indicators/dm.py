@@ -29,7 +29,7 @@ class DM:
         self._t3 = period
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t2
 
     @property
@@ -40,7 +40,7 @@ class DM:
     def sum(self) -> Decimal:
         return self.plus_value + self.minus_value
 
-    def update(self, high: Decimal, low: Decimal) -> None:
+    def update(self, high: Decimal, low: Decimal) -> Tuple[Decimal, Decimal]:
         if self._t >= self._t1 and self._t < self._t3:
             dp, dm = _calc_direction(self._prev_high, self._prev_low, high, low)
             self._dmup += dp
@@ -59,6 +59,7 @@ class DM:
         self._prev_high = high
         self._prev_low = low
         self._t = min(self._t + 1, self._t3)
+        return self.plus_value, self.minus_value
 
 
 def _calc_direction(prev_high: Decimal, prev_low: Decimal, high: Decimal,

@@ -103,10 +103,10 @@ class Trader:
             # becomes effective. Only do it on first run because subsequent runs mean
             # missed candles and we don't want to fetch passed a missed candle.
             _log.info(
-                f'fetching {state.strategy.req_history} candle(s) before start time to warm-up '
+                f'fetching {state.strategy.maturity} candle(s) before start time to warm-up '
                 'strategy'
             )
-            state.current -= state.strategy.req_history * config.interval
+            state.current -= state.strategy.maturity * config.interval
             state.start_adjusted = True
 
         try:
@@ -167,8 +167,7 @@ class Trader:
 
     async def _tick(self, config: Config, state: State, candle: Candle) -> None:
         assert state.strategy
-        state.strategy.update(candle)
-        advice = state.strategy.advice
+        advice = state.strategy.update(candle)
 
         if not state.open_position and advice is Advice.BUY:
             await self._open_position(config, state, candle)

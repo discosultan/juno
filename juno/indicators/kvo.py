@@ -27,10 +27,10 @@ class Kvo:
         self._long_ema = Ema(long_period)
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return 1
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal, volume: Decimal) -> None:
+    def update(self, high: Decimal, low: Decimal, close: Decimal, volume: Decimal) -> Decimal:
         hlc = high + low + close
         dm = high - low
 
@@ -53,3 +53,4 @@ class Kvo:
         self._prev_dm = dm
         self._prev_hlc = hlc
         self._t = min(self._t + 1, self._t1)
+        return self.value

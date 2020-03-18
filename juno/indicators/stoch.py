@@ -1,6 +1,6 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque
+from typing import Deque, Tuple
 
 from .sma import Sma
 
@@ -36,10 +36,10 @@ class Stoch:
         self._t3 = self._t2 + d_sma_period - 1
 
     @property
-    def req_history(self) -> int:
+    def maturity(self) -> int:
         return self._t3
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
         self._k_high_window.append(high)
         self._k_low_window.append(low)
 
@@ -58,3 +58,4 @@ class Stoch:
                 self.d = self._d_sma.value
 
         self._t = min(self._t + 1, self._t3)
+        return self.k, self.d
