@@ -9,11 +9,11 @@ from juno.modules import get_module_type
 from .strategy import Meta, Strategy
 
 _ma_choices = math.Choice([i.__name__.lower() for i in [
-    # indicators.Ema,
-    # indicators.Ema2,
-    # indicators.Sma,
-    # indicators.Smma,
-    # indicators.Dema,
+    indicators.Ema,
+    indicators.Ema2,
+    indicators.Sma,
+    indicators.Smma,
+    indicators.Dema,
     indicators.Kama,
 ]])
 

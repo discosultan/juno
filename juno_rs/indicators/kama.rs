@@ -1,5 +1,5 @@
 use super::MA;
-use std::cmp::min;
+use std::{cmp::min, collections::VecDeque};
 
 pub struct Kama {
     pub value: f64,
@@ -8,9 +8,8 @@ pub struct Kama {
     short_alpha: f64,
     long_alpha: f64,
 
-    prices: Vec<f64>,
-    diffs: Vec<f64>,
-    i: usize,
+    prices: VecDeque<f64>,
+    diffs: VecDeque<f64>,
 
     t: u32,
     t1: u32,
@@ -26,9 +25,8 @@ impl Kama {
             short_alpha: 2.0 / (2.0 + 1.0),
             long_alpha: 2.0 / (30.0 + 1.0),
 
-            prices: vec![0.0; period as usize],
-            diffs: vec![0.0; period as usize],
-            i: 0,
+            prices: VecDeque::with_capacity(period as usize),
+            diffs: VecDeque::with_capacity(period as usize),
 
             t: 0,
             t1: period - 1,
@@ -42,12 +40,11 @@ impl Kama {
 
     pub fn update(&mut self, price: f64) {
         if self.t > 0 {
-            let prev_i = if self.i > 0 {
-                self.i - 1
-            } else {
-                (self.period - 1) as usize
-            };
-            self.diffs[self.i] = f64::abs(price - self.prices[prev_i]);
+            if self.diffs.len() == self.period as usize {
+                self.diffs.pop_front();
+            }
+            self.diffs
+                .push_back(f64::abs(price - self.prices[self.prices.len() - 1]));
         }
 
         if self.t == self.t1 {
@@ -57,11 +54,7 @@ impl Kama {
             let er = if diff_sum == 0.0 {
                 1.0
             } else {
-                let first_i = (self.i + 1) % self.period as usize;
-                // if first_i < 0 {
-                //     first_i += self.period;
-                // }
-                f64::abs(price - self.prices[first_i])
+                f64::abs(price - self.prices[0]) / diff_sum
             };
             let sc = f64::powf(
                 er * (self.short_alpha - self.long_alpha) + self.long_alpha,
@@ -71,8 +64,10 @@ impl Kama {
             self.value += sc * (price - self.value);
         }
 
-        self.prices[self.i] = price;
-        self.i = (self.i + 1) % self.period as usize;
+        if self.prices.len() == self.period as usize {
+            self.prices.pop_front();
+        }
+        self.prices.push_back(price);
         self.t = min(self.t + 1, self.t2)
     }
 }
@@ -113,7 +108,8 @@ mod tests {
         for i in 0..inputs.len() {
             indicator.update(inputs[i]);
             if i >= 3 {
-                assert_eq!(indicator.value(), expected_outputs[i - 3]);
+                let diff = f64::abs(indicator.value() - expected_outputs[i - 3]);
+                assert!(diff < 0.001, format!("diff is {}", diff));
             }
         }
     }
