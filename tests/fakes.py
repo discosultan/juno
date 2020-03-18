@@ -296,10 +296,9 @@ class Strategy(strategies.Strategy):
 
     def update(self, candle):
         self.updates.append((id(self), candle))
-
-    @property
-    def advice(self):
-        return self.advices.pop()
+        # TODO: walrus
+        self.advice = self.advices.pop()
+        return self.advice
 
 
 class Time:

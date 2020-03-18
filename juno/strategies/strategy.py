@@ -60,7 +60,7 @@ class Meta:
 class Strategy:
     maturity: int
     _persistence: Persistence[Advice]
-    _advice: Optional[Advice] = None
+    advice: Optional[Advice] = None
     _age: int = 0
 
     @staticmethod
@@ -72,20 +72,15 @@ class Strategy:
         self._persistence = Persistence(persistence)
 
     @property
-    def advice(self) -> Optional[Advice]:
-        advice = None
-        if self._persistence.persisted:
-            advice = self._advice
-        return advice
-
-    @property
     def mature(self) -> bool:
         return self._age >= self.maturity
 
     def update(self, candle: Candle) -> Optional[Advice]:
-        self._advice = self.tick(candle)
-        self._persistence.update(self._advice)
+        advice = self.tick(candle)
+        persisted, _changed = self._persistence.update(advice)
         self._age = min(self._age + 1, self.maturity)
+        # TODO: walrus
+        self.advice = advice if persisted else None
         return self.advice
 
     def tick(self, candle: Candle) -> Optional[Advice]:

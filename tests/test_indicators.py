@@ -587,7 +587,7 @@ def _assert(indicator, inputs, expected_outputs, precision: int) -> None:
     offset = input_len - output_len
     for i in range(0, input_len):
         outputs = indicator.update(*(Decimal(input_[i]) for input_ in inputs))
-        if type(outputs) is not tuple:
+        if not isinstance(outputs, tuple):
             outputs = outputs,
         if i >= offset:
             for j in range(0, len(outputs)):
