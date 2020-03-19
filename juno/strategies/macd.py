@@ -24,10 +24,10 @@ class Macd(Strategy):
 
     def __init__(
         self,
-        short_period: int,  # 12
-        long_period: int,  # 26
-        signal_period: int,  # 9
-        persistence: int
+        short_period: int = 12,
+        long_period: int = 26,
+        signal_period: int = 9,
+        persistence: int = 0,
     ) -> None:
         super().__init__(maturity=max(long_period, signal_period) - 1, persistence=persistence)
         self.validate(short_period, long_period, signal_period, persistence)

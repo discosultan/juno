@@ -53,7 +53,7 @@ class MAMACX(Generic[T, Y], Strategy):
         long_period: int,
         neg_threshold: Decimal,
         pos_threshold: Decimal,
-        persistence: int,
+        persistence: int = 0,
         short_ma: str = indicators.Ema.__name__.lower(),
         long_ma: str = indicators.Ema.__name__.lower(),
     ) -> None:

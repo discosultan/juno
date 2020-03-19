@@ -6,8 +6,8 @@ from juno import Advice, Candle, indicators, math
 from .strategy import Meta, Strategy
 
 
-# Simple RSI based strategy which signals buy when oversold and sell when overbought. Ineffective
-# on its own but can be useful when combining with other strategies.
+# RSI based strategy which signals buy when the indicator is coming out of an oversold area and
+# sell when coming out of an overbought area.
 class Rsi(Strategy):
     @staticmethod
     def meta() -> Meta:
@@ -22,6 +22,7 @@ class Rsi(Strategy):
 
     _rsi: indicators.Rsi
     _previous_rsi_value: Decimal
+    _advice: Optional[Advice] = None
     _up_threshold: Decimal
     _down_threshold: Decimal
 
@@ -41,18 +42,17 @@ class Rsi(Strategy):
     def tick(self, candle: Candle) -> Optional[Advice]:
         self._rsi.update(candle.close)
 
-        advice = None
         if self.mature:
             if (
                 self._previous_rsi_value <= self._down_threshold
                 and self._rsi.value > self._down_threshold
             ):
-                advice = Advice.BUY
+                self._advice = Advice.BUY
             elif (
                 self._previous_rsi_value >= self._up_threshold
                 and self._rsi.value < self._up_threshold
             ):
-                advice = Advice.SELL
+                self._advice = Advice.SELL
 
         self._previous_rsi_value = self._rsi.value
-        return advice
+        return self._advice
