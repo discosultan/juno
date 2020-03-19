@@ -21,15 +21,16 @@ class Rsi(Strategy):
         )
 
     _rsi: indicators.Rsi
+    _previous_rsi_value: Decimal
     _up_threshold: Decimal
     _down_threshold: Decimal
 
     def __init__(
         self,
-        period: int,  # 14
-        up_threshold: Decimal,
-        down_threshold: Decimal,
-        persistence: int
+        period: int = 14,
+        up_threshold: Decimal = Decimal('75.0'),
+        down_threshold: Decimal = Decimal('25.0'),
+        persistence: int = 0,
     ) -> None:
         super().__init__(maturity=period - 1, persistence=persistence)
         self.validate(period, up_threshold, down_threshold, persistence)
@@ -40,10 +41,18 @@ class Rsi(Strategy):
     def tick(self, candle: Candle) -> Optional[Advice]:
         self._rsi.update(candle.close)
 
+        advice = None
         if self.mature:
-            if self._rsi.value < self._down_threshold:
-                return Advice.BUY
-            elif self._rsi.value > self._up_threshold:
-                return Advice.SELL
+            if (
+                self._previous_rsi_value <= self._down_threshold
+                and self._rsi.value > self._down_threshold
+            ):
+                advice = Advice.BUY
+            elif (
+                self._previous_rsi_value >= self._up_threshold
+                and self._rsi.value < self._up_threshold
+            ):
+                advice = Advice.SELL
 
-        return None
+        self._previous_rsi_value = self._rsi.value
+        return advice
