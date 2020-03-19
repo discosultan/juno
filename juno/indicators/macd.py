@@ -8,7 +8,7 @@ from .ema import Ema
 class Macd:
     value: Decimal = Decimal('0.0')
     signal: Decimal = Decimal('0.0')
-    divergence: Decimal = Decimal('0.0')
+    histogram: Decimal = Decimal('0.0')
 
     _short_ema: Ema
     _long_ema: Ema
@@ -47,9 +47,8 @@ class Macd:
 
         if self._t == self._t1:
             self.value = self._short_ema.value - self._long_ema.value
-            self._signal_ema.update(self.value)
-            self.signal = self._signal_ema.value
-            self.divergence = self.value - self.signal
+            self.signal = self._signal_ema.update(self.value)
+            self.histogram = self.value - self.signal
 
         self._t = min(self._t + 1, self._t1)
-        return self.value, self.signal, self.divergence
+        return self.value, self.signal, self.histogram

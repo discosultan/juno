@@ -4,7 +4,7 @@ use std::cmp::min;
 pub struct Macd {
     pub value: f64,
     pub signal: f64,
-    pub divergence: f64,
+    pub histogram: f64,
 
     short_ema: Ema,
     long_ema: Ema,
@@ -25,9 +25,9 @@ impl Macd {
         let signal_ema = Ema::new(signal_period);
 
         Self {
-            signal: 0.0,
             value: 0.0,
-            divergence: 0.0,
+            signal: 0.0,
+            histogram: 0.0,
             short_ema,
             long_ema,
             signal_ema,
@@ -48,7 +48,7 @@ impl Macd {
             self.value = self.short_ema.value - self.long_ema.value;
             self.signal_ema.update(self.value);
             self.signal = self.signal_ema.value;
-            self.divergence = self.value - self.signal;
+            self.histogram = self.value - self.signal;
         }
 
         self.t = min(self.t + 1, self.t1);
