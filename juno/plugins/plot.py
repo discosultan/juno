@@ -5,6 +5,7 @@ from typing import Dict, List, Tuple
 
 import plotly.graph_objs as go
 import plotly.offline as py
+
 from juno import Candle
 from juno.components import Event
 from juno.time import datetime_utcfromtimestamp_ms
