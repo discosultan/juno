@@ -112,8 +112,8 @@ class SQLite(Storage):
                 if len(items) > 0:
                     try:
                         c.executemany(
-                            f"INSERT INTO {key} "
-                            f"VALUES ({', '.join(['?'] * len(get_type_hints(type_)))})",
+                            f'INSERT INTO {key} '
+                            f'VALUES ({", ".join(["?"] * len(get_type_hints(type_)))})',
                             items
                         )
                     except sqlite3.IntegrityError as err:

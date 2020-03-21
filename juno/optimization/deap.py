@@ -107,8 +107,8 @@ def ea_mu_plus_lambda(random: Random):
 
 def _var_or(random, population, toolbox, lambda_, cxpb, mutpb):
     assert (cxpb + mutpb) <= 1.0, (
-        "The sum of the crossover and mutation probabilities must be smaller "
-        "or equal to 1.0.")
+        'The sum of the crossover and mutation probabilities must be smaller or equal to 1.0.'
+    )
 
     offspring = []
     for _ in range(lambda_):
