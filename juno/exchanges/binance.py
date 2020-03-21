@@ -18,8 +18,8 @@ from tenacity import (
 
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate,
-    ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
-    Side, Ticker, TimeInForce, Trade, json
+    ExchangeInfo, Fees, Fill, JunoException, MarginBalance, OrderResult, OrderStatus, OrderType,
+    OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -55,6 +55,7 @@ class Binance(Exchange):
     can_stream_historical_earliest_candle: bool = True
     can_stream_candles: bool = True
     can_list_all_tickers: bool = True
+    can_margin_trade: bool = True
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -70,7 +71,8 @@ class Binance(Exchange):
         self._orders_per_day_limiter = AsyncLimiter(100_000 * x, DAY_SEC)
 
         self._clock = Clock(self)
-        self._user_data_stream = UserDataStream(self)
+        self._user_data_stream = UserDataStream(self, '/api/v3')
+        self._margin_user_data_stream = UserDataStream(self, '/sapi/v1')
 
     async def __aenter__(self) -> Binance:
         await self._session.__aenter__()
@@ -167,6 +169,18 @@ class Binance(Exchange):
         return {
             b['asset'].lower(): Balance(available=Decimal(b['free']), hold=Decimal(b['locked']))
             for b in res.data['balances']
+        }
+
+    async def get_margin_balances(self) -> Dict[str, MarginBalance]:
+        res = await self._api_request('GET', '/sapi/v3/account', weight=5, security=_SEC_USER_DATA)
+        return {
+            b['asset'].lower(): MarginBalance(
+                available=Decimal(b['free']),
+                hold=Decimal(b['locked']),
+                borrowed=Decimal(b['borrowed']),
+                interest=Decimal(b['interest']),
+            )
+            for b in res.data['userAssets']
         }
 
     @asynccontextmanager
@@ -586,8 +600,9 @@ class Clock:
 
 
 class UserDataStream:
-    def __init__(self, binance: Binance) -> None:
+    def __init__(self, binance: Binance, base_url: str) -> None:
         self._binance = binance
+        self._base_url = base_url
         self._listen_key_lock = asyncio.Lock()
         self._stream_connected = asyncio.Event()
         self._listen_key = None
@@ -694,7 +709,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
         return await self._binance._api_request(
             'POST',
-            '/api/v3/userDataStream',
+            f'{self._base_url}/userDataStream',
             security=_SEC_USER_STREAM
         )
 
@@ -710,7 +725,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
         res = await self._binance._api_request(
             'PUT',
-            '/api/v3/userDataStream',
+            f'{self._base_url}/userDataStream',
             data={'listenKey': listen_key},
             security=_SEC_USER_STREAM,
             raise_for_status=False
@@ -734,7 +749,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
         return await self._binance._api_request(
             'DELETE',
-            '/api/v3/userDataStream',
+            f'{self._base_url}/userDataStream',
             data={'listenKey': listen_key},
             security=_SEC_USER_STREAM
         )

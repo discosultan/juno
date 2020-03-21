@@ -27,6 +27,13 @@ class Balance(NamedTuple):
     hold: Decimal  # TODO: Do we need it? Kraken doesn't provide that data, for example.
 
 
+class MarginBalance(NamedTuple):
+    available: Decimal
+    hold: Decimal
+    borrowed: Decimal
+    interest: Decimal
+
+
 class CancelOrderResult(NamedTuple):
     status: CancelOrderStatus
 

@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, OrderResult,
-    OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade
+    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, MarginBalance,
+    OrderResult, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade
 )
 
 
@@ -17,6 +17,7 @@ class Exchange(ABC):
     can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
+    can_margin_trade: bool = False
 
     @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
@@ -30,8 +31,17 @@ class Exchange(ABC):
     async def get_balances(self) -> Dict[str, Balance]:
         pass
 
+    async def get_margin_balances(self) -> Dict[str, MarginBalance]:
+        pass
+
     @asynccontextmanager
     async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+        yield  # type: ignore
+
+    @asynccontextmanager
+    async def connect_stream_margin_balances(
+        self
+    ) -> AsyncIterator[AsyncIterable[Dict[str, MarginBalance]]]:
         yield  # type: ignore
 
     @abstractmethod
