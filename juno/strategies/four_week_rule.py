@@ -11,7 +11,10 @@ from .strategy import Meta, Strategy
 T = TypeVar('T', bound=indicators.MovingAverage)
 
 
-# Assumes daily candles.
+# Signals a long position when a candle close price goes above a highest four week close price.
+# Signals a short position when a candle close price goes below a lowest four week close price.
+# Signals liquidation when a candle close price crosses a two week moving average.
+# Works with daily candles!
 class FourWeekRule(Generic[T], Strategy):
     @staticmethod
     def meta() -> Meta:
@@ -39,7 +42,7 @@ class FourWeekRule(Generic[T], Strategy):
             elif candle.close <= self._ma.value:
                 advice = Advice.SELL
             if candle.close <= lowest:
-                # TODO: Short
+                # TODO: Short. Also liquidate short position when crossing above MA.
                 advice = Advice.SELL
 
         self._prices.append(candle.close)

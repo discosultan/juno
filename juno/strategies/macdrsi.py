@@ -29,13 +29,13 @@ class MacdRsi(Strategy):
 
     def __init__(
         self,
-        macd_short_period: int,
-        macd_long_period: int,
-        macd_signal_period: int,
-        rsi_period: int,
-        rsi_up_threshold: Decimal,
-        rsi_down_threshold: Decimal,
-        persistence: int
+        macd_short_period: int = 12,
+        macd_long_period: int = 26,
+        macd_signal_period: int = 9,
+        rsi_period: int = 14,
+        rsi_up_threshold: Decimal = Decimal('75.0'),
+        rsi_down_threshold: Decimal = Decimal('25.0'),
+        persistence: int = 0,
     ) -> None:
         self._macd = Macd(macd_short_period, macd_long_period, macd_signal_period, 0)
         self._rsi = Rsi(rsi_period, rsi_up_threshold, rsi_down_threshold, 0)
