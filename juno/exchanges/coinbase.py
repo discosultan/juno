@@ -112,7 +112,9 @@ class Coinbase(Exchange):
                     break
         return list(tickers.values())
 
-    async def get_balances(self) -> Dict[str, Balance]:
+    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+        if margin:
+            raise NotImplementedError()
         res = await self._private_request('GET', '/accounts')
         result = {}
         for balance in res:

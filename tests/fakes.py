@@ -27,9 +27,7 @@ class Exchange(exchanges.Exchange):
         ),
         tickers=[],
         balances=None,
-        margin_balances=None,
         future_balances=[],
-        future_margin_balances=[],
         depth=None,
         future_depths=[],
         future_orders=[],
@@ -50,13 +48,9 @@ class Exchange(exchanges.Exchange):
         self.tickers = tickers
 
         self.balances = balances
-        self.margin_balances = margin_balances
         self.balance_queue = asyncio.Queue()
         for future_balance in future_balances:
             self.balance_queue.put_nowait(future_balance)
-        self.margin_balance_queue = asyncio.Queue()
-        for future_margin_balance in future_margin_balances:
-            self.margin_balance_queue.put_nowait(future_margin_balance)
 
         self.depth = depth
         self.depth_queue = asyncio.Queue()
@@ -86,25 +80,14 @@ class Exchange(exchanges.Exchange):
     async def list_tickers(self):
         return self.tickers
 
-    async def get_balances(self):
+    async def get_balances(self, margin=False):
         return self.balances
 
-    async def get_margin_balances(self):
-        return self.margin_balances
-
     @asynccontextmanager
-    async def connect_stream_balances(self):
+    async def connect_stream_balances(self, margin=False):
         async def inner():
             while True:
                 yield await self.balance_queue.get()
-
-        yield inner()
-
-    @asynccontextmanager
-    async def connect_stream_margin_balances(self):
-        async def inner():
-            while True:
-                yield await self.margin_balance_queue.get()
 
         yield inner()
 

@@ -18,8 +18,8 @@ from tenacity import (
 
 from juno import (
     Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate,
-    ExchangeInfo, Fees, Fill, JunoException, MarginBalance, OrderResult, OrderStatus, OrderType,
-    OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
+    Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, cancelable
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -164,31 +164,28 @@ class Binance(Exchange):
             ) for t in response_data
         ]
 
-    async def get_balances(self) -> Dict[str, Balance]:
-        res = await self._api_request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
+    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+        url = '/sapi/v1/margin/account' if margin else '/api/v3/account'
+        res = await self._api_request('GET', url, weight=5, security=_SEC_USER_DATA)
         return {
-            b['asset'].lower(): Balance(available=Decimal(b['free']), hold=Decimal(b['locked']))
-            for b in res.data['balances']
-        }
-
-    async def get_margin_balances(self) -> Dict[str, MarginBalance]:
-        res = await self._api_request('GET', '/sapi/v3/account', weight=5, security=_SEC_USER_DATA)
-        return {
-            b['asset'].lower(): MarginBalance(
+            b['asset'].lower(): Balance(
                 available=Decimal(b['free']),
                 hold=Decimal(b['locked']),
-                borrowed=Decimal(b['borrowed']),
-                interest=Decimal(b['interest']),
+                borrowed=Decimal(b['borrowed'] if margin else Decimal('0.0')),
+                interest=Decimal(b['interest'] if margin else Decimal('0.0')),
             )
-            for b in res.data['userAssets']
+            for b in res.data['userAssets' if margin else 'balances']
         }
 
     @asynccontextmanager
-    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+    async def connect_stream_balances(
+        self, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner(
             stream: AsyncIterable[Dict[str, Any]]
         ) -> AsyncIterable[Dict[str, Balance]]:
             async for data in stream:
+                _log.critical(data)
                 result = {}
                 for balance in data['B']:
                     result[
@@ -196,7 +193,8 @@ class Binance(Exchange):
                     ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
                 yield result
 
-        async with self._user_data_stream.subscribe('outboundAccountInfo') as stream:
+        user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
+        async with user_data_stream.subscribe('outboundAccountInfo') as stream:
             yield inner(stream)
 
     async def get_depth(self, symbol: str) -> DepthSnapshot:
