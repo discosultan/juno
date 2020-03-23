@@ -20,7 +20,7 @@ class Wallet:
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         # Key: (exchange, margin)
-        self._exchange_balances: Dict[Tuple[str, bool], _WalletData] = defaultdict(_WalletData)
+        self._data: Dict[Tuple[str, bool], _WalletData] = defaultdict(_WalletData)
 
     async def __aenter__(self) -> Wallet:
         self._initial_balances_fetched = Barrier(
@@ -34,10 +34,10 @@ class Wallet:
         await cancel(self._sync_all_balances_task)
 
     def get_balance(self, exchange: str, asset: str, margin: bool = False) -> Balance:
-        return self._exchange_balances[(exchange, margin)].balances[asset]
+        return self._data[(exchange, margin)].balances[asset]
 
     def get_updated_event(self, exchange: str, margin: bool = False) -> Event[None]:
-        return self._exchange_balances[(exchange, margin)].updated
+        return self._data[(exchange, margin)].updated
 
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(
@@ -49,7 +49,7 @@ class Wallet:
         )
 
     async def _sync_balances(self, exchange: str, margin: bool) -> None:
-        data = self._exchange_balances[(exchange, margin)]
+        exchange_data = self._data[(exchange, margin)]
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
@@ -61,11 +61,11 @@ class Wallet:
                     _log.info(
                         f'received {"margin " if margin else ""}balance update from {exchange}'
                     )
-                    data.balances = balances
+                    exchange_data.balances = balances
                     if is_first:
                         is_first = False
                         self._initial_balances_fetched.release()
-                    data.updated.set()
+                    exchange_data.updated.set()
 
     async def _stream_balances(
         self, exchange: str, margin: bool

@@ -1,12 +1,14 @@
 import asyncio
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from typing import List, Optional, Tuple
+from decimal import Decimal
+from typing import Dict, List, Optional, Tuple
 
 from juno import (
-    Advice, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters, OrderResult,
-    OrderStatus, Side, brokers, components, exchanges, storages, strategies
+    Advice, Balance, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters,
+    OrderResult, OrderStatus, Side, brokers, components, exchanges, storages, strategies
 )
+from juno.asyncio import Event
 
 
 class Exchange(exchanges.Exchange):
@@ -245,16 +247,28 @@ class Informant(components.Informant):
 
 
 class Orderbook(components.Orderbook):
-    def __init__(self, data):
-        self._data = data
+    def __init__(self, data: Dict[str, Dict[str, Dict[Side, Dict[Decimal, Decimal]]]]) -> None:
+        self._data_ = data
+
+    def get_updated_event(self, exchange: str, symbol: str) -> Event[None]:
+        raise NotImplementedError()
+
+    def list_asks(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
+        return sorted(self._data_[exchange][symbol][Side.BUY].items())
+
+    def list_bids(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
+        return sorted(self._data_[exchange][symbol][Side.SELL].items(), reverse=True)
 
 
 class Wallet(components.Wallet):
-    def __init__(self, exchange_balances):
-        self._exchange_balances = exchange_balances
+    def __init__(self, data: Dict[str, Dict[str, Balance]]):
+        self._data_ = data
 
-    def get_balance(self, exchange, asset):
-        return self._exchange_balances[exchange][asset]
+    def get_balance(self, exchange: str, asset: str, margin: bool = False) -> Balance:
+        return self._data_[exchange][asset]
+
+    def get_updated_event(self, exchange: str, margin: bool = False) -> Event[None]:
+        raise NotImplementedError()
 
 
 class Market(brokers.Market):
@@ -276,7 +290,7 @@ class Market(brokers.Market):
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     def _remove_from_orderbook(self, exchange, symbol, side, fills):
-        orderbook_side = self._orderbook._data[exchange][symbol][side]
+        orderbook_side = self._orderbook._data_[exchange][symbol][side]
         for fill in fills:
             orderbook_side[fill.price] -= fill.size
             if orderbook_side[fill.price] == 0:
