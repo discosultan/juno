@@ -37,6 +37,7 @@ _BASE_WS_URL = 'wss://stream.binance.com:9443'
 _SEC_NONE = 0  # Endpoint can be accessed freely.
 _SEC_TRADE = 1  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_DATA = 2  # Endpoint requires sending a valid API-Key and signature.
+_SEC_MARGIN = 5  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
@@ -55,6 +56,7 @@ class Binance(Exchange):
     can_stream_historical_earliest_candle: bool = True
     can_stream_candles: bool = True
     can_list_all_tickers: bool = True
+    can_margin_trade: bool = True
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -70,7 +72,8 @@ class Binance(Exchange):
         self._orders_per_day_limiter = AsyncLimiter(100_000 * x, DAY_SEC)
 
         self._clock = Clock(self)
-        self._user_data_stream = UserDataStream(self)
+        self._user_data_stream = UserDataStream(self, '/api/v3')
+        self._margin_user_data_stream = UserDataStream(self, '/sapi/v1')
 
     async def __aenter__(self) -> Binance:
         await self._session.__aenter__()
@@ -162,15 +165,23 @@ class Binance(Exchange):
             ) for t in response_data
         ]
 
-    async def get_balances(self) -> Dict[str, Balance]:
-        res = await self._api_request('GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA)
+    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+        url = '/sapi/v1/margin/account' if margin else '/api/v3/account'
+        res = await self._api_request('GET', url, weight=5, security=_SEC_USER_DATA)
         return {
-            b['asset'].lower(): Balance(available=Decimal(b['free']), hold=Decimal(b['locked']))
-            for b in res.data['balances']
+            b['asset'].lower(): Balance(
+                available=Decimal(b['free']),
+                hold=Decimal(b['locked']),
+                borrowed=Decimal(b['borrowed'] if margin else Decimal('0.0')),
+                interest=Decimal(b['interest'] if margin else Decimal('0.0')),
+            )
+            for b in res.data['userAssets' if margin else 'balances']
         }
 
     @asynccontextmanager
-    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+    async def connect_stream_balances(
+        self, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner(
             stream: AsyncIterable[Dict[str, Any]]
         ) -> AsyncIterable[Dict[str, Balance]]:
@@ -182,7 +193,8 @@ class Binance(Exchange):
                     ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
                 yield result
 
-        async with self._user_data_stream.subscribe('outboundAccountInfo') as stream:
+        user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
+        async with user_data_stream.subscribe('outboundAccountInfo') as stream:
             yield inner(stream)
 
     async def get_depth(self, symbol: str) -> DepthSnapshot:
@@ -405,6 +417,18 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
+    async def transfer(self, asset: str, size: Decimal, margin: bool) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/margin/transfer',
+            data={
+                'asset': asset.upper(),
+                'amount': str(size),
+                'type': 1 if margin else 2,
+            },
+            security=_SEC_MARGIN,
+        )
+
     async def _wapi_request(
         self,
         method: str,
@@ -476,10 +500,12 @@ class Binance(Exchange):
 
         kwargs: Dict[str, Any] = {}
 
-        if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_USER_STREAM, _SEC_MARKET_DATA]:
+        if security in [
+            _SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN, _SEC_USER_STREAM, _SEC_MARKET_DATA
+        ]:
             kwargs['headers'] = {'X-MBX-APIKEY': self._api_key}
 
-        if security in [_SEC_TRADE, _SEC_USER_DATA]:
+        if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN]:
             await self._clock.wait()
 
             data = data or {}
@@ -586,8 +612,9 @@ class Clock:
 
 
 class UserDataStream:
-    def __init__(self, binance: Binance) -> None:
+    def __init__(self, binance: Binance, base_url: str) -> None:
         self._binance = binance
+        self._base_url = base_url
         self._listen_key_lock = asyncio.Lock()
         self._stream_connected = asyncio.Event()
         self._listen_key = None
@@ -694,7 +721,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
         return await self._binance._api_request(
             'POST',
-            '/api/v3/userDataStream',
+            f'{self._base_url}/userDataStream',
             security=_SEC_USER_STREAM
         )
 
@@ -710,7 +737,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
         res = await self._binance._api_request(
             'PUT',
-            '/api/v3/userDataStream',
+            f'{self._base_url}/userDataStream',
             data={'listenKey': listen_key},
             security=_SEC_USER_STREAM,
             raise_for_status=False
@@ -734,7 +761,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
         return await self._binance._api_request(
             'DELETE',
-            '/api/v3/userDataStream',
+            f'{self._base_url}/userDataStream',
             data={'listenKey': listen_key},
             security=_SEC_USER_STREAM
         )

@@ -25,6 +25,9 @@ class Advice(IntEnum):
 class Balance(NamedTuple):
     available: Decimal
     hold: Decimal  # TODO: Do we need it? Kraken doesn't provide that data, for example.
+    # Margin account related.
+    borrowed: Decimal = Decimal('0.0')
+    interest: Decimal = Decimal('0.0')
 
 
 class CancelOrderResult(NamedTuple):

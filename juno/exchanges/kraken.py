@@ -44,6 +44,7 @@ class Kraken(Exchange):
     can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
+    can_margin_trade: bool = False  # TODO: Actually can; need impl
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -107,7 +108,9 @@ class Kraken(Exchange):
             ) for pair, val in res['result'].items()
         ]
 
-    async def get_balances(self) -> Dict[str, Balance]:
+    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+        if margin:
+            raise NotImplementedError()
         res = await self._request_private('/0/private/Balance')
         result = {}
         for asset, available in res['result'].items():

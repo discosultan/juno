@@ -45,6 +45,7 @@ class Coinbase(Exchange):
     can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
+    can_margin_trade: bool = False  # TODO: Actually can; need impl
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
@@ -111,7 +112,9 @@ class Coinbase(Exchange):
                     break
         return list(tickers.values())
 
-    async def get_balances(self) -> Dict[str, Balance]:
+    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+        if margin:
+            raise NotImplementedError()
         res = await self._private_request('GET', '/accounts')
         result = {}
         for balance in res:

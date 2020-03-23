@@ -109,6 +109,18 @@ async def test_get_balances(loop, request, exchange: Exchange) -> None:
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_get_margin_balances(loop, request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+    skip_no_capability(exchange.can_margin_trade)
+
+    balances = await exchange.get_balances(margin=True)
+
+    assert types_match(balances, Dict[str, Balance])
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
 async def test_stream_historical_candles(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_stream_historical_candles)

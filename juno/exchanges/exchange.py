@@ -17,6 +17,7 @@ class Exchange(ABC):
     can_stream_historical_earliest_candle: bool = False
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
+    can_margin_trade: bool = False
 
     @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
@@ -27,11 +28,13 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    async def get_balances(self) -> Dict[str, Balance]:
+    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
         pass
 
     @asynccontextmanager
-    async def connect_stream_balances(self) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+    async def connect_stream_balances(
+        self, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
 
     @abstractmethod
@@ -87,3 +90,6 @@ class Exchange(ABC):
     @asynccontextmanager
     async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
         yield  # type: ignore
+
+    async def transfer(self, asset: str, size: Decimal, margin: bool) -> None:
+        pass

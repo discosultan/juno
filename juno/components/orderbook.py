@@ -53,10 +53,10 @@ class Orderbook:
         return self._data[exchange][symbol].updated
 
     def list_asks(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
-        return sorted(self._data[exchange][symbol][Side.BUY].items())
+        return sorted(self._data[exchange][symbol].sides[Side.BUY].items())
 
     def list_bids(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
-        return sorted(self._data[exchange][symbol][Side.SELL].items(), reverse=True)
+        return sorted(self._data[exchange][symbol].sides[Side.SELL].items(), reverse=True)
 
     async def _sync_orderbooks(self) -> None:
         await asyncio.gather(*(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
@@ -72,14 +72,14 @@ class Orderbook:
                 orderbook.snapshot_received = False
                 async for depth in self._stream_depth(exchange, symbol):
                     if isinstance(depth, DepthSnapshot):
-                        orderbook[Side.BUY] = {k: v for k, v in depth.asks}
-                        orderbook[Side.SELL] = {k: v for k, v in depth.bids}
+                        orderbook.sides[Side.BUY] = {k: v for k, v in depth.asks}
+                        orderbook.sides[Side.SELL] = {k: v for k, v in depth.bids}
                         orderbook.snapshot_received = True
                         self._initial_orderbook_fetched.release()
                     elif isinstance(depth, DepthUpdate):
                         assert orderbook.snapshot_received
-                        _update_orderbook_side(orderbook[Side.BUY], depth.asks)
-                        _update_orderbook_side(orderbook[Side.SELL], depth.bids)
+                        _update_orderbook_side(orderbook.sides[Side.BUY], depth.asks)
+                        _update_orderbook_side(orderbook.sides[Side.SELL], depth.bids)
                     else:
                         raise NotImplementedError(depth)
                     orderbook.updated.set()
@@ -150,8 +150,8 @@ def _update_orderbook_side(
             pass
 
 
-class _OrderbookData(Dict[Side, Dict[Decimal, Decimal]]):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+class _OrderbookData:
+    def __init__(self) -> None:
+        self.sides: Dict[Side, Dict[Decimal, Decimal]] = {}
         self.updated: Event[None] = Event(autoclear=True)
         self.snapshot_received = False
