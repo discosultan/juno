@@ -90,3 +90,6 @@ class Exchange(ABC):
     @asynccontextmanager
     async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
         yield  # type: ignore
+
+    async def transfer(self, asset: str, size: Decimal, margin: bool) -> None:
+        pass

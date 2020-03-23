@@ -73,6 +73,8 @@ class Wallet:
         exchange_instance = self._exchanges[exchange]
 
         if exchange_instance.can_stream_balances:
+            # TODO: We are not receiving `interest` nor `borrowed` data through web socket updates.
+            # Figure out a better way to handle these.
             async with exchange_instance.connect_stream_balances(margin=margin) as stream:
                 # TODO: This is not needed for Binance. They will send initial status through
                 # websocket. However, it may be needed for Coinbase or Kraken. If it is, then we

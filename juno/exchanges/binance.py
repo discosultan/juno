@@ -37,6 +37,7 @@ _BASE_WS_URL = 'wss://stream.binance.com:9443'
 _SEC_NONE = 0  # Endpoint can be accessed freely.
 _SEC_TRADE = 1  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_DATA = 2  # Endpoint requires sending a valid API-Key and signature.
+_SEC_MARGIN = 5  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
@@ -185,7 +186,6 @@ class Binance(Exchange):
             stream: AsyncIterable[Dict[str, Any]]
         ) -> AsyncIterable[Dict[str, Balance]]:
             async for data in stream:
-                _log.critical(data)
                 result = {}
                 for balance in data['B']:
                     result[
@@ -417,6 +417,18 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
+    async def transfer(self, asset: str, size: Decimal, margin: bool) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/margin/transfer',
+            data={
+                'asset': asset.upper(),
+                'amount': str(size),
+                'type': 1 if margin else 2,
+            },
+            security=_SEC_MARGIN,
+        )
+
     async def _wapi_request(
         self,
         method: str,
@@ -488,10 +500,12 @@ class Binance(Exchange):
 
         kwargs: Dict[str, Any] = {}
 
-        if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_USER_STREAM, _SEC_MARKET_DATA]:
+        if security in [
+            _SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN, _SEC_USER_STREAM, _SEC_MARKET_DATA
+        ]:
             kwargs['headers'] = {'X-MBX-APIKEY': self._api_key}
 
-        if security in [_SEC_TRADE, _SEC_USER_DATA]:
+        if security in [_SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN]:
             await self._clock.wait()
 
             data = data or {}
