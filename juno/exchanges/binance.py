@@ -429,6 +429,28 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
+    async def borrow(self, asset: str, size: Decimal) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/margin/borrow',
+            data={
+                'asset': asset.upper(),
+                'amount': str(size),
+            },
+            security=_SEC_MARGIN,
+        )
+
+    async def repay(self, asset: str, size: Decimal) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/margin/repay',
+            data={
+                'asset': asset.upper(),
+                'amount': str(size),
+            },
+            security=_SEC_MARGIN,
+        )
+
     async def _wapi_request(
         self,
         method: str,
