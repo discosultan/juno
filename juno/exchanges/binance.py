@@ -117,8 +117,6 @@ class Binance(Exchange):
             assert all((price, percent_price, lot_size, min_notional))
 
             filters[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
-                base_precision=symbol['baseAssetPrecision'],
-                quote_precision=symbol['quotePrecision'],
                 price=Price(
                     min=Decimal(price['minPrice']),
                     max=Decimal(price['maxPrice']),
@@ -138,7 +136,10 @@ class Binance(Exchange):
                     min_notional=Decimal(min_notional['minNotional']),
                     apply_to_market=min_notional['applyToMarket'],
                     avg_price_period=percent_price['avgPriceMins'] * MIN_MS
-                )
+                ),
+                base_precision=symbol['baseAssetPrecision'],
+                quote_precision=symbol['quotePrecision'],
+                is_margin_trading_allowed=symbol['isMarginTradingAllowed'],
             )
         return ExchangeInfo(
             fees=fees,
