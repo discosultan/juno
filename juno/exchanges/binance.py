@@ -433,7 +433,7 @@ class Binance(Exchange):
     async def borrow(self, asset: str, size: Decimal) -> None:
         await self._api_request(
             'POST',
-            '/sapi/v1/margin/borrow',
+            '/sapi/v1/margin/loan',
             data={
                 'asset': asset.upper(),
                 'amount': str(size),
