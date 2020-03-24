@@ -93,3 +93,9 @@ class Exchange(ABC):
 
     async def transfer(self, asset: str, size: Decimal, margin: bool) -> None:
         pass
+
+    async def borrow(self, asset: str, size: Decimal) -> None:
+        pass
+
+    async def repay(self, asset: str, size: Decimal) -> None:
+        pass

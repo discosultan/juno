@@ -117,8 +117,6 @@ class Binance(Exchange):
             assert all((price, percent_price, lot_size, min_notional))
 
             filters[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
-                base_precision=symbol['baseAssetPrecision'],
-                quote_precision=symbol['quotePrecision'],
                 price=Price(
                     min=Decimal(price['minPrice']),
                     max=Decimal(price['maxPrice']),
@@ -138,7 +136,10 @@ class Binance(Exchange):
                     min_notional=Decimal(min_notional['minNotional']),
                     apply_to_market=min_notional['applyToMarket'],
                     avg_price_period=percent_price['avgPriceMins'] * MIN_MS
-                )
+                ),
+                base_precision=symbol['baseAssetPrecision'],
+                quote_precision=symbol['quotePrecision'],
+                is_margin_trading_allowed=symbol['isMarginTradingAllowed'],
             )
         return ExchangeInfo(
             fees=fees,
@@ -194,7 +195,9 @@ class Binance(Exchange):
                 yield result
 
         user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
-        async with user_data_stream.subscribe('outboundAccountInfo') as stream:
+        # event_type = 'outboundAccountInfo'  # Full list of balances.
+        event_type = 'outboundAccountPosition'  # Only changed balances.
+        async with user_data_stream.subscribe(event_type) as stream:
             yield inner(stream)
 
     async def get_depth(self, symbol: str) -> DepthSnapshot:
@@ -425,6 +428,28 @@ class Binance(Exchange):
                 'asset': asset.upper(),
                 'amount': str(size),
                 'type': 1 if margin else 2,
+            },
+            security=_SEC_MARGIN,
+        )
+
+    async def borrow(self, asset: str, size: Decimal) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/margin/loan',
+            data={
+                'asset': asset.upper(),
+                'amount': str(size),
+            },
+            security=_SEC_MARGIN,
+        )
+
+    async def repay(self, asset: str, size: Decimal) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/margin/repay',
+            data={
+                'asset': asset.upper(),
+                'amount': str(size),
             },
             security=_SEC_MARGIN,
         )

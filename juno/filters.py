@@ -78,3 +78,4 @@ class Filters(NamedTuple):
 
     base_precision: int = 8
     quote_precision: int = 8
+    is_margin_trading_allowed: bool = False

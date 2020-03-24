@@ -47,12 +47,12 @@ class Rsi(Strategy):
                 self._previous_rsi_value <= self._down_threshold
                 and self._rsi.value > self._down_threshold
             ):
-                self._advice = Advice.BUY
+                self._advice = Advice.LONG
             elif (
                 self._previous_rsi_value >= self._up_threshold
                 and self._rsi.value < self._up_threshold
             ):
-                self._advice = Advice.SELL
+                self._advice = Advice.SHORT
 
         self._previous_rsi_value = self._rsi.value
         return self._advice

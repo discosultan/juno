@@ -171,10 +171,10 @@ class Trader:
         assert state.strategy
         advice = state.strategy.update(candle)
 
-        if not state.open_position and advice is Advice.BUY:
+        if not state.open_position and advice is Advice.LONG:
             await self._open_position(config, state, candle)
             state.highest_close_since_position = candle.close
-        elif state.open_position and advice is Advice.SELL:
+        elif state.open_position and advice is Advice.SHORT:
             await self._close_position(config, state, candle)
         elif config.trailing_stop != 0 and state.open_position:
             state.highest_close_since_position = max(

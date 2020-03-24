@@ -21,7 +21,7 @@ def foo(a: int) -> int:
 
 class Bar(NamedTuple):
     value1: int
-    value2: Optional[int]
+    value2: Optional[int] = 2
 
 
 @dataclass
@@ -77,6 +77,7 @@ def test_isnamedtuple(input_, expected_output) -> None:
 
 @pytest.mark.parametrize('obj,type_,expected_output', [
     ([1, 2], Bar, Bar(1, 2)),
+    ([1], Bar, Bar(1, 2)),
     ([1, [2, 3]], Tuple[int, Bar], [1, Bar(2, 3)]),
     ([1, 2], List[int], [1, 2]),
     ({'value1': 1, 'value2': 2}, Baz, Baz(value1=1, value2=2)),

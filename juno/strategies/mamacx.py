@@ -79,8 +79,8 @@ class MAMACX(Generic[T, Y], Strategy):
             )
 
             if diff > self._pos_threshold:
-                return Advice.BUY
+                return Advice.LONG
             elif diff < self._neg_threshold:
-                return Advice.SELL
+                return Advice.SHORT
 
         return None

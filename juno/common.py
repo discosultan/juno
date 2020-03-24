@@ -10,15 +10,18 @@ from juno.time import datetime_utcfromtimestamp_ms
 
 
 class Advice(IntEnum):
-    BUY = 1
-    SELL = 2
+    LONG = 1
+    SHORT = 2
+    LIQUIDATE = 3
 
     @staticmethod
     def combine(*advices: Optional[Advice]) -> Optional[Advice]:
-        if all(a is Advice.BUY for a in advices):
-            return Advice.BUY
-        if all(a is Advice.SELL for a in advices):
-            return Advice.SELL
+        if all(a is Advice.LONG for a in advices):
+            return Advice.LONG
+        if all(a is Advice.SHORT for a in advices):
+            return Advice.SHORT
+        if all(a is not None for a in advices) and any(a is Advice.LIQUIDATE for a in advices):
+            return Advice.LIQUIDATE
         return None
 
 

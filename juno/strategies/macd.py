@@ -39,8 +39,8 @@ class Macd(Strategy):
 
         if self.mature:
             if self._macd.value > self._macd.signal:
-                return Advice.BUY
+                return Advice.LONG
             else:
-                return Advice.SELL
+                return Advice.SHORT
 
         return None

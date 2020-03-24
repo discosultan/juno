@@ -123,6 +123,7 @@ def get_module_type_and_kwargs(
     return type_, kwargs_for(type_.__init__, config)
 
 
+# TODO: Cannot make generic because https://github.com/python/mypy/issues/5374
 def init_instance(type_: Type[Any], config: Dict[str, Any]) -> Any:
     # Supports loading abstract types by resolving concrete type from config.
     if inspect.isabstract(type_):
