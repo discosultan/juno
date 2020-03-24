@@ -135,10 +135,10 @@ def _tick(
 ) -> None:
     advice = ctx.strategy.update(candle)
 
-    if not ctx.open_position and advice is Advice.BUY:
+    if not ctx.open_position and advice is Advice.LONG:
         _try_open_position(ctx, symbol, fees, filters, candle)
         ctx.highest_close_since_position = candle.close
-    elif ctx.open_position and advice is Advice.SELL:
+    elif ctx.open_position and advice is Advice.SHORT:
         _close_position(ctx, summary, symbol, fees, filters, candle)
     elif trailing_stop != 0 and ctx.open_position:
         ctx.highest_close_since_position = max(ctx.highest_close_since_position, candle.close)

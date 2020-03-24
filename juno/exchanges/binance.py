@@ -195,7 +195,9 @@ class Binance(Exchange):
                 yield result
 
         user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
-        async with user_data_stream.subscribe('outboundAccountInfo') as stream:
+        # event_type = 'outboundAccountInfo'  # Full list of balances.
+        event_type = 'outboundAccountPosition'  # Only changed balances.
+        async with user_data_stream.subscribe(event_type) as stream:
             yield inner(stream)
 
     async def get_depth(self, symbol: str) -> DepthSnapshot:

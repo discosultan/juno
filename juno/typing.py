@@ -93,6 +93,9 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
         annotations = get_type_hints(type_)
         args = []
         for i, (_name, sub_type) in enumerate(annotations.items()):
+            if i >= len(value):
+                # Resort to default values.
+                break
             sub_value = value[i]
             args.append(raw_to_type(sub_value, sub_type))
         return type_(*args)

@@ -104,7 +104,7 @@ async def test_trader_trailing_stop_loss() -> None:
         quote=Decimal('10.0'),
         strategy_module='tests.fakes',
         strategy='strategy',
-        strategy_kwargs={'advices': [Advice.BUY, None, None, Advice.SELL]},
+        strategy_kwargs={'advices': [Advice.LONG, None, None, Advice.SHORT]},
         trailing_stop=Decimal('0.1'),
     )
     summary = await trader.run(config)

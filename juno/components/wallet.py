@@ -76,11 +76,14 @@ class Wallet:
             # TODO: We are not receiving `interest` nor `borrowed` data through web socket updates.
             # Figure out a better way to handle these.
             async with exchange_instance.connect_stream_balances(margin=margin) as stream:
-                # TODO: This is not needed for Binance. They will send initial status through
-                # websocket. However, it may be needed for Coinbase or Kraken. If it is, then we
+                # This is not needed for Binance if it is sending full updates with
+                # 'outboundAccountInfo' event type. They will send initial status through
+                # websocket. In case of 'outboundAccountPosition' it is
+                # required.
+                # However, it may be needed for Coinbase or Kraken. If it is, then we
                 # should add a new capability `can_stream_initial_balances`.
                 # Get initial status from REST API.
-                # yield await exchange_instance.get_balances(margin=margin)
+                yield await exchange_instance.get_balances(margin=margin)
 
                 # Stream future updates over WS.
                 async for balances in stream:

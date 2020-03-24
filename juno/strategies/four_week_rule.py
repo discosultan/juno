@@ -38,12 +38,12 @@ class FourWeekRule(Generic[T], Strategy):
         if self.mature:
             lowest, highest = minmax(self._prices)
             if candle.close >= highest:
-                advice = Advice.BUY
+                advice = Advice.LONG
             elif candle.close <= self._ma.value:
-                advice = Advice.SELL
+                advice = Advice.SHORT
             if candle.close <= lowest:
                 # TODO: Short. Also liquidate short position when crossing above MA.
-                advice = Advice.SELL
+                advice = Advice.SHORT
 
         self._prices.append(candle.close)
         return advice
