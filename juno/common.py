@@ -196,6 +196,7 @@ class ExchangeInfo(NamedTuple):
     filters: Dict[str, Filters] = {'__all__': Filters()}
     candle_intervals: List[int] = []
     borrow_info: Dict[str, BorrowInfo] = {'__all__': BorrowInfo()}
+    margin_multiplier: int = 1
 
 
 class JunoException(Exception):

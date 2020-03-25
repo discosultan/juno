@@ -180,7 +180,8 @@ class Binance(Exchange):
                 'busd': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('2E+5')),
                 'xmr': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('3E+2')),
                 'ada': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('5E+5')),
-            }
+            },
+            margin_multiplier=3,
         )
 
     async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
