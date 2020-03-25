@@ -99,3 +99,6 @@ class Exchange(ABC):
 
     async def repay(self, asset: str, size: Decimal) -> None:
         pass
+
+    async def get_max_borrowable(self, asset: str) -> Decimal:
+        pass

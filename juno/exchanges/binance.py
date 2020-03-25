@@ -497,6 +497,14 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
+    async def get_max_borrowable(self, asset: str) -> Decimal:
+        res = await self._api_request(
+            'GET',
+            '/sapi/v1/margin/maxBorrowable', data={'asset': asset.upper()},
+            security=_SEC_USER_DATA,
+        )
+        return Decimal(res.data['amount'])
+
     async def _wapi_request(
         self,
         method: str,
