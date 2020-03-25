@@ -17,7 +17,7 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate,
+    Balance, BorrowInfo, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate,
     ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
     Side, Ticker, TimeInForce, Trade, json
 )
@@ -147,7 +147,40 @@ class Binance(Exchange):
             candle_intervals=[
                 60000, 180000, 300000, 900000, 1800000, 3600000, 7200000, 14400000, 21600000,
                 28800000, 43200000, 86400000, 259200000, 604800000, 2629746000
-            ]
+            ],
+            # The data below is not available through official Binance API but fetched through
+            # "binance_fetch_borrow_info.py" script.
+            borrow_info={
+                'matic': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+5')),
+                'vet': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('6E+6')),
+                'usdt': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('6E+5')),
+                'rvn': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+5')),
+                'dash': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+2')),
+                'atom': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('3.5E+3')),
+                'ont': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('1.6E+4')),
+                'xrp': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+5')),
+                'xlm': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2.5E+5')),
+                'link': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('1E+4')),
+                'trx': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+6')),
+                'qtum': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('4E+3')),
+                'xtz': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('4E+3')),
+                'iost': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+6')),
+                'bch': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+2')),
+                'eos': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('1.5E+4')),
+                'btc': BorrowInfo(daily_interest_rate=Decimal('0.00035'), limit=Decimal('6E+1')),
+                'iota': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+4')),
+                'bat': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('3.5E+4')),
+                'etc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('4E+3')),
+                'bnb': BorrowInfo(daily_interest_rate=Decimal('0.003'), limit=Decimal('3E+3')),
+                'eth': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('7E+2')),
+                'neo': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('1.8E+3')),
+                'zec': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2.5E+2')),
+                'ltc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('9E+2')),
+                'usdc': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('2E+5')),
+                'busd': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('2E+5')),
+                'xmr': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('3E+2')),
+                'ada': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('5E+5')),
+            }
         )
 
     async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:

@@ -28,9 +28,14 @@ class Advice(IntEnum):
 class Balance(NamedTuple):
     available: Decimal
     hold: Decimal  # TODO: Do we need it? Kraken doesn't provide that data, for example.
-    # Margin account related.
+    # Margin account related. Binance doesn't provide this through websocket!
     borrowed: Decimal = Decimal('0.0')
     interest: Decimal = Decimal('0.0')
+
+
+class BorrowInfo(NamedTuple):
+    daily_interest_rate: Decimal = Decimal('0.0')
+    limit: Decimal = Decimal('0.0')
 
 
 class CancelOrderResult(NamedTuple):
@@ -190,6 +195,7 @@ class ExchangeInfo(NamedTuple):
     fees: Dict[str, Fees] = {'__all__': Fees()}
     filters: Dict[str, Filters] = {'__all__': Filters()}
     candle_intervals: List[int] = []
+    borrow_info: Dict[str, BorrowInfo] = {'__all__': BorrowInfo()}
 
 
 class JunoException(Exception):

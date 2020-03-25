@@ -9,7 +9,7 @@ from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tupl
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
-from juno import ExchangeInfo, Fees, Filters, JunoException, Ticker, Timestamp
+from juno import BorrowInfo, ExchangeInfo, Fees, Filters, JunoException, Ticker, Timestamp
 from juno.asyncio import cancel, cancelable
 from juno.exchanges import Exchange
 from juno.storages import Storage
@@ -85,6 +85,10 @@ class Informant:
         fees = exchange_info.fees.get('__all__') or exchange_info.fees[symbol]
         filters = exchange_info.filters.get('__all__') or exchange_info.filters[symbol]
         return fees, filters
+
+    def get_borrow_info(self, exchange: str, asset: str) -> BorrowInfo:
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        return exchange_info.borrow_info.get('__all__') or exchange_info.borrow_info[asset]
 
     def list_symbols(self, exchange: str, patterns: Optional[List[str]] = None) -> List[str]:
         all_symbols = list(

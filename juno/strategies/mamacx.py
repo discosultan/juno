@@ -17,12 +17,12 @@ _ma_choices = math.Choice([i.__name__.lower() for i in [
 ]])
 
 
-T = TypeVar('T', bound=indicators.MovingAverage)
-Y = TypeVar('Y', bound=indicators.MovingAverage)
+TShort = TypeVar('TShort', bound=indicators.MovingAverage)
+TLong = TypeVar('TLong', bound=indicators.MovingAverage)
 
 
 # Moving average moving average crossover.
-class MAMACX(Generic[T, Y], Strategy):
+class MAMACX(Generic[TShort, TLong], Strategy):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -42,8 +42,8 @@ class MAMACX(Generic[T, Y], Strategy):
             }
         )
 
-    _short_ma: T
-    _long_ma: Y
+    _short_ma: TShort
+    _long_ma: TLong
     _neg_threshold: Decimal
     _pos_threshold: Decimal
 
