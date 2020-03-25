@@ -8,9 +8,10 @@ from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp,
 from juno.brokers import Broker
 from juno.components import Chandler, Event, Informant
 from juno.exchanges import Exchange
-from juno.math import round_half_up
+from juno.math import ceil_multiple, round_half_up
 from juno.modules import get_module_type
 from juno.strategies import Strategy
+from juno.time import HOUR_MS
 from juno.utils import tonamedtuple, unpack_symbol
 
 from .common import MissedCandlePolicy, OpenPosition, TradingSummary
@@ -32,6 +33,7 @@ class Trader:
         highest_close_since_position = Decimal('0.0')
         current: Timestamp = 0
         start_adjusted: bool = False
+        borrowed: Decimal = Decimal('0.0')
 
     class Config(NamedTuple):
         exchange: str
@@ -87,6 +89,12 @@ class Trader:
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
+
+        if config.short:
+            assert self._informant.get_borrow_info(config.exchange, config.quote_asset)[0]
+            assert self._informant.get_fees_filters(
+                config.exchange, config.symbol
+            )[1].is_margin_trading_allowed
 
         state = state or Trader.State()
 
@@ -254,27 +262,29 @@ class Trader:
         else:
             price = candle.close
             fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-            borrow_info, margin_multiplier = self._informant.get_borrow_info(
+            borrow_info, _margin_multiplier = self._informant.get_borrow_info(
                 config.exchange, config.symbol
             )
 
-            size = filters.size.round_down(state.quote / price)
-            borrow_size = size * (margin_multiplier - 1)
+            # borrow_size = size * (margin_multiplier - 1)
             exchange = self._exchanges[config.exchange]
-            await exchange.borrow(asset=config.base_asset, size=borrow_size)
-
+            size = await exchange.get_max_borrowable(config.quote_asset)
+            # size = filters.size.round_down(size)
             if size == 0:
                 raise InsufficientBalance()
+            # await exchange.borrow(asset=config.base_asset, size=size)
 
-            fee = round_half_up(size * fees.taker, filters.base_precision)
+            quote = size * price
+            fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
             state.open_position = OpenPosition(
                 symbol=config.symbol,
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)],
             )
 
-            state.quote -= size * price
+            state.quote += quote - fee
+            state.borrowed = size
 
         _log.info(f'short position opened: {candle}')
         _log.debug(tonamedtuple(state.open_position))
@@ -318,5 +328,54 @@ class Trader:
         state.open_position = None
         state.summary.append_position(position)
         _log.info(f'long position closed: {candle}')
+        _log.debug(tonamedtuple(position))
+        await self._event.emit(config.channel, 'position_closed', position, state.summary)
+
+    async def _close_short_position(self, config: Config, state: State, candle: Candle) -> None:
+        assert state.summary
+        assert state.open_position
+
+        if self._broker:
+            raise NotImplementedError()
+            # res = await self._broker.sell(
+            #     exchange=config.exchange,
+            #     symbol=config.symbol,
+            #     base=state.open_position.base_gain,
+            #     test=config.test,
+            # )
+
+            # position = state.open_position.close(
+            #     time=candle.time,
+            #     fills=res.fills,
+            # )
+
+            # state.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
+        else:
+            price = candle.close
+            fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+
+            size = filters.size.round_down(state.quote / price)
+            if size == 0:
+                raise InsufficientBalance()
+
+            borrow_info, _ = self._informant.get_borrow_info(config.exchange, config.base_asset)
+            duration = ceil_multiple(candle.time - state.open_position.time, HOUR_MS) // HOUR_MS
+            payback = state.borrowed + duration * borrow_info.hourly_interest_rate
+
+            size -= payback
+
+            fee = round_half_up(size * fees.taker, filters.base_precision)
+
+            position = state.open_position.close(
+                time=candle.time,
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
+            )
+
+            state.quote -= size * price
+            state.borrowed = Decimal('0.0')
+
+        state.open_position = None
+        state.summary.append_position(position)
+        _log.info(f'short position closed: {candle}')
         _log.debug(tonamedtuple(position))
         await self._event.emit(config.channel, 'position_closed', position, state.summary)

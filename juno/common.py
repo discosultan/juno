@@ -37,6 +37,10 @@ class BorrowInfo(NamedTuple):
     daily_interest_rate: Decimal = Decimal('0.0')
     limit: Decimal = Decimal('0.0')
 
+    @property
+    def hourly_interest_rate(self) -> Decimal:
+        return self.daily_interest_rate / 24
+
 
 class CancelOrderResult(NamedTuple):
     status: CancelOrderStatus
