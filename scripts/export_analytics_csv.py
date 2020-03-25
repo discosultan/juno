@@ -22,10 +22,11 @@ async def main() -> None:
     config = from_env()
     binance = init_instance(Binance, config)
     coinbase = init_instance(Coinbase, config)
+    exchanges = [binance, coinbase]
     trades = Trades(sqlite, [binance, coinbase])
-    chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance, coinbase])
-    informant = Informant(sqlite, [binance, coinbase])
-    trader = Trader(chandler=chandler, informant=informant)
+    chandler = Chandler(trades=trades, storage=sqlite, exchanges=exchanges)
+    informant = Informant(sqlite, exchanges)
+    trader = Trader(chandler=chandler, informant=informant, exchanges=exchanges)
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     async with binance, coinbase, informant:

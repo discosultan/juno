@@ -30,7 +30,7 @@ async def main() -> None:
     historian = Historian(chandler=chandler, storage=sqlite, exchanges=exchanges)
     informant = Informant(sqlite, exchanges)
     prices = Prices(chandler)
-    trader = Trader(chandler, informant)
+    trader = Trader(chandler, informant, exchanges)
     rust_solver = Rust()
     optimizer = Optimizer(rust_solver, chandler, informant, prices, trader)
     async with binance, coinbase, informant, rust_solver:

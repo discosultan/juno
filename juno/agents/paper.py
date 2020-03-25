@@ -27,6 +27,7 @@ class Paper(Agent):
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
         adjust_start: bool = True
         trailing_stop: Decimal = Decimal('0.0')
+        short: bool = False
 
     def __init__(
         self, informant: Informant, trader: Trader, event: Event = Event(),
@@ -61,6 +62,7 @@ class Paper(Agent):
             missed_candle_policy=config.missed_candle_policy,
             adjust_start=config.adjust_start,
             trailing_stop=config.trailing_stop,
+            short=config.short,
         )
         state.result = Trader.State()
         await self._trader.run(trader_config, state.result)
