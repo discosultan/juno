@@ -50,14 +50,9 @@ class Position:
     def roi(self) -> Decimal:
         return self.profit / self.cost
 
-    # Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
     @property
     def annualized_roi(self) -> Decimal:
-        n = Decimal(self.duration) / YEAR_MS
-        try:
-            return (1 + self.roi)**(1 / n) - 1
-        except Overflow:
-            return Decimal('Inf')
+        return _annualized_roi(self.duration, self.roi)
 
     @property
     def dust(self) -> Decimal:
@@ -149,10 +144,7 @@ class TradingSummary:
 
     @property
     def annualized_roi(self) -> Decimal:
-        n = Decimal(self.duration) / YEAR_MS
-        if n == 0:
-            return Decimal('0.0')
-        return (1 + self.roi)**(1 / n) - 1
+        return _annualized_roi(self.duration, self.roi)
 
     @property
     def duration(self) -> Interval:
@@ -226,3 +218,14 @@ class TradingSummary:
         quote_hodl = filters.size.round_down(base_hodl) * last_candle.close
         quote_hodl -= round_half_up(quote_hodl * fees.taker, filters.quote_precision)
         return quote_hodl - self.quote
+
+
+# Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
+def _annualized_roi(duration: int, roi: Decimal) -> Decimal:
+    n = Decimal(duration) / YEAR_MS
+    if n == 0:
+        return Decimal('0.0')
+    try:
+        return (1 + roi)**(1 / n) - 1
+    except Overflow:
+        return Decimal('Inf')

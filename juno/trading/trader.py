@@ -308,13 +308,14 @@ class Trader:
         else:
             price = candle.close
             fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-            borrow_info, _margin_multiplier = self._informant.get_borrow_info(
-                config.exchange, config.symbol
+            _borrow_info, margin_multiplier = self._informant.get_borrow_info(
+                config.exchange, config.base_asset
             )
 
             # borrow_size = size * (margin_multiplier - 1)
-            exchange = self._exchanges[config.exchange]
-            size = await exchange.get_max_borrowable(config.quote_asset)
+            # exchange = self._exchanges[config.exchange]
+            size = filters.size.round_down(state.quote / price) * margin_multiplier
+            # size = await exchange.get_max_borrowable(config.quote_asset)
             # size = filters.size.round_down(size)
             if size == 0:
                 raise InsufficientBalance()
@@ -326,7 +327,7 @@ class Trader:
             state.open_position = OpenPosition(
                 symbol=config.symbol,
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)],
+                fills=[Fill(price=price, size=-size, fee=fee, fee_asset=config.quote_asset)],
             )
 
             state.quote += quote - fee
@@ -361,10 +362,11 @@ class Trader:
             # payback * price
 
             fee = round_half_up(size * fees.taker, filters.base_precision)
+            size += fee
 
             position = state.open_position.close(
                 time=candle.time,
-                fills=[Fill(price=-price, size=size, fee=fee, fee_asset=config.base_asset)],
+                fills=[Fill(price=price, size=-size, fee=fee, fee_asset=config.base_asset)],
             )
 
             state.quote -= size * price
