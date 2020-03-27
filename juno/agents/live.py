@@ -107,7 +107,7 @@ class Live(Agent):
             strategy_type = strategy_type[resolved_params[0], resolved_params[1]]  # type: ignore
         elif len(resolved_params) > 2:
             raise NotImplementedError()
-        existing_state = await self._storage.get(
+        existing_state = await self._storage.get_item(
             'default',
             self._get_storage_key(state),
 

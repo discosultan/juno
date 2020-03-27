@@ -125,7 +125,7 @@ class SQLite(Storage):
 
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
-    async def get(self, shard: str, key: str, type_: Type[T]) -> Optional[T]:
+    async def get_item(self, shard: str, key: str, type_: Type[T]) -> Optional[T]:
         def inner() -> Optional[T]:
             _log.info(f'from shard {shard} getting {key}')
             with self._connect(shard) as conn:
@@ -137,7 +137,7 @@ class SQLite(Storage):
 
         return await asyncio.get_running_loop().run_in_executor(None, inner)
 
-    async def set(self, shard: str, key: str, item: T) -> None:
+    async def set_item(self, shard: str, key: str, item: T) -> None:
         def inner() -> None:
             _log.info(f'to shard {shard} setting {key}')
             with self._connect(shard) as conn:

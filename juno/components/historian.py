@@ -34,7 +34,7 @@ class Historian:
 
     async def find_first_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
         shard = key(exchange, symbol, interval)
-        candle = await self._storage.get(
+        candle = await self._storage.get_item(
             shard=shard,
             key=FIRST_CANDLE_KEY,
             type_=Candle,

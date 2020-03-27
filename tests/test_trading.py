@@ -234,9 +234,9 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
     future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
     await future_candle_queue.join()
     await cancel(trader_run_task)
-    await storage.set('shard', 'key', state)
+    await storage.set_item('shard', 'key', state)
     future_candle_queue.put_nowait(Candle(time=5))
-    state = await storage.get('shard', 'key', Trader.State[fakes.Strategy])
+    state = await storage.get_item('shard', 'key', Trader.State[fakes.Strategy])
     # NB! Since we reload from storage, we need to reattach the previous updates dict to assert
     # results.
     assert state.strategy

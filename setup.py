@@ -22,6 +22,7 @@ setup(
         'dev': [
             'flake8',
             'flake8-bugbear',
+            'flake8-builtins',
             'flake8-comprehensions',
             'flake8-isort',
             'flake8-quotes',

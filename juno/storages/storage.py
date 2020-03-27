@@ -26,9 +26,9 @@ class Storage(ABC):
         pass
 
     @abstractmethod
-    async def get(self, shard: str, key: str, type_: Type[T]) -> Optional[T]:
+    async def get_item(self, shard: str, key: str, type_: Type[T]) -> Optional[T]:
         pass
 
     @abstractmethod
-    async def set(self, shard: str, key: str, item: T) -> None:
+    async def set_item(self, shard: str, key: str, item: T) -> None:
         pass

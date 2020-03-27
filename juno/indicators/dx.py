@@ -22,7 +22,7 @@ class DX:
         self._dm.update(high, low)
 
         if self._t == self._t1:
-            self.value = self._dm.diff / self._dm.sum * 100
+            self.value = self._dm.diff / self._dm.total * 100
 
         self._t = min(self._t + 1, self._t1)
         return self.value

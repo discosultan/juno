@@ -23,8 +23,8 @@ def test_datetime_utcfromtimestamp_ms() -> None:
         [0, '0ms'],
     ]
 )
-def test_strfinterval(input, expected_output) -> None:
-    assert time.strfinterval(input) == expected_output
+def test_strfinterval(input_, expected_output) -> None:
+    assert time.strfinterval(input_) == expected_output
 
 
 def test_strftimestamp():
@@ -37,8 +37,8 @@ def test_strftimestamp():
         ['2d', time.DAY_MS * 2],
     ]
 )
-def test_strpinterval(input, expected_output) -> None:
-    output = time.strpinterval(input)
+def test_strpinterval(input_, expected_output) -> None:
+    output = time.strpinterval(input_)
     assert output == expected_output
 
 

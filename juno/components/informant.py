@@ -165,7 +165,7 @@ class Informant:
         fetch: Callable[[Exchange], Awaitable[T]]
     ) -> None:
         now = self._get_time_ms()
-        item = await self._storage.get(
+        item = await self._storage.get_item(
             shard=exchange,
             key=key,
             type_=type_
@@ -192,7 +192,7 @@ class Informant:
             time=time,
             item=(await fetch(self._exchanges[exchange])),
         )
-        await self._storage.set(
+        await self._storage.set_item(
             shard=exchange,
             key=key,
             item=item,

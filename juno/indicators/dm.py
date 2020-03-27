@@ -37,7 +37,7 @@ class DM:
         return abs(self.plus_value - self.minus_value)
 
     @property
-    def sum(self) -> Decimal:
+    def total(self) -> Decimal:
         return self.plus_value + self.minus_value
 
     def update(self, high: Decimal, low: Decimal) -> Tuple[Decimal, Decimal]:

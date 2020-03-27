@@ -8,20 +8,20 @@ from typing import NamedTuple
 
 
 class Price(NamedTuple):
-    min: Decimal = Decimal('0.0')  # 0 means disabled.
-    max: Decimal = Decimal('0.0')  # 0 means disabled.
+    min_: Decimal = Decimal('0.0')  # 0 means disabled.
+    max_: Decimal = Decimal('0.0')  # 0 means disabled.
     step: Decimal = Decimal('0.0')  # 0 means disabled.
 
     def round_down(self, price: Decimal) -> Decimal:
-        if price < self.min:
+        if price < self.min_:
             return Decimal('0.0')
-        if self.max:
-            price = min(price, self.max)
+        if self.max_:
+            price = min(price, self.max_)
         return price.quantize(self.step.normalize(), rounding=ROUND_DOWN)
 
     def valid(self, price: Decimal) -> bool:
-        return ((not self.min or price >= self.min) and (not self.max or price <= self.max)
-                and (not self.step or (price - self.min) % self.step == 0))
+        return ((not self.min_ or price >= self.min_) and (not self.max_ or price <= self.max_)
+                and (not self.step or (price - self.min_) % self.step == 0))
 
 
 class PercentPrice(NamedTuple):
@@ -37,8 +37,8 @@ class PercentPrice(NamedTuple):
 
 
 class Size(NamedTuple):
-    min: Decimal = Decimal('0.0')
-    max: Decimal = Decimal('Inf')
+    min_: Decimal = Decimal('0.0')
+    max_: Decimal = Decimal('Inf')
     step: Decimal = Decimal('0.0')
 
     def round_down(self, size: Decimal) -> Decimal:
@@ -48,13 +48,13 @@ class Size(NamedTuple):
         return self._round(size, ROUND_UP)
 
     def _round(self, size: Decimal, rounding: str) -> Decimal:
-        if size < self.min:
+        if size < self.min_:
             return Decimal('0.0')
-        size = min(size, self.max)
+        size = min(size, self.max_)
         return size.quantize(self.step.normalize(), rounding=rounding)
 
     def valid(self, size: Decimal) -> bool:
-        return (size >= self.min and size <= self.max and (size - self.min) % self.step == 0)
+        return (size >= self.min_ and size <= self.max_ and (size - self.min_) % self.step == 0)
 
 
 class MinNotional(NamedTuple):

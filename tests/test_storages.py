@@ -88,15 +88,15 @@ async def test_memory_store_and_stream_empty_series(memory: storages.Memory) -> 
     (TradingSummary(start=1, quote=Decimal('1.0')), TradingSummary),
 ])
 async def test_memory_set_get(memory: storages.Memory, item, type_) -> None:
-    await memory.set('shard', 'key', item)
-    out_item = await memory.get('shard', 'key', type_)
+    await memory.set_item('shard', 'key', item)
+    out_item = await memory.get_item('shard', 'key', type_)
 
     assert out_item == item
     assert types_match(out_item, type_)
 
 
 async def test_memory_get_missing(memory: storages.Memory) -> None:
-    item = await memory.get('shard', 'key', Candle)
+    item = await memory.get_item('shard', 'key', Candle)
 
     assert item is None
 
@@ -105,9 +105,9 @@ async def test_memory_set_twice_get(memory: storages.Memory) -> None:
     candle1 = Candle(time=1)
     candle2 = Candle(time=2)
 
-    await memory.set('shard', 'key', candle1)
-    await memory.set('shard', 'key', candle2)
-    out_candle = await memory.get('shard', 'key', Candle)
+    await memory.set_item('shard', 'key', candle1)
+    await memory.set_item('shard', 'key', candle2)
+    out_candle = await memory.get_item('shard', 'key', Candle)
 
     assert out_candle == candle2
 
@@ -117,12 +117,12 @@ async def test_memory_set_get_different(memory: storages.Memory) -> None:
     filters = {'foo': Filters()}
 
     await asyncio.gather(
-        memory.set('shard', 'fees', fees),
-        memory.set('shard', 'filters', filters)
+        memory.set_item('shard', 'fees', fees),
+        memory.set_item('shard', 'filters', filters)
     )
     out_fees, out_filters = await asyncio.gather(
-        memory.get('shard', 'fees', Dict[str, Fees]),
-        memory.get('shard', 'filters', Dict[str, Filters]),
+        memory.get_item('shard', 'fees', Dict[str, Fees]),
+        memory.get_item('shard', 'filters', Dict[str, Filters]),
     )
 
     assert out_fees == fees

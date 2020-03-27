@@ -339,11 +339,11 @@ class Storage(storages.Memory):
         self.stored_time_series_and_span.set()
         await asyncio.sleep(0)
 
-    async def get(self, shard, key, type_):
-        result = await super().get(shard, key, type_)
+    async def get_item(self, shard, key, type_):
+        result = await super().get_item(shard, key, type_)
         self.get_calls.append([shard, key, type_, result])
         return result
 
-    async def set(self, shard, key, item):
-        await super().set(shard, key, item)
+    async def set_item(self, shard, key, item):
+        await super().set_item(shard, key, item)
         self.set_calls.append([shard, key, item, None])
