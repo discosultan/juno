@@ -1,13 +1,15 @@
 from .common import (
-    MissedCandlePolicy, OpenPosition, OpenShortPosition, Position, ShortPosition, TradingSummary
+    LongPosition, MissedCandlePolicy, OpenLongPosition, OpenShortPosition, Position, ShortPosition,
+    TradingSummary
 )
 from .statistics import AnalysisSummary, Statistics, analyse_benchmark, analyse_portfolio
 from .trader import Trader
 
 __all__ = [
     'AnalysisSummary',
+    'LongPosition',
     'MissedCandlePolicy',
-    'OpenPosition',
+    'OpenLongPosition',
     'OpenShortPosition',
     'PortfolioStatistics',
     'Position',

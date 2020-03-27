@@ -1,4 +1,5 @@
 import statistics
+from abc import ABC, abstractproperty
 from dataclasses import dataclass
 from decimal import Decimal, Overflow
 from enum import IntEnum
@@ -16,10 +17,23 @@ class MissedCandlePolicy(IntEnum):
     LAST = 2
 
 
+class Position(ABC):
+    open_time: int
+    close_time: int
+
+    @abstractproperty
+    def profit(self) -> Decimal:
+        pass
+
+    @abstractproperty
+    def duration(self) -> int:
+        pass
+
+
 # TODO: Add support for external token fees (i.e BNB)
 # Note that we cannot set the dataclass as frozen because that would break JSON deserialization.
 @dataclass
-class Position:
+class LongPosition(Position):
     symbol: str
     open_time: Timestamp
     open_fills: List[Fill]
@@ -68,13 +82,13 @@ class Position:
 
 
 @dataclass
-class OpenPosition:
+class OpenLongPosition:
     symbol: str
     time: Timestamp
     fills: List[Fill]
 
-    def close(self, time: Timestamp, fills: List[Fill]) -> Position:
-        return Position(
+    def close(self, time: Timestamp, fills: List[Fill]) -> LongPosition:
+        return LongPosition(
             symbol=self.symbol,
             open_time=self.time,
             open_fills=self.fills,
@@ -92,7 +106,7 @@ class OpenPosition:
 
 
 @dataclass
-class ShortPosition:
+class ShortPosition(Position):
     symbol: str
     collateral: Decimal  # quote
     borrowed: Decimal  # base
@@ -124,7 +138,6 @@ class ShortPosition:
             + self.collateral
             - Fill.total_quote(self.close_fills)
         )
-        # return Fill.total_quote(self.close_fills) - Fill.total_fee(self.close_fills)
 
     @property
     def profit(self) -> Decimal:
@@ -138,6 +151,7 @@ class ShortPosition:
     def annualized_roi(self) -> Decimal:
         return _annualized_roi(self.duration, self.roi)
 
+    # TODO: implement
     # @property
     # def dust(self) -> Decimal:
     #     return (
