@@ -91,6 +91,95 @@ class OpenPosition:
         return Fill.total_size(self.fills) - Fill.total_fee(self.fills)
 
 
+@dataclass
+class ShortPosition:
+    symbol: str
+    collateral: Decimal  # quote
+    borrowed: Decimal  # base
+    open_time: Timestamp
+    open_fills: List[Fill]
+    close_time: Timestamp
+    close_fills: List[Fill]
+    interest: Decimal  # base
+
+    @property
+    def cost(self) -> Decimal:
+        return self.collateral
+        # return Decimal('0.0')
+        # return Fill.total_quote(self.open_fills)
+
+    # @property
+    # def base_gain(self) -> Decimal:
+    #     return Fill.total_size(self.open_fills) - Fill.total_fee(self.open_fills)
+
+    # @property
+    # def base_cost(self) -> Decimal:
+    #     return Fill.total_size(self.close_fills)
+
+    @property
+    def gain(self) -> Decimal:
+        return (
+            Fill.total_quote(self.open_fills)
+            - Fill.total_fee(self.open_fills)
+            + self.collateral
+            - Fill.total_quote(self.close_fills)
+        )
+        # return Fill.total_quote(self.close_fills) - Fill.total_fee(self.close_fills)
+
+    @property
+    def profit(self) -> Decimal:
+        return self.gain - self.cost
+
+    @property
+    def roi(self) -> Decimal:
+        return self.profit / self.cost
+
+    @property
+    def annualized_roi(self) -> Decimal:
+        return _annualized_roi(self.duration, self.roi)
+
+    # @property
+    # def dust(self) -> Decimal:
+    #     return (
+    #         Fill.total_size(self.open_fills)
+    #         - Fill.total_fee(self.open_fills)
+    #         - Fill.total_size(self.close_fills)
+    #     )
+
+    @property
+    def duration(self) -> Interval:
+        return self.close_time - self.open_time
+
+
+@dataclass
+class OpenShortPosition:
+    symbol: str
+    collateral: Decimal
+    borrowed: Decimal
+    time: Timestamp
+    fills: List[Fill]
+
+    def close(self, interest: Decimal, time: Timestamp, fills: List[Fill]) -> ShortPosition:
+        return ShortPosition(
+            symbol=self.symbol,
+            collateral=self.collateral,
+            borrowed=self.borrowed,
+            open_time=self.time,
+            open_fills=self.fills,
+            close_time=time,
+            close_fills=fills,
+            interest=interest,
+        )
+
+    @property
+    def cost(self) -> Decimal:
+        return self.collateral
+
+    # @property
+    # def base_gain(self) -> Decimal:
+    #     return Fill.total_size(self.fills) - Fill.total_fee(self.fills)
+
+
 # TODO: both positions and candles could theoretically grow infinitely
 @dataclass(init=False)
 class TradingSummary:
