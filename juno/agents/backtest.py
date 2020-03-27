@@ -98,7 +98,7 @@ class Backtest(Agent):
 
         _log.info(f'trading summary: {format_as_config(state.result.summary)}')
 
-        return  # TODO: TEMP!!!
+        # return  # TODO: TEMP!!!
         if not self._prices:
             return
 

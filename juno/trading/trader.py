@@ -14,7 +14,7 @@ from juno.strategies import Strategy
 from juno.time import HOUR_MS
 from juno.utils import tonamedtuple, unpack_symbol
 
-from .common import MissedCandlePolicy, OpenPosition, OpenShortPosition, TradingSummary
+from .common import MissedCandlePolicy, OpenLongPosition, OpenShortPosition, TradingSummary
 
 _log = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class Trader:
         strategy: Optional[TStrategy] = None
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
-        open_position: Optional[OpenPosition] = None
+        open_long_position: Optional[OpenLongPosition] = None
         open_short_position: Optional[OpenShortPosition] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
@@ -170,7 +170,7 @@ class Trader:
                     break
         finally:
             if state.last_candle:
-                if state.open_position:
+                if state.open_long_position:
                     _log.info('ending trading but position open; closing')
                     await self._close_long_position(config, state, state.last_candle)
                 elif state.open_short_position:
@@ -189,7 +189,7 @@ class Trader:
         assert state.strategy
         advice = state.strategy.update(candle)
 
-        if state.open_position:
+        if state.open_long_position:
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
                 await self._close_long_position(config, state, candle)
             elif config.trailing_stop:
@@ -210,7 +210,7 @@ class Trader:
                     _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
                     await self._close_short_position(config, state, candle)
 
-        if not state.open_position and not state.open_short_position:
+        if not state.open_long_position and not state.open_short_position:
             if config.long and advice is Advice.LONG:
                 await self._open_long_position(config, state, candle)
                 state.highest_close_since_position = candle.close
@@ -225,7 +225,7 @@ class Trader:
         state.current = candle.time + config.interval
 
     async def _open_long_position(self, config: Config, state: State, candle: Candle) -> None:
-        assert not state.open_position
+        assert not state.open_long_position
         assert not state.open_short_position
 
         if self._broker:
@@ -236,7 +236,7 @@ class Trader:
                 test=config.test,
             )
 
-            state.open_position = OpenPosition(
+            state.open_long_position = OpenLongPosition(
                 symbol=config.symbol,
                 time=candle.time,
                 fills=res.fills,
@@ -253,7 +253,7 @@ class Trader:
 
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
-            state.open_position = OpenPosition(
+            state.open_long_position = OpenLongPosition(
                 symbol=config.symbol,
                 time=candle.time,
                 fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
@@ -262,24 +262,24 @@ class Trader:
             state.quote -= size * price
 
         _log.info(f'long position opened: {candle}')
-        _log.debug(tonamedtuple(state.open_position))
+        _log.debug(tonamedtuple(state.open_long_position))
         await self._event.emit(
-            config.channel, 'position_opened', state.open_position, state.summary
+            config.channel, 'position_opened', state.open_long_position, state.summary
         )
 
     async def _close_long_position(self, config: Config, state: State, candle: Candle) -> None:
         assert state.summary
-        assert state.open_position
+        assert state.open_long_position
 
         if self._broker:
             res = await self._broker.sell(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                base=state.open_position.base_gain,
+                base=state.open_long_position.base_gain,
                 test=config.test,
             )
 
-            position = state.open_position.close(
+            position = state.open_long_position.close(
                 time=candle.time,
                 fills=res.fills,
             )
@@ -288,26 +288,26 @@ class Trader:
         else:
             price = candle.close
             fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-            size = filters.size.round_down(state.open_position.base_gain)
+            size = filters.size.round_down(state.open_long_position.base_gain)
 
             quote = size * price
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-            position = state.open_position.close(
+            position = state.open_long_position.close(
                 time=candle.time,
                 fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)],
             )
 
             state.quote += quote - fee
 
-        state.open_position = None
+        state.open_long_position = None
         state.summary.append_position(position)
         _log.info(f'long position closed: {candle}')
         _log.debug(tonamedtuple(position))
         await self._event.emit(config.channel, 'position_closed', position, state.summary)
 
     async def _open_short_position(self, config: Config, state: State, candle: Candle) -> None:
-        assert not state.open_position
+        assert not state.open_long_position
         assert not state.open_short_position
 
         if self._broker:

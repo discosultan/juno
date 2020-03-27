@@ -59,7 +59,7 @@ class Wallet:
             with attempt:
                 async for balances in self._stream_balances(exchange, margin):
                     _log.info(
-                        f'received {"margin " if margin else ""}balance update from {exchange}'
+                        f'received {"margin" if margin else "spot"} balance update from {exchange}'
                     )
                     exchange_data.balances = balances
                     if is_first:
@@ -90,8 +90,8 @@ class Wallet:
                     yield balances
         else:
             _log.warning(
-                f'{exchange} does not support streaming {"margin " if margin else ""}balances; '
-                'fething only initial balances; further updates not implemented'
+                f'{exchange} does not support streaming {"margin" if margin else "spot"} '
+                'balances; fething only initial balances; further updates not implemented'
             )
             yield await exchange_instance.get_balances(margin=margin)
 

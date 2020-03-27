@@ -18,8 +18,25 @@ class MissedCandlePolicy(IntEnum):
 
 
 class Position(ABC):
+    symbol: str
     open_time: int
     close_time: int
+
+    @abstractproperty
+    def cost(self) -> Decimal:
+        pass
+
+    @abstractproperty
+    def base_gain(self) -> Decimal:
+        pass
+
+    @abstractproperty
+    def base_cost(self) -> Decimal:
+        pass
+
+    @abstractproperty
+    def gain(self) -> Decimal:
+        pass
 
     @abstractproperty
     def profit(self) -> Decimal:
@@ -119,16 +136,14 @@ class ShortPosition(Position):
     @property
     def cost(self) -> Decimal:
         return self.collateral
-        # return Decimal('0.0')
-        # return Fill.total_quote(self.open_fills)
 
-    # @property
-    # def base_gain(self) -> Decimal:
-    #     return Fill.total_size(self.open_fills) - Fill.total_fee(self.open_fills)
+    @property
+    def base_gain(self) -> Decimal:
+        return self.borrowed
 
-    # @property
-    # def base_cost(self) -> Decimal:
-    #     return Fill.total_size(self.close_fills)
+    @property
+    def base_cost(self) -> Decimal:
+        return self.borrowed
 
     @property
     def gain(self) -> Decimal:
@@ -189,9 +204,9 @@ class OpenShortPosition:
     def cost(self) -> Decimal:
         return self.collateral
 
-    # @property
-    # def base_gain(self) -> Decimal:
-    #     return Fill.total_size(self.fills) - Fill.total_fee(self.fills)
+    @property
+    def base_gain(self) -> Decimal:
+        return self.borrowed
 
 
 # TODO: both positions and candles could theoretically grow infinitely

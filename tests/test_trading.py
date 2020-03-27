@@ -6,13 +6,13 @@ import pytest
 
 from juno import Advice, Candle, Fill
 from juno.asyncio import cancel, cancelable
-from juno.trading import MissedCandlePolicy, OpenPosition, Position, Trader, TradingSummary
+from juno.trading import LongPosition, MissedCandlePolicy, OpenLongPosition, Trader, TradingSummary
 
 from . import fakes
 
 
-def test_position() -> None:
-    open_pos = OpenPosition(
+def test_long_position() -> None:
+    open_pos = OpenLongPosition(
         symbol='eth-btc',
         time=0,
         fills=[
@@ -37,8 +37,8 @@ def test_position() -> None:
     assert pos.annualized_roi == -1
 
 
-def test_position_annualized_roi_overflow() -> None:
-    open_pos = OpenPosition(
+def test_long_position_annualized_roi_overflow() -> None:
+    open_pos = OpenLongPosition(
         symbol='eth-btc',
         time=0,
         fills=[
@@ -60,11 +60,11 @@ def test_trading_summary() -> None:
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
     positions = [
-        new_closed_position(Decimal('10.0')),
-        new_closed_position(Decimal('-11.0')),
-        new_closed_position(Decimal('4.95')),
-        new_closed_position(Decimal('-10.4')),
-        new_closed_position(Decimal('9.36')),
+        new_closed_long_position(Decimal('10.0')),
+        new_closed_long_position(Decimal('-11.0')),
+        new_closed_long_position(Decimal('4.95')),
+        new_closed_long_position(Decimal('-10.4')),
+        new_closed_long_position(Decimal('9.36')),
     ]
     for position in positions:
         summary.append_position(position)
@@ -254,10 +254,10 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
     assert candle_times[5] == 5
 
 
-def new_closed_position(profit: Decimal) -> Position:
+def new_closed_long_position(profit: Decimal) -> LongPosition:
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
-    open_pos = OpenPosition(
+    open_pos = OpenLongPosition(
         symbol='eth-btc',
         time=0,
         fills=[Fill(price=Decimal('0.0'), size=size)],
