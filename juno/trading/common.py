@@ -1,3 +1,4 @@
+import itertools
 import statistics
 from abc import ABC, abstractproperty
 from dataclasses import dataclass
@@ -215,7 +216,8 @@ class TradingSummary:
     start: Timestamp
     quote: Decimal
 
-    _positions: List[Position]
+    _long_positions: List[LongPosition]
+    _short_positions: List[ShortPosition]
     _drawdowns: List[Decimal]
 
     # TODO: Should we add +interval like we do for summary? Or rather change summary to exclude
@@ -228,15 +230,24 @@ class TradingSummary:
         self.start = start
         self.quote = quote
 
-        self._positions = []
+        self._long_positions = []
+        self._short_positions = []
         self._drawdowns = []
 
     def append_position(self, pos: Position) -> None:
-        self._positions.append(pos)
+        if isinstance(pos, LongPosition):
+            self._long_positions.append(pos)
+        elif isinstance(pos, ShortPosition):
+            self._short_positions.append(pos)
+        else:
+            raise NotImplementedError()
         self._drawdowns_dirty = True
 
     def get_positions(self) -> Iterable[Position]:
-        return self._positions
+        return sorted(
+            itertools.chain(self._long_positions, self._short_positions),
+            key=lambda p: p.open_time,
+        )
 
     def finish(self, end: Timestamp) -> None:
         if self.end is None:
@@ -254,7 +265,7 @@ class TradingSummary:
 
     @property
     def profit(self) -> Decimal:
-        return sum((p.profit for p in self._positions), Decimal('0.0'))
+        return sum((p.profit for p in self.get_positions()), Decimal('0.0'))
 
     @property
     def roi(self) -> Decimal:
@@ -270,27 +281,35 @@ class TradingSummary:
 
     @property
     def num_positions(self) -> int:
-        return len(self._positions)
+        return len(self._long_positions) + len(self._short_positions)
+
+    @property
+    def num_long_positions(self) -> int:
+        return len(self._long_positions)
+
+    @property
+    def num_short_positions(self) -> int:
+        return len(self._short_positions)
 
     @property
     def num_positions_in_profit(self) -> int:
-        return sum(1 for p in self._positions if p.profit >= 0)
+        return sum(1 for p in self.get_positions() if p.profit >= 0)
 
     @property
     def num_positions_in_loss(self) -> int:
-        return sum(1 for p in self._positions if p.profit < 0)
+        return sum(1 for p in self.get_positions() if p.profit < 0)
 
     @property
     def mean_position_profit(self) -> Decimal:
-        if len(self._positions) == 0:
+        if self.num_positions == 0:
             return Decimal('0.0')
-        return statistics.mean(x.profit for x in self._positions)
+        return statistics.mean(x.profit for x in self.get_positions())
 
     @property
     def mean_position_duration(self) -> Interval:
-        if len(self._positions) == 0:
+        if self.num_positions == 0:
             return 0
-        return int(statistics.mean(x.duration for x in self._positions))
+        return int(statistics.mean(x.duration for x in self.get_positions()))
 
     # @property
     # def drawdowns(self) -> List[Decimal]:
@@ -317,7 +336,7 @@ class TradingSummary:
         sum_drawdown = Decimal('0.0')
         self._drawdowns.clear()
         self._drawdowns.append(Decimal('0.0'))
-        for pos in self._positions:
+        for pos in self.get_positions():
             quote += pos.profit
             max_quote = max(max_quote, quote)
             drawdown = Decimal('1.0') - quote / max_quote

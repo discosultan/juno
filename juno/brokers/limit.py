@@ -39,8 +39,21 @@ class Limit(Broker):
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_client_id = get_client_id
 
-    async def buy(self, exchange: str, symbol: str, quote: Decimal, test: bool) -> OrderResult:
+    async def buy(
+        self,
+        exchange: str,
+        symbol: str,
+        base: Decimal = Decimal('0.0'),
+        quote: Decimal = Decimal('0.0'),
+        test: bool = True,
+    ) -> OrderResult:
+        assert (base and not quote) or (not base and quote)
+        assert not (base and quote)
         assert not test
+
+        if base:
+            raise NotImplementedError('TODO')
+
         _log.info(f'filling {quote} worth of quote with limit orders at spread')
         res = await self._fill(exchange, symbol, Side.BUY, quote)
 

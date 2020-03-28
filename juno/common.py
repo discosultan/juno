@@ -32,6 +32,10 @@ class Balance(NamedTuple):
     borrowed: Decimal = Decimal('0.0')
     interest: Decimal = Decimal('0.0')
 
+    @property
+    def repay(self) -> Decimal:
+        return self.borrowed + self.interest
+
 
 class BorrowInfo(NamedTuple):
     daily_interest_rate: Decimal = Decimal('0.0')

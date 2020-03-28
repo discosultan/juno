@@ -278,7 +278,7 @@ class Market(brokers.Market):
         self._update_orderbook = update_orderbook
 
     async def buy(self, exchange, symbol, quote, test):
-        fills = super().find_order_asks(exchange=exchange, symbol=symbol, quote=quote)
+        fills = super().find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
         if self._update_orderbook:
             self._remove_from_orderbook(exchange, symbol, Side.BUY, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)

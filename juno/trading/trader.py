@@ -311,7 +311,21 @@ class Trader:
         assert not state.open_short_position
 
         if self._broker:
-            raise NotImplementedError()
+            exchange = self._exchanges[config.exchange]
+            borrowed = await exchange.get_max_borrowable(config.quote_asset)
+            await exchange.borrow(asset=config.base_asset, size=borrowed)
+            res = await self._broker.sell(
+                config.exchange, config.symbol, borrowed, test=config.test
+            )
+            state.open_short_position = OpenShortPosition(
+                symbol=config.symbol,
+                collateral=state.quote,
+                borrowed=borrowed,
+                time=candle.time,
+                fills=res.fills,
+            )
+
+            state.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
         else:
             price = candle.close
             fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
@@ -319,18 +333,12 @@ class Trader:
                 config.exchange, config.base_asset
             )
 
-            # borrow_size = size * (margin_multiplier - 1)
-            # exchange = self._exchanges[config.exchange]
             collateral = state.quote
             collateral_size = filters.size.round_down(collateral / price)
-            # size = await exchange.get_max_borrowable(config.quote_asset)
-            # size = filters.size.round_down(size)
             if collateral_size == 0:
                 raise InsufficientBalance()
-            # await exchange.borrow(asset=config.base_asset, size=size)
             borrowed = collateral_size * (margin_multiplier - 1)
 
-            # size = collateral + borrowed
             quote = borrowed * price
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
@@ -346,23 +354,45 @@ class Trader:
 
         _log.info(f'short position opened: {candle}')
         _log.debug(tonamedtuple(state.open_short_position))
-        # await self._event.emit(
-        #     config.channel, 'position_opened', state.open_position, state.summary
-        # )
+        await self._event.emit(
+            config.channel, 'position_opened', state.open_short_position, state.summary
+        )
 
     async def _close_short_position(self, config: Config, state: State, candle: Candle) -> None:
         assert state.summary
         assert state.open_short_position
 
+        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         if self._broker:
-            raise NotImplementedError()
+            exchange = self._exchanges[config.exchange]
+            balance = (await exchange.get_balances(margin=True))[config.base_asset]
+
+            size = balance.repay
+            fee = round_half_up(size * fees.taker, filters.base_precision)
+            fee += round_half_up(fee * fees.taker, filters.base_precision)
+            size += fee
+
+            res = await self._broker.buy(
+                exchange=config.exchange,
+                symbol=config.symbol,
+                base=size,
+                test=config.test,
+            )
+            await exchange.repay(config.base_asset, balance.repay)
+
+            # Validate!
+            new_balance = (await exchange.get_balances(margin=True))[config.base_asset]
+            assert new_balance.repay == 0
+
+            position = state.open_short_position.close(
+                interest=balance.interest,
+                time=candle.time,
+                fills=res.fills,
+            )
+
+            state.quote -= Fill.total_quote(res.fills)
         else:
             price = candle.close
-            fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-
-            # size = filters.size.round_down(state.quote / price)
-            # if size == 0:
-            #     raise InsufficientBalance()
 
             borrow_info, _ = self._informant.get_borrow_info(config.exchange, config.base_asset)
             duration = ceil_multiple(
@@ -370,10 +400,6 @@ class Trader:
             ) // HOUR_MS
             interest = duration * borrow_info.hourly_interest_rate
             size = state.open_short_position.borrowed + interest
-
-            # size -= payback
-
-            # payback * price
 
             fee = round_half_up(size * fees.taker, filters.base_precision)
             fee += round_half_up(fee * fees.taker, filters.base_precision)
@@ -391,4 +417,4 @@ class Trader:
         state.summary.append_position(position)
         _log.info(f'short position closed: {candle}')
         _log.debug(tonamedtuple(position))
-        # await self._event.emit(config.channel, 'position_closed', position, state.summary)
+        await self._event.emit(config.channel, 'position_closed', position, state.summary)
