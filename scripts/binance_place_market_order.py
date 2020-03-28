@@ -32,7 +32,7 @@ async def main() -> None:
         if SIDE is Side.BUY:
             balance = wallet.get_balance(EXCHANGE, quote_asset)
             logging.info(balance)
-            fills = market.find_order_asks(
+            fills = market.find_order_asks_by_quote(
                 exchange=EXCHANGE, symbol=SYMBOL, quote=balance.available
             )
         else:

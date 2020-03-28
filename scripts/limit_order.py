@@ -40,7 +40,9 @@ async def main() -> None:
         quote = QUOTE if QUOTE is not None else wallet.get_balance(EXCHANGE, QUOTE_ASSET).available
         logging.info(f'base: {base} {BASE_ASSET}; quote: {quote} {QUOTE_ASSET}')
         if SIDE is Side.BUY:
-            market_fills = market.find_order_asks(exchange=EXCHANGE, symbol=SYMBOL, quote=quote)
+            market_fills = market.find_order_asks_by_quote(
+                exchange=EXCHANGE, symbol=SYMBOL, quote=quote
+            )
             res = await limit.buy(exchange=EXCHANGE, symbol=SYMBOL, quote=quote, test=False)
         else:
             market_fills = market.find_order_bids(exchange=EXCHANGE, symbol=SYMBOL, base=base)
