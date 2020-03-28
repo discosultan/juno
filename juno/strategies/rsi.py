@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Optional
 
 from juno import Advice, Candle, indicators, math
 
@@ -22,7 +21,7 @@ class Rsi(Strategy):
 
     _rsi: indicators.Rsi
     _previous_rsi_value: Decimal
-    _advice: Optional[Advice] = None
+    _advice: Advice = Advice.NONE
     _up_threshold: Decimal
     _down_threshold: Decimal
 
@@ -39,7 +38,7 @@ class Rsi(Strategy):
         self._up_threshold = up_threshold
         self._down_threshold = down_threshold
 
-    def tick(self, candle: Candle) -> Optional[Advice]:
+    def tick(self, candle: Candle) -> Advice:
         self._rsi.update(candle.close)
 
         if self.mature:

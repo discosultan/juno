@@ -1,6 +1,6 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque, Generic, Optional, TypeVar
+from typing import Deque, Generic, TypeVar
 
 from juno import Advice, Candle, indicators
 from juno.math import minmax
@@ -32,7 +32,7 @@ class FourWeekRule(Generic[T], Strategy):
         self._prices = deque(maxlen=28)
         self._ma = get_module_type(indicators, ma)(14)
 
-    def tick(self, candle: Candle) -> Optional[Advice]:
+    def tick(self, candle: Candle) -> Advice:
         self._ma.update(candle.close)
 
         if self.mature:

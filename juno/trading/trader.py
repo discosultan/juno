@@ -188,6 +188,7 @@ class Trader:
 
         assert state.strategy
         advice = state.strategy.update(candle)
+        _log.debug(f'received advice: {advice.name}')
 
         if state.open_long_position:
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:

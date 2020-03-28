@@ -1,0 +1,28 @@
+{
+    "log_format": "colored",
+    "log_level": "info",
+    "storage": "sqlite",
+    "agents": [
+        {
+            "type": "backtest",
+            "exchange": "binance",
+            "symbol": "eth-btc",
+            "interval": "1h",
+            "quote": 1.0,
+            "start": "2018-01-01",
+            "end": "2020-01-01",
+            "missed_candle_policy": "last",
+            "trailing_stop": 0.1,
+            "strategy": {
+                "type": "mamacx",
+                "short_period": 9,
+                "long_period": 24,
+                "neg_threshold": -0.1,
+                "pos_threshold": 0.1,
+                "persistence": 0,
+                "short_ma": "ema",
+                "long_ma": "ema"
+            }
+        }
+    ]
+}

@@ -2,11 +2,11 @@ import asyncio
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from juno import (
-    Advice, Balance, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters,
-    OrderResult, OrderStatus, Side, brokers, components, exchanges, storages, strategies
+    Balance, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters,
+    OrderResult, OrderStatus, Side, brokers, components, exchanges, storages
 )
 from juno.asyncio import Event
 
@@ -301,25 +301,6 @@ class Market(brokers.Market):
             orderbook_side[fill.price] -= fill.size
             if orderbook_side[fill.price] == 0:
                 del orderbook_side[fill.price]
-
-
-class Strategy(strategies.Strategy):
-    advices: List[Optional[Advice]]
-    updates: List[Tuple[int, Candle]]
-
-    def __init__(
-        self, advices: List[Optional[Advice]], updates: List[Tuple[int, Candle]] = [],
-        maturity: int = 0
-    ) -> None:
-        super().__init__(maturity=maturity)
-        self.advices = list(reversed(advices))
-        self.updates = updates
-
-    def update(self, candle):
-        self.updates.append((id(self), candle))
-        # TODO: walrus
-        self.advice = self.advices.pop()
-        return self.advice
 
 
 class Time:
