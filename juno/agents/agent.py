@@ -48,6 +48,10 @@ class Agent:
 
         # Activate plugins.
         await asyncio.gather(*(p.activate(state.name, type_name) for p in plugins))
+        _log.info(
+            f'activated plugins for {state.name} ({type_name}): '
+            f'[{", ".join(type(p).__name__.lower() for p in plugins)}]'
+        )
 
         await self._event.emit(state.name, 'starting', config)
         _log.info(f'running {state.name} ({type_name}): {config}')
