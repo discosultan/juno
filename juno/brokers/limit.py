@@ -20,8 +20,9 @@ _log = logging.getLogger(__name__)
 
 
 class _Context:
-    def __init__(self, available: Decimal) -> None:
+    def __init__(self, available: Decimal, use_quote: bool) -> None:
         self.available = available
+        self.use_quote = use_quote
         self.new_event: Event[None] = Event(autoclear=True)
         self.cancelled_event: Event[None] = Event(autoclear=True)
 
@@ -39,23 +40,20 @@ class Limit(Broker):
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_client_id = get_client_id
 
-    async def buy(
-        self,
-        exchange: str,
-        symbol: str,
-        base: Decimal = Decimal('0.0'),
-        quote: Decimal = Decimal('0.0'),
-        test: bool = True,
-    ) -> OrderResult:
-        assert (base and not quote) or (not base and quote)
-        assert not (base and quote)
+    async def buy(self, exchange: str, symbol: str, size: Decimal, test: bool) -> OrderResult:
         assert not test
+        _log.info(f'buying {size} worth of base with limit orders at spread')
+        return await self._buy(exchange, symbol, _Context(available=size, use_quote=False))
 
-        if base:
-            raise NotImplementedError('TODO')
+    async def buy_by_quote(
+        self, exchange: str, symbol: str, quote: Decimal, test: bool
+    ) -> OrderResult:
+        assert not test
+        _log.info(f'buying {quote} worth of quote with limit orders at spread')
+        return await self._buy(exchange, symbol, _Context(available=quote, use_quote=True))
 
-        _log.info(f'filling {quote} worth of quote with limit orders at spread')
-        res = await self._fill(exchange, symbol, Side.BUY, quote)
+    async def _buy(self, exchange: str, symbol: str, ctx: _Context) -> OrderResult:
+        res = await self._fill(exchange, symbol, Side.BUY, ctx)
 
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -72,10 +70,11 @@ class Limit(Broker):
 
         return res
 
-    async def sell(self, exchange: str, symbol: str, base: Decimal, test: bool) -> OrderResult:
+    async def sell(self, exchange: str, symbol: str, size: Decimal, test: bool) -> OrderResult:
         assert not test
-        _log.info(f'filling {base} worth of base with limit orders at spread')
-        res = await self._fill(exchange, symbol, Side.SELL, base)
+        _log.info(f'selling {size} worth of base with limit orders at spread')
+        ctx = _Context(available=size, use_quote=False)
+        res = await self._fill(exchange, symbol, Side.SELL, ctx)
 
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -92,10 +91,9 @@ class Limit(Broker):
         return res
 
     async def _fill(
-        self, exchange: str, symbol: str, side: Side, available: Decimal
+        self, exchange: str, symbol: str, side: Side, ctx: _Context
     ) -> OrderResult:
         client_id = self._get_client_id()
-        ctx = _Context(available)
 
         async with self._exchanges[exchange].connect_stream_orders() as stream:
             # Keeps a limit order at spread.
@@ -182,7 +180,7 @@ class Limit(Broker):
                 await ctx.cancelled_event.wait()
 
             # No need to round price as we take it from existing orders.
-            size = ctx.available / price if side is Side.BUY else ctx.available
+            size = ctx.available / price if ctx.use_quote else ctx.available
             size = filters.size.round_down(size)
 
             if size == 0:
@@ -225,7 +223,7 @@ class Limit(Broker):
                 continue
             if order.status is OrderStatus.NEW:
                 _log.info(f'received new confirmation for order {client_id}')
-                deduct = order.size * order.price if side is Side.BUY else order.size
+                deduct = order.size * order.price if ctx.use_quote else order.size
                 ctx.available -= deduct
                 ctx.new_event.set()
                 continue
@@ -253,7 +251,7 @@ class Limit(Broker):
             else:  # CANCELED
                 _log.info(f'existing order {client_id} canceled')
                 add_back_size = order.size - order.cumulative_filled_size
-                add_back = add_back_size * order.price if side is Side.BUY else add_back_size
+                add_back = add_back_size * order.price if ctx.use_quote else add_back_size
                 ctx.available += add_back
                 ctx.cancelled_event.set()
 

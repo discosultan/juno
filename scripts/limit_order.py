@@ -43,10 +43,12 @@ async def main() -> None:
             market_fills = market.find_order_asks_by_quote(
                 exchange=EXCHANGE, symbol=SYMBOL, quote=quote
             )
-            res = await limit.buy(exchange=EXCHANGE, symbol=SYMBOL, quote=quote, test=False)
+            res = await limit.buy_by_quote(
+                exchange=EXCHANGE, symbol=SYMBOL, quote=quote, test=False
+            )
         else:
-            market_fills = market.find_order_bids(exchange=EXCHANGE, symbol=SYMBOL, base=base)
-            res = await limit.sell(exchange=EXCHANGE, symbol=SYMBOL, base=base, test=False)
+            market_fills = market.find_order_bids(exchange=EXCHANGE, symbol=SYMBOL, size=base)
+            res = await limit.sell(exchange=EXCHANGE, symbol=SYMBOL, size=base, test=False)
 
         logging.info(res)
         logging.info(f'{SIDE} {SYMBOL}')

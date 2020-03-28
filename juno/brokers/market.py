@@ -21,35 +21,32 @@ class Market(Broker):
         self._orderbook = orderbook
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
-    async def buy(
-        self,
-        exchange: str,
-        symbol: str,
-        base: Decimal = Decimal('0.0'),
-        quote: Decimal = Decimal('0.0'),
-        test: bool = True,
-    ) -> OrderResult:
-        assert (base and not quote) or (not base and quote)
-        assert not (base and quote)
-
-        if base:
-            fills = self.find_order_asks(exchange=exchange, symbol=symbol, size=base)
-        else:
-            fills = self.find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
-
+    async def buy(self, exchange: str, symbol: str, size: Decimal, test: bool) -> OrderResult:
+        fills = self.find_order_asks(exchange=exchange, symbol=symbol, size=size)
         return await self._fill(
             exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test
         )
 
-    async def sell(self, exchange: str, symbol: str, base: Decimal, test: bool) -> OrderResult:
-        fills = self.find_order_bids(exchange=exchange, symbol=symbol, base=base)
+    async def buy_by_quote(
+        self, exchange: str, symbol: str, quote: Decimal, test: bool
+    ) -> OrderResult:
+        fills = self.find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
+        return await self._fill(
+            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test
+        )
+
+    async def sell(self, exchange: str, symbol: str, size: Decimal, test: bool) -> OrderResult:
+        fills = self.find_order_bids(exchange=exchange, symbol=symbol, size=size)
         return await self._fill(
             exchange=exchange, symbol=symbol, side=Side.SELL, fills=fills, test=test
         )
 
     def find_order_asks(self, exchange: str, symbol: str, size: Decimal) -> List[Fill]:
-        result = []
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        if not filters.size.valid(size):
+            raise ValueError(f'Invalid size {size}')
+
+        result = []
         base_asset, quote_asset = unpack_symbol(symbol)
         for aprice, asize in self._orderbook.list_asks(exchange, symbol):
             if asize >= size:
@@ -63,8 +60,9 @@ class Market(Broker):
         return result
 
     def find_order_asks_by_quote(self, exchange: str, symbol: str, quote: Decimal) -> List[Fill]:
-        result = []
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
+
+        result = []
         base_asset, quote_asset = unpack_symbol(symbol)
         for aprice, asize in self._orderbook.list_asks(exchange, symbol):
             aquote = aprice * asize
@@ -81,22 +79,23 @@ class Market(Broker):
                 quote -= aquote
         return result
 
-    def find_order_bids(self, exchange: str, symbol: str, base: Decimal) -> List[Fill]:
-        result = []
+    def find_order_bids(self, exchange: str, symbol: str, size: Decimal) -> List[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
+
+        result = []
         base_asset, quote_asset = unpack_symbol(symbol)
         for bprice, bsize in self._orderbook.list_bids(exchange, symbol):
-            if bsize >= base:
-                size = filters.size.round_down(base)
+            if bsize >= size:
+                rsize = filters.size.round_down(size)
                 if size != 0:
-                    fee = round_half_up(bprice * size * fees.taker, filters.quote_precision)
-                    result.append(Fill(price=bprice, size=size, fee=fee, fee_asset=quote_asset))
+                    fee = round_half_up(bprice * rsize * fees.taker, filters.quote_precision)
+                    result.append(Fill(price=bprice, size=rsize, fee=fee, fee_asset=quote_asset))
                 break
             else:
                 assert bsize != 0
                 fee = round_half_up(bprice * bsize * fees.taker, filters.quote_precision)
                 result.append(Fill(price=bprice, size=bsize, fee=fee, fee_asset=quote_asset))
-                base -= bsize
+                size -= bsize
         return result
 
     async def _fill(

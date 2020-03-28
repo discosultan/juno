@@ -229,7 +229,7 @@ class Trader:
         assert not state.open_short_position
 
         if self._broker:
-            res = await self._broker.buy(
+            res = await self._broker.buy_by_quote(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 quote=state.quote,
@@ -275,7 +275,7 @@ class Trader:
             res = await self._broker.sell(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                base=state.open_long_position.base_gain,
+                size=state.open_long_position.base_gain,
                 test=config.test,
             )
 
@@ -315,7 +315,10 @@ class Trader:
             borrowed = await exchange.get_max_borrowable(config.quote_asset)
             await exchange.borrow(asset=config.base_asset, size=borrowed)
             res = await self._broker.sell(
-                config.exchange, config.symbol, borrowed, test=config.test
+                exchange=config.exchange,
+                symbol=config.symbol,
+                size=borrowed,
+                test=config.test,
             )
             state.open_short_position = OpenShortPosition(
                 symbol=config.symbol,
@@ -375,7 +378,7 @@ class Trader:
             res = await self._broker.buy(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                base=size,
+                size=size,
                 test=config.test,
             )
             await exchange.repay(config.base_asset, balance.repay)

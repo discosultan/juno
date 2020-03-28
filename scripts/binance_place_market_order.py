@@ -39,7 +39,7 @@ async def main() -> None:
             balance = wallet.get_balance(EXCHANGE, base_asset)
             logging.info(balance)
             fills = market.find_order_bids(
-                exchange=EXCHANGE, symbol=SYMBOL, base=balance.available
+                exchange=EXCHANGE, symbol=SYMBOL, size=balance.available
             )
 
         size = Fill.total_size(fills)
