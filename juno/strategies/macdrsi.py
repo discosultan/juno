@@ -1,6 +1,5 @@
 import operator
 from decimal import Decimal
-from typing import Optional
 
 from juno import Advice, Candle, math
 
@@ -48,5 +47,5 @@ class MacdRsi(Strategy):
             rsi_down_threshold, persistence
         )
 
-    def tick(self, candle: Candle) -> Optional[Advice]:
+    def tick(self, candle: Candle) -> Advice:
         return Advice.combine(self._macd.update(candle), self._rsi.update(candle))

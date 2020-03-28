@@ -1,5 +1,4 @@
 import operator
-from typing import Optional
 
 from juno import Advice, Candle, indicators, math
 
@@ -34,7 +33,7 @@ class Macd(Strategy):
 
         self._macd = indicators.Macd(short_period, long_period, signal_period)
 
-    def tick(self, candle: Candle) -> Optional[Advice]:
+    def tick(self, candle: Candle) -> Advice:
         self._macd.update(candle.close)
 
         if self.mature:
@@ -43,4 +42,4 @@ class Macd(Strategy):
             else:
                 return Advice.SHORT
 
-        return None
+        return Advice.NONE

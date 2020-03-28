@@ -32,6 +32,8 @@ class Live(Agent):
         adjust_start: bool = True
         trailing_stop: Decimal = Decimal('0.0')
         store_state: bool = True
+        long: bool = True
+        short: bool = False
 
         @property
         def quote_asset(self) -> str:
@@ -81,6 +83,8 @@ class Live(Agent):
             missed_candle_policy=config.missed_candle_policy,
             adjust_start=config.adjust_start,
             trailing_stop=config.trailing_stop,
+            long=config.long,
+            short=config.short,
         )
         state.result = (
             await self._get_or_create_trader_state(trader_config, state) if config.store_state

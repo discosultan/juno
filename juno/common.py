@@ -10,19 +10,23 @@ from juno.time import datetime_utcfromtimestamp_ms
 
 
 class Advice(IntEnum):
+    NONE = 0
     LONG = 1
     SHORT = 2
     LIQUIDATE = 3
 
     @staticmethod
-    def combine(*advices: Optional[Advice]) -> Optional[Advice]:
+    def combine(*advices: Advice) -> Advice:
         if all(a is Advice.LONG for a in advices):
             return Advice.LONG
         if all(a is Advice.SHORT for a in advices):
             return Advice.SHORT
-        if all(a is not None for a in advices) and any(a is Advice.LIQUIDATE for a in advices):
+        if (
+            all(a is not Advice.NONE for a in advices)
+            and any(a is Advice.LIQUIDATE for a in advices)
+        ):
             return Advice.LIQUIDATE
-        return None
+        return Advice.NONE
 
 
 class Balance(NamedTuple):
@@ -32,10 +36,18 @@ class Balance(NamedTuple):
     borrowed: Decimal = Decimal('0.0')
     interest: Decimal = Decimal('0.0')
 
+    @property
+    def repay(self) -> Decimal:
+        return self.borrowed + self.interest
+
 
 class BorrowInfo(NamedTuple):
     daily_interest_rate: Decimal = Decimal('0.0')
     limit: Decimal = Decimal('0.0')
+
+    @property
+    def hourly_interest_rate(self) -> Decimal:
+        return self.daily_interest_rate / 24
 
 
 class CancelOrderResult(NamedTuple):

@@ -284,7 +284,9 @@ class Binance(Exchange):
             yield inner(ws)
 
     @asynccontextmanager
-    async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
+    async def connect_stream_orders(
+        self, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate]:
             async for data in stream:
                 yield OrderUpdate(
@@ -301,7 +303,8 @@ class Binance(Exchange):
                     fee_asset=data['N'].lower() if data['N'] else None
                 )
 
-        async with self._user_data_stream.subscribe('executionReport') as stream:
+        user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
+        async with user_data_stream.subscribe('executionReport') as stream:
             yield inner(stream)
 
     async def place_order(
@@ -313,7 +316,8 @@ class Binance(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True
+        test: bool = True,
+        margin: bool = False,
     ) -> OrderResult:
         data = {
             'symbol': _http_symbol(symbol),
@@ -327,7 +331,9 @@ class Binance(Exchange):
             data['timeInForce'] = time_in_force.name
         if client_id is not None:
             data['newClientOrderId'] = client_id
-        url = f'/api/v3/order{"/test" if test else ""}'
+        url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
+        if test:
+            url += '/test'
         res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
         if test:
             return OrderResult.not_placed()
@@ -343,10 +349,13 @@ class Binance(Exchange):
             ]
         )
 
-    async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
+    async def cancel_order(
+        self, symbol: str, client_id: str, margin: bool = False
+    ) -> CancelOrderResult:
+        url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
         data = {'symbol': _http_symbol(symbol), 'origClientOrderId': client_id}
         res = await self._api_request(
-            'DELETE', '/api/v3/order', data=data, security=_SEC_TRADE, raise_for_status=False
+            'DELETE', url, data=data, security=_SEC_TRADE, raise_for_status=False
         )
         binance_error = res.data.get('code')
         if binance_error == _ERR_CANCEL_REJECTED:
@@ -487,6 +496,14 @@ class Binance(Exchange):
             },
             security=_SEC_MARGIN,
         )
+
+    async def get_max_borrowable(self, asset: str) -> Decimal:
+        res = await self._api_request(
+            'GET',
+            '/sapi/v1/margin/maxBorrowable', data={'asset': asset.upper()},
+            security=_SEC_USER_DATA,
+        )
+        return Decimal(res.data['amount'])
 
     async def _wapi_request(
         self,
