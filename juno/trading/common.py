@@ -249,6 +249,12 @@ class TradingSummary:
             key=lambda p: p.open_time,
         )
 
+    def get_long_positions(self) -> Iterable[LongPosition]:
+        return self._long_positions
+
+    def get_short_positions(self) -> Iterable[ShortPosition]:
+        return self._short_positions
+
     def finish(self, end: Timestamp) -> None:
         if self.end is None:
             self.end = end
