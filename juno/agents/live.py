@@ -2,6 +2,8 @@ import logging
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar, get_type_hints
 
+from typing_inspect import is_generic_type
+
 from juno import Interval, Timestamp
 from juno.components import Event, Informant, Wallet
 from juno.config import get_type_name_and_kwargs
@@ -103,18 +105,18 @@ class Live(Agent):
         # Create dummy strategy from config to figure out runtime type.
         dummy_strategy = trader_config.new_strategy()
         strategy_type = type(dummy_strategy)
-        resolved_params = _resolve_generic_types(dummy_strategy)  # type: ignore
-        # TODO: Can we spread it into type?
-        if len(resolved_params) == 1:
-            strategy_type = strategy_type[resolved_params[0]]  # type: ignore
-        elif len(resolved_params) == 2:
-            strategy_type = strategy_type[resolved_params[0], resolved_params[1]]  # type: ignore
-        elif len(resolved_params) > 2:
-            raise NotImplementedError()
+        if is_generic_type(strategy_type):
+            resolved_params = _resolve_generic_types(dummy_strategy)  # type: ignore
+            # TODO: Can we spread it into type?
+            if len(resolved_params) == 1:
+                strategy_type = strategy_type[resolved_params[0]]  # type: ignore
+            elif len(resolved_params) == 2:
+                strategy_type = strategy_type[resolved_params[0], resolved_params[1]]  # type: ignore
+            elif len(resolved_params) > 2:
+                raise NotImplementedError()
         existing_state = await self._storage.get(
             'default',
             self._get_storage_key(state),
-
             Agent.State[Trader.State[strategy_type]],  # type: ignore
         )
         if not existing_state:
@@ -122,8 +124,10 @@ class Live(Agent):
             return Trader.State()
         if existing_state.status in [AgentStatus.RUNNING, AgentStatus.FINISHED]:
             raise NotImplementedError()
-        _log.info(f'existing live session with name {state.name} found; continuing previous')
-        return state.result
+        _log.info(
+            f'existing live session with name {existing_state.name} found; continuing previous'
+        )
+        return existing_state.result
 
     async def _save_trader_state(self, state: Agent.State) -> None:
         _log.info(f'storing current state with name {state.name} and status {state.status.name}')

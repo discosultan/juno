@@ -1,6 +1,7 @@
 # Adds the following capabilities to base JSON module:
 # - Handles dumping classes by unwrapping their internal __dict__.
 
+from collections import deque
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
 from dataclasses import asdict, is_dataclass
@@ -16,7 +17,7 @@ def _prepare_dump(obj: Any, skip_private: bool) -> Any:
     # Convert tuples to lists.
     # Strip private members if requested.
 
-    if isinstance(obj, tuple):
+    if isinstance(obj, (deque, tuple)):
         obj = list(obj)
     elif not isinstance(obj, Enum) and hasattr(obj, '__dict__'):
         obj = asdict(obj) if is_dataclass(obj) else obj.__dict__
@@ -36,7 +37,7 @@ def _prepare_dump(obj: Any, skip_private: bool) -> Any:
             continue
 
         for k, v in it:
-            if isinstance(v, tuple):
+            if isinstance(v, (deque, tuple)):
                 item[k] = list(v)
                 stack.append(item[k])
             elif not isinstance(v, Enum) and hasattr(v, '__dict__'):

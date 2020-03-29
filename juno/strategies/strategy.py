@@ -1,36 +1,30 @@
-from typing import Any, Dict, Generic, Tuple, TypeVar, Union
+from typing import Any, Dict, Tuple, Union
 
 from juno import Advice, Candle
 from juno.math import Constraint
 
-T = TypeVar('T')
 
-
-class Persistence(Generic[T]):
+class Persistence:
+    """The number of ticks required to confirm an advice."""
     _age: int = 0
     _level: int
     _allow_next: bool
-    _default: T
-    _value: T
-    _potential: T
+    _value: Advice = Advice.NONE
+    _potential: Advice = Advice.NONE
     _changed: bool = False
 
-    """The number of ticks required to confirm a value."""
-    def __init__(self, level: int, default: T, allow_initial: bool = False) -> None:
+    def __init__(self, level: int, allow_initial: bool = False) -> None:
         self._level = level
-        self._default = default
         self._allow_next = allow_initial
-        self._value = default
-        self._potential = default
 
     @property
     def persisted(self) -> bool:
-        return self._value is not self._default and self._age >= self._level
+        return self._value is not Advice.NONE and self._age >= self._level
 
-    def update(self, value: T) -> Tuple[bool, bool]:
+    def update(self, value: Advice) -> Tuple[bool, bool]:
         if (
-            value is self._default
-            or (self._potential is not self._default and value is not self._potential)
+            value is Advice.NONE
+            or (self._potential is not Advice.NONE and value is not self._potential)
         ):
             self._allow_next = True
 
@@ -63,7 +57,7 @@ class Meta:
 
 class Strategy:
     maturity: int
-    _persistence: Persistence[Advice]
+    _persistence: Persistence
     advice: Advice = Advice.NONE
     _age: int = 0
 
@@ -72,12 +66,10 @@ class Strategy:
         return Meta()
 
     def __init__(
-        self, maturity: int = 0, allow_initial: bool = False, persistence: int = 0
+        self, maturity: int = 0, persistence: int = 0, allow_initial: bool = False
     ) -> None:
         self.maturity = maturity
-        self._persistence = Persistence(
-            level=persistence, allow_initial=allow_initial, default=Advice.NONE
-        )
+        self._persistence = Persistence(level=persistence, allow_initial=allow_initial)
 
     @property
     def mature(self) -> bool:

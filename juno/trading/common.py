@@ -219,6 +219,8 @@ class TradingSummary:
     _long_positions: List[LongPosition]
     _short_positions: List[ShortPosition]
     _drawdowns: List[Decimal]
+    _max_drawdown: Decimal = Decimal('0.0')
+    _mean_drawdown: Decimal = Decimal('0.0')
 
     # TODO: Should we add +interval like we do for summary? Or rather change summary to exclude
     # +interval. Also needs to be adjusted in Rust code.

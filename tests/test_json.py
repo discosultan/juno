@@ -1,3 +1,4 @@
+from collections import deque
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, NamedTuple
@@ -34,6 +35,10 @@ class MyNamedTuple(NamedTuple):
         (Decimal('Infinity'), 'Infinity'),
         (Decimal('-Infinity'), '-Infinity'),
         ('foo', '"foo"'),
+        (deque([1, 2, 3]), '[1, 2, 3]'),
+        ({
+            'value': deque([1, 2, 3])
+        }, '{"value": [1, 2, 3]}')
     ]
 )
 def test_dumps(input_, expected_output) -> None:

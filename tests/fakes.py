@@ -247,7 +247,9 @@ class Informant(components.Informant):
 
 
 class Orderbook(components.Orderbook):
-    def __init__(self, data: Dict[str, Dict[str, Dict[Side, Dict[Decimal, Decimal]]]]) -> None:
+    def __init__(
+        self, data: Dict[str, Dict[str, Dict[Side, Dict[Decimal, Decimal]]]] = {}
+    ) -> None:
         self._data_ = data
 
     def get_updated_event(self, exchange: str, symbol: str) -> Event[None]:

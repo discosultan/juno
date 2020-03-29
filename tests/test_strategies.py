@@ -30,7 +30,7 @@ class DummyStrategy(Strategy):
 
 
 def test_persistence_level_0_allow_initial_trend() -> None:
-    persistence = Persistence(level=0, default=Advice.NONE, allow_initial=True)
+    persistence = Persistence(level=0, allow_initial=True)
     assert persistence.update(Advice.LONG) == (True, True)
     assert persistence.update(Advice.LONG) == (True, False)
     assert persistence.update(Advice.SHORT) == (True, True)
@@ -39,20 +39,20 @@ def test_persistence_level_0_allow_initial_trend() -> None:
 
 
 def test_persistence_level_0_disallow_initial_trend() -> None:
-    persistence = Persistence(level=0, default=Advice.NONE, allow_initial=False)
+    persistence = Persistence(level=0, allow_initial=False)
     assert persistence.update(Advice.LONG) == (False, False)
     assert persistence.update(Advice.LONG) == (False, False)
 
 
 def test_persistence_level_0_disallow_initial_trend_starting_with_unknown_does_not_skip_initial(
 ) -> None:
-    persistence = Persistence(level=0, default=Advice.NONE, allow_initial=False)
+    persistence = Persistence(level=0, allow_initial=False)
     assert persistence.update(Advice.NONE) == (False, False)
     assert persistence.update(Advice.LONG) == (True, True)
 
 
 def test_persistence_level_1_allow_initial_trend() -> None:
-    persistence = Persistence(level=1, default=Advice.NONE, allow_initial=True)
+    persistence = Persistence(level=1, allow_initial=True)
     assert persistence.update(Advice.LONG) == (False, False)
     assert persistence.update(Advice.LONG) == (True, True)
     assert persistence.update(Advice.LONG) == (True, False)
@@ -63,7 +63,7 @@ def test_persistence_level_1_allow_initial_trend() -> None:
 
 
 def test_persistence_level_1_disallow_initial_trend() -> None:
-    persistence = Persistence(level=1, default=Advice.NONE, allow_initial=False)
+    persistence = Persistence(level=1, allow_initial=False)
     assert persistence.update(Advice.LONG) == (False, False)
     assert persistence.update(Advice.LONG) == (False, False)
     assert persistence.update(Advice.LONG) == (False, False)
@@ -71,7 +71,7 @@ def test_persistence_level_1_disallow_initial_trend() -> None:
 
 def test_persistence_level_1_disallow_initial_trend_starting_with_unknown_does_not_skip_initial(
 ) -> None:
-    persistence = Persistence(level=1, default=Advice.NONE, allow_initial=False)
+    persistence = Persistence(level=1, allow_initial=False)
     assert persistence.update(Advice.NONE) == (False, False)
     assert persistence.update(Advice.LONG) == (False, False)
     assert persistence.update(Advice.LONG) == (True, True)
@@ -79,14 +79,14 @@ def test_persistence_level_1_disallow_initial_trend_starting_with_unknown_does_n
 
 def test_persistence_level_1_disallow_initial_trend_starting_with_up_does_not_skip_initial(
 ) -> None:
-    persistence = Persistence(level=1, default=Advice.NONE, allow_initial=False)
+    persistence = Persistence(level=1, allow_initial=False)
     assert persistence.update(Advice.LONG) == (False, False)
     assert persistence.update(Advice.SHORT) == (False, False)
     assert persistence.update(Advice.SHORT) == (True, True)
 
 
 def test_persistence_level_1_allow_initial_trend_change_resets_age() -> None:
-    persistence = Persistence(level=1, default=Advice.NONE, allow_initial=True)
+    persistence = Persistence(level=1, allow_initial=True)
     assert persistence.update(Advice.LONG) == (False, False)
     assert persistence.update(Advice.LONG) == (True, True)
     assert persistence.update(Advice.SHORT) == (True, False)
