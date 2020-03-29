@@ -1,5 +1,6 @@
+import inspect
 import logging
-from typing import List, Optional
+from typing import List
 
 from juno import Advice, Candle
 
@@ -13,11 +14,11 @@ class Fixed(Strategy):
     updates: List[Candle]
 
     def __init__(
-        self, advices: Optional[List[Advice]] = None, allow_initial: bool = False,
+        self, advices: List[Advice] = inspect.Parameter.empty, allow_initial: bool = False,
         maturity: int = 0
     ) -> None:
         super().__init__(maturity=maturity, allow_initial=allow_initial)
-        self.advices = [] if advices is None else advices
+        self.advices = [] if advices is inspect.Parameter.empty else advices
         self.updates = []
 
     def tick(self, candle: Candle) -> Advice:

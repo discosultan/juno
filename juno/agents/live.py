@@ -111,7 +111,9 @@ class Live(Agent):
             if len(resolved_params) == 1:
                 strategy_type = strategy_type[resolved_params[0]]  # type: ignore
             elif len(resolved_params) == 2:
-                strategy_type = strategy_type[resolved_params[0], resolved_params[1]]  # type: ignore
+                strategy_type = strategy_type[
+                    resolved_params[0], resolved_params[1]
+                ]  # type: ignore
             elif len(resolved_params) > 2:
                 raise NotImplementedError()
         existing_state = await self._storage.get(
