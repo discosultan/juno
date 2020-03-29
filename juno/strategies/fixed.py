@@ -1,4 +1,3 @@
-import inspect
 import logging
 from typing import List
 
@@ -14,11 +13,11 @@ class Fixed(Strategy):
     updates: List[Candle]
 
     def __init__(
-        self, advices: List[Advice] = inspect.Parameter.empty, allow_initial: bool = False,
-        maturity: int = 0
+        self, advices: List[str] = [], persistence: int = 0,
+        allow_initial: bool = False, maturity: int = 0
     ) -> None:
-        super().__init__(maturity=maturity, allow_initial=allow_initial)
-        self.advices = [] if advices is inspect.Parameter.empty else advices
+        super().__init__(maturity=maturity, persistence=persistence, allow_initial=allow_initial)
+        self.advices = [Advice[a.upper()] for a in advices]
         self.updates = []
 
     def tick(self, candle: Candle) -> Advice:

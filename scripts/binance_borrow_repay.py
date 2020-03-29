@@ -5,7 +5,7 @@ from decimal import Decimal
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
-ASSET = 'btc'
+ASSET = 'eth'
 SIZE = None
 REPAY = True
 

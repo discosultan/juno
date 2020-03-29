@@ -58,9 +58,13 @@ class Binance(Exchange):
     can_list_all_tickers: bool = True
     can_margin_trade: bool = True
 
-    def __init__(self, api_key: str, secret_key: str) -> None:
+    def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
+        if not high_precision:
+            _log.warning('high precision updates disabled')
+
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
+        self._high_precision = high_precision
 
         self._session = ClientSession(raise_for_status=False)
 
@@ -277,9 +281,11 @@ class Binance(Exchange):
                 )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
+        url = f'/ws/{_ws_symbol(symbol)}@depth'
+        if self._high_precision:  # Low precision is every 1000ms.
+            url += '@100ms'
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@depth@100ms', interval=12 * HOUR_SEC, name='depth',
-            raise_on_disconnect=True
+            url=url, interval=12 * HOUR_SEC, name='depth', raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
 
@@ -319,6 +325,9 @@ class Binance(Exchange):
         test: bool = True,
         margin: bool = False,
     ) -> OrderResult:
+        if test and margin:
+            raise ValueError('Binance does not support placing test orders on margin account')
+
         data = {
             'symbol': _http_symbol(symbol),
             'side': _side(side),

@@ -185,11 +185,14 @@ class Coinbase(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True
+        test: bool = True,
+        margin: bool = False,
     ) -> Any:
         raise NotImplementedError()
 
-    async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
+    async def cancel_order(
+        self, symbol: str, client_id: str, margin: bool = False
+    ) -> CancelOrderResult:
         raise NotImplementedError()
 
     async def stream_historical_trades(self, symbol: str, start: int,

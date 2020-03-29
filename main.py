@@ -7,6 +7,7 @@ from types import FrameType
 from typing import Any, Dict, List, Tuple, Type
 
 import pkg_resources
+from mergedeep import merge
 
 import juno
 from juno import agents, components, config
@@ -33,9 +34,11 @@ async def main() -> None:
     config_path = (
         sys.argv[1] if len(sys.argv) >= 2 else full_path(__file__, 'config/default.json')
     )
-    cfg = {}
-    cfg.update(config.from_json_file(config_path))
-    cfg.update(config.from_env())
+    cfg = merge(
+        {},
+        config.from_json_file(config_path),
+        config.from_env(),
+    )
 
     # Configure logging.
     log_level = cfg.get('log_level', 'info')
@@ -43,7 +46,7 @@ async def main() -> None:
     log_outputs = cfg.get('log_outputs', ['stdout'])
     logging.basicConfig(
         handlers=create_handlers(log_format, log_outputs),
-        level=logging.getLevelName(log_level.upper())
+        level=logging.getLevelName(log_level.upper()),
     )
 
     try:
@@ -68,8 +71,10 @@ async def main() -> None:
             _log.error(exc_traceback(exc))
         _log.info('custom loop exception handler; cancelling all tasks')
         loop.default_exception_handler(context)
-        for task in (task for task in asyncio.all_tasks() if not task.done()):
-            task.cancel()
+        # for task in (task for task in asyncio.all_tasks() if not task.done()):
+        #     task.cancel()
+        loop.stop()
+        loop.run_until_complete(asyncio.gather(*asyncio.all_tasks()))
 
     asyncio.get_running_loop().set_exception_handler(custom_exception_handler)
 

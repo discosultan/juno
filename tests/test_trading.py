@@ -4,7 +4,7 @@ from typing import cast
 
 import pytest
 
-from juno import Advice, Candle, Fill, strategies
+from juno import Candle, Fill, strategies
 from juno.asyncio import cancel, cancelable
 from juno.trading import LongPosition, MissedCandlePolicy, OpenLongPosition, Trader, TradingSummary
 
@@ -104,7 +104,7 @@ async def test_trader_trailing_stop_loss() -> None:
         quote=Decimal('10.0'),
         strategy='fixed',
         strategy_kwargs={
-            'advices': [Advice.LONG, Advice.NONE, Advice.NONE, Advice.SHORT],
+            'advices': ['long', 'none', 'none', 'short'],
             'allow_initial': True,
         },
         trailing_stop=Decimal('0.1'),
@@ -136,7 +136,7 @@ async def test_trader_restart_on_missed_candle() -> None:
         end=6,
         quote=Decimal('10.0'),
         strategy='fixed',
-        strategy_kwargs={'advices': [Advice.NONE] * 3},
+        strategy_kwargs={'advices': ['none'] * 3},
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
     initial_strategy = cast(strategies.Fixed, config.new_strategy())
@@ -176,7 +176,7 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         end=5,
         quote=Decimal('10.0'),
         strategy='fixed',
-        strategy_kwargs={'advices': [Advice.NONE] * 5},
+        strategy_kwargs={'advices': ['none'] * 5},
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
     state: Trader.State[strategies.Fixed] = Trader.State()
@@ -221,7 +221,7 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
         end=6,
         quote=Decimal('1.0'),
         strategy='fixed',
-        strategy_kwargs={'advices': [Advice.NONE] * 100, 'maturity': 2},
+        strategy_kwargs={'advices': ['none'] * 100, 'maturity': 2},
         adjust_start=True,
     )
     state: Trader.State[strategies.Fixed] = Trader.State()

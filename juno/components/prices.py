@@ -20,7 +20,7 @@ class Prices:
         end = floor_multiple(end, DAY_MS)
 
         result: Dict[str, List[Decimal]] = {}
-        # Currently only supports calculating against BTC.
+        # Currently only supports calculating against BTC in coinbase.
         quote_fiat_prices = [c.close async for c in self._chandler.stream_candles(
             'coinbase', f'btc-{self._fiat_asset}', DAY_MS, start, end, fill_missing_with_last=True
         )]

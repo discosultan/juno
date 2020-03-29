@@ -86,12 +86,15 @@ class Trader:
         self._event = event
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
+    @property
+    def has_broker(self) -> bool:
+        return self._broker is not None
+
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start >= 0
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
-
         if config.short:
             assert self._informant.get_borrow_info(config.exchange, config.quote_asset)[0]
             assert self._informant.get_fees_filters(
@@ -277,7 +280,7 @@ class Trader:
                 exchange=config.exchange,
                 symbol=config.symbol,
                 size=state.open_long_position.base_gain,
-                test=config.test,
+                test=True if config.test is None else config.test,
             )
 
             position = state.open_long_position.close(
@@ -310,16 +313,44 @@ class Trader:
     async def _open_short_position(self, config: Config, state: State, candle: Candle) -> None:
         assert not state.open_long_position
         assert not state.open_short_position
+        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
 
         if self._broker:
             exchange = self._exchanges[config.exchange]
+
+            _log.info(f'transferring {state.quote} {config.quote_asset} to margin account')
+            await exchange.transfer(config.quote_asset, state.quote, margin=True)
+
             borrowed = await exchange.get_max_borrowable(config.quote_asset)
-            await exchange.borrow(asset=config.base_asset, size=borrowed)
+
+            # Before borrowing, make sure we can sell the borrowed amount.
+            try:
+                await self._broker.sell(
+                    exchange=config.exchange,
+                    symbol=config.symbol,
+                    size=borrowed,
+                    test=True,
+                    margin=False,  # Has to be false because not supported for test orders.
+                )
+            except Exception as e:
+                _log.error(
+                    'unable to sell borrowed amount; transferring funds back to spot account; '
+                    f'{e}'
+                )
+                await exchange.transfer(config.quote_asset, state.quote, margin=False)
+                raise
+
+            _log.info(f'borrowing {borrowed} {config.base_asset} from exchange')
+            if not config.test:
+                await exchange.borrow(asset=config.base_asset, size=borrowed)
+
+            _log.info(f'selling {borrowed} {config.base_asset}')
             res = await self._broker.sell(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 size=borrowed,
                 test=config.test,
+                margin=False if config.test else True,
             )
             state.open_short_position = OpenShortPosition(
                 symbol=config.symbol,
@@ -332,7 +363,6 @@ class Trader:
             state.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
         else:
             price = candle.close
-            fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
             _borrow_info, margin_multiplier = self._informant.get_borrow_info(
                 config.exchange, config.base_asset
             )
@@ -375,18 +405,30 @@ class Trader:
             fee = round_half_up(size * fees.taker, filters.base_precision)
             fee += round_half_up(fee * fees.taker, filters.base_precision)
             size += fee
+            size = filters.size.round_up(size)
 
+            _log.info(f'buying {size} {config.base_asset}')
             res = await self._broker.buy(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 size=size,
                 test=config.test,
+                margin=False if config.test else True,
             )
-            await exchange.repay(config.base_asset, balance.repay)
+
+            _log.info(
+                f'repaying {balance.borrowed} + {balance.interest} {config.base_asset} to exchange'
+            )
+            if not config.test:
+                await exchange.repay(config.base_asset, balance.repay)
 
             # Validate!
-            new_balance = (await exchange.get_balances(margin=True))[config.base_asset]
-            assert new_balance.repay == 0
+            # TODO: Remove if known to work or pay extra if needed.
+            if not config.test:
+                new_balance = (await exchange.get_balances(margin=True))[config.base_asset]
+                if new_balance.repay != 0:
+                    _log.error(f'did not repay enough; balance {new_balance}')
+                    assert new_balance.repay == 0
 
             position = state.open_short_position.close(
                 interest=balance.interest,
@@ -395,6 +437,9 @@ class Trader:
             )
 
             state.quote -= Fill.total_quote(res.fills)
+
+            _log.info(f'transferring {state.quote} {config.quote_asset} to spot account')
+            await exchange.transfer(config.quote_asset, state.quote, margin=False)
         else:
             price = candle.close
 

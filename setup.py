@@ -11,6 +11,7 @@ setup(
         'cffi',
         'colorlog',
         'deap',
+        'mergedeep',
         'numpy',
         'pandas',
         'python-dateutil',

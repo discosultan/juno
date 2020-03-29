@@ -52,6 +52,8 @@ class Live(Agent):
         self._storage = storage
         self._get_time_ms = get_time_ms
 
+        assert self._trader.has_broker
+
     async def on_running(self, config: Config, state: Agent.State) -> None:
         current = floor_multiple(self._get_time_ms(), config.interval)
         end = floor_multiple(config.end, config.interval)

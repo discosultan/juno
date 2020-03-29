@@ -8,7 +8,7 @@ from juno.config import from_env, init_instance
 
 EXCHANGE_TYPE = exchanges.Binance
 ASSETS = ['btc', 'eth']
-KEEP_STREAMING = True
+KEEP_STREAMING = False
 
 exchange_name = EXCHANGE_TYPE.__name__.lower()
 

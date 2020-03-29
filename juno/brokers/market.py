@@ -21,24 +21,28 @@ class Market(Broker):
         self._orderbook = orderbook
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
-    async def buy(self, exchange: str, symbol: str, size: Decimal, test: bool) -> OrderResult:
+    async def buy(
+        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+    ) -> OrderResult:
         fills = self.find_order_asks(exchange=exchange, symbol=symbol, size=size)
         return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test
+            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test, margin=margin
         )
 
     async def buy_by_quote(
-        self, exchange: str, symbol: str, quote: Decimal, test: bool
+        self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         fills = self.find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
         return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test
+            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test, margin=margin
         )
 
-    async def sell(self, exchange: str, symbol: str, size: Decimal, test: bool) -> OrderResult:
+    async def sell(
+        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+    ) -> OrderResult:
         fills = self.find_order_bids(exchange=exchange, symbol=symbol, size=size)
         return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.SELL, fills=fills, test=test
+            exchange=exchange, symbol=symbol, side=Side.SELL, fills=fills, test=test, margin=margin
         )
 
     def find_order_asks(self, exchange: str, symbol: str, size: Decimal) -> List[Fill]:
@@ -99,18 +103,30 @@ class Market(Broker):
         return result
 
     async def _fill(
-        self, exchange: str, symbol: str, side: Side, fills: List[Fill], test: bool
+        self, exchange: str, symbol: str, side: Side, fills: List[Fill], test: bool, margin: bool
     ) -> OrderResult:
-        order_log = f'{"test " if test else ""}market {side} order'
+        _fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
-        if Fill.total_size(fills) == 0:
+        order_log = f'{"test " if test else ""}market {side.name} order'
+        size = Fill.total_size(fills)
+
+        if size == 0:
             _log.info(f'skipping {order_log} placement; size zero')
             raise InsufficientBalance()
 
-        size = Fill.total_size(fills)
+        if filters.min_notional.apply_to_market:
+            # TODO: Calc avg price over `filters.min_noitonal.avg_price_mins` minutes.
+            # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#min_notional
+            if not filters.min_notional.valid(price=fills[0].price, size=size):
+                _log.info(
+                    f'min notional not satisfied: {fills[0].price} * {size} != '
+                    f'{filters.min_notional.min_notional}'
+                )
+                raise InsufficientBalance()
+
         _log.info(f'placing {order_log} of size {size}')
         res = await self._exchanges[exchange].place_order(
-            symbol=symbol, side=side, type_=OrderType.MARKET, size=size, test=test
+            symbol=symbol, side=side, type_=OrderType.MARKET, size=size, test=test, margin=margin
         )
         if test:
             res = OrderResult(status=OrderStatus.FILLED, fills=fills)
