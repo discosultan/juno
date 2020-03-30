@@ -3,8 +3,9 @@ import logging
 from decimal import Decimal
 from typing import Any, List
 
-from juno.components import Historian, Informant, Prices
+from juno.components import Event, Historian, Informant, Prices
 from juno.optimization import Optimizer
+from juno.storages import Memory, Storage
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import format_as_config, unpack_symbol
@@ -17,16 +18,19 @@ _log = logging.getLogger(__name__)
 class Foo(Agent):
     def __init__(
         self, historian: Historian, informant: Informant, prices: Prices, trader: Trader,
-        optimizer: Optimizer
+        optimizer: Optimizer, event: Event = Event(), storage: Storage = Memory()
     ) -> None:
-        super().__init__()
         self._historian = historian
         self._informant = informant
         self._prices = prices
         self._trader = trader
         self._optimizer = optimizer
+        self._event = event
+        self._storage = storage
 
-    async def on_running(self, config: Any, state: Agent.State) -> None:
+    async def on_running(self, config: Any, state: Agent.State[Trader.State]) -> None:
+        await super.on_running(config, state)
+
         required_start = strptimestamp('2019-01-01')
         trading_start = strptimestamp('2019-07-01')
         end = strptimestamp('2020-01-01')
@@ -39,7 +43,7 @@ class Foo(Agent):
         )
         quote_per_symbol = quote / len(symbols)
 
-        trader_state: Trader.State[Any] = Trader.State()
+        state.result = Trader.State()
         await asyncio.gather(
             *(self._optimize_and_trade(
                 exchange,
@@ -47,11 +51,11 @@ class Foo(Agent):
                 trading_start,
                 end,
                 quote_per_symbol,
-                trader_state,
+                state.result,
             ) for s in symbols)
         )
-        assert trader_state.summary
-        trader_state.summary.finish(end)
+        assert state.result.summary
+        state.result.summary.finish(end)
 
         # Statistics.
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
@@ -59,7 +63,7 @@ class Foo(Agent):
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, trader_state.summary)
+        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, state.result.summary)
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
         _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')
