@@ -69,7 +69,7 @@ async def main() -> None:
         exc = context.get('exception')
         if exc:
             _log.error(exc_traceback(exc))
-        _log.info('custom loop exception handler; cancelling all tasks')
+        _log.error('custom loop exception handler; cancelling all tasks')
         loop.default_exception_handler(context)
         # for task in (task for task in asyncio.all_tasks() if not task.done()):
         #     task.cancel()

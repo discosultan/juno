@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import List
+from typing import Any, List
 
 import pytest
 
@@ -54,9 +54,10 @@ async def test_backtest() -> None:
         }
     )
 
-    res = await Backtest(trader=trader).run(config)
+    res: Trader.State[Any] = await Backtest(trader=trader).run(config)
 
-    summary = res.result.summary
+    summary = res.summary
+    assert summary
     assert summary.profit == -50
     assert summary.duration == 6
     assert summary.roi == Decimal('-0.5')

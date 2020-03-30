@@ -1,6 +1,6 @@
 {
     "log_format": "colored",
-    "log_level": "info",
+    "log_level": "debug",
     "storage": "sqlite",
     "broker": "market",
     "binance": {
@@ -8,7 +8,7 @@
     },
     "agents": [
         {
-            "type": "live",
+            "type": "paper",
             "exchange": "binance",
             "symbol": "eth-btc",
             "interval": "1m",
