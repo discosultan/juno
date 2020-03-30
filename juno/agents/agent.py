@@ -9,7 +9,8 @@ from typing import Any, Generic, List, TypeVar
 
 from juno.components import Event
 from juno.plugins import Plugin
-from juno.utils import generate_random_words
+from juno.storages import Memory, Storage
+from juno.utils import format_as_config, generate_random_words
 
 _log = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ class AgentStatus(IntEnum):
 
 
 class Agent:
+    _event: Event
+    _storage: Storage
+
     class Config:
         pass
 
@@ -35,56 +39,97 @@ class Agent:
         status: AgentStatus
         result: T
 
-    def __init__(self, event: Event = Event()) -> None:
+    def __init__(self, event: Event = Event(), storage: Storage = Memory()) -> None:
         self._event = event
+        self._storage = storage
 
-    async def run(self, config: Any, plugins: List[Plugin] = []) -> Agent.State:
-        state: Agent.State[Any] = Agent.State(
-            name=getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}',
-            status=AgentStatus.RUNNING,
-            result=None,
-        )
-        type_name = type(self).__name__.lower()
+    async def run(self, config: Any, plugins: List[Plugin] = []) -> T:
+        state = await self._get_or_create_state(config)
 
         # Activate plugins.
+        type_name = type(self).__name__.lower()
         await asyncio.gather(*(p.activate(state.name, type_name) for p in plugins))
         _log.info(
-            f'activated plugins for {state.name} ({type_name}): '
+            f'{self._get_name(state)}: activated plugins '
             f'[{", ".join(type(p).__name__.lower() for p in plugins)}]'
         )
 
-        await self._event.emit(state.name, 'starting', config)
-        _log.info(f'running {state.name} ({type_name}): {config}')
-
         try:
             await self.on_running(config, state)
+            state.status = AgentStatus.FINISHED
         except asyncio.CancelledError:
-            _log.info('agent cancelled')
             state.status = AgentStatus.CANCELLED
             await self.on_cancelled(config, state)
         except Exception as exc:
-            _log.error(f'unhandled exception in agent ({exc})')
             state.status = AgentStatus.ERRORED
-            await self.on_errored(config, state)
-            await self._event.emit(state.name, 'errored', exc, state.result)
+            await self.on_errored(config, state, exc)
             raise
-        else:
-            state.status = AgentStatus.FINISHED
         finally:
             await self.on_finally(config, state)
 
-        await self._event.emit(state.name, 'finished', state.result)
-
-        return state
+        return state.result
 
     async def on_running(self, config: Any, state: Any) -> None:
-        pass
+        _log.info(f'{self._get_name(state)}: running with config {format_as_config(config)}')
+        await self._event.emit(state.name, 'starting', config)
 
     async def on_cancelled(self, config: Any, state: Any) -> None:
-        pass
+        _log.info(f'{self._get_name(state)}: cancelled')
+        await self._event.emit(state.name, 'cancelled')
 
-    async def on_errored(self, config: Any, state: Any) -> None:
-        pass
+    async def on_errored(self, config: Any, state: Any, exc: Exception) -> None:
+        _log.error(f'{self._get_name(state)}: unhandled exception {exc}')
+        await self._event.emit(state.name, 'errored', exc)
 
     async def on_finally(self, config: Any, state: Any) -> None:
-        pass
+        _log.info(
+            f'{self._get_name(state)}: finished with result {format_as_config(state.result)}'
+        )
+        await self._event.emit(state.name, 'finished', state.result)
+
+    async def _get_or_create_state(self, config: Any) -> Agent.State:
+        name = getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}'
+        result_type = self._get_result_type(config)
+
+        existing_state = None
+        if getattr(config, 'persist', False):
+            existing_state = await self._storage.get(
+                'default',
+                self._get_storage_key(name),
+                Agent.State[self._get_result_type()],  # type: ignore
+            )
+            if existing_state and existing_state.status in [
+                AgentStatus.RUNNING,
+                AgentStatus.FINISHED,
+            ]:
+                raise NotImplementedError('Can only continue from cancelled state')
+
+        if existing_state:
+            _log.info(
+                f'existing live session with name {existing_state.name} found; continuing previous'
+            )
+            return existing_state
+        else:
+            _log.info(f'existing state with name {name} not found; creating new')
+            return Agent.State(
+                name=name,
+                status=AgentStatus.RUNNING,
+                result=result_type(),
+            )
+
+    async def _save_state(self, state: Agent.State) -> None:
+        _log.info(f'storing current state with name {state.name} and status {state.status.name}')
+        await self._storage.set(
+            'default',
+            self._get_storage_key(state.name),
+            state,
+        )
+
+    def _get_result_type(self, config: Any) -> type:
+        return type(None)
+
+    def _get_storage_key(self, name: str) -> str:
+        return f'{type(self).__name__.lower()}_{name}_state'
+
+    def _get_name(self, state: Any) -> str:
+        return f'{state.name} ({type(self).__name__.lower()})'

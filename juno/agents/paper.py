@@ -6,16 +6,17 @@ from juno import Interval, Timestamp
 from juno.components import Event, Informant
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
+from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader
-from juno.utils import format_as_config
 
 from .agent import Agent
+from .backtest import Backtest
 
 _log = logging.getLogger(__name__)
 
 
-class Paper(Agent):
+class Paper(Backtest):
     class Config(NamedTuple):
         exchange: str
         symbol: str
@@ -32,16 +33,19 @@ class Paper(Agent):
 
     def __init__(
         self, informant: Informant, trader: Trader, event: Event = Event(),
-        get_time_ms: Callable[[], int] = time_ms
+        storage: Storage = Memory(), get_time_ms: Callable[[], int] = time_ms
     ) -> None:
-        super().__init__(event)
         self._informant = informant
         self._trader = trader
+        self._event = event
+        self._storage = storage
         self._get_time_ms = get_time_ms
 
         assert self._trader.has_broker
 
     async def on_running(self, config: Config, state: Agent.State[Trader.State]) -> None:
+        await Agent.on_running(self, config, state)
+
         current = floor_multiple(self._get_time_ms(), config.interval)
         end = floor_multiple(config.end, config.interval)
         assert end > current
@@ -70,7 +74,3 @@ class Paper(Agent):
         )
         state.result = Trader.State()
         await self._trader.run(trader_config, state.result)
-
-    async def on_finally(self, config: Config, state: Agent.State[Trader.State]) -> None:
-        if state.result:
-            _log.info(f'trading summary: {format_as_config(state.result.summary)}')

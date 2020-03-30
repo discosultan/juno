@@ -163,3 +163,14 @@ def types_match(obj: Any, type_: Type[Any]):
 
 def map_input_args(obj: Any, args: Iterable[Any]) -> Dict[str, Any]:
     return {k: v for k, v in zip(get_input_type_hints(obj).keys(), args)}
+
+
+def resolve_generic_types(container: Any) -> List[type]:
+    result = []
+    container_type = type(container)
+    generic_params = container_type.__parameters__
+    type_hints = get_type_hints(container_type)
+    for generic_param in generic_params:
+        name = next(k for k, v in type_hints.items() if v is generic_param)
+        result.append(type(getattr(container, name)))
+    return result

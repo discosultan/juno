@@ -9,7 +9,7 @@ import discord
 from juno.asyncio import cancel, cancelable
 from juno.components import Event
 from juno.itertools import chunks
-from juno.trading import Position
+from juno.trading import LongPosition, OpenLongPosition, Position
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, format_as_config
 
@@ -66,14 +66,22 @@ class Discord(discord.Client, Plugin):
         @self._event.on(agent_name, 'position_opened')
         async def on_position_opened(pos: Position, result: Any) -> None:
             await self._send_message(
-                channel_id, format_message('opened position', format_as_config(pos))
+                channel_id,
+                format_message(
+                    f'opened {"long" if isinstance(pos, OpenLongPosition) else "short"} position',
+                    format_as_config(pos),
+                ),
             )
 
         @self._event.on(agent_name, 'position_closed')
         async def on_position_closed(pos: Position, result: Any) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await self._send_message(
-                channel_id, format_message('closed position', format_as_config(pos))
+                channel_id,
+                format_message(
+                    f'closed {"long" if isinstance(pos, LongPosition) else "short"} position',
+                    format_as_config(pos),
+                ),
             )
             await self._send_message(
                 channel_id, format_message('summary', format_as_config(result))
@@ -86,12 +94,9 @@ class Discord(discord.Client, Plugin):
             )
 
         @self._event.on(agent_name, 'errored')
-        async def on_errored(exc: Exception, result: Any) -> None:
+        async def on_errored(exc: Exception) -> None:
             await self._send_message(
                 channel_id, format_message('errored', exc_traceback(exc), lang='')
-            )
-            await self._send_message(
-                channel_id, format_message('summary', format_as_config(result))
             )
 
         @self._event.on(agent_name, 'image')
