@@ -11,7 +11,7 @@ from typing import Any, AsyncIterable, Dict, List, Tuple, Union
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import DepthSnapshot, DepthUpdate, JunoException, Side
-from juno.asyncio import Barrier, Event, cancel, cancelable
+from juno.asyncio import Barrier, Event, cancel
 from juno.config import list_names
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
@@ -43,7 +43,7 @@ class Orderbook:
 
     async def __aenter__(self) -> Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
-        self._sync_task = weakref.ref(asyncio.create_task(cancelable(self._sync_orderbooks())))
+        self._sync_task = weakref.ref(asyncio.create_task(self._sync_orderbooks()))
         await self._initial_orderbook_fetched.wait()
         return self
 

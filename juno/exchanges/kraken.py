@@ -6,6 +6,7 @@ import hashlib
 import hmac
 import logging
 import urllib.parse
+import weakref
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -17,7 +18,7 @@ from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
     OrderResult, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel, cancelable
+from juno.asyncio import Event, cancel
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import MIN_MS, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
@@ -324,7 +325,7 @@ class KrakenPublicFeed:
         self.ws_ctx: Optional[AsyncContextManager[ClientWebSocketResponse]] = None
         self.ws: Optional[ClientWebSocketResponse] = None
         self.ws_lock = asyncio.Lock()
-        self.process_task: Optional[asyncio.Task] = None
+        self.process_task: Optional[weakref.ReferenceType[asyncio.Task]] = None
 
         self.reqid = 1
         self.subscriptions: Dict[int, Event[Event[Any]]] = defaultdict(
@@ -383,7 +384,7 @@ class KrakenPublicFeed:
     async def _connect(self) -> None:
         self.ws_ctx = self.session.ws_connect(self.url)
         self.ws = await self.ws_ctx.__aenter__()
-        self.process_task = asyncio.create_task(cancelable(self._stream_messages()))
+        self.process_task = weakref.ref(asyncio.create_task(self._stream_messages()))
 
     async def _stream_messages(self) -> None:
         assert self.ws

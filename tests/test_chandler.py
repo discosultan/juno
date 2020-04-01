@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from juno import Candle, JunoException, Trade
-from juno.asyncio import cancel, cancelable, list_async
+from juno.asyncio import cancel, list_async
 from juno.components import Chandler
 from juno.storages import Storage
 from juno.utils import key
@@ -87,9 +87,9 @@ async def test_stream_future_candles_span_stored_until_stopped(storage: fakes.St
         get_time_ms=time.get_time
     )
 
-    task = asyncio.create_task(cancelable(
+    task = asyncio.create_task(
         list_async(chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, START, END))
-    ))
+    )
     await exchange.candle_queue.join()
     time.time = CANCEL_AT
     await cancel(task)
@@ -141,7 +141,7 @@ async def test_stream_candles_cancel_does_not_store_twice(storage: fakes.Storage
     chandler = Chandler(storage=storage, exchanges=[exchange], storage_batch_size=1)
 
     stream_candles_task = asyncio.create_task(
-        cancelable(list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 2)))
+        list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 2))
     )
 
     await storage.stored_time_series_and_span.wait()

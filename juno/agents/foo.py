@@ -29,7 +29,7 @@ class Foo(Agent):
         self._storage = storage
 
     async def on_running(self, config: Any, state: Agent.State[Trader.State]) -> None:
-        await super.on_running(config, state)
+        await super().on_running(config, state)
 
         required_start = strptimestamp('2019-01-01')
         trading_start = strptimestamp('2019-07-01')

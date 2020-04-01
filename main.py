@@ -12,7 +12,6 @@ from mergedeep import merge
 import juno
 from juno import agents, components, config
 from juno.agents import Agent
-from juno.asyncio import cancelable
 from juno.brokers import Broker
 from juno.di import Container
 from juno.exchanges import Exchange
@@ -73,6 +72,7 @@ async def main() -> None:
         loop.default_exception_handler(context)
         # for task in (task for task in asyncio.all_tasks() if not task.done()):
         #     task.cancel()
+        # Ref: https://stackoverflow.com/a/50265468/1466456
         loop.stop()
         loop.run_until_complete(asyncio.gather(*asyncio.all_tasks()))
 
@@ -113,7 +113,9 @@ async def main() -> None:
 
 
 try:
-    asyncio.run(cancelable(main()))
+    asyncio.run(main())
+except asyncio.CancelledError:
+    _log.info('program cancelled')
 except KeyboardInterrupt:
     _log.info('program interrupted by keyboard')
 except BaseException:

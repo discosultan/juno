@@ -6,7 +6,7 @@ import pytest
 
 from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
-from juno.asyncio import cancel, cancelable
+from juno.asyncio import cancel
 from juno.filters import Filters, Price, Size
 from juno.storages import Storage
 from juno.time import HOUR_MS
@@ -240,7 +240,7 @@ async def test_live_persist_and_resume(storage: Storage, strategy: str) -> None:
         get_time_ms=fakes.Time(increment=1).get_time,
     )
 
-    agent_run_task = asyncio.create_task(cancelable(live.run(config)))
+    agent_run_task = asyncio.create_task(live.run(config))
     await chandler.future_candle_queues[candle_key].join()
     await cancel(agent_run_task)
 
