@@ -1,10 +1,12 @@
+import asyncio
 from decimal import Decimal
-from typing import List
+from typing import Any, List
 
 import pytest
 
 from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
+from juno.asyncio import cancel, cancelable
 from juno.filters import Filters, Price, Size
 from juno.storages import Storage
 from juno.time import HOUR_MS
@@ -52,9 +54,10 @@ async def test_backtest() -> None:
         }
     )
 
-    res = await Backtest(trader=trader).run(config)
+    res: Trader.State[Any] = await Backtest(trader=trader).run(config)
 
-    summary = res.result.summary
+    summary = res.summary
+    assert summary
     assert summary.profit == -50
     assert summary.duration == 6
     assert summary.roi == Decimal('-0.5')
@@ -208,3 +211,40 @@ async def test_live(storage: Storage) -> None:
     ).run(config)
     assert len(orderbook_data[Side.BUY]) == 0
     assert len(orderbook_data[Side.SELL]) == 0
+
+
+@pytest.mark.parametrize('strategy', ['fixed', 'fourweekrule'])
+async def test_live_persist_and_resume(storage: Storage, strategy: str) -> None:
+    candle_key = ('dummy', 'eth-btc', 1)
+    chandler = fakes.Chandler(
+        candles={candle_key: []},
+        future_candles={candle_key: [Candle(time=0, close=Decimal('1.0'))]},
+    )
+    informant = fakes.Informant()
+    orderbook = fakes.Orderbook()
+    wallet = fakes.Wallet({'dummy': {
+        'btc': Balance(available=Decimal('1.0')),
+    }})
+    broker = fakes.Market(informant, orderbook, update_orderbook=True)
+    trader = Trader(chandler=chandler, informant=informant, broker=broker)
+    config = Live.Config(
+        name='name',
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        end=2,
+        strategy={'type': strategy},
+    )
+    live = Live(
+        informant=informant, wallet=wallet, trader=trader, storage=storage,
+        get_time_ms=fakes.Time(increment=1).get_time,
+    )
+
+    agent_run_task = asyncio.create_task(cancelable(live.run(config)))
+    await chandler.future_candle_queues[candle_key].join()
+    await cancel(agent_run_task)
+
+    chandler.future_candle_queues[candle_key].put_nowait(
+        Candle(time=1, close=Decimal('1.0'))
+    )
+    await live.run(config)

@@ -27,13 +27,14 @@ async def main() -> None:
     config = from_env()
     binance = init_instance(Binance, config)
     coinbase = init_instance(Coinbase, config)
+    exchanges = [binance, coinbase]
     chandler = Chandler(
         trades=Trades(sqlite, [binance, coinbase]),
         storage=sqlite,
-        exchanges=[binance, coinbase]
+        exchanges=exchanges,
     )
-    informant = Informant(sqlite, [binance, coinbase])
-    trader = Trader(informant=informant, chandler=chandler)
+    informant = Informant(sqlite, exchanges)
+    trader = Trader(informant=informant, chandler=chandler, exchanges=exchanges)
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     base_asset, quote_asset = unpack_symbol(SYMBOL)

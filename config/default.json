@@ -1,28 +1,27 @@
 {
     "log_format": "colored",
-    "log_level": "info",
+    "log_level": "debug",
     "storage": "sqlite",
+    "broker": "market",
+    "binance": {
+        "high_precision": false
+    },
     "agents": [
         {
-            "type": "backtest",
+            "type": "paper",
             "exchange": "binance",
             "symbol": "eth-btc",
-            "interval": "1h",
-            "quote": 1.0,
-            "start": "2018-01-01",
-            "end": "2020-01-01",
-            "missed_candle_policy": "last",
-            "trailing_stop": 0.1,
+            "interval": "1m",
+            "quote": 0.004,
             "strategy": {
-                "type": "mamacx",
-                "short_period": 9,
-                "long_period": 24,
-                "neg_threshold": -0.1,
-                "pos_threshold": 0.1,
-                "persistence": 0,
-                "short_ma": "ema",
-                "long_ma": "ema"
-            }
+                "type": "fixed",
+                "advices": ["short", "long", "liquidate"],
+                "allow_initial": "true",
+                "persistence": 0
+            },
+            "long": true,
+            "short": true,
+            "plugins": ["discord"]
         }
     ]
 }

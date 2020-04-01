@@ -6,7 +6,7 @@ from juno.exchanges import Binance
 
 ASSET = 'btc'
 SIZE = None
-MARGIN = True
+MARGIN = False
 
 
 async def main() -> None:

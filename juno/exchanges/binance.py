@@ -58,9 +58,13 @@ class Binance(Exchange):
     can_list_all_tickers: bool = True
     can_margin_trade: bool = True
 
-    def __init__(self, api_key: str, secret_key: str) -> None:
+    def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
+        if not high_precision:
+            _log.warning('high precision updates disabled')
+
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
+        self._high_precision = high_precision
 
         self._session = ClientSession(raise_for_status=False)
 
@@ -277,14 +281,18 @@ class Binance(Exchange):
                 )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
+        url = f'/ws/{_ws_symbol(symbol)}@depth'
+        if self._high_precision:  # Low precision is every 1000ms.
+            url += '@100ms'
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@depth@100ms', interval=12 * HOUR_SEC, name='depth',
-            raise_on_disconnect=True
+            url=url, interval=12 * HOUR_SEC, name='depth', raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
 
     @asynccontextmanager
-    async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
+    async def connect_stream_orders(
+        self, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate]:
             async for data in stream:
                 yield OrderUpdate(
@@ -301,7 +309,8 @@ class Binance(Exchange):
                     fee_asset=data['N'].lower() if data['N'] else None
                 )
 
-        async with self._user_data_stream.subscribe('executionReport') as stream:
+        user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
+        async with user_data_stream.subscribe('executionReport') as stream:
             yield inner(stream)
 
     async def place_order(
@@ -313,8 +322,12 @@ class Binance(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True
+        test: bool = True,
+        margin: bool = False,
     ) -> OrderResult:
+        if test and margin:
+            raise ValueError('Binance does not support placing test orders on margin account')
+
         data = {
             'symbol': _http_symbol(symbol),
             'side': _side(side),
@@ -327,7 +340,9 @@ class Binance(Exchange):
             data['timeInForce'] = time_in_force.name
         if client_id is not None:
             data['newClientOrderId'] = client_id
-        url = f'/api/v3/order{"/test" if test else ""}'
+        url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
+        if test:
+            url += '/test'
         res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
         if test:
             return OrderResult.not_placed()
@@ -343,10 +358,13 @@ class Binance(Exchange):
             ]
         )
 
-    async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
+    async def cancel_order(
+        self, symbol: str, client_id: str, margin: bool = False
+    ) -> CancelOrderResult:
+        url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
         data = {'symbol': _http_symbol(symbol), 'origClientOrderId': client_id}
         res = await self._api_request(
-            'DELETE', '/api/v3/order', data=data, security=_SEC_TRADE, raise_for_status=False
+            'DELETE', url, data=data, security=_SEC_TRADE, raise_for_status=False
         )
         binance_error = res.data.get('code')
         if binance_error == _ERR_CANCEL_REJECTED:
@@ -487,6 +505,14 @@ class Binance(Exchange):
             },
             security=_SEC_MARGIN,
         )
+
+    async def get_max_borrowable(self, asset: str) -> Decimal:
+        res = await self._api_request(
+            'GET',
+            '/sapi/v1/margin/maxBorrowable', data={'asset': asset.upper()},
+            security=_SEC_USER_DATA,
+        )
+        return Decimal(res.data['amount'])
 
     async def _wapi_request(
         self,
@@ -839,7 +865,7 @@ def _from_symbol(symbol: str) -> str:
     # since there is no separator used. We simply map based on known base currencies.
     known_base_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY', 'EUR'
+        'RUB', 'TRY', 'EUR', 'ZAR'
     ]
     for known_base_asset in known_base_assets:
         if symbol.endswith(known_base_asset):

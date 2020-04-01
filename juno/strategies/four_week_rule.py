@@ -1,6 +1,6 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque, Generic, Optional, TypeVar
+from typing import Deque, Generic, TypeVar
 
 from juno import Advice, Candle, indicators
 from juno.math import minmax
@@ -25,25 +25,26 @@ class FourWeekRule(Generic[T], Strategy):
 
     _prices: Deque[Decimal]
     _ma: T
+    _advice: Advice = Advice.LIQUIDATE
 
     def __init__(self, ma: str = indicators.Ema.__name__.lower()) -> None:
         super().__init__(maturity=28)
         self._prices = deque(maxlen=28)
         self._ma = get_module_type(indicators, ma)(14)
 
-    def tick(self, candle: Candle) -> Optional[Advice]:
+    def tick(self, candle: Candle) -> Advice:
         self._ma.update(candle.close)
-        advice = None
 
         if self.mature:
             lowest, highest = minmax(self._prices)
             if candle.close >= highest:
-                advice = Advice.LONG
-            elif candle.close <= self._ma.value:
-                advice = Advice.SHORT
-            if candle.close <= lowest:
-                # TODO: Short. Also liquidate short position when crossing above MA.
-                advice = Advice.SHORT
+                self._advice = Advice.LONG
+            elif candle.close <= lowest:
+                self._advice = Advice.SHORT
+            elif self._advice is Advice.LONG and candle.close <= self._ma.value:
+                self._advice = Advice.LIQUIDATE
+            elif self._advice is Advice.SHORT and candle.close >= self._ma.value:
+                self._advice = Advice.LIQUIDATE
 
         self._prices.append(candle.close)
-        return advice
+        return self._advice

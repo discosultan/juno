@@ -6,7 +6,7 @@ import pytest
 
 from juno import Candle, ExchangeInfo, Fees, Fill, Filters, Ticker, Trade, storages
 from juno.asyncio import list_async
-from juno.trading import Position, TradingSummary
+from juno.trading import LongPosition, TradingSummary
 from juno.typing import types_match
 
 DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal('0.1234567890123456789012345678901234567890123456789')
@@ -76,14 +76,14 @@ async def test_memory_store_and_stream_empty_series(memory: storages.Memory) -> 
     ([Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('0.1'))], List[Ticker]),
     ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees]),
     (
-        Position(
+        LongPosition(
             symbol='eth-btc',
             open_time=1,
             open_fills=[Fill()],
             close_time=2,
             close_fills=[Fill()],
         ),
-        Position,
+        LongPosition,
     ),
     (TradingSummary(start=1, quote=Decimal('1.0')), TradingSummary),
 ])

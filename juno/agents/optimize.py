@@ -3,8 +3,10 @@ from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
 from juno import Interval, Timestamp, strategies
+from juno.components import Event
 from juno.modules import get_module_type
 from juno.optimization import OptimizationSummary, Optimizer
+from juno.storages import Memory, Storage
 from juno.trading import MissedCandlePolicy
 from juno.typing import get_input_type_hints
 from juno.utils import format_as_config
@@ -31,11 +33,15 @@ class Optimize(Agent):
         seed: Optional[int] = None
         verbose: bool = False
 
-    def __init__(self, optimizer: Optimizer) -> None:
-        super().__init__()
+    def __init__(
+        self, optimizer: Optimizer, event: Event = Event(), storage: Storage = Memory()
+    ) -> None:
         self._optimizer = optimizer
+        self._event = event
+        self._storage = storage
 
     async def on_running(self, config: Config, state: Agent.State[OptimizationSummary]) -> None:
+        await super().on_running(config, state)
         state.result = OptimizationSummary()
         await self._optimizer.run(
             exchange=config.exchange,
@@ -79,3 +85,6 @@ class Optimize(Agent):
             _log.info(f'trading config: {format_as_config(trading_config_instance)}')
             _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
             _log.info(f'portfolio stats: {format_as_config(ind.portfolio_stats)}')
+
+    def _get_result_type(self, config: Config) -> type:
+        return OptimizationSummary

@@ -74,12 +74,15 @@ class Exchange(ABC):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True
+        test: bool = True,
+        margin: bool = False,
     ) -> OrderResult:
         pass
 
     @abstractmethod
-    async def cancel_order(self, symbol: str, client_id: str) -> CancelOrderResult:
+    async def cancel_order(
+        self, symbol: str, client_id: str, margin: bool = False
+    ) -> CancelOrderResult:
         pass
 
     async def stream_historical_trades(
@@ -98,4 +101,7 @@ class Exchange(ABC):
         pass
 
     async def repay(self, asset: str, size: Decimal) -> None:
+        pass
+
+    async def get_max_borrowable(self, asset: str) -> Decimal:
         pass

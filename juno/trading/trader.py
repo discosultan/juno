@@ -7,12 +7,14 @@ from typing import Any, Dict, Generic, List, NamedTuple, Optional, TypeVar
 from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp, strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Event, Informant
-from juno.math import round_half_up
+from juno.exchanges import Exchange
+from juno.math import ceil_multiple, round_half_up
 from juno.modules import get_module_type
 from juno.strategies import Strategy
+from juno.time import HOUR_MS
 from juno.utils import tonamedtuple, unpack_symbol
 
-from .common import MissedCandlePolicy, OpenPosition, TradingSummary
+from .common import MissedCandlePolicy, OpenLongPosition, OpenShortPosition, TradingSummary
 
 _log = logging.getLogger(__name__)
 
@@ -25,10 +27,12 @@ class Trader:
         strategy: Optional[TStrategy] = None
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
-        open_position: Optional[OpenPosition] = None
+        open_long_position: Optional[OpenLongPosition] = None
+        open_short_position: Optional[OpenShortPosition] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
         highest_close_since_position = Decimal('0.0')
+        lowest_close_since_position = Decimal('Inf')
         current: Timestamp = 0
         start_adjusted: bool = False
 
@@ -48,6 +52,8 @@ class Trader:
         channel: str = 'default'
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
         adjust_start: bool = False
+        long: bool = True  # Take long positions.
+        short: bool = False  # Also take short positions.
 
         @property
         def base_asset(self) -> str:
@@ -72,17 +78,28 @@ class Trader:
         informant: Informant,
         broker: Optional[Broker] = None,
         event: Event = Event(),
+        exchanges: List[Exchange] = [],
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._broker = broker
         self._event = event
+        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+
+    @property
+    def has_broker(self) -> bool:
+        return self._broker is not None
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start >= 0
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
+        if config.short:
+            assert self._informant.get_borrow_info(config.exchange, config.quote_asset)[0]
+            assert self._informant.get_fees_filters(
+                config.exchange, config.symbol
+            )[1].is_margin_trading_allowed
 
         state = state or Trader.State()
 
@@ -143,7 +160,7 @@ class Trader:
                                     low=last_candle.low,
                                     close=last_candle.close,
                                     volume=last_candle.volume,
-                                    closed=last_candle.closed
+                                    closed=last_candle.closed,
                                 )
                                 await self._tick(config, state, missed_candle)
 
@@ -155,10 +172,14 @@ class Trader:
                 if not restart:
                     break
         finally:
-            if state.last_candle and state.open_position:
-                _log.info('ending trading but position open; closing')
-                await self._close_position(config, state, state.last_candle)
             if state.last_candle:
+                if state.open_long_position:
+                    _log.info('ending trading but position open; closing')
+                    await self._close_long_position(config, state, state.last_candle)
+                elif state.open_short_position:
+                    _log.info('ending trading but short position open; closing')
+                    await self._close_short_position(config, state, state.last_candle)
+
                 state.summary.finish(state.last_candle.time + config.interval)
             else:
                 state.summary.finish(config.start)
@@ -170,19 +191,36 @@ class Trader:
 
         assert state.strategy
         advice = state.strategy.update(candle)
+        _log.debug(f'received advice: {advice.name}')
 
-        if not state.open_position and advice is Advice.LONG:
-            await self._open_position(config, state, candle)
-            state.highest_close_since_position = candle.close
-        elif state.open_position and advice is Advice.SHORT:
-            await self._close_position(config, state, candle)
-        elif config.trailing_stop != 0 and state.open_position:
-            state.highest_close_since_position = max(
-                state.highest_close_since_position, candle.close
-            )
-            if candle.close <= state.highest_close_since_position * config.trailing_factor:
-                _log.info(f'trailing stop hit at {config.trailing_stop}; selling')
-                await self._close_position(config, state, candle)
+        if state.open_long_position:
+            if advice in [Advice.SHORT, Advice.LIQUIDATE]:
+                await self._close_long_position(config, state, candle)
+            elif config.trailing_stop:
+                state.highest_close_since_position = max(
+                    state.highest_close_since_position, candle.close
+                )
+                if candle.close <= state.highest_close_since_position * config.trailing_factor:
+                    _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
+                    await self._close_long_position(config, state, candle)
+        elif state.open_short_position:
+            if advice in [Advice.LONG, Advice.LIQUIDATE]:
+                await self._close_short_position(config, state, candle)
+            elif config.trailing_stop:
+                state.lowest_close_since_position = min(
+                    state.lowest_close_since_position, candle.close
+                )
+                if candle.close >= state.lowest_close_since_position * config.trailing_factor:
+                    _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
+                    await self._close_short_position(config, state, candle)
+
+        if not state.open_long_position and not state.open_short_position:
+            if config.long and advice is Advice.LONG:
+                await self._open_long_position(config, state, candle)
+                state.highest_close_since_position = candle.close
+            elif config.short and advice is Advice.SHORT:
+                await self._open_short_position(config, state, candle)
+                state.lowest_close_since_position = candle.close
 
         if not state.last_candle:
             _log.info(f'first candle {candle}')
@@ -190,16 +228,19 @@ class Trader:
         state.last_candle = candle
         state.current = candle.time + config.interval
 
-    async def _open_position(self, config: Config, state: State, candle: Candle) -> None:
+    async def _open_long_position(self, config: Config, state: State, candle: Candle) -> None:
+        assert not state.open_long_position
+        assert not state.open_short_position
+
         if self._broker:
-            res = await self._broker.buy(
+            res = await self._broker.buy_by_quote(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 quote=state.quote,
-                test=config.test
+                test=config.test,
             )
 
-            state.open_position = OpenPosition(
+            state.open_long_position = OpenLongPosition(
                 symbol=config.symbol,
                 time=candle.time,
                 fills=res.fills,
@@ -216,7 +257,7 @@ class Trader:
 
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
-            state.open_position = OpenPosition(
+            state.open_long_position = OpenLongPosition(
                 symbol=config.symbol,
                 time=candle.time,
                 fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
@@ -224,47 +265,223 @@ class Trader:
 
             state.quote -= size * price
 
-        _log.info(f'position opened: {candle}')
-        _log.debug(tonamedtuple(state.open_position))
+        _log.info(f'long position opened: {candle}')
+        _log.debug(tonamedtuple(state.open_long_position))
         await self._event.emit(
-            config.channel, 'position_opened', state.open_position, state.summary
+            config.channel, 'position_opened', state.open_long_position, state.summary
         )
 
-    async def _close_position(self, config: Config, state: State, candle: Candle) -> None:
+    async def _close_long_position(self, config: Config, state: State, candle: Candle) -> None:
         assert state.summary
-        assert state.open_position
+        assert state.open_long_position
 
         if self._broker:
             res = await self._broker.sell(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                base=state.open_position.base_gain,
-                test=config.test
+                size=state.open_long_position.base_gain,
+                test=True if config.test is None else config.test,
             )
 
-            position = state.open_position.close(
+            position = state.open_long_position.close(
                 time=candle.time,
-                fills=res.fills
+                fills=res.fills,
             )
 
             state.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
         else:
             price = candle.close
             fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-            size = filters.size.round_down(state.open_position.base_gain)
+            size = filters.size.round_down(state.open_long_position.base_gain)
 
             quote = size * price
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-            position = state.open_position.close(
+            position = state.open_long_position.close(
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)]
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)],
             )
 
             state.quote += quote - fee
 
-        state.open_position = None
+        state.open_long_position = None
         state.summary.append_position(position)
-        _log.info(f'position closed: {candle}')
+        _log.info(f'long position closed: {candle}')
         _log.debug(tonamedtuple(position))
         await self._event.emit(config.channel, 'position_closed', position, state.summary)
+
+    async def _open_short_position(self, config: Config, state: State, candle: Candle) -> None:
+        assert not state.open_long_position
+        assert not state.open_short_position
+
+        price = candle.close
+        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+
+        if self._broker:
+            exchange = self._exchanges[config.exchange]
+
+            if not config.test:
+                _log.info(f'transferring {state.quote} {config.quote_asset} to margin account')
+                await exchange.transfer(config.quote_asset, state.quote, margin=True)
+
+            borrowed = (
+                self._calculate_borrowed(config, state.quote, price) if config.test
+                else await exchange.get_max_borrowable(config.quote_asset)
+            )
+
+            # Before borrowing, make sure we can sell the borrowed amount.
+            try:
+                await self._broker.sell(
+                    exchange=config.exchange,
+                    symbol=config.symbol,
+                    size=borrowed,
+                    test=True,
+                    margin=False,  # Has to be false because not supported for test orders.
+                )
+            except Exception:
+                if not config.test:
+                    _log.error(
+                        'unable to sell borrowed amount; transferring funds back to spot account'
+                    )
+                    await exchange.transfer(config.quote_asset, state.quote, margin=False)
+                raise
+
+            if not config.test:
+                _log.info(f'borrowing {borrowed} {config.base_asset} from exchange')
+                await exchange.borrow(asset=config.base_asset, size=borrowed)
+
+            _log.info(f'selling {borrowed} {config.base_asset}')
+            res = await self._broker.sell(
+                exchange=config.exchange,
+                symbol=config.symbol,
+                size=borrowed,
+                test=config.test,
+                margin=False if config.test else True,
+            )
+            state.open_short_position = OpenShortPosition(
+                symbol=config.symbol,
+                collateral=state.quote,
+                borrowed=borrowed,
+                time=candle.time,
+                fills=res.fills,
+            )
+
+            state.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
+        else:
+            borrowed = self._calculate_borrowed(config, state.quote, price)
+            quote = borrowed * price
+            fee = round_half_up(quote * fees.taker, filters.quote_precision)
+
+            state.open_short_position = OpenShortPosition(
+                symbol=config.symbol,
+                collateral=state.quote,
+                borrowed=borrowed,
+                time=candle.time,
+                fills=[Fill(price=price, size=borrowed, fee=fee, fee_asset=config.quote_asset)],
+            )
+
+            state.quote += quote - fee
+
+        _log.info(f'short position opened: {candle}')
+        _log.debug(tonamedtuple(state.open_short_position))
+        await self._event.emit(
+            config.channel, 'position_opened', state.open_short_position, state.summary
+        )
+
+    async def _close_short_position(self, config: Config, state: State, candle: Candle) -> None:
+        assert state.summary
+        assert state.open_short_position
+
+        price = candle.close
+        borrowed = state.open_short_position.borrowed
+        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+
+        if self._broker:
+            exchange = self._exchanges[config.exchange]
+            interest = (
+                self._calculate_interest(config, state.open_short_position.time, candle.time)
+                if config.test
+                else (await exchange.get_balances(margin=True))[config.base_asset].interest
+            )
+
+            size = borrowed + interest
+            fee = round_half_up(size * fees.taker, filters.base_precision)
+            fee += round_half_up(fee * fees.taker, filters.base_precision)
+            size = filters.size.round_up(size + fee)
+
+            _log.info(f'buying {size} {config.base_asset}')
+            res = await self._broker.buy(
+                exchange=config.exchange,
+                symbol=config.symbol,
+                size=size,
+                test=config.test,
+                margin=False if config.test else True,
+            )
+
+            if not config.test:
+                _log.info(
+                    f'repaying {borrowed} + {interest} {config.base_asset} to exchange'
+                )
+                await exchange.repay(config.base_asset, borrowed + interest)
+
+            # Validate!
+            # TODO: Remove if known to work or pay extra if needed.
+            if not config.test:
+                new_balance = (await exchange.get_balances(margin=True))[config.base_asset]
+                if new_balance.repay != 0:
+                    _log.error(f'did not repay enough; balance {new_balance}')
+                    assert new_balance.repay == 0
+
+            position = state.open_short_position.close(
+                interest=interest,
+                time=candle.time,
+                fills=res.fills,
+            )
+
+            state.quote -= Fill.total_quote(res.fills)
+
+            if not config.test:
+                _log.info(f'transferring {state.quote} {config.quote_asset} to spot account')
+                await exchange.transfer(config.quote_asset, state.quote, margin=False)
+        else:
+            interest = self._calculate_interest(
+                config,
+                state.open_short_position.time,
+                candle.time,
+            )
+            size = borrowed + interest
+            fee = round_half_up(size * fees.taker, filters.base_precision)
+            fee += round_half_up(fee * fees.taker, filters.base_precision)
+            size += fee
+
+            position = state.open_short_position.close(
+                time=candle.time,
+                interest=interest,
+                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
+            )
+
+            state.quote -= size * price
+
+        state.open_short_position = None
+        state.summary.append_position(position)
+        _log.info(f'short position closed: {candle}')
+        _log.debug(tonamedtuple(position))
+        await self._event.emit(config.channel, 'position_closed', position, state.summary)
+
+    def _calculate_borrowed(
+        self, config: Config, collateral: Decimal, price: Decimal
+    ) -> Decimal:
+        _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+        _borrow_info, margin_multiplier = self._informant.get_borrow_info(
+            config.exchange, config.base_asset
+        )
+        collateral_size = filters.size.round_down(collateral / price)
+        if collateral_size == 0:
+            raise InsufficientBalance()
+        return collateral_size * (margin_multiplier - 1)
+
+    def _calculate_interest(self, config: Config, start: int, end: int) -> Decimal:
+        borrow_info, _ = self._informant.get_borrow_info(config.exchange, config.base_asset)
+        duration = ceil_multiple(end - start, HOUR_MS) // HOUR_MS
+        interest = duration * borrow_info.hourly_interest_rate
+        return interest

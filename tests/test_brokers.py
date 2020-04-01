@@ -28,6 +28,42 @@ order_client_id = str(uuid4())
 
 
 @pytest.mark.parametrize(
+    'size,snapshot_asks,expected_output', [
+        (
+            Decimal('1.0'),
+            [(Decimal('2.0'), Decimal('1.0')), (Decimal('3.0'), Decimal('1.0'))],
+            [(Decimal('2.0'), Decimal('1.0'), Decimal('0.1'))],
+        ),
+        (
+            Decimal('3.1'),
+            [(Decimal('1.0'), Decimal('2.0')), (Decimal('2.0'), Decimal('2.0'))],
+            [
+                (Decimal('1.0'), Decimal('2.0'), Decimal('0.2')),
+                (Decimal('2.0'), Decimal('1.1'), Decimal('0.11')),
+            ],
+        ),
+    ]
+)
+async def test_market_find_order_asks(size, snapshot_asks, expected_output) -> None:
+    snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
+    exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
+    exchange.can_stream_depth_snapshot = False
+    async with init_market_broker(exchange) as broker:
+        output = broker.find_order_asks(exchange='exchange', symbol='eth-btc', size=size)
+        assert_fills(output, expected_output)
+
+
+async def test_market_find_order_asks_invalid_size() -> None:
+    snapshot = DepthSnapshot(asks=[], bids=[])
+    exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
+    exchange.can_stream_depth_snapshot = False
+    invalid_size = Decimal('0.12')
+    async with init_market_broker(exchange) as broker:
+        with pytest.raises(ValueError):
+            broker.find_order_asks(exchange='exchange', symbol='eth-btc', size=invalid_size)
+
+
+@pytest.mark.parametrize(
     'quote,snapshot_asks,update_asks,expected_output', [
         (
             Decimal('10.0'),
@@ -41,7 +77,7 @@ order_client_id = str(uuid4())
             [(Decimal('1.0'), Decimal('1.0'))],
             [
                 (Decimal('1.0'), Decimal('1.0'), Decimal('0.1')),
-                (Decimal('2.0'), Decimal('1.0'), Decimal('0.1'))
+                (Decimal('2.0'), Decimal('1.0'), Decimal('0.1')),
             ],
         ),
         (
@@ -68,23 +104,27 @@ order_client_id = str(uuid4())
             [],
             [
                 (Decimal('1.0'), Decimal('1.0'), Decimal('0.1')),
-                (Decimal('2.0'), Decimal('1.0'), Decimal('0.1'))
+                (Decimal('2.0'), Decimal('1.0'), Decimal('0.1')),
             ],
         ),
     ]
 )
-async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expected_output) -> None:
+async def test_market_find_order_asks_by_quote(
+    quote, snapshot_asks, update_asks, expected_output
+) -> None:
     snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
     updates = [DepthUpdate(asks=update_asks, bids=[])]
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
     exchange.can_stream_depth_snapshot = False
     async with init_market_broker(exchange) as broker:
-        output = broker.find_order_asks(exchange='exchange', symbol='eth-btc', quote=quote)
+        output = broker.find_order_asks_by_quote(
+            exchange='exchange', symbol='eth-btc', quote=quote
+        )
         assert_fills(output, expected_output)
 
 
 @pytest.mark.parametrize(
-    'base,snapshot_bids,update_bids,expected_output',
+    'size,snapshot_bids,update_bids,expected_output',
     [
         (
             Decimal('10.0'),
@@ -98,7 +138,7 @@ async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expecte
             [(Decimal('1.0'), Decimal('1.0'))],
             [
                 (Decimal('2.0'), Decimal('1.0'), Decimal('0.2')),
-                (Decimal('1.0'), Decimal('1.0'), Decimal('0.1'))
+                (Decimal('1.0'), Decimal('1.0'), Decimal('0.1')),
             ],
         ),
         (
@@ -125,18 +165,18 @@ async def test_market_find_order_asks(quote, snapshot_asks, update_asks, expecte
             [],
             [
                 (Decimal('2.0'), Decimal('1.0'), Decimal('0.2')),
-                (Decimal('1.0'), Decimal('1.0'), Decimal('0.1'))
+                (Decimal('1.0'), Decimal('1.0'), Decimal('0.1')),
             ],
         ),
     ],
 )
-async def test_market_find_order_bids(base, snapshot_bids, update_bids, expected_output) -> None:
+async def test_market_find_order_bids(size, snapshot_bids, update_bids, expected_output) -> None:
     snapshot = DepthSnapshot(asks=[], bids=snapshot_bids)
     updates = [DepthUpdate(asks=[], bids=update_bids)]
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates, exchange_info=exchange_info)
     exchange.can_stream_depth_snapshot = False
     async with init_market_broker(exchange) as broker:
-        output = broker.find_order_bids(exchange='exchange', symbol='eth-btc', base=base)
+        output = broker.find_order_bids(exchange='exchange', symbol='eth-btc', size=size)
         assert_fills(output, expected_output)
 
 
@@ -147,7 +187,12 @@ async def test_market_insufficient_balance() -> None:
     async with init_market_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
-            await broker.buy('exchange', 'eth-btc', Decimal('0.1'), True)
+            await broker.buy_by_quote(
+                exchange='exchange',
+                symbol='eth-btc',
+                quote=Decimal('0.1'),
+                test=True,
+            )
 
 
 async def test_limit_fill_immediately() -> None:
@@ -171,7 +216,12 @@ async def test_limit_fill_immediately() -> None:
     )
     exchange.can_stream_depth_snapshot = False
     async with init_limit_broker(exchange) as broker:
-        await broker.buy('exchange', 'eth-btc', Decimal('1.0'), False)
+        await broker.buy_by_quote(
+            exchange='exchange',
+            symbol='eth-btc',
+            quote=Decimal('1.0'),
+            test=False,
+        )
 
 
 async def test_limit_fill_partially() -> None:
@@ -190,7 +240,7 @@ async def test_limit_fill_partially() -> None:
                 filled_size=Decimal('0.5'),
                 cumulative_filled_size=Decimal('0.5'),
                 fee=Decimal('0.05'),
-                fee_asset='eth'
+                fee_asset='eth',
             ),
             OrderUpdate(
                 symbol='eth-btc',
@@ -201,13 +251,18 @@ async def test_limit_fill_partially() -> None:
                 filled_size=Decimal('0.5'),
                 cumulative_filled_size=Decimal('1.0'),
                 fee=Decimal('0.05'),
-                fee_asset='eth'
+                fee_asset='eth',
             ),
         ]
     )
     exchange.can_stream_depth_snapshot = False
     async with init_limit_broker(exchange) as broker:
-        await broker.buy('exchange', 'eth-btc', Decimal('1.0'), False)
+        await broker.buy_by_quote(
+            exchange='exchange',
+            symbol='eth-btc',
+            quote=Decimal('1.0'),
+            test=False,
+        )
 
 
 async def test_limit_insufficient_balance() -> None:
@@ -217,7 +272,12 @@ async def test_limit_insufficient_balance() -> None:
     async with init_limit_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(InsufficientBalance):
-            await broker.buy('exchange', 'eth-btc', Decimal('0.1'), False)
+            await broker.buy_by_quote(
+                exchange='exchange',
+                symbol='eth-btc',
+                quote=Decimal('0.1'),
+                test=False,
+            )
 
 
 async def test_limit_partial_fill_adjust_fill() -> None:
@@ -251,7 +311,12 @@ async def test_limit_partial_fill_adjust_fill() -> None:
     )
     exchange.can_stream_depth_snapshot = False
     async with init_limit_broker(exchange) as broker:
-        task = asyncio.create_task(broker.buy('exchange', 'eth-btc', Decimal('2.0'), False))
+        task = asyncio.create_task(broker.buy_by_quote(
+            exchange='exchange',
+            symbol='eth-btc',
+            quote=Decimal('2.0'),
+            test=False,
+        ))
         await yield_control()
         await exchange.depth_queue.put(
             DepthUpdate(bids=[(Decimal('2.0') - filters.price.step, Decimal('1.0'))])

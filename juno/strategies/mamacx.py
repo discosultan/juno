@@ -1,6 +1,6 @@
 import operator
 from decimal import Decimal
-from typing import Generic, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from juno import Advice, Candle, indicators, math
 from juno.modules import get_module_type
@@ -67,7 +67,7 @@ class MAMACX(Generic[TShort, TLong], Strategy):
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
 
-    def tick(self, candle: Candle) -> Optional[Advice]:
+    def tick(self, candle: Candle) -> Advice:
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
@@ -83,4 +83,4 @@ class MAMACX(Generic[TShort, TLong], Strategy):
             elif diff < self._neg_threshold:
                 return Advice.SHORT
 
-        return None
+        return Advice.NONE

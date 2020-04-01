@@ -2,11 +2,11 @@ import asyncio
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
 from juno import (
-    Advice, Balance, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters,
-    OrderResult, OrderStatus, Side, brokers, components, exchanges, storages, strategies
+    Balance, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters,
+    OrderResult, OrderStatus, Side, brokers, components, exchanges, storages
 )
 from juno.asyncio import Event
 
@@ -247,7 +247,9 @@ class Informant(components.Informant):
 
 
 class Orderbook(components.Orderbook):
-    def __init__(self, data: Dict[str, Dict[str, Dict[Side, Dict[Decimal, Decimal]]]]) -> None:
+    def __init__(
+        self, data: Dict[str, Dict[str, Dict[Side, Dict[Decimal, Decimal]]]] = {}
+    ) -> None:
         self._data_ = data
 
     def get_updated_event(self, exchange: str, symbol: str) -> Event[None]:
@@ -277,14 +279,20 @@ class Market(brokers.Market):
         self._orderbook = orderbook
         self._update_orderbook = update_orderbook
 
-    async def buy(self, exchange, symbol, quote, test):
-        fills = super().find_order_asks(exchange=exchange, symbol=symbol, quote=quote)
+    async def buy(self, exchange, symbol, size, test):
+        fills = super().find_order_asks(exchange=exchange, symbol=symbol, size=size)
         if self._update_orderbook:
             self._remove_from_orderbook(exchange, symbol, Side.BUY, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
-    async def sell(self, exchange, symbol, base, test):
-        fills = super().find_order_bids(exchange=exchange, symbol=symbol, base=base)
+    async def buy_by_quote(self, exchange, symbol, quote, test):
+        fills = super().find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
+        if self._update_orderbook:
+            self._remove_from_orderbook(exchange, symbol, Side.BUY, fills)
+        return OrderResult(status=OrderStatus.FILLED, fills=fills)
+
+    async def sell(self, exchange, symbol, size, test):
+        fills = super().find_order_bids(exchange=exchange, symbol=symbol, size=size)
         if self._update_orderbook:
             self._remove_from_orderbook(exchange, symbol, Side.SELL, fills)
         return OrderResult(status=OrderStatus.FILLED, fills=fills)
@@ -295,25 +303,6 @@ class Market(brokers.Market):
             orderbook_side[fill.price] -= fill.size
             if orderbook_side[fill.price] == 0:
                 del orderbook_side[fill.price]
-
-
-class Strategy(strategies.Strategy):
-    advices: List[Optional[Advice]]
-    updates: List[Tuple[int, Candle]]
-
-    def __init__(
-        self, advices: List[Optional[Advice]], updates: List[Tuple[int, Candle]] = [],
-        maturity: int = 0
-    ) -> None:
-        super().__init__(maturity=maturity)
-        self.advices = list(reversed(advices))
-        self.updates = updates
-
-    def update(self, candle):
-        self.updates.append((id(self), candle))
-        # TODO: walrus
-        self.advice = self.advices.pop()
-        return self.advice
 
 
 class Time:
