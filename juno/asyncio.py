@@ -2,9 +2,10 @@ import asyncio
 import inspect
 import logging
 import traceback
+import weakref
 from typing import (
     Any, AsyncIterable, AsyncIterator, Awaitable, Dict, Generic, List, Optional, Tuple, TypeVar,
-    cast
+    Union, cast
 )
 
 T = TypeVar('T')
@@ -107,7 +108,9 @@ def cancelable(coro: Awaitable[Any]) -> Awaitable[Any]:
     return inner()
 
 
-async def cancel(*tasks: Optional[asyncio.Task]) -> None:
+async def cancel(
+    *tasks: Optional[Union[asyncio.Task, weakref.ReferenceType[asyncio.Task]]]
+) -> None:
     material_tasks = [task for task in tasks if task and not task.done()]
     for task in material_tasks:
         task.cancel()

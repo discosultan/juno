@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import weakref
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
@@ -42,7 +43,7 @@ class Orderbook:
 
     async def __aenter__(self) -> Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
-        self._sync_task = asyncio.create_task(cancelable(self._sync_orderbooks()))
+        self._sync_task = weakref.ref(asyncio.create_task(cancelable(self._sync_orderbooks())))
         await self._initial_orderbook_fetched.wait()
         return self
 
