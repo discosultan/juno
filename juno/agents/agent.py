@@ -65,6 +65,7 @@ class Agent:
             await self.on_errored(config, state, exc)
             raise
         finally:
+            await self._try_save_state(config, state)
             await self.on_finally(config, state)
 
         return state.result
@@ -96,7 +97,7 @@ class Agent:
             existing_state = await self._storage.get(
                 'default',
                 self._get_storage_key(name),
-                Agent.State[self._get_result_type()],  # type: ignore
+                Agent.State[self._get_result_type(config)],  # type: ignore
             )
             if existing_state and existing_state.status in [
                 AgentStatus.RUNNING,
@@ -117,13 +118,16 @@ class Agent:
                 result=result_type(),
             )
 
-    async def _save_state(self, state: Agent.State) -> None:
-        _log.info(f'storing current state with name {state.name} and status {state.status.name}')
-        await self._storage.set(
-            'default',
-            self._get_storage_key(state.name),
-            state,
-        )
+    async def _try_save_state(self, config: Config, state: Agent.State) -> None:
+        if getattr(config, 'persist', False):
+            _log.info(
+                f'storing current state with name {state.name} and status {state.status.name}'
+            )
+            await self._storage.set(
+                'default',
+                self._get_storage_key(state.name),
+                state,
+            )
 
     def _get_result_type(self, config: Any) -> type:
         return type(None)

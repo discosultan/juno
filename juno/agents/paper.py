@@ -24,6 +24,7 @@ class Paper(Backtest):
         quote: Decimal
         strategy: Dict[str, Any]
         name: Optional[str] = None
+        persist: bool = False
         end: Timestamp = MAX_TIME_MS
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
         adjust_start: bool = True

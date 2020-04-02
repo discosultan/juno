@@ -27,6 +27,7 @@ class Live(Backtest):
         interval: Interval
         strategy: Dict[str, Any]
         name: Optional[str] = None
+        persist: bool = False
         quote: Optional[Decimal] = None
         end: Timestamp = MAX_TIME_MS
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE

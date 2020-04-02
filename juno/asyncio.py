@@ -1,10 +1,8 @@
 import asyncio
-import itertools
 import logging
 import traceback
-import weakref
 from typing import (
-    AsyncIterable, AsyncIterator, Dict, Generic, List, Optional, Tuple, TypeVar, Union, cast
+    AsyncIterable, AsyncIterator, Dict, Generic, List, Optional, Tuple, TypeVar, cast
 )
 
 _log = logging.getLogger(__name__)
@@ -85,29 +83,61 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
             yield ret
 
 
-async def cancel(
-    *tasks: Optional[Union[asyncio.Task, weakref.ReferenceType]]
-) -> None:
-    ref_tasks = (t for t in tasks if not isinstance(t, weakref.ReferenceType))
-    weakref_tasks = (wr() for wr in tasks if isinstance(wr, weakref.ReferenceType))
-    pending_tasks = [t for t in itertools.chain(ref_tasks, weakref_tasks) if t and not t.done()]
-    for task in pending_tasks:
-        task.cancel()
+async def cancel(*tasks: Optional[asyncio.Task]) -> None:
+    pending_tasks = (t for t in tasks if t and not t.done())
+    await asyncio.gather(*(_cancel(t) for t in pending_tasks))
+
+    # for task in pending_tasks:
+    #     task.cancel()
+    #     qualname = task.get_coro().__qualname__
+    #     _log.info(f'{qualname} task cancelled')
+    #     cancellation_tasks.append(task)
+
+    # results = await asyncio.gather(*pending_tasks, return_exceptions=True)
+    # unhandled_ex = None
+    # for result in results:
+    #     if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
+    #         msg = ''.join(traceback.format_exception(type(result), result, result.__traceback__))
+    #         _log.error(
+    #             f'unhandled exception in {task.get_coro().__qualname__} task ({msg})'
+    #         )  # type: ignore
+    #         if not unhandled_ex:
+    #             unhandled_ex = result
+    # if unhandled_ex:
+    #    raise unhandled_ex
+
+
+async def _cancel(task: asyncio.Task) -> None:
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
         qualname = task.get_coro().__qualname__
         _log.info(f'{qualname} task cancelled')
 
-    results = await asyncio.gather(*pending_tasks, return_exceptions=True)
-    unhandled_ex = None
-    for result in results:
-        if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
-            msg = ''.join(traceback.format_exception(type(result), result, result.__traceback__))
-            _log.error(
-                f'unhandled exception in {task.get_coro().__qualname__} task ({msg})'
-            )  # type: ignore
-            if not unhandled_ex:
-                unhandled_ex = result
-    if unhandled_ex:
-        raise unhandled_ex
+
+def create_task_cancel_on_exc(coro):
+    """ Creates a new task.
+        Cancels the parent task in case the child task raises an unhandled exception.
+    """
+    current_task = asyncio.current_task()
+
+    def callback(task):
+        task_name = task.get_coro().__qualname__
+        if task.cancelled():
+            _log.info(f'{task_name} task cancelled')
+        else:
+            # TODO: walrus
+            exc = task.exception()
+            if exc:
+                msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                _log.error(f'unhandled exception in {task_name} task ({msg})')
+                # current_task.set_exception(exc)  # Not allowed for a task.
+                current_task.cancel()
+
+    child_task = asyncio.create_task(coro)
+    child_task.add_done_callback(callback)
+    return child_task
 
 
 class Barrier:

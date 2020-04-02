@@ -6,7 +6,6 @@ import hmac
 import logging
 import math
 import urllib.parse
-import weakref
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
@@ -22,7 +21,7 @@ from juno import (
     ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
     Side, Ticker, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel
+from juno.asyncio import Event, cancel, create_task_cancel_on_exc
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientJsonResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page
@@ -640,7 +639,7 @@ class Clock:
         self.time_diff = 0
         self._binance = binance
         self._synced = asyncio.Event()
-        self._periodic_sync_task: Optional[weakref.ReferenceType[asyncio.Task[None]]] = None
+        self._periodic_sync_task: Optional[asyncio.Task[None]] = None
         self._reset_periodic_sync: Event[None] = Event(autoclear=True)
 
     async def __aenter__(self) -> Clock:
@@ -651,7 +650,7 @@ class Clock:
 
     async def wait(self) -> None:
         if not self._periodic_sync_task:
-            self._periodic_sync_task = weakref.ref(asyncio.create_task(self._periodic_sync()))
+            self._periodic_sync_task = create_task_cancel_on_exc(self._periodic_sync())
 
         await self._synced.wait()
 
@@ -705,8 +704,8 @@ class UserDataStream:
         self._stream_connected = asyncio.Event()
         self._listen_key = None
 
-        self._listen_key_refresh_task: Optional[weakref.ReferenceType[asyncio.Task[None]]] = None
-        self._stream_user_data_task: Optional[weakref.ReferenceType[asyncio.Task[None]]] = None
+        self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
+        self._stream_user_data_task: Optional[asyncio.Task[None]] = None
         self._old_tasks: List[asyncio.Task[None]] = []
 
         self._events: Dict[str, Event[Any]] = defaultdict(lambda: Event(autoclear=True))
@@ -754,14 +753,14 @@ class UserDataStream:
         await self._ensure_listen_key()
 
         if not self._listen_key_refresh_task:
-            self._listen_key_refresh_task = weakref.ref(asyncio.create_task(
+            self._listen_key_refresh_task = create_task_cancel_on_exc(
                 self._periodic_listen_key_refresh()
-            ))
+            )
 
         if not self._stream_user_data_task:
-            self._stream_user_data_task = weakref.ref(asyncio.create_task(
+            self._stream_user_data_task = create_task_cancel_on_exc(
                 self._stream_user_data()
-            ))
+            )
 
         await self._stream_connected.wait()
 

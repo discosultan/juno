@@ -1,6 +1,6 @@
 {
     "log_format": "colored",
-    "log_level": "debug",
+    "log_level": "info",
     "storage": "sqlite",
     "broker": "market",
     "binance": {

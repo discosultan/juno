@@ -24,6 +24,8 @@ class Optimize(Agent):
         start: Timestamp
         quote: Decimal
         strategy: str
+        name: Optional[str] = None
+        persist: bool = False
         end: Optional[Timestamp] = None
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
         trailing_stop: Optional[Decimal] = Decimal('0.0')

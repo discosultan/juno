@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import logging
-import weakref
 from typing import Any, Dict
 
 import discord
 
-from juno.asyncio import cancel
+from juno.asyncio import cancel, create_task_cancel_on_exc
 from juno.components import Event
 from juno.itertools import chunks
 from juno.trading import LongPosition, OpenLongPosition, Position
@@ -33,7 +31,7 @@ class Discord(discord.Client, Plugin):
         self._channel_ids = discord_config.get('channel_id', {})
 
     async def __aenter__(self) -> Discord:
-        self._start_task = weakref.ref(asyncio.create_task(self.start(self._token)))
+        self._start_task = create_task_cancel_on_exc(self.start(self._token))
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
