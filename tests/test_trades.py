@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from juno import Trade
-from juno.asyncio import cancel, cancelable, list_async
+from juno.asyncio import cancel, list_async
 from juno.components import Trades
 from juno.storages import Storage
 from juno.utils import key
@@ -23,9 +23,9 @@ async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) 
     time = fakes.Time(START, increment=1)
     trades_component = Trades(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
 
-    task = asyncio.create_task(cancelable(
+    task = asyncio.create_task(
         list_async(trades_component.stream_trades(EXCHANGE, SYMBOL, START, END))
-    ))
+    )
     await exchange.trade_queue.join()
     time.time = CANCEL_AT
     await cancel(task)

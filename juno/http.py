@@ -13,7 +13,7 @@ import aiohttp
 from juno import json
 from juno.utils import generate_random_words
 
-from .asyncio import cancel, cancelable, chain_async, resolved_stream
+from .asyncio import cancel, chain_async, resolved_stream
 from .typing import ExcType, ExcValue, Traceback
 
 _aiohttp_log = logging.getLogger('aiohttp.client')
@@ -128,9 +128,9 @@ async def connect_refreshing_stream(
         assert ctx
         while True:
             to_close_ctx = None
-            timeout_task = asyncio.create_task(cancelable(asyncio.sleep(interval)))
+            timeout_task = asyncio.create_task(asyncio.sleep(interval))
             while True:
-                receive_task = asyncio.create_task(cancelable(_receive(ctx.ws)))
+                receive_task = asyncio.create_task(_receive(ctx.ws))
                 done, _pending = await asyncio.wait((receive_task, timeout_task),
                                                     return_when=asyncio.FIRST_COMPLETED)
 

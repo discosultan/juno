@@ -1,7 +1,7 @@
 import asyncio
 
 from juno.asyncio import (
-    Barrier, Event, chain_async, enumerate_async, first_async, list_async, merge_async,
+    Barrier, Event, cancel, chain_async, enumerate_async, first_async, list_async, merge_async,
     resolved_stream, zip_async
 )
 
@@ -113,6 +113,15 @@ async def test_barrier() -> None:
     assert event.is_set()
 
     assert process_event_task.done()
+
+
+async def test_cancel() -> None:
+    done_task = asyncio.create_task(asyncio.sleep(0))
+    await done_task
+    none_task = None
+    pending_task = asyncio.create_task(asyncio.sleep(1))
+
+    await cancel(done_task, none_task, pending_task)
 
 
 async def test_empty_barrier() -> None:

@@ -1,9 +1,7 @@
 import asyncio
 import inspect
 import logging
-import signal
 import sys
-from types import FrameType
 from typing import Any, Dict, List, Tuple, Type
 
 import pkg_resources
@@ -12,7 +10,6 @@ from mergedeep import merge
 import juno
 from juno import agents, components, config
 from juno.agents import Agent
-from juno.asyncio import cancelable
 from juno.brokers import Broker
 from juno.di import Container
 from juno.exchanges import Exchange
@@ -22,7 +19,7 @@ from juno.optimization import Optimizer, Solver
 from juno.plugins import Plugin, map_plugin_types
 from juno.storages import Storage
 from juno.trading import Trader
-from juno.utils import exc_traceback, full_path
+from juno.utils import full_path
 
 _log = logging.getLogger(__name__)
 
@@ -55,28 +52,6 @@ async def main() -> None:
         pass
 
     _log.info(f'log level: {log_level}; format: {log_format}; outputs: {log_outputs}')
-
-    # Configure signals.
-    def handle_sigterm(signalnum: int, frame: FrameType) -> None:
-        _log.info(f'SIGTERM terminating the process')
-        sys.exit()
-
-    signal.signal(signal.SIGTERM, handle_sigterm)
-
-    # Configure loop exception handling.
-    def custom_exception_handler(loop, context):
-        # TODO: walrus
-        exc = context.get('exception')
-        if exc:
-            _log.error(exc_traceback(exc))
-        _log.error('custom loop exception handler; cancelling all tasks')
-        loop.default_exception_handler(context)
-        # for task in (task for task in asyncio.all_tasks() if not task.done()):
-        #     task.cancel()
-        loop.stop()
-        loop.run_until_complete(asyncio.gather(*asyncio.all_tasks()))
-
-    asyncio.get_running_loop().set_exception_handler(custom_exception_handler)
 
     # Configure deps.
     container = Container()
@@ -113,7 +88,9 @@ async def main() -> None:
 
 
 try:
-    asyncio.run(cancelable(main()))
+    asyncio.run(main())
+except asyncio.CancelledError:
+    _log.info('program cancelled')
 except KeyboardInterrupt:
     _log.info('program interrupted by keyboard')
 except BaseException:

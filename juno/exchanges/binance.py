@@ -21,7 +21,7 @@ from juno import (
     ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
     Side, Ticker, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel, cancelable
+from juno.asyncio import Event, cancel, create_task_cancel_on_exc
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientJsonResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page
@@ -650,7 +650,7 @@ class Clock:
 
     async def wait(self) -> None:
         if not self._periodic_sync_task:
-            self._periodic_sync_task = asyncio.create_task(cancelable(self._periodic_sync()))
+            self._periodic_sync_task = create_task_cancel_on_exc(self._periodic_sync())
 
         await self._synced.wait()
 
@@ -753,13 +753,13 @@ class UserDataStream:
         await self._ensure_listen_key()
 
         if not self._listen_key_refresh_task:
-            self._listen_key_refresh_task = asyncio.create_task(
-                cancelable(self._periodic_listen_key_refresh())
+            self._listen_key_refresh_task = create_task_cancel_on_exc(
+                self._periodic_listen_key_refresh()
             )
 
         if not self._stream_user_data_task:
-            self._stream_user_data_task = asyncio.create_task(
-                cancelable(self._stream_user_data())
+            self._stream_user_data_task = create_task_cancel_on_exc(
+                self._stream_user_data()
             )
 
         await self._stream_connected.wait()

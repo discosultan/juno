@@ -48,7 +48,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
         try:
             raise Exception('Expected error.')
         except Exception as exc:
-            await event.emit('agent', 'errored', exc, trading_summary)
+            await event.emit('agent', 'errored', exc)
 
 
 def skip_non_configured(request, config):

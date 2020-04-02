@@ -5,7 +5,7 @@ from typing import cast
 import pytest
 
 from juno import Candle, Fill, strategies
-from juno.asyncio import cancel, cancelable
+from juno.asyncio import cancel
 from juno.trading import LongPosition, MissedCandlePolicy, OpenLongPosition, Trader, TradingSummary
 
 from . import fakes
@@ -226,7 +226,7 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
     )
     state: Trader.State[strategies.Fixed] = Trader.State()
 
-    trader_run_task = asyncio.create_task(cancelable(trader.run(config, state)))
+    trader_run_task = asyncio.create_task(trader.run(config, state))
 
     future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
     await future_candle_queue.join()

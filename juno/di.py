@@ -29,11 +29,13 @@ class Container:
     async def __aenter__(self) -> Container:
         _log.info(f'created instances: {list(self._singletons.values())}')
         for deps in list_dependencies_in_init_order(map_dependencies(self._singletons)):
+            _log.info(f'entering: {deps}')
             await asyncio.gather(*(d.__aenter__() for d in deps if getattr(d, '__aenter__', None)))
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         for deps in reversed(list_dependencies_in_init_order(map_dependencies(self._singletons))):
+            _log.info(f'exiting: {deps}')
             await asyncio.gather(
                 *(d.__aexit__(exc_type, exc, tb) for d in deps if getattr(d, '__aexit__', None))
             )

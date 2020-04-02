@@ -6,7 +6,7 @@ import pytest
 
 from juno import Balance, Candle, Fees, Side
 from juno.agents import Backtest, Live, Paper
-from juno.asyncio import cancel, cancelable
+from juno.asyncio import cancel
 from juno.filters import Filters, Price, Size
 from juno.storages import Storage
 from juno.time import HOUR_MS
@@ -229,6 +229,7 @@ async def test_live_persist_and_resume(storage: Storage, strategy: str) -> None:
     trader = Trader(chandler=chandler, informant=informant, broker=broker)
     config = Live.Config(
         name='name',
+        persist=True,
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -240,11 +241,15 @@ async def test_live_persist_and_resume(storage: Storage, strategy: str) -> None:
         get_time_ms=fakes.Time(increment=1).get_time,
     )
 
-    agent_run_task = asyncio.create_task(cancelable(live.run(config)))
+    agent_run_task = asyncio.create_task(live.run(config))
     await chandler.future_candle_queues[candle_key].join()
     await cancel(agent_run_task)
 
     chandler.future_candle_queues[candle_key].put_nowait(
         Candle(time=1, close=Decimal('1.0'))
     )
-    await live.run(config)
+    state: Trader.State = await live.run(config)
+
+    assert state.first_candle and state.last_candle
+    assert state.first_candle.time == 0
+    assert state.last_candle.time == 1

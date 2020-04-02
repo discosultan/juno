@@ -8,7 +8,7 @@ from typing import AsyncIterable, Dict, List, Tuple
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Balance, JunoException
-from juno.asyncio import Barrier, Event, cancel, cancelable
+from juno.asyncio import Barrier, Event, cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
@@ -26,7 +26,7 @@ class Wallet:
         self._initial_balances_fetched = Barrier(
             len(self._exchanges) + len([e for e in self._exchanges.values() if e.can_margin_trade])
         )
-        self._sync_all_balances_task = asyncio.create_task(cancelable(self._sync_all_balances()))
+        self._sync_all_balances_task = create_task_cancel_on_exc(self._sync_all_balances())
         await self._initial_balances_fetched.wait()
         return self
 

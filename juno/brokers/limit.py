@@ -9,7 +9,7 @@ from juno import (
     CancelOrderStatus, Fill, InsufficientBalance, OrderResult, OrderStatus, OrderType, OrderUpdate,
     Side, TimeInForce
 )
-from juno.asyncio import Event, cancel, cancelable
+from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -102,29 +102,24 @@ class Limit(Broker):
         async with self._exchanges[exchange].connect_stream_orders() as stream:
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
-                cancelable(
-                    self._keep_limit_order_best(
-                        exchange=exchange,
-                        symbol=symbol,
-                        client_id=client_id,
-                        side=side,
-                        margin=margin,
-                        ctx=ctx,
-                    )
+                self._keep_limit_order_best(
+                    exchange=exchange,
+                    symbol=symbol,
+                    client_id=client_id,
+                    side=side,
+                    margin=margin,
+                    ctx=ctx,
                 )
             )
 
             # Listens for fill events for an existing order.
             track_fills_task = asyncio.create_task(
-                cancelable(
-                    self._track_fills(
-                        client_id=client_id,
-                        symbol=symbol,
-                        stream=stream,
-                        keep_limit_order_best_task=keep_limit_order_best_task,
-                        side=side,
-                        ctx=ctx,
-                    )
+                self._track_fills(
+                    client_id=client_id,
+                    symbol=symbol,
+                    stream=stream,
+                    side=side,
+                    ctx=ctx,
                 )
             )
 
@@ -133,8 +128,11 @@ class Limit(Broker):
         except InsufficientBalance:
             await cancel(keep_limit_order_best_task, track_fills_task)
             raise
+        except _Filled as exc:
+            fills = exc.fills
+            await cancel(keep_limit_order_best_task)
 
-        return OrderResult(status=OrderStatus.FILLED, fills=track_fills_task.result())
+        return OrderResult(status=OrderStatus.FILLED, fills=fills)
 
     async def _keep_limit_order_best(
         self, exchange: str, symbol: str, client_id: str, side: Side, margin: bool, ctx: _Context
@@ -217,8 +215,8 @@ class Limit(Broker):
 
     async def _track_fills(
         self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
-        keep_limit_order_best_task: asyncio.Task, side: Side, ctx: _Context
-    ):
+        side: Side, ctx: _Context
+    ) -> None:
         fills = []  # Fills from aggregated trades.
         async for order in stream:
             if order.client_id != client_id:
@@ -261,5 +259,9 @@ class Limit(Broker):
                 ctx.available += add_back
                 ctx.cancelled_event.set()
 
-        await cancel(keep_limit_order_best_task)
-        return fills
+        raise _Filled(fills)
+
+
+class _Filled(Exception):
+    def __init__(self, fills: List[Fill]) -> None:
+        self.fills = fills
