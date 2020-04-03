@@ -21,7 +21,7 @@ from juno import (
     ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
     Side, Ticker, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel, create_task_cancel_on_exc
+from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientJsonResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page
@@ -66,7 +66,7 @@ class Binance(Exchange):
         self._secret_key_bytes = secret_key.encode('utf-8')
         self._high_precision = high_precision
 
-        self._session = ClientSession(raise_for_status=False)
+        self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
 
         # Rate limiters.
         x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
@@ -708,7 +708,7 @@ class UserDataStream:
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
         self._old_tasks: List[asyncio.Task[None]] = []
 
-        self._events: Dict[str, Event[Any]] = defaultdict(lambda: Event(autoclear=True))
+        self._queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
     async def __aenter__(self) -> UserDataStream:
         return self
@@ -728,18 +728,8 @@ class UserDataStream:
         # For example, instead of pub/sub events, keep a queue of messages and deliver them
         # based on timestamps.
         await self._ensure_connection()
-
-        event = self._events[event_type]
-
-        async def inner(event: Event[Any]) -> AsyncIterable[Any]:
-            while True:
-                data = await event.wait()
-                if isinstance(data, Exception):
-                    raise data
-                yield data
-
         try:
-            yield inner(event)
+            yield stream_queue(self._queues[event_type], raise_on_exc=True)
         finally:
             # TODO: unsubscribe if no other consumers?
             pass
@@ -787,11 +777,11 @@ class UserDataStream:
                 ) as stream:
                     self._stream_connected.set()
                     async for data in stream:
-                        self._events[data['e']].set(data)
+                        self._queues[data['e']].put_nowait(data)
                 break
             except JunoException as e:
-                for event in self._events.values():
-                    event.set(e)
+                for event in self._queues.values():
+                    event.put_nowait(e)
             await self._ensure_listen_key()
 
     @retry(

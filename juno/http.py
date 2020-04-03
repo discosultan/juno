@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import warnings
 from contextlib import asynccontextmanager
 from itertools import cycle
 from typing import (
@@ -26,8 +27,14 @@ _random_words = generate_random_words(length=6)
 # Note that aiohttp client session is not meant to be extended.
 # https://github.com/aio-libs/aiohttp/issues/3185
 class ClientSession:
-    def __init__(self, raise_for_status: Optional[bool] = None, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        raise_for_status: Optional[bool] = None,
+        name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
         self._raise_for_status = raise_for_status
+        self._name = name
         self._session = aiohttp.ClientSession(**kwargs)
 
     async def __aenter__(self) -> ClientSession:
@@ -36,6 +43,13 @@ class ClientSession:
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await self._session.__aexit__(exc_type, exc, tb)
+
+    def __del__(self, _warnings: Any = warnings) -> None:
+        try:
+            if not self._session.closed and self._name:
+                _aiohttp_log.error(f'{self._name} unclosed client session')
+        except AttributeError:
+            pass
 
     @asynccontextmanager
     async def request(

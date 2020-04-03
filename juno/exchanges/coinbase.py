@@ -4,7 +4,6 @@ import asyncio
 import base64
 import hashlib
 import hmac
-import itertools
 import logging
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -21,7 +20,7 @@ from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
     OrderType, Side, Ticker, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async
+from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.itertools import page
@@ -60,7 +59,7 @@ class Coinbase(Exchange):
         self._pub_limiter = AsyncLimiter(3 * x, 1)
         self._priv_limiter = AsyncLimiter(5 * x, 1)
 
-        self._session = ClientSession(raise_for_status=True)
+        self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
         await self._session.__aenter__()
 
         await self._ws.__aenter__()
@@ -223,6 +222,9 @@ class Coinbase(Exchange):
     async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
         async def inner(ws: AsyncIterable[Any]):
             async for val in ws:
+                if val['type'] == 'last_match':
+                    # TODO: Useful for recovery process that downloads missed trades after a dc.
+                    continue
                 if 'price' not in val or 'size' not in val:
                     continue
                 yield Trade(
@@ -231,7 +233,7 @@ class Coinbase(Exchange):
                     size=Decimal(val['size'])
                 )
 
-        async with self._ws.subscribe('matches', ['match'], [symbol]) as ws:
+        async with self._ws.subscribe('matches', ['last_match', 'match'], [symbol]) as ws:
             yield inner(ws)
 
     async def _paginated_public_request(self, method: str, url: str,
@@ -273,7 +275,7 @@ class CoinbaseFeed:
     def __init__(self, url: str) -> None:
         self.url = url
 
-        self.session = ClientSession(raise_for_status=True)
+        self.session = ClientSession(raise_for_status=True, name=type(self).__name__)
         self.ws_ctx: Optional[AsyncContextManager[ClientWebSocketResponse]] = None
         self.ws: Optional[ClientWebSocketResponse] = None
         self.ws_lock = asyncio.Lock()
@@ -281,9 +283,8 @@ class CoinbaseFeed:
 
         self.subscriptions_updated: Event[None] = Event(autoclear=True)
         self.subscriptions: Dict[str, List[str]] = {}
-        self.channels: Dict[Tuple[str, str], Event[Any]] = defaultdict(
-            lambda: Event(autoclear=True)
-        )
+        self.channels: Dict[Tuple[str, str], asyncio.Queue] = defaultdict(asyncio.Queue)
+        self.type_to_channel: Dict[str, str] = {}
 
     async def __aenter__(self) -> CoinbaseFeed:
         await self.session.__aenter__()
@@ -301,6 +302,9 @@ class CoinbaseFeed:
     async def subscribe(
         self, channel: str, types: List[str], symbols: List[str]
     ) -> AsyncIterator[AsyncIterable[Any]]:
+        for type_ in types:
+            self.type_to_channel[type_] = channel
+
         await self._ensure_connection()
 
         # TODO: Skip subscription if already subscribed. Maybe not a good idea because we may need
@@ -319,9 +323,7 @@ class CoinbaseFeed:
             await self.subscriptions_updated.wait()
 
         try:
-            yield merge_async(
-                *(self.channels[(t, s)].stream() for t, s in itertools.product(types, symbols))
-            )
+            yield merge_async(*(stream_queue(self.channels[(channel, s)]) for s in symbols))
         finally:
             # TODO: unsubscribe
             pass
@@ -346,7 +348,9 @@ class CoinbaseFeed:
                 }
                 self.subscriptions_updated.set()
             else:
-                self.channels[(type_, _from_product(data['product_id']))].set(data)
+                channel = self.type_to_channel[type_]
+                product = _from_product(data['product_id'])
+                self.channels[(channel, product)].put_nowait(data)
 
 
 def _is_subscribed(

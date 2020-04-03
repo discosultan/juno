@@ -77,6 +77,8 @@ class Orderbook:
                         orderbook.snapshot_received = True
                         self._initial_orderbook_fetched.release()
                     elif isinstance(depth, DepthUpdate):
+                        # TODO: For example, with depth level 10, Kraken expects us to discard
+                        # levels outside level 10. They will not publish messages to delete them.
                         assert orderbook.snapshot_received
                         _update_orderbook_side(orderbook.sides[Side.BUY], depth.asks)
                         _update_orderbook_side(orderbook.sides[Side.SELL], depth.bids)

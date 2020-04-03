@@ -2,7 +2,7 @@ import asyncio
 import logging
 import traceback
 from typing import (
-    AsyncIterable, AsyncIterator, Dict, Generic, List, Optional, Tuple, TypeVar, cast
+    Any, AsyncIterable, AsyncIterator, Dict, Generic, List, Optional, Tuple, TypeVar, cast
 )
 
 _log = logging.getLogger(__name__)
@@ -138,6 +138,23 @@ def create_task_cancel_on_exc(coro):
     child_task = asyncio.create_task(coro)
     child_task.add_done_callback(callback)
     return child_task
+
+
+async def stream_queue(
+    queue: asyncio.Queue, timeout: Optional[float] = None, raise_on_exc: bool = False
+) -> AsyncIterable[Any]:
+    if timeout is None:
+        while True:
+            item = await queue.get()
+            if raise_on_exc and isinstance(item, Exception):
+                raise item
+            yield item
+    else:
+        while True:
+            item = await asyncio.wait_for(queue.get(), timeout=timeout)
+            if raise_on_exc and isinstance(item, Exception):
+                raise item
+            yield item
 
 
 class Barrier:

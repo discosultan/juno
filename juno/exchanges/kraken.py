@@ -17,7 +17,7 @@ from juno import (
     Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
     OrderResult, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel, create_task_cancel_on_exc
+from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import MIN_MS, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
@@ -56,7 +56,7 @@ class Kraken(Exchange):
         self._reqs_limiter = AsyncLimiter(15, 45)
         self._order_placing_limiter = AsyncLimiter(1, 1)
 
-        self._session = ClientSession(raise_for_status=True)
+        self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
         await self._session.__aenter__()
 
         self._public_ws = KrakenPublicFeed(_PUBLIC_WS_URL)
@@ -320,17 +320,17 @@ class KrakenPublicFeed:
     def __init__(self, url: str) -> None:
         self.url = url
 
-        self.session = ClientSession(raise_for_status=True)
+        self.session = ClientSession(raise_for_status=True, name=type(self).__name__)
         self.ws_ctx: Optional[AsyncContextManager[ClientWebSocketResponse]] = None
         self.ws: Optional[ClientWebSocketResponse] = None
         self.ws_lock = asyncio.Lock()
         self.process_task: Optional[asyncio.Task] = None
 
         self.reqid = 1
-        self.subscriptions: Dict[int, Event[Event[Any]]] = defaultdict(
+        self.subscriptions: Dict[int, Event[asyncio.Queue[Any]]] = defaultdict(
             lambda: Event(autoclear=True)
         )
-        self.channels: Dict[int, Event[Any]] = defaultdict(lambda: Event(autoclear=True))
+        self.channels: Dict[int, asyncio.Queue[Any]] = defaultdict(asyncio.Queue)
 
     async def __aenter__(self) -> KrakenPublicFeed:
         await self.session.__aenter__()
@@ -365,7 +365,7 @@ class KrakenPublicFeed:
         received = await subscribed.wait()
 
         try:
-            yield received.stream()
+            yield stream_queue(received)
         finally:
             # TODO: unsubscribe
             pass
@@ -411,7 +411,7 @@ class KrakenPublicFeed:
 
             # type_ = data[-2]
             # pa_onir = data[-1]
-            self.channels[channel_id].set(val)  # type: ignore
+            self.channels[channel_id].put_nowait(val)  # type: ignore
 
 
 class KrakenPrivateFeed(KrakenPublicFeed):
@@ -436,7 +436,7 @@ class KrakenPrivateFeed(KrakenPublicFeed):
                 subscribed.set(received)
         else:  # List.
             channel_id = data[1]
-            self.channels[channel_id].set(data[0])  # type: ignore
+            self.channels[channel_id].put_nowait(data[0])  # type: ignore
 
 
 def _validate_subscription_status(data: Any):
