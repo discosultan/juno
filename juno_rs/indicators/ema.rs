@@ -3,7 +3,6 @@ use std::cmp::min;
 
 pub struct Ema {
     pub value: f64,
-    period: u32,
     a: f64,
     t: u32,
 }
@@ -12,7 +11,6 @@ impl Ema {
     pub fn new(period: u32) -> Self {
         Self {
             value: 0.0,
-            period,
             a: 2.0 / f64::from(period + 1),
             t: 0,
         }
@@ -52,8 +50,8 @@ impl MA for Ema {
         self.value
     }
 
-    fn period(&self) -> u32 {
-        self.period
+    fn maturity(&self) -> u32 {
+        self.maturity()
     }
 }
 
@@ -112,7 +110,7 @@ impl MA for Ema2 {
         self.value
     }
 
-    fn period(&self) -> u32 {
-        self.period
+    fn maturity(&self) -> u32 {
+        self.maturity()
     }
 }

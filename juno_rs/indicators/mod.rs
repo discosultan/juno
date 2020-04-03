@@ -28,5 +28,5 @@ pub trait MA {
     fn new(period: u32) -> Self;
     fn update(&mut self, price: f64);
     fn value(&self) -> f64;
-    fn period(&self) -> u32;
+    fn maturity(&self) -> u32;
 }

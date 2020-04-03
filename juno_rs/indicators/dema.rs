@@ -58,7 +58,7 @@ impl MA for Dema {
         self.value
     }
 
-    fn period(&self) -> u32 {
-        self.ema1.period()
+    fn maturity(&self) -> u32 {
+        self.t2
     }
 }

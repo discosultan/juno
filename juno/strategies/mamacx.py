@@ -57,7 +57,13 @@ class MAMACX(Generic[TShort, TLong], Strategy):
         short_ma: str = indicators.Ema.__name__.lower(),
         long_ma: str = indicators.Ema.__name__.lower(),
     ) -> None:
-        super().__init__(maturity=long_period - 1, persistence=persistence)
+        self._short_ma = get_module_type(indicators, short_ma)(short_period)
+        self._long_ma = get_module_type(indicators, long_ma)(long_period)
+
+        super().__init__(
+            maturity=max(self._long_ma.maturity, self._short_ma.maturity),
+            persistence=persistence,
+        )
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
