@@ -8,20 +8,36 @@ from juno.math import floor_multiple
 from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
 from juno.utils import unpack_symbol
 
+# Triggered closing and opening long position on same tick with trailing stop.
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
-START = time.strptimestamp('2017-07-14')
-END = time.strptimestamp('2019-12-07')
-MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
-TRAILING_STOP = Decimal('0.8486')
+START = time.strptimestamp('2019-06-19')
+END = time.strptimestamp('2019-06-23')
+MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
+TRAILING_STOP = Decimal('0.044')
 
-SHORT_PERIOD = 7
-LONG_PERIOD = 49
-NEG_THRESHOLD = Decimal('-0.946')
-POS_THRESHOLD = Decimal('0.854')
-PERSISTENCE = 6
-SHORT_MA = 'smma'
+SHORT_PERIOD = 4
+LONG_PERIOD = 60
+NEG_THRESHOLD = Decimal('-0.435')
+POS_THRESHOLD = Decimal('0.211')
+PERSISTENCE = 5
+SHORT_MA = 'kama'
 LONG_MA = 'sma'
+
+# SYMBOL = 'eth-btc'
+# INTERVAL = time.HOUR_MS
+# START = time.strptimestamp('2017-07-14')
+# END = time.strptimestamp('2019-12-07')
+# MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
+# TRAILING_STOP = Decimal('0.8486')
+
+# SHORT_PERIOD = 7
+# LONG_PERIOD = 49
+# NEG_THRESHOLD = Decimal('-0.946')
+# POS_THRESHOLD = Decimal('0.854')
+# PERSISTENCE = 6
+# SHORT_MA = 'smma'
+# LONG_MA = 'sma'
 
 # SYMBOL = 'enj-bnb'  # NB! Non-btc quote not supported in prices!
 # INTERVAL = time.DAY_MS

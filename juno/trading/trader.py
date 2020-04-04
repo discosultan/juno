@@ -192,6 +192,8 @@ class Trader:
         assert state.strategy
         advice = state.strategy.update(candle)
         _log.debug(f'received advice: {advice.name}')
+        if state.current < config.start:
+            assert advice is Advice.NONE
 
         if state.open_long_position:
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
@@ -203,6 +205,7 @@ class Trader:
                 if candle.close <= state.highest_close_since_position * config.trailing_factor:
                     _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
                     await self._close_long_position(config, state, candle)
+                    assert advice is not Advice.LONG
         elif state.open_short_position:
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
                 await self._close_short_position(config, state, candle)
@@ -213,6 +216,7 @@ class Trader:
                 if candle.close >= state.lowest_close_since_position * config.trailing_factor:
                     _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
                     await self._close_short_position(config, state, candle)
+                    assert advice is not Advice.SHORT
 
         if not state.open_long_position and not state.open_short_position:
             if config.long and advice is Advice.LONG:

@@ -56,8 +56,8 @@ impl<TShort: MA, TLong: MA> Strategy for MAMACX<TShort, TLong> {
 
         self.t = min(self.t + 1, self.t1);
 
-        let (persisted, _) = self.persistence.update(advice);
-        if persisted {
+        let (persisted, changed) = self.persistence.update(advice);
+        if persisted && changed {
             advice
         } else {
             None

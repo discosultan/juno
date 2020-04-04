@@ -77,10 +77,10 @@ class Strategy:
 
     def update(self, candle: Candle) -> Advice:
         advice = self.tick(candle)
-        persisted, _changed = self._persistence.update(advice)
+        persisted, changed = self._persistence.update(advice)
         self._age = min(self._age + 1, self.maturity)
         # TODO: walrus
-        self.advice = advice if persisted else Advice.NONE
+        self.advice = advice if (persisted and changed) else Advice.NONE
         return self.advice
 
     def tick(self, candle: Candle) -> Advice:
