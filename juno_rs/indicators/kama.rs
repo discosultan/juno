@@ -3,7 +3,6 @@ use std::{cmp::min, collections::VecDeque};
 
 pub struct Kama {
     pub value: f64,
-    period: u32,
 
     short_alpha: f64,
     long_alpha: f64,
@@ -20,7 +19,6 @@ impl Kama {
     pub fn new(period: u32) -> Self {
         Self {
             value: 0.0,
-            period,
 
             short_alpha: 2.0 / (2.0 + 1.0),
             long_alpha: 2.0 / (30.0 + 1.0),
@@ -40,7 +38,7 @@ impl Kama {
 
     pub fn update(&mut self, price: f64) {
         if self.t > 0 {
-            if self.diffs.len() == self.period as usize {
+            if self.diffs.len() == self.t2 as usize {
                 self.diffs.pop_front();
             }
             self.diffs
@@ -64,7 +62,7 @@ impl Kama {
             self.value += sc * (price - self.value);
         }
 
-        if self.prices.len() == self.period as usize {
+        if self.prices.len() == self.t2 as usize {
             self.prices.pop_front();
         }
         self.prices.push_back(price);
@@ -85,8 +83,8 @@ impl MA for Kama {
         self.value
     }
 
-    fn period(&self) -> u32 {
-        self.period
+    fn maturity(&self) -> u32 {
+        self.maturity()
     }
 }
 

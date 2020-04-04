@@ -1,4 +1,4 @@
-use std::cmp::min;
+use std::cmp::{max, min};
 
 use crate::{
     indicators::MA,
@@ -24,7 +24,7 @@ impl<TShort: MA, TLong: MA> MAMACX<TShort, TLong> {
         pos_threshold: f64,
         persistence: u32,
     ) -> Self {
-        let long_period = long_ma.period();
+        let t1 = max(long_ma.maturity(), short_ma.maturity());
         Self {
             short_ma,
             long_ma,
@@ -32,7 +32,7 @@ impl<TShort: MA, TLong: MA> MAMACX<TShort, TLong> {
             neg_threshold,
             pos_threshold,
             t: 0,
-            t1: long_period - 1,
+            t1,
         }
     }
 }
@@ -56,8 +56,8 @@ impl<TShort: MA, TLong: MA> Strategy for MAMACX<TShort, TLong> {
 
         self.t = min(self.t + 1, self.t1);
 
-        let (persisted, _) = self.persistence.update(advice);
-        if persisted {
+        let (persisted, changed) = self.persistence.update(advice);
+        if persisted && changed {
             advice
         } else {
             None

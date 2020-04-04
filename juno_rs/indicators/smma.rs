@@ -3,7 +3,6 @@ use std::cmp::min;
 
 pub struct Smma {
     pub value: f64,
-    pub period: u32,
 
     sma: Sma,
     weight: f64,
@@ -17,7 +16,6 @@ impl Smma {
     pub fn new(period: u32) -> Self {
         Self {
             value: 0.0,
-            period,
             sma: Sma::new(period),
             weight: f64::from(period),
             t: 0,
@@ -58,7 +56,7 @@ impl MA for Smma {
         self.value
     }
 
-    fn period(&self) -> u32 {
-        self.period
+    fn maturity(&self) -> u32 {
+        self.maturity()
     }
 }

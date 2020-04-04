@@ -3,7 +3,6 @@ use std::cmp::min;
 
 pub struct Sma {
     pub value: f64,
-    pub period: u32,
     prices: Vec<f64>,
     i: usize,
     sum: f64,
@@ -15,7 +14,6 @@ impl Sma {
     pub fn new(period: u32) -> Self {
         Self {
             value: 0.0,
-            period,
             prices: vec![0.0; period as usize],
             i: 0,
             sum: 0.0,
@@ -52,7 +50,7 @@ impl MA for Sma {
         self.value
     }
 
-    fn period(&self) -> u32 {
-        self.period
+    fn maturity(&self) -> u32 {
+        self.maturity()
     }
 }
