@@ -6,6 +6,7 @@ from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from juno.aliases import Timestamp
 from juno.filters import Filters
+from juno.math import round_half_up
 from juno.time import datetime_utcfromtimestamp_ms
 
 
@@ -127,6 +128,20 @@ class Fill(NamedTuple):
             raise NotImplementedError('implement support for different fee assets')
 
         return sum((f.fee for f in fills), Decimal('0.0'))
+
+    @staticmethod
+    def expected_base_fee(fills: List[Fill], fee_rate: Decimal, precision: int) -> Decimal:
+        return sum(
+            (round_half_up(f.size * fee_rate, precision) for f in fills),
+            Decimal('0.0'),
+        )
+
+    @staticmethod
+    def expected_quote_fee(fills: List[Fill], fee_rate: Decimal, precision: int) -> Decimal:
+        return sum(
+            (round_half_up(f.size * f.price * fee_rate, precision) for f in fills),
+            Decimal('0.0'),
+        )
 
 
 class OrderResult(NamedTuple):

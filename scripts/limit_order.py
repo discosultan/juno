@@ -12,13 +12,13 @@ from juno.exchanges import Binance
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
-SIDE = Side.SELL
+SIDE = Side.BUY
 EXCHANGE = 'binance'
 SYMBOL = 'eth-btc'
 BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
 QUOTE: Optional[Decimal] = Decimal('0.005')
-QUOTE = None
-BASE: Optional[Decimal] = Decimal('0.2')
+# QUOTE = None
+# BASE: Optional[Decimal] = Decimal('0.2')
 BASE = None
 
 if len(sys.argv) > 1:

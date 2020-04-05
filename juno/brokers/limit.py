@@ -12,7 +12,6 @@ from juno import (
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
-from juno.math import round_half_up
 
 from .broker import Broker
 
@@ -59,10 +58,7 @@ class Limit(Broker):
 
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
-        # TODO: Our rounding still seems incorrect. Binance is always rounding up? Not half up??
-        expected_fee = round_half_up(
-            Fill.total_size(res.fills) * fees.maker, filters.base_precision
-        )
+        expected_fee = Fill.expected_base_fee(res.fills, fees.maker, filters.base_precision)
         if Fill.total_fee(res.fills) != expected_fee:
             _log.warning(
                 f'total_fee={Fill.total_fee(res.fills)} != {expected_fee=} '
@@ -82,9 +78,7 @@ class Limit(Broker):
 
         # Validate fee expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
-        expected_fee = round_half_up(
-            Fill.total_quote(res.fills) * fees.maker, filters.quote_precision
-        )
+        expected_fee = Fill.expected_quote_fee(res.fills, fees.maker, filters.quote_precision)
         if Fill.total_fee(res.fills) != expected_fee:
             _log.warning(
                 f'total_fee={Fill.total_fee(res.fills)} != {expected_fee=} '
