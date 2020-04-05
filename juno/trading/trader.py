@@ -451,6 +451,7 @@ class Trader:
             quantized_total_quote = total_quote.quantize(
                 Decimal(f'0.{"0" * filters.quote_precision}')
             )
+            # TODO: Solve this bad boy. Which way to round yo?
             assert total_quote == quantized_total_quote
             quote_decrease = quantized_total_quote
             _log.info(f'spent {quote_decrease} {config.quote_asset}')
