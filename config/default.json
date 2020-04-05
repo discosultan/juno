@@ -1,6 +1,6 @@
 {
     "log_format": "colored",
-    "log_level": "info",
+    "log_level": "debug",
     "storage": "sqlite",
     "broker": "market",
     "binance": {
@@ -8,20 +8,19 @@
     },
     "agents": [
         {
-            "type": "paper",
+            "type": "live",
             "exchange": "binance",
             "symbol": "eth-btc",
             "interval": "1m",
-            "quote": 0.004,
+            "quote": 0.005,
             "strategy": {
                 "type": "fixed",
-                "advices": ["short", "long", "liquidate"],
+                "advices": ["short", "liquidate"],
                 "allow_initial": "true",
                 "persistence": 0
             },
-            "long": true,
-            "short": true,
-            "plugins": ["discord"]
+            "long": false,
+            "short": true
         }
     ]
 }

@@ -174,9 +174,9 @@ class Trader:
         finally:
             if state.last_candle:
                 if state.open_long_position:
-                    _log.info('ending trading but position open; closing')
+                    _log.info('ending trading but long position open; closing')
                     await self._close_long_position(config, state, state.last_candle)
-                elif state.open_short_position:
+                if state.open_short_position:
                     _log.info('ending trading but short position open; closing')
                     await self._close_short_position(config, state, state.last_candle)
 
@@ -370,7 +370,14 @@ class Trader:
                 fills=res.fills,
             )
 
-            state.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
+            total_quote = Fill.total_quote(res.fills)
+            quantized_total_quote = total_quote.quantize(
+                Decimal(f'0.{"0" * filters.quote_precision}')
+            )
+            assert total_quote == quantized_total_quote
+            quote_increase = quantized_total_quote - Fill.total_fee(res.fills)
+            _log.info(f'received {quote_increase} {config.quote_asset}')
+            state.quote += quote_increase
         else:
             borrowed = self._calculate_borrowed(config, state.quote, price)
             quote = borrowed * price
@@ -410,7 +417,7 @@ class Trader:
 
             size = borrowed + interest
             fee = round_half_up(size * fees.taker, filters.base_precision)
-            fee += round_half_up(fee * fees.taker, filters.base_precision)
+            # fee += round_half_up(fee * fees.taker, filters.base_precision)
             size = filters.size.round_up(size + fee)
 
             _log.info(f'buying {size} {config.base_asset}')
@@ -427,10 +434,8 @@ class Trader:
                     f'repaying {borrowed} + {interest} {config.base_asset} to exchange'
                 )
                 await exchange.repay(config.base_asset, borrowed + interest)
-
-            # Validate!
-            # TODO: Remove if known to work or pay extra if needed.
-            if not config.test:
+                # Validate!
+                # TODO: Remove if known to work or pay extra if needed.
                 new_balance = (await exchange.get_balances(margin=True))[config.base_asset]
                 if new_balance.repay != 0:
                     _log.error(f'did not repay enough; balance {new_balance}')
@@ -442,7 +447,14 @@ class Trader:
                 fills=res.fills,
             )
 
-            state.quote -= Fill.total_quote(res.fills)
+            total_quote = Fill.total_quote(res.fills)
+            quantized_total_quote = total_quote.quantize(
+                Decimal(f'0.{"0" * filters.quote_precision}')
+            )
+            assert total_quote == quantized_total_quote
+            quote_decrease = quantized_total_quote
+            _log.info(f'spent {quote_decrease} {config.quote_asset}')
+            state.quote -= quote_decrease
 
             if not config.test:
                 _log.info(f'transferring {state.quote} {config.quote_asset} to spot account')

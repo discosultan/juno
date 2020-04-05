@@ -125,7 +125,7 @@ class Fill(NamedTuple):
         # Note that we may easily have different fee assets per order when utility tokens such as
         # BNB are used.
         if len({f.fee_asset for f in fills}) > 1:
-            raise NotImplementedError('implement support for different fee assets')
+            raise NotImplementedError('Implement support for different fee assets')
 
         return sum((f.fee for f in fills), Decimal('0.0'))
 
