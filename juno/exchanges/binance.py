@@ -304,11 +304,13 @@ class Binance(Exchange):
                     price=Decimal(data['p']),
                     size=Decimal(data['q']),
                     filled_size=Decimal(data['l']),
+                    filled_quote=Decimal(data['Y']),
                     cumulative_filled_size=Decimal(data['z']),
                     fee=Decimal(data['n']),
                     fee_asset=data['N'].lower() if data['N'] else None
                 )
 
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
         user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
         async with user_data_stream.subscribe('executionReport') as stream:
             yield inner(stream)

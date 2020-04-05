@@ -171,7 +171,9 @@ class Coinbase(Exchange):
             yield inner(ws)
 
     @asynccontextmanager
-    async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[Any]]:
+    async def connect_stream_orders(
+        self, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[Any]]:
         raise NotImplementedError()
         yield
 

@@ -32,6 +32,8 @@ class Market(Broker):
     async def buy_by_quote(
         self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
+        # TODO: Bypass orderbook lookup by placing order based on quote (if exchange supports).
+        # Binance supports it but we are not making use of it.
         fills = self.find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
         return await self._fill(
             exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test, margin=margin
@@ -125,6 +127,8 @@ class Market(Broker):
                 raise InsufficientBalance()
 
         _log.info(f'placing {order_log} of size {size}')
+        # TODO: If we tracked Binance fills with websocket, we could also get filled quote sizes.
+        # Now we need to calculate ourselves.
         res = await self._exchanges[exchange].place_order(
             symbol=symbol, side=side, type_=OrderType.MARKET, size=size, test=test, margin=margin
         )

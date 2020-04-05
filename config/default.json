@@ -2,7 +2,7 @@
     "log_format": "colored",
     "log_level": "debug",
     "storage": "sqlite",
-    "broker": "market",
+    "broker": "limit",
     "binance": {
         "high_precision": false
     },

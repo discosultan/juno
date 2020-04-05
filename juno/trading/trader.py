@@ -333,22 +333,23 @@ class Trader:
                 else await exchange.get_max_borrowable(config.quote_asset)
             )
 
-            # Before borrowing, make sure we can sell the borrowed amount.
-            try:
-                await self._broker.sell(
-                    exchange=config.exchange,
-                    symbol=config.symbol,
-                    size=borrowed,
-                    test=True,
-                    margin=False,  # Has to be false because not supported for test orders.
-                )
-            except Exception:
-                if not config.test:
-                    _log.error(
-                        'unable to sell borrowed amount; transferring funds back to spot account'
-                    )
-                    await exchange.transfer(config.quote_asset, state.quote, margin=False)
-                raise
+            # TODO: Doesn't work with limit broker, doh.
+            # # Before borrowing, make sure we can sell the borrowed amount.
+            # try:
+            #     await self._broker.sell(
+            #         exchange=config.exchange,
+            #         symbol=config.symbol,
+            #         size=borrowed,
+            #         test=True,
+            #         margin=False,  # Has to be false because not supported for test orders.
+            #     )
+            # except Exception:
+            #     if not config.test:
+            #         _log.error(
+            #             'unable to sell borrowed amount; transferring funds back to spot account'
+            #         )
+            #         await exchange.transfer(config.quote_asset, state.quote, margin=False)
+            #     raise
 
             if not config.test:
                 _log.info(f'borrowing {borrowed} {config.base_asset} from exchange')
@@ -370,12 +371,13 @@ class Trader:
                 fills=res.fills,
             )
 
-            total_quote = Fill.total_quote(res.fills)
-            quantized_total_quote = total_quote.quantize(
-                Decimal(f'0.{"0" * filters.quote_precision}')
-            )
-            assert total_quote == quantized_total_quote
-            quote_increase = quantized_total_quote - Fill.total_fee(res.fills)
+            # total_quote = Fill.total_quote(res.fills)
+            # quantized_total_quote = total_quote.quantize(
+            #     Decimal(f'0.{"0" * filters.quote_precision}')
+            # )
+            # assert total_quote == quantized_total_quote
+            # quote_increase = quantized_total_quote - Fill.total_fee(res.fills)
+            quote_increase = Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
             _log.info(f'received {quote_increase} {config.quote_asset}')
             state.quote += quote_increase
         else:
@@ -447,13 +449,15 @@ class Trader:
                 fills=res.fills,
             )
 
-            total_quote = Fill.total_quote(res.fills)
-            quantized_total_quote = total_quote.quantize(
-                Decimal(f'0.{"0" * filters.quote_precision}')
-            )
-            # TODO: Solve this bad boy. Which way to round yo?
-            assert total_quote == quantized_total_quote
-            quote_decrease = quantized_total_quote
+            # total_quote = Fill.total_quote(res.fills)
+            # quantized_total_quote = total_quote.quantize(
+            #     Decimal(f'0.{"0" * filters.quote_precision}')
+            # )
+            # # TODO: Solve this bad boy. Which way to round yo?
+            # assert total_quote == quantized_total_quote
+            # quote_decrease = quantized_total_quote
+            # TODO: Does not work with limit broker.
+            quote_decrease = Fill.total_quote(res.fills)
             _log.info(f'spent {quote_decrease} {config.quote_asset}')
             state.quote -= quote_decrease
 

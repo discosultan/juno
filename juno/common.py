@@ -109,6 +109,7 @@ class Fees(NamedTuple):
 class Fill(NamedTuple):
     price: Decimal = Decimal('0.0')
     size: Decimal = Decimal('0.0')
+    quote: Decimal = Decimal('0.0')
     fee: Decimal = Decimal('0.0')
     fee_asset: str = 'btc'
 
@@ -118,7 +119,8 @@ class Fill(NamedTuple):
 
     @staticmethod
     def total_quote(fills: List[Fill]) -> Decimal:
-        return sum((f.size * f.price for f in fills), Decimal('0.0'))
+        # TODO: This approach is poop.
+        return sum(((f.quote if f.quote else f.size * f.price) for f in fills), Decimal('0.0'))
 
     @staticmethod
     def total_fee(fills: List[Fill]) -> Decimal:
@@ -178,6 +180,7 @@ class OrderUpdate(NamedTuple):
     price: Decimal  # Original.
     size: Decimal  # Original.
     filled_size: Decimal = Decimal('0.0')  # Last.
+    filled_quote: Decimal = Decimal('0.0')  # Last.
     cumulative_filled_size: Decimal = Decimal('0.0')  # Cumulative.
     fee: Decimal = Decimal('0.0')  # Last.
     fee_asset: Optional[str] = None  # Last.
