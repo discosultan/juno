@@ -159,10 +159,11 @@ fn try_open_position<T: Strategy>(
         return false;
     }
 
+    let quote = round_half_up(price * size, filters.quote_precision);
     let fee = round_half_up(size * fees.taker, filters.base_precision);
-    ctx.open_position = Some(Position::new(candle.time, price, size, fee));
 
-    ctx.quote -= price * size;
+    ctx.open_position = Some(Position::new(candle.time, price, size, quote, fee));
+    ctx.quote -= quote;
 
     true
 }
@@ -178,10 +179,10 @@ fn close_position<T: Strategy>(
     if let Some(mut pos) = ctx.open_position.take() {
         let size = filters.size.round_down(pos.base_gain);
 
-        let quote = size * price;
+        let quote = round_half_up(price * size, filters.quote_precision);
         let fee = round_half_up(quote * fees.taker, filters.quote_precision);
 
-        pos.close(candle.time, price, size, fee);
+        pos.close(candle.time, price, size, quote, fee);
         summary.append_position(pos);
 
         ctx.open_position = None;

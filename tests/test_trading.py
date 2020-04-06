@@ -16,13 +16,19 @@ def test_long_position() -> None:
         symbol='eth-btc',
         time=0,
         fills=[
-            Fill(price=Decimal('2.0'), size=Decimal('6.0'), fee=Decimal('2.0'), fee_asset='btc')
+            Fill(
+                price=Decimal('2.0'), size=Decimal('6.0'), quote=Decimal('12.0'),
+                fee=Decimal('2.0'), fee_asset='eth'
+            )
         ],
     )
     pos = open_pos.close(
         time=1,
         fills=[
-            Fill(price=Decimal('2.0'), size=Decimal('2.0'), fee=Decimal('1.0'), fee_asset='eth')
+            Fill(
+                price=Decimal('2.0'), size=Decimal('2.0'), quote=Decimal('4.0'),
+                fee=Decimal('1.0'), fee_asset='btc'
+            )
         ],
     )
 
@@ -42,13 +48,19 @@ def test_long_position_annualized_roi_overflow() -> None:
         symbol='eth-btc',
         time=0,
         fills=[
-            Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='eth')
+            Fill(
+                price=Decimal('1.0'), size=Decimal('1.0'), quote=Decimal('1.0'),
+                fee=Decimal('0.0'), fee_asset='eth'
+            )
         ],
     )
     pos = open_pos.close(
         time=2,
         fills=[
-            Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'), fee_asset='btc')
+            Fill(
+                price=Decimal('2.0'), size=Decimal('1.0'), quote=Decimal('2.0'),
+                fee=Decimal('0.0'), fee_asset='btc'
+            )
         ],
     )
 
@@ -254,6 +266,13 @@ def new_closed_long_position(profit: Decimal) -> LongPosition:
     open_pos = OpenLongPosition(
         symbol='eth-btc',
         time=0,
-        fills=[Fill(price=Decimal('0.0'), size=size)],
+        fills=[
+            Fill(price=Decimal('0.0'), size=size, quote=Decimal('0.0'), fee_asset='eth'),
+        ],
     )
-    return open_pos.close(time=1, fills=[Fill(price=price, size=size)])
+    return open_pos.close(
+        time=1,
+        fills=[
+            Fill(price=price, size=size, quote=Decimal(price * size), fee_asset='btc'),
+        ]
+    )

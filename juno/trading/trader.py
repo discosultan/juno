@@ -259,15 +259,19 @@ class Trader:
             if size == 0:
                 raise InsufficientBalance()
 
+            # quote = price * size
+            quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
             state.open_long_position = OpenLongPosition(
                 symbol=config.symbol,
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
+                fills=[Fill(
+                    price=price, size=size, quote=quote, fee=fee, fee_asset=config.base_asset
+                )],
             )
 
-            state.quote -= size * price
+            state.quote -= quote
 
         _log.info(f'long position opened: {candle}')
         _log.debug(tonamedtuple(state.open_long_position))
@@ -298,12 +302,14 @@ class Trader:
             fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
             size = filters.size.round_down(state.open_long_position.base_gain)
 
-            quote = size * price
+            quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
             position = state.open_long_position.close(
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)],
+                fills=[Fill(
+                    price=price, size=size, quote=quote, fee=fee, fee_asset=config.quote_asset
+                )],
             )
 
             state.quote += quote - fee
@@ -333,24 +339,6 @@ class Trader:
                 else await exchange.get_max_borrowable(config.quote_asset)
             )
 
-            # TODO: Doesn't work with limit broker, doh.
-            # # Before borrowing, make sure we can sell the borrowed amount.
-            # try:
-            #     await self._broker.sell(
-            #         exchange=config.exchange,
-            #         symbol=config.symbol,
-            #         size=borrowed,
-            #         test=True,
-            #         margin=False,  # Has to be false because not supported for test orders.
-            #     )
-            # except Exception:
-            #     if not config.test:
-            #         _log.error(
-            #             'unable to sell borrowed amount; transferring funds back to spot account'
-            #         )
-            #         await exchange.transfer(config.quote_asset, state.quote, margin=False)
-            #     raise
-
             if not config.test:
                 _log.info(f'borrowing {borrowed} {config.base_asset} from exchange')
                 await exchange.borrow(asset=config.base_asset, size=borrowed)
@@ -371,12 +359,6 @@ class Trader:
                 fills=res.fills,
             )
 
-            # total_quote = Fill.total_quote(res.fills)
-            # quantized_total_quote = total_quote.quantize(
-            #     Decimal(f'0.{"0" * filters.quote_precision}')
-            # )
-            # assert total_quote == quantized_total_quote
-            # quote_increase = quantized_total_quote - Fill.total_fee(res.fills)
             quote_increase = Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
             _log.info(f'received {quote_increase} {config.quote_asset}')
             state.quote += quote_increase
@@ -390,7 +372,10 @@ class Trader:
                 collateral=state.quote,
                 borrowed=borrowed,
                 time=candle.time,
-                fills=[Fill(price=price, size=borrowed, fee=fee, fee_asset=config.quote_asset)],
+                fills=[Fill.with_computed_quote(
+                    price=price, size=borrowed, fee=fee, fee_asset=config.quote_asset,
+                    precision=filters.quote_precision
+                )],
             )
 
             state.quote += quote - fee
@@ -419,7 +404,6 @@ class Trader:
 
             size = borrowed + interest
             fee = round_half_up(size * fees.taker, filters.base_precision)
-            # fee += round_half_up(fee * fees.taker, filters.base_precision)
             size = filters.size.round_up(size + fee)
 
             _log.info(f'buying {size} {config.base_asset}')
@@ -449,14 +433,6 @@ class Trader:
                 fills=res.fills,
             )
 
-            # total_quote = Fill.total_quote(res.fills)
-            # quantized_total_quote = total_quote.quantize(
-            #     Decimal(f'0.{"0" * filters.quote_precision}')
-            # )
-            # # TODO: Solve this bad boy. Which way to round yo?
-            # assert total_quote == quantized_total_quote
-            # quote_decrease = quantized_total_quote
-            # TODO: Does not work with limit broker.
             quote_decrease = Fill.total_quote(res.fills)
             _log.info(f'spent {quote_decrease} {config.quote_asset}')
             state.quote -= quote_decrease
@@ -478,7 +454,10 @@ class Trader:
             position = state.open_short_position.close(
                 time=candle.time,
                 interest=interest,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
+                fills=[Fill.with_computed_quote(
+                    price=price, size=size, fee=fee, fee_asset=config.base_asset,
+                    precision=filters.quote_precision
+                )],
             )
 
             state.quote -= size * price

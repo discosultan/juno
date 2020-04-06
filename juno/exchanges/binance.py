@@ -25,6 +25,7 @@ from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientJsonResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page
+from juno.math import ratios, split_by_ratios
 from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import AsyncLimiter
@@ -348,15 +349,22 @@ class Binance(Exchange):
         res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
         if test:
             return OrderResult.not_placed()
+        total_size = Decimal(res.data['executedQty'])
+        total_quote = Decimal(res.data['cummulativeQuoteQty'])
+        fill_quotes = split_by_ratios(
+            total_quote,
+            ratios(total_size, [Decimal(f['qty']) for f in res.data['fills']]),
+        )
         return OrderResult(
             status=_from_order_status(res.data['status']),
             fills=[
                 Fill(
                     price=Decimal(f['price']),
                     size=Decimal(f['qty']),
+                    quote=q,
                     fee=Decimal(f['commission']),
                     fee_asset=f['commissionAsset'].lower()
-                ) for f in res.data['fills']
+                ) for f, q in zip(res.data['fills'], fill_quotes)
             ]
         )
 
@@ -857,7 +865,7 @@ def _from_symbol(symbol: str) -> str:
     # since there is no separator used. We simply map based on known base currencies.
     known_base_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY', 'EUR', 'ZAR'
+        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW'
     ]
     for known_base_asset in known_base_assets:
         if symbol.endswith(known_base_asset):

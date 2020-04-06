@@ -114,13 +114,28 @@ class Fill(NamedTuple):
     fee_asset: str = 'btc'
 
     @staticmethod
+    def with_computed_quote(
+        price: Decimal,
+        size: Decimal,
+        fee: Decimal,
+        fee_asset: str,
+        precision: int
+    ) -> Fill:
+        return Fill(
+            price=price,
+            size=size,
+            quote=round_half_up(price * size, precision),
+            fee=fee,
+            fee_asset=fee_asset,
+        )
+
+    @staticmethod
     def total_size(fills: List[Fill]) -> Decimal:
         return sum((f.size for f in fills), Decimal('0.0'))
 
     @staticmethod
     def total_quote(fills: List[Fill]) -> Decimal:
-        # TODO: This approach is poop.
-        return sum(((f.quote if f.quote else f.size * f.price) for f in fills), Decimal('0.0'))
+        return sum((f.quote for f in fills), Decimal('0.0'))
 
     @staticmethod
     def total_fee(fills: List[Fill]) -> Decimal:

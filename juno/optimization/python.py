@@ -160,16 +160,19 @@ def _try_open_position(
     if size == 0:
         raise InsufficientBalance()
 
+    quote = round_half_up(size * price, filters.quote_precision)
     fee = round_half_up(size * fees.taker, filters.base_precision)
 
     base_asset, _ = unpack_symbol(symbol)
     ctx.open_position = OpenLongPosition(
         symbol=symbol,
         time=candle.time,
-        fills=[Fill(price=price, size=size, fee=fee, fee_asset=base_asset)],
+        fills=[Fill(
+            price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
+        )],
     )
 
-    ctx.quote -= size * price
+    ctx.quote -= quote
 
 
 def _close_position(
@@ -182,17 +185,18 @@ def _close_position(
 
     size = filters.size.round_down(ctx.open_position.base_gain)
 
-    quote = size * price
+    quote = round_half_up(size * price, filters.quote_precision)
     fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
     _, quote_asset = unpack_symbol(symbol)
     summary.append_position(
         ctx.open_position.close(
             time=candle.time,
-            fills=[Fill(price=price, size=size, fee=fee, fee_asset=quote_asset)]
+            fills=[Fill(
+                price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset
+            )]
         )
     )
 
     ctx.quote += quote - fee
-
     ctx.open_position = None

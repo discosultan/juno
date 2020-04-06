@@ -17,11 +17,11 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn new(time: u64, price: f64, size: f64, fee: f64) -> Self {
+    pub fn new(time: u64, price: f64, size: f64, quote: f64, fee: f64) -> Self {
         Self {
             time,
             price,
-            cost: price * size,
+            cost: quote,
             base_gain: size - fee,
 
             base_cost: 0.0,
@@ -34,11 +34,11 @@ impl Position {
         }
     }
 
-    pub fn close(&mut self, time: u64, price: f64, size: f64, fee: f64) {
+    pub fn close(&mut self, time: u64, _price: f64, size: f64, quote: f64, fee: f64) {
         self.close_time = time;
         self.duration = time - self.time;
         self.base_cost = size;
-        self.gain = price * size - fee;
+        self.gain = quote - fee;
         self.profit = self.gain - self.cost;
         self.roi = self.profit / self.cost;
 

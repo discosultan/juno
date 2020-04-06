@@ -27,8 +27,10 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
             symbol='eth-btc',
             time=candle.time,
             fills=[
-                Fill(price=Decimal('1.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
-                     fee_asset='btc')
+                Fill(
+                    price=Decimal('1.0'), size=Decimal('1.0'), quote=Decimal('1.0'),
+                    fee=Decimal('0.0'), fee_asset='btc'
+                )
             ],
         )
         await event.emit('agent', 'position_opened', open_pos, trading_summary)
@@ -36,8 +38,10 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
         pos = open_pos.close(
             time=candle.time,
             fills=[
-                Fill(price=Decimal('2.0'), size=Decimal('1.0'), fee=Decimal('0.0'),
-                     fee_asset='eth')
+                Fill(
+                    price=Decimal('2.0'), size=Decimal('1.0'), quote=Decimal('2.0'),
+                    fee=Decimal('0.0'), fee_asset='eth'
+                )
             ],
         )
         trading_summary.append_position(pos)

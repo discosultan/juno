@@ -57,11 +57,17 @@ class Market(Broker):
         for aprice, asize in self._orderbook.list_asks(exchange, symbol):
             if asize >= size:
                 fee = round_half_up(size * fees.taker, filters.base_precision)
-                result.append(Fill(price=aprice, size=size, fee=fee, fee_asset=base_asset))
+                result.append(Fill.with_computed_quote(
+                    price=aprice, size=size, fee=fee, fee_asset=base_asset,
+                    precision=filters.quote_precision
+                ))
                 break
             else:
                 fee = round_half_up(asize * fees.taker, filters.base_precision)
-                result.append(Fill(price=aprice, size=asize, fee=fee, fee_asset=base_asset))
+                result.append(Fill.with_computed_quote(
+                    price=aprice, size=asize, fee=fee, fee_asset=base_asset,
+                    precision=filters.quote_precision
+                ))
                 size -= asize
         return result
 
@@ -76,12 +82,18 @@ class Market(Broker):
                 size = filters.size.round_down(quote / aprice)
                 if size != 0:
                     fee = round_half_up(size * fees.taker, filters.base_precision)
-                    result.append(Fill(price=aprice, size=size, fee=fee, fee_asset=base_asset))
+                    result.append(Fill.with_computed_quote(
+                        price=aprice, size=size, fee=fee, fee_asset=base_asset,
+                        precision=filters.quote_precision
+                    ))
                 break
             else:
                 assert asize != 0
                 fee = round_half_up(asize * fees.taker, filters.base_precision)
-                result.append(Fill(price=aprice, size=asize, fee=fee, fee_asset=base_asset))
+                result.append(Fill.with_computed_quote(
+                    price=aprice, size=asize, fee=fee, fee_asset=base_asset,
+                    precision=filters.quote_precision
+                ))
                 quote -= aquote
         return result
 
@@ -95,12 +107,18 @@ class Market(Broker):
                 rsize = filters.size.round_down(size)
                 if size != 0:
                     fee = round_half_up(bprice * rsize * fees.taker, filters.quote_precision)
-                    result.append(Fill(price=bprice, size=rsize, fee=fee, fee_asset=quote_asset))
+                    result.append(Fill.with_computed_quote(
+                        price=bprice, size=rsize, fee=fee, fee_asset=quote_asset,
+                        precision=filters.quote_precision
+                    ))
                 break
             else:
                 assert bsize != 0
                 fee = round_half_up(bprice * bsize * fees.taker, filters.quote_precision)
-                result.append(Fill(price=bprice, size=bsize, fee=fee, fee_asset=quote_asset))
+                result.append(Fill.with_computed_quote(
+                    price=bprice, size=bsize, fee=fee, fee_asset=quote_asset,
+                    precision=filters.quote_precision
+                ))
                 size -= bsize
         return result
 
