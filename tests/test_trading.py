@@ -4,7 +4,7 @@ from typing import cast
 
 import pytest
 
-from juno import Candle, Fill, strategies
+from juno import Candle, Fill, Filters, strategies
 from juno.asyncio import cancel
 from juno.trading import LongPosition, MissedCandlePolicy, OpenLongPosition, Trader, TradingSummary
 
@@ -95,14 +95,14 @@ def test_empty_trading_summary() -> None:
     assert summary.max_drawdown == 0
 
 
-async def test_trader_trailing_stop_loss() -> None:
+async def test_trader_upside_trailing_stop() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
-            Candle(time=0, close=Decimal('10.0')),  # Buy.
+            Candle(time=0, close=Decimal('10.0')),  # Open long.
             Candle(time=1, close=Decimal('20.0')),
             Candle(time=2, close=Decimal('18.0')),  # Trigger trailing stop (10%).
-            Candle(time=3, close=Decimal('10.0')),  # Sell (do not act).
+            Candle(time=3, close=Decimal('10.0')),  # Close long (do not act).
         ]
     })
     trader = Trader(chandler=chandler, informant=fakes.Informant())
@@ -116,10 +116,46 @@ async def test_trader_trailing_stop_loss() -> None:
         quote=Decimal('10.0'),
         strategy='fixed',
         strategy_kwargs={
-            'advices': ['long', 'none', 'none', 'short'],
+            'advices': ['long', 'none', 'none', 'liquidate'],
             'allow_initial': True,
         },
         trailing_stop=Decimal('0.1'),
+        long=True,
+        short=False,
+    )
+    summary = await trader.run(config)
+
+    assert summary.profit == 8
+
+
+async def test_trader_downside_trailing_stop() -> None:
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1):
+        [
+            Candle(time=0, close=Decimal('20.0')),  # Open short.
+            Candle(time=1, close=Decimal('10.0')),
+            Candle(time=2, close=Decimal('12.0')),  # Trigger trailing stop (10%).
+            Candle(time=3, close=Decimal('10.0')),  # Close short (do not act).
+        ]
+    })
+    informant = fakes.Informant(filters=Filters(is_margin_trading_allowed=True))
+    trader = Trader(chandler=chandler, informant=informant)
+
+    config = Trader.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=4,
+        quote=Decimal('10.0'),
+        strategy='fixed',
+        strategy_kwargs={
+            'advices': ['short', 'none', 'none', 'liquidate'],
+            'allow_initial': True,
+        },
+        trailing_stop=Decimal('0.1'),
+        long=False,
+        short=True,
     )
     summary = await trader.run(config)
 
