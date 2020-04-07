@@ -364,7 +364,7 @@ class Trader:
             state.quote += quote_increase
         else:
             borrowed = self._calculate_borrowed(config, state.quote, price)
-            quote = borrowed * price
+            quote = round_half_up(price * borrowed, filters.quote_precision)
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
             state.open_short_position = OpenShortPosition(
@@ -372,9 +372,8 @@ class Trader:
                 collateral=state.quote,
                 borrowed=borrowed,
                 time=candle.time,
-                fills=[Fill.with_computed_quote(
-                    price=price, size=borrowed, fee=fee, fee_asset=config.quote_asset,
-                    precision=filters.quote_precision
+                fills=[Fill(
+                    price=price, size=borrowed, quote=quote, fee=fee, fee_asset=config.quote_asset
                 )],
             )
 
@@ -446,21 +445,20 @@ class Trader:
                 state.open_short_position.time,
                 candle.time,
             )
-            size = borrowed + interest
+
+            quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
-            fee += round_half_up(fee * fees.taker, filters.base_precision)
             size += fee
 
             position = state.open_short_position.close(
                 time=candle.time,
                 interest=interest,
-                fills=[Fill.with_computed_quote(
-                    price=price, size=size, fee=fee, fee_asset=config.base_asset,
-                    precision=filters.quote_precision
+                fills=[Fill(
+                    price=price, size=size, quote=quote, fee=fee, fee_asset=config.base_asset
                 )],
             )
 
-            state.quote -= size * price
+            state.quote -= quote
 
         state.open_short_position = None
         state.summary.append_position(position)

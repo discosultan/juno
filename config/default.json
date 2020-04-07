@@ -1,14 +1,14 @@
 {
     "log_format": "colored",
-    "log_level": "debug",
+    "log_level": "info",
     "storage": "sqlite",
-    "broker": "limit",
+    "broker": "market",
     "binance": {
         "high_precision": false
     },
     "agents": [
         {
-            "type": "live",
+            "type": "paper",
             "exchange": "binance",
             "symbol": "eth-btc",
             "interval": "1m",
