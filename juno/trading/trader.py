@@ -259,7 +259,6 @@ class Trader:
             if size == 0:
                 raise InsufficientBalance()
 
-            # quote = price * size
             quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
@@ -446,6 +445,7 @@ class Trader:
                 candle.time,
             )
 
+            size = borrowed + interest
             quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
             size += fee

@@ -1,0 +1,22 @@
+{
+    "log_format": "colored",
+    "log_level": "info",
+    "storage": "sqlite",
+    "agents": [
+        {
+            "type": "backtest",
+            "exchange": "binance",
+            "symbol": "eth-btc",
+            "interval": "1d",
+            "quote": 1.0,
+            "missed_candle_policy": "last",
+            "trailing_stop": 0.9999,
+            "strategy": {
+                "type": "fourweekrule",
+                "ma": "ema"
+            },
+            "long": true,
+            "short": true
+        }
+    ]
+}
