@@ -21,20 +21,22 @@ async def main() -> None:
             symbol='ada-btc',
             open_time=1582683600000,
             open_fills=[
-                Fill(
+                Fill.with_computed_quote(
                     price=Decimal('5.75187032921e-06'),
                     size=Decimal('3474.52200000'),
                     fee=Decimal('0.0'),
                     fee_asset='ada',
+                    precision=8,
                 ),
             ],
             close_time=1582700400000,
             close_fills=[
-                Fill(
+                Fill.with_computed_quote(
                     price=Decimal('5.72426885435e-06'),
                     size=Decimal('3474.00000000'),
                     fee=Decimal('0.0'),
                     fee_asset='btc',
+                    precision=8,
                 ),
             ],
         ),
@@ -42,20 +44,22 @@ async def main() -> None:
             symbol='ada-btc',
             open_time=1582766400000,
             open_fills=[
-                Fill(
+                Fill.with_computed_quote(
                     price=Decimal('5.4954954955e-06'),
                     size=Decimal('3618.37800000'),
                     fee=Decimal('0.0'),
                     fee_asset='ada',
+                    precision=8,
                 ),
             ],
             close_time=1582782900000,
             close_fills=[
-                Fill(
+                Fill.with_computed_quote(
                     price=Decimal('5.67432006633e-06'),
                     size=Decimal('3618.00000000'),
                     fee=Decimal('0.0000134999999901533800000'),
                     fee_asset='btc',
+                    precision=8,
                 ),
             ],
         ),

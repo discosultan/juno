@@ -174,9 +174,9 @@ class Trader:
         finally:
             if state.last_candle:
                 if state.open_long_position:
-                    _log.info('ending trading but position open; closing')
+                    _log.info('ending trading but long position open; closing')
                     await self._close_long_position(config, state, state.last_candle)
-                elif state.open_short_position:
+                if state.open_short_position:
                     _log.info('ending trading but short position open; closing')
                     await self._close_short_position(config, state, state.last_candle)
 
@@ -259,15 +259,19 @@ class Trader:
             if size == 0:
                 raise InsufficientBalance()
 
+            # quote = price * size
+            quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
             state.open_long_position = OpenLongPosition(
                 symbol=config.symbol,
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
+                fills=[Fill(
+                    price=price, size=size, quote=quote, fee=fee, fee_asset=config.base_asset
+                )],
             )
 
-            state.quote -= size * price
+            state.quote -= quote
 
         _log.info(f'long position opened: {candle}')
         _log.debug(tonamedtuple(state.open_long_position))
@@ -298,12 +302,14 @@ class Trader:
             fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
             size = filters.size.round_down(state.open_long_position.base_gain)
 
-            quote = size * price
+            quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
             position = state.open_long_position.close(
                 time=candle.time,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.quote_asset)],
+                fills=[Fill(
+                    price=price, size=size, quote=quote, fee=fee, fee_asset=config.quote_asset
+                )],
             )
 
             state.quote += quote - fee
@@ -333,23 +339,6 @@ class Trader:
                 else await exchange.get_max_borrowable(config.quote_asset)
             )
 
-            # Before borrowing, make sure we can sell the borrowed amount.
-            try:
-                await self._broker.sell(
-                    exchange=config.exchange,
-                    symbol=config.symbol,
-                    size=borrowed,
-                    test=True,
-                    margin=False,  # Has to be false because not supported for test orders.
-                )
-            except Exception:
-                if not config.test:
-                    _log.error(
-                        'unable to sell borrowed amount; transferring funds back to spot account'
-                    )
-                    await exchange.transfer(config.quote_asset, state.quote, margin=False)
-                raise
-
             if not config.test:
                 _log.info(f'borrowing {borrowed} {config.base_asset} from exchange')
                 await exchange.borrow(asset=config.base_asset, size=borrowed)
@@ -370,10 +359,12 @@ class Trader:
                 fills=res.fills,
             )
 
-            state.quote += Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
+            quote_increase = Fill.total_quote(res.fills) - Fill.total_fee(res.fills)
+            _log.info(f'received {quote_increase} {config.quote_asset}')
+            state.quote += quote_increase
         else:
             borrowed = self._calculate_borrowed(config, state.quote, price)
-            quote = borrowed * price
+            quote = round_half_up(price * borrowed, filters.quote_precision)
             fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
             state.open_short_position = OpenShortPosition(
@@ -381,7 +372,9 @@ class Trader:
                 collateral=state.quote,
                 borrowed=borrowed,
                 time=candle.time,
-                fills=[Fill(price=price, size=borrowed, fee=fee, fee_asset=config.quote_asset)],
+                fills=[Fill(
+                    price=price, size=borrowed, quote=quote, fee=fee, fee_asset=config.quote_asset
+                )],
             )
 
             state.quote += quote - fee
@@ -410,7 +403,6 @@ class Trader:
 
             size = borrowed + interest
             fee = round_half_up(size * fees.taker, filters.base_precision)
-            fee += round_half_up(fee * fees.taker, filters.base_precision)
             size = filters.size.round_up(size + fee)
 
             _log.info(f'buying {size} {config.base_asset}')
@@ -427,10 +419,8 @@ class Trader:
                     f'repaying {borrowed} + {interest} {config.base_asset} to exchange'
                 )
                 await exchange.repay(config.base_asset, borrowed + interest)
-
-            # Validate!
-            # TODO: Remove if known to work or pay extra if needed.
-            if not config.test:
+                # Validate!
+                # TODO: Remove if known to work or pay extra if needed.
                 new_balance = (await exchange.get_balances(margin=True))[config.base_asset]
                 if new_balance.repay != 0:
                     _log.error(f'did not repay enough; balance {new_balance}')
@@ -442,7 +432,9 @@ class Trader:
                 fills=res.fills,
             )
 
-            state.quote -= Fill.total_quote(res.fills)
+            quote_decrease = Fill.total_quote(res.fills)
+            _log.info(f'spent {quote_decrease} {config.quote_asset}')
+            state.quote -= quote_decrease
 
             if not config.test:
                 _log.info(f'transferring {state.quote} {config.quote_asset} to spot account')
@@ -453,18 +445,20 @@ class Trader:
                 state.open_short_position.time,
                 candle.time,
             )
-            size = borrowed + interest
+
+            quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
-            fee += round_half_up(fee * fees.taker, filters.base_precision)
             size += fee
 
             position = state.open_short_position.close(
                 time=candle.time,
                 interest=interest,
-                fills=[Fill(price=price, size=size, fee=fee, fee_asset=config.base_asset)],
+                fills=[Fill(
+                    price=price, size=size, quote=quote, fee=fee, fee_asset=config.base_asset
+                )],
             )
 
-            state.quote -= size * price
+            state.quote -= quote
 
         state.open_short_position = None
         state.summary.append_position(position)

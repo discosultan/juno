@@ -12,16 +12,15 @@
             "exchange": "binance",
             "symbol": "eth-btc",
             "interval": "1m",
-            "quote": 0.004,
+            "quote": 0.005,
             "strategy": {
                 "type": "fixed",
-                "advices": ["short", "long", "liquidate"],
+                "advices": ["short", "liquidate"],
                 "allow_initial": "true",
                 "persistence": 0
             },
-            "long": true,
-            "short": true,
-            "plugins": ["discord"]
+            "long": false,
+            "short": true
         }
     ]
 }

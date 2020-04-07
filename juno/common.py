@@ -109,8 +109,25 @@ class Fees(NamedTuple):
 class Fill(NamedTuple):
     price: Decimal = Decimal('0.0')
     size: Decimal = Decimal('0.0')
+    quote: Decimal = Decimal('0.0')
     fee: Decimal = Decimal('0.0')
     fee_asset: str = 'btc'
+
+    @staticmethod
+    def with_computed_quote(
+        price: Decimal,
+        size: Decimal,
+        fee: Decimal,
+        fee_asset: str,
+        precision: int
+    ) -> Fill:
+        return Fill(
+            price=price,
+            size=size,
+            quote=round_half_up(price * size, precision),
+            fee=fee,
+            fee_asset=fee_asset,
+        )
 
     @staticmethod
     def total_size(fills: List[Fill]) -> Decimal:
@@ -118,14 +135,14 @@ class Fill(NamedTuple):
 
     @staticmethod
     def total_quote(fills: List[Fill]) -> Decimal:
-        return sum((f.size * f.price for f in fills), Decimal('0.0'))
+        return sum((f.quote for f in fills), Decimal('0.0'))
 
     @staticmethod
     def total_fee(fills: List[Fill]) -> Decimal:
         # Note that we may easily have different fee assets per order when utility tokens such as
         # BNB are used.
         if len({f.fee_asset for f in fills}) > 1:
-            raise NotImplementedError('implement support for different fee assets')
+            raise NotImplementedError('Implement support for different fee assets')
 
         return sum((f.fee for f in fills), Decimal('0.0'))
 
@@ -178,6 +195,7 @@ class OrderUpdate(NamedTuple):
     price: Decimal  # Original.
     size: Decimal  # Original.
     filled_size: Decimal = Decimal('0.0')  # Last.
+    filled_quote: Decimal = Decimal('0.0')  # Last.
     cumulative_filled_size: Decimal = Decimal('0.0')  # Cumulative.
     fee: Decimal = Decimal('0.0')  # Last.
     fee_asset: Optional[str] = None  # Last.

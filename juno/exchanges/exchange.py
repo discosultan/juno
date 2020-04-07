@@ -61,7 +61,9 @@ class Exchange(ABC):
 
     @abstractmethod
     @asynccontextmanager
-    async def connect_stream_orders(self) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
+    async def connect_stream_orders(
+        self, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         yield  # type: ignore
 
     @abstractmethod
