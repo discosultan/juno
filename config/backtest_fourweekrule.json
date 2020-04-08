@@ -9,11 +9,11 @@
             "symbol": "eth-btc",
             "interval": "1d",
             "quote": 1.0,
-            "missed_candle_policy": "last",
-            "trailing_stop": 0.9999,
+            "missed_candle_policy": "ignore",
+            "trailing_stop": 0.13,
             "strategy": {
                 "type": "fourweekrule",
-                "ma": "ema"
+                "ma": "sma"
             },
             "long": true,
             "short": true
