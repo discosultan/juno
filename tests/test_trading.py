@@ -4,7 +4,7 @@ from typing import cast
 
 import pytest
 
-from juno import Candle, Fill, Filters, strategies
+from juno import BorrowInfo, Candle, Fill, Filters, strategies
 from juno.asyncio import cancel
 from juno.trading import LongPosition, MissedCandlePolicy, OpenLongPosition, Trader, TradingSummary
 
@@ -132,13 +132,16 @@ async def test_trader_downside_trailing_stop() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
-            Candle(time=0, close=Decimal('20.0')),  # Open short.
-            Candle(time=1, close=Decimal('10.0')),
-            Candle(time=2, close=Decimal('12.0')),  # Trigger trailing stop (10%).
+            Candle(time=0, close=Decimal('10.0')),  # Open short.
+            Candle(time=1, close=Decimal('5.0')),
+            Candle(time=2, close=Decimal('6.0')),  # Trigger trailing stop (10%).
             Candle(time=3, close=Decimal('10.0')),  # Close short (do not act).
         ]
     })
-    informant = fakes.Informant(filters=Filters(is_margin_trading_allowed=True))
+    informant = fakes.Informant(
+        filters=Filters(is_margin_trading_allowed=True),
+        borrow_info=(BorrowInfo(limit=Decimal('1.0')), 2),
+    )
     trader = Trader(chandler=chandler, informant=informant)
 
     config = Trader.Config(
@@ -159,7 +162,7 @@ async def test_trader_downside_trailing_stop() -> None:
     )
     summary = await trader.run(config)
 
-    assert summary.profit == 8
+    assert summary.profit == 4
 
 
 async def test_trader_restart_on_missed_candle() -> None:
