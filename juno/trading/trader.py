@@ -64,8 +64,12 @@ class Trader:
             return unpack_symbol(self.symbol)[1]
 
         @property
-        def trailing_factor(self) -> Decimal:
+        def upside_trailing_factor(self) -> Decimal:
             return 1 - self.trailing_stop
+
+        @property
+        def downside_trailing_factor(self) -> Decimal:
+            return 1 + self.trailing_stop
 
         def new_strategy(self) -> Strategy:
             return get_module_type(importlib.import_module(self.strategy_module), self.strategy)(
@@ -202,7 +206,8 @@ class Trader:
                 state.highest_close_since_position = max(
                     state.highest_close_since_position, candle.close
                 )
-                if candle.close <= state.highest_close_since_position * config.trailing_factor:
+                target = state.highest_close_since_position * config.upside_trailing_factor
+                if candle.close <= target:
                     _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
                     await self._close_long_position(config, state, candle)
                     assert advice is not Advice.LONG
@@ -213,7 +218,8 @@ class Trader:
                 state.lowest_close_since_position = min(
                     state.lowest_close_since_position, candle.close
                 )
-                if candle.close >= state.lowest_close_since_position * config.trailing_factor:
+                target = state.lowest_close_since_position * config.downside_trailing_factor
+                if candle.close >= target:
                     _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
                     await self._close_short_position(config, state, candle)
                     assert advice is not Advice.SHORT
@@ -259,7 +265,6 @@ class Trader:
             if size == 0:
                 raise InsufficientBalance()
 
-            # quote = price * size
             quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
 
@@ -446,6 +451,7 @@ class Trader:
                 candle.time,
             )
 
+            size = borrowed + interest
             quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
             size += fee

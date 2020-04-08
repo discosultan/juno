@@ -44,7 +44,7 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: 
         ('binance', 'eth-btc', DAY_MS): statistics_candles,
         ('coinbase', 'btc-eur', DAY_MS): statistics_fiat_candles,
     })
-    prices = Prices(chandler=chandler)
+    prices = Prices(chandler=chandler, exchanges=[])
     informant = fakes.Informant(
         candle_intervals=[HOUR_MS],
         symbols=['eth-btc'],

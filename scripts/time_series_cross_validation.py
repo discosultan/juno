@@ -29,7 +29,7 @@ async def main() -> None:
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=exchanges)
     historian = Historian(chandler=chandler, storage=sqlite, exchanges=exchanges)
     informant = Informant(storage=sqlite, exchanges=exchanges)
-    prices = Prices(chandler=chandler)
+    prices = Prices(chandler=chandler, exchanges=exchanges)
     trader = Trader(chandler=chandler, informant=informant, exchanges=exchanges)
     rust_solver = Rust()
     optimizer = Optimizer(rust_solver, chandler, informant, prices, trader)

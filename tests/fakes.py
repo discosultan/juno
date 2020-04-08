@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Dict, List, Tuple
 
 from juno import (
-    Balance, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters,
+    Balance, BorrowInfo, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters,
     OrderResult, OrderStatus, Side, brokers, components, exchanges, storages
 )
 from juno.asyncio import Event
@@ -218,6 +218,7 @@ class Informant(components.Informant):
         tickers=[],
         exchanges=[],
         exchanges_supporting_symbol=[],
+        borrow_info=(BorrowInfo(), 1),
     ):
         self.fees = fees
         self.filters = filters
@@ -226,6 +227,10 @@ class Informant(components.Informant):
         self.tickers = tickers
         self.exchanges = exchanges
         self.exchanges_supporting_symbol = exchanges_supporting_symbol
+        self.borrow_info = borrow_info
+
+    def get_borrow_info(self, exchange, asset):
+        return self.borrow_info
 
     def get_fees_filters(self, exchange, symbol):
         return self.fees, self.filters

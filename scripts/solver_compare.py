@@ -66,7 +66,7 @@ async def main() -> None:
     informant = components.Informant(storage, exchange_list)
     trades = components.Trades(storage, exchange_list)
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
-    prices = components.Prices(chandler)
+    prices = components.Prices(chandler=chandler, exchanges=exchange_list)
     trader = Trader(chandler=chandler, informant=informant, exchanges=exchange_list)
     rust_solver = optimization.Rust()
     python_solver = optimization.Python()

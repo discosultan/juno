@@ -107,7 +107,8 @@ class Backtest(Agent):
         await self._trader.run(trader_config, state.result)
         assert state.result.summary
 
-        if not self._prices:
+        if not self._prices or not self._prices.fiat_prices_available:
+            _log.warning('skipping analysis; fiat prices not available')
             return
 
         # Fetch necessary market data.

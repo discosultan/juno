@@ -4,13 +4,17 @@ from typing import Dict, Iterable, List
 
 from juno.asyncio import resolved_stream, zip_async
 from juno.components import Chandler
+from juno.exchanges import Coinbase, Exchange
 from juno.math import floor_multiple
 from juno.time import DAY_MS
 
 
 class Prices:
-    def __init__(self, chandler: Chandler) -> None:
+    def __init__(self, chandler: Chandler, exchanges: List[Exchange]) -> None:
+        self.fiat_prices_available = any(isinstance(e, Coinbase) for e in exchanges)
+
         self._chandler = chandler
+        self._exchanges = exchanges
         self._fiat_asset = 'eur'
 
     async def map_fiat_daily_prices(
