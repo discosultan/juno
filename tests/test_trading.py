@@ -117,7 +117,7 @@ async def test_trader_upside_trailing_stop() -> None:
         strategy='fixed',
         strategy_kwargs={
             'advices': ['long', 'none', 'none', 'liquidate'],
-            'allow_initial': True,
+            'ignore_first': False,
         },
         trailing_stop=Decimal('0.1'),
         long=True,
@@ -154,7 +154,7 @@ async def test_trader_downside_trailing_stop() -> None:
         strategy='fixed',
         strategy_kwargs={
             'advices': ['short', 'none', 'none', 'liquidate'],
-            'allow_initial': True,
+            'ignore_first': False,
         },
         trailing_stop=Decimal('0.1'),
         long=False,

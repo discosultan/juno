@@ -197,6 +197,9 @@ class Trader:
         advice = state.strategy.update(candle)
         _log.debug(f'received advice: {advice.name}')
         if state.current < config.start:
+            _log.critical(f'{state.current=}')
+            _log.critical(f'{config.start=}')
+            _log.critical(f'{advice=}')
             assert advice is Advice.NONE
 
         if state.open_long_position:

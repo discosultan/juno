@@ -28,7 +28,7 @@ class FourWeekRule(Generic[T], Strategy):
     _advice: Advice = Advice.LIQUIDATE
 
     def __init__(self, ma: str = indicators.Ema.__name__.lower()) -> None:
-        super().__init__(maturity=28)
+        super().__init__(maturity=28, persistence=0, ignore_first=False)
         self._prices = deque(maxlen=28)
         self._ma = get_module_type(indicators, ma)(14)
 

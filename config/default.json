@@ -16,7 +16,7 @@
             "strategy": {
                 "type": "fixed",
                 "advices": ["short", "liquidate"],
-                "allow_initial": "true",
+                "ignore_first": "false",
                 "persistence": 0
             },
             "long": false,
