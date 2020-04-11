@@ -1,7 +1,8 @@
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Advice {
-    Buy,
-    Sell,
+    None,
+    Long,
+    Short,
 }
 
 #[derive(Debug, Clone, Copy)]

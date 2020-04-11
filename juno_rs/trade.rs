@@ -128,12 +128,12 @@ fn tick<T: Strategy>(
 ) -> bool {
     let advice = ctx.strategy.update(&candle);
 
-    if ctx.open_position.is_none() && advice == Some(Advice::Buy) {
+    if ctx.open_position.is_none() && advice == Advice::Long {
         if !try_open_position(&mut ctx, fees, filters, &candle) {
             return false;
         }
         ctx.highest_close_since_position = candle.close
-    } else if ctx.open_position.is_some() && advice == Some(Advice::Sell) {
+    } else if ctx.open_position.is_some() && advice == Advice::Short {
         close_position(&mut ctx, &mut summary, fees, filters, &candle);
     } else if trailing_stop != 0.0 && ctx.open_position.is_some() {
         ctx.highest_close_since_position = f64::max(ctx.highest_close_since_position, candle.close);

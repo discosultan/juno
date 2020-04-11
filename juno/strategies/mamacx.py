@@ -63,6 +63,7 @@ class MAMACX(Generic[TShort, TLong], Strategy):
         super().__init__(
             maturity=max(self._long_ma.maturity, self._short_ma.maturity),
             persistence=persistence,
+            ignore_mid_trend=True,
         )
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma

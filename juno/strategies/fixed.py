@@ -13,10 +13,17 @@ class Fixed(Strategy):
     updates: List[Candle]
 
     def __init__(
-        self, advices: List[str] = [], persistence: int = 0,
-        allow_initial: bool = False, maturity: int = 0
+        self,
+        advices: List[str] = [],
+        maturity: int = 0,
+        ignore_mid_trend: bool = False,
+        persistence: int = 0,
     ) -> None:
-        super().__init__(maturity=maturity, persistence=persistence, allow_initial=allow_initial)
+        super().__init__(
+            maturity=maturity,
+            persistence=persistence,
+            ignore_mid_trend=ignore_mid_trend,
+        )
         self.advices = [Advice[a.upper()] for a in advices]
         self.updates = []
 

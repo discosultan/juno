@@ -2,8 +2,7 @@ import operator
 
 import pytest
 
-from juno import Advice, math
-from juno.strategies import Meta, Persistence, Strategy
+from juno import Advice, math, strategies
 
 
 def test_strategy_meta():
@@ -16,10 +15,10 @@ def test_strategy_meta():
         strategy.validate(11, 9)
 
 
-class DummyStrategy(Strategy):
+class DummyStrategy(strategies.Strategy):
     @staticmethod
-    def meta() -> Meta:
-        return Meta(
+    def meta() -> strategies.Meta:
+        return strategies.Meta(
             constraints={
                 ('foo', 'bar'): math.Pair(math.Int(0, 15), operator.lt, math.Int(10, 20)),
             }
@@ -29,67 +28,81 @@ class DummyStrategy(Strategy):
         pass
 
 
-def test_persistence_level_0_allow_initial_trend() -> None:
-    persistence = Persistence(level=0, allow_initial=True)
-    assert persistence.update(Advice.LONG) == (True, True)
-    assert persistence.update(Advice.LONG) == (True, False)
-    assert persistence.update(Advice.SHORT) == (True, True)
-    assert persistence.update(Advice.NONE) == (False, True)
-    assert persistence.update(Advice.LONG) == (True, True)
+def test_mid_trend_ignore_false() -> None:
+    target = strategies.MidTrend(ignore=False)
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_persistence_level_0_disallow_initial_trend() -> None:
-    persistence = Persistence(level=0, allow_initial=False)
-    assert persistence.update(Advice.LONG) == (False, False)
-    assert persistence.update(Advice.LONG) == (False, False)
+def test_mid_trend_ignore_true() -> None:
+    target = strategies.MidTrend(ignore=True)
+    assert target.update(Advice.LONG) is Advice.NONE
+    assert target.update(Advice.LONG) is Advice.NONE
+    assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_persistence_level_0_disallow_initial_trend_starting_with_unknown_does_not_skip_initial(
+def test_mid_trend_ignore_starting_with_none_does_not_ignore_first(
 ) -> None:
-    persistence = Persistence(level=0, allow_initial=False)
-    assert persistence.update(Advice.NONE) == (False, False)
-    assert persistence.update(Advice.LONG) == (True, True)
+    target = strategies.MidTrend(ignore=True)
+    assert target.update(Advice.NONE) is Advice.NONE
+    assert target.update(Advice.LONG) is Advice.LONG
 
 
-def test_persistence_level_1_allow_initial_trend() -> None:
-    persistence = Persistence(level=1, allow_initial=True)
-    assert persistence.update(Advice.LONG) == (False, False)
-    assert persistence.update(Advice.LONG) == (True, True)
-    assert persistence.update(Advice.LONG) == (True, False)
-    assert persistence.update(Advice.SHORT) == (True, False)
-    assert persistence.update(Advice.SHORT) == (True, True)
-    assert persistence.update(Advice.NONE) == (True, False)
-    assert persistence.update(Advice.NONE) == (False, True)
+# def test_ignore_not_mature(
+# ) -> None:
+#     target = strategies.IgnoreNotMatureAndMidTrend(maturity=1, ignore_mid_trend=False)
+#     assert target.update(Advice.LONG) is Advice.NONE
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_persistence_level_1_disallow_initial_trend() -> None:
-    persistence = Persistence(level=1, allow_initial=False)
-    assert persistence.update(Advice.LONG) == (False, False)
-    assert persistence.update(Advice.LONG) == (False, False)
-    assert persistence.update(Advice.LONG) == (False, False)
+def test_persistence_level_0() -> None:
+    target = strategies.Persistence(level=0)
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_persistence_level_1_disallow_initial_trend_starting_with_unknown_does_not_skip_initial(
-) -> None:
-    persistence = Persistence(level=1, allow_initial=False)
-    assert persistence.update(Advice.NONE) == (False, False)
-    assert persistence.update(Advice.LONG) == (False, False)
-    assert persistence.update(Advice.LONG) == (True, True)
+def test_persistence_level_1() -> None:
+    target = strategies.Persistence(level=1)
+    assert target.update(Advice.LONG) is Advice.NONE
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.SHORT) is Advice.LONG
+    assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_persistence_level_1_disallow_initial_trend_starting_with_up_does_not_skip_initial(
-) -> None:
-    persistence = Persistence(level=1, allow_initial=False)
-    assert persistence.update(Advice.LONG) == (False, False)
-    assert persistence.update(Advice.SHORT) == (False, False)
-    assert persistence.update(Advice.SHORT) == (True, True)
+# def test_changed_disabled() -> None:
+#     target = strategies.Changed(enabled=False)
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.NONE) is Advice.NONE
+#     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_persistence_level_1_allow_initial_trend_change_resets_age() -> None:
-    persistence = Persistence(level=1, allow_initial=True)
-    assert persistence.update(Advice.LONG) == (False, False)
-    assert persistence.update(Advice.LONG) == (True, True)
-    assert persistence.update(Advice.SHORT) == (True, False)
-    assert persistence.update(Advice.LONG) == (True, False)
-    assert persistence.update(Advice.SHORT) == (True, False)
-    assert persistence.update(Advice.SHORT) == (True, True)
+# def test_changed_enabled() -> None:
+#     target = strategies.Changed(enabled=True)
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.LONG) is Advice.NONE
+#     assert target.update(Advice.NONE) is Advice.NONE
+#     assert target.update(Advice.SHORT) is Advice.SHORT
+
+
+def test_mid_trend_persistence_combination() -> None:
+    target1 = strategies.MidTrend(ignore=True)
+    target2 = strategies.Persistence(level=1)
+
+    assert Advice.combine(
+        target1.update(Advice.SHORT),
+        target2.update(Advice.SHORT),
+    ) is Advice.NONE
+    assert Advice.combine(
+        target1.update(Advice.LONG),
+        target2.update(Advice.LONG),
+    ) is Advice.NONE
+    assert Advice.combine(
+        target1.update(Advice.LONG),
+        target2.update(Advice.LONG),
+    ) is Advice.LONG

@@ -7,41 +7,71 @@ pub use macd::Macd;
 pub use macdrsi::MacdRsi;
 pub use mamacx::MAMACX;
 pub use rsi::Rsi;
+use std::cmp::min;
 
 use crate::{Advice, Candle};
 
 pub trait Strategy {
-    fn update(&mut self, candle: &Candle) -> Option<Advice>;
+    fn update(&mut self, candle: &Candle) -> Advice;
 }
 
-pub struct Persistence {
-    age: u32,
-    level: u32,
-    allow_next: bool,
-    value: Option<Advice>,
-    potential: Option<Advice>,
-    changed: bool,
+struct MidTrend {
+    ignore: bool,
+    previous: Option<Advice>,
 }
 
-impl Persistence {
-    pub fn new(level: u32, allow_initial: bool) -> Self {
-        Persistence {
-            age: 0,
-            level,
-            allow_next: allow_initial,
-            value: None,
-            potential: None,
-            changed: false,
+impl MidTrend {
+    pub fn new(ignore: bool) -> Self {
+        Self {
+            ignore,
+            previous: None,
         }
     }
 
-    pub fn persisted(&self) -> bool {
-        self.value.is_some() && self.age >= self.level
+    pub fn maturity(&self) -> u32 {
+        1
     }
 
-    pub fn update(&mut self, value: Option<Advice>) -> (bool, bool) {
-        if value.is_none() || (self.potential.is_some() && value != self.potential) {
-            self.allow_next = true;
+    pub fn update(&mut self, value: Advice) -> Advice {
+        if !self.ignore {
+            return value;
+        }
+
+        let mut result = Advice::None;
+        if self.previous.is_none() {
+            self.previous = Some(value)
+        } else if Some(value) != self.previous {
+            self.ignore = false;
+            result = value;
+        }
+        return result
+    }
+}
+
+struct Persistence {
+    age: u32,
+    level: u32,
+    potential: Advice,
+    previous: Advice,
+}
+
+impl Persistence {
+    pub fn new(level: u32) -> Self {
+        Self {
+            age: 0,
+            level,
+            potential: Advice::None,
+            previous: Advice::None,
+        }
+    }
+
+    pub fn maturity(&self) -> u32 {
+        self.level
+    }
+
+    pub fn update(&mut self, value: Advice) -> Advice {
+        if self.level == 0 {
+            return value;
         }
 
         if value != self.potential {
@@ -49,15 +79,24 @@ impl Persistence {
             self.potential = value;
         }
 
-        if self.allow_next && self.age == self.level && self.potential != self.value {
-            self.value = self.potential;
-            self.changed = true;
+        let result = if self.age >= self.level {
+            self.previous = self.potential;
+            self.potential
         } else {
-            self.changed = false;
-        }
+            self.previous
+        };
 
-        self.age += 1;
-
-        (self.persisted(), self.changed)
+        self.age = min(self.age + 1, self.level);
+        result
     }
+}
+
+pub fn combine(advice1: Advice, advice2: Advice) -> Advice {
+    if advice1 == Advice::None || advice2 == Advice::None {
+        return Advice::None
+    }
+    // if advice1 != advice2 {
+    //     return Advice::Liquidate;
+    // }
+    advice1
 }
