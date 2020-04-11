@@ -1,20 +1,13 @@
 use crate::{
-    strategies::{Macd, Persistence, Rsi, Strategy},
+    strategies::{Macd, MidTrend, Persistence, Rsi, Strategy, combine},
     Advice, Candle,
 };
 
 pub struct MacdRsi {
     macd: Macd,
     rsi: Rsi,
+    mid_trend: MidTrend,
     persistence: Persistence,
-}
-
-fn combine(advice1: Option<Advice>, advice2: Option<Advice>) -> Option<Advice> {
-    match (advice1, advice2) {
-        (Some(Advice::Buy), Some(Advice::Buy)) => Some(Advice::Buy),
-        (Some(Advice::Sell), Some(Advice::Sell)) => Some(Advice::Sell),
-        _ => None,
-    }
 }
 
 impl MacdRsi {
@@ -30,22 +23,17 @@ impl MacdRsi {
         Self {
             macd: Macd::new(macd_short_period, macd_long_period, macd_signal_period, 0),
             rsi: Rsi::new(rsi_period, rsi_up_threshold, rsi_down_threshol, 0),
-            persistence: Persistence::new(persistence, false),
+            mid_trend: MidTrend::new(true),
+            persistence: Persistence::new(persistence),
         }
     }
 }
 
 impl Strategy for MacdRsi {
-    fn update(&mut self, candle: &Candle) -> Option<Advice> {
+    fn update(&mut self, candle: &Candle) -> Advice {
         let macd_advice = self.macd.update(candle);
         let rsi_advice = self.rsi.update(candle);
         let advice = combine(macd_advice, rsi_advice);
-
-        let (persisted, _) = self.persistence.update(advice);
-        if persisted {
-            advice
-        } else {
-            None
-        }
+        self.persistence.update(advice)
     }
 }

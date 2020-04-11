@@ -15,11 +15,15 @@ class Fixed(Strategy):
     def __init__(
         self,
         advices: List[str] = [],
-        persistence: int = 0,
-        ignore_first: bool = False,
         maturity: int = 0,
+        ignore_mid_trend: bool = False,
+        persistence: int = 0,
     ) -> None:
-        super().__init__(maturity=maturity, persistence=persistence, ignore_first=ignore_first)
+        super().__init__(
+            maturity=maturity,
+            persistence=persistence,
+            ignore_mid_trend=ignore_mid_trend,
+        )
         self.advices = [Advice[a.upper()] for a in advices]
         self.updates = []
 

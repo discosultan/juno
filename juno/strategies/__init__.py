@@ -4,17 +4,18 @@ from .macd import Macd
 from .macdrsi import MacdRsi
 from .mamacx import MAMACX
 from .rsi import Rsi
-from .strategy import Changed, IgnoreNotMatureAndMidTrend, Meta, Persistence, Strategy
+from .strategy import Meta, MidTrend, Persistence, Strategy
 
 __all__ = [
-    'Changed',
+    # 'Changed',
     'Fixed',
     'FourWeekRule',
-    'IgnoreNotMatureAndMidTrend',
     'Macd',
     'MacdRsi',
     'MAMACX',
+    # 'Maturity',
     'Meta',
+    'MidTrend',
     'Persistence',
     'Rsi',
     'Strategy',

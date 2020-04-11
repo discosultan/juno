@@ -28,42 +28,43 @@ class DummyStrategy(strategies.Strategy):
         pass
 
 
-def test_ignore_mid_trend_disabled() -> None:
-    target = strategies.IgnoreNotMatureAndMidTrend(maturity=0, ignore_mid_trend=False)
+def test_mid_trend_ignore_false() -> None:
+    target = strategies.MidTrend(ignore=False)
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_ignore_mid_trend_enabled() -> None:
-    target = strategies.IgnoreNotMatureAndMidTrend(maturity=0, ignore_mid_trend=True)
+def test_mid_trend_ignore_true() -> None:
+    target = strategies.MidTrend(ignore=True)
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_ignore_mid_trend_starting_with_none_does_not_skip_first(
+def test_mid_trend_ignore_starting_with_none_does_not_ignore_first(
 ) -> None:
-    target = strategies.IgnoreNotMatureAndMidTrend(maturity=0, ignore_mid_trend=True)
+    target = strategies.MidTrend(ignore=True)
     assert target.update(Advice.NONE) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.LONG
 
 
-def test_ignore_not_mature(
-) -> None:
-    target = strategies.IgnoreNotMatureAndMidTrend(maturity=1, ignore_mid_trend=False)
-    assert target.update(Advice.LONG) is Advice.NONE
-    assert target.update(Advice.LONG) is Advice.LONG
-    assert target.update(Advice.LONG) is Advice.LONG
-    assert target.update(Advice.SHORT) is Advice.SHORT
+# def test_ignore_not_mature(
+# ) -> None:
+#     target = strategies.IgnoreNotMatureAndMidTrend(maturity=1, ignore_mid_trend=False)
+#     assert target.update(Advice.LONG) is Advice.NONE
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_ignore_not_mature_and_mid_trend() -> None:
-    target = strategies.IgnoreNotMatureAndMidTrend(maturity=2, ignore_mid_trend=True)
+# def test_ignore_not_mature_and_mid_trend() -> None:
+#     target = strategies.IgnoreNotMatureAndMidTrend(maturity=2, ignore_mid_trend=True)
 
-    assert target.update(Advice.SHORT) is Advice.NONE
-    assert target.update(Advice.SHORT) is Advice.NONE
-    assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.SHORT) is Advice.NONE
+#     assert target.update(Advice.SHORT) is Advice.NONE
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.LONG) is Advice.LONG
 
 
 def test_persistence_level_0() -> None:
@@ -82,17 +83,35 @@ def test_persistence_level_1() -> None:
     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_changed_disabled() -> None:
-    target = strategies.Changed(enabled=False)
-    assert target.update(Advice.LONG) is Advice.LONG
-    assert target.update(Advice.LONG) is Advice.LONG
-    assert target.update(Advice.NONE) is Advice.NONE
-    assert target.update(Advice.SHORT) is Advice.SHORT
+# def test_changed_disabled() -> None:
+#     target = strategies.Changed(enabled=False)
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.NONE) is Advice.NONE
+#     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_changed_enabled() -> None:
-    target = strategies.Changed(enabled=True)
-    assert target.update(Advice.LONG) is Advice.LONG
-    assert target.update(Advice.LONG) is Advice.NONE
-    assert target.update(Advice.NONE) is Advice.NONE
-    assert target.update(Advice.SHORT) is Advice.SHORT
+# def test_changed_enabled() -> None:
+#     target = strategies.Changed(enabled=True)
+#     assert target.update(Advice.LONG) is Advice.LONG
+#     assert target.update(Advice.LONG) is Advice.NONE
+#     assert target.update(Advice.NONE) is Advice.NONE
+#     assert target.update(Advice.SHORT) is Advice.SHORT
+
+
+def test_mid_trend_persistence_combination() -> None:
+    target1 = strategies.MidTrend(ignore=True)
+    target2 = strategies.Persistence(level=1)
+
+    assert Advice.combine(
+        target1.update(Advice.SHORT),
+        target2.update(Advice.SHORT),
+    ) is Advice.NONE
+    assert Advice.combine(
+        target1.update(Advice.LONG),
+        target2.update(Advice.LONG),
+    ) is Advice.NONE
+    assert Advice.combine(
+        target1.update(Advice.LONG),
+        target2.update(Advice.LONG),
+    ) is Advice.LONG

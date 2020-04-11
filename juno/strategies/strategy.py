@@ -3,32 +3,50 @@ from typing import Any, Dict, Optional, Tuple, Union
 from juno import Advice, Candle
 from juno.math import Constraint
 
+# class Maturity:
+#     """Ignore advice if strategy not mature."""
+#     _maturity: int
+#     _age: int = 0
 
-class IgnoreNotMatureAndMidTrend:
-    """Ignore advice if not mature and first matured advice if middle of trend."""
-    _maturity: int
-    _ignore_mid_trend: bool
+#     def __init__(self, maturity: int) -> None:
+#         self._maturity = maturity
+
+#     @property
+#     def maturity(self) -> int:
+#         return self._maturity
+
+#     def update(self, value: Advice) -> Advice:
+#         result = Advice.NONE
+#         if self._age >= self._maturity:
+#             result = value
+
+#         self._age = min(self._age + 1, self._maturity)
+#         return result
+
+
+class MidTrend:
+    """Ignore first advice if middle of trend."""
+    _ignore: bool
     _previous: Optional[Advice] = None
-    _age: int = 0
 
-    def __init__(self, maturity: int, ignore_mid_trend: bool) -> None:
-        self._maturity = maturity
-        self._ignore_mid_trend = ignore_mid_trend
+    def __init__(self, ignore: bool) -> None:
+        self._ignore = ignore
+
+    @property
+    def maturity(self) -> int:
+        # Requires an extra candle to be fetched historically.
+        return 1
 
     def update(self, value: Advice) -> Advice:
-        result = Advice.NONE
-        if self._age >= self._maturity:
-            if self._ignore_mid_trend:
-                if self._previous is None:
-                    self._previous = value
-                elif value is not self._previous:
-                    self._enabled = False
-                    result = value
-            else:
-                result = value
+        if not self._ignore:
+            return value
 
-        self._previous = value
-        self._age = min(self._age + 1, self._maturity)
+        result = Advice.NONE
+        if self._previous is None:
+            self._previous = value
+        elif value != self._previous:
+            self._ignore = False
+            result = value
         return result
 
 
@@ -42,6 +60,10 @@ class Persistence:
     def __init__(self, level: int) -> None:
         assert level >= 0
         self._level = level
+
+    @property
+    def maturity(self) -> int:
+        return self._level
 
     def update(self, value: Advice) -> Advice:
         if self._level == 0:
@@ -62,21 +84,25 @@ class Persistence:
         return result
 
 
-class Changed:
-    """Pass an advice only if was changed on current tick."""
-    _previous: Advice = Advice.NONE
-    _enabled: bool
+# class Changed:
+#     """Pass an advice only if was changed on current tick."""
+#     _previous: Advice = Advice.NONE
+#     _enabled: bool
 
-    def __init__(self, enabled: bool) -> None:
-        self._enabled = enabled
+#     def __init__(self, enabled: bool) -> None:
+#         self._enabled = enabled
 
-    def update(self, value: Advice) -> Advice:
-        if not self._enabled:
-            return value
+#     @property
+#     def maturity(self) -> int:
+#         return 0
 
-        result = value if value is not self._previous else Advice.NONE
-        self._previous = value
-        return result
+#     def update(self, value: Advice) -> Advice:
+#         if not self._enabled:
+#             return value
+
+#         result = value if value is not self._previous else Advice.NONE
+#         self._previous = value
+#         return result
 
 
 class Meta:
@@ -91,24 +117,36 @@ class Strategy:
     advice: Advice = Advice.NONE
     maturity: int
 
-    _ignore_not_mature_and_mid_trend: IgnoreNotMatureAndMidTrend
-    _persistence: Persistence
-    _changed: Changed
     _age: int = 0
+
+    # _maturity_filter: Maturity
+    _mid_trend_filter: MidTrend
+    _persistence_filter: Persistence
+    # _changed_filter: Changed
 
     @staticmethod
     def meta() -> Meta:
         return Meta()
 
+    @property
+    def adjust_hint(self) -> int:
+        return (
+            self.maturity
+            + max(self._mid_trend_filter.maturity, self._persistence_filter.maturity)
+        )
+
     def __init__(
-        self, maturity: int = 0, persistence: int = 0, ignore_first: bool = False
+        self,
+        maturity: int = 0,
+        ignore_mid_trend: bool = False,
+        persistence: int = 0,
     ) -> None:
         self.maturity = maturity
-        self._ignore_not_mature_and_mid_trend = IgnoreNotMatureAndMidTrend(
-            maturity=maturity, ignore_mid_trend=ignore_first
-        )
-        self._persistence = Persistence(level=persistence)
-        self._changed = Changed(enabled=True)
+
+        # self._maturity_filter = Maturity(maturity=maturity)
+        self._mid_trend_filter = MidTrend(ignore=ignore_mid_trend)
+        self._persistence_filter = Persistence(level=persistence)
+        # self._changed_filter = Changed(enabled=True)
 
     @property
     def mature(self) -> bool:
@@ -116,13 +154,19 @@ class Strategy:
 
     def update(self, candle: Candle) -> Advice:
         advice = self.tick(candle)
-        advice = self._ignore_not_mature_and_mid_trend.update(advice)
-        advice = self._persistence.update(advice)
-        advice = self._changed.update(advice)
-        self.advice = advice
+
+        if self.mature:
+            advice = Advice.combine(
+                self._mid_trend_filter.update(advice),
+                self._persistence_filter.update(advice),
+            )
+            # advice = self._changed_filter.update(advice)
+        else:
+            assert advice is Advice.NONE
 
         self._age = min(self._age + 1, self.maturity)
 
+        self.advice = advice
         return advice
 
     def tick(self, candle: Candle) -> Advice:

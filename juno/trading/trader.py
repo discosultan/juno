@@ -124,10 +124,10 @@ class Trader:
             # becomes effective. Only do it on first run because subsequent runs mean
             # missed candles and we don't want to fetch passed a missed candle.
             _log.info(
-                f'fetching {state.strategy.maturity} candle(s) before start time to warm-up '
+                f'fetching {state.strategy.adjust_hint} candle(s) before start time to warm-up '
                 'strategy'
             )
-            state.current -= state.strategy.maturity * config.interval
+            state.current -= state.strategy.adjust_hint * config.interval
             state.start_adjusted = True
 
         try:
@@ -197,9 +197,6 @@ class Trader:
         advice = state.strategy.update(candle)
         _log.debug(f'received advice: {advice.name}')
         if state.current < config.start:
-            _log.critical(f'{state.current=}')
-            _log.critical(f'{config.start=}')
-            _log.critical(f'{advice=}')
             assert advice is Advice.NONE
 
         if state.open_long_position:
