@@ -244,7 +244,7 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
     assert candle_times[4] == 4
 
 
-async def test_trader_adjust_start() -> None:
+async def test_trader_adjust_start_ignore_mid_trend() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -275,7 +275,40 @@ async def test_trader_adjust_start() -> None:
     summary = await trader.run(config)
 
     assert summary.num_positions == 0
-    assert summary.num_long_positions == 0
+
+
+async def test_trader_adjust_start_persistence() -> None:
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1):
+        [
+            Candle(time=0, close=Decimal('1.0')),
+            Candle(time=1, close=Decimal('1.0')),
+            Candle(time=2, close=Decimal('1.0')),
+            Candle(time=3, close=Decimal('1.0')),
+        ]
+    })
+    trader = Trader(chandler=chandler, informant=fakes.Informant())
+    config = Trader.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=3,
+        end=4,
+        quote=Decimal('1.0'),
+        strategy='fixed',
+        strategy_kwargs={
+            'advices': ['none', 'long', 'long', 'long'],
+            'maturity': 1,
+            'ignore_mid_trend': False,
+            'persistence': 2,
+        },
+        adjust_start=True,
+    )
+
+    summary = await trader.run(config)
+
+    assert summary.num_positions == 1
+    assert summary.num_long_positions == 1
 
 
 async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
