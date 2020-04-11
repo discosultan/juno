@@ -7,13 +7,11 @@ from .rsi import Rsi
 from .strategy import Meta, MidTrend, Persistence, Strategy
 
 __all__ = [
-    # 'Changed',
     'Fixed',
     'FourWeekRule',
     'Macd',
     'MacdRsi',
     'MAMACX',
-    # 'Maturity',
     'Meta',
     'MidTrend',
     'Persistence',
