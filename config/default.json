@@ -16,7 +16,8 @@
             "strategy": {
                 "type": "fixed",
                 "advices": ["short", "liquidate"],
-                "ignore_mid_trend": "false",
+                "maturity": 0,
+                "ignore_mid_trend": false,
                 "persistence": 0
             },
             "long": false,

@@ -30,6 +30,7 @@ class DummyStrategy(strategies.Strategy):
 
 def test_mid_trend_ignore_false() -> None:
     target = strategies.MidTrend(ignore=False)
+    assert target.maturity == 0
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
@@ -37,6 +38,7 @@ def test_mid_trend_ignore_false() -> None:
 
 def test_mid_trend_ignore_true() -> None:
     target = strategies.MidTrend(ignore=True)
+    assert target.maturity == 1
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.SHORT) is Advice.SHORT
@@ -60,6 +62,7 @@ def test_mid_trend_ignore_starting_with_none_does_not_ignore_first(
 
 def test_persistence_level_0() -> None:
     target = strategies.Persistence(level=0)
+    assert target.maturity == 0
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
@@ -67,6 +70,7 @@ def test_persistence_level_0() -> None:
 
 def test_persistence_level_1() -> None:
     target = strategies.Persistence(level=1)
+    assert target.maturity == 1
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG

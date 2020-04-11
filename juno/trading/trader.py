@@ -195,7 +195,7 @@ class Trader:
 
         assert state.strategy
         advice = state.strategy.update(candle)
-        _log.debug(f'received advice: {advice.name}')
+        _log.info(f'received advice: {advice.name}')
         if state.current < config.start:
             assert advice is Advice.NONE
 

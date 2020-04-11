@@ -28,14 +28,15 @@ class MidTrend:
     """Ignore first advice if middle of trend."""
     _ignore: bool
     _previous: Optional[Advice] = None
+    _maturity: int
 
     def __init__(self, ignore: bool) -> None:
         self._ignore = ignore
+        self._maturity = 1 if ignore else 0
 
     @property
     def maturity(self) -> int:
-        # Requires an extra candle to be fetched historically.
-        return 1
+        return self._maturity
 
     def update(self, value: Advice) -> Advice:
         if not self._ignore:
