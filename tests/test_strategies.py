@@ -58,15 +58,6 @@ def test_mid_trend_ignore_starting_with_none_does_not_ignore_first(
 #     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-# def test_ignore_not_mature_and_mid_trend() -> None:
-#     target = strategies.IgnoreNotMatureAndMidTrend(maturity=2, ignore_mid_trend=True)
-
-#     assert target.update(Advice.SHORT) is Advice.NONE
-#     assert target.update(Advice.SHORT) is Advice.NONE
-#     assert target.update(Advice.LONG) is Advice.LONG
-#     assert target.update(Advice.LONG) is Advice.LONG
-
-
 def test_persistence_level_0() -> None:
     target = strategies.Persistence(level=0)
     assert target.update(Advice.LONG) is Advice.LONG
