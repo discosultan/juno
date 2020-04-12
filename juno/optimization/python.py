@@ -6,7 +6,9 @@ import pandas as pd
 from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval, Timestamp
 from juno.math import round_half_up
 from juno.strategies import Changed, Strategy
-from juno.trading import MissedCandlePolicy, OpenLongPosition, TradingSummary, analyse_portfolio
+from juno.trading import (
+    MissedCandlePolicy, OpenLongPosition, OpenShortPosition, TradingSummary, analyse_portfolio
+)
 from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
@@ -18,10 +20,12 @@ class _Context:
         self.strategy = strategy
         self.changed = Changed(True)
         self.quote = quote
-        self.open_position: Optional[OpenLongPosition] = None
+        self.open_long_position: Optional[OpenLongPosition] = None
+        self.open_short_position: Optional[OpenShortPosition] = None
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')
+        self.lowest_close_since_position = Decimal('Inf')
 
 
 # We could rename the class to PythonSolver but it's more user-friendly to allow people to just
@@ -123,8 +127,12 @@ def _trade(
             if not restart:
                 break
 
-        if ctx.last_candle and ctx.open_position:
-            _close_position(ctx, summary, symbol, fees, filters, ctx.last_candle)
+        if ctx.last_candle:
+            if ctx.open_long_position:
+                _close_long_position(ctx, summary, symbol, fees, filters, ctx.last_candle)
+            if ctx.open_short_position:
+                _close_short_position(ctx, summary, symbol, fees, filters, ctx.last_candle)
+
     except InsufficientBalance:
         pass
 
@@ -137,6 +145,35 @@ def _tick(
     trailing_stop: Decimal, candle: Candle
 ) -> None:
     advice = ctx.changed.update(ctx.strategy.update(candle))
+
+    if ctx.open_long_position:
+        if ctx in [Advice.SHORT, Advice.LIQUIDATE]:
+            self._close_long_position(ctx, summary, symbol, fees, filters, candle)
+        elif config.trailing_stop:
+            ctx.highest_close_since_position = max(
+                ctx.highest_close_since_position, candle.close
+            )
+            target = ctx.highest_close_since_position * config.upside_trailing_factor
+            if candle.close <= target:
+                self._close_long_position(ctx, summary, symbol, fees, filters, candle)
+    elif ctx.open_short_position:
+        if advice in [Advice.LONG, Advice.LIQUIDATE]:
+            self._close_short_position(ctx, summary, symbol, fees, filters, candle)
+        elif config.trailing_stop:
+            ctx.lowest_close_since_position = min(
+                state.lowest_close_since_position, candle.close
+            )
+            target = ctx.lowest_close_since_position * config.downside_trailing_factor
+            if candle.close >= target:
+                self._close_short_position(ctx, summary, symbol, fees, filters, candle)
+
+    if not ctx.open_long_position and not ctx.open_short_position:
+        if config.long and advice is Advice.LONG:
+            self._open_long_position(ctx, symbol, fees, filters, candle)
+            ctx.highest_close_since_position = candle.close
+        elif config.short and advice is Advice.SHORT:
+            self._open_short_position(ctx, symbol, fees, filters, candle)
+            ctx.lowest_close_since_position = candle.close
 
     if not ctx.open_position and advice is Advice.LONG:
         _try_open_position(ctx, symbol, fees, filters, candle)
