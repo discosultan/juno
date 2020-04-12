@@ -30,7 +30,7 @@ impl<TShort: MA, TLong: MA> MAMACX<TShort, TLong> {
             short_ma,
             long_ma,
             mid_trend: MidTrend::new(true),
-            persistence: Persistence::new(persistence),
+            persistence: Persistence::new(persistence, false),
             neg_threshold,
             pos_threshold,
             t: 0,

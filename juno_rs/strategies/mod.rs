@@ -53,15 +53,17 @@ impl MidTrend {
 struct Persistence {
     age: u32,
     level: u32,
+    return_previous: bool,
     potential: Advice,
     previous: Advice,
 }
 
 impl Persistence {
-    pub fn new(level: u32) -> Self {
+    pub fn new(level: u32, return_previous: bool) -> Self {
         Self {
             age: 0,
             level,
+            return_previous,
             potential: Advice::None,
             previous: Advice::None,
         }
@@ -84,8 +86,10 @@ impl Persistence {
         let result = if self.age >= self.level {
             self.previous = self.potential;
             self.potential
-        } else {
+        } else if self.return_previous {
             self.previous
+        } else {
+            Advice::None
         };
 
         self.age = min(self.age + 1, self.level);

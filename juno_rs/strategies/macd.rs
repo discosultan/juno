@@ -19,7 +19,7 @@ impl Macd {
         Self {
             macd: indicators::Macd::new(short_period, long_period, signal_period),
             mid_trend: MidTrend::new(true),
-            persistence: Persistence::new(persistence),
+            persistence: Persistence::new(persistence, false),
             t: 0,
             t1: max(long_period, signal_period) - 1,
         }

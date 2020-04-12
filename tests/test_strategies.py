@@ -74,6 +74,16 @@ def test_persistence_level_1() -> None:
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.SHORT) is Advice.NONE
+    assert target.update(Advice.SHORT) is Advice.SHORT
+
+
+def test_persistence_level_1_return_previous() -> None:
+    target = strategies.Persistence(level=1, return_previous=True)
+    assert target.maturity == 1
+    assert target.update(Advice.LONG) is Advice.NONE
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
 

@@ -55,12 +55,14 @@ class Persistence:
     """The number of ticks required to confirm an advice."""
     _age: int = 0
     _level: int
+    _return_previous: bool
     _potential: Advice = Advice.NONE
     _previous: Advice = Advice.NONE
 
-    def __init__(self, level: int) -> None:
+    def __init__(self, level: int, return_previous: bool = False) -> None:
         assert level >= 0
         self._level = level
+        self._return_previous = return_previous
 
     @property
     def maturity(self) -> int:
@@ -75,10 +77,12 @@ class Persistence:
             self._potential = value
 
         if self._age >= self._level:
+            self._previous = self._potential
             result = self._potential
-            self._previous = result
-        else:
+        elif self._return_previous:
             result = self._previous
+        else:
+            result = Advice.NONE
 
         self._age = min(self._age + 1, self._level)
 
