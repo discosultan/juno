@@ -25,17 +25,6 @@ class Advice(IntEnum):
             return advices[0]
         return Advice.LIQUIDATE
 
-        # if all(a is Advice.LONG for a in advices):
-        #     return Advice.LONG
-        # if all(a is Advice.SHORT for a in advices):
-        #     return Advice.SHORT
-        # if (
-        #     all(a is not Advice.NONE for a in advices)
-        #     and any(a is Advice.LIQUIDATE for a in advices)
-        # ):
-        #     return Advice.LIQUIDATE
-        # return Advice.NONE
-
 
 class Balance(NamedTuple):
     available: Decimal
