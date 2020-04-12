@@ -23,7 +23,7 @@ impl Rsi {
             up_threshold,
             down_threshold,
             mid_trend: MidTrend::new(true),
-            persistence: Persistence::new(persistence),
+            persistence: Persistence::new(persistence, false),
             t: 0,
             t1: period - 1,
         }

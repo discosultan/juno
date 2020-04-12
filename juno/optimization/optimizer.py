@@ -37,6 +37,7 @@ _trailing_stop_constraint = ConstraintChoice([
     Constant(Decimal('0.0')),
     Uniform(Decimal('0.0001'), Decimal('0.9999')),
 ])
+_boolean_constraint = Choice([True, False])
 
 
 class OptimizationRecord(NamedTuple):
@@ -76,6 +77,8 @@ class Optimizer:
         end: Optional[Timestamp] = None,
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE,
         trailing_stop: Optional[Decimal] = Decimal('0.0'),
+        long: Optional[bool] = True,
+        short: Optional[bool] = False,
         population_size: int = 50,
         max_generations: int = 1000,
         mutation_probability: Decimal = Decimal('0.2'),
@@ -157,6 +160,8 @@ class Optimizer:
             _build_attr(intervals, Choice(intervals), random),
             _build_attr(missed_candle_policy, _missed_candle_policy_constraint, random),
             _build_attr(trailing_stop, _trailing_stop_constraint, random),
+            _build_attr(long, _boolean_constraint, random),
+            _build_attr(short, _boolean_constraint, random),
             *(partial(c.random, random) for c in strategy_type.meta().constraints.values())
         ]
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
@@ -243,9 +248,11 @@ class Optimizer:
             quote=quote,
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
+            long=best_args[4],
+            short=best_args[5],
             adjust_start=False,
             strategy=strategy,
-            strategy_kwargs=map_input_args(strategy_type.__init__, best_args[4:])
+            strategy_kwargs=map_input_args(strategy_type.__init__, best_args[6:]),
         )
 
         state: Trader.State[Any] = Trader.State()

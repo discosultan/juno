@@ -10,7 +10,7 @@ from juno.components import Chandler, Event, Informant
 from juno.exchanges import Exchange
 from juno.math import ceil_multiple, round_half_up
 from juno.modules import get_module_type
-from juno.strategies import Strategy
+from juno.strategies import Changed, Strategy
 from juno.time import HOUR_MS
 from juno.utils import tonamedtuple, unpack_symbol
 
@@ -25,6 +25,7 @@ class Trader:
     @dataclass
     class State(Generic[TStrategy]):
         strategy: Optional[TStrategy] = None
+        changed: Optional[Changed] = None
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
         open_long_position: Optional[OpenLongPosition] = None
@@ -116,6 +117,9 @@ class Trader:
         if not state.strategy:
             state.strategy = config.new_strategy()
 
+        if not state.changed:
+            state.changed = Changed(True)
+
         if not state.current:
             state.current = config.start
 
@@ -194,8 +198,9 @@ class Trader:
         await self._event.emit(config.channel, 'candle', candle)
 
         assert state.strategy
-        advice = state.strategy.update(candle)
-        _log.info(f'received advice: {advice.name}')
+        assert state.changed
+        advice = state.changed.update(state.strategy.update(candle))
+        _log.debug(f'received advice: {advice.name}')
         if state.current < config.start:
             assert advice is Advice.NONE
 

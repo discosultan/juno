@@ -1,9 +1,10 @@
 use crate::math::round_half_up;
-use crate::strategies::Strategy;
+use crate::strategies::{Changed, Strategy};
 use crate::{Advice, Candle, Fees, Filters, Position, TradingSummary};
 
 struct Context<T: Strategy> {
     pub strategy: T,
+    pub changed: Changed,
     pub quote: f64,
     pub open_position: Option<Position>,
     pub last_candle: Option<Candle>,
@@ -14,6 +15,7 @@ impl<T: Strategy> Context<T> {
     pub fn new(strategy: T, quote: f64) -> Self {
         Self {
             strategy,
+            changed: Changed::new(true),
             quote,
             open_position: None,
             last_candle: None,
@@ -126,7 +128,7 @@ fn tick<T: Strategy>(
     trailing_stop: f64,
     candle: &Candle,
 ) -> bool {
-    let advice = ctx.strategy.update(&candle);
+    let advice = ctx.changed.update(ctx.strategy.update(&candle));
 
     if ctx.open_position.is_none() && advice == Advice::Long {
         if !try_open_position(&mut ctx, fees, filters, &candle) {

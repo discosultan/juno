@@ -107,6 +107,8 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) ->
         HOUR_MS,
         MissedCandlePolicy.IGNORE,
         Decimal('0.0'),
+        True,
+        False,
         *strategy_args
     )
 

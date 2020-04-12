@@ -103,6 +103,8 @@ class Rust(Solver):
         interval: Interval,
         missed_candle_policy: MissedCandlePolicy,
         trailing_stop: Decimal,
+        long: bool,
+        short: bool,
         *args: Any,
     ) -> SolverResult:
         # Trading.

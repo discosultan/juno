@@ -55,12 +55,14 @@ class Persistence:
     """The number of ticks required to confirm an advice."""
     _age: int = 0
     _level: int
+    _return_previous: bool
     _potential: Advice = Advice.NONE
     _previous: Advice = Advice.NONE
 
-    def __init__(self, level: int) -> None:
+    def __init__(self, level: int, return_previous: bool = False) -> None:
         assert level >= 0
         self._level = level
+        self._return_previous = return_previous
 
     @property
     def maturity(self) -> int:
@@ -75,35 +77,37 @@ class Persistence:
             self._potential = value
 
         if self._age >= self._level:
+            self._previous = self._potential
             result = self._potential
-            self._previous = result
-        else:
+        elif self._return_previous:
             result = self._previous
+        else:
+            result = Advice.NONE
 
         self._age = min(self._age + 1, self._level)
 
         return result
 
 
-# class Changed:
-#     """Pass an advice only if was changed on current tick."""
-#     _previous: Advice = Advice.NONE
-#     _enabled: bool
+class Changed:
+    """Pass an advice only if was changed on current tick."""
+    _previous: Advice = Advice.NONE
+    _enabled: bool
 
-#     def __init__(self, enabled: bool) -> None:
-#         self._enabled = enabled
+    def __init__(self, enabled: bool) -> None:
+        self._enabled = enabled
 
-#     @property
-#     def maturity(self) -> int:
-#         return 0
+    @property
+    def maturity(self) -> int:
+        return 0
 
-#     def update(self, value: Advice) -> Advice:
-#         if not self._enabled:
-#             return value
+    def update(self, value: Advice) -> Advice:
+        if not self._enabled:
+            return value
 
-#         result = value if value is not self._previous else Advice.NONE
-#         self._previous = value
-#         return result
+        result = value if value is not self._previous else Advice.NONE
+        self._previous = value
+        return result
 
 
 class Meta:
@@ -123,7 +127,7 @@ class Strategy:
     # _maturity_filter: Maturity
     _mid_trend_filter: MidTrend
     _persistence_filter: Persistence
-    # _changed_filter: Changed
+    _changed_filter: Changed
 
     @staticmethod
     def meta() -> Meta:
@@ -147,7 +151,6 @@ class Strategy:
         # self._maturity_filter = Maturity(maturity=maturity)
         self._mid_trend_filter = MidTrend(ignore=ignore_mid_trend)
         self._persistence_filter = Persistence(level=persistence)
-        # self._changed_filter = Changed(enabled=True)
 
     @property
     def mature(self) -> bool:
@@ -161,7 +164,6 @@ class Strategy:
                 self._mid_trend_filter.update(advice),
                 self._persistence_filter.update(advice),
             )
-            # advice = self._changed_filter.update(advice)
         else:
             assert advice is Advice.NONE
 
