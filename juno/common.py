@@ -18,7 +18,6 @@ class Advice(IntEnum):
 
     @staticmethod
     def combine(*advices: Advice) -> Advice:
-        # TODO: Fix this shit, yo
         if len(advices) == 0 or any(a is Advice.NONE for a in advices):
             return Advice.NONE
         if len(set(advices)) == 1:
