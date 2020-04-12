@@ -18,6 +18,7 @@ pub trait Strategy {
 struct MidTrend {
     ignore: bool,
     previous: Option<Advice>,
+    maturity: u32,
 }
 
 impl MidTrend {
@@ -25,11 +26,12 @@ impl MidTrend {
         Self {
             ignore,
             previous: None,
+            maturity: if ignore { 1 } else { 0 },
         }
     }
 
     pub fn maturity(&self) -> u32 {
-        1
+        self.maturity
     }
 
     pub fn update(&mut self, value: Advice) -> Advice {
@@ -91,12 +93,44 @@ impl Persistence {
     }
 }
 
+pub struct Changed {
+    previous: Advice,
+    enabled: bool,
+}
+
+impl Changed {
+    pub fn new(enabled: bool) -> Self {
+        Self {
+            previous: Advice::None,
+            enabled,
+        }
+    }
+
+    pub fn maturity(&self) -> u32 {
+        0
+    }
+
+    pub fn update(&mut self, value: Advice) -> Advice {
+        if !self.enabled {
+            return value;
+        }
+
+        let result = if value != self.previous {
+            value
+        } else {
+            Advice::None
+        };
+        self.previous = value;
+        result
+    }
+}
+
 pub fn combine(advice1: Advice, advice2: Advice) -> Advice {
     if advice1 == Advice::None || advice2 == Advice::None {
-        return Advice::None
+        Advice::None
+    } else if advice1 == advice2 {
+        advice1
+    } else {
+        Advice::Liquidate
     }
-    // if advice1 != advice2 {
-    //     return Advice::Liquidate;
-    // }
-    advice1
 }

@@ -2,27 +2,41 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import components, exchanges, optimization, storages, strategies, time
+from juno import components, exchanges, optimization, storages, strategies, time, utils
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
-from juno.utils import unpack_symbol
 
-# Triggered closing and opening long position on same tick with trailing stop.
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
-START = time.strptimestamp('2019-06-19')
-END = time.strptimestamp('2019-06-23')
-MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
-TRAILING_STOP = Decimal('0.044')
+START = time.strptimestamp('2018-09-15')
+END = time.strptimestamp('2020-04-01')
+MISSED_CANDLE_POLICY = MissedCandlePolicy.RESTART
+TRAILING_STOP = Decimal('0.3772')
 
-SHORT_PERIOD = 4
-LONG_PERIOD = 60
-NEG_THRESHOLD = Decimal('-0.435')
-POS_THRESHOLD = Decimal('0.211')
-PERSISTENCE = 5
-SHORT_MA = 'kama'
-LONG_MA = 'sma'
+SHORT_PERIOD = 15
+LONG_PERIOD = 22
+NEG_THRESHOLD = Decimal('-0.375')
+POS_THRESHOLD = Decimal('0.481')
+PERSISTENCE = 1
+SHORT_MA = 'smma'
+LONG_MA = 'kama'
+
+# Triggered closing and opening long position on same tick with trailing stop.
+# SYMBOL = 'eth-btc'
+# INTERVAL = time.HOUR_MS
+# START = time.strptimestamp('2019-06-19')
+# END = time.strptimestamp('2019-06-23')
+# MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
+# TRAILING_STOP = Decimal('0.044')
+
+# SHORT_PERIOD = 4
+# LONG_PERIOD = 60
+# NEG_THRESHOLD = Decimal('-0.435')
+# POS_THRESHOLD = Decimal('0.211')
+# PERSISTENCE = 5
+# SHORT_MA = 'kama'
+# LONG_MA = 'sma'
 
 # SYMBOL = 'eth-btc'
 # INTERVAL = time.HOUR_MS
@@ -73,7 +87,7 @@ async def main() -> None:
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
         fiat_daily_prices = await prices.map_fiat_daily_prices(
-            ('btc', unpack_symbol(SYMBOL)[0]), start, end
+            ('btc', utils.unpack_symbol(SYMBOL)[0]), start, end
         )
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         fees, filters = informant.get_fees_filters('binance', SYMBOL)
@@ -94,6 +108,8 @@ async def main() -> None:
             INTERVAL,
             MISSED_CANDLE_POLICY,
             TRAILING_STOP,
+            True,
+            False,
             SHORT_PERIOD,
             LONG_PERIOD,
             NEG_THRESHOLD,
@@ -125,6 +141,8 @@ async def main() -> None:
             missed_candle_policy=MISSED_CANDLE_POLICY,
             trailing_stop=TRAILING_STOP,
             adjust_start=False,
+            long=True,
+            short=False,
         ))
         portfolio = analyse_portfolio(
             benchmark.g_returns, fiat_daily_prices, trading_summary
@@ -144,6 +162,7 @@ async def main() -> None:
         logging.info(f'alpha {portfolio.stats.alpha}')
         logging.info(f'profit {trading_summary.profit}')
         logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
+        logging.info(f'{utils.format_as_config(trading_summary)}')
 
 
 asyncio.run(main())

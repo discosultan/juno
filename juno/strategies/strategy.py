@@ -85,25 +85,25 @@ class Persistence:
         return result
 
 
-# class Changed:
-#     """Pass an advice only if was changed on current tick."""
-#     _previous: Advice = Advice.NONE
-#     _enabled: bool
+class Changed:
+    """Pass an advice only if was changed on current tick."""
+    _previous: Advice = Advice.NONE
+    _enabled: bool
 
-#     def __init__(self, enabled: bool) -> None:
-#         self._enabled = enabled
+    def __init__(self, enabled: bool) -> None:
+        self._enabled = enabled
 
-#     @property
-#     def maturity(self) -> int:
-#         return 0
+    @property
+    def maturity(self) -> int:
+        return 0
 
-#     def update(self, value: Advice) -> Advice:
-#         if not self._enabled:
-#             return value
+    def update(self, value: Advice) -> Advice:
+        if not self._enabled:
+            return value
 
-#         result = value if value is not self._previous else Advice.NONE
-#         self._previous = value
-#         return result
+        result = value if value is not self._previous else Advice.NONE
+        self._previous = value
+        return result
 
 
 class Meta:
@@ -123,7 +123,7 @@ class Strategy:
     # _maturity_filter: Maturity
     _mid_trend_filter: MidTrend
     _persistence_filter: Persistence
-    # _changed_filter: Changed
+    _changed_filter: Changed
 
     @staticmethod
     def meta() -> Meta:
@@ -147,7 +147,6 @@ class Strategy:
         # self._maturity_filter = Maturity(maturity=maturity)
         self._mid_trend_filter = MidTrend(ignore=ignore_mid_trend)
         self._persistence_filter = Persistence(level=persistence)
-        # self._changed_filter = Changed(enabled=True)
 
     @property
     def mature(self) -> bool:
@@ -161,7 +160,6 @@ class Strategy:
                 self._mid_trend_filter.update(advice),
                 self._persistence_filter.update(advice),
             )
-            # advice = self._changed_filter.update(advice)
         else:
             assert advice is Advice.NONE
 

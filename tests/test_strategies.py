@@ -78,20 +78,20 @@ def test_persistence_level_1() -> None:
     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-# def test_changed_disabled() -> None:
-#     target = strategies.Changed(enabled=False)
-#     assert target.update(Advice.LONG) is Advice.LONG
-#     assert target.update(Advice.LONG) is Advice.LONG
-#     assert target.update(Advice.NONE) is Advice.NONE
-#     assert target.update(Advice.SHORT) is Advice.SHORT
+def test_changed_disabled() -> None:
+    target = strategies.Changed(enabled=False)
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.NONE) is Advice.NONE
+    assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-# def test_changed_enabled() -> None:
-#     target = strategies.Changed(enabled=True)
-#     assert target.update(Advice.LONG) is Advice.LONG
-#     assert target.update(Advice.LONG) is Advice.NONE
-#     assert target.update(Advice.NONE) is Advice.NONE
-#     assert target.update(Advice.SHORT) is Advice.SHORT
+def test_changed_enabled() -> None:
+    target = strategies.Changed(enabled=True)
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.LONG) is Advice.NONE
+    assert target.update(Advice.NONE) is Advice.NONE
+    assert target.update(Advice.SHORT) is Advice.SHORT
 
 
 def test_mid_trend_persistence_combination() -> None:
@@ -110,3 +110,10 @@ def test_mid_trend_persistence_combination() -> None:
         target1.update(Advice.LONG),
         target2.update(Advice.LONG),
     ) is Advice.LONG
+
+
+def test_combine_advice() -> None:
+    assert Advice.combine(Advice.NONE, Advice.LIQUIDATE) is Advice.NONE
+    assert Advice.combine(Advice.NONE, Advice.LONG) is Advice.NONE
+    assert Advice.combine(Advice.LONG, Advice.LIQUIDATE) is Advice.LIQUIDATE
+    assert Advice.combine(Advice.LONG, Advice.LONG) is Advice.LONG

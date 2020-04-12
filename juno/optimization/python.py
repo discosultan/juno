@@ -5,7 +5,7 @@ import pandas as pd
 
 from juno import Advice, Candle, Fees, Fill, Filters, InsufficientBalance, Interval, Timestamp
 from juno.math import round_half_up
-from juno.strategies import Strategy
+from juno.strategies import Changed, Strategy
 from juno.trading import MissedCandlePolicy, OpenLongPosition, TradingSummary, analyse_portfolio
 from juno.utils import unpack_symbol
 
@@ -16,6 +16,7 @@ from .solver import Solver, SolverResult
 class _Context:
     def __init__(self, strategy: Strategy, quote: Decimal) -> None:
         self.strategy = strategy
+        self.changed = Changed(True)
         self.quote = quote
         self.open_position: Optional[OpenLongPosition] = None
         self.first_candle: Optional[Candle] = None
@@ -41,6 +42,8 @@ class Python(Solver):
         interval: Interval,
         missed_candle_policy: MissedCandlePolicy,
         trailing_stop: Decimal,
+        long: bool,
+        short: bool,
         *args: Any,
     ) -> SolverResult:
         summary = _trade(
@@ -133,7 +136,7 @@ def _tick(
     ctx: _Context, summary: TradingSummary, symbol: str, fees: Fees, filters: Filters,
     trailing_stop: Decimal, candle: Candle
 ) -> None:
-    advice = ctx.strategy.update(candle)
+    advice = ctx.changed.update(ctx.strategy.update(candle))
 
     if not ctx.open_position and advice is Advice.LONG:
         _try_open_position(ctx, symbol, fees, filters, candle)

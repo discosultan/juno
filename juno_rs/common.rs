@@ -3,6 +3,7 @@ pub enum Advice {
     None,
     Long,
     Short,
+    Liquidate,
 }
 
 #[derive(Debug, Clone, Copy)]
