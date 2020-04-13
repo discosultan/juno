@@ -94,40 +94,42 @@ async def main() -> None:
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
-        args = (
-            fiat_daily_prices,
-            benchmark.g_returns,
-            strategies.MAMACX,
-            start,
-            end,
-            Decimal('1.0'),
-            candles,
-            fees,
-            filters,
-            SYMBOL,
-            INTERVAL,
-            MISSED_CANDLE_POLICY,
-            TRAILING_STOP,
-            True,
-            False,
-            SHORT_PERIOD,
-            LONG_PERIOD,
-            NEG_THRESHOLD,
-            POS_THRESHOLD,
-            PERSISTENCE,
-            SHORT_MA,
-            LONG_MA,
+        solver_config = optimization.Solver.Config(
+            fiat_daily_prices=fiat_daily_prices,
+            benchmark_g_returns=benchmark.g_returns,
+            strategy_type=strategies.MAMACX,
+            start=start,
+            end=end,
+            quote=Decimal('1.0'),
+            candles=candles,
+            fees=fees,
+            filters=filters,
+            symbol=SYMBOL,
+            interval=INTERVAL,
+            missed_candle_policy=MISSED_CANDLE_POLICY,
+            trailing_stop=TRAILING_STOP,
+            long=True,
+            short=False,
+            strategy_args=(
+                SHORT_PERIOD,
+                LONG_PERIOD,
+                NEG_THRESHOLD,
+                POS_THRESHOLD,
+                PERSISTENCE,
+                SHORT_MA,
+                LONG_MA,
+            ),
         )
-        rust_result = rust_solver.solve(*args)
-        python_result = python_solver.solve(*args)
+        rust_result = rust_solver.solve(solver_config)
+        python_result = python_solver.solve(solver_config)
 
         trading_summary = await trader.run(Trader.Config(
-            'binance',
-            SYMBOL,
-            INTERVAL,
-            start,
-            end,
-            Decimal('1.0'),
+            exchange='binance',
+            symbol=SYMBOL,
+            interval=INTERVAL,
+            start=start,
+            end=end,
+            quote=Decimal('1.0'),
             strategy='mamacx',
             strategy_kwargs={
                 'short_period': SHORT_PERIOD,

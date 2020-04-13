@@ -9,7 +9,7 @@ import shutil
 import zlib
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, List, Tuple
 
 import cffi
 import pandas as pd
@@ -22,7 +22,7 @@ from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.trading import MissedCandlePolicy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path, unpack_symbol
+from juno.utils import home_path
 
 from .solver import Solver, SolverResult
 
@@ -88,58 +88,45 @@ class Rust(Solver):
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
-    def solve(
-        self,
-        fiat_daily_prices: Dict[str, List[Decimal]],
-        benchmark_g_returns: pd.Series,
-        strategy_type: Type[Strategy],
-        start: Timestamp,
-        end: Timestamp,
-        quote: Decimal,
-        candles: List[Candle],
-        fees: Fees,
-        filters: Filters,
-        symbol: str,
-        interval: Interval,
-        missed_candle_policy: MissedCandlePolicy,
-        trailing_stop: Decimal,
-        long: bool,
-        short: bool,
-        *args: Any,
-    ) -> SolverResult:
+    def solve(self, config: Solver.Config) -> SolverResult:
         # Trading.
-        c_candles = self._get_or_create_c_candles((symbol, interval, start, end), candles)
-        c_fees, c_filters = self._get_or_create_c_fees_filters(symbol, fees, filters)
+        c_candles = self._get_or_create_c_candles(
+            (config.symbol, config.interval, config.start, config.end),
+            config.candles,
+        )
+        c_fees, c_filters = self._get_or_create_c_fees_filters(
+            config.symbol, config.fees, config.filters
+        )
 
         # TODO: Pool it. No need for allocations per run.
         c_trading_info = self._ffi.new('TradingInfo *')
         c_trading_info.candles = c_candles
-        c_trading_info.candles_length = len(candles)
+        c_trading_info.candles_length = len(config.candles)
         c_trading_info.fees = c_fees
         c_trading_info.filters = c_filters
-        c_trading_info.interval = interval
-        c_trading_info.quote = quote
-        c_trading_info.missed_candle_policy = missed_candle_policy
-        c_trading_info.trailing_stop = trailing_stop
+        c_trading_info.interval = config.interval
+        c_trading_info.quote = config.quote
+        c_trading_info.missed_candle_policy = config.missed_candle_policy
+        c_trading_info.trailing_stop = config.trailing_stop
 
         # Strategy.
-        c_strategy_info = self._ffi.new(f'{strategy_type.__name__}Info *')
-        for i, (n, t) in enumerate(get_input_type_hints(strategy_type.__init__).items()):
-            value = _adler32(args[i]) if t is str else args[i]
+        c_strategy_info = self._ffi.new(f'{config.strategy_type.__name__}Info *')
+        for i, (n, t) in enumerate(get_input_type_hints(config.strategy_type.__init__).items()):
+            value = _adler32(config.strategy_args[i]) if t is str else config.strategy_args[i]
             setattr(c_strategy_info, n, value)
 
         # Analysis.
-        num_days = len(fiat_daily_prices['btc'])
+        num_days = len(config.fiat_daily_prices['btc'])
         c_quote_fiat_daily = self._get_or_create_c_prices(
-            ('btc-eur', DAY_MS, start, end), fiat_daily_prices['btc']
+            ('btc-eur', DAY_MS, config.start, config.end), config.fiat_daily_prices['btc']
         )
-        base_asset, _ = unpack_symbol(symbol)
         c_base_fiat_daily = self._get_or_create_c_prices(
-            (f'{base_asset}-eur', DAY_MS, start, end), fiat_daily_prices[base_asset]
+            (f'{config.base_asset}-eur', DAY_MS, config.start, config.end),
+            config.fiat_daily_prices[config.base_asset],
         )
 
         c_benchmark_g_returns = self._get_or_create_c_series(
-            ('btc-eur', DAY_MS, start, end), benchmark_g_returns
+            ('btc-eur', DAY_MS, config.start, config.end), config.benchmark_g_returns
         )
 
         c_analysis_info = self._ffi.new('AnalysisInfo *')
@@ -148,10 +135,10 @@ class Rust(Solver):
         c_analysis_info.base_fiat_daily = c_base_fiat_daily
         c_analysis_info.base_fiat_daily_length = num_days
         c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
-        c_analysis_info.benchmark_g_returns_length = benchmark_g_returns.size
+        c_analysis_info.benchmark_g_returns_length = config.benchmark_g_returns.size
 
         # Go!
-        fn = getattr(self._libjuno, strategy_type.__name__.lower())
+        fn = getattr(self._libjuno, config.strategy_type.__name__.lower())
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
         return SolverResult.from_object(result)
 

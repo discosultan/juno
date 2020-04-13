@@ -2,36 +2,56 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, get_type_hints
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Type, get_type_hints
 
 import pandas as pd
 
 from juno import Candle, Fees, Filters, Interval, Timestamp
 from juno.strategies import Strategy
 from juno.trading import MissedCandlePolicy, Statistics, TradingSummary
+from juno.utils import unpack_symbol
 
 
 class Solver(ABC):
+    class Config(NamedTuple):
+        fiat_daily_prices: Dict[str, List[Decimal]]
+        benchmark_g_returns: pd.Series
+        candles: List[Candle]
+        fees: Fees
+        filters: Filters
+        strategy_type: Type[Strategy]
+        strategy_args: Sequence[Any]
+        symbol: str
+        interval: Interval
+        start: Timestamp
+        end: Timestamp
+        quote: Decimal
+        trailing_stop: Decimal
+        missed_candle_policy: MissedCandlePolicy
+        long: bool
+        short: bool
+
+        @property
+        def base_asset(self) -> str:
+            return unpack_symbol(self.symbol)[0]
+
+        @property
+        def quote_asset(self) -> str:
+            return unpack_symbol(self.symbol)[1]
+
+        @property
+        def upside_trailing_factor(self) -> Decimal:
+            return 1 - self.trailing_stop
+
+        @property
+        def downside_trailing_factor(self) -> Decimal:
+            return 1 + self.trailing_stop
+
+        def new_strategy(self) -> Strategy:
+            return self.strategy_type(*self.strategy_args)
+
     @abstractmethod
-    def solve(
-        self,
-        fiat_daily_prices: Dict[str, List[Decimal]],
-        benchmark_g_returns: pd.Series,
-        strategy_type: Type[Strategy],
-        start: Timestamp,
-        end: Timestamp,
-        quote: Decimal,
-        candles: List[Candle],
-        fees: Fees,
-        filters: Filters,
-        symbol: str,
-        interval: Interval,
-        missed_candle_policy: MissedCandlePolicy,
-        trailing_stop: Decimal,
-        long: bool,
-        short: bool,
-        *args: Any,
-    ) -> SolverResult:
+    def solve(self, config: Config) -> SolverResult:
         pass
 
 

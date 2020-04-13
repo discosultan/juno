@@ -237,7 +237,7 @@ class Trader:
                 await self._open_short_position(config, state, candle)
                 state.lowest_close_since_position = candle.close
 
-        if not state.last_candle:
+        if not state.first_candle:
             _log.info(f'first candle {candle}')
             state.first_candle = candle
         state.last_candle = candle
