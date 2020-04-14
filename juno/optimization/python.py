@@ -104,7 +104,7 @@ def _tick(config: Solver.Config, state: _State, candle: Candle) -> None:
     advice = state.changed.update(state.strategy.update(candle))
 
     if state.open_long_position:
-        if state in [Advice.SHORT, Advice.LIQUIDATE]:
+        if advice in [Advice.SHORT, Advice.LIQUIDATE]:
             _close_long_position(config, state, candle)
         elif config.trailing_stop:
             state.highest_close_since_position = max(

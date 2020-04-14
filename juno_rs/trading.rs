@@ -1,7 +1,7 @@
 const YEAR_MS: f64 = 31_556_952_000.0;
 
 #[derive(Debug)]
-pub struct Position {
+pub struct LongPosition {
     pub time: u64,
     pub price: f64,
     pub cost: f64,
@@ -16,7 +16,7 @@ pub struct Position {
     pub annualized_roi: f64,
 }
 
-impl Position {
+impl LongPosition {
     pub fn new(time: u64, price: f64, size: f64, quote: f64, fee: f64) -> Self {
         Self {
             time,
@@ -41,16 +41,73 @@ impl Position {
         self.gain = quote - fee;
         self.profit = self.gain - self.cost;
         self.roi = self.profit / self.cost;
+        self.annualized_roi = annualized_roi(self.duration, self.roi);
+    }
+}
 
-        // Annualized ROI.
-        let n = self.duration as f64 / YEAR_MS;
-        self.annualized_roi = (1.0 + self.roi).powf(1.0 / n) - 1.0;
+#[derive(Debug)]
+pub struct ShortPosition {
+    pub time: u64,
+    pub collateral: f64,
+    pub borrowed: f64,
+    pub price: f64,
+    pub quote: f64,
+    pub fee: f64,
+    pub cost: f64,
+    pub base_gain: f64,
+    pub base_cost: f64,
+
+    pub close_time: u64,
+    pub interest: f64,
+    pub duration: u64,
+    pub gain: f64,
+    pub profit: f64,
+    pub roi: f64,
+    pub annualized_roi: f64,
+}
+
+impl ShortPosition {
+    pub fn new(
+        time: u64, collateral: f64, borrowed: f64, price: f64, size: f64, quote: f64, fee: f64
+    ) -> Self {
+        Self {
+            time,
+            collateral,
+            borrowed,
+            price,
+            quote,
+            fee,
+            cost: collateral,
+            base_gain: borrowed,
+
+            base_cost: borrowed,
+            close_time: 0,
+            interest: 0.0,
+            duration: 0,
+            gain: 0.0,
+            profit: 0.0,
+            roi: 0.0,
+            annualized_roi: 0.0,
+        }
+    }
+
+    pub fn close(
+        &mut self, interest: f64, time: u64, _price: f64, size: f64, quote: f64, fee: f64
+    ) {
+        self.interest = interest;
+        self.close_time = time;
+        self.duration = time - self.time;
+        self.gain = self.quote - self.fee + self.collateral - quote;
+        self.profit = self.gain - self.cost;
+        self.roi = self.profit / self.cost;
+        self.annualized_roi = annualized_roi(self.duration, self.roi);
     }
 }
 
 #[derive(Debug)]
 pub struct TradingSummary {
-    pub positions: Vec<Position>,
+    pub long_positions: Vec<LongPosition>,
+    pub short_positions: Vec<ShortPosition>,
 
     pub interval: u64,
     pub start: u64,
@@ -76,7 +133,8 @@ pub struct TradingSummary {
 impl TradingSummary {
     pub fn new(interval: u64, start: u64, end: u64, quote: f64) -> Self {
         Self {
-            positions: Vec::new(),
+            long_positions: Vec::new(),
+            short_positions: Vec::new(),
             interval,
             start,
             end,
@@ -97,8 +155,12 @@ impl TradingSummary {
         }
     }
 
-    pub fn append_position(&mut self, pos: Position) {
-        self.positions.push(pos);
+    pub fn append_long_position(&mut self, pos: LongPosition) {
+        self.long_positions.push(pos);
+    }
+
+    pub fn append_short_position(&mut self, pos: ShortPosition) {
+        self.short_positions.push(pos);
     }
 
     pub fn calculate(&mut self) {
@@ -137,13 +199,15 @@ impl TradingSummary {
 
         self.gain = self.cost + self.profit;
         self.roi = self.profit / self.cost;
+        self.annualized_roi = annualized_roi(self.duration, self.roi);
+    }
+}
 
-        // Annualized ROI.
-        let n = self.duration as f64 / YEAR_MS;
-        if n == 0.0 {
-            self.annualized_roi = 0.0;
-        } else {
-            self.annualized_roi = (1.0 + self.roi).powf(1.0 / n) - 1.0;
-        }
+fn annualized_roi(duration: u64, roi: f64) -> f64 {
+    let n = duration as f64 / YEAR_MS;
+    if n == 0.0 {
+        0.0
+    } else {
+        (1.0 + roi).powf(1.0 / n) - 1.0
     }
 }
