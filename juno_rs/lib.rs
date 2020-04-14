@@ -16,7 +16,7 @@ use crate::{
     trade::trade,
 };
 pub use crate::{
-    common::{Advice, Candle, Fees},
+    common::{Advice, BorrowInfo, Candle, Fees},
     filters::Filters,
     trading::{Position, TradingSummary},
 };
@@ -215,6 +215,8 @@ pub struct TradingInfo {
     candles_length: u32,
     fees: *const Fees,
     filters: *const Filters,
+    borrow_info: *const BorrowInfo,
+    margin_multiplier: u32,
     interval: u64,
     quote: f64,
     missed_candle_policy: u32,

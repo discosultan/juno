@@ -14,7 +14,7 @@ from typing import Any, Dict, List, Tuple
 import cffi
 import pandas as pd
 
-from juno import Candle, Fees, Filters, Interval, Timestamp, strategies
+from juno import BorrowInfo, Candle, Fees, Filters, Interval, Timestamp, strategies
 from juno.cffi import CDefBuilder
 from juno.filters import Price, Size
 from juno.modules import list_concretes_from_module
@@ -43,6 +43,7 @@ TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
 class Rust(Solver):
     def __init__(self) -> None:
         self._c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
+        self._c_borrow_infos: Dict[str, Any] = {}
         self._c_candles: Dict[TimeSeriesKey, Any] = {}
         self._c_prices: Dict[TimeSeriesKey, Any] = {}
         self._c_series: Dict[TimeSeriesKey, Any] = {}
@@ -97,6 +98,7 @@ class Rust(Solver):
         c_fees, c_filters = self._get_or_create_c_fees_filters(
             config.symbol, config.fees, config.filters
         )
+        c_borrow_info = self._get_or_create_c_borrow_info(config.symbol, config.borrow_info)
 
         # TODO: Pool it. No need for allocations per run.
         c_trading_info = self._ffi.new('TradingInfo *')
@@ -104,6 +106,8 @@ class Rust(Solver):
         c_trading_info.candles_length = len(config.candles)
         c_trading_info.fees = c_fees
         c_trading_info.filters = c_filters
+        c_trading_info.borrow_info = c_borrow_info
+        c_trading_info.margin_multiplier = config.margin_multiplier
         c_trading_info.interval = config.interval
         c_trading_info.quote = config.quote
         c_trading_info.missed_candle_policy = config.missed_candle_policy
@@ -167,6 +171,16 @@ class Rust(Solver):
             c_fees_filters = c_fees, c_filters
         return c_fees_filters
 
+    def _get_or_create_c_borrow_info(self, key: str, borrow_info: BorrowInfo) -> Any:
+        c_borrow_info = self._c_borrow_infos.get(key)
+        if not c_borrow_info:
+            c_borrow_info = self._ffi.new('BorrowInfo *')
+            c_borrow_info.daily_interest_rate = float(borrow_info.daily_interest_rate)
+            c_borrow_info.limit = float(borrow_info.limit)
+
+            self._c_borrow_infos[key] = c_borrow_info
+        return c_borrow_info
+
     def _get_or_create_c_candles(self, key: TimeSeriesKey, candles: List[Candle]) -> Any:
         c_candles = self._c_candles.get(key)
         if not c_candles:
@@ -209,6 +223,7 @@ def _build_cdef() -> str:
         _cdef_builder.struct(Price),
         _cdef_builder.struct(Size),
         _cdef_builder.struct(Filters, exclude=['percent_price', 'min_notional']),
+        _cdef_builder.struct(BorrowInfo),
         _cdef_builder.struct(SolverResult),
         _cdef_builder.struct_from_fields(
             'AnalysisInfo',
@@ -221,11 +236,13 @@ def _build_cdef() -> str:
             ('candles', List[Candle]),
             ('fees', Fees),
             ('filters', Filters),
+            ('borrow_info', BorrowInfo),
+            ('margin_multiplier', int),
             ('interval', Interval),
             ('quote', Decimal),
             ('missed_candle_policy', MissedCandlePolicy),
             ('trailing_stop', Decimal),
-            refs=['fees', 'filters']
+            refs=['fees', 'filters', 'borrow_info']
         )
     ]
 
