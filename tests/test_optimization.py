@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 import pytest
 
-from juno import Candle, Fees, Filters
+from juno import BorrowInfo, Candle, Fees, Filters
 from juno.components import Prices
 from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
@@ -104,6 +104,8 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) ->
             candles=portfolio_candles,
             fees=Fees(),
             filters=Filters(),
+            borrow_info=BorrowInfo(),
+            margin_multiplier=1,
             symbol='eth-btc',
             interval=HOUR_MS,
             missed_candle_policy=MissedCandlePolicy.IGNORE,

@@ -101,7 +101,7 @@ class Trader:
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
         if config.short:
-            assert self._informant.get_borrow_info(config.exchange, config.quote_asset)[0]
+            assert self._informant.get_borrow_info(config.exchange, config.quote_asset)
             assert self._informant.get_fees_filters(
                 config.exchange, config.symbol
             )[1].is_margin_trading_allowed
@@ -481,16 +481,14 @@ class Trader:
         self, config: Config, collateral: Decimal, price: Decimal
     ) -> Decimal:
         _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-        _borrow_info, margin_multiplier = self._informant.get_borrow_info(
-            config.exchange, config.base_asset
-        )
+        margin_multiplier = self._informant.get_margin_multiplier(config.exchange)
         collateral_size = filters.size.round_down(collateral / price)
         if collateral_size == 0:
             raise InsufficientBalance()
         return collateral_size * (margin_multiplier - 1)
 
     def _calculate_interest(self, config: Config, start: int, end: int) -> Decimal:
-        borrow_info, _ = self._informant.get_borrow_info(config.exchange, config.base_asset)
+        borrow_info = self._informant.get_borrow_info(config.exchange, config.base_asset)
         duration = ceil_multiple(end - start, HOUR_MS) // HOUR_MS
         interest = duration * borrow_info.hourly_interest_rate
         return interest

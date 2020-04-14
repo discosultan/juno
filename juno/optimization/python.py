@@ -2,8 +2,9 @@ from decimal import Decimal
 from typing import Optional
 
 from juno import Advice, Candle, Fill, InsufficientBalance
-from juno.math import round_half_up
+from juno.math import ceil_multiple, round_half_up
 from juno.strategies import Changed, Strategy
+from juno.time import HOUR_MS
 from juno.trading import (
     MissedCandlePolicy, OpenLongPosition, OpenShortPosition, TradingSummary, analyse_portfolio
 )
@@ -183,9 +184,11 @@ def _close_long_position(config: Solver.Config, state: _State, candle: Candle) -
 def _open_short_position(config: Solver.Config, state: _State, candle: Candle) -> None:
     price = candle.close
 
-    # TODO
-    borrowed = Decimal(0)
-    # borrowed = self._calculate_borrowed(config, state.quote, price)
+    collateral_size = config.filters.size.round_down(state.quote / price)
+    if collateral_size == 0:
+        raise InsufficientBalance()
+    borrowed = collateral_size * (config.margin_multiplier - 1)
+
     quote = round_half_up(price * borrowed, config.filters.quote_precision)
     fee = round_half_up(quote * config.fees.taker, config.filters.quote_precision)
 
@@ -208,13 +211,8 @@ def _close_short_position(config: Solver.Config, state: _State, candle: Candle) 
     price = candle.close
     borrowed = state.open_short_position.borrowed
 
-    # TODO
-    interest = Decimal(0)
-    # interest = self._calculate_interest(
-    #     config,
-    #     state.open_short_position.time,
-    #     candle.time,
-    # )
+    duration = ceil_multiple(candle.time - state.open_short_position.time, HOUR_MS) // HOUR_MS
+    interest = duration * config.borrow_info.hourly_interest_rate
 
     size = borrowed + interest
     quote = round_half_up(price * size, config.filters.quote_precision)

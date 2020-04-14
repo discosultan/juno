@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pandas as pd
 
+from juno import BorrowInfo
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
@@ -48,6 +49,8 @@ async def main() -> None:
                 candles=candles,
                 fees=fees,
                 filters=filters,
+                borrow_info=BorrowInfo(),
+                margin_multiplier=1,
                 strategy_type=MAMACX,
                 strategy_args=strategy_args,
                 symbol='eth-btc',
