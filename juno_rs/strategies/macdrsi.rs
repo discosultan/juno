@@ -1,5 +1,5 @@
 use crate::{
-    strategies::{Macd, MidTrend, Persistence, Rsi, Strategy, combine},
+    strategies::{combine, Macd, MidTrend, Persistence, Rsi, Strategy},
     Advice, Candle,
 };
 

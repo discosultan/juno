@@ -2,11 +2,14 @@ import asyncio
 import logging
 from decimal import Decimal
 
+import pandas as pd
+
+from juno import BorrowInfo
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
-from juno.optimization.python import _trade
+from juno.optimization.python import Python, _trade
 from juno.storages import SQLite
 from juno.strategies import MAMACX
 from juno.time import strptimestamp
@@ -40,16 +43,26 @@ async def main() -> None:
             'sma',
         )
         summary = _trade(
-            MAMACX,
-            Decimal('1.0'),
-            candles,
-            fees,
-            filters,
-            'eth-btc',
-            interval,
-            MissedCandlePolicy.IGNORE,
-            Decimal('0.1255'),
-            *strategy_args
+            Python.Config(
+                fiat_daily_prices={},
+                benchmark_g_returns=pd.Series([]),
+                candles=candles,
+                fees=fees,
+                filters=filters,
+                borrow_info=BorrowInfo(),
+                margin_multiplier=1,
+                strategy_type=MAMACX,
+                strategy_args=strategy_args,
+                symbol='eth-btc',
+                interval=interval,
+                start=start,
+                end=end,
+                quote=Decimal('1.0'),
+                missed_candle_policy=MissedCandlePolicy.IGNORE,
+                trailing_stop=Decimal('0.1255'),
+                long=True,
+                short=False,
+            )
         )
         logging.info(tonamedtuple(summary))
 

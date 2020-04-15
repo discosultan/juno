@@ -6,6 +6,7 @@ from juno import components, exchanges, optimization, storages, strategies, time
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
 from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
+from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
@@ -72,6 +73,7 @@ LONG_MA = 'kama'
 async def main() -> None:
     start = floor_multiple(START, INTERVAL)
     end = floor_multiple(END, INTERVAL)
+    base_asset, quote_asset = unpack_symbol(SYMBOL)
 
     storage = storages.SQLite()
     binance = init_instance(exchanges.Binance, from_env())
@@ -87,47 +89,53 @@ async def main() -> None:
     async with binance, coinbase, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
         fiat_daily_prices = await prices.map_fiat_daily_prices(
-            ('btc', utils.unpack_symbol(SYMBOL)[0]), start, end
+            ('btc', base_asset), start, end
         )
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         fees, filters = informant.get_fees_filters('binance', SYMBOL)
+        borrow_info = informant.get_borrow_info('binance', base_asset)
+        margin_multiplier = informant.get_margin_multiplier('binance')
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
-        args = (
-            fiat_daily_prices,
-            benchmark.g_returns,
-            strategies.MAMACX,
-            start,
-            end,
-            Decimal('1.0'),
-            candles,
-            fees,
-            filters,
-            SYMBOL,
-            INTERVAL,
-            MISSED_CANDLE_POLICY,
-            TRAILING_STOP,
-            True,
-            False,
-            SHORT_PERIOD,
-            LONG_PERIOD,
-            NEG_THRESHOLD,
-            POS_THRESHOLD,
-            PERSISTENCE,
-            SHORT_MA,
-            LONG_MA,
+        solver_config = optimization.Solver.Config(
+            fiat_daily_prices=fiat_daily_prices,
+            benchmark_g_returns=benchmark.g_returns,
+            strategy_type=strategies.MAMACX,
+            start=start,
+            end=end,
+            quote=Decimal('1.0'),
+            candles=candles,
+            fees=fees,
+            filters=filters,
+            borrow_info=borrow_info,
+            margin_multiplier=margin_multiplier,
+            symbol=SYMBOL,
+            interval=INTERVAL,
+            missed_candle_policy=MISSED_CANDLE_POLICY,
+            trailing_stop=TRAILING_STOP,
+            long=True,
+            short=False,
+            strategy_args=(
+                SHORT_PERIOD,
+                LONG_PERIOD,
+                NEG_THRESHOLD,
+                POS_THRESHOLD,
+                PERSISTENCE,
+                SHORT_MA,
+                LONG_MA,
+            ),
         )
-        rust_result = rust_solver.solve(*args)
-        python_result = python_solver.solve(*args)
+        rust_result = rust_solver.solve(solver_config)
+        python_result = python_solver.solve(solver_config)
 
         trading_summary = await trader.run(Trader.Config(
-            'binance',
-            SYMBOL,
-            INTERVAL,
-            start,
-            end,
-            Decimal('1.0'),
+            exchange='binance',
+            symbol=SYMBOL,
+            interval=INTERVAL,
+            start=start,
+            end=end,
+            quote=Decimal('1.0'),
             strategy='mamacx',
             strategy_kwargs={
                 'short_period': SHORT_PERIOD,

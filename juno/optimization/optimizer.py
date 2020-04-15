@@ -134,6 +134,10 @@ class Optimizer:
                          f'{strfspan(start, end)}')
 
         fees_filters = {s: self._informant.get_fees_filters(exchange, s) for s in symbols}
+        borrow_infos = {
+            s: self._informant.get_borrow_info(exchange, unpack_symbol(s)[0]) for s in symbols
+        }
+        margin_multiplier = self._informant.get_margin_multiplier(exchange)
 
         # Prepare benchmark stats.
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
@@ -178,16 +182,28 @@ class Optimizer:
         toolbox.register('select', tools.selNSGA2)
 
         def evaluate(ind: List[Any]) -> SolverResult:
+            fees, filters = fees_filters[ind[0]]
             return self._solver.solve(
-                fiat_daily_prices,
-                benchmark.g_returns,
-                strategy_type,
-                start,
-                end,
-                quote,
-                candles[(ind[0], ind[1])],
-                *fees_filters[ind[0]],
-                *flatten(ind)
+                Solver.Config(
+                    fiat_daily_prices=fiat_daily_prices,
+                    benchmark_g_returns=benchmark.g_returns,
+                    candles=candles[(ind[0], ind[1])],
+                    borrow_info=borrow_infos[ind[0]],
+                    margin_multiplier=margin_multiplier,
+                    fees=fees,
+                    filters=filters,
+                    strategy_type=strategy_type,
+                    start=start,
+                    end=end,
+                    quote=quote,
+                    symbol=ind[0],
+                    interval=ind[1],
+                    missed_candle_policy=ind[2],
+                    trailing_stop=ind[3],
+                    long=ind[4],
+                    short=ind[5],
+                    strategy_args=list(flatten(ind[6:])),
+                )
             )
 
         toolbox.register('evaluate', evaluate)
@@ -278,16 +294,28 @@ class Optimizer:
             f'validating {solver_name} solver result with best args against actual trader'
         )
 
+        fees, filters = fees_filters[best_args[0]]
         solver_result = self._solver.solve(
-            fiat_daily_prices,
-            benchmark.g_returns,
-            strategy_type,
-            start,
-            end,
-            quote,
-            candles[(best_args[0], best_args[1])],
-            *fees_filters[best_args[0]],
-            *best_args
+            Solver.Config(
+                fiat_daily_prices=fiat_daily_prices,
+                benchmark_g_returns=benchmark.g_returns,
+                candles=candles[(best_args[0], best_args[1])],
+                fees=fees,
+                filters=filters,
+                borrow_info=borrow_infos[best_args[0]],
+                margin_multiplier=margin_multiplier,
+                strategy_type=strategy_type,
+                start=start,
+                end=end,
+                quote=quote,
+                symbol=best_args[0],
+                interval=best_args[1],
+                missed_candle_policy=best_args[2],
+                trailing_stop=best_args[3],
+                long=best_args[4],
+                short=best_args[5],
+                strategy_args=best_args[6:],
+            )
         )
 
         trader_result = SolverResult.from_trading_summary(

@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 import pytest
 
-from juno import Candle, Fees, Filters
+from juno import BorrowInfo, Candle, Fees, Filters
 from juno.components import Prices
 from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
@@ -94,22 +94,26 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) ->
     strategy_args = (11, 21, Decimal('-0.229'), Decimal('0.1'), 4, 'ema', 'ema')
 
     result = rust_solver.solve(
-        fiat_daily_candles,
-        benchmark_stats.g_returns,
-        MAMACX,
-        portfolio_candles[0].time,
-        portfolio_candles[-1].time + HOUR_MS,
-        Decimal('1.0'),
-        portfolio_candles,
-        Fees(),
-        Filters(),
-        'eth-btc',
-        HOUR_MS,
-        MissedCandlePolicy.IGNORE,
-        Decimal('0.0'),
-        True,
-        False,
-        *strategy_args
+        Rust.Config(
+            fiat_daily_prices=fiat_daily_candles,
+            benchmark_g_returns=benchmark_stats.g_returns,
+            strategy_type=MAMACX,
+            start=portfolio_candles[0].time,
+            end=portfolio_candles[-1].time + HOUR_MS,
+            quote=Decimal('1.0'),
+            candles=portfolio_candles,
+            fees=Fees(),
+            filters=Filters(),
+            borrow_info=BorrowInfo(),
+            margin_multiplier=1,
+            symbol='eth-btc',
+            interval=HOUR_MS,
+            missed_candle_policy=MissedCandlePolicy.IGNORE,
+            trailing_stop=Decimal('0.0'),
+            long=True,
+            short=False,
+            strategy_args=strategy_args,
+        )
     )
 
     assert not math.isnan(result.alpha)

@@ -218,7 +218,8 @@ class Informant(components.Informant):
         tickers=[],
         exchanges=[],
         exchanges_supporting_symbol=[],
-        borrow_info=(BorrowInfo(), 1),
+        borrow_info=BorrowInfo(),
+        margin_multiplier=1,
     ):
         self.fees = fees
         self.filters = filters
@@ -228,9 +229,13 @@ class Informant(components.Informant):
         self.exchanges = exchanges
         self.exchanges_supporting_symbol = exchanges_supporting_symbol
         self.borrow_info = borrow_info
+        self.margin_multiplier = margin_multiplier
 
     def get_borrow_info(self, exchange, asset):
         return self.borrow_info
+
+    def get_margin_multiplier(self, exchange):
+        return self.margin_multiplier
 
     def get_fees_filters(self, exchange, symbol):
         return self.fees, self.filters

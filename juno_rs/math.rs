@@ -1,5 +1,9 @@
 use std::f64;
 
+pub fn ceil_multiple(value: u64, multiple: u64) -> u64 {
+    (value / multiple) * multiple
+}
+
 pub fn floor_multiple(value: u64, multiple: u64) -> u64 {
     value - (value % multiple)
 }
@@ -16,7 +20,14 @@ pub fn round_half_up(value: f64, precision: u32) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{floor_multiple, mean, round_half_up};
+    use super::{ceil_multiple, floor_multiple, mean, round_half_up};
+
+    #[test]
+    fn test_ceil_multiple() {
+        assert_eq!(ceil_multiple(1, 5), 5);
+        assert_eq!(ceil_multiple(5, 5), 5);
+        assert_eq!(ceil_multiple(6, 5), 10);
+    }
 
     #[test]
     fn test_floor_multiple() {

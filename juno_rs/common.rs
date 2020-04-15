@@ -6,6 +6,13 @@ pub enum Advice {
     Liquidate,
 }
 
+#[derive(Debug)]
+#[repr(C)]
+pub struct BorrowInfo {
+    pub daily_interest_rate: f64,
+    pub limit: f64,
+}
+
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct Candle {

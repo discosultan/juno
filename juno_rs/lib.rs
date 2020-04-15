@@ -16,9 +16,9 @@ use crate::{
     trade::trade,
 };
 pub use crate::{
-    common::{Advice, Candle, Fees},
+    common::{Advice, BorrowInfo, Candle, Fees},
     filters::Filters,
-    trading::{Position, TradingSummary},
+    trading::{LongPosition, ShortPosition, TradingSummary},
 };
 use std::slice;
 
@@ -149,16 +149,21 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
     let fees = &*trading_info.fees;
     let filters = &*trading_info.filters;
+    let borrow_info = &*trading_info.borrow_info;
 
     let trading_result = trade(
         strategy_factory,
         candles,
         fees,
         filters,
+        borrow_info,
+        trading_info.margin_multiplier,
         trading_info.interval,
         trading_info.quote,
         trading_info.missed_candle_policy,
         trading_info.trailing_stop,
+        trading_info.long_,
+        trading_info.short,
     );
 
     // Analysis.
@@ -215,10 +220,14 @@ pub struct TradingInfo {
     candles_length: u32,
     fees: *const Fees,
     filters: *const Filters,
+    borrow_info: *const BorrowInfo,
+    margin_multiplier: u32,
     interval: u64,
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
+    long_: bool,
+    short: bool,
 }
 
 #[repr(C)]

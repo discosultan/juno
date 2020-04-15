@@ -86,12 +86,13 @@ class Informant:
         filters = exchange_info.filters.get('__all__') or exchange_info.filters[symbol]
         return fees, filters
 
-    def get_borrow_info(self, exchange: str, asset: str) -> Tuple[BorrowInfo, int]:
+    def get_borrow_info(self, exchange: str, asset: str) -> BorrowInfo:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        return (
-            exchange_info.borrow_info.get('__all__') or exchange_info.borrow_info[asset],
-            exchange_info.margin_multiplier,
-        )
+        return exchange_info.borrow_info.get('__all__') or exchange_info.borrow_info[asset]
+
+    def get_margin_multiplier(self, exchange) -> int:
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        return exchange_info.margin_multiplier
 
     def list_symbols(self, exchange: str, patterns: Optional[List[str]] = None) -> List[str]:
         all_symbols = list(

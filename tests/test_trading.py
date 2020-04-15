@@ -140,7 +140,8 @@ async def test_trader_downside_trailing_stop() -> None:
     })
     informant = fakes.Informant(
         filters=Filters(is_margin_trading_allowed=True),
-        borrow_info=(BorrowInfo(limit=Decimal('1.0')), 2),
+        borrow_info=BorrowInfo(limit=Decimal('1.0')),
+        margin_multiplier=2,
     )
     trader = Trader(chandler=chandler, informant=informant)
 
