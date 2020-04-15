@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 
 from juno import Fill, InsufficientBalance, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
@@ -165,13 +165,24 @@ class Market(Broker):
         _log.info(f'placing {order_log} of size {size}')
         # TODO: If we tracked Binance fills with websocket, we could also get filled quote sizes.
         # Now we need to calculate ourselves.
-        return await self._exchanges[exchange].place_order(
+        return self._place_order(
             symbol=symbol, side=side, type_=OrderType.MARKET, size=size, test=test, margin=margin
         )
 
-    async def _fill_by_quote(
-        self, exchange: str, symbol: str, side: Side, quote: Decimal, test: bool, margin: bool
+    async def _place_order(
+        self,
+        exchange: str,
+        symbol: str,
+        side: Side,
+        test: bool,
+        margin: bool,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
     ) -> OrderResult:
+        order_log = f'{"test " if test else ""}market {side.name} order'
+        fill_log = f'{size} size' if size is not None else f'{quote} quote'
+        _log.info(f'placing {order_log} to fill {fill_log}')
         return await self._exchanges[exchange].place_order(
-            symbol=symbol, side=side, type_=OrderType.MARKET, quote=quote, test=test, margin=margin
+            symbol=symbol, side=side, type_=OrderType.MARKET, size=size, quote=quote, test=test,
+            margin=margin
         )
