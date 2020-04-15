@@ -46,7 +46,7 @@ impl MidTrend {
             self.ignore = false;
             result = value;
         }
-        return result
+        result
     }
 }
 

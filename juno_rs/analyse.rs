@@ -51,10 +51,26 @@ pub fn analyse(
 
 fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset, f64)>> {
     let mut trades = HashMap::new();
-    let long_pos = summary.long_positions.iter()
-        .map(|pos| (pos.time, pos.cost, pos.base_gain, pos.close_time, pos.base_cost, pos.gain));
-    let short_pos = summary.short_positions.iter()
-        .map(|pos| (pos.time, pos.cost, pos.base_gain, pos.close_time, pos.base_cost, pos.gain));
+    let long_pos = summary.long_positions.iter().map(|pos| {
+        (
+            pos.time,
+            pos.cost,
+            pos.base_gain,
+            pos.close_time,
+            pos.base_cost,
+            pos.gain,
+        )
+    });
+    let short_pos = summary.short_positions.iter().map(|pos| {
+        (
+            pos.time,
+            pos.cost,
+            pos.base_gain,
+            pos.close_time,
+            pos.base_cost,
+            pos.gain,
+        )
+    });
     for (time, cost, base_gain, close_time, base_cost, gain) in long_pos.chain(short_pos) {
         // Open.
         let time = floor_multiple(time, DAY_MS);

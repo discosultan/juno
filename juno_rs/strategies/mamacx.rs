@@ -2,7 +2,7 @@ use std::cmp::{max, min};
 
 use crate::{
     indicators::MA,
-    strategies::{MidTrend, Persistence, Strategy, combine},
+    strategies::{combine, MidTrend, Persistence, Strategy},
     Advice, Candle,
 };
 

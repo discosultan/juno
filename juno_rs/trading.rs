@@ -68,7 +68,13 @@ pub struct ShortPosition {
 
 impl ShortPosition {
     pub fn new(
-        time: u64, collateral: f64, borrowed: f64, price: f64, _size: f64, quote: f64, fee: f64
+        time: u64,
+        collateral: f64,
+        borrowed: f64,
+        price: f64,
+        _size: f64,
+        quote: f64,
+        fee: f64,
     ) -> Self {
         Self {
             time,
@@ -92,7 +98,13 @@ impl ShortPosition {
     }
 
     pub fn close(
-        &mut self, interest: f64, time: u64, _price: f64, _size: f64, quote: f64, _fee: f64
+        &mut self,
+        interest: f64,
+        time: u64,
+        _price: f64,
+        _size: f64,
+        quote: f64,
+        _fee: f64,
     ) {
         self.interest = interest;
         self.close_time = time;
@@ -171,8 +183,14 @@ impl TradingSummary {
         self.drawdowns.resize(self.num_positions as usize + 1, 0.0);
         self.drawdowns[0] = 0.0;
 
-        let long_pos = self.long_positions.iter().map(|pos| (pos.profit, pos.duration));
-        let short_pos = self.short_positions.iter().map(|pos| (pos.profit, pos.duration));
+        let long_pos = self
+            .long_positions
+            .iter()
+            .map(|pos| (pos.profit, pos.duration));
+        let short_pos = self
+            .short_positions
+            .iter()
+            .map(|pos| (pos.profit, pos.duration));
 
         for (i, (profit, duration)) in long_pos.chain(short_pos).enumerate() {
             self.profit += profit;
