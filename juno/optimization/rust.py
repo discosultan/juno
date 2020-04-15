@@ -112,8 +112,8 @@ class Rust(Solver):
         c_trading_info.quote = config.quote
         c_trading_info.missed_candle_policy = config.missed_candle_policy
         c_trading_info.trailing_stop = config.trailing_stop
-        c_trading_info.long = config.long
-        c_trading_info.short = config.short
+        c_trading_info.long_ = config.long
+        c_trading_info.short_ = config.short
 
         # Strategy.
         c_strategy_info = self._ffi.new(f'{config.strategy_type.__name__}Info *')
@@ -244,8 +244,8 @@ def _build_cdef() -> str:
             ('quote', Decimal),
             ('missed_candle_policy', MissedCandlePolicy),
             ('trailing_stop', Decimal),
-            ('long', bool),
-            ('short', bool),
+            ('long_', bool),
+            ('short_', bool),
             refs=['fees', 'filters', 'borrow_info']
         )
     ]

@@ -51,17 +51,21 @@ pub fn analyse(
 
 fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset, f64)>> {
     let mut trades = HashMap::new();
-    for pos in &summary.positions {
+    let long_pos = summary.long_positions.iter()
+        .map(|pos| (pos.time, pos.cost, pos.base_gain, pos.close_time, pos.base_cost, pos.gain));
+    let short_pos = summary.short_positions.iter()
+        .map(|pos| (pos.time, pos.cost, pos.base_gain, pos.close_time, pos.base_cost, pos.gain));
+    for (time, cost, base_gain, close_time, base_cost, gain) in long_pos.chain(short_pos) {
         // Open.
-        let time = floor_multiple(pos.time, DAY_MS);
+        let time = floor_multiple(time, DAY_MS);
         let day_trades = trades.entry(time).or_insert(Vec::<(Asset, f64)>::new());
-        day_trades.push((Asset::Quote, -pos.cost));
-        day_trades.push((Asset::Base, pos.base_gain));
+        day_trades.push((Asset::Quote, -cost));
+        day_trades.push((Asset::Base, base_gain));
         // Close.
-        let time = floor_multiple(pos.close_time, DAY_MS);
+        let time = floor_multiple(close_time, DAY_MS);
         let day_trades = trades.entry(time).or_insert(Vec::<(Asset, f64)>::new());
-        day_trades.push((Asset::Base, -pos.base_cost));
-        day_trades.push((Asset::Quote, pos.gain));
+        day_trades.push((Asset::Base, -base_cost));
+        day_trades.push((Asset::Quote, gain));
     }
     trades
 }

@@ -168,7 +168,7 @@ fn tick<T: Strategy>(
                 state.highest_close_since_position, candle.close
             );
             let upside_trailing_factor = 1.0 - trailing_stop;
-            let target = state.highest_close_since_position * trailing_stop;
+            let target = state.highest_close_since_position * upside_trailing_factor;
             if candle.close <= target {
                 close_long_position(&mut state, &mut summary, fees, filters, &candle);
             }
@@ -244,7 +244,7 @@ fn close_long_position<T: Strategy>(
         let fee = round_half_up(quote * fees.taker, filters.quote_precision);
 
         pos.close(candle.time, price, size, quote, fee);
-        summary.append_position(pos);
+        summary.append_long_position(pos);
 
         state.open_long_position = None;
         state.quote += quote - fee;
@@ -262,7 +262,7 @@ fn try_open_short_position<T: Strategy>(
 ) -> bool {
     let price = candle.close;
 
-    let collateral_size = filters.size.round_down(state.quote / price)
+    let collateral_size = filters.size.round_down(state.quote / price);
     if collateral_size == 0.0 {
         return false;
     }
@@ -301,7 +301,7 @@ fn close_short_position<T: Strategy>(
         size += fee;
 
         pos.close(interest, candle.time, price, size, quote, fee);
-        summary.append_position(pos);
+        summary.append_short_position(pos);
 
         state.open_short_position = None;
         state.quote -= quote;

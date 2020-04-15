@@ -68,7 +68,7 @@ pub struct ShortPosition {
 
 impl ShortPosition {
     pub fn new(
-        time: u64, collateral: f64, borrowed: f64, price: f64, size: f64, quote: f64, fee: f64
+        time: u64, collateral: f64, borrowed: f64, price: f64, _size: f64, quote: f64, fee: f64
     ) -> Self {
         Self {
             time,
@@ -92,7 +92,7 @@ impl ShortPosition {
     }
 
     pub fn close(
-        &mut self, interest: f64, time: u64, _price: f64, size: f64, quote: f64, fee: f64
+        &mut self, interest: f64, time: u64, _price: f64, _size: f64, quote: f64, _fee: f64
     ) {
         self.interest = interest;
         self.close_time = time;
@@ -166,23 +166,27 @@ impl TradingSummary {
     pub fn calculate(&mut self) {
         let mut quote = self.cost;
         let mut max_quote = quote;
+        self.num_positions = self.long_positions.len() as u32 + self.short_positions.len() as u32;
         self.max_drawdown = 0.0;
-        self.drawdowns.resize(self.positions.len() + 1, 0.0);
+        self.drawdowns.resize(self.num_positions as usize + 1, 0.0);
         self.drawdowns[0] = 0.0;
 
-        for (i, pos) in self.positions.iter().enumerate() {
-            self.profit += pos.profit;
+        let long_pos = self.long_positions.iter().map(|pos| (pos.profit, pos.duration));
+        let short_pos = self.short_positions.iter().map(|pos| (pos.profit, pos.duration));
 
-            if pos.profit >= 0.0 {
+        for (i, (profit, duration)) in long_pos.chain(short_pos).enumerate() {
+            self.profit += profit;
+
+            if profit >= 0.0 {
                 self.num_positions_in_profit += 1;
             } else {
                 self.num_positions_in_loss += 1;
             }
 
-            self.mean_position_profit += pos.profit;
-            self.mean_position_duration += pos.duration;
+            self.mean_position_profit += profit;
+            self.mean_position_duration += duration;
 
-            quote += pos.profit;
+            quote += profit;
             max_quote = f64::max(max_quote, quote);
             let drawdown = 1.0 - quote / max_quote;
             self.drawdowns[i + 1] = drawdown;
@@ -190,7 +194,6 @@ impl TradingSummary {
             self.max_drawdown = f64::max(self.max_drawdown, drawdown);
         }
 
-        self.num_positions = self.positions.len() as u32;
         if self.num_positions > 0 {
             self.mean_position_profit /= self.num_positions as f64;
             self.mean_position_duration /= self.num_positions as u64;

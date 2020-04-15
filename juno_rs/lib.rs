@@ -162,7 +162,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         trading_info.quote,
         trading_info.missed_candle_policy,
         trading_info.trailing_stop,
-        trading_info.long,
+        trading_info.long_,
         trading_info.short,
     );
 
@@ -226,7 +226,7 @@ pub struct TradingInfo {
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
-    long: bool,
+    long_: bool,
     short: bool,
 }
 
