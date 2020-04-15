@@ -18,6 +18,7 @@ class Exchange(ABC):
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
     can_margin_trade: bool = False
+    can_place_order_market_quote: bool  # Whether market order accepts quote param.
 
     @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
@@ -72,7 +73,8 @@ class Exchange(ABC):
         symbol: str,
         side: Side,
         type_: OrderType,
-        size: Decimal,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,

@@ -45,6 +45,7 @@ class Coinbase(Exchange):
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
     can_margin_trade: bool = False  # TODO: Actually can; need impl
+    can_place_order_market_quote: bool = True
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
@@ -182,14 +183,25 @@ class Coinbase(Exchange):
         symbol: str,
         side: Side,
         type_: OrderType,
-        size: Decimal,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
         test: bool = True,
         margin: bool = False,
     ) -> Any:
-        raise NotImplementedError()
+        # https://docs.pro.coinbase.com/#place-a-new-order
+        if type_ not in [OrderType.MARKET, OrderType.LIMIT]:
+            # Supports stop orders through params.
+            raise NotImplementedError()
+
+        data = {
+            'type': 'market' if type_ is OrderType.MARKET else 'limit',
+            # ''
+        }
+
+        res = await self._private_request('POST', '/orders', data)
 
     async def cancel_order(
         self, symbol: str, client_id: str, margin: bool = False

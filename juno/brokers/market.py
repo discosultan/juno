@@ -25,27 +25,45 @@ class Market(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         fills = self.find_order_asks(exchange=exchange, symbol=symbol, size=size)
-        return await self._fill(
+        res = await self._fill(
             exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test, margin=margin
         )
+        if test:
+            return OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return res
 
     async def buy_by_quote(
         self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
-        # TODO: Bypass orderbook lookup by placing order based on quote (if exchange supports).
-        # Binance supports it but we are not making use of it.
-        fills = self.find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
-        return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test, margin=margin
-        )
+        exchange_instance = self._exchanges[exchange]
+
+        if test or not exchange_instance.can_place_order_market_quote:
+            fills = self.find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
+
+        if exchange_instance.can_place_order_market_quote:
+            res = await self._fill_by_quote(
+                exchange=exchange, symbol=symbol, side=Side.BUY, quote=quote, test=test,
+                margin=margin
+            )
+        else:
+            res = await self._fill(
+                exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test,
+                margin=margin
+            )
+        if test:
+            return OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return res
 
     async def sell(
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         fills = self.find_order_bids(exchange=exchange, symbol=symbol, size=size)
-        return await self._fill(
+        res = await self._fill(
             exchange=exchange, symbol=symbol, side=Side.SELL, fills=fills, test=test, margin=margin
         )
+        if test:
+            return OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return res
 
     def find_order_asks(self, exchange: str, symbol: str, size: Decimal) -> List[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -135,7 +153,7 @@ class Market(Broker):
             raise InsufficientBalance()
 
         if filters.min_notional.apply_to_market:
-            # TODO: Calc avg price over `filters.min_noitonal.avg_price_mins` minutes.
+            # TODO: Calc avg price over `filters.min_notional.avg_price_mins` minutes.
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#min_notional
             if not filters.min_notional.valid(price=fills[0].price, size=size):
                 _log.info(
@@ -147,9 +165,13 @@ class Market(Broker):
         _log.info(f'placing {order_log} of size {size}')
         # TODO: If we tracked Binance fills with websocket, we could also get filled quote sizes.
         # Now we need to calculate ourselves.
-        res = await self._exchanges[exchange].place_order(
+        return await self._exchanges[exchange].place_order(
             symbol=symbol, side=side, type_=OrderType.MARKET, size=size, test=test, margin=margin
         )
-        if test:
-            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
-        return res
+
+    async def _fill_by_quote(
+        self, exchange: str, symbol: str, side: Side, quote: Decimal, test: bool, margin: bool
+    ) -> OrderResult:
+        return await self._exchanges[exchange].place_order(
+            symbol=symbol, side=side, type_=OrderType.MARKET, quote=quote, test=test, margin=margin
+        )
