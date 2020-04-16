@@ -17,8 +17,8 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
-    OrderType, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters, OrderType, Side,
+    Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -198,14 +198,18 @@ class Coinbase(Exchange):
 
         data = {
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
-            # ''
         }
+        if size is not None:
+            data['size'] = str(size)
+        if quote is not None:
+            data['funds'] = str(quote)
+        if price is not None:
+            data['price'] = str(price)
 
-        res = await self._private_request('POST', '/orders', data)
+        res = await self._private_request('POST', '/orders', data=data)
+        
 
-    async def cancel_order(
-        self, symbol: str, client_id: str, margin: bool = False
-    ) -> CancelOrderResult:
+    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         raise NotImplementedError()
 
     async def stream_historical_trades(self, symbol: str, start: int,
@@ -268,10 +272,10 @@ class Coinbase(Exchange):
         async for val in self._paginated_public_request(method, url, data):
             return val  # Return only first.
 
-    async def _private_request(self, method: str, url: str, data: str = '') -> Any:
+    async def _private_request(self, method: str, url: str, data: Dict[str, Any] = {}) -> Any:
         await self._priv_limiter.acquire()
         timestamp = str(time())
-        message = (timestamp + method + url + data).encode('ascii')
+        message = (timestamp + method + url + json.dumps(data)).encode('ascii')
         signature_hash = hmac.new(self._secret_key_bytes, message, hashlib.sha256).digest()
         signature = base64.b64encode(signature_hash).decode('ascii')
         headers = {

@@ -14,8 +14,8 @@ from typing import (
 )
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
-    OrderResult, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters, OrderResult,
+    OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -207,9 +207,7 @@ class Kraken(Exchange):
         # TODO: use order placing limiter instead of default.
         pass
 
-    async def cancel_order(
-        self, symbol: str, client_id: str, margin: bool = False
-    ) -> CancelOrderResult:
+    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         pass
 
     async def stream_historical_trades(self, symbol: str, start: int,

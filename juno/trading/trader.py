@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, Generic, List, NamedTuple, Optional, TypeVar
 
-from juno import Advice, Candle, Fill, InsufficientBalance, Interval, Timestamp, strategies
+from juno import Advice, Candle, Fill, Interval, OrderException, Timestamp, strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Event, Informant
 from juno.exchanges import Exchange
@@ -268,7 +268,7 @@ class Trader:
 
             size = filters.size.round_down(state.quote / price)
             if size == 0:
-                raise InsufficientBalance()
+                raise OrderException()
 
             quote = round_half_up(price * size, filters.quote_precision)
             fee = round_half_up(size * fees.taker, filters.base_precision)
@@ -484,7 +484,7 @@ class Trader:
         margin_multiplier = self._informant.get_margin_multiplier(config.exchange)
         collateral_size = filters.size.round_down(collateral / price)
         if collateral_size == 0:
-            raise InsufficientBalance()
+            raise OrderException()
         return collateral_size * (margin_multiplier - 1)
 
     def _calculate_interest(self, config: Config, start: int, end: int) -> Decimal:

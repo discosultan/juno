@@ -17,9 +17,9 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate,
-    ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
-    Side, Ticker, TimeInForce, Trade, json
+    Balance, BorrowInfo, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Fill,
+    JunoException, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
+    TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -42,6 +42,7 @@ _SEC_MARGIN = 5  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
+_ERR_NEW_ORDER_REJECTED = -2010
 _ERR_CANCEL_REJECTED = -2011
 _ERR_INVALID_TIMESTAMP = -1021
 _ERR_LISTEN_KEY_DOES_NOT_EXIST = -1125
@@ -332,11 +333,6 @@ class Binance(Exchange):
     ) -> OrderResult:
         if test and margin:
             raise ValueError('Binance does not support placing test orders on margin account')
-        if (
-            (size is not None and quote is not None)
-            or (size is None and quote is None)
-        ):
-            raise ValueError('Invalid size and/or quote')
 
         data = {
             'symbol': _http_symbol(symbol),
@@ -378,20 +374,12 @@ class Binance(Exchange):
             ]
         )
 
-    async def cancel_order(
-        self, symbol: str, client_id: str, margin: bool = False
-    ) -> CancelOrderResult:
+    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
         data = {'symbol': _http_symbol(symbol), 'origClientOrderId': client_id}
-        res = await self._api_request(
+        await self._api_request(
             'DELETE', url, data=data, security=_SEC_TRADE, raise_for_status=False
         )
-        binance_error = res.data.get('code')
-        if binance_error == _ERR_CANCEL_REJECTED:
-            return CancelOrderResult(status=CancelOrderStatus.REJECTED)
-        if binance_error:
-            raise NotImplementedError(f'No handling for binance error: {res}')
-        return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
 
     async def stream_historical_candles(
         self, symbol: str, interval: int, start: int, end: int
@@ -577,10 +565,23 @@ class Binance(Exchange):
             security=security,
             raise_for_status=raise_for_status,
         )
-        if isinstance(res.data, dict) and res.data.get('code') == _ERR_INVALID_TIMESTAMP:
-            _log.warning(f'received invalid timestamp; syncing clock before exc')
-            self._clock.clear()
-            raise JunoException('Incorrect timestamp')
+        if isinstance(res.data, dict):
+            # TODO: walrus
+            error_code = res.data.get('code')
+            if error_code is not None:
+                error_msg = res.data.get('msg')
+                if error_code == _ERR_INVALID_TIMESTAMP:
+                    _log.warning(f'received invalid timestamp; syncing clock before exc')
+                    self._clock.clear()
+                    raise JunoException(error_msg)
+                elif error_code == _ERR_CANCEL_REJECTED:
+                    raise OrderException(error_msg)
+                elif error_code == _ERR_NEW_ORDER_REJECTED:
+                    raise OrderException(error_msg)
+                elif error_code <= -9000:  # Filter error.
+                    raise OrderException(error_msg)
+                else:
+                    raise NotImplementedError(f'No handling for binance error: {res.data}')
         return res
 
     async def _request(

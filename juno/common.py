@@ -47,15 +47,6 @@ class BorrowInfo(NamedTuple):
         return self.daily_interest_rate / 24
 
 
-class CancelOrderResult(NamedTuple):
-    status: CancelOrderStatus
-
-
-class CancelOrderStatus(IntEnum):
-    SUCCESS = 0
-    REJECTED = 1
-
-
 # We have a choice between dataclasses and namedtuples. Namedtuples are chosen as they support
 # iterating over values of an instance (i.e `*mytuple`) which is convenient for decomposing
 # values for SQLIte insertion. Dataclasses miss that functionality but offer comparisons, etc.
@@ -244,5 +235,5 @@ class JunoException(Exception):
     pass
 
 
-class InsufficientBalance(JunoException):
+class OrderException(JunoException):
     pass

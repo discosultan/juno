@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Union
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, OrderResult,
-    OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade
+    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, OrderResult, OrderType, OrderUpdate,
+    Side, Ticker, TimeInForce, Trade
 )
 
 
@@ -86,7 +86,7 @@ class Exchange(ABC):
     @abstractmethod
     async def cancel_order(
         self, symbol: str, client_id: str, margin: bool = False
-    ) -> CancelOrderResult:
+    ) -> None:
         pass
 
     async def stream_historical_trades(

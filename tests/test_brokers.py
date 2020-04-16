@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from juno import (
-    DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Fill, InsufficientBalance, OrderResult,
-    OrderStatus, OrderUpdate
+    DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus,
+    OrderUpdate
 )
 from juno.brokers import Limit, Market
 from juno.components import Informant, Orderbook
@@ -186,7 +186,7 @@ async def test_market_insufficient_balance() -> None:
     exchange.can_stream_depth_snapshot = False
     async with init_market_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
-        with pytest.raises(InsufficientBalance):
+        with pytest.raises(OrderException):
             await broker.buy_by_quote(
                 exchange='exchange',
                 symbol='eth-btc',
@@ -271,7 +271,7 @@ async def test_limit_insufficient_balance() -> None:
     exchange.can_stream_depth_snapshot = False
     async with init_limit_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
-        with pytest.raises(InsufficientBalance):
+        with pytest.raises(OrderException):
             await broker.buy_by_quote(
                 exchange='exchange',
                 symbol='eth-btc',
