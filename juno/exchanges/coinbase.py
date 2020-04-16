@@ -17,8 +17,8 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters, OrderType, Side,
-    Ticker, TimeInForce, Trade, json
+    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Fill, Filters, OrderResult,
+    OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -26,7 +26,7 @@ from juno.http import ClientSession, ClientWebSocketResponse
 from juno.itertools import page
 from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter
+from juno.utils import AsyncLimiter, unpack_symbol
 
 from .exchange import Exchange
 
@@ -173,10 +173,42 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[Any]]:
-        raise NotImplementedError()
-        yield
+        self, symbol: str, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate]:
+            async for data in ws:
+                if data['type'] == 'received':
+                    yield OrderUpdate(
+                        symbol=symbol,
+                        status=OrderStatus.NEW,
+                        price=Decimal(data['price']),
+                        size=Decimal(data['size']),
+                        client_id=data['order_id'],
+                    )
+                elif data['type'] == 'match':
+                    yield OrderUpdate(
+                        symbol=symbol,
+                        status=OrderStatus.PARTIALLY_FILLED,
+                        price=Decimal(data['price']),
+                        size=Decimal(data['size']),
+                        client_id=data['order_id'],
+                    )
+                elif data['type'] == 'done':
+                    yield OrderUpdate(
+                        symbol=symbol,
+                        status=(
+                            OrderStatus.FILLED if data['reason'] == 'filled'
+                            else OrderStatus.CANCELED
+                        ),
+                        price=Decimal(data['price']),
+                        size=Decimal(data['size']),
+                        client_id=data['order_id'],
+                    )
+
+        async with self._ws.subscribe(
+            'user', ['received', 'match', 'done'], [_product(symbol)]
+        ) as ws:
+            yield inner(ws)
 
     async def place_order(
         self,
@@ -190,13 +222,17 @@ class Coinbase(Exchange):
         client_id: Optional[str] = None,
         test: bool = True,
         margin: bool = False,
-    ) -> Any:
+    ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
+        if test or margin:
+            raise NotImplementedError()
         if type_ not in [OrderType.MARKET, OrderType.LIMIT]:
             # Supports stop orders through params.
             raise NotImplementedError()
 
         data = {
+            'product_id': _product(symbol),
+            'side': 'buy' if side is Side.BUY else 'sell',
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
         }
         if size is not None:
@@ -205,12 +241,30 @@ class Coinbase(Exchange):
             data['funds'] = str(quote)
         if price is not None:
             data['price'] = str(price)
+        if time_in_force is not None:
+            data['time_in_force'] = _time_in_force(time_in_force)
+        if client_id is not None:
+            data['client_oid'] = client_id
 
+        base_asset, quote_asset = unpack_symbol(symbol)
         res = await self._private_request('POST', '/orders', data=data)
-        
+        return OrderResult(
+            status=_from_order_status(res['status']),
+            fills=[
+                Fill(
+                    price=Decimal(res['price']),
+                    size=Decimal(res['filled_size']),
+                    quote=Decimal(res['executed_value']),
+                    fee=Decimal(res['fill_fees']),
+                    fee_asset=base_asset if side is Side.BUY else quote_asset,
+                ),
+            ],
+        )
 
     async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
-        raise NotImplementedError()
+        await self._private_request('DELETE', f'/orders/client:{client_id}', {
+            'product_id': _product(symbol),
+        })
 
     async def stream_historical_trades(self, symbol: str, start: int,
                                        end: int) -> AsyncIterable[Trade]:
@@ -238,7 +292,7 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
-        async def inner(ws: AsyncIterable[Any]):
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for val in ws:
                 if val['type'] == 'last_match':
                     # TODO: Useful for recovery process that downloads missed trades after a dc.
@@ -408,3 +462,23 @@ def _from_datetime(dt: str) -> int:
     return datetime_timestamp_ms(
         datetime.strptime(dt, dt_format).replace(tzinfo=UTC)
     )
+
+
+def _time_in_force(time_in_force: TimeInForce) -> str:
+    if time_in_force is TimeInForce.GTC:
+        return 'GTC'
+    elif time_in_force is TimeInForce.GTT:
+        return 'GTT'
+    elif time_in_force is TimeInForce.FOK:
+        return 'FOK'
+    elif time_in_force is TimeInForce.IOC:
+        return 'IOC'
+    raise NotImplementedError()
+
+
+def _from_order_status(status: str) -> OrderStatus:
+    if status == 'pending':
+        return OrderStatus.NEW
+    elif status == 'done':
+        return OrderStatus.FILLED
+    raise NotImplementedError()

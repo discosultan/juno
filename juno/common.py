@@ -207,7 +207,10 @@ class TimeInForce(IntEnum):
     IOC = 1
     # If the entire Fill-or-Kill order does not execute as soon as it becomes available, the entire
     # order is canceled.
-    FOK = 2
+    FOK = 2,
+    # A Good-Til-Time orders remain open on the book until canceled or the allotted time is
+    # depleted on the matching engine.
+    GTT = 3,
 
 
 class Trade(NamedTuple):

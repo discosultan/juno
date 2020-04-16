@@ -294,12 +294,15 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, margin: bool = False
+        self, symbol: str, margin: bool = False
     ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate]:
             async for data in stream:
+                res_symbol = _from_symbol(data['s'])
+                if res_symbol != symbol:
+                    continue
                 yield OrderUpdate(
-                    symbol=_from_symbol(data['s']),
+                    symbol=res_symbol,
                     status=_from_order_status(data['X']),
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.

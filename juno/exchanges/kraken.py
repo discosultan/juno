@@ -181,7 +181,7 @@ class Kraken(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, margin: bool = False
+        self, symbol: str, margin: bool = False
     ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate]:
             async for o in ws:

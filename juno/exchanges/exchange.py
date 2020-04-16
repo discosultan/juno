@@ -63,7 +63,7 @@ class Exchange(ABC):
     @abstractmethod
     @asynccontextmanager
     async def connect_stream_orders(
-        self, margin: bool = False
+        self, symbol: str, margin: bool = False
     ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
         yield  # type: ignore
 

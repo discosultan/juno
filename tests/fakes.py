@@ -123,7 +123,7 @@ class Exchange(exchanges.Exchange):
         yield inner()
 
     @asynccontextmanager
-    async def connect_stream_orders(self, margin=False):
+    async def connect_stream_orders(self, symbol, margin=False):
         async def inner():
             while True:
                 yield await self.orders_queue.get()

@@ -92,7 +92,9 @@ class Limit(Broker):
     ) -> OrderResult:
         client_id = self._get_client_id()
 
-        async with self._exchanges[exchange].connect_stream_orders(margin=margin) as stream:
+        async with self._exchanges[exchange].connect_stream_orders(
+            symbol=symbol, margin=margin
+        ) as stream:
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
                 self._keep_limit_order_best(
