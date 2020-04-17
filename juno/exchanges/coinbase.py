@@ -329,7 +329,8 @@ class Coinbase(Exchange):
     async def _private_request(self, method: str, url: str, data: Dict[str, Any] = {}) -> Any:
         await self._priv_limiter.acquire()
         timestamp = str(time())
-        message = (timestamp + method + url + json.dumps(data)).encode('ascii')
+        body = json.dumps(data) if data else ''
+        message = (timestamp + method + url + body).encode('ascii')
         signature_hash = hmac.new(self._secret_key_bytes, message, hashlib.sha256).digest()
         signature = base64.b64encode(signature_hash).decode('ascii')
         headers = {

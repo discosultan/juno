@@ -6,8 +6,8 @@ from juno.asyncio import resolved_future
 from juno.components import Wallet
 from juno.config import from_env, init_instance
 
-EXCHANGE_TYPE = exchanges.Binance
-ASSETS = ['btc', 'eth']
+EXCHANGE_TYPE = exchanges.Coinbase
+ASSETS = ['btc', 'eth', 'eur']
 KEEP_STREAMING = False
 
 exchange_name = EXCHANGE_TYPE.__name__.lower()

@@ -10,36 +10,37 @@ from juno.exchanges import Binance, Exchange
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
-EXCHANGE = 'binance'
+EXCHANGE_TYPE = Binance
 TEST = False
 SIDE = Side.BUY
-SYMBOL = 'ada-btc'
+SYMBOL = 'btc-eur'
 
 
 async def main() -> None:
-    binance = init_instance(Binance, from_env())
-    exchanges: List[Exchange] = [binance]
+    exchange = init_instance(EXCHANGE_TYPE, from_env())
+    exchange_name = EXCHANGE_TYPE.__name__.lower()
+    exchanges: List[Exchange] = [exchange]
     memory = Memory()
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=exchanges)
     orderbook = Orderbook(exchanges=exchanges, config={'symbol': SYMBOL})
     wallet = Wallet(exchanges=exchanges)
     market = Market(informant, orderbook, exchanges)
-    async with binance, memory, informant, orderbook, wallet:
-        _fees, filters = informant.get_fees_filters(EXCHANGE, SYMBOL)
+    async with exchange, memory, informant, orderbook, wallet:
+        _fees, filters = informant.get_fees_filters(exchange_name, SYMBOL)
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         if SIDE is Side.BUY:
-            balance = wallet.get_balance(EXCHANGE, quote_asset)
+            balance = wallet.get_balance(exchange_name, quote_asset)
             logging.info(balance)
             fills = market.find_order_asks_by_quote(
-                exchange=EXCHANGE, symbol=SYMBOL, quote=balance.available
+                exchange=exchange_name, symbol=SYMBOL, quote=balance.available
             )
         else:
-            balance = wallet.get_balance(EXCHANGE, base_asset)
+            balance = wallet.get_balance(exchange_name, base_asset)
             logging.info(balance)
             fills = market.find_order_bids(
-                exchange=EXCHANGE, symbol=SYMBOL, size=balance.available
+                exchange=exchange_name, symbol=SYMBOL, size=balance.available
             )
 
         size = Fill.total_size(fills)
@@ -55,7 +56,7 @@ async def main() -> None:
 
         logging.info(fills)
 
-        res = await binance.place_order(
+        res = await exchange.place_order(
             symbol=SYMBOL, side=SIDE, type_=OrderType.MARKET, size=size, test=TEST
         )
         logging.info(res)
