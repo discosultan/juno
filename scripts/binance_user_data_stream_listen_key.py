@@ -1,6 +1,6 @@
 import asyncio
 
-# from juno import JunoException
+# from juno import ExchangeException
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
@@ -16,7 +16,7 @@ async def main() -> None:
         # await client._user_data_stream._delete_listen_key(listen_key2)
         # try:
         #     await client._user_data_stream._update_listen_key(listen_key1)
-        # except JunoException:
+        # except ExchangeException:
         #     pass
         # await client._user_data_stream._delete_listen_key(listen_key1)
 

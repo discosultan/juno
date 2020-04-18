@@ -308,8 +308,9 @@ class Coinbase(Exchange):
         async with self._ws.subscribe('matches', ['last_match', 'match'], [symbol]) as ws:
             yield inner(ws)
 
-    async def _paginated_public_request(self, method: str, url: str,
-                                        data: Dict[str, Any] = {}) -> AsyncIterable[Any]:
+    async def _paginated_public_request(
+        self, method: str, url: str, data: Dict[str, Any] = {}
+    ) -> AsyncIterable[Any]:
         url = _BASE_REST_URL + url
         page_after = None
         while True:

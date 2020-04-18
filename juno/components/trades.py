@@ -7,7 +7,7 @@ from typing import AsyncIterable, Callable, Deque, Dict, List, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import JunoException, Trade
+from juno import ExchangeException, Trade
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans, merge_adjacent_spans
@@ -96,7 +96,7 @@ class Trades:
         shard = key(exchange, symbol)
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
-            retry=retry_if_exception_type(JunoException),
+            retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.DEBUG)
         ):
             with attempt:
@@ -136,7 +136,7 @@ class Trades:
                             batch_start = batch_end
                             del swap_batch[:]
                         yield trade
-                except (asyncio.CancelledError, JunoException):
+                except (asyncio.CancelledError, ExchangeException):
                     if len(batch) > 0:
                         batch_end = batch[-1].time + 1
                         await self._storage.store_time_series_and_span(

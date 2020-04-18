@@ -9,7 +9,7 @@ from typing import AsyncIterable, Callable, Dict, List, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import Candle, JunoException
+from juno import Candle, ExchangeException
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans, merge_adjacent_spans
@@ -166,7 +166,7 @@ class Chandler:
         # work with async generator functions.
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
-            retry=retry_if_exception_type(JunoException),
+            retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.DEBUG)
         ):
             with attempt:
@@ -199,7 +199,7 @@ class Chandler:
                                 batch_start = batch_end
                                 del swap_batch[:]
                         yield candle
-                except (asyncio.CancelledError, JunoException):
+                except (asyncio.CancelledError, ExchangeException):
                     if len(batch) > 0:
                         batch_end = batch[-1].time + interval
                         await self._storage.store_time_series_and_span(

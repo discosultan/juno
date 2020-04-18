@@ -234,9 +234,9 @@ class ExchangeInfo(NamedTuple):
     margin_multiplier: int = 1
 
 
-class JunoException(Exception):
+class ExchangeException(Exception):
     pass
 
 
-class OrderException(JunoException):
+class OrderException(Exception):
     pass

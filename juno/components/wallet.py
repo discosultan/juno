@@ -7,7 +7,7 @@ from typing import AsyncIterable, Dict, List, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import Balance, JunoException
+from juno import Balance, ExchangeException
 from juno.asyncio import Barrier, Event, cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
@@ -53,7 +53,7 @@ class Wallet:
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
-            retry=retry_if_exception_type(JunoException),
+            retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.DEBUG)
         ):
             with attempt:

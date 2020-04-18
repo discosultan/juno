@@ -9,7 +9,7 @@ from typing import Any, AsyncIterable, Dict, List, Tuple, Union
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import DepthSnapshot, DepthUpdate, JunoException, Side
+from juno import DepthSnapshot, DepthUpdate, ExchangeException, Side
 from juno.asyncio import Barrier, Event, cancel, create_task_cancel_on_exc
 from juno.config import list_names
 from juno.exchanges import Exchange
@@ -65,7 +65,7 @@ class Orderbook:
         orderbook = self._data[exchange][symbol]
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
-            retry=retry_if_exception_type(JunoException),
+            retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.DEBUG)
         ):
             with attempt:

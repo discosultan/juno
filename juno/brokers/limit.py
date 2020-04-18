@@ -183,15 +183,13 @@ class Limit(Broker):
             size = filters.size.round_down(size)
 
             if size == 0:
-                _log.info('skipping order placement; size 0')
-                raise OrderException()
+                raise OrderException('Size 0')
 
             if not filters.min_notional.valid(price=price, size=size):
-                _log.info(
-                    f'min notional not satisfied: {price} * {size} != '
+                raise OrderException(
+                    f'Min notional not satisfied: {price} * {size} != '
                     f'{filters.min_notional.min_notional}'
                 )
-                raise OrderException()
 
             _log.info(f'placing limit order at price {price} for size {size}')
             await self._exchanges[exchange].place_order(

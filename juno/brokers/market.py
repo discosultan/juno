@@ -155,14 +155,14 @@ class Market(Broker):
         size = Fill.total_size(fills)
 
         if size == 0:
-            raise OrderException('Size zero')
+            raise OrderException('Size 0')
 
         if filters.min_notional.apply_to_market:
             # TODO: Calc avg price over `filters.min_notional.avg_price_mins` minutes.
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#min_notional
             if not filters.min_notional.valid(price=fills[0].price, size=size):
                 raise OrderException(
-                    f'min notional not satisfied: {fills[0].price} * {size} != '
+                    f'Min notional not satisfied: {fills[0].price} * {size} != '
                     f'{filters.min_notional.min_notional}'
                 )
 
