@@ -205,13 +205,12 @@ class Kraken(Exchange):
         # TODO: use order placing limiter instead of default.
         pass
 
-    async def cancel_order(
-        self, symbol: str, client_id: str, margin: bool = False
-    ) -> None:
+    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         pass
 
-    async def stream_historical_trades(self, symbol: str, start: int,
-                                       end: int) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(
+        self, symbol: str, start: int, end: int
+    ) -> AsyncIterable[Trade]:
         # https://www.kraken.com/en-us/features/api#get-recent-trades
         since = _time(start) - 1  # Exclusive.
         while True:

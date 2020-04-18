@@ -369,9 +369,7 @@ class Binance(Exchange):
             ]
         )
 
-    async def cancel_order(
-        self, symbol: str, client_id: str, margin: bool = False
-    ) -> None:
+    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
         data = {'symbol': _http_symbol(symbol), 'origClientOrderId': client_id}
         await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)

@@ -191,9 +191,7 @@ class Coinbase(Exchange):
     ) -> Any:
         raise NotImplementedError()
 
-    async def cancel_order(
-        self, symbol: str, client_id: str, margin: bool = False
-    ) -> None:
+    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         raise NotImplementedError()
 
     async def stream_historical_trades(self, symbol: str, start: int,

@@ -82,9 +82,7 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    async def cancel_order(
-        self, symbol: str, client_id: str, margin: bool = False
-    ) -> None:
+    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         pass
 
     async def stream_historical_trades(
