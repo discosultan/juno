@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, JunoException, Trade
+from juno import Candle, ExchangeException, Trade
 from juno.asyncio import cancel, list_async
 from juno.components import Chandler
 from juno.storages import Storage
@@ -172,7 +172,7 @@ async def test_stream_candles_on_ws_disconnect(storage: fakes.Storage) -> None:
         Candle(time=1),
         Candle(time=2),
     ]
-    for exc_or_candle in [JunoException(), Candle(time=3)]:
+    for exc_or_candle in [ExchangeException(), Candle(time=3)]:
         exchange.candle_queue.put_nowait(exc_or_candle)
     await exchange.candle_queue.join()
 

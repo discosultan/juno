@@ -6,8 +6,7 @@ from decimal import Decimal
 from typing import AsyncIterable, Callable, List
 
 from juno import (
-    CancelOrderStatus, Fill, InsufficientBalance, OrderResult, OrderStatus, OrderType, OrderUpdate,
-    Side, TimeInForce
+    Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
@@ -43,14 +42,14 @@ class Limit(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {size} worth of base with limit orders at spread')
+        _log.info(f'buying {size} worth of base asset with limit orders at spread')
         return await self._buy(exchange, symbol, margin, _Context(available=size, use_quote=False))
 
     async def buy_by_quote(
         self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {quote} worth of quote with limit orders at spread')
+        _log.info(f'buying {quote} worth of quote asset with limit orders at spread')
         return await self._buy(exchange, symbol, margin, _Context(available=quote, use_quote=True))
 
     async def _buy(self, exchange: str, symbol: str, margin: bool, ctx: _Context) -> OrderResult:
@@ -72,7 +71,7 @@ class Limit(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'selling {size} worth of base with limit orders at spread')
+        _log.info(f'selling {size} worth of base asset with limit orders at spread')
         ctx = _Context(available=size, use_quote=False)
         res = await self._fill(exchange, symbol, Side.SELL, margin, ctx)
 
@@ -119,7 +118,7 @@ class Limit(Broker):
 
         try:
             await asyncio.gather(keep_limit_order_best_task, track_fills_task)
-        except InsufficientBalance:
+        except OrderException:
             await cancel(keep_limit_order_best_task, track_fills_task)
             raise
         except _Filled as exc:
@@ -167,11 +166,12 @@ class Limit(Broker):
                 _log.info(
                     f'cancelling previous limit order {client_id} at price {last_order_price}'
                 )
-                cancel_res = await self._exchanges[exchange].cancel_order(
-                    symbol=symbol, client_id=client_id, margin=margin
-                )
-                if cancel_res.status is CancelOrderStatus.REJECTED:
-                    _log.warning(f'failed to cancel order {client_id}; probably got filled')
+                try:
+                    await self._exchanges[exchange].cancel_order(
+                        symbol=symbol, client_id=client_id, margin=margin
+                    )
+                except OrderException as exc:
+                    _log.warning(f'failed to cancel order {client_id}; probably got filled; {exc}')
                     break
                 _log.info(f'waiting for order {client_id} to be cancelled')
                 await ctx.cancelled_event.wait()
@@ -181,15 +181,13 @@ class Limit(Broker):
             size = filters.size.round_down(size)
 
             if size == 0:
-                _log.info('skipping order placement; size 0')
-                raise InsufficientBalance()
+                raise OrderException('Size 0')
 
             if not filters.min_notional.valid(price=price, size=size):
-                _log.info(
-                    f'min notional not satisfied: {price} * {size} != '
+                raise OrderException(
+                    f'Min notional not satisfied: {price} * {size} != '
                     f'{filters.min_notional.min_notional}'
                 )
-                raise InsufficientBalance()
 
             _log.info(f'placing limit order at price {price} for size {size}')
             await self._exchanges[exchange].place_order(

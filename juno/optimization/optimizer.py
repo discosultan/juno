@@ -11,7 +11,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from deap import base, creator, tools
 
-from juno import Candle, InsufficientBalance, Interval, Timestamp, strategies
+from juno import Candle, Interval, OrderException, Timestamp, strategies
 from juno.components import Chandler, Informant, Prices
 from juno.itertools import flatten
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
@@ -274,7 +274,7 @@ class Optimizer:
         state: Trader.State[Any] = Trader.State()
         try:
             await self._trader.run(trading_config, state)
-        except InsufficientBalance:
+        except OrderException:
             pass
         assert state.summary
         portfolio_summary = analyse_portfolio(

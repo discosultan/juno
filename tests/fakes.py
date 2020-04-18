@@ -5,8 +5,8 @@ from decimal import Decimal
 from typing import Dict, List, Tuple
 
 from juno import (
-    Balance, BorrowInfo, CancelOrderResult, CancelOrderStatus, Candle, ExchangeInfo, Fees, Filters,
-    OrderResult, OrderStatus, Side, brokers, components, exchanges, storages
+    Balance, BorrowInfo, Candle, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus, Side,
+    brokers, components, exchanges, storages
 )
 from juno.asyncio import Event
 
@@ -34,7 +34,6 @@ class Exchange(exchanges.Exchange):
         future_depths=[],
         future_orders=[],
         place_order_result=OrderResult(status=OrderStatus.NEW),
-        cancel_order_result=CancelOrderResult(status=CancelOrderStatus.SUCCESS),
         historical_trades=[],
         future_trades=[],
     ):
@@ -66,7 +65,6 @@ class Exchange(exchanges.Exchange):
         self.place_order_result = place_order_result
         self.place_order_calls = []
 
-        self.cancel_order_result = cancel_order_result
         self.cancel_order_calls = []
 
         self.historical_trades = historical_trades
@@ -139,7 +137,6 @@ class Exchange(exchanges.Exchange):
     async def cancel_order(self, *args, **kwargs):
         await asyncio.sleep(0)
         self.cancel_order_calls.append({**kwargs})
-        return self.cancel_order_result
 
     async def stream_historical_trades(self, symbol, start, end):
         for t in (t for t in self.historical_trades if t.time >= start and t.time < end):

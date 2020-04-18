@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import List
 
-from juno import Fill, InsufficientBalance, OrderResult, OrderStatus, OrderType, Side
+from juno import Fill, OrderException, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -131,18 +131,16 @@ class Market(Broker):
         size = Fill.total_size(fills)
 
         if size == 0:
-            _log.info(f'skipping {order_log} placement; size zero')
-            raise InsufficientBalance()
+            raise OrderException('Size 0')
 
         if filters.min_notional.apply_to_market:
-            # TODO: Calc avg price over `filters.min_noitonal.avg_price_mins` minutes.
+            # TODO: Calc avg price over `filters.min_notional.avg_price_mins` minutes.
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#min_notional
             if not filters.min_notional.valid(price=fills[0].price, size=size):
-                _log.info(
-                    f'min notional not satisfied: {fills[0].price} * {size} != '
+                raise OrderException(
+                    f'Min notional not satisfied: {fills[0].price} * {size} != '
                     f'{filters.min_notional.min_notional}'
                 )
-                raise InsufficientBalance()
 
         _log.info(f'placing {order_log} of size {size}')
         # TODO: If we tracked Binance fills with websocket, we could also get filled quote sizes.

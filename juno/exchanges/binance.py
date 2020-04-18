@@ -17,9 +17,9 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot, DepthUpdate,
-    ExchangeInfo, Fees, Fill, JunoException, OrderResult, OrderStatus, OrderType, OrderUpdate,
-    Side, Ticker, TimeInForce, Trade, json
+    Balance, BorrowInfo, Candle, DepthSnapshot, DepthUpdate, ExchangeException, ExchangeInfo, Fees,
+    Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
+    TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -42,9 +42,10 @@ _SEC_MARGIN = 5  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
+_ERR_NEW_ORDER_REJECTED = -2010
 _ERR_CANCEL_REJECTED = -2011
 _ERR_INVALID_TIMESTAMP = -1021
-_ERR_LISTEN_KEY_DOES_NOT_EXIST = -1125
+_ERR_INVALID_LISTEN_KEY = -1125
 
 _log = logging.getLogger(__name__)
 
@@ -370,18 +371,10 @@ class Binance(Exchange):
 
     async def cancel_order(
         self, symbol: str, client_id: str, margin: bool = False
-    ) -> CancelOrderResult:
+    ) -> None:
         url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
         data = {'symbol': _http_symbol(symbol), 'origClientOrderId': client_id}
-        res = await self._api_request(
-            'DELETE', url, data=data, security=_SEC_TRADE, raise_for_status=False
-        )
-        binance_error = res.data.get('code')
-        if binance_error == _ERR_CANCEL_REJECTED:
-            return CancelOrderResult(status=CancelOrderStatus.REJECTED)
-        if binance_error:
-            raise NotImplementedError(f'No handling for binance error: {res}')
-        return CancelOrderResult(status=CancelOrderStatus.SUCCESS)
+        await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
 
     async def stream_historical_candles(
         self, symbol: str, interval: int, start: int, end: int
@@ -531,7 +524,6 @@ class Binance(Exchange):
         weight: int = 1,
         data: Optional[Any] = None,
         security: int = _SEC_NONE,
-        raise_for_status=True
     ) -> Any:
         res = await self._request(
             method=method,
@@ -539,7 +531,6 @@ class Binance(Exchange):
             weight=weight,
             data=data,
             security=security,
-            raise_for_status=raise_for_status,
         )
         if not res.data['success']:
             # There's no error code in this response to figure out whether it's a timestamp issue.
@@ -547,7 +538,8 @@ class Binance(Exchange):
             # always.
             _log.warning(f'received error: {res.data["msg"]}; syncing clock before exc')
             self._clock.clear()
-            raise JunoException(res.data['msg'])
+            raise ExchangeException(res.data['msg'])
+        res.raise_for_status()
         return res
 
     async def _api_request(
@@ -557,7 +549,6 @@ class Binance(Exchange):
         weight: int = 1,
         data: Optional[Any] = None,
         security: int = _SEC_NONE,
-        raise_for_status=True,
     ) -> Any:
         res = await self._request(
             method=method,
@@ -565,12 +556,32 @@ class Binance(Exchange):
             weight=weight,
             data=data,
             security=security,
-            raise_for_status=raise_for_status,
         )
-        if isinstance(res.data, dict) and res.data.get('code') == _ERR_INVALID_TIMESTAMP:
-            _log.warning(f'received invalid timestamp; syncing clock before exc')
-            self._clock.clear()
-            raise JunoException('Incorrect timestamp')
+        if isinstance(res.data, dict):
+            # TODO: walrus
+            error_code = res.data.get('code')
+            if error_code is not None:
+                error_msg = res.data.get('msg')
+                _log.warning(
+                    f'received http status {res.status}; code {error_code}; msg {error_msg}'
+                )
+                if error_code == _ERR_INVALID_TIMESTAMP:
+                    _log.warning(f'received invalid timestamp; syncing clock before exc')
+                    self._clock.clear()
+                    raise ExchangeException(error_msg)
+                elif error_code == _ERR_INVALID_LISTEN_KEY:
+                    # TODO: If status 50X (502 for example during exchange maintenance), we may
+                    # want to wait for a some kind of a successful health check before retrying.
+                    raise ExchangeException(error_msg)
+                elif error_code == _ERR_CANCEL_REJECTED:
+                    raise OrderException(error_msg)
+                elif error_code == _ERR_NEW_ORDER_REJECTED:
+                    raise OrderException(error_msg)
+                elif error_code <= -9000:  # Filter error.
+                    raise OrderException(error_msg)
+                else:
+                    raise NotImplementedError(f'No handling for binance error: {res.data}')
+        res.raise_for_status()
         return res
 
     async def _request(
@@ -580,7 +591,6 @@ class Binance(Exchange):
         weight: int = 1,
         data: Optional[Any] = None,
         security: int = _SEC_NONE,
-        raise_for_status: bool = True
     ) -> ClientJsonResponse:
         limiters = [
             self._raw_reqs_limiter.acquire(),
@@ -619,11 +629,8 @@ class Binance(Exchange):
                 retry_after = res.headers['Retry-After']
                 _log.warning(f'received status {res.status}; sleeping {retry_after}s before exc')
                 await asyncio.sleep(float(retry_after))
-                raise JunoException('Retry after')
-            else:
-                if raise_for_status:
-                    res.raise_for_status()
-                return res
+                raise ExchangeException('Retry after')
+            return res
 
     @asynccontextmanager
     async def _connect_refreshing_stream(
@@ -641,7 +648,7 @@ class Binance(Exchange):
             ) as stream:
                 yield stream
         except aiohttp.WebSocketError as e:
-            raise JunoException(str(e))
+            raise ExchangeException(str(e))
 
 
 class Clock:
@@ -770,7 +777,7 @@ class UserDataStream:
             if self._listen_key:
                 try:
                     await self._update_listen_key(self._listen_key)
-                except JunoException:
+                except ExchangeException:
                     _log.warning(f'tried to update a listen key {self._listen_key} which did not '
                                  'exist; resetting')
                     self._listen_key = None
@@ -789,7 +796,7 @@ class UserDataStream:
                     async for data in stream:
                         self._queues[data['e']].put_nowait(data)
                 break
-            except JunoException as e:
+            except ExchangeException as e:
                 for event in self._queues.values():
                     event.put_nowait(e)
             await self._ensure_listen_key()
@@ -820,19 +827,12 @@ class UserDataStream:
     )
     async def _update_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
-        res = await self._binance._api_request(
+        return await self._binance._api_request(
             'PUT',
             f'{self._base_url}/userDataStream',
             data={'listenKey': listen_key},
             security=_SEC_USER_STREAM,
-            raise_for_status=False
         )
-        if res.status == 400 and res.data.get('code') == _ERR_LISTEN_KEY_DOES_NOT_EXIST:
-            raise JunoException('Listen key does not exist')
-        # TODO: If status 50X (502 for example during exchange maintenance), we may want to wait
-        # for a some kind of a successful health check before retrying.
-        res.raise_for_status()
-        return res
 
     @retry(
         stop=stop_after_attempt(3),
@@ -865,7 +865,7 @@ def _from_symbol(symbol: str) -> str:
     # since there is no separator used. We simply map based on known base currencies.
     known_base_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW'
+        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT'
     ]
     for known_base_asset in known_base_assets:
         if symbol.endswith(known_base_asset):

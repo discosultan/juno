@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Optional
 
-from juno import Advice, Candle, Fill, InsufficientBalance
+from juno import Advice, Candle, Fill, OrderException
 from juno.math import ceil_multiple, round_half_up
 from juno.strategies import Changed, Strategy
 from juno.time import HOUR_MS
@@ -93,7 +93,7 @@ def _trade(config: Solver.Config) -> TradingSummary:
             if state.open_short_position:
                 _close_short_position(config, state, state.last_candle)
 
-    except InsufficientBalance:
+    except OrderException:
         pass
 
     state.summary.finish(config.candles[-1].time + config.interval)
@@ -142,7 +142,7 @@ def _open_long_position(config: Solver.Config, state: _State, candle: Candle) ->
 
     size = config.filters.size.round_down(state.quote / price)
     if size == 0:
-        raise InsufficientBalance()
+        raise OrderException()
 
     quote = round_half_up(size * price, config.filters.quote_precision)
     fee = round_half_up(size * config.fees.taker, config.filters.base_precision)
@@ -186,7 +186,7 @@ def _open_short_position(config: Solver.Config, state: _State, candle: Candle) -
 
     collateral_size = config.filters.size.round_down(state.quote / price)
     if collateral_size == 0:
-        raise InsufficientBalance()
+        raise OrderException()
     borrowed = collateral_size * (config.margin_multiplier - 1)
 
     quote = round_half_up(price * borrowed, config.filters.quote_precision)

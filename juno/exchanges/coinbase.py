@@ -17,8 +17,8 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, CancelOrderResult, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters,
-    OrderType, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters, OrderType, Side,
+    Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -193,7 +193,7 @@ class Coinbase(Exchange):
 
     async def cancel_order(
         self, symbol: str, client_id: str, margin: bool = False
-    ) -> CancelOrderResult:
+    ) -> None:
         raise NotImplementedError()
 
     async def stream_historical_trades(self, symbol: str, start: int,
@@ -222,7 +222,7 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
-        async def inner(ws: AsyncIterable[Any]):
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
             async for val in ws:
                 if val['type'] == 'last_match':
                     # TODO: Useful for recovery process that downloads missed trades after a dc.
@@ -238,8 +238,9 @@ class Coinbase(Exchange):
         async with self._ws.subscribe('matches', ['last_match', 'match'], [symbol]) as ws:
             yield inner(ws)
 
-    async def _paginated_public_request(self, method: str, url: str,
-                                        data: Dict[str, Any] = {}) -> AsyncIterable[Any]:
+    async def _paginated_public_request(
+        self, method: str, url: str, data: Dict[str, Any] = {}
+    ) -> AsyncIterable[Any]:
         url = _BASE_REST_URL + url
         page_after = None
         while True:

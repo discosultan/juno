@@ -1,8 +1,8 @@
 from juno.aliases import Interval, Timestamp
 from juno.common import (
-    Advice, Balance, BorrowInfo, CancelOrderResult, CancelOrderStatus, Candle, DepthSnapshot,
-    DepthUpdate, ExchangeInfo, Fees, Fill, InsufficientBalance, JunoException, OrderResult,
-    OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade
+    Advice, Balance, BorrowInfo, Candle, DepthSnapshot, DepthUpdate, ExchangeException,
+    ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate,
+    Side, Ticker, TimeInForce, Trade
 )
 from juno.filters import Filters
 
@@ -10,8 +10,6 @@ __all__ = [
     'Advice',
     'Balance',
     'BorrowInfo',
-    'CancelOrderResult',
-    'CancelOrderStatus',
     'Candle',
     'DepthSnapshot',
     'DepthUpdate',
@@ -19,9 +17,9 @@ __all__ = [
     'Fees',
     'Fill',
     'Filters',
-    'InsufficientBalance',
+    'OrderException',
     'Interval',
-    'JunoException',
+    'ExchangeException',
     'OrderResult',
     'OrderStatus',
     'OrderType',

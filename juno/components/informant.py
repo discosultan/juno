@@ -9,7 +9,7 @@ from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tupl
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
-from juno import BorrowInfo, ExchangeInfo, Fees, Filters, JunoException, Ticker, Timestamp
+from juno import BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
 from juno.asyncio import cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.storages import Storage
@@ -161,7 +161,7 @@ class Informant:
 
     @retry(
         stop=stop_after_attempt(3),
-        retry=retry_if_exception_type(JunoException),
+        retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.DEBUG)
     )
     async def _sync_for_exchange(
