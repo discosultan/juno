@@ -17,8 +17,8 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters, OrderType, Side,
-    Ticker, TimeInForce, Trade, json
+    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters, OrderResult,
+    OrderType, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -45,6 +45,7 @@ class Coinbase(Exchange):
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
     can_margin_trade: bool = False  # TODO: Actually can; need impl
+    can_place_order_market_quote: bool = True
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
@@ -182,13 +183,14 @@ class Coinbase(Exchange):
         symbol: str,
         side: Side,
         type_: OrderType,
-        size: Decimal,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
         test: bool = True,
         margin: bool = False,
-    ) -> Any:
+    ) -> OrderResult:
         raise NotImplementedError()
 
     async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:

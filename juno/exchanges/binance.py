@@ -59,6 +59,7 @@ class Binance(Exchange):
     can_stream_candles: bool = True
     can_list_all_tickers: bool = True
     can_margin_trade: bool = True
+    can_place_order_market_quote: bool = True
 
     def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
         if not high_precision:
@@ -322,7 +323,8 @@ class Binance(Exchange):
         symbol: str,
         side: Side,
         type_: OrderType,
-        size: Decimal,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
@@ -336,8 +338,11 @@ class Binance(Exchange):
             'symbol': _http_symbol(symbol),
             'side': _side(side),
             'type': type_.name,
-            'quantity': str(size)
         }
+        if size is not None:
+            data['quantity'] = str(size)
+        if quote is not None:
+            data['quoteOrderQty'] = str(quote)
         if price is not None:
             data['price'] = str(price)
         if time_in_force is not None:

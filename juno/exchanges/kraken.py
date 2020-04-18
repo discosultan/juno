@@ -45,6 +45,7 @@ class Kraken(Exchange):
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
     can_margin_trade: bool = False  # TODO: Actually can; need impl
+    can_place_order_market_quote: bool = False  # TODO: Can but only for non-leveraged orders
 
     def __init__(self, api_key: str, secret_key: str) -> None:
         self._api_key = api_key
@@ -195,7 +196,8 @@ class Kraken(Exchange):
         symbol: str,
         side: Side,
         type_: OrderType,
-        size: Decimal,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,

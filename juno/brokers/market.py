@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import List
+from typing import List, Optional
 
 from juno import Fill, OrderException, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
@@ -21,31 +21,59 @@ class Market(Broker):
         self._orderbook = orderbook
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
+        for name, exchange in self._exchanges.items():
+            if not exchange.can_place_order_market_quote:
+                _log.warning(
+                    f'{name} does not support placing market orders by quote size; calculating '
+                    'size by quote from orderbook instead'
+                )
+
     async def buy(
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
-        fills = self.find_order_asks(exchange=exchange, symbol=symbol, size=size)
-        return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test, margin=margin
+        res = await self._place_order(
+            exchange=exchange, symbol=symbol, side=Side.BUY, size=size, test=test, margin=margin
         )
+        if test:
+            fills = self.find_order_asks(exchange=exchange, symbol=symbol, size=size)
+            self._validate_fills(exchange, symbol, fills)
+            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return res
 
     async def buy_by_quote(
         self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
-        # TODO: Bypass orderbook lookup by placing order based on quote (if exchange supports).
-        # Binance supports it but we are not making use of it.
-        fills = self.find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
-        return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.BUY, fills=fills, test=test, margin=margin
-        )
+        exchange_instance = self._exchanges[exchange]
+
+        if test or not exchange_instance.can_place_order_market_quote:
+            fills = self.find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
+            self._validate_fills(exchange, symbol, fills)
+
+        if exchange_instance.can_place_order_market_quote:
+            res = await self._place_order(
+                exchange=exchange, symbol=symbol, side=Side.BUY, quote=quote, test=test,
+                margin=margin
+            )
+        else:
+            res = await self._place_order(
+                exchange=exchange, symbol=symbol, side=Side.BUY, size=Fill.total_size(fills),
+                test=test, margin=margin
+            )
+        if test:
+            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return res
 
     async def sell(
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
-        fills = self.find_order_bids(exchange=exchange, symbol=symbol, size=size)
-        return await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.SELL, fills=fills, test=test, margin=margin
+        res = await self._place_order(
+            exchange=exchange, symbol=symbol, side=Side.SELL, size=size, test=test, margin=margin
         )
+        if test:
+            fills = self.find_order_bids(exchange=exchange, symbol=symbol, size=size)
+            self._validate_fills(exchange, symbol, fills)
+            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return res
 
     def find_order_asks(self, exchange: str, symbol: str, size: Decimal) -> List[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -122,32 +150,37 @@ class Market(Broker):
                 size -= bsize
         return result
 
-    async def _fill(
-        self, exchange: str, symbol: str, side: Side, fills: List[Fill], test: bool, margin: bool
-    ) -> OrderResult:
+    def _validate_fills(self, exchange: str, symbol: str, fills: List[Fill]) -> None:
         _fees, filters = self._informant.get_fees_filters(exchange, symbol)
-
-        order_log = f'{"test " if test else ""}market {side.name} order'
         size = Fill.total_size(fills)
-
-        if size == 0:
-            raise OrderException('Size 0')
+        if not filters.size.valid(size):
+            raise OrderException(f'Size invalid: {size}')
 
         if filters.min_notional.apply_to_market:
             # TODO: Calc avg price over `filters.min_notional.avg_price_mins` minutes.
             # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#min_notional
             if not filters.min_notional.valid(price=fills[0].price, size=size):
                 raise OrderException(
-                    f'Min notional not satisfied: {fills[0].price} * {size} != '
+                    f'Min notional invalid: {fills[0].price} * {size} != '
                     f'{filters.min_notional.min_notional}'
                 )
 
-        _log.info(f'placing {order_log} of size {size}')
+    async def _place_order(
+        self,
+        exchange: str,
+        symbol: str,
+        side: Side,
+        test: bool,
+        margin: bool,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+    ) -> OrderResult:
         # TODO: If we tracked Binance fills with websocket, we could also get filled quote sizes.
         # Now we need to calculate ourselves.
-        res = await self._exchanges[exchange].place_order(
-            symbol=symbol, side=side, type_=OrderType.MARKET, size=size, test=test, margin=margin
+        order_log = f'{"test " if test else ""}market {side.name} order'
+        fill_log = f'{size} size' if size is not None else f'{quote} quote'
+        _log.info(f'placing {order_log} to fill {fill_log}')
+        return await self._exchanges[exchange].place_order(
+            symbol=symbol, side=side, type_=OrderType.MARKET, size=size, quote=quote, test=test,
+            margin=margin
         )
-        if test:
-            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
-        return res
