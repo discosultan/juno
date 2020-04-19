@@ -31,6 +31,9 @@ class Market(Broker):
     async def buy(
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
+        _fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        size = filters.size.round_down(size)
+
         res = await self._place_order(
             exchange=exchange, symbol=symbol, side=Side.BUY, size=size, test=test, margin=margin
         )
@@ -66,6 +69,9 @@ class Market(Broker):
     async def sell(
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
+        _fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        size = filters.size.round_down(size)
+
         res = await self._place_order(
             exchange=exchange, symbol=symbol, side=Side.SELL, size=size, test=test, margin=margin
         )
@@ -77,6 +83,7 @@ class Market(Broker):
 
     def find_order_asks(self, exchange: str, symbol: str, size: Decimal) -> List[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        # filters.size.validate(size)
 
         result = []
         base_asset, quote_asset = unpack_symbol(symbol)
@@ -125,6 +132,7 @@ class Market(Broker):
 
     def find_order_bids(self, exchange: str, symbol: str, size: Decimal) -> List[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        # filters.size.validate(size)
 
         result = []
         base_asset, quote_asset = unpack_symbol(symbol)
