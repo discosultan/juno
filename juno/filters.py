@@ -6,6 +6,8 @@ from __future__ import annotations
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from typing import NamedTuple
 
+from .errors import OrderException
+
 
 class Price(NamedTuple):
     min: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -56,6 +58,12 @@ class Size(NamedTuple):
     def valid(self, size: Decimal) -> bool:
         return (size >= self.min and size <= self.max and (size - self.min) % self.step == 0)
 
+    def validate(self, size: Decimal) -> None:
+        if not self.valid(size):
+            raise OrderException(
+                f'Size {size} must be between [{self.min}; {self.max}] with a step of {self.step}'
+            )
+
 
 class MinNotional(NamedTuple):
     min_notional: Decimal = Decimal('0.0')
@@ -68,6 +76,17 @@ class MinNotional(NamedTuple):
 
     def min_size_for_price(self, price: Decimal) -> Decimal:
         return self.min_notional / price
+
+    def validate_limit(self, price: Decimal, size: Decimal) -> None:
+        if not self.valid(price, size):
+            raise OrderException(
+                f'Price {price} * size {size} ({price * size}) must be between '
+                f'[{self.min_notional}; inf]'
+            )
+
+    def validate_market(self, avg_price: Decimal, size: Decimal) -> None:
+        if self.apply_to_market:
+            self.validate_limit(avg_price, size)
 
 
 class Filters(NamedTuple):
