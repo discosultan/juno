@@ -34,7 +34,11 @@ async def process_balances(wallet: Wallet, margin: bool) -> None:
 def log_balances(wallet: Wallet, margin: bool) -> None:
     logging.info(f'{"MARGIN" if margin else "SPOT"} ACCOUNT')
     for asset in ASSETS:
-        logging.info(f'{asset} - {wallet.get_balance(exchange_name, asset, margin=margin)}')
+        try:
+            balance = wallet.get_balance(exchange_name, asset, margin=margin)
+            logging.info(f'{asset} - {balance}')
+        except KeyError:
+            logging.info(f'{asset} not available in wallet')
 
 
 asyncio.run(main())

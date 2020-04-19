@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Optional
 
 from juno import Fill, Side
-from juno.brokers import Limit, Market
+from juno.brokers import Limit
 from juno.components import Informant, Orderbook, Wallet
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
@@ -33,21 +33,23 @@ async def main() -> None:
     informant = Informant(storage=sqlite, exchanges=exchanges)
     orderbook = Orderbook(exchanges=exchanges, config={'symbol': SYMBOL})
     wallet = Wallet(exchanges=exchanges)
-    market = Market(informant, orderbook, exchanges)
     limit = Limit(informant, orderbook, exchanges)
     async with binance, memory, informant, orderbook, wallet:
+        fees, filters = informant.get_fees_filters(EXCHANGE, SYMBOL)
         base = BASE if BASE is not None else wallet.get_balance(EXCHANGE, BASE_ASSET).available
         quote = QUOTE if QUOTE is not None else wallet.get_balance(EXCHANGE, QUOTE_ASSET).available
         logging.info(f'base: {base} {BASE_ASSET}; quote: {quote} {QUOTE_ASSET}')
         if SIDE is Side.BUY:
-            market_fills = market.find_order_asks_by_quote(
-                exchange=EXCHANGE, symbol=SYMBOL, quote=quote
+            market_fills = orderbook.find_order_asks_by_quote(
+                exchange=EXCHANGE, symbol=SYMBOL, quote=quote, fee_rate=fees.maker, filters=filters
             )
             res = await limit.buy_by_quote(
                 exchange=EXCHANGE, symbol=SYMBOL, quote=quote, test=False
             )
         else:
-            market_fills = market.find_order_bids(exchange=EXCHANGE, symbol=SYMBOL, size=base)
+            market_fills = orderbook.find_order_bids(
+                exchange=EXCHANGE, symbol=SYMBOL, size=base, fee_rate=fees.maker, filters=filters
+            )
             res = await limit.sell(exchange=EXCHANGE, symbol=SYMBOL, size=base, test=False)
 
         logging.info(res)

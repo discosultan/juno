@@ -231,9 +231,9 @@ class Coinbase(Exchange):
             raise NotImplementedError()
 
         data = {
-            'product_id': _product(symbol),
-            'side': 'buy' if side is Side.BUY else 'sell',
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
+            'side': 'buy' if side is Side.BUY else 'sell',
+            'product_id': _product(symbol),
         }
         if size is not None:
             data['size'] = str(size)
@@ -266,8 +266,9 @@ class Coinbase(Exchange):
             'product_id': _product(symbol),
         })
 
-    async def stream_historical_trades(self, symbol: str, start: int,
-                                       end: int) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(
+        self, symbol: str, start: int, end: int
+    ) -> AsyncIterable[Trade]:
         trades_desc = []
         async for batch in self._paginated_public_request(
             'GET', f'/products/{_product(symbol)}/trades'
@@ -317,8 +318,8 @@ class Coinbase(Exchange):
             await self._pub_limiter.acquire()
             if page_after is not None:
                 data['after'] = page_after
-            async with self._session.request(method, url, params=data) as res:
-                yield await res.json(loads=json.loads)
+            async with self._session.request_json(method, url, params=data) as res:
+                yield res.data
                 page_after = res.headers.get('CB-AFTER')
                 if page_after is None:
                     break
@@ -330,7 +331,7 @@ class Coinbase(Exchange):
     async def _private_request(self, method: str, url: str, data: Dict[str, Any] = {}) -> Any:
         await self._priv_limiter.acquire()
         timestamp = str(time())
-        body = json.dumps(data) if data else ''
+        body = json.dumps(data, separators=(',', ':')) if data else ''
         message = (timestamp + method + url + body).encode('ascii')
         signature_hash = hmac.new(self._secret_key_bytes, message, hashlib.sha256).digest()
         signature = base64.b64encode(signature_hash).decode('ascii')
@@ -338,11 +339,12 @@ class Coinbase(Exchange):
             'CB-ACCESS-SIGN': signature,
             'CB-ACCESS-TIMESTAMP': timestamp,
             'CB-ACCESS-KEY': self._api_key,
-            'CB-ACCESS-PASSPHRASE': self._passphrase
+            'CB-ACCESS-PASSPHRASE': self._passphrase,
+            'Content-Type': 'application/json',
         }
         url = _BASE_REST_URL + url
-        async with self._session.request(method, url, headers=headers, data=data) as res:
-            return await res.json(loads=json.loads)
+        async with self._session.request_json(method, url, headers=headers, data=body) as res:
+            return res.data
 
 
 class CoinbaseFeed:

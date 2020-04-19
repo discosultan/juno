@@ -1,9 +1,18 @@
 from decimal import Decimal
 
-from juno import DepthSnapshot
+import pytest
+
+from juno import DepthSnapshot, DepthUpdate, Filters
 from juno.components import Orderbook
+from juno.filters import Price, Size
 
 from . import fakes
+
+FEE_RATE = Decimal('0.1')
+FILTERS = Filters(
+    price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
+    size=Size(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1'))
+)
 
 
 async def test_list_asks_bids(storage) -> None:
@@ -36,3 +45,157 @@ async def test_list_asks_bids(storage) -> None:
         (Decimal('2.0'), Decimal('1.0')),
         (Decimal('1.0'), Decimal('1.0')),
     ]
+
+
+@pytest.mark.parametrize(
+    'size,snapshot_asks,expected_output', [
+        (
+            Decimal('1.0'),
+            [(Decimal('2.0'), Decimal('1.0')), (Decimal('3.0'), Decimal('1.0'))],
+            [(Decimal('2.0'), Decimal('1.0'), Decimal('0.1'))],
+        ),
+        (
+            Decimal('3.1'),
+            [(Decimal('1.0'), Decimal('2.0')), (Decimal('2.0'), Decimal('2.0'))],
+            [
+                (Decimal('1.0'), Decimal('2.0'), Decimal('0.2')),
+                (Decimal('2.0'), Decimal('1.1'), Decimal('0.11')),
+            ],
+        ),
+    ]
+)
+async def test_find_order_asks(size, snapshot_asks, expected_output) -> None:
+    snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
+    exchange = fakes.Exchange(depth=snapshot)
+    exchange.can_stream_depth_snapshot = False
+    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
+        output = orderbook.find_order_asks(
+            exchange='exchange', symbol='eth-btc', size=size, fee_rate=FEE_RATE, filters=FILTERS
+        )
+        assert_fills(output, expected_output)
+
+
+@pytest.mark.parametrize(
+    'quote,snapshot_asks,update_asks,expected_output', [
+        (
+            Decimal('10.0'),
+            [(Decimal('1.0'), Decimal('1.0'))],
+            [(Decimal('1.0'), Decimal('0.0'))],
+            [],
+        ),
+        (
+            Decimal('10.0'),
+            [(Decimal('1.0'), Decimal('1.0')), (Decimal('2.0'), Decimal('1.0'))],
+            [(Decimal('1.0'), Decimal('1.0'))],
+            [
+                (Decimal('1.0'), Decimal('1.0'), Decimal('0.1')),
+                (Decimal('2.0'), Decimal('1.0'), Decimal('0.1')),
+            ],
+        ),
+        (
+            Decimal('11.0'),
+            [(Decimal('1.0'), Decimal('11.0'))],
+            [],
+            [(Decimal('1.0'), Decimal('10.0'), Decimal('1.0'))],
+        ),
+        (
+            Decimal('1.23'),
+            [(Decimal('1.0'), Decimal('2.0'))],
+            [],
+            [(Decimal('1.0'), Decimal('1.2'), Decimal('0.12'))],
+        ),
+        (
+            Decimal('1.0'),
+            [(Decimal('2.0'), Decimal('1.0'))],
+            [],
+            [],
+        ),
+        (
+            Decimal('3.1'),
+            [(Decimal('1.0'), Decimal('1.0')), (Decimal('2.0'), Decimal('1.0'))],
+            [],
+            [
+                (Decimal('1.0'), Decimal('1.0'), Decimal('0.1')),
+                (Decimal('2.0'), Decimal('1.0'), Decimal('0.1')),
+            ],
+        ),
+    ]
+)
+async def test_find_order_asks_by_quote(
+    quote, snapshot_asks, update_asks, expected_output
+) -> None:
+    snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
+    updates = [DepthUpdate(asks=update_asks, bids=[])]
+    exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
+    exchange.can_stream_depth_snapshot = False
+    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
+        output = orderbook.find_order_asks_by_quote(
+            exchange='exchange', symbol='eth-btc', quote=quote, fee_rate=FEE_RATE, filters=FILTERS
+        )
+        assert_fills(output, expected_output)
+
+
+@pytest.mark.parametrize(
+    'size,snapshot_bids,update_bids,expected_output',
+    [
+        (
+            Decimal('10.0'),
+            [(Decimal('1.0'), Decimal('1.0'))],
+            [(Decimal('1.0'), Decimal('0.0'))],
+            [],
+        ),
+        (
+            Decimal('10.0'),
+            [(Decimal('1.0'), Decimal('1.0')), (Decimal('2.0'), Decimal('1.0'))],
+            [(Decimal('1.0'), Decimal('1.0'))],
+            [
+                (Decimal('2.0'), Decimal('1.0'), Decimal('0.2')),
+                (Decimal('1.0'), Decimal('1.0'), Decimal('0.1')),
+            ],
+        ),
+        (
+            Decimal('11.0'),
+            [(Decimal('1.0'), Decimal('11.0'))],
+            [],
+            [(Decimal('1.0'), Decimal('10.0'), Decimal('1.0'))],
+        ),
+        (
+            Decimal('1.23'),
+            [(Decimal('1.0'), Decimal('2.0'))],
+            [],
+            [(Decimal('1.0'), Decimal('1.2'), Decimal('0.12'))],
+        ),
+        (
+            Decimal('1.0'),
+            [(Decimal('2.0'), Decimal('1.0'))],
+            [],
+            [(Decimal('2.0'), Decimal('1.0'), Decimal('0.2'))],
+        ),
+        (
+            Decimal('3.1'),
+            [(Decimal('1.0'), Decimal('1.0')), (Decimal('2.0'), Decimal('1.0'))],
+            [],
+            [
+                (Decimal('2.0'), Decimal('1.0'), Decimal('0.2')),
+                (Decimal('1.0'), Decimal('1.0'), Decimal('0.1')),
+            ],
+        ),
+    ],
+)
+async def test_find_order_bids(size, snapshot_bids, update_bids, expected_output) -> None:
+    snapshot = DepthSnapshot(asks=[], bids=snapshot_bids)
+    updates = [DepthUpdate(asks=[], bids=update_bids)]
+    exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
+    exchange.can_stream_depth_snapshot = False
+    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
+        output = orderbook.find_order_bids(
+            exchange='exchange', symbol='eth-btc', size=size, fee_rate=FEE_RATE, filters=FILTERS
+        )
+        assert_fills(output, expected_output)
+
+
+def assert_fills(output, expected_output):
+    for o, (eoprice, eosize, eofee) in zip(output, expected_output):
+        assert o.price == eoprice
+        assert o.size == eosize
+        assert o.fee == eofee
