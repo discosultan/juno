@@ -232,11 +232,3 @@ class ExchangeInfo(NamedTuple):
     candle_intervals: List[int] = []
     borrow_info: Dict[str, BorrowInfo] = {'__all__': BorrowInfo()}
     margin_multiplier: int = 1
-
-
-class ExchangeException(Exception):
-    pass
-
-
-class OrderException(Exception):
-    pass

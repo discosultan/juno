@@ -585,6 +585,8 @@ class Binance(Exchange):
                     raise OrderException(error_msg)
                 elif error_code <= -9000:  # Filter error.
                     raise OrderException(error_msg)
+                elif error_code == -1013:  # TODO: Not documented but also a filter error O_o
+                    raise OrderException(error_msg)
                 else:
                     raise NotImplementedError(f'No handling for binance error: {res.data}')
         res.raise_for_status()

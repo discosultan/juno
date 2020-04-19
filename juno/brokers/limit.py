@@ -182,14 +182,8 @@ class Limit(Broker):
             size = ctx.available / price if ctx.use_quote else ctx.available
             size = filters.size.round_down(size)
 
-            if size == 0:
-                raise OrderException('Size 0')
-
-            if not filters.min_notional.valid(price=price, size=size):
-                raise OrderException(
-                    f'Min notional not satisfied: {price} * {size} != '
-                    f'{filters.min_notional.min_notional}'
-                )
+            filters.size.validate(size)
+            filters.min_notional.validate_limit(price=price, size=size)
 
             _log.info(f'placing limit order at price {price} for size {size}')
             await self._exchanges[exchange].place_order(
