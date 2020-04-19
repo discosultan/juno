@@ -59,7 +59,7 @@ async def test_market_find_order_asks_invalid_size() -> None:
     exchange.can_stream_depth_snapshot = False
     invalid_size = Decimal('0.12')
     async with init_market_broker(exchange) as broker:
-        with pytest.raises(ValueError):
+        with pytest.raises(OrderException):
             broker.find_order_asks(exchange='exchange', symbol='eth-btc', size=invalid_size)
 
 

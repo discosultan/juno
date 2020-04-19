@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Fill, OrderException, OrderResult, OrderStatus, OrderType, Side
+from juno import Fill, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -77,8 +77,6 @@ class Market(Broker):
 
     def find_order_asks(self, exchange: str, symbol: str, size: Decimal) -> List[Fill]:
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
-        if not filters.size.valid(size):
-            raise ValueError(f'Invalid size {size}')
 
         result = []
         base_asset, quote_asset = unpack_symbol(symbol)
@@ -153,17 +151,10 @@ class Market(Broker):
     def _validate_fills(self, exchange: str, symbol: str, fills: List[Fill]) -> None:
         _fees, filters = self._informant.get_fees_filters(exchange, symbol)
         size = Fill.total_size(fills)
-        if not filters.size.valid(size):
-            raise OrderException(f'Size invalid: {size}')
-
-        if filters.min_notional.apply_to_market:
-            # TODO: Calc avg price over `filters.min_notional.avg_price_mins` minutes.
-            # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#min_notional
-            if not filters.min_notional.valid(price=fills[0].price, size=size):
-                raise OrderException(
-                    f'Min notional invalid: {fills[0].price} * {size} != '
-                    f'{filters.min_notional.min_notional}'
-                )
+        filters.size.validate(size)
+        # TODO: Calc avg price over `filters.min_notional.avg_price_period` minutes.
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#min_notional
+        filters.min_notional.validate_market(avg_price=fills[0].price, size=size)
 
     async def _place_order(
         self,
