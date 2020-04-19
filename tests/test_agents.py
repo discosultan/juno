@@ -112,31 +112,62 @@ async def test_backtest_scenarios(scenario_nr: int) -> None:
     await Backtest(trader=trader).run(config)
 
 
-async def test_paper() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('5.0')),
-            Candle(time=1, close=Decimal('10.0')),
-            # 1. Long. Size 5 + 1.
-            Candle(time=2, close=Decimal('30.0')),
-            Candle(time=3, close=Decimal('20.0')),
-            # 2. Short. Size 4 + 2.
-        ]
-    })
-    informant = fakes.Informant()
-    orderbook_data = {
-        Side.BUY: {
-            Decimal('10.0'): Decimal('5.0'),  # 1.
-            Decimal('50.0'): Decimal('1.0'),  # 1.
+async def test_paper(storage) -> None:
+    from juno.brokers import Market
+    from juno.components import Chandler, Informant, Orderbook
+    exchange = fakes.Exchange(
+        candles={
+            ('dummy', 'eth-btc', 1):
+            [
+                Candle(time=0, close=Decimal('5.0')),
+                Candle(time=1, close=Decimal('10.0')),
+                # 1. Long. Size 5 + 1.
+                Candle(time=2, close=Decimal('30.0')),
+                Candle(time=3, close=Decimal('20.0')),
+                # 2. Short. Size 4 + 2.
+            ]
         },
-        Side.SELL: {
-            Decimal('20.0'): Decimal('4.0'),  # 2.
-            Decimal('10.0'): Decimal('2.0'),  # 2.
-        }
-    }
-    orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
-    broker = fakes.Market(informant, orderbook, update_orderbook=True)
+        depth=DepthSnapshot(
+            bids=[
+                Decimal('10.0'): Decimal('5.0'),  # 1.
+                Decimal('50.0'): Decimal('1.0'),  # 1.
+            ],
+            asks=[
+                Decimal('20.0'): Decimal('4.0'),  # 2.
+                Decimal('10.0'): Decimal('2.0'),  # 2.
+            ],
+        )
+    )
+    exchange.can_stream_depth_snapshot = False
+    exchanges = [exchange]
+
+    informant = Informant(storage=storage, exchanges=exchanges)
+    chandler = Chandler(storage=storage, exchanges=exchanges, informant=informant)
+
+    # chandler = fakes.Chandler(candles={
+    #     ('dummy', 'eth-btc', 1):
+    #     [
+    #         Candle(time=0, close=Decimal('5.0')),
+    #         Candle(time=1, close=Decimal('10.0')),
+    #         # 1. Long. Size 5 + 1.
+    #         Candle(time=2, close=Decimal('30.0')),
+    #         Candle(time=3, close=Decimal('20.0')),
+    #         # 2. Short. Size 4 + 2.
+    #     ]
+    # })
+    # informant = fakes.Informant()
+    # orderbook_data = {
+    #     Side.BUY: {
+    #         Decimal('10.0'): Decimal('5.0'),  # 1.
+    #         Decimal('50.0'): Decimal('1.0'),  # 1.
+    #     },
+    #     Side.SELL: {
+    #         Decimal('20.0'): Decimal('4.0'),  # 2.
+    #         Decimal('10.0'): Decimal('2.0'),  # 2.
+    #     }
+    # }
+    # orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
+    # broker = fakes.Market(informant, orderbook, update_orderbook=True)
     trader = Trader(chandler=chandler, informant=informant, broker=broker)
     config = Paper.Config(
         exchange='dummy',
