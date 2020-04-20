@@ -74,7 +74,7 @@ class Informant:
             exchange_info_synced_evt.wait(),
             tickers_synced_evt.wait(),
         )
-
+        _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:

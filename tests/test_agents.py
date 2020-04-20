@@ -1,12 +1,18 @@
+# These tests act as integration tests among various components. Only exchange is mocked.
+
 import asyncio
 from decimal import Decimal
-from typing import Any, List
+from typing import Any, Callable, Dict, List
 
 import pytest
 
-from juno import Balance, Candle, Fees, Side
+from juno import Balance, Candle, DepthSnapshot, ExchangeInfo, Fees, Side
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel
+from juno.brokers import Broker, Market
+from juno.components import Chandler, Informant, Orderbook, Wallet
+from juno.di import Container
+from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.storages import Storage
 from juno.time import HOUR_MS
@@ -15,6 +21,27 @@ from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
 from . import fakes
+
+
+@pytest.fixture
+async def exchange() -> fakes.Exchange:
+    return fakes.Exchange()
+
+
+@pytest.fixture
+async def container(storage: Storage, exchange: Exchange) -> Container:
+    container = Container()
+    container.add_singleton_instance(Dict[str, Any], lambda: {'symbol': 'eth-btc'})
+    container.add_singleton_instance(Storage, lambda: storage)
+    container.add_singleton_instance(List[Exchange], lambda: [exchange])
+    container.add_singleton_instance(Callable[[], int], lambda: fakes.Time().get_time)
+    container.add_singleton_type(Broker, lambda: Market)
+    container.add_singleton_type(Informant)
+    container.add_singleton_type(Orderbook)
+    container.add_singleton_type(Chandler)
+    container.add_singleton_type(Wallet)
+    container.add_singleton_type(Trader)
+    return container
 
 
 async def test_backtest() -> None:
@@ -112,37 +139,65 @@ async def test_backtest_scenarios(scenario_nr: int) -> None:
     await Backtest(trader=trader).run(config)
 
 
-async def test_paper(storage) -> None:
-    from juno.brokers import Market
-    from juno.components import Chandler, Informant, Orderbook
-    exchange = fakes.Exchange(
-        candles={
-            ('dummy', 'eth-btc', 1):
-            [
-                Candle(time=0, close=Decimal('5.0')),
-                Candle(time=1, close=Decimal('10.0')),
-                # 1. Long. Size 5 + 1.
-                Candle(time=2, close=Decimal('30.0')),
-                Candle(time=3, close=Decimal('20.0')),
-                # 2. Short. Size 4 + 2.
-            ]
-        },
-        depth=DepthSnapshot(
-            bids=[
-                Decimal('10.0'): Decimal('5.0'),  # 1.
-                Decimal('50.0'): Decimal('1.0'),  # 1.
-            ],
-            asks=[
-                Decimal('20.0'): Decimal('4.0'),  # 2.
-                Decimal('10.0'): Decimal('2.0'),  # 2.
-            ],
-        )
+async def test_paper(exchange, container) -> None:
+    for candle in[
+        Candle(time=0, close=Decimal('5.0')),
+        Candle(time=1, close=Decimal('10.0')),
+        # 1. Long. Size 5 + 1.
+        Candle(time=2, close=Decimal('30.0')),
+        Candle(time=3, close=Decimal('20.0')),
+        # 2. Short. Size 4 + 2.
+    ]:
+        exchange.candle_queue.put_nowait(candle)
+    exchange.depth_queue.put_nowait(DepthSnapshot(
+        bids=[
+            (Decimal('10.0'), Decimal('5.0')),  # 1.
+            (Decimal('50.0'), Decimal('1.0')),  # 1.
+        ],
+        asks=[
+            (Decimal('20.0'), Decimal('4.0')),  # 2.
+            (Decimal('10.0'), Decimal('2.0')),  # 2.
+        ],
+    ))
+    exchange.exchange_info = ExchangeInfo(
+        candle_intervals=[1]
     )
-    exchange.can_stream_depth_snapshot = False
-    exchanges = [exchange]
 
-    informant = Informant(storage=storage, exchanges=exchanges)
-    chandler = Chandler(storage=storage, exchanges=exchanges, informant=informant)
+    agent = container.resolve(Paper)
+    async with container:
+    # exchange = fakes.Exchange(
+    #     future_candles={
+    #         ('dummy', 'eth-btc', 1):
+    #         [
+    #             Candle(time=0, close=Decimal('5.0')),
+    #             Candle(time=1, close=Decimal('10.0')),
+    #             # 1. Long. Size 5 + 1.
+    #             Candle(time=2, close=Decimal('30.0')),
+    #             Candle(time=3, close=Decimal('20.0')),
+    #             # 2. Short. Size 4 + 2.
+    #         ]
+    #     },
+    #     depth=DepthSnapshot(
+    #         bids=[
+    #             (Decimal('10.0'), Decimal('5.0')),  # 1.
+    #             (Decimal('50.0'), Decimal('1.0')),  # 1.
+    #         ],
+    #         asks=[
+    #             (Decimal('20.0'), Decimal('4.0')),  # 2.
+    #             (Decimal('10.0'), Decimal('2.0')),  # 2.
+    #         ],
+    #     ),
+    #     exchange_info=ExchangeInfo(
+
+    #     )
+    # )
+    # exchange.can_stream_depth_snapshot = False
+    # exchanges: List[Exchange] = [exchange]
+
+    # informant = Informant(storage=storage, exchanges=exchanges)
+    # chandler = Chandler(storage=storage, exchanges=exchanges, informant=informant)
+    # orderbook = Orderbook(exchanges=exchanges, config={'symbol': 'eth-btc'})
+    # broker = Market(informant=informant, orderbook=orderbook, exchanges=exchanges)
 
     # chandler = fakes.Chandler(candles={
     #     ('dummy', 'eth-btc', 1):
@@ -168,28 +223,33 @@ async def test_paper(storage) -> None:
     # }
     # orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
     # broker = fakes.Market(informant, orderbook, update_orderbook=True)
-    trader = Trader(chandler=chandler, informant=informant, broker=broker)
-    config = Paper.Config(
-        exchange='dummy',
-        symbol='eth-btc',
-        interval=1,
-        end=4,
-        quote=Decimal('100.0'),
-        strategy={
-            'type': 'mamacx',
-            'short_period': 1,
-            'long_period': 2,
-            'neg_threshold': Decimal('-1.0'),
-            'pos_threshold': Decimal('1.0'),
-            'persistence': 0,
-        },
-    )
+    # trader = Trader(chandler=chandler, informant=informant, broker=broker)
+        config = Paper.Config(
+            exchange='exchange',
+            symbol='eth-btc',
+            interval=1,
+            end=4,
+            quote=Decimal('100.0'),
+            strategy={
+                'type': 'mamacx',
+                'short_period': 1,
+                'long_period': 2,
+                'neg_threshold': Decimal('-1.0'),
+                'pos_threshold': Decimal('1.0'),
+                'persistence': 0,
+            },
+        )
 
-    await Paper(
-        informant=informant, trader=trader, get_time_ms=fakes.Time(increment=1).get_time,
-    ).run(config)
-    assert len(orderbook_data[Side.BUY]) == 0
-    assert len(orderbook_data[Side.SELL]) == 0
+        res: Trader.State[Any] = await agent.run(config)
+        
+        #  await Paper(
+        #     informant=informant, trader=trader, get_time_ms=fakes.Time(increment=1).get_time,
+        # ).run(config)
+
+        assert res.summary
+        assert res.summary.num_positions == 1
+        # assert len(orderbook_data[Side.BUY]) == 0
+        # assert len(orderbook_data[Side.SELL]) == 0
 
 
 async def test_live(storage: Storage) -> None:

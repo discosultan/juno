@@ -25,9 +25,7 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
-        exchange_info=ExchangeInfo(
-            fees={'__all__': Fees()}, filters={'__all__': Filters()}
-        ),
+        exchange_info=ExchangeInfo(),
         tickers=[],
         balances=None,
         future_balances=[],
@@ -43,6 +41,7 @@ class Exchange(exchanges.Exchange):
         self.historical_candles = historical_candles
         self.candle_queue = asyncio.Queue()
         for future_candle in future_candles:
+            # TODO: Rename candle_queue to future_candles.
             self.candle_queue.put_nowait(future_candle)
 
         self.exchange_info = exchange_info

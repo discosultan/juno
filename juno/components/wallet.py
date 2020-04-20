@@ -28,6 +28,7 @@ class Wallet:
         )
         self._sync_all_balances_task = create_task_cancel_on_exc(self._sync_all_balances())
         await self._initial_balances_fetched.wait()
+        _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:

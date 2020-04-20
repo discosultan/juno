@@ -46,6 +46,7 @@ class Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
         self._sync_task = create_task_cancel_on_exc(self._sync_orderbooks())
         await self._initial_orderbook_fetched.wait()
+        _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
