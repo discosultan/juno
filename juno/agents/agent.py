@@ -10,7 +10,7 @@ from typing import Any, Generic, List, TypeVar
 from juno.components import Event
 from juno.plugins import Plugin
 from juno.storages import Memory, Storage
-from juno.utils import format_as_config, generate_random_words
+from juno.utils import exc_traceback, format_as_config, generate_random_words
 
 _log = logging.getLogger(__name__)
 
@@ -79,7 +79,7 @@ class Agent:
         await self._event.emit(state.name, 'cancelled')
 
     async def on_errored(self, config: Any, state: Any, exc: Exception) -> None:
-        _log.error(f'{self._get_name(state)}: unhandled exception {exc}')
+        _log.error(f'{self._get_name(state)}: unhandled exception {exc_traceback(exc)}')
         await self._event.emit(state.name, 'errored', exc)
 
     async def on_finally(self, config: Any, state: Any) -> None:

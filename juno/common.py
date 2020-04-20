@@ -103,14 +103,15 @@ class Fill(NamedTuple):
     def with_computed_quote(
         price: Decimal,
         size: Decimal,
-        fee: Decimal,
-        fee_asset: str,
-        precision: int
+        fee: Decimal = Decimal('0.0'),
+        fee_asset: str = 'btc',
+        precision: Optional[int] = None,
     ) -> Fill:
+        quote = price * size
         return Fill(
             price=price,
             size=size,
-            quote=round_half_up(price * size, precision),
+            quote=round_half_up(quote, precision) if precision is not None else quote,
             fee=fee,
             fee_asset=fee_asset,
         )
