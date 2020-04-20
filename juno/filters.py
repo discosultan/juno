@@ -56,7 +56,11 @@ class Size(NamedTuple):
         return size.quantize(self.step.normalize(), rounding=rounding)
 
     def valid(self, size: Decimal) -> bool:
-        return (size >= self.min and size <= self.max and (size - self.min) % self.step == 0)
+        return (
+            size >= self.min
+            and size <= self.max
+            and (not self.step or (size - self.min) % self.step == 0)
+        )
 
     def validate(self, size: Decimal) -> None:
         if not self.valid(size):
