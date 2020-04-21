@@ -206,7 +206,7 @@ class Coinbase(Exchange):
                     )
 
         async with self._ws.subscribe(
-            'user', ['received', 'match', 'done'], [_product(symbol)]
+            'user', ['received', 'match', 'done'], [symbol]
         ) as ws:
             yield inner(ws)
 
@@ -427,10 +427,10 @@ class CoinbaseFeed:
             data = json.loads(msg.data)
             type_ = data['type']
             if type_ == 'subscriptions':
-                self.subscriptions = {
-                    c['name']: [s.lower() for s in c['product_ids']]
+                self.subscriptions.update({
+                    c['name']: [_from_product(s) for s in c['product_ids']]
                     for c in data['channels']
-                }
+                })
                 self.subscriptions_updated.set()
             else:
                 channel = self.type_to_channel[type_]
