@@ -52,7 +52,7 @@ class Coinbase(Exchange):
         self._secret_key_bytes = base64.b64decode(secret_key)
         self._passphrase = passphrase
 
-        self._ws = CoinbaseFeed(_BASE_WS_URL)
+        self._ws = CoinbaseFeed(api_key, secret_key, passphrase)
 
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
@@ -330,11 +330,9 @@ class Coinbase(Exchange):
 
     async def _private_request(self, method: str, url: str, data: Dict[str, Any] = {}) -> Any:
         await self._priv_limiter.acquire()
-        timestamp = str(time())
+        timestamp = _auth_timestamp()
         body = json.dumps(data, separators=(',', ':')) if data else ''
-        message = (timestamp + method + url + body).encode('ascii')
-        signature_hash = hmac.new(self._secret_key_bytes, message, hashlib.sha256).digest()
-        signature = base64.b64encode(signature_hash).decode('ascii')
+        signature = _auth_signature(self._secret_key_bytes, timestamp, method, url, body)
         headers = {
             'CB-ACCESS-SIGN': signature,
             'CB-ACCESS-TIMESTAMP': timestamp,
@@ -348,8 +346,10 @@ class Coinbase(Exchange):
 
 
 class CoinbaseFeed:
-    def __init__(self, url: str) -> None:
-        self.url = url
+    def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
+        self._api_key = api_key
+        self._secret_key_bytes = base64.b64decode(secret_key)
+        self._passphrase = passphrase
 
         self.session = ClientSession(raise_for_status=True, name=type(self).__name__)
         self.ws_ctx: Optional[AsyncContextManager[ClientWebSocketResponse]] = None
@@ -386,12 +386,21 @@ class CoinbaseFeed:
         # TODO: Skip subscription if already subscribed. Maybe not a good idea because we may need
         # messages such as depth snapshot again.
 
-        assert self.ws
-        await self.ws.send_json({
+        timestamp = _auth_timestamp()
+        signature = _auth_signature(self._secret_key_bytes, timestamp, 'GET', '/users/self/verify')
+        msg = {
             'type': 'subscribe',
             'product_ids': [_product(s) for s in symbols],
-            'channels': [channel]
-        })
+            'channels': [channel],
+            # To authenticate, we need to add additional fields.
+            'signature': signature,
+            'key': self._api_key,
+            'passphrase': self._passphrase,
+            'timestamp': timestamp,
+        }
+
+        assert self.ws
+        await self.ws.send_json(msg)
 
         while True:
             if _is_subscribed(self.subscriptions, [channel], symbols):
@@ -408,7 +417,7 @@ class CoinbaseFeed:
         async with self.ws_lock:
             if self.ws:
                 return
-            self.ws_ctx = self.session.ws_connect(self.url)
+            self.ws_ctx = self.session.ws_connect(_BASE_WS_URL)
             self.ws = await self.ws_ctx.__aenter__()
             self.process_task = create_task_cancel_on_exc(self._stream_messages())
 
@@ -486,3 +495,15 @@ def _from_order_status(status: str) -> OrderStatus:
     elif status == 'done':
         return OrderStatus.FILLED
     raise NotImplementedError()
+
+
+def _auth_timestamp() -> str:
+    return str(time())
+
+
+def _auth_signature(
+    secret_key: bytes, timestamp: str, method: str, url: str, body: str = ''
+) -> str:
+    message = (timestamp + method + url + body).encode('ascii')
+    signature_hash = hmac.new(secret_key, message, hashlib.sha256).digest()
+    return base64.b64encode(signature_hash).decode('ascii')
