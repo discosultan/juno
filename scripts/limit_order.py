@@ -53,7 +53,7 @@ async def main() -> None:
             res = await limit.sell(exchange=EXCHANGE, symbol=SYMBOL, size=base, test=False)
 
         logging.info(res)
-        logging.info(f'{SIDE} {SYMBOL}')
+        logging.info(f'{SIDE.name} {SYMBOL}')
         logging.info(f'total size: {Fill.total_size(res.fills)}')
         logging.info(f'total quote: {Fill.total_quote(res.fills)}')
         logging.info(f'in case of market order total size: {Fill.total_size(market_fills)}')

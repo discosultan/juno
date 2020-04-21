@@ -42,14 +42,14 @@ class Limit(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {size} worth of base asset with limit orders at spread')
+        _log.info(f'buying {size} base asset with limit orders at spread')
         return await self._buy(exchange, symbol, margin, _Context(available=size, use_quote=False))
 
     async def buy_by_quote(
         self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {quote} worth of quote asset with limit orders at spread')
+        _log.info(f'buying {quote} quote worth of base asset with limit orders at spread')
         return await self._buy(exchange, symbol, margin, _Context(available=quote, use_quote=True))
 
     async def _buy(self, exchange: str, symbol: str, margin: bool, ctx: _Context) -> OrderResult:
@@ -71,7 +71,7 @@ class Limit(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'selling {size} worth of base asset with limit orders at spread')
+        _log.info(f'selling {size} base asset with limit orders at spread')
         ctx = _Context(available=size, use_quote=False)
         res = await self._fill(exchange, symbol, Side.SELL, margin, ctx)
 

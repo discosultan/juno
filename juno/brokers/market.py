@@ -32,7 +32,7 @@ class Market(Broker):
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         size = filters.size.round_down(size)
 
-        res = await self._place_order(
+        res = await self._fill(
             exchange=exchange, symbol=symbol, side=Side.BUY, size=size, test=test, margin=margin
         )
         if test:
@@ -56,12 +56,12 @@ class Market(Broker):
             self._validate_fills(exchange, symbol, fills)
 
         if exchange_instance.can_place_order_market_quote:
-            res = await self._place_order(
+            res = await self._fill(
                 exchange=exchange, symbol=symbol, side=Side.BUY, quote=quote, test=test,
                 margin=margin
             )
         else:
-            res = await self._place_order(
+            res = await self._fill(
                 exchange=exchange, symbol=symbol, side=Side.BUY, size=Fill.total_size(fills),
                 test=test, margin=margin
             )
@@ -75,7 +75,7 @@ class Market(Broker):
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         size = filters.size.round_down(size)
 
-        res = await self._place_order(
+        res = await self._fill(
             exchange=exchange, symbol=symbol, side=Side.SELL, size=size, test=test, margin=margin
         )
         if test:
@@ -94,7 +94,7 @@ class Market(Broker):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#min_notional
         filters.min_notional.validate_market(avg_price=fills[0].price, size=size)
 
-    async def _place_order(
+    async def _fill(
         self,
         exchange: str,
         symbol: str,

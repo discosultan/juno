@@ -1,6 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from typing import AsyncIterator
 from uuid import uuid4
 
 import pytest
@@ -9,8 +10,9 @@ from juno import (
     DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus,
     OrderUpdate
 )
-from juno.brokers import Limit, Market
+from juno.brokers import Limit, Market, Market2
 from juno.components import Informant, Orderbook
+from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.storages import Memory
 
@@ -40,6 +42,74 @@ async def test_market_insufficient_balance() -> None:
                 quote=Decimal('0.1'),
                 test=True,
             )
+
+
+async def test_market_buy() -> None:
+    snapshot = DepthSnapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
+    order_result = OrderResult(status=OrderStatus.FILLED, fills=[
+        Fill.with_computed_quote(
+            price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
+        ),
+    ])
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+        place_order_result=order_result,
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_market_broker(exchange) as broker:
+        res = await broker.buy(
+            exchange='exchange',
+            symbol='eth-btc',
+            size=Decimal('0.25'),
+            test=False,
+        )
+    assert res == order_result
+    assert len(exchange.place_order_calls) == 1
+    assert exchange.place_order_calls[0]['size'] == Decimal('0.2')
+
+
+async def test_market2_buy() -> None:
+    snapshot = DepthSnapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_market2_broker(exchange) as broker:
+        task = asyncio.create_task(broker.buy(
+            exchange='exchange',
+            symbol='eth-btc',
+            size=Decimal('0.25'),
+            test=False,
+        ))
+        exchange.orders_queue.put_nowait(OrderUpdate(
+            symbol='eth-btc',
+            status=OrderStatus.NEW,
+            client_id=order_client_id,
+            size=Decimal('0.25'),
+            price=Decimal('0.0'),
+        ))
+        exchange.orders_queue.put_nowait(OrderUpdate(
+            symbol='eth-btc',
+            status=OrderStatus.FILLED,
+            client_id=order_client_id,
+            size=Decimal('0.25'),
+            price=Decimal('1.0'),
+            filled_size=Decimal('0.2'),
+            filled_quote=Decimal('0.2'),
+            fee=Decimal('0.02'),
+            fee_asset='eth',
+        ))
+        res = await task
+    assert res == OrderResult(
+        status=OrderStatus.FILLED,
+        fills=[Fill.with_computed_quote(
+            price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
+        )]
+    )
+    assert len(exchange.place_order_calls) == 1
+    assert exchange.place_order_calls[0]['size'] == Decimal('0.2')
 
 
 async def test_limit_fill_immediately() -> None:
@@ -219,22 +289,32 @@ async def test_limit_partial_fill_adjust_fill() -> None:
 
 
 @asynccontextmanager
-async def init_market_broker(*exchanges):
+async def init_market_broker(exchange: Exchange) -> AsyncIterator[Market]:
     memory = Memory()
-    informant = Informant(memory, exchanges)
-    orderbook = Orderbook(exchanges, config={'symbol': 'eth-btc'})
+    informant = Informant(memory, [exchange])
+    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
     async with memory, informant, orderbook:
-        broker = Market(informant, orderbook, exchanges)
+        broker = Market(informant, orderbook, [exchange])
         yield broker
 
 
 @asynccontextmanager
-async def init_limit_broker(*exchanges):
+async def init_market2_broker(exchange: Exchange) -> AsyncIterator[Market2]:
     memory = Memory()
-    informant = Informant(memory, exchanges)
-    orderbook = Orderbook(exchanges, config={'symbol': 'eth-btc'})
+    informant = Informant(memory, [exchange])
+    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
     async with memory, informant, orderbook:
-        broker = Limit(informant, orderbook, exchanges, get_client_id=lambda: order_client_id)
+        broker = Market2(informant, orderbook, [exchange], get_client_id=lambda: order_client_id)
+        yield broker
+
+
+@asynccontextmanager
+async def init_limit_broker(exchange: Exchange) -> AsyncIterator[Limit]:
+    memory = Memory()
+    informant = Informant(memory, [exchange])
+    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
+    async with memory, informant, orderbook:
+        broker = Limit(informant, orderbook, [exchange], get_client_id=lambda: order_client_id)
         yield broker
 
 

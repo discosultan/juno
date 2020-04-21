@@ -12,6 +12,9 @@ from .broker import Broker
 _log = logging.getLogger(__name__)
 
 
+# Differs from Market by listening for order fills over websocket. We should consolidate this
+# logic into market broker an support differentiating between filling modes by capability or
+# setting.
 class Market2(Broker):
     def __init__(
         self,
@@ -29,14 +32,14 @@ class Market2(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {size} worth of base asset with market order')
+        _log.info(f'buying {size} base asset with market order')
         return await self._fill(exchange, symbol, Side.BUY, margin, size=size)
 
     async def buy_by_quote(
         self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {quote} worth of quote asset with market order')
+        _log.info(f'buying {quote} quote worth of base asset with market order')
         exchange_instance = self._exchanges[exchange]
         if not exchange_instance.can_place_order_market_quote:
             fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -52,7 +55,7 @@ class Market2(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'selling {size} worth of base asset with market order')
+        _log.info(f'selling {size} base asset with market order')
         return await self._fill(exchange, symbol, Side.SELL, margin, size=size)
 
     async def _fill(
@@ -64,6 +67,10 @@ class Market2(Broker):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
     ) -> OrderResult:
+        if size is not None:
+            _fees, filters = self._informant.get_fees_filters(exchange, symbol)
+            size = filters.size.round_down(size)
+
         client_id = self._get_client_id()
         exchange_instance = self._exchanges[exchange]
 
