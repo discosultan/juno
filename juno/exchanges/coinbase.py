@@ -247,19 +247,9 @@ class Coinbase(Exchange):
             data['client_oid'] = client_id
 
         base_asset, quote_asset = unpack_symbol(symbol)
-        res = await self._private_request('POST', '/orders', data=data)
-        return OrderResult(
-            status=_from_order_status(res['status']),
-            fills=[
-                Fill(
-                    price=Decimal(res['price']),
-                    size=Decimal(res['filled_size']),
-                    quote=Decimal(res['executed_value']),
-                    fee=Decimal(res['fill_fees']),
-                    fee_asset=base_asset if side is Side.BUY else quote_asset,
-                ),
-            ],
-        )
+        await self._private_request('POST', '/orders', data=data)
+        # Does not support returning fills straight away. Need to listen through WS.
+        return OrderResult(status=OrderStatus.NEW)
 
     async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         await self._private_request('DELETE', f'/orders/client:{client_id}', {

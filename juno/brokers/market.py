@@ -109,7 +109,9 @@ class Market(Broker):
         order_log = f'{"test " if test else ""}market {side.name} order'
         fill_log = f'{size} size' if size is not None else f'{quote} quote'
         _log.info(f'placing {order_log} to fill {fill_log}')
-        return await self._exchanges[exchange].place_order(
+        res = await self._exchanges[exchange].place_order(
             symbol=symbol, side=side, type_=OrderType.MARKET, size=size, quote=quote, test=test,
             margin=margin
         )
+        assert res.status is OrderStatus.FILLED
+        return res
