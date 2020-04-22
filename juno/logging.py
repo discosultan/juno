@@ -13,7 +13,11 @@ disabled_log = logging.Logger(name='disabled')
 disabled_log.disabled = True
 
 
-def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Handler]:
+def create_handlers(
+    log_format: str = 'default',
+    log_outputs: List[str] = ['stdout'],
+    log_directory: str = 'logs',  # Only used when `log_outputs` includes 'file'.
+) -> List[logging.Handler]:
     # We make a copy in order not to mutate the input.
     log_outputs = log_outputs[:]
 
@@ -24,7 +28,7 @@ def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Han
         log_outputs.remove('stdout')
     if 'file' in log_outputs:
         handlers.append(
-            TimedRotatingFileHandler(home_path('logs') / 'log', when='midnight', utc=True)
+            TimedRotatingFileHandler(home_path(log_directory) / 'log', when='midnight', utc=True)
         )
         log_outputs.remove('file')
     if len(log_outputs) > 0:
@@ -44,8 +48,8 @@ def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Han
                 'CRITICAL': 'red',
             }
         )
-    elif log_format == 'azure':
-        formatter = AzureFormatter()
+    elif log_format == 'json':
+        formatter = JsonFormatter()
     else:
         raise NotImplementedError(f'{log_format=}')
 
@@ -56,7 +60,7 @@ def create_handlers(log_format: str, log_outputs: List[str]) -> List[logging.Han
     return handlers
 
 
-class AzureFormatter(logging.Formatter):
+class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         return json.dumps({
             'severity': record.levelname,
