@@ -179,8 +179,8 @@ class OrderUpdate(NamedTuple):
     symbol: str
     status: OrderStatus
     client_id: str
-    price: Decimal  # Original.
-    size: Decimal  # Original.
+    price: Decimal = Decimal('0.0')  # Original.
+    size: Decimal = Decimal('0.0') # Original.
     filled_size: Decimal = Decimal('0.0')  # Last.
     filled_quote: Decimal = Decimal('0.0')  # Last.
     cumulative_filled_size: Decimal = Decimal('0.0')  # Cumulative.

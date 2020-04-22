@@ -181,8 +181,6 @@ class Coinbase(Exchange):
                     yield OrderUpdate(
                         symbol=symbol,
                         status=OrderStatus.NEW,
-                        price=Decimal(data['price']),
-                        size=Decimal(data['size']),
                         client_id=data['order_id'],
                     )
                 elif data['type'] == 'match':
@@ -190,7 +188,7 @@ class Coinbase(Exchange):
                         symbol=symbol,
                         status=OrderStatus.PARTIALLY_FILLED,
                         price=Decimal(data['price']),
-                        size=Decimal(data['size']),
+                        filled_size=Decimal(data['size']),
                         client_id=data['order_id'],
                     )
                 elif data['type'] == 'done':
@@ -200,8 +198,8 @@ class Coinbase(Exchange):
                             OrderStatus.FILLED if data['reason'] == 'filled'
                             else OrderStatus.CANCELED
                         ),
-                        price=Decimal(data['price']),
-                        size=Decimal(data['size']),
+                        # price=Decimal(data['price']),
+                        # size=Decimal(data['size']),
                         client_id=data['order_id'],
                     )
 

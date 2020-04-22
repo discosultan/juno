@@ -169,6 +169,10 @@ async def test_paper(exchange: fakes.Exchange, container: Container) -> None:
         ],
     ))
     exchange.exchange_info = ExchangeInfo(candle_intervals=[1])
+    exchange.place_order_result = OrderResult(
+        status=OrderStatus.FILLED,
+        fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
+    )
     agent = container.resolve(Paper)
     config = Paper.Config(
         exchange='exchange',

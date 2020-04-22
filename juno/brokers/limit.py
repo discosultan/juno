@@ -22,7 +22,7 @@ class _Context:
         self.available = available
         self.use_quote = use_quote
         self.new_event: Event[None] = Event(autoclear=True)
-        self.cancelled_event: Event[None] = Event(autoclear=True)
+        self.cancelled_event: Event[List[Fill]] = Event(autoclear=True)
 
 
 class Limit(Broker):
@@ -135,6 +135,7 @@ class Limit(Broker):
         orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
+        last_order_size = Decimal('0.0')
         while True:
             await orderbook_updated.wait()
 
@@ -176,7 +177,11 @@ class Limit(Broker):
                     _log.warning(f'failed to cancel order {client_id}; probably got filled; {exc}')
                     break
                 _log.info(f'waiting for order {client_id} to be cancelled')
-                await ctx.cancelled_event.wait()
+                fills = await ctx.cancelled_event.wait()
+                cumulative_filled_size = Fill.total_size(fills)
+                add_back_size = last_order_size - cumulative_filled_size
+                add_back = add_back_size * last_order_price if ctx.use_quote else add_back_size
+                ctx.available += add_back
 
             # No need to round price as we take it from existing orders.
             size = ctx.available / price if ctx.use_quote else ctx.available
@@ -198,8 +203,11 @@ class Limit(Broker):
                 margin=margin,
             )
             await ctx.new_event.wait()
+            deduct = size * price if ctx.use_quote else size
+            ctx.available -= deduct
 
             last_order_price = price
+            last_order_size = size
 
     async def _track_fills(
         self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
@@ -215,8 +223,6 @@ class Limit(Broker):
                 continue
             if order.status is OrderStatus.NEW:
                 _log.info(f'received new confirmation for order {client_id}')
-                deduct = order.size * order.price if ctx.use_quote else order.size
-                ctx.available -= deduct
                 ctx.new_event.set()
                 continue
             if order.status not in [
@@ -243,10 +249,7 @@ class Limit(Broker):
                     _log.info(f'existing order {client_id} partially filled')
             else:  # CANCELED
                 _log.info(f'existing order {client_id} canceled')
-                add_back_size = order.size - order.cumulative_filled_size
-                add_back = add_back_size * order.price if ctx.use_quote else add_back_size
-                ctx.available += add_back
-                ctx.cancelled_event.set()
+                ctx.cancelled_event.set(fills)
 
         raise _Filled(fills)
 
