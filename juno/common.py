@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import IntEnum
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 from juno.aliases import Timestamp
 from juno.filters import Filters
@@ -74,17 +74,19 @@ class Candle(NamedTuple):
         }
 
 
-class DepthSnapshot(NamedTuple):
-    bids: List[Tuple[Decimal, Decimal]] = []
-    asks: List[Tuple[Decimal, Decimal]] = []
-    last_id: int = 0
+class Depth:
+    class Snapshot(NamedTuple):
+        bids: List[Tuple[Decimal, Decimal]] = []
+        asks: List[Tuple[Decimal, Decimal]] = []
+        last_id: int = 0
 
+    class Update(NamedTuple):
+        bids: List[Tuple[Decimal, Decimal]] = []
+        asks: List[Tuple[Decimal, Decimal]] = []
+        first_id: int = 0
+        last_id: int = 0
 
-class DepthUpdate(NamedTuple):
-    bids: List[Tuple[Decimal, Decimal]] = []
-    asks: List[Tuple[Decimal, Decimal]] = []
-    first_id: int = 0
-    last_id: int = 0
+    Any = Union[Snapshot, Update]
 
 
 class Fees(NamedTuple):
@@ -173,6 +175,26 @@ class OrderType(IntEnum):
     TAKE_PROFIT = 4
     TAKE_PROFIT_LIMIT = 5
     LIMIT_MAKER = 6
+
+
+class Order:
+    class New:
+        pass
+
+    class Fill(NamedTuple):
+        price: Decimal
+        size: Decimal
+        quote: Decimal
+        fee: Decimal
+        fee_asset: str
+
+    class Canceled:
+        pass
+
+    class Done:
+        pass
+
+    Any = Union[New, Fill, Canceled, Done]
 
 
 class OrderUpdate(NamedTuple):

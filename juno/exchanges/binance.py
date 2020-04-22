@@ -9,7 +9,7 @@ import urllib.parse
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 import aiohttp
 from tenacity import (
@@ -17,8 +17,8 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, Candle, DepthSnapshot, DepthUpdate, ExchangeException, ExchangeInfo, Fees,
-    Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
+    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees,
+    Fill, OrderException, OrderResult, OrderStatus, OrderType, Order, Side, Ticker,
     TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
@@ -241,7 +241,7 @@ class Binance(Exchange):
         async with user_data_stream.subscribe(event_type) as stream:
             yield inner(stream)
 
-    async def get_depth(self, symbol: str) -> DepthSnapshot:
+    async def get_depth(self, symbol: str) -> Depth.Snapshot:
         # TODO: We might wanna increase that and accept higher weight.
         LIMIT = 100
         LIMIT_TO_WEIGHT = {
@@ -264,7 +264,7 @@ class Binance(Exchange):
                 'symbol': _http_symbol(symbol)
             }
         )
-        return DepthSnapshot(
+        return Depth.Snapshot(
             bids=[(Decimal(x[0]), Decimal(x[1])) for x in res.data['bids']],
             asks=[(Decimal(x[0]), Decimal(x[1])) for x in res.data['asks']],
             last_id=res.data['lastUpdateId'],
@@ -273,10 +273,10 @@ class Binance(Exchange):
     @asynccontextmanager
     async def connect_stream_depth(
         self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[DepthUpdate]:
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
             async for data in ws:
-                yield DepthUpdate(
+                yield Depth.Update(
                     bids=[(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
                     asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']],
                     first_id=data['U'],
@@ -295,15 +295,31 @@ class Binance(Exchange):
     @asynccontextmanager
     async def connect_stream_orders(
         self, symbol: str, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
-        async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate]:
+    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
+        async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[Order.Any]:
             async for data in stream:
                 res_symbol = _from_symbol(data['s'])
                 if res_symbol != symbol:
                     continue
+                status = _from_order_status(data['X'])
+                if status is OrderStatus.NEW:
+                    yield Order.New()
+                elif status is OrderStatus.PARTIALLY_FILLED:
+                    yield Order.Fill(
+                        price=Decimal(data['p']),
+                        size=Decimal(data['l']),
+                        quote=Decimal(data['Y']),
+                    )
+                elif status is OrderStatus.FILLED:
+                    yield Order.Fill(
+                        price=Decimal(data['p']),
+                        size=Decimal(data['l']),
+                        quote=Decimal(data['Y']),
+                    )
+                    yield Order.Done()
                 yield OrderUpdate(
                     symbol=res_symbol,
-                    status=_from_order_status(data['X']),
+                    ,
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
                     client_id=data['C'] if data['C'] else data['c'],
