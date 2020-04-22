@@ -9,13 +9,11 @@ import urllib.parse
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Union
-)
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters, OrderResult,
-    OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, Order, OrderResult, OrderType, Side,
+    Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -154,21 +152,20 @@ class Kraken(Exchange):
     @asynccontextmanager
     async def connect_stream_depth(
         self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
-        async def inner(ws: AsyncIterable[Any]
-                        ) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Any]:
             async for val in ws:
                 if 'as' in val or 'bs' in val:
                     bids = val.get('bs', [])
                     asks = val.get('as', [])
-                    yield DepthSnapshot(
+                    yield Depth.Snapshot(
                         bids=[(Decimal(u[0]), Decimal(u[1])) for u in bids],
                         asks=[(Decimal(u[0]), Decimal(u[1])) for u in asks],
                     )
                 else:
                     bids = val.get('b', [])
                     asks = val.get('a', [])
-                    yield DepthUpdate(
+                    yield Depth.Update(
                         bids=[(Decimal(u[0]), Decimal(u[1])) for u in bids],
                         asks=[(Decimal(u[0]), Decimal(u[1])) for u in asks],
                     )
@@ -182,8 +179,8 @@ class Kraken(Exchange):
     @asynccontextmanager
     async def connect_stream_orders(
         self, symbol: str, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate]:
+    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Order.Any]:
             async for o in ws:
                 # TODO: map
                 yield o

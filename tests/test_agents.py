@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List
 
 import pytest
 
-from juno import Balance, Candle, DepthSnapshot, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
+from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel
 from juno.brokers import Broker, Market
@@ -158,7 +158,7 @@ async def test_paper(exchange: fakes.Exchange, container: Container) -> None:
         # Liquidate. Size 4 + 2.
     ]:
         exchange.candle_queue.put_nowait(candle)
-    exchange.depth_queue.put_nowait(DepthSnapshot(
+    exchange.depth_queue.put_nowait(Depth.Snapshot(
         bids=[
             (Decimal('10.0'), Decimal('5.0')),  # 1.
             (Decimal('50.0'), Decimal('1.0')),  # 1.
@@ -214,7 +214,7 @@ async def test_live(exchange: fakes.Exchange, container: Container) -> None:
         # Liquidate. Size 4 + 2.
     ]:
         exchange.candle_queue.put_nowait(candle)
-    exchange.depth_queue.put_nowait(DepthSnapshot(
+    exchange.depth_queue.put_nowait(Depth.Snapshot(
         bids=[
             (Decimal('10.0'), Decimal('5.0')),  # 1.
             (Decimal('50.0'), Decimal('1.0')),  # 1.

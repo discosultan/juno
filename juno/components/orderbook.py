@@ -5,11 +5,11 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import Any, AsyncIterable, Dict, List, Tuple, Union
+from typing import Any, AsyncIterable, Dict, List, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import DepthSnapshot, DepthUpdate, ExchangeException, Fill, Filters, Side
+from juno import Depth, ExchangeException, Fill, Filters, Side
 from juno.asyncio import Barrier, Event, cancel, create_task_cancel_on_exc
 from juno.config import list_names
 from juno.exchanges import Exchange
@@ -147,12 +147,12 @@ class Orderbook:
             with attempt:
                 orderbook.snapshot_received = False
                 async for depth in self._stream_depth(exchange, symbol):
-                    if isinstance(depth, DepthSnapshot):
+                    if isinstance(depth, Depth.Snapshot):
                         orderbook.sides[Side.BUY] = {k: v for k, v in depth.asks}
                         orderbook.sides[Side.SELL] = {k: v for k, v in depth.bids}
                         orderbook.snapshot_received = True
                         self._initial_orderbook_fetched.release()
-                    elif isinstance(depth, DepthUpdate):
+                    elif isinstance(depth, Depth.Update):
                         # TODO: For example, with depth level 10, Kraken expects us to discard
                         # levels outside level 10. They will not publish messages to delete them.
                         assert orderbook.snapshot_received
@@ -162,8 +162,7 @@ class Orderbook:
                         raise NotImplementedError(depth)
                     orderbook.updated.set()
 
-    async def _stream_depth(self, exchange: str,
-                            symbol: str) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
+    async def _stream_depth(self, exchange: str, symbol: str) -> AsyncIterable[Depth.Any]:
         exchange_instance = self._exchanges[exchange]
 
         while True:
@@ -180,7 +179,7 @@ class Orderbook:
                     last_update_id = snapshot.last_id
                     is_first_update = True
                     async for update in stream:
-                        assert isinstance(update, DepthUpdate)
+                        assert isinstance(update, Depth.Update)
 
                         if last_update_id == 0 and update.first_id == 0 and update.last_id == 0:
                             yield update

@@ -3,8 +3,8 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 
 from juno import (
-    BorrowInfo, Candle, DepthSnapshot, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
-    components, exchanges, storages
+    BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus, components,
+    exchanges, storages
 )
 
 
@@ -26,7 +26,7 @@ class Exchange(exchanges.Exchange):
         tickers=[],
         balances={},
         future_balances=[],
-        depth=DepthSnapshot(),
+        depth=Depth.Snapshot(),
         future_depths=[],
         future_orders=[],
         place_order_result=OrderResult(status=OrderStatus.NEW),

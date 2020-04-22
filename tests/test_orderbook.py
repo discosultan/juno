@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import DepthSnapshot, DepthUpdate, Filters
+from juno import Depth, Filters
 from juno.components import Orderbook
 from juno.filters import Price, Size
 
@@ -16,7 +16,7 @@ FILTERS = Filters(
 
 
 async def test_list_asks_bids(storage) -> None:
-    snapshot = DepthSnapshot(
+    snapshot = Depth.Snapshot(
         asks=[
             (Decimal('1.0'), Decimal('1.0')),
             (Decimal('3.0'), Decimal('1.0')),
@@ -65,7 +65,7 @@ async def test_list_asks_bids(storage) -> None:
     ]
 )
 async def test_find_order_asks(size, snapshot_asks, expected_output) -> None:
-    snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
+    snapshot = Depth.Snapshot(asks=snapshot_asks, bids=[])
     exchange = fakes.Exchange(depth=snapshot)
     exchange.can_stream_depth_snapshot = False
     async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
@@ -124,8 +124,8 @@ async def test_find_order_asks(size, snapshot_asks, expected_output) -> None:
 async def test_find_order_asks_by_quote(
     quote, snapshot_asks, update_asks, expected_output
 ) -> None:
-    snapshot = DepthSnapshot(asks=snapshot_asks, bids=[])
-    updates = [DepthUpdate(asks=update_asks, bids=[])]
+    snapshot = Depth.Snapshot(asks=snapshot_asks, bids=[])
+    updates = [Depth.Update(asks=update_asks, bids=[])]
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
     exchange.can_stream_depth_snapshot = False
     async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
@@ -183,8 +183,8 @@ async def test_find_order_asks_by_quote(
     ],
 )
 async def test_find_order_bids(size, snapshot_bids, update_bids, expected_output) -> None:
-    snapshot = DepthSnapshot(asks=[], bids=snapshot_bids)
-    updates = [DepthUpdate(asks=[], bids=update_bids)]
+    snapshot = Depth.Snapshot(asks=[], bids=snapshot_bids)
+    updates = [Depth.Update(asks=[], bids=update_bids)]
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
     exchange.can_stream_depth_snapshot = False
     async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:

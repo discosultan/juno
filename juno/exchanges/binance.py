@@ -17,9 +17,8 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees,
-    Fill, OrderException, OrderResult, OrderStatus, OrderType, Order, Side, Ticker,
-    TimeInForce, Trade, json
+    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Order,
+    OrderException, OrderResult, OrderStatus, OrderType, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -303,34 +302,50 @@ class Binance(Exchange):
                     continue
                 status = _from_order_status(data['X'])
                 if status is OrderStatus.NEW:
-                    yield Order.New()
+                    yield Order.New(
+                        client_id=data['c'],
+                    )
                 elif status is OrderStatus.PARTIALLY_FILLED:
                     yield Order.Fill(
+                        client_id=data['c'],
                         price=Decimal(data['p']),
                         size=Decimal(data['l']),
                         quote=Decimal(data['Y']),
+                        fee=Decimal(data['n']),
+                        fee_asset=data['N'].lower(),
                     )
                 elif status is OrderStatus.FILLED:
                     yield Order.Fill(
+                        client_id=data['c'],
                         price=Decimal(data['p']),
                         size=Decimal(data['l']),
                         quote=Decimal(data['Y']),
+                        fee=Decimal(data['n']),
+                        fee_asset=data['N'].lower(),
                     )
-                    yield Order.Done()
-                yield OrderUpdate(
-                    symbol=res_symbol,
-                    ,
+                    yield Order.Done(
+                        client_id=data['c'],
+                    )
+                elif status is OrderStatus.CANCELED:
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
-                    client_id=data['C'] if data['C'] else data['c'],
-                    price=Decimal(data['p']),
-                    size=Decimal(data['q']),
-                    filled_size=Decimal(data['l']),
-                    filled_quote=Decimal(data['Y']),
-                    cumulative_filled_size=Decimal(data['z']),
-                    fee=Decimal(data['n']),
-                    fee_asset=data['N'].lower() if data['N'] else None
-                )
+                    yield Order.Canceled(
+                        client_id=data['C'],
+                    )
+                else:
+                    raise NotImplementedError(data)
+                # yield OrderUpdate(
+                #     symbol=res_symbol,
+                #     ,
+                #     client_id=data['C'] if data['C'] else data['c'],
+                #     price=Decimal(data['p']),
+                #     size=Decimal(data['q']),
+                #     filled_size=Decimal(data['l']),
+                #     filled_quote=Decimal(data['Y']),
+                #     cumulative_filled_size=Decimal(data['z']),
+                #     fee=Decimal(data['n']),
+                #     fee_asset=data['N'].lower() if data['N'] else None
+                # )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
         user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream

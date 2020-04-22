@@ -11,14 +11,14 @@ from datetime import datetime
 from decimal import Decimal
 from time import time
 from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple, Union
+    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 )
 
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Fill, Filters, OrderResult,
-    OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, Order, OrderResult, OrderStatus,
+    OrderType, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -150,20 +150,20 @@ class Coinbase(Exchange):
     @asynccontextmanager
     async def connect_stream_depth(
         self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(
             ws: AsyncIterable[Any]
-        ) -> AsyncIterable[Union[DepthUpdate, DepthSnapshot]]:
+        ) -> AsyncIterable[Depth.Any]:
             async for data in ws:
                 if data['type'] == 'snapshot':
-                    yield DepthSnapshot(
+                    yield Depth.Snapshot(
                         bids=[(Decimal(p), Decimal(s)) for p, s in data['bids']],
                         asks=[(Decimal(p), Decimal(s)) for p, s in data['asks']]
                     )
                 elif data['type'] == 'l2update':
                     bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
                     asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
-                    yield DepthUpdate(
+                    yield Depth.Update(
                         bids=[(Decimal(p), Decimal(s)) for p, s in bids],
                         asks=[(Decimal(p), Decimal(s)) for p, s in asks]
                     )
@@ -174,34 +174,35 @@ class Coinbase(Exchange):
     @asynccontextmanager
     async def connect_stream_orders(
         self, symbol: str, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate]:
+    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Order.Any]:
             async for data in ws:
                 if data['type'] == 'received':
-                    yield OrderUpdate(
-                        symbol=symbol,
-                        status=OrderStatus.NEW,
+                    yield Order.New(
                         client_id=data['order_id'],
                     )
                 elif data['type'] == 'match':
-                    yield OrderUpdate(
-                        symbol=symbol,
-                        status=OrderStatus.PARTIALLY_FILLED,
-                        price=Decimal(data['price']),
-                        filled_size=Decimal(data['size']),
+                    yield Order.Fill(
                         client_id=data['order_id'],
+                        price=Decimal(data['price']),
+                        size=Decimal(data['size']),
+                        quote=Decimal(data['price']) * Decimal(data['size']),  # bullshit.
+                        fee=Decimal('0.0'),
+                        fee_asset='eur',
                     )
                 elif data['type'] == 'done':
-                    yield OrderUpdate(
-                        symbol=symbol,
-                        status=(
-                            OrderStatus.FILLED if data['reason'] == 'filled'
-                            else OrderStatus.CANCELED
-                        ),
-                        # price=Decimal(data['price']),
-                        # size=Decimal(data['size']),
-                        client_id=data['order_id'],
-                    )
+                    if data['reason'] == 'filled':
+                        yield Order.Done(
+                            client_id=data['order_id'],
+                        )
+                    elif data['reason'] == 'canceled':
+                        yield Order.Canceled(
+                            client_id=data['order_id'],
+                        )
+                    else:
+                        raise NotImplementedError(data)
+                else:
+                    raise NotImplementedError(data)
 
         async with self._ws.subscribe(
             'user', ['received', 'match', 'done'], [symbol]

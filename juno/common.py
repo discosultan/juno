@@ -178,21 +178,22 @@ class OrderType(IntEnum):
 
 
 class Order:
-    class New:
-        pass
+    class New(NamedTuple):
+        client_id: str
 
     class Fill(NamedTuple):
+        client_id: str
         price: Decimal
         size: Decimal
         quote: Decimal
         fee: Decimal
         fee_asset: str
 
-    class Canceled:
-        pass
+    class Canceled(NamedTuple):
+        client_id: str
 
-    class Done:
-        pass
+    class Done(NamedTuple):
+        client_id: str
 
     Any = Union[New, Fill, Canceled, Done]
 

@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import AsyncIterable, Callable, List
 
 from juno import (
-    Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
+    Fill, Order, OrderException, OrderResult, OrderStatus, OrderType, Side, TimeInForce
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
@@ -210,7 +210,7 @@ class Limit(Broker):
             last_order_size = size
 
     async def _track_fills(
-        self, client_id: str, symbol: str, stream: AsyncIterable[OrderUpdate],
+        self, client_id: str, symbol: str, stream: AsyncIterable[Order.Any],
         side: Side, ctx: _Context
     ) -> None:
         fills = []  # Fills from aggregated trades.
@@ -218,38 +218,60 @@ class Limit(Broker):
             if order.client_id != client_id:
                 _log.debug(f'skipping order tracking; {order.client_id=} != {client_id=}')
                 continue
-            if order.symbol != symbol:
-                _log.warning(f'order {client_id} symbol {order.symbol=} != {symbol=}')
-                continue
-            if order.status is OrderStatus.NEW:
+            # if order.symbol != symbol:
+            #     _log.warning(f'order {client_id} symbol {order.symbol=} != {symbol=}')
+            #     continue
+            if isinstance(order, Order.New):
                 _log.info(f'received new confirmation for order {client_id}')
                 ctx.new_event.set()
                 continue
-            if order.status not in [
-                OrderStatus.CANCELED, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED
-            ]:
-                _log.error(f'unexpected order update with status {order.status}')
-                continue
+            # if order.status not in [
+            #     OrderStatus.CANCELED, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED
+            # ]:
+            #     _log.error(f'unexpected order update with status {order.status}')
+            #     continue
 
-            if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
-                assert order.fee_asset
+            if isinstance(order, Order.Fill):
                 fills.append(
                     Fill(
                         price=order.price,
-                        size=order.filled_size,
-                        quote=order.filled_quote,
+                        size=order.size,
+                        quote=order.quote,
                         fee=order.fee,
-                        fee_asset=order.fee_asset
+                        fee_asset=order.fee_asset,
                     )
                 )
-                if order.status is OrderStatus.FILLED:
-                    _log.info(f'existing order {client_id} filled')
-                    break
-                else:  # PARTIALLY_FILLED
-                    _log.info(f'existing order {client_id} partially filled')
-            else:  # CANCELED
+                _log.info(f'existing order {client_id} match')
+                continue
+
+            if isinstance(order, Order.Canceled):
                 _log.info(f'existing order {client_id} canceled')
                 ctx.cancelled_event.set(fills)
+                continue
+
+            if isinstance(order, Order.Done):
+                _log.info(f'existing order {client_id} filled')
+                break
+
+            # if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
+            #     assert order.fee_asset
+            #     fills.append(
+            #         Fill(
+            #             price=order.price,
+            #             size=order.filled_size,
+            #             quote=order.filled_quote,
+            #             fee=order.fee,
+            #             fee_asset=order.fee_asset
+            #         )
+            #     )
+            #     if order.status is OrderStatus.FILLED:
+            #         _log.info(f'existing order {client_id} filled')
+            #         break
+            #     else:  # PARTIALLY_FILLED
+            #         _log.info(f'existing order {client_id} partially filled')
+            # else:  # CANCELED
+            #     _log.info(f'existing order {client_id} canceled')
+            #     ctx.cancelled_event.set(fills)
 
         raise _Filled(fills)
 
