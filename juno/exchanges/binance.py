@@ -306,22 +306,26 @@ class Binance(Exchange):
                         client_id=data['c'],
                     )
                 elif status is OrderStatus.PARTIALLY_FILLED:
-                    yield Order.Fill(
+                    yield Order.Match(
                         client_id=data['c'],
-                        price=Decimal(data['p']),
-                        size=Decimal(data['l']),
-                        quote=Decimal(data['Y']),
-                        fee=Decimal(data['n']),
-                        fee_asset=data['N'].lower(),
+                        fill=Fill(
+                            price=Decimal(data['p']),
+                            size=Decimal(data['l']),
+                            quote=Decimal(data['Y']),
+                            fee=Decimal(data['n']),
+                            fee_asset=data['N'].lower(),
+                        ),
                     )
                 elif status is OrderStatus.FILLED:
-                    yield Order.Fill(
+                    yield Order.Match(
                         client_id=data['c'],
-                        price=Decimal(data['p']),
-                        size=Decimal(data['l']),
-                        quote=Decimal(data['Y']),
-                        fee=Decimal(data['n']),
-                        fee_asset=data['N'].lower(),
+                        fill=Fill(
+                            price=Decimal(data['p']),
+                            size=Decimal(data['l']),
+                            quote=Decimal(data['Y']),
+                            fee=Decimal(data['n']),
+                            fee_asset=data['N'].lower(),
+                        ),
                     )
                     yield Order.Done(
                         client_id=data['c'],
@@ -334,18 +338,6 @@ class Binance(Exchange):
                     )
                 else:
                     raise NotImplementedError(data)
-                # yield OrderUpdate(
-                #     symbol=res_symbol,
-                #     ,
-                #     client_id=data['C'] if data['C'] else data['c'],
-                #     price=Decimal(data['p']),
-                #     size=Decimal(data['q']),
-                #     filled_size=Decimal(data['l']),
-                #     filled_quote=Decimal(data['Y']),
-                #     cumulative_filled_size=Decimal(data['z']),
-                #     fee=Decimal(data['n']),
-                #     fee_asset=data['N'].lower() if data['N'] else None
-                # )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
         user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream

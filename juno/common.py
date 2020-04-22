@@ -74,6 +74,7 @@ class Candle(NamedTuple):
         }
 
 
+# horseshit; use module instead?
 class Depth:
     class Snapshot(NamedTuple):
         bids: List[Tuple[Decimal, Decimal]] = []
@@ -181,13 +182,9 @@ class Order:
     class New(NamedTuple):
         client_id: str
 
-    class Fill(NamedTuple):
+    class Match(NamedTuple):
         client_id: str
-        price: Decimal
-        size: Decimal
-        quote: Decimal
-        fee: Decimal
-        fee_asset: str
+        fill: Fill
 
     class Canceled(NamedTuple):
         client_id: str
@@ -195,20 +192,7 @@ class Order:
     class Done(NamedTuple):
         client_id: str
 
-    Any = Union[New, Fill, Canceled, Done]
-
-
-class OrderUpdate(NamedTuple):
-    symbol: str
-    status: OrderStatus
-    client_id: str
-    price: Decimal = Decimal('0.0')  # Original.
-    size: Decimal = Decimal('0.0')  # Original.
-    filled_size: Decimal = Decimal('0.0')  # Last.
-    filled_quote: Decimal = Decimal('0.0')  # Last.
-    cumulative_filled_size: Decimal = Decimal('0.0')  # Cumulative.
-    fee: Decimal = Decimal('0.0')  # Last.
-    fee_asset: Optional[str] = None  # Last.
+    Any = Union[New, Match, Canceled, Done]
 
 
 class Side(IntEnum):

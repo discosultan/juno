@@ -90,6 +90,7 @@ class Limit(Broker):
     async def _fill(
         self, exchange: str, symbol: str, side: Side, margin: bool, ctx: _Context
     ) -> OrderResult:
+        # TODO: Create new client ID for every order.
         client_id = self._get_client_id()
 
         async with self._exchanges[exchange].connect_stream_orders(
@@ -218,60 +219,21 @@ class Limit(Broker):
             if order.client_id != client_id:
                 _log.debug(f'skipping order tracking; {order.client_id=} != {client_id=}')
                 continue
-            # if order.symbol != symbol:
-            #     _log.warning(f'order {client_id} symbol {order.symbol=} != {symbol=}')
-            #     continue
+
             if isinstance(order, Order.New):
                 _log.info(f'received new confirmation for order {client_id}')
                 ctx.new_event.set()
-                continue
-            # if order.status not in [
-            #     OrderStatus.CANCELED, OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED
-            # ]:
-            #     _log.error(f'unexpected order update with status {order.status}')
-            #     continue
-
-            if isinstance(order, Order.Fill):
-                fills.append(
-                    Fill(
-                        price=order.price,
-                        size=order.size,
-                        quote=order.quote,
-                        fee=order.fee,
-                        fee_asset=order.fee_asset,
-                    )
-                )
+            elif isinstance(order, Order.Match):
+                fills.append(order.fill)
                 _log.info(f'existing order {client_id} match')
-                continue
-
-            if isinstance(order, Order.Canceled):
+            elif isinstance(order, Order.Canceled):
                 _log.info(f'existing order {client_id} canceled')
                 ctx.cancelled_event.set(fills)
-                continue
-
-            if isinstance(order, Order.Done):
+            elif isinstance(order, Order.Done):
                 _log.info(f'existing order {client_id} filled')
                 break
-
-            # if order.status in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
-            #     assert order.fee_asset
-            #     fills.append(
-            #         Fill(
-            #             price=order.price,
-            #             size=order.filled_size,
-            #             quote=order.filled_quote,
-            #             fee=order.fee,
-            #             fee_asset=order.fee_asset
-            #         )
-            #     )
-            #     if order.status is OrderStatus.FILLED:
-            #         _log.info(f'existing order {client_id} filled')
-            #         break
-            #     else:  # PARTIALLY_FILLED
-            #         _log.info(f'existing order {client_id} partially filled')
-            # else:  # CANCELED
-            #     _log.info(f'existing order {client_id} canceled')
-            #     ctx.cancelled_event.set(fills)
+            else:
+                raise NotImplementedError(order)
 
         raise _Filled(fills)
 

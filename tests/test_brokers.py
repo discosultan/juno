@@ -83,13 +83,15 @@ async def test_market2_buy() -> None:
         exchange.orders_queue.put_nowait(Order.New(
             client_id=order_client_id,
         ))
-        exchange.orders_queue.put_nowait(Order.Fill(
+        exchange.orders_queue.put_nowait(Order.Match(
             client_id=order_client_id,
-            price=Decimal('0.2'),
-            size=Decimal('0.2'),
-            quote=Decimal('0.2'),
-            fee=Decimal('0.02'),
-            fee_asset='eth',
+            fill=Fill(
+                price=Decimal('1.0'),
+                size=Decimal('0.2'),
+                quote=Decimal('0.2'),
+                fee=Decimal('0.02'),
+                fee_asset='eth',
+            ),
         ))
         exchange.orders_queue.put_nowait(Order.Done(
             client_id=order_client_id,
@@ -105,39 +107,7 @@ async def test_market2_buy() -> None:
     assert exchange.place_order_calls[0]['size'] == Decimal('0.2')
 
 
-# async def test_limit_fill_immediately() -> None:
-#     snapshot = DepthSnapshot(
-#         asks=[],
-#         bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
-# )
-#     exchange = fakes.Exchange(
-#         depth=snapshot,
-#         exchange_info=exchange_info,
-#         future_orders=[
-#             OrderUpdate(
-#                 symbol='eth-btc',
-#                 status=OrderStatus.FILLED,
-#                 client_id=order_client_id,
-#                 price=Decimal('1.0'),
-#                 size=Decimal('1.0'),
-#                 filled_size=Decimal('1.0'),
-#                 cumulative_filled_size=Decimal('1.0'),
-#                 fee=Decimal('0.1'),
-#                 fee_asset='eth',
-#             )
-#         ]
-#     )
-#     exchange.can_stream_depth_snapshot = False
-#     async with init_limit_broker(exchange) as broker:
-#         await broker.buy_by_quote(
-#             exchange='exchange',
-#             symbol='eth-btc',
-#             quote=Decimal('1.0'),
-#             test=False,
-#         )
-
-
-async def test_limit_fill_partially() -> None:
+async def test_limit_fill() -> None:
     snapshot = Depth.Snapshot(
         asks=[],
         bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
@@ -150,21 +120,25 @@ async def test_limit_fill_partially() -> None:
             Order.New(
                 client_id=order_client_id,
             ),
-            Order.Fill(
+            Order.Match(
                 client_id=order_client_id,
-                price=Decimal('1.0'),
-                size=Decimal('0.5'),
-                quote=Decimal('0.5'),
-                fee=Decimal('0.05'),
-                fee_asset='eth',
+                fill=Fill(
+                    price=Decimal('1.0'),
+                    size=Decimal('0.5'),
+                    quote=Decimal('0.5'),
+                    fee=Decimal('0.05'),
+                    fee_asset='eth',
+                ),
             ),
-            Order.Fill(
+            Order.Match(
                 client_id=order_client_id,
-                price=Decimal('1.0'),
-                size=Decimal('0.5'),
-                quote=Decimal('0.5'),
-                fee=Decimal('0.05'),
-                fee_asset='eth',
+                fill=Fill(
+                    price=Decimal('1.0'),
+                    size=Decimal('0.5'),
+                    quote=Decimal('0.5'),
+                    fee=Decimal('0.05'),
+                    fee_asset='eth',
+                ),
             ),
             Order.Done(
                 client_id=order_client_id,
@@ -208,13 +182,15 @@ async def test_limit_partial_fill_adjust_fill() -> None:
             Order.New(
                 client_id=order_client_id,
             ),
-            Order.Fill(
+            Order.Match(
                 client_id=order_client_id,
-                price=Decimal('1.0'),
-                size=Decimal('1.0'),
-                quote=Decimal('1.0'),
-                fee=Decimal('0.1'),
-                fee_asset='eth',
+                fill=Fill(
+                    price=Decimal('1.0'),
+                    size=Decimal('1.0'),
+                    quote=Decimal('1.0'),
+                    fee=Decimal('0.1'),
+                    fee_asset='eth',
+                ),
             ),
         ]
     )
@@ -244,13 +220,15 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         )
         await yield_control()
         await exchange.orders_queue.put(
-            Order.Fill(
+            Order.Match(
                 client_id=order_client_id,
-                price=Decimal('2.0'),
-                size=Decimal('0.5'),
-                quote=Decimal('1.0'),
-                fee=Decimal('0.05'),
-                fee_asset='eth',
+                fill=Fill(
+                    price=Decimal('2.0'),
+                    size=Decimal('0.5'),
+                    quote=Decimal('1.0'),
+                    fee=Decimal('0.05'),
+                    fee_asset='eth',
+                ),
             )
         )
         await exchange.orders_queue.put(

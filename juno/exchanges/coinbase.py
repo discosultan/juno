@@ -17,7 +17,7 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, Order, OrderResult, OrderStatus,
+    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, Order, OrderResult, OrderStatus,
     OrderType, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
@@ -53,6 +53,8 @@ class Coinbase(Exchange):
         self._passphrase = passphrase
 
         self._ws = CoinbaseFeed(api_key, secret_key, passphrase)
+        # TODO: use LRU cache
+        self._order_id_to_client_id: Dict[str, str] = {}
 
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
@@ -74,7 +76,7 @@ class Coinbase(Exchange):
     async def get_exchange_info(self) -> ExchangeInfo:
         # TODO: Fetch from exchange API if possible? Also has a more complex structure.
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
-        fees = {'__all__': Fees(maker=Decimal('0.0015'), taker=Decimal('0.0025'))}
+        fees = {'__all__': Fees(maker=Decimal('0.005'), taker=Decimal('0.005'))}
 
         res = await self._public_request('GET', '/products')
         filters = {}
@@ -123,8 +125,9 @@ class Coinbase(Exchange):
             ] = Balance(available=Decimal(balance['available']), hold=Decimal(balance['hold']))
         return result
 
-    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
-                                        end: int) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(
+        self, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
         url = f'/products/{_product(symbol)}/candles'
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
@@ -176,28 +179,36 @@ class Coinbase(Exchange):
         self, symbol: str, margin: bool = False
     ) -> AsyncIterator[AsyncIterable[Order.Any]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Order.Any]:
+            base_asset, quote_asset = unpack_symbol(symbol)
             async for data in ws:
                 if data['type'] == 'received':
+                    client_id = data['client_oid']
+                    self._order_id_to_client_id[data['order_id']] = client_id
                     yield Order.New(
-                        client_id=data['order_id'],
-                    )
-                elif data['type'] == 'match':
-                    yield Order.Fill(
-                        client_id=data['order_id'],
-                        price=Decimal(data['price']),
-                        size=Decimal(data['size']),
-                        quote=Decimal(data['price']) * Decimal(data['size']),  # bullshit.
-                        fee=Decimal('0.0'),
-                        fee_asset='eur',
+                        client_id=client_id,
                     )
                 elif data['type'] == 'done':
-                    if data['reason'] == 'filled':
-                        yield Order.Done(
-                            client_id=data['order_id'],
+                    reason = data['reason']
+                    order_id = data['order_id']
+                    client_id = self._order_id_to_client_id[order_id]
+                    fills = await self._private_request('GET', f'/fills?order_id={order_id}')
+                    for fill in fills:
+                        yield Order.Match(
+                            client_id=client_id,
+                            fill=Fill.with_computed_quote(
+                                price=Decimal(fill['price']),
+                                size=Decimal(fill['size']),
+                                fee=Decimal(fill['fee']),
+                                fee_asset=base_asset if fill['side'] == 'buy' else quote_asset,
+                            ),
                         )
-                    elif data['reason'] == 'canceled':
+                    if reason == 'filled':
+                        yield Order.Done(
+                            client_id=data['client_oid'],
+                        )
+                    elif reason == 'canceled':
                         yield Order.Canceled(
-                            client_id=data['order_id'],
+                            client_id=data['client_oid'],
                         )
                     else:
                         raise NotImplementedError(data)
