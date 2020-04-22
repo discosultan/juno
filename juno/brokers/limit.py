@@ -90,7 +90,7 @@ class Limit(Broker):
     async def _fill(
         self, exchange: str, symbol: str, side: Side, margin: bool, ctx: _Context
     ) -> OrderResult:
-        # TODO: Create new client ID for every order.
+        # TODO: Create new client ID for every Order.
         client_id = self._get_client_id()
 
         async with self._exchanges[exchange].connect_stream_orders(
@@ -108,7 +108,7 @@ class Limit(Broker):
                 )
             )
 
-            # Listens for fill events for an existing order.
+            # Listens for fill events for an existing Order.
             track_fills_task = asyncio.create_task(
                 self._track_fills(
                     client_id=client_id,
@@ -166,7 +166,7 @@ class Limit(Broker):
                 continue
 
             if last_order_price not in [0, Decimal('Inf')]:
-                # Cancel prev order.
+                # Cancel prev Order.
                 _log.info(
                     f'cancelling previous limit order {client_id} at price {last_order_price}'
                 )

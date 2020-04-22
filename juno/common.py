@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import IntEnum
+from types import ModuleType
 from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 from juno.aliases import Timestamp
@@ -74,8 +75,7 @@ class Candle(NamedTuple):
         }
 
 
-# horseshit; use module instead?
-class Depth:
+class Depth(ModuleType):
     class Snapshot(NamedTuple):
         bids: List[Tuple[Decimal, Decimal]] = []
         asks: List[Tuple[Decimal, Decimal]] = []
@@ -178,7 +178,7 @@ class OrderType(IntEnum):
     LIMIT_MAKER = 6
 
 
-class Order:
+class Order(ModuleType):
     class New(NamedTuple):
         client_id: str
 
