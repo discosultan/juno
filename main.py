@@ -41,8 +41,9 @@ async def main() -> None:
     log_level = cfg.get('log_level', 'info')
     log_format = cfg.get('log_format', 'default')
     log_outputs = cfg.get('log_outputs', ['stdout'])
+    log_directory = cfg.get('log_directory', 'logs')
     logging.basicConfig(
-        handlers=create_handlers(log_format, log_outputs),
+        handlers=create_handlers(log_format, log_outputs, log_directory),
         level=logging.getLevelName(log_level.upper()),
     )
 
