@@ -214,7 +214,7 @@ class Limit(Broker):
                 margin=margin,
             )
             await ctx.new_event.wait()
-            deduct = size * price if ctx.use_quote else size
+            deduct = price * size if ctx.use_quote else size
             ctx.available -= deduct
 
             last_order_price = price

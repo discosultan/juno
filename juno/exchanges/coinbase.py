@@ -17,13 +17,14 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, Order, OrderResult, OrderStatus,
-    OrderType, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, Order, OrderException, OrderResult,
+    OrderStatus, OrderType, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.itertools import page
+from juno.math import round_half_up
 from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import AsyncLimiter, unpack_symbol
@@ -62,7 +63,7 @@ class Coinbase(Exchange):
         self._pub_limiter = AsyncLimiter(3 * x, 1)
         self._priv_limiter = AsyncLimiter(5 * x, 1)
 
-        self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
+        self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
         await self._session.__aenter__()
 
         await self._ws.__aenter__()
@@ -200,15 +201,29 @@ class Coinbase(Exchange):
                     reason = data['reason']
                     order_id = data['order_id']
                     client_id = self._order_id_to_client_id[order_id]
+                    # TODO: Should be paginated.
                     fills = await self._private_request('GET', f'/fills?order_id={order_id}')
                     for fill in fills:
+                        # TODO: Coinbase fee is always returned in quote asset.
+                        # TODO: Coinbase does not return quote, so we need to calculate it;
+                        # however, we need to know quote precision and rounding rules for that.
+                        # TODO: They seem to take fee in addition to specified size (not extract
+                        # from size).
+                        assert symbol == 'btc-eur'
+                        quote_precision = 2
+                        base_precision = 8
+                        price = Decimal(fill['price'])
+                        size = Decimal(fill['size'])
+                        fee_quote = round_half_up(Decimal(fill['fee']), quote_precision)
+                        fee_size = round_half_up(Decimal(fill['fee']) / price, base_precision)
                         yield Order.Match(
                             client_id=client_id,
                             fill=Fill.with_computed_quote(
-                                price=Decimal(fill['price']),
-                                size=Decimal(fill['size']),
-                                fee=Decimal(fill['fee']),
+                                price=price,
+                                size=size + fee_size,
+                                fee=fee_size if fill['side'] == 'buy' else fee_quote,
                                 fee_asset=base_asset if fill['side'] == 'buy' else quote_asset,
+                                precision=quote_precision,
                             ),
                         )
                     if reason == 'filled':
@@ -221,13 +236,13 @@ class Coinbase(Exchange):
                         )
                     else:
                         raise NotImplementedError(data)
-                elif type_ == 'match':
+                elif type_ in ['open', 'match']:
                     pass
                 else:
                     raise NotImplementedError(data)
 
         async with self._ws.subscribe(
-            'user', ['received', 'match', 'done'], [symbol]
+            'user', ['received', 'open', 'match', 'done'], [symbol]
         ) as ws:
             yield inner(ws)
 
@@ -353,6 +368,9 @@ class Coinbase(Exchange):
         }
         url = _BASE_REST_URL + url
         async with self._session.request_json(method, url, headers=headers, data=body) as res:
+            # TODO: walrus
+            if res.status == 404 and res.data.get('message') == 'order not found':
+                raise OrderException(res.data['message'])
             return res.data
 
 

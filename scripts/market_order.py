@@ -15,8 +15,6 @@ SIDE = Side.BUY
 EXCHANGE_TYPE = exchanges.Coinbase
 SYMBOL = 'btc-eur'
 QUOTE: Optional[Decimal] = Decimal('10.0')
-# QUOTE = None
-# BASE: Optional[Decimal] = Decimal('0.2')
 BASE = None
 TEST = False
 
@@ -25,8 +23,6 @@ TEST = False
 # EXCHANGE_TYPE = exchanges.Binance
 # SYMBOL = 'eth-btc'
 # QUOTE: Optional[Decimal] = Decimal('0.005')
-# # QUOTE = None
-# # BASE: Optional[Decimal] = Decimal('0.2')
 # BASE = None
 # TEST = False
 
