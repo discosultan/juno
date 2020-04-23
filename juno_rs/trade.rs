@@ -3,7 +3,6 @@ use crate::{
     strategies::{Changed, Strategy},
     Advice, BorrowInfo, Candle, Fees, Filters, LongPosition, ShortPosition, TradingSummary,
 };
-use std::f64;
 
 const HOUR_MS: u64 = 3_600_000;
 

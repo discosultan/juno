@@ -1,5 +1,3 @@
-use std::f64;
-
 pub fn ceil_multiple(value: u64, multiple: u64) -> u64 {
     (value / multiple) * multiple
 }
