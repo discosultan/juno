@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 from typing import Callable, List, Optional
 
-from juno import Fill, OrderResult, OrderStatus, OrderType, Side
+from juno import Fill, Order, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 
@@ -70,6 +70,7 @@ class Market2(Broker):
         if size is not None:
             _fees, filters = self._informant.get_fees_filters(exchange, symbol)
             size = filters.size.round_down(size)
+            filters.size.validate(size)
 
         client_id = self._get_client_id()
         exchange_instance = self._exchanges[exchange]
@@ -93,30 +94,15 @@ class Market2(Broker):
                 if order.client_id != client_id:
                     _log.debug(f'skipping order tracking; {order.client_id=} != {client_id=}')
                     continue
-                if order.symbol != symbol:
-                    _log.warning(f'order {client_id} symbol {order.symbol=} != {symbol=}')
-                    continue
-                if order.status is OrderStatus.NEW:
-                    _log.info(f'received new confirmation for order {client_id}')
-                    continue
-                if order.status not in [OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED]:
-                    _log.error(f'unexpected order update with status {order.status}')
-                    continue
 
-                assert order.fee_asset
-                fills.append(
-                    Fill(
-                        price=order.price,
-                        size=order.filled_size,
-                        quote=order.filled_quote,
-                        fee=order.fee,
-                        fee_asset=order.fee_asset
-                    )
-                )
-                if order.status is OrderStatus.FILLED:
+                if isinstance(order, Order.New):
+                    _log.info(f'received new confirmation for order {client_id}')
+                elif isinstance(order, Order.Match):
+                    fills.append(order.fill)
+                elif isinstance(order, Order.Done):
                     _log.info(f'existing order {client_id} filled')
                     break
-                else:  # PARTIALLY_FILLED
-                    _log.info(f'existing order {client_id} partially filled')
+                else:
+                    raise NotImplementedError(order)
 
         return OrderResult(status=OrderStatus.FILLED, fills=fills)

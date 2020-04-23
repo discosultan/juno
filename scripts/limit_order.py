@@ -4,21 +4,23 @@ import sys
 from decimal import Decimal
 from typing import Optional
 
-from juno import Fill, Side
+from juno import Fill, Side, exchanges
 from juno.brokers import Limit
 from juno.components import Informant, Orderbook, Wallet
 from juno.config import from_env, init_instance
-from juno.exchanges import Binance
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
+# SIDE = Side.BUY
+# EXCHANGE_TYPE = exchanges.Coinbase
+# SYMBOL = 'btc-eur'
+# QUOTE: Optional[Decimal] = Decimal('10.0')
+# BASE = None
+
 SIDE = Side.BUY
-EXCHANGE = 'binance'
+EXCHANGE_TYPE = exchanges.Binance
 SYMBOL = 'eth-btc'
-BASE_ASSET, QUOTE_ASSET = unpack_symbol(SYMBOL)
 QUOTE: Optional[Decimal] = Decimal('0.005')
-# QUOTE = None
-# BASE: Optional[Decimal] = Decimal('0.2')
 BASE = None
 
 if len(sys.argv) > 1:
@@ -26,31 +28,40 @@ if len(sys.argv) > 1:
 
 
 async def main() -> None:
-    binance = init_instance(Binance, from_env())
-    exchanges = [binance]
+    base_asset, quote_asset = unpack_symbol(SYMBOL)
+    exchange = init_instance(EXCHANGE_TYPE, from_env())
+    exchanges = [exchange]
+    exchange_name = EXCHANGE_TYPE.__name__.lower()
     memory = Memory()
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=exchanges)
     orderbook = Orderbook(exchanges=exchanges, config={'symbol': SYMBOL})
     wallet = Wallet(exchanges=exchanges)
     limit = Limit(informant, orderbook, exchanges)
-    async with binance, memory, informant, orderbook, wallet:
-        fees, filters = informant.get_fees_filters(EXCHANGE, SYMBOL)
-        base = BASE if BASE is not None else wallet.get_balance(EXCHANGE, BASE_ASSET).available
-        quote = QUOTE if QUOTE is not None else wallet.get_balance(EXCHANGE, QUOTE_ASSET).available
-        logging.info(f'base: {base} {BASE_ASSET}; quote: {quote} {QUOTE_ASSET}')
+    async with exchange, memory, informant, orderbook, wallet:
+        fees, filters = informant.get_fees_filters(exchange_name, SYMBOL)
+        base = (
+            BASE if BASE is not None else wallet.get_balance(exchange_name, base_asset).available
+        )
+        quote = (
+            QUOTE if QUOTE is not None
+            else wallet.get_balance(exchange_name, quote_asset).available
+        )
+        logging.info(f'base: {base} {base_asset}; quote: {quote} {quote_asset}')
         if SIDE is Side.BUY:
             market_fills = orderbook.find_order_asks_by_quote(
-                exchange=EXCHANGE, symbol=SYMBOL, quote=quote, fee_rate=fees.maker, filters=filters
+                exchange=exchange_name, symbol=SYMBOL, quote=quote, fee_rate=fees.maker,
+                filters=filters
             )
             res = await limit.buy_by_quote(
-                exchange=EXCHANGE, symbol=SYMBOL, quote=quote, test=False
+                exchange=exchange_name, symbol=SYMBOL, quote=quote, test=False
             )
         else:
             market_fills = orderbook.find_order_bids(
-                exchange=EXCHANGE, symbol=SYMBOL, size=base, fee_rate=fees.maker, filters=filters
+                exchange=exchange_name, symbol=SYMBOL, size=base, fee_rate=fees.maker,
+                filters=filters
             )
-            res = await limit.sell(exchange=EXCHANGE, symbol=SYMBOL, size=base, test=False)
+            res = await limit.sell(exchange=exchange_name, symbol=SYMBOL, size=base, test=False)
 
         logging.info(res)
         logging.info(f'{SIDE.name} {SYMBOL}')
