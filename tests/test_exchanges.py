@@ -6,9 +6,7 @@ import aiohttp
 import pytest
 
 import juno
-from juno import (
-    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, OrderType, Side, Ticker, Trade
-)
+from juno import Balance, Candle, Depth, ExchangeInfo, OrderType, Side, Ticker, Trade
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
@@ -174,7 +172,7 @@ async def test_get_depth(loop, request, exchange: Exchange) -> None:
 
     depth = await exchange.get_depth('eth-btc')
 
-    assert types_match(depth, DepthSnapshot)
+    assert types_match(depth, Depth.Snapshot)
 
 
 @pytest.mark.exchange
@@ -184,7 +182,7 @@ async def test_connect_stream_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     expected_types = (
-        [DepthSnapshot, DepthUpdate] if exchange.can_stream_depth_snapshot else [DepthUpdate]
+        [Depth.Snapshot, Depth.Update] if exchange.can_stream_depth_snapshot else [Depth.Update]
     )
 
     async with exchange.connect_stream_depth('eth-btc') as stream:

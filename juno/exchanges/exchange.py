@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Union
+from typing import AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, OrderResult, OrderType, OrderUpdate,
-    Side, Ticker, TimeInForce, Trade
+    Balance, Candle, Depth, ExchangeInfo, Order, OrderResult, OrderType, Side, Ticker, TimeInForce,
+    Trade
 )
 
 
@@ -50,21 +50,21 @@ class Exchange(ABC):
     ) -> AsyncIterator[AsyncIterable[Candle]]:
         yield  # type: ignore
 
-    async def get_depth(self, symbol: str) -> DepthSnapshot:
+    async def get_depth(self, symbol: str) -> Depth.Snapshot:
         raise NotImplementedError()
 
     @abstractmethod
     @asynccontextmanager
     async def connect_stream_depth(
         self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         yield  # type: ignore
 
     @abstractmethod
     @asynccontextmanager
     async def connect_stream_orders(
-        self, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[OrderUpdate]]:
+        self, symbol: str, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
         yield  # type: ignore
 
     @abstractmethod

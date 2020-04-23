@@ -5,16 +5,18 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import Any, AsyncIterable, Dict, List, Tuple, Union
+from typing import Any, AsyncIterable, Dict, List, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import DepthSnapshot, DepthUpdate, ExchangeException, Side
+from juno import Depth, ExchangeException, Fill, Filters, Side
 from juno.asyncio import Barrier, Event, cancel, create_task_cancel_on_exc
 from juno.config import list_names
 from juno.exchanges import Exchange
+from juno.math import round_half_up
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
+from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ class Orderbook:
         self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
         self._sync_task = create_task_cancel_on_exc(self._sync_orderbooks())
         await self._initial_orderbook_fetched.wait()
+        _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
@@ -58,6 +61,79 @@ class Orderbook:
     def list_bids(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
         return sorted(self._data[exchange][symbol].sides[Side.SELL].items(), reverse=True)
 
+    def find_order_asks(
+        self, exchange: str, symbol: str, size: Decimal, fee_rate: Decimal, filters: Filters
+    ) -> List[Fill]:
+        result = []
+        base_asset, quote_asset = unpack_symbol(symbol)
+        for aprice, asize in self.list_asks(exchange, symbol):
+            if asize >= size:
+                fee = round_half_up(size * fee_rate, filters.base_precision)
+                result.append(Fill.with_computed_quote(
+                    price=aprice, size=size, fee=fee, fee_asset=base_asset,
+                    precision=filters.quote_precision
+                ))
+                break
+            else:
+                fee = round_half_up(asize * fee_rate, filters.base_precision)
+                result.append(Fill.with_computed_quote(
+                    price=aprice, size=asize, fee=fee, fee_asset=base_asset,
+                    precision=filters.quote_precision
+                ))
+                size -= asize
+        return result
+
+    def find_order_asks_by_quote(
+        self, exchange: str, symbol: str, quote: Decimal, fee_rate: Decimal, filters: Filters
+    ) -> List[Fill]:
+        result = []
+        base_asset, quote_asset = unpack_symbol(symbol)
+        for aprice, asize in self.list_asks(exchange, symbol):
+            aquote = aprice * asize
+            if aquote >= quote:
+                size = filters.size.round_down(quote / aprice)
+                if size != 0:
+                    fee = round_half_up(size * fee_rate, filters.base_precision)
+                    result.append(Fill.with_computed_quote(
+                        price=aprice, size=size, fee=fee, fee_asset=base_asset,
+                        precision=filters.quote_precision
+                    ))
+                break
+            else:
+                assert asize != 0
+                fee = round_half_up(asize * fee_rate, filters.base_precision)
+                result.append(Fill.with_computed_quote(
+                    price=aprice, size=asize, fee=fee, fee_asset=base_asset,
+                    precision=filters.quote_precision
+                ))
+                quote -= aquote
+        return result
+
+    def find_order_bids(
+        self, exchange: str, symbol: str, size: Decimal, fee_rate: Decimal, filters: Filters
+    ) -> List[Fill]:
+        result = []
+        base_asset, quote_asset = unpack_symbol(symbol)
+        for bprice, bsize in self.list_bids(exchange, symbol):
+            if bsize >= size:
+                rsize = filters.size.round_down(size)
+                if size != 0:
+                    fee = round_half_up(bprice * rsize * fee_rate, filters.quote_precision)
+                    result.append(Fill.with_computed_quote(
+                        price=bprice, size=rsize, fee=fee, fee_asset=quote_asset,
+                        precision=filters.quote_precision
+                    ))
+                break
+            else:
+                assert bsize != 0
+                fee = round_half_up(bprice * bsize * fee_rate, filters.quote_precision)
+                result.append(Fill.with_computed_quote(
+                    price=bprice, size=bsize, fee=fee, fee_asset=quote_asset,
+                    precision=filters.quote_precision
+                ))
+                size -= bsize
+        return result
+
     async def _sync_orderbooks(self) -> None:
         await asyncio.gather(*(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
 
@@ -71,12 +147,12 @@ class Orderbook:
             with attempt:
                 orderbook.snapshot_received = False
                 async for depth in self._stream_depth(exchange, symbol):
-                    if isinstance(depth, DepthSnapshot):
+                    if isinstance(depth, Depth.Snapshot):
                         orderbook.sides[Side.BUY] = {k: v for k, v in depth.asks}
                         orderbook.sides[Side.SELL] = {k: v for k, v in depth.bids}
                         orderbook.snapshot_received = True
                         self._initial_orderbook_fetched.release()
-                    elif isinstance(depth, DepthUpdate):
+                    elif isinstance(depth, Depth.Update):
                         # TODO: For example, with depth level 10, Kraken expects us to discard
                         # levels outside level 10. They will not publish messages to delete them.
                         assert orderbook.snapshot_received
@@ -86,8 +162,7 @@ class Orderbook:
                         raise NotImplementedError(depth)
                     orderbook.updated.set()
 
-    async def _stream_depth(self, exchange: str,
-                            symbol: str) -> AsyncIterable[Union[DepthSnapshot, DepthUpdate]]:
+    async def _stream_depth(self, exchange: str, symbol: str) -> AsyncIterable[Depth.Any]:
         exchange_instance = self._exchanges[exchange]
 
         while True:
@@ -104,7 +179,7 @@ class Orderbook:
                     last_update_id = snapshot.last_id
                     is_first_update = True
                     async for update in stream:
-                        assert isinstance(update, DepthUpdate)
+                        assert isinstance(update, Depth.Update)
 
                         if last_update_id == 0 and update.first_id == 0 and update.last_id == 0:
                             yield update

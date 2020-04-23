@@ -11,22 +11,23 @@ from datetime import datetime
 from decimal import Decimal
 from time import time
 from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple, Union
+    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 )
 
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, DepthSnapshot, DepthUpdate, ExchangeInfo, Fees, Filters, OrderResult,
-    OrderType, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, Order, OrderException, OrderResult,
+    OrderStatus, OrderType, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.itertools import page
+from juno.math import round_half_up
 from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter
+from juno.utils import AsyncLimiter, unpack_symbol
 
 from .exchange import Exchange
 
@@ -52,7 +53,9 @@ class Coinbase(Exchange):
         self._secret_key_bytes = base64.b64decode(secret_key)
         self._passphrase = passphrase
 
-        self._ws = CoinbaseFeed(_BASE_WS_URL)
+        self._ws = CoinbaseFeed(api_key, secret_key, passphrase)
+        # TODO: use LRU cache
+        self._order_id_to_client_id: Dict[str, str] = {}
 
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
@@ -60,7 +63,7 @@ class Coinbase(Exchange):
         self._pub_limiter = AsyncLimiter(3 * x, 1)
         self._priv_limiter = AsyncLimiter(5 * x, 1)
 
-        self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
+        self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
         await self._session.__aenter__()
 
         await self._ws.__aenter__()
@@ -74,18 +77,26 @@ class Coinbase(Exchange):
     async def get_exchange_info(self) -> ExchangeInfo:
         # TODO: Fetch from exchange API if possible? Also has a more complex structure.
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
-        fees = {'__all__': Fees(maker=Decimal('0.0015'), taker=Decimal('0.0025'))}
+        fees = {'__all__': Fees(maker=Decimal('0.005'), taker=Decimal('0.005'))}
 
         res = await self._public_request('GET', '/products')
         filters = {}
         for product in res:
+            price_step = Decimal(product['quote_increment'])
+            size_step = Decimal(product['base_increment'])
             filters[product['id'].lower()] = Filters(
-                price=Price(step=Decimal(product['quote_increment'])),
+                base_precision=-size_step.normalize().as_tuple()[2],
+                quote_precision=-price_step.normalize().as_tuple()[2],
+                price=Price(
+                    min=Decimal(product['min_market_funds']),
+                    max=Decimal(product['max_market_funds']),
+                    step=price_step,
+                ),
                 size=Size(
                     min=Decimal(product['base_min_size']),
                     max=Decimal(product['base_max_size']),
-                    step=Decimal(product['base_increment'])
-                )
+                    step=size_step,
+                ),
             )
 
         return ExchangeInfo(
@@ -123,8 +134,9 @@ class Coinbase(Exchange):
             ] = Balance(available=Decimal(balance['available']), hold=Decimal(balance['hold']))
         return result
 
-    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
-                                        end: int) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(
+        self, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
         url = f'/products/{_product(symbol)}/candles'
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
@@ -150,20 +162,20 @@ class Coinbase(Exchange):
     @asynccontextmanager
     async def connect_stream_depth(
         self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Union[DepthSnapshot, DepthUpdate]]]:
+    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(
             ws: AsyncIterable[Any]
-        ) -> AsyncIterable[Union[DepthUpdate, DepthSnapshot]]:
+        ) -> AsyncIterable[Depth.Any]:
             async for data in ws:
                 if data['type'] == 'snapshot':
-                    yield DepthSnapshot(
+                    yield Depth.Snapshot(
                         bids=[(Decimal(p), Decimal(s)) for p, s in data['bids']],
                         asks=[(Decimal(p), Decimal(s)) for p, s in data['asks']]
                     )
                 elif data['type'] == 'l2update':
                     bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
                     asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
-                    yield DepthUpdate(
+                    yield Depth.Update(
                         bids=[(Decimal(p), Decimal(s)) for p, s in bids],
                         asks=[(Decimal(p), Decimal(s)) for p, s in asks]
                     )
@@ -173,10 +185,66 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[Any]]:
-        raise NotImplementedError()
-        yield
+        self, symbol: str, margin: bool = False
+    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Order.Any]:
+            base_asset, quote_asset = unpack_symbol(symbol)
+            async for data in ws:
+                type_ = data['type']
+                if type_ == 'received':
+                    client_id = data['client_oid']
+                    self._order_id_to_client_id[data['order_id']] = client_id
+                    yield Order.New(
+                        client_id=client_id,
+                    )
+                elif type_ == 'done':
+                    reason = data['reason']
+                    order_id = data['order_id']
+                    client_id = self._order_id_to_client_id[order_id]
+                    # TODO: Should be paginated.
+                    fills = await self._private_request('GET', f'/fills?order_id={order_id}')
+                    for fill in fills:
+                        # TODO: Coinbase fee is always returned in quote asset.
+                        # TODO: Coinbase does not return quote, so we need to calculate it;
+                        # however, we need to know quote precision and rounding rules for that.
+                        # TODO: They seem to take fee in addition to specified size (not extract
+                        # from size).
+                        assert symbol == 'btc-eur'
+                        quote_precision = 2
+                        base_precision = 8
+                        price = Decimal(fill['price'])
+                        size = Decimal(fill['size'])
+                        fee_quote = round_half_up(Decimal(fill['fee']), quote_precision)
+                        fee_size = round_half_up(Decimal(fill['fee']) / price, base_precision)
+                        yield Order.Match(
+                            client_id=client_id,
+                            fill=Fill.with_computed_quote(
+                                price=price,
+                                size=size + fee_size,
+                                fee=fee_size if fill['side'] == 'buy' else fee_quote,
+                                fee_asset=base_asset if fill['side'] == 'buy' else quote_asset,
+                                precision=quote_precision,
+                            ),
+                        )
+                    if reason == 'filled':
+                        yield Order.Done(
+                            client_id=client_id,
+                        )
+                    elif reason == 'canceled':
+                        yield Order.Canceled(
+                            client_id=client_id,
+                        )
+                    else:
+                        raise NotImplementedError(data)
+                elif type_ in ['open', 'match']:
+                    pass
+                else:
+                    raise NotImplementedError(data)
+
+        async with self._ws.subscribe(
+            'user', ['received', 'open', 'match', 'done'], [symbol]
+        ) as ws:
+            yield inner(ws)
 
     async def place_order(
         self,
@@ -191,13 +259,42 @@ class Coinbase(Exchange):
         test: bool = True,
         margin: bool = False,
     ) -> OrderResult:
-        raise NotImplementedError()
+        # https://docs.pro.coinbase.com/#place-a-new-order
+        if test or margin:
+            raise NotImplementedError()
+        if type_ not in [OrderType.MARKET, OrderType.LIMIT]:
+            # Supports stop orders through params.
+            raise NotImplementedError()
+
+        data = {
+            'type': 'market' if type_ is OrderType.MARKET else 'limit',
+            'side': 'buy' if side is Side.BUY else 'sell',
+            'product_id': _product(symbol),
+        }
+        if size is not None:
+            data['size'] = str(size)
+        if quote is not None:
+            data['funds'] = str(quote)
+        if price is not None:
+            data['price'] = str(price)
+        if time_in_force is not None:
+            data['time_in_force'] = _time_in_force(time_in_force)
+        if client_id is not None:
+            data['client_oid'] = client_id
+
+        base_asset, quote_asset = unpack_symbol(symbol)
+        await self._private_request('POST', '/orders', data=data)
+        # Does not support returning fills straight away. Need to listen through WS.
+        return OrderResult(status=OrderStatus.NEW)
 
     async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
-        raise NotImplementedError()
+        await self._private_request('DELETE', f'/orders/client:{client_id}', {
+            'product_id': _product(symbol),
+        })
 
-    async def stream_historical_trades(self, symbol: str, start: int,
-                                       end: int) -> AsyncIterable[Trade]:
+    async def stream_historical_trades(
+        self, symbol: str, start: int, end: int
+    ) -> AsyncIterable[Trade]:
         trades_desc = []
         async for batch in self._paginated_public_request(
             'GET', f'/products/{_product(symbol)}/trades'
@@ -247,8 +344,8 @@ class Coinbase(Exchange):
             await self._pub_limiter.acquire()
             if page_after is not None:
                 data['after'] = page_after
-            async with self._session.request(method, url, params=data) as res:
-                yield await res.json(loads=json.loads)
+            async with self._session.request_json(method, url, params=data) as res:
+                yield res.data
                 page_after = res.headers.get('CB-AFTER')
                 if page_after is None:
                     break
@@ -257,26 +354,31 @@ class Coinbase(Exchange):
         async for val in self._paginated_public_request(method, url, data):
             return val  # Return only first.
 
-    async def _private_request(self, method: str, url: str, data: str = '') -> Any:
+    async def _private_request(self, method: str, url: str, data: Dict[str, Any] = {}) -> Any:
         await self._priv_limiter.acquire()
-        timestamp = str(time())
-        message = (timestamp + method + url + data).encode('ascii')
-        signature_hash = hmac.new(self._secret_key_bytes, message, hashlib.sha256).digest()
-        signature = base64.b64encode(signature_hash).decode('ascii')
+        timestamp = _auth_timestamp()
+        body = json.dumps(data, separators=(',', ':')) if data else ''
+        signature = _auth_signature(self._secret_key_bytes, timestamp, method, url, body)
         headers = {
             'CB-ACCESS-SIGN': signature,
             'CB-ACCESS-TIMESTAMP': timestamp,
             'CB-ACCESS-KEY': self._api_key,
-            'CB-ACCESS-PASSPHRASE': self._passphrase
+            'CB-ACCESS-PASSPHRASE': self._passphrase,
+            'Content-Type': 'application/json',
         }
         url = _BASE_REST_URL + url
-        async with self._session.request(method, url, headers=headers, data=data) as res:
-            return await res.json(loads=json.loads)
+        async with self._session.request_json(method, url, headers=headers, data=body) as res:
+            # TODO: walrus
+            if res.status == 404 and res.data.get('message') == 'order not found':
+                raise OrderException(res.data['message'])
+            return res.data
 
 
 class CoinbaseFeed:
-    def __init__(self, url: str) -> None:
-        self.url = url
+    def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
+        self._api_key = api_key
+        self._secret_key_bytes = base64.b64decode(secret_key)
+        self._passphrase = passphrase
 
         self.session = ClientSession(raise_for_status=True, name=type(self).__name__)
         self.ws_ctx: Optional[AsyncContextManager[ClientWebSocketResponse]] = None
@@ -313,12 +415,21 @@ class CoinbaseFeed:
         # TODO: Skip subscription if already subscribed. Maybe not a good idea because we may need
         # messages such as depth snapshot again.
 
-        assert self.ws
-        await self.ws.send_json({
+        timestamp = _auth_timestamp()
+        signature = _auth_signature(self._secret_key_bytes, timestamp, 'GET', '/users/self/verify')
+        msg = {
             'type': 'subscribe',
             'product_ids': [_product(s) for s in symbols],
-            'channels': [channel]
-        })
+            'channels': [channel],
+            # To authenticate, we need to add additional fields.
+            'signature': signature,
+            'key': self._api_key,
+            'passphrase': self._passphrase,
+            'timestamp': timestamp,
+        }
+
+        assert self.ws
+        await self.ws.send_json(msg)
 
         while True:
             if _is_subscribed(self.subscriptions, [channel], symbols):
@@ -335,7 +446,7 @@ class CoinbaseFeed:
         async with self.ws_lock:
             if self.ws:
                 return
-            self.ws_ctx = self.session.ws_connect(self.url)
+            self.ws_ctx = self.session.ws_connect(_BASE_WS_URL)
             self.ws = await self.ws_ctx.__aenter__()
             self.process_task = create_task_cancel_on_exc(self._stream_messages())
 
@@ -345,10 +456,10 @@ class CoinbaseFeed:
             data = json.loads(msg.data)
             type_ = data['type']
             if type_ == 'subscriptions':
-                self.subscriptions = {
-                    c['name']: [s.lower() for s in c['product_ids']]
+                self.subscriptions.update({
+                    c['name']: [_from_product(s) for s in c['product_ids']]
                     for c in data['channels']
-                }
+                })
                 self.subscriptions_updated.set()
             else:
                 channel = self.type_to_channel[type_]
@@ -393,3 +504,35 @@ def _from_datetime(dt: str) -> int:
     return datetime_timestamp_ms(
         datetime.strptime(dt, dt_format).replace(tzinfo=UTC)
     )
+
+
+def _time_in_force(time_in_force: TimeInForce) -> str:
+    if time_in_force is TimeInForce.GTC:
+        return 'GTC'
+    elif time_in_force is TimeInForce.GTT:
+        return 'GTT'
+    elif time_in_force is TimeInForce.FOK:
+        return 'FOK'
+    elif time_in_force is TimeInForce.IOC:
+        return 'IOC'
+    raise NotImplementedError()
+
+
+def _from_order_status(status: str) -> OrderStatus:
+    if status == 'pending':
+        return OrderStatus.NEW
+    elif status == 'done':
+        return OrderStatus.FILLED
+    raise NotImplementedError()
+
+
+def _auth_timestamp() -> str:
+    return str(time())
+
+
+def _auth_signature(
+    secret_key: bytes, timestamp: str, method: str, url: str, body: str = ''
+) -> str:
+    message = (timestamp + method + url + body).encode('ascii')
+    signature_hash = hmac.new(secret_key, message, hashlib.sha256).digest()
+    return base64.b64encode(signature_hash).decode('ascii')

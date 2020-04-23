@@ -1,14 +1,11 @@
 import asyncio
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from decimal import Decimal
-from typing import Dict, List, Tuple
 
 from juno import (
-    Balance, BorrowInfo, Candle, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus, Side,
-    brokers, components, exchanges, storages
+    BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus, components,
+    exchanges, storages
 )
-from juno.asyncio import Event
 
 
 class Exchange(exchanges.Exchange):
@@ -25,13 +22,11 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
-        exchange_info=ExchangeInfo(
-            fees={'__all__': Fees()}, filters={'__all__': Filters()}
-        ),
+        exchange_info=ExchangeInfo(),
         tickers=[],
-        balances=None,
+        balances={},
         future_balances=[],
-        depth=None,
+        depth=Depth.Snapshot(),
         future_depths=[],
         future_orders=[],
         place_order_result=OrderResult(status=OrderStatus.NEW),
@@ -43,6 +38,7 @@ class Exchange(exchanges.Exchange):
         self.historical_candles = historical_candles
         self.candle_queue = asyncio.Queue()
         for future_candle in future_candles:
+            # TODO: Rename candle_queue to future_candles.
             self.candle_queue.put_nowait(future_candle)
 
         self.exchange_info = exchange_info
@@ -121,7 +117,7 @@ class Exchange(exchanges.Exchange):
         yield inner()
 
     @asynccontextmanager
-    async def connect_stream_orders(self, margin=False):
+    async def connect_stream_orders(self, symbol, margin=False):
         async def inner():
             while True:
                 yield await self.orders_queue.get()
@@ -252,65 +248,6 @@ class Informant(components.Informant):
 
     def list_exchanges_supporting_symbol(self, symbol):
         return self.exchanges_supporting_symbol
-
-
-class Orderbook(components.Orderbook):
-    def __init__(
-        self, data: Dict[str, Dict[str, Dict[Side, Dict[Decimal, Decimal]]]] = {}
-    ) -> None:
-        self._data_ = data
-
-    def get_updated_event(self, exchange: str, symbol: str) -> Event[None]:
-        raise NotImplementedError()
-
-    def list_asks(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
-        return sorted(self._data_[exchange][symbol][Side.BUY].items())
-
-    def list_bids(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
-        return sorted(self._data_[exchange][symbol][Side.SELL].items(), reverse=True)
-
-
-class Wallet(components.Wallet):
-    def __init__(self, data: Dict[str, Dict[str, Balance]]):
-        self._data_ = data
-
-    def get_balance(self, exchange: str, asset: str, margin: bool = False) -> Balance:
-        return self._data_[exchange][asset]
-
-    def get_updated_event(self, exchange: str, margin: bool = False) -> Event[None]:
-        raise NotImplementedError()
-
-
-class Market(brokers.Market):
-    def __init__(self, informant, orderbook, update_orderbook):
-        self._informant = informant
-        self._orderbook = orderbook
-        self._update_orderbook = update_orderbook
-
-    async def buy(self, exchange, symbol, size, test):
-        fills = super().find_order_asks(exchange=exchange, symbol=symbol, size=size)
-        if self._update_orderbook:
-            self._remove_from_orderbook(exchange, symbol, Side.BUY, fills)
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
-
-    async def buy_by_quote(self, exchange, symbol, quote, test):
-        fills = super().find_order_asks_by_quote(exchange=exchange, symbol=symbol, quote=quote)
-        if self._update_orderbook:
-            self._remove_from_orderbook(exchange, symbol, Side.BUY, fills)
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
-
-    async def sell(self, exchange, symbol, size, test):
-        fills = super().find_order_bids(exchange=exchange, symbol=symbol, size=size)
-        if self._update_orderbook:
-            self._remove_from_orderbook(exchange, symbol, Side.SELL, fills)
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
-
-    def _remove_from_orderbook(self, exchange, symbol, side, fills):
-        orderbook_side = self._orderbook._data_[exchange][symbol][side]
-        for fill in fills:
-            orderbook_side[fill.price] -= fill.size
-            if orderbook_side[fill.price] == 0:
-                del orderbook_side[fill.price]
 
 
 class Time:

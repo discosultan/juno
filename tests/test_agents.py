@@ -1,12 +1,18 @@
+# These tests act as integration tests among various components. Only exchange is mocked.
+
 import asyncio
 from decimal import Decimal
-from typing import Any, List
+from typing import Any, Callable, Dict, List
 
 import pytest
 
-from juno import Balance, Candle, Fees, Side
+from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel
+from juno.brokers import Broker, Market
+from juno.components import Chandler, Informant, Orderbook, Wallet
+from juno.di import Container
+from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.storages import Storage
 from juno.time import HOUR_MS
@@ -17,28 +23,50 @@ from juno.utils import load_json_file
 from . import fakes
 
 
-async def test_backtest() -> None:
+@pytest.fixture
+async def exchange() -> fakes.Exchange:
+    return fakes.Exchange()
+
+
+@pytest.fixture
+async def container(storage: Storage, exchange: Exchange) -> Container:
+    container = Container()
+    container.add_singleton_instance(Dict[str, Any], lambda: {'symbol': 'eth-btc'})
+    container.add_singleton_instance(Storage, lambda: storage)
+    container.add_singleton_instance(List[Exchange], lambda: [exchange])
+    container.add_singleton_type(Informant)
+    container.add_singleton_type(Orderbook)
+    container.add_singleton_type(Chandler)
+    container.add_singleton_type(Wallet)
+    container.add_singleton_type(Trader)
+    return container
+
+
+async def test_backtest(exchange: fakes.Exchange, container: Container) -> None:
     candles = [
         Candle(time=0, close=Decimal('5.0')),
         Candle(time=1, close=Decimal('10.0')),
         # Long. Size 10.
         Candle(time=2, close=Decimal('30.0')),
         Candle(time=3, close=Decimal('20.0')),
-        # Short.
+        # Liquidate.
         Candle(time=4, close=Decimal('40.0')),
         # Long. Size 5.
         Candle(time=5, close=Decimal('10.0'))
     ]
-    chandler = fakes.Chandler(candles={('dummy', 'eth-btc', 1): candles})
+    exchange.historical_candles = candles
     fees = Fees(Decimal('0.0'), Decimal('0.0'))
     filters = Filters(
         price=Price(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0')),
-        size=Size(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0'))
+        size=Size(min=Decimal('1.0'), max=Decimal('10000.0'), step=Decimal('1.0')),
     )
-    informant = fakes.Informant(fees=fees, filters=filters)
-    trader = Trader(chandler=chandler, informant=informant)
+    exchange.exchange_info = ExchangeInfo(
+        fees={'__all__': fees},
+        filters={'__all__': filters},
+        candle_intervals=[1],
+    )
     config = Backtest.Config(
-        exchange='dummy',
+        exchange='exchange',
         symbol='eth-btc',
         interval=1,
         start=0,
@@ -53,8 +81,10 @@ async def test_backtest() -> None:
             'persistence': 0
         }
     )
+    agent = container.resolve(Backtest)
 
-    res: Trader.State[Any] = await Backtest(trader=trader).run(config)
+    async with container:
+        res: Trader.State[Any] = await agent.run(config)
 
     summary = res.summary
     assert summary
@@ -74,25 +104,27 @@ async def test_backtest() -> None:
 # 1. was failing as quote was incorrectly calculated after closing a position.
 # 2. was failing as `juno.filters.Size.adjust` was rounding closest and not down.
 @pytest.mark.parametrize('scenario_nr', [1, 2])
-async def test_backtest_scenarios(scenario_nr: int) -> None:
-    chandler = fakes.Chandler(candles={('binance', 'eth-btc', HOUR_MS): raw_to_type(
+async def test_backtest_scenarios(
+    exchange: fakes.Exchange, container: Container, scenario_nr: int
+) -> None:
+    exchange.historical_candles = raw_to_type(
         load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
         List[Candle]
-    )})
-    informant = fakes.Informant(
-        fees=Fees(maker=Decimal('0.001'), taker=Decimal('0.001')),
-        filters=Filters(
+    )
+    exchange.exchange_info = ExchangeInfo(
+        candle_intervals=[HOUR_MS],
+        fees={'__all__': Fees(maker=Decimal('0.001'), taker=Decimal('0.001'))},
+        filters={'__all__': Filters(
             price=Price(min=Decimal('0E-8'), max=Decimal('0E-8'), step=Decimal('0.00000100')),
             size=Size(
                 min=Decimal('0.00100000'),
                 max=Decimal('100000.00000000'),
                 step=Decimal('0.00100000'),
             )
-        )
+        )},
     )
-    trader = Trader(chandler=chandler, informant=informant)
     config = Backtest.Config(
-        exchange='binance',
+        exchange='exchange',
         symbol='eth-btc',
         start=1483225200000,
         end=1514761200000,
@@ -108,41 +140,44 @@ async def test_backtest_scenarios(scenario_nr: int) -> None:
             'persistence': 4,
         },
     )
+    agent = container.resolve(Backtest)
 
-    await Backtest(trader=trader).run(config)
+    async with container:
+        await agent.run(config)
 
 
-async def test_paper() -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('5.0')),
-            Candle(time=1, close=Decimal('10.0')),
-            # 1. Long. Size 5 + 1.
-            Candle(time=2, close=Decimal('30.0')),
-            Candle(time=3, close=Decimal('20.0')),
-            # 2. Short. Size 4 + 2.
-        ]
-    })
-    informant = fakes.Informant()
-    orderbook_data = {
-        Side.BUY: {
-            Decimal('10.0'): Decimal('5.0'),  # 1.
-            Decimal('50.0'): Decimal('1.0'),  # 1.
-        },
-        Side.SELL: {
-            Decimal('20.0'): Decimal('4.0'),  # 2.
-            Decimal('10.0'): Decimal('2.0'),  # 2.
-        }
-    }
-    orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
-    broker = fakes.Market(informant, orderbook, update_orderbook=True)
-    trader = Trader(chandler=chandler, informant=informant, broker=broker)
+async def test_paper(exchange: fakes.Exchange, container: Container) -> None:
+    container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
+    container.add_singleton_type(Broker, lambda: Market)
+    for candle in [
+        Candle(time=0, close=Decimal('5.0')),
+        Candle(time=1, close=Decimal('10.0')),
+        # Long. Size 5 + 1.
+        Candle(time=2, close=Decimal('30.0')),
+        Candle(time=3, close=Decimal('20.0')),
+        # Liquidate. Size 4 + 2.
+    ]:
+        exchange.candle_queue.put_nowait(candle)
+    exchange.depth_queue.put_nowait(Depth.Snapshot(
+        bids=[
+            (Decimal('10.0'), Decimal('5.0')),  # 1.
+            (Decimal('50.0'), Decimal('1.0')),  # 1.
+        ],
+        asks=[
+            (Decimal('20.0'), Decimal('4.0')),  # 2.
+            (Decimal('10.0'), Decimal('2.0')),  # 2.
+        ],
+    ))
+    exchange.exchange_info = ExchangeInfo(candle_intervals=[1])
+    exchange.place_order_result = OrderResult(
+        status=OrderStatus.FILLED,
+        fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
+    )
+    agent = container.resolve(Paper)
     config = Paper.Config(
-        exchange='dummy',
+        exchange='exchange',
         symbol='eth-btc',
         interval=1,
-        end=4,
         quote=Decimal('100.0'),
         strategy={
             'type': 'mamacx',
@@ -154,47 +189,52 @@ async def test_paper() -> None:
         },
     )
 
-    await Paper(
-        informant=informant, trader=trader, get_time_ms=fakes.Time(increment=1).get_time,
-    ).run(config)
-    assert len(orderbook_data[Side.BUY]) == 0
-    assert len(orderbook_data[Side.SELL]) == 0
+    async with container:
+        task = asyncio.create_task(agent.run(config))
+        await exchange.candle_queue.join()
+        await cancel(task)
+
+    summary = task.result().summary
+    assert summary
+    assert summary.num_long_positions == 1
+    pos = next(iter(summary.get_long_positions()))
+    assert pos.open_time == 1
+    assert pos.close_time == 3
 
 
-async def test_live(storage: Storage) -> None:
-    chandler = fakes.Chandler(candles={
-        ('dummy', 'eth-btc', 1):
-        [
-            Candle(time=0, close=Decimal('5.0')),
-            Candle(time=1, close=Decimal('10.0')),
-            # 1. Long. Size 5 + 1.
-            Candle(time=2, close=Decimal('30.0')),
-            Candle(time=3, close=Decimal('20.0')),
-            # 2. Short. Size 4 + 2.
-        ]
-    })
-    informant = fakes.Informant()
-    orderbook_data = {
-        Side.BUY: {
-            Decimal('10.0'): Decimal('5.0'),  # 1.
-            Decimal('50.0'): Decimal('1.0'),  # 1.
-        },
-        Side.SELL: {
-            Decimal('20.0'): Decimal('4.0'),  # 2.
-            Decimal('10.0'): Decimal('2.0'),  # 2.
-        }
-    }
-    orderbook = fakes.Orderbook(data={'dummy': {'eth-btc': orderbook_data}})
-    wallet = fakes.Wallet({'dummy': {
-        'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0')),
-    }})
-    broker = fakes.Market(informant, orderbook, update_orderbook=True)
-    trader = Trader(chandler=chandler, informant=informant, broker=broker)
+async def test_live(exchange: fakes.Exchange, container: Container) -> None:
+    container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
+    container.add_singleton_type(Broker, lambda: Market)
+    for candle in [
+        Candle(time=0, close=Decimal('5.0')),
+        Candle(time=1, close=Decimal('10.0')),
+        # Long. Size 5 + 1.
+        Candle(time=2, close=Decimal('30.0')),
+        Candle(time=3, close=Decimal('20.0')),
+        # Liquidate. Size 4 + 2.
+    ]:
+        exchange.candle_queue.put_nowait(candle)
+    exchange.depth_queue.put_nowait(Depth.Snapshot(
+        bids=[
+            (Decimal('10.0'), Decimal('5.0')),  # 1.
+            (Decimal('50.0'), Decimal('1.0')),  # 1.
+        ],
+        asks=[
+            (Decimal('20.0'), Decimal('4.0')),  # 2.
+            (Decimal('10.0'), Decimal('2.0')),  # 2.
+        ],
+    ))
+    exchange.exchange_info = ExchangeInfo(candle_intervals=[1])
+    exchange.balances = {'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0'))}
+    exchange.place_order_result = OrderResult(
+        status=OrderStatus.FILLED,
+        fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
+    )
+    agent = container.resolve(Live)
     config = Live.Config(
-        exchange='dummy',
+        exchange='exchange',
         symbol='eth-btc',
         interval=1,
-        end=4,
         strategy={
             'type': 'mamacx',
             'short_period': 1,
@@ -205,51 +245,50 @@ async def test_live(storage: Storage) -> None:
         },
     )
 
-    await Live(
-        informant=informant, wallet=wallet, trader=trader, storage=storage,
-        get_time_ms=fakes.Time(increment=1).get_time,
-    ).run(config)
-    assert len(orderbook_data[Side.BUY]) == 0
-    assert len(orderbook_data[Side.SELL]) == 0
+    async with container:
+        task = asyncio.create_task(agent.run(config))
+        await exchange.candle_queue.join()
+        await cancel(task)
+
+    summary = task.result().summary
+    assert summary
+    assert summary.num_long_positions == 1
+    pos = next(iter(summary.get_long_positions()))
+    assert pos.open_time == 1
+    assert pos.close_time == 3
 
 
 @pytest.mark.parametrize('strategy', ['fixed', 'fourweekrule'])
-async def test_live_persist_and_resume(storage: Storage, strategy: str) -> None:
-    candle_key = ('dummy', 'eth-btc', 1)
-    chandler = fakes.Chandler(
-        candles={candle_key: []},
-        future_candles={candle_key: [Candle(time=0, close=Decimal('1.0'))]},
-    )
-    informant = fakes.Informant()
-    orderbook = fakes.Orderbook()
-    wallet = fakes.Wallet({'dummy': {
-        'btc': Balance(available=Decimal('1.0')),
-    }})
-    broker = fakes.Market(informant, orderbook, update_orderbook=True)
-    trader = Trader(chandler=chandler, informant=informant, broker=broker)
+async def test_live_persist_and_resume(
+    exchange: fakes.Exchange, container: Container, strategy: str
+) -> None:
+    container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
+    container.add_singleton_type(Broker, lambda: Market)
+    exchange.candle_queue.put_nowait(Candle(time=0, close=Decimal('1.0')))
+    exchange.balances = {'btc': Balance(available=Decimal('1.0'))}
+    exchange.can_stream_depth_snapshot = False
+    exchange.exchange_info = ExchangeInfo(candle_intervals=[1])
     config = Live.Config(
         name='name',
         persist=True,
-        exchange='dummy',
+        exchange='exchange',
         symbol='eth-btc',
         interval=1,
-        end=2,
         strategy={'type': strategy},
     )
-    live = Live(
-        informant=informant, wallet=wallet, trader=trader, storage=storage,
-        get_time_ms=fakes.Time(increment=1).get_time,
-    )
+    agent = container.resolve(Live)
 
-    agent_run_task = asyncio.create_task(live.run(config))
-    await chandler.future_candle_queues[candle_key].join()
-    await cancel(agent_run_task)
+    async with container:
+        agent_run_task = asyncio.create_task(agent.run(config))
+        await exchange.candle_queue.join()
+        await cancel(agent_run_task)
 
-    chandler.future_candle_queues[candle_key].put_nowait(
-        Candle(time=1, close=Decimal('1.0'))
-    )
-    state: Trader.State = await live.run(config)
+        exchange.candle_queue.put_nowait(Candle(time=1, close=Decimal('1.0')))
+        agent_run_task = asyncio.create_task(agent.run(config))
+        await exchange.candle_queue.join()
+        await cancel(agent_run_task)
 
+    state: Trader.State = agent_run_task.result()
     assert state.first_candle and state.last_candle
     assert state.first_candle.time == 0
     assert state.last_candle.time == 1

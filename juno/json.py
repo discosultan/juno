@@ -7,7 +7,7 @@ from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 from decimal import Decimal
 from enum import Enum
-from typing import IO, Any, Iterable, Optional
+from typing import IO, Any, Iterable, Optional, Tuple
 
 import simplejson as json
 
@@ -103,10 +103,11 @@ def dumps(
     indent: Optional[int] = None,
     use_decimal: bool = True,
     skip_private: bool = False,
+    separators: Optional[Tuple[str, str]] = None,
 ) -> str:
     obj = deepcopy(obj)
     obj = _prepare_dump(obj, skip_private=skip_private)
-    return json.dumps(obj, indent=indent, use_decimal=use_decimal)
+    return json.dumps(obj, indent=indent, use_decimal=use_decimal, separators=separators)
 
 
 def load(fp: IO, use_decimal: bool = True) -> Any:

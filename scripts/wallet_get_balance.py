@@ -6,8 +6,8 @@ from juno.asyncio import resolved_future
 from juno.components import Wallet
 from juno.config import from_env, init_instance
 
-EXCHANGE_TYPE = exchanges.Binance
-ASSETS = ['btc', 'eth']
+EXCHANGE_TYPE = exchanges.Coinbase
+ASSETS = ['btc', 'eth', 'eur']
 KEEP_STREAMING = False
 
 exchange_name = EXCHANGE_TYPE.__name__.lower()
@@ -34,7 +34,11 @@ async def process_balances(wallet: Wallet, margin: bool) -> None:
 def log_balances(wallet: Wallet, margin: bool) -> None:
     logging.info(f'{"MARGIN" if margin else "SPOT"} ACCOUNT')
     for asset in ASSETS:
-        logging.info(f'{asset} - {wallet.get_balance(exchange_name, asset, margin=margin)}')
+        try:
+            balance = wallet.get_balance(exchange_name, asset, margin=margin)
+            logging.info(f'{asset} - {balance}')
+        except KeyError:
+            logging.info(f'{asset} not available in wallet')
 
 
 asyncio.run(main())

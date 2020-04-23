@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 from enum import IntEnum
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from types import ModuleType
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 from juno.aliases import Timestamp
 from juno.filters import Filters
@@ -74,17 +75,19 @@ class Candle(NamedTuple):
         }
 
 
-class DepthSnapshot(NamedTuple):
-    bids: List[Tuple[Decimal, Decimal]] = []
-    asks: List[Tuple[Decimal, Decimal]] = []
-    last_id: int = 0
+class Depth(ModuleType):
+    class Snapshot(NamedTuple):
+        bids: List[Tuple[Decimal, Decimal]] = []
+        asks: List[Tuple[Decimal, Decimal]] = []
+        last_id: int = 0
 
+    class Update(NamedTuple):
+        bids: List[Tuple[Decimal, Decimal]] = []
+        asks: List[Tuple[Decimal, Decimal]] = []
+        first_id: int = 0
+        last_id: int = 0
 
-class DepthUpdate(NamedTuple):
-    bids: List[Tuple[Decimal, Decimal]] = []
-    asks: List[Tuple[Decimal, Decimal]] = []
-    first_id: int = 0
-    last_id: int = 0
+    Any = Union[Snapshot, Update]
 
 
 class Fees(NamedTuple):
@@ -103,14 +106,15 @@ class Fill(NamedTuple):
     def with_computed_quote(
         price: Decimal,
         size: Decimal,
-        fee: Decimal,
-        fee_asset: str,
-        precision: int
+        fee: Decimal = Decimal('0.0'),
+        fee_asset: str = 'btc',
+        precision: Optional[int] = None,
     ) -> Fill:
+        quote = price * size
         return Fill(
             price=price,
             size=size,
-            quote=round_half_up(price * size, precision),
+            quote=round_half_up(quote, precision) if precision is not None else quote,
             fee=fee,
             fee_asset=fee_asset,
         )
@@ -174,17 +178,21 @@ class OrderType(IntEnum):
     LIMIT_MAKER = 6
 
 
-class OrderUpdate(NamedTuple):
-    symbol: str
-    status: OrderStatus
-    client_id: str
-    price: Decimal  # Original.
-    size: Decimal  # Original.
-    filled_size: Decimal = Decimal('0.0')  # Last.
-    filled_quote: Decimal = Decimal('0.0')  # Last.
-    cumulative_filled_size: Decimal = Decimal('0.0')  # Cumulative.
-    fee: Decimal = Decimal('0.0')  # Last.
-    fee_asset: Optional[str] = None  # Last.
+class Order(ModuleType):
+    class New(NamedTuple):
+        client_id: str
+
+    class Match(NamedTuple):
+        client_id: str
+        fill: Fill
+
+    class Canceled(NamedTuple):
+        client_id: str
+
+    class Done(NamedTuple):
+        client_id: str
+
+    Any = Union[New, Match, Canceled, Done]
 
 
 class Side(IntEnum):
@@ -207,7 +215,10 @@ class TimeInForce(IntEnum):
     IOC = 1
     # If the entire Fill-or-Kill order does not execute as soon as it becomes available, the entire
     # order is canceled.
-    FOK = 2
+    FOK = 2,
+    # A Good-Til-Time orders remain open on the book until canceled or the allotted time is
+    # depleted on the matching engine.
+    GTT = 3,
 
 
 class Trade(NamedTuple):

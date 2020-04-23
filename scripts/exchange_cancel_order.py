@@ -4,9 +4,9 @@ import logging
 from juno import exchanges
 from juno.config import from_env, init_instance
 
-EXCHANGE_TYPE = exchanges.Binance
-CLIENT_ID = 'foo'
-SYMBOL = 'ada-btc'
+EXCHANGE_TYPE = exchanges.Coinbase
+CLIENT_ID = 'b311e925-6c5c-40ad-b73d-e79494af4d81'
+SYMBOL = 'btc-eur'
 
 
 async def main() -> None:

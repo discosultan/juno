@@ -86,3 +86,8 @@ def test_size_round_down(size, min_, max_, step, expected_output) -> None:
     filter_ = filters.Size(min=min_, max=max_, step=step)
     output = filter_.round_down(size)
     assert output == expected_output
+
+
+def test_size_default_valid() -> None:
+    filter_ = filters.Size()
+    assert filter_.valid(Decimal('1.0'))
