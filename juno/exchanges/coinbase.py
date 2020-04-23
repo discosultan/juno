@@ -81,13 +81,21 @@ class Coinbase(Exchange):
         res = await self._public_request('GET', '/products')
         filters = {}
         for product in res:
+            price_step = Decimal(product['quote_increment'])
+            size_step = Decimal(product['base_increment'])
             filters[product['id'].lower()] = Filters(
-                price=Price(step=Decimal(product['quote_increment'])),
+                base_precision=-size_step.normalize().as_tuple()[2],
+                quote_precision=-price_step.normalize().as_tuple()[2],
+                price=Price(
+                    min=Decimal(product['min_market_funds']),
+                    max=Decimal(product['max_market_funds']),
+                    step=price_step,
+                ),
                 size=Size(
                     min=Decimal(product['base_min_size']),
                     max=Decimal(product['base_max_size']),
-                    step=Decimal(product['base_increment'])
-                )
+                    step=size_step,
+                ),
             )
 
         return ExchangeInfo(
@@ -181,13 +189,14 @@ class Coinbase(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Order.Any]:
             base_asset, quote_asset = unpack_symbol(symbol)
             async for data in ws:
-                if data['type'] == 'received':
+                type_ = data['type']
+                if type_ == 'received':
                     client_id = data['client_oid']
                     self._order_id_to_client_id[data['order_id']] = client_id
                     yield Order.New(
                         client_id=client_id,
                     )
-                elif data['type'] == 'done':
+                elif type_ == 'done':
                     reason = data['reason']
                     order_id = data['order_id']
                     client_id = self._order_id_to_client_id[order_id]
@@ -204,14 +213,16 @@ class Coinbase(Exchange):
                         )
                     if reason == 'filled':
                         yield Order.Done(
-                            client_id=data['client_oid'],
+                            client_id=client_id,
                         )
                     elif reason == 'canceled':
                         yield Order.Canceled(
-                            client_id=data['client_oid'],
+                            client_id=client_id,
                         )
                     else:
                         raise NotImplementedError(data)
+                elif type_ == 'match':
+                    pass
                 else:
                     raise NotImplementedError(data)
 

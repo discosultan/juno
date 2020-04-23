@@ -70,6 +70,7 @@ class Market2(Broker):
         if size is not None:
             _fees, filters = self._informant.get_fees_filters(exchange, symbol)
             size = filters.size.round_down(size)
+            filters.size.validate(size)
 
         client_id = self._get_client_id()
         exchange_instance = self._exchanges[exchange]
