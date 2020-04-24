@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import logging
 
@@ -5,16 +6,17 @@ from juno import exchanges
 from juno.asyncio import resolved_future
 from juno.components import Wallet
 from juno.config import from_env, init_instance
+from juno.modules import get_module_type
 
-EXCHANGE_TYPE = exchanges.Coinbase
-ASSETS = ['btc', 'eth', 'eur']
 KEEP_STREAMING = False
 
-exchange_name = EXCHANGE_TYPE.__name__.lower()
+parser = argparse.ArgumentParser()
+parser.add_argument('exchange', nargs='?', default='binance')
+args = parser.parse_args()
 
 
 async def main() -> None:
-    client = init_instance(EXCHANGE_TYPE, from_env())
+    client = init_instance(get_module_type(exchanges, args.exchange), from_env())
     wallet = Wallet([client])
     async with client, wallet:
         await asyncio.gather(
@@ -27,18 +29,17 @@ async def process_balances(wallet: Wallet, margin: bool) -> None:
     log_balances(wallet, margin)
     if KEEP_STREAMING:
         while True:
-            await wallet.get_updated_event(exchange=exchange_name, margin=margin).wait()
+            await wallet.get_updated_event(exchange=args.exchange, margin=margin).wait()
             log_balances(wallet, margin)
 
 
 def log_balances(wallet: Wallet, margin: bool) -> None:
-    logging.info(f'{"MARGIN" if margin else "SPOT"} ACCOUNT')
-    for asset in ASSETS:
-        try:
-            balance = wallet.get_balance(exchange_name, asset, margin=margin)
-            logging.info(f'{asset} - {balance}')
-        except KeyError:
-            logging.info(f'{asset} not available in wallet')
+    logging.info(f'{args.exchange.upper()} {"MARGIN" if margin else "SPOT"} ACCOUNT')
+    balances = wallet.map_significant_balances(args.exchange, margin=margin)
+    for asset, balance in balances.items():
+        logging.info(f'{asset} - {balance}')
+    if len(balances) == 0:
+        logging.info('nothing to show')
 
 
 asyncio.run(main())

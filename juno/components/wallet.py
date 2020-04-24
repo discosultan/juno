@@ -40,6 +40,9 @@ class Wallet:
     def get_updated_event(self, exchange: str, margin: bool = False) -> Event[None]:
         return self._data[(exchange, margin)].updated
 
+    def map_significant_balances(self, exchange: str, margin: bool = False) -> Dict[str, Balance]:
+        return {k: v for k, v in self._data[(exchange, margin)].balances.items() if v.significant}
+
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(
             *(self._sync_balances(e, False) for e in self._exchanges.keys()),

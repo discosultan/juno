@@ -38,6 +38,15 @@ class Balance(NamedTuple):
     def repay(self) -> Decimal:
         return self.borrowed + self.interest
 
+    @property
+    def significant(self) -> bool:
+        return (
+            self.available > 0
+            or self.hold > 0
+            or self.borrowed > 0
+            or self.interest > 0
+        )
+
 
 class BorrowInfo(NamedTuple):
     daily_interest_rate: Decimal = Decimal('0.0')
