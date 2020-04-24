@@ -147,7 +147,6 @@ class Trades:
                             end=batch[-1].time + 1,
                         )
                         start = batch_end
-                        del batch[:]
                     raise
                 else:
                     current = self._get_time_ms()

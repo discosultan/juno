@@ -171,7 +171,7 @@ class Chandler:
         ):
             with attempt:
                 batch = []
-                swap_batch: List[Candle] = []
+                # swap_batch: List[Candle] = []
                 batch_start = start
                 current = floor_multiple(self._get_time_ms(), interval)
 
@@ -188,16 +188,16 @@ class Chandler:
                             batch.append(candle)
                             if len(batch) == self._storage_batch_size:
                                 batch_end = batch[-1].time + interval
-                                batch, swap_batch = swap_batch, batch
+                                # batch, swap_batch = swap_batch, batch
                                 await self._storage.store_time_series_and_span(
                                     shard=shard,
                                     key=CANDLE_KEY,
-                                    items=swap_batch,
+                                    items=batch,
                                     start=batch_start,
                                     end=batch_end,
                                 )
                                 batch_start = batch_end
-                                del swap_batch[:]
+                                del batch[:]
                         yield candle
                 except (asyncio.CancelledError, ExchangeException):
                     if len(batch) > 0:
@@ -210,7 +210,6 @@ class Chandler:
                             end=batch_end,
                         )
                         start = batch_end
-                        del batch[:]
                     raise
                 else:
                     current = floor_multiple(self._get_time_ms(), interval)

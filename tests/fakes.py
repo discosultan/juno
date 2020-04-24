@@ -265,19 +265,21 @@ class Storage(storages.Memory):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.stored_time_series_and_span = asyncio.Event()
+        self.store_time_series_and_span_calls = []
         self.get_calls = []
         self.set_calls = []
 
-    async def store_time_series_and_span(self, *args, **kwargs):
-        await super().store_time_series_and_span(*args, **kwargs)
+    async def store_time_series_and_span(self, shard, key, items, start, end):
+        await super().store_time_series_and_span(shard, key, items, start, end)
+        self.store_time_series_and_span_calls.append((shard, key, items, start, end))
         self.stored_time_series_and_span.set()
         await asyncio.sleep(0)
 
     async def get(self, shard, key, type_):
         result = await super().get(shard, key, type_)
-        self.get_calls.append([shard, key, type_, result])
+        self.get_calls.append((shard, key, type_, result))
         return result
 
     async def set(self, shard, key, item):
         await super().set(shard, key, item)
-        self.set_calls.append([shard, key, item, None])
+        self.set_calls.append((shard, key, item, None))

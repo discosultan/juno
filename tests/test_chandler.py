@@ -71,7 +71,7 @@ async def test_stream_candles(
     assert stored_spans == espans
 
 
-async def test_stream_future_candles_span_stored_until_stopped(storage: fakes.Storage) -> None:
+async def test_stream_future_candles_span_stored_until_cancelled(storage: fakes.Storage) -> None:
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     INTERVAL = 1
@@ -153,7 +153,7 @@ async def test_stream_candles_cancel_does_not_store_twice(storage: fakes.Storage
     assert stored_candles == candles
 
 
-async def test_stream_candles_on_ws_disconnect(storage: fakes.Storage) -> None:
+async def test_stream_candles_on_exchange_exception(storage: fakes.Storage) -> None:
     time = fakes.Time(0)
     exchange = fakes.Exchange(future_candles=[
         Candle(time=0),
@@ -185,6 +185,40 @@ async def test_stream_candles_on_ws_disconnect(storage: fakes.Storage) -> None:
     assert len(result) == 5
     for i, candle in enumerate(result):
         assert candle.time == i
+
+
+async def test_stream_candles_on_exchange_exception_and_cancelled(storage: fakes.Storage) -> None:
+    time = fakes.Time(0)
+    exchange = fakes.Exchange(future_candles=[
+        Candle(time=0),
+    ])
+    chandler = Chandler(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
+
+    stream_candles_task = asyncio.create_task(
+        list_async(chandler.stream_candles('exchange', 'eth-btc', 1, 0, 4))
+    )
+    await exchange.candle_queue.join()
+
+    time.time = 2
+    exchange.historical_candles = [
+        Candle(time=0),
+        Candle(time=1),
+    ]
+    for exc_or_candle in [ExchangeException(), Candle(time=2)]:
+        exchange.candle_queue.put_nowait(exc_or_candle)
+    await exchange.candle_queue.join()
+
+    await cancel(stream_candles_task)
+
+    assert len(storage.store_time_series_and_span_calls) == 2
+    _, _, items1, start1, end1 = storage.store_time_series_and_span_calls[0]
+    _, _, items2, start2, end2 = storage.store_time_series_and_span_calls[1]
+    assert items1 == [Candle(time=0)]
+    assert start1 == 0
+    assert end1 == 1
+    assert items2 == [Candle(time=1), Candle(time=2)]
+    assert start2 == 1
+    assert end2 == 3
 
 
 async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> None:
