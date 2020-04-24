@@ -1,6 +1,7 @@
 import asyncio
+import sys
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict, List, NamedTuple
 
 import pytest
 
@@ -127,3 +128,42 @@ async def test_memory_set_get_different(memory: storages.Memory) -> None:
 
     assert out_fees == fees
     assert out_filters == filters
+
+
+async def test_memory_store_overlapping_time_series(memory: storages.Memory) -> None:
+    # TODO
+    pytest.skip('fix')
+
+    await memory.store_time_series_and_span('shard', 'key', [Item(0), Item(1)], 0, 2)
+    await memory.store_time_series_and_span('shard', 'key', [Item(0), Item(1), Item(2)], 0, 3)
+
+    time_spans = await list_async(memory.stream_time_series_spans('shard', 'key'))
+    assert time_spans == [(0, 2), (2, 3)]
+
+    items = await list_async(memory.stream_time_series('shard', 'key', Item))
+    assert items == [Item(0), Item(1), Item(2)]
+
+
+async def test_memory_store_overlapping_time_series_concurrently(memory: storages.Memory) -> None:
+    # TODO
+    pytest.skip('fix')
+
+    lengths = [2, 5, 3, 6, 8, 1, 5]
+
+    tasks = []
+    for i in lengths:
+        tasks.append(
+            memory.store_time_series_and_span('shard', 'key', [Item(j) for j in range(i)], 0, i)
+        )
+    await asyncio.gather(*tasks)
+
+    time_spans = await list_async(memory.stream_time_series_spans('shard', 'key'))
+    assert min(start for start, _end in time_spans) == 0
+    assert max(end for _start, end in time_spans) == max(lengths) + 1
+
+    items = await list_async(memory.stream_time_series('shard', 'key', Item))
+    assert items == [Item(i) for i in range(max(lengths) + 1)]
+
+
+class Item(NamedTuple):
+    time: int

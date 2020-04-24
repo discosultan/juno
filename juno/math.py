@@ -39,6 +39,12 @@ def split_by_ratios(total: Decimal, ratios: List[Decimal]) -> List[Decimal]:
     return result
 
 
+def spans_overlap(span1: Tuple[int, int], span2: Tuple[int, int]) -> bool:
+    for _ in range(max(span1[0], span2[0]), min(span1[-1], span2[-1])):
+        return True
+    return False
+
+
 class Constraint(ABC):
 
     validate: Callable[..., bool] = abstractmethod(lambda: True)

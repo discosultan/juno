@@ -10,7 +10,7 @@ from typing import (
 )
 
 from juno import Interval, Timestamp, json
-from juno.time import strfspan
+from juno.time import MAX_TIME_MS, strfspan
 from juno.typing import raw_to_type
 from juno.utils import home_path
 
@@ -45,10 +45,10 @@ class SQLite(Storage):
     def __init__(self, version: Optional[str] = None) -> None:
         self._version = version if version is not None else _VERSION
         self._tables: Dict[Any, Set[str]] = defaultdict(set)
-        _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {_VERSION}')
+        _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {version}')
 
     async def stream_time_series_spans(
-        self, shard: str, key: str, start: int, end: int
+        self, shard: str, key: str, start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[Tuple[int, int]]:
         def inner() -> List[Tuple[int, int]]:
             _log.info(
@@ -67,7 +67,7 @@ class SQLite(Storage):
             yield max(span_start, start), min(span_end, end)
 
     async def stream_time_series(
-        self, shard: str, key: str, type_: Type[T], start: int, end: int
+        self, shard: str, key: str, type_: Type[T], start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[T]:
         def inner() -> List[T]:
             _log.info(

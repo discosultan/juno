@@ -1,6 +1,7 @@
 import operator
 from decimal import Decimal
 from random import Random
+from typing import Tuple
 
 import pytest
 
@@ -47,6 +48,17 @@ def test_split_by_ratios() -> None:
         ),
     )
     assert output == [Decimal('0.20000'), Decimal('0.04680'), Decimal('0.00010')]
+
+
+@pytest.mark.parametrize('span1,span2,expected_output', [
+    ((0, 2), (2, 4), False),
+    ((0, 3), (2, 4), True),
+])
+def test_spans_overlap(
+    span1: Tuple[int, int], span2: Tuple[int, int], expected_output: bool
+) -> None:
+    output = math.spans_overlap(span1, span2)
+    assert output == expected_output
 
 
 def test_constant_constraint() -> None:
