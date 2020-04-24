@@ -142,7 +142,7 @@ class Orderbook:
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
             retry=retry_if_exception_type(ExchangeException),
-            before_sleep=before_sleep_log(_log, logging.DEBUG)
+            before_sleep=before_sleep_log(_log, logging.WARNING)
         ):
             with attempt:
                 orderbook.snapshot_received = False

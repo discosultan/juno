@@ -679,6 +679,7 @@ class Binance(Exchange):
             ) as stream:
                 yield stream
         except aiohttp.WebSocketError as e:
+            _log.warning(f'{name} web socket exc: {e}')
             raise ExchangeException(str(e))
 
 
@@ -727,7 +728,7 @@ class Clock:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
+        before_sleep=before_sleep_log(_log, logging.WARNING)
     )
     async def _sync_clock(self) -> None:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#check-server-time
@@ -838,7 +839,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
+        before_sleep=before_sleep_log(_log, logging.WARNING)
     )
     async def _create_listen_key(self) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
@@ -854,7 +855,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
+        before_sleep=before_sleep_log(_log, logging.WARNING)
     )
     async def _update_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
@@ -871,7 +872,7 @@ class UserDataStream:
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
         ),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
+        before_sleep=before_sleep_log(_log, logging.WARNING)
     )
     async def _delete_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey

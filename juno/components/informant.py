@@ -162,7 +162,7 @@ class Informant:
     @retry(
         stop=stop_after_attempt(3),
         retry=retry_if_exception_type(ExchangeException),
-        before_sleep=before_sleep_log(_log, logging.DEBUG)
+        before_sleep=before_sleep_log(_log, logging.WARNING)
     )
     async def _sync_for_exchange(
         self, exchange: str, key: str, type_: Type[_Timestamped[T]],
