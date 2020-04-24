@@ -92,31 +92,35 @@ class Agent:
         name = getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}'
         result_type = self._get_result_type(config)
 
-        existing_state = None
         if getattr(config, 'persist', False):
+            # TODO: walrus
             existing_state = await self._storage.get(
                 'default',
                 self._get_storage_key(name),
                 Agent.State[self._get_result_type(config)],  # type: ignore
             )
-            if existing_state and existing_state.status in [
-                AgentStatus.RUNNING,
-                AgentStatus.FINISHED,
-            ]:
-                raise NotImplementedError('Can only continue from cancelled state')
+            if existing_state:
+                if existing_state.status in [
+                    AgentStatus.RUNNING,
+                    AgentStatus.FINISHED,
+                ]:
+                    raise NotImplementedError('Can only continue from cancelled state')
 
-        if existing_state:
-            _log.info(
-                f'existing live session with name {existing_state.name} found; continuing previous'
-            )
-            return existing_state
+                _log.info(
+                    f'existing live session with name {existing_state.name} found; continuing '
+                    'previous'
+                )
+                return existing_state
+            else:
+                _log.info(f'existing state with name {name} not found; creating new')
         else:
-            _log.info(f'existing state with name {name} not found; creating new')
-            return Agent.State(
-                name=name,
-                status=AgentStatus.RUNNING,
-                result=result_type(),
-            )
+            _log.info(f'creating new state')
+
+        return Agent.State(
+            name=name,
+            status=AgentStatus.RUNNING,
+            result=result_type(),
+        )
 
     async def _try_save_state(self, config: Config, state: Agent.State) -> None:
         if getattr(config, 'persist', False):
