@@ -1,5 +1,4 @@
 import asyncio
-import sys
 from decimal import Decimal
 from typing import Dict, List, NamedTuple
 
