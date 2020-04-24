@@ -5,7 +5,7 @@ import sys
 from juno.logging import create_handlers
 
 logging.basicConfig(
-    handlers=create_handlers('colored', ['stdout']),
+    handlers=create_handlers('color', ['stdout']),
     level=logging.getLevelName(os.getenv('JUNO__LOG_LEVEL', 'DEBUG').upper()),
 )
 

@@ -1,5 +1,5 @@
 {
-    "log_format": "colored",
+    "log_format": "color",
     "log_level": "info",
     "solver": "rust",
     "storage": "sqlite",

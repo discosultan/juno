@@ -210,7 +210,7 @@ class Chandler:
                             end=batch_end,
                         )
                         start = batch_end
-                        # del batch[:]
+                        del batch[:]
                     raise
                 else:
                     current = floor_multiple(self._get_time_ms(), interval)

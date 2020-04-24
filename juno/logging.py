@@ -37,7 +37,7 @@ def create_handlers(
     formatter = None
     if log_format == 'default':
         pass
-    elif log_format == 'colored':
+    elif log_format == 'color':
         formatter = ColoredFormatter(
             fmt='%(log_color)s%(levelname)s:%(name)s:%(reset)s%(message)s',
             log_colors={
