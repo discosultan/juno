@@ -171,7 +171,6 @@ class Chandler:
         ):
             with attempt:
                 batch = []
-                # swap_batch: List[Candle] = []
                 batch_start = start
                 current = floor_multiple(self._get_time_ms(), interval)
 
@@ -188,7 +187,6 @@ class Chandler:
                             batch.append(candle)
                             if len(batch) == self._storage_batch_size:
                                 batch_end = batch[-1].time + interval
-                                # batch, swap_batch = swap_batch, batch
                                 await self._storage.store_time_series_and_span(
                                     shard=shard,
                                     key=CANDLE_KEY,
