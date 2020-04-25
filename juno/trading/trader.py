@@ -199,9 +199,11 @@ class Trader:
 
         assert state.strategy
         assert state.changed
+        assert state.summary
         advice = state.changed.update(state.strategy.update(candle))
         _log.debug(f'received advice: {advice.name}')
-        if state.current < config.start:
+        # Make sure strategy doesn't give advice during "adjusted start" period.
+        if state.current < state.summary.start:
             assert advice is Advice.NONE
 
         if state.open_long_position:
