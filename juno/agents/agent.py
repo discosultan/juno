@@ -100,15 +100,15 @@ class Agent:
                 Agent.State[self._get_result_type(config)],  # type: ignore
             )
             if existing_state:
-                if existing_state.status in [
-                    AgentStatus.RUNNING,
-                    AgentStatus.FINISHED,
-                ]:
-                    raise NotImplementedError('Can only continue from cancelled state')
+                if existing_state.status is AgentStatus.FINISHED:
+                    raise NotImplementedError(
+                        f'Cannot continue existing session {existing_state.name} from '
+                        f'{AgentStatus.FINISHED.name} status'
+                    )
 
                 _log.info(
-                    f'existing live session with name {existing_state.name} found; continuing '
-                    'previous'
+                    f'existing live session {existing_state.name} found; continuing from '
+                    f'{existing_state.status} status'
                 )
                 return existing_state
             else:
