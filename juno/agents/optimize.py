@@ -29,6 +29,8 @@ class Optimize(Agent):
         end: Optional[Timestamp] = None
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
         trailing_stop: Optional[Decimal] = Decimal('0.0')
+        long: Optional[bool] = True,
+        short: Optional[bool] = False,
         population_size: int = 50
         max_generations: int = 1000
         mutation_probability: Decimal = Decimal('0.2')
@@ -55,6 +57,8 @@ class Optimize(Agent):
             end=config.end,
             missed_candle_policy=config.missed_candle_policy,
             trailing_stop=config.trailing_stop,
+            long=config.long,
+            short=config.short,
             population_size=config.population_size,
             max_generations=config.max_generations,
             mutation_probability=config.mutation_probability,

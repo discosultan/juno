@@ -150,7 +150,6 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     let fees = &*trading_info.fees;
     let filters = &*trading_info.filters;
     let borrow_info = &*trading_info.borrow_info;
-
     let trading_result = trade(
         strategy_factory,
         candles,
@@ -162,7 +161,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         trading_info.quote,
         trading_info.missed_candle_policy,
         trading_info.trailing_stop,
-        trading_info.long_,
+        trading_info.long,
         trading_info.short,
     );
 
@@ -226,7 +225,7 @@ pub struct TradingInfo {
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
-    long_: bool,
+    long: bool,
     short: bool,
 }
 

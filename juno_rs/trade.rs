@@ -134,7 +134,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
         if state.open_long_position.is_some() {
             close_long_position(&mut state, &mut summary, fees, filters, &last_candle);
         }
-        if state.open_long_position.is_some() {
+        if state.open_short_position.is_some() {
             close_short_position(
                 &mut state,
                 &mut summary,
@@ -311,7 +311,7 @@ fn close_short_position<T: Strategy>(
     if let Some(mut pos) = state.open_short_position.take() {
         let borrowed = pos.borrowed;
 
-        let duration = ceil_multiple(candle.time - pos.time, HOUR_MS);
+        let duration = ceil_multiple(candle.time - pos.time, HOUR_MS) / HOUR_MS;
         let hourly_interest_rate = borrow_info.daily_interest_rate / 24.0;
         let interest = duration as f64 * hourly_interest_rate;
 

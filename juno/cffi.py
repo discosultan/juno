@@ -6,6 +6,7 @@ from typing import (
 )
 
 _DEFAULT_MAPPINGS = {
+    bool: 'bool',
     int: 'uint32_t',
     float: 'double',
     Decimal: 'double',
