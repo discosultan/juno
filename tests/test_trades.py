@@ -45,7 +45,7 @@ async def test_stream_future_trades_span_stored_until_stopped(storage: Storage) 
     [
         [1, 5, 1, 3, [(1, 5)]],  # Middle trades.
         [2, 4, 0, 0, [(2, 4)]],  # Empty if no trades.
-        [0, 7, 0, 5, [(0, 2), (2, 6), (6, 7)]],  # Includes future trade.
+        [0, 7, 0, 5, [(0, 7)]],  # Includes future trade.
         [0, 4, 0, 2, [(0, 4)]],  # Middle trades with cap at the end.
     ]
 )

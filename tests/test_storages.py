@@ -1,4 +1,5 @@
 import asyncio
+import random
 from decimal import Decimal
 from typing import Dict, List, NamedTuple
 
@@ -70,6 +71,17 @@ async def test_memory_store_and_stream_empty_series(memory: storages.Memory) -> 
     assert output_items == []
 
 
+async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory) -> None:
+    await asyncio.gather(
+        memory.store_time_series_and_span('shard', 'key', items=[], start=1, end=3),
+        memory.store_time_series_and_span('shard', 'key', items=[], start=3, end=4),
+    )
+
+    output_spans = await list_async(memory.stream_time_series_spans('shard', 'key'))
+
+    assert output_spans == [(1, 4)]
+
+
 @pytest.mark.parametrize('item,type_', [
     (Candle(time=1, close=Decimal('1.0')), Candle),
     (ExchangeInfo(candle_intervals=[1, 2]), ExchangeInfo),
@@ -130,38 +142,36 @@ async def test_memory_set_get_different(memory: storages.Memory) -> None:
 
 
 async def test_memory_store_overlapping_time_series(memory: storages.Memory) -> None:
-    # TODO
-    pytest.skip('fix')
-
     await memory.store_time_series_and_span('shard', 'key', [Item(0), Item(1)], 0, 2)
     await memory.store_time_series_and_span('shard', 'key', [Item(0), Item(1), Item(2)], 0, 3)
 
     time_spans = await list_async(memory.stream_time_series_spans('shard', 'key'))
-    assert time_spans == [(0, 2), (2, 3)]
+    assert time_spans == [(0, 3)]
 
     items = await list_async(memory.stream_time_series('shard', 'key', Item))
     assert items == [Item(0), Item(1), Item(2)]
 
 
 async def test_memory_store_overlapping_time_series_concurrently(memory: storages.Memory) -> None:
-    # TODO
-    pytest.skip('fix')
-
-    lengths = [2, 5, 3, 6, 8, 1, 5]
+    # Chaos.
+    NUM_SPANS = 100
+    spans = [(random.randrange(0, 10), random.randrange(10, 21)) for _ in range(NUM_SPANS)]
+    min_start = min(s for s, _ in spans)
+    max_end = max(e for _, e in spans)
 
     tasks = []
-    for i in lengths:
-        tasks.append(
-            memory.store_time_series_and_span('shard', 'key', [Item(j) for j in range(i)], 0, i)
-        )
+    for start, end in spans:
+        tasks.append(memory.store_time_series_and_span(
+            'shard', 'key', [Item(i) for i in range(start, end)], start, end
+        ))
     await asyncio.gather(*tasks)
 
     time_spans = await list_async(memory.stream_time_series_spans('shard', 'key'))
-    assert min(start for start, _end in time_spans) == 0
-    assert max(end for _start, end in time_spans) == max(lengths) + 1
+    assert min(start for start, _end in time_spans) == min_start
+    assert max(end for _start, end in time_spans) == max_end
 
     items = await list_async(memory.stream_time_series('shard', 'key', Item))
-    assert items == [Item(i) for i in range(max(lengths) + 1)]
+    assert items == [Item(i) for i in range(min_start, max_end)]
 
 
 class Item(NamedTuple):

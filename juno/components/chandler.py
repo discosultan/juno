@@ -12,11 +12,11 @@ from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 from juno import Candle, ExchangeException
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
-from juno.itertools import generate_missing_spans, merge_adjacent_spans
+from juno.itertools import generate_missing_spans
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset
-from juno.time import strfinterval, strfspan, strftimestamp, time_ms
+from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
 from juno.utils import key, unpack_symbol
 
 from .informant import Informant
@@ -49,16 +49,16 @@ class Chandler:
         self._streaming_locks: Dict[Tuple[str, str, int], asyncio.Lock] = defaultdict(asyncio.Lock)
 
     async def list_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True,
-        fill_missing_with_last: bool = False
+        self, exchange: str, symbol: str, interval: int, start: int, end: int = MAX_TIME_MS,
+        closed: bool = True, fill_missing_with_last: bool = False
     ) -> List[Candle]:
         return await list_async(self.stream_candles(
             exchange, symbol, interval, start, end, closed, fill_missing_with_last
         ))
 
     async def stream_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool = True,
-        fill_missing_with_last: bool = False
+        self, exchange: str, symbol: str, interval: int, start: int, end: int = MAX_TIME_MS,
+        closed: bool = True, fill_missing_with_last: bool = False
     ) -> AsyncIterable[Candle]:
         key = (exchange, symbol, interval)
         lock = self._streaming_locks[key]
@@ -88,11 +88,12 @@ class Chandler:
                 end=end,
             )
         )
-        merged_existing_spans = list(merge_adjacent_spans(existing_spans))
-        missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
+        missing_spans = list(generate_missing_spans(start, end, existing_spans))
 
-        spans = ([(a, b, True) for a, b in merged_existing_spans] + [(a, b, False)
-                                                                     for a, b in missing_spans])
+        spans = (
+            [(a, b, True) for a, b in existing_spans]
+            + [(a, b, False) for a, b in missing_spans]
+        )
         spans.sort(key=lambda s: s[0])
 
         last_closed_candle: Optional[Candle] = None

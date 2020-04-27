@@ -15,11 +15,11 @@ from . import fakes
 @pytest.mark.parametrize(
     'start,end,closed,efrom,eto,espans',
     [
-        [0, 3, True, 0, 2, [(0, 2), (2, 3)]],  # Skips skipped candle at the end.
+        [0, 3, True, 0, 2, [(0, 3)]],  # Skips skipped candle at the end.
         [2, 3, True, 0, 0, [(2, 3)]],  # Empty if only skipped candle.
         [3, 5, True, 2, 5, [(3, 5)]],  # Filters out closed candle.
-        [0, 5, False, 0, 5, [(0, 2), (2, 5)]],  # Includes closed candle.
-        [0, 6, True, 0, 6, [(0, 2), (2, 5), (5, 6)]],  # Includes future candle.
+        [0, 5, False, 0, 5, [(0, 5)]],  # Includes closed candle.
+        [0, 6, True, 0, 6, [(0, 6)]],  # Includes future candle.
         [5, 6, False, 5, 6, [(5, 6)]],  # Only future candle.
     ]
 )

@@ -10,6 +10,7 @@ from typing import (
 )
 
 from juno import Interval, Timestamp, json
+from juno.itertools import generate_missing_spans, merge_adjacent_spans
 from juno.time import MAX_TIME_MS, strfspan
 from juno.typing import raw_to_type
 from juno.utils import home_path
@@ -52,18 +53,18 @@ class SQLite(Storage):
     ) -> AsyncIterable[Tuple[int, int]]:
         def inner() -> List[Tuple[int, int]]:
             _log.info(
-                f'from shard {shard} {key} streaming span(s) between {strfspan(start, end)}'
+                f'streaming span(s) between {strfspan(start, end)} from shard {shard} {key}'
             )
             with self._connect(shard) as conn:
                 span_key = f'{key}_{SPAN_KEY}'
                 self._ensure_table(conn, span_key, Span)
                 return conn.execute(
                     f'SELECT * FROM {span_key} WHERE start < ? AND end > ? ORDER BY start',
-                    [end, start]
+                    [end, start],
                 ).fetchall()
 
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
-        for span_start, span_end in rows:
+        for span_start, span_end in merge_adjacent_spans(rows):
             yield max(span_start, start), min(span_end, end)
 
     async def stream_time_series(
@@ -71,13 +72,13 @@ class SQLite(Storage):
     ) -> AsyncIterable[T]:
         def inner() -> List[T]:
             _log.info(
-                f'from shard {shard} {key} streaming items between {strfspan(start, end)}'
+                f'streaming items between {strfspan(start, end)} from shard {shard} {key}'
             )
             with self._connect(shard) as conn:
                 self._ensure_table(conn, key, type_)
                 return conn.execute(
                     f'SELECT * FROM {key} WHERE time >= ? AND time < ? ORDER BY time',
-                    [start, end]
+                    [start, end],
                 ).fetchall()
         rows = await asyncio.get_running_loop().run_in_executor(None, inner)
         for row in rows:
@@ -87,7 +88,6 @@ class SQLite(Storage):
         self, shard: str, key: str, items: List[Any], start: int, end: int
     ) -> None:
         # Even if items list is empty, we still want to store a span for the period!
-
         if len(items) > 0:
             type_ = type(items[0])
             if start > items[0].time:
@@ -98,10 +98,6 @@ class SQLite(Storage):
                 )
 
         def inner() -> None:
-            _log.info(
-                f'to shard {shard} {key} inserting {len(items)} item(s) between '
-                f'{strfspan(start, end)}'
-            )
             span_key = f'{key}_{SPAN_KEY}'
             with self._connect(shard) as conn:
                 self._ensure_table(conn, span_key, Span)
@@ -109,25 +105,43 @@ class SQLite(Storage):
                     self._ensure_table(conn, key, type_)
 
                 c = conn.cursor()
-                if len(items) > 0:
-                    try:
-                        c.executemany(
-                            f'INSERT INTO {key} '
-                            f'VALUES ({", ".join(["?"] * len(get_type_hints(type_)))})',
-                            items
-                        )
-                    except sqlite3.IntegrityError as err:
-                        # TODO: Can we relax this constraint?
-                        _log.error(f'{err} {shard} {key}')
-                        raise
-                c.execute(f'INSERT INTO {span_key} VALUES (?, ?)', [start, end])
+                existing_spans = c.execute(
+                    f'SELECT * FROM {span_key} WHERE start < ? AND end > ? ORDER BY start',
+                    [end, start],
+                ).fetchall()
+                merged_existing_spans = merge_adjacent_spans(existing_spans)
+                missing_spans = list(generate_missing_spans(start, end, merged_existing_spans))
+                if len(missing_spans) == 0:
+                    return
+                missing_item_spans = (
+                    [items] if len(existing_spans) == 0
+                    else [
+                        [i for i in items if i.time >= s and i.time < e] for s, e in missing_spans
+                    ]
+                )
+                for (mstart, mend), mitems in zip(missing_spans, missing_item_spans):
+                    _log.info(
+                        f'inserting {len(mitems)} item(s) between {strfspan(mstart, mend)} to '
+                        f'shard {shard} {key}'
+                    )
+                    if len(mitems) > 0:
+                        try:
+                            c.executemany(
+                                f'INSERT INTO {key} '
+                                f'VALUES ({", ".join(["?"] * len(get_type_hints(type_)))})',
+                                mitems,
+                            )
+                        except sqlite3.IntegrityError as err:
+                            _log.error(f'{err} {shard} {key}')
+                            raise
+                    c.execute(f'INSERT INTO {span_key} VALUES (?, ?)', [mstart, mend])
                 conn.commit()
 
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
     async def get(self, shard: str, key: str, type_: Type[T]) -> Optional[T]:
         def inner() -> Optional[T]:
-            _log.info(f'from shard {shard} getting {key}')
+            _log.info(f'getting {key} from shard {shard}')
             with self._connect(shard) as conn:
                 self._ensure_table(conn, KEY_VALUE_PAIR_KEY, KeyValuePair)
                 row = conn.execute(
@@ -139,12 +153,12 @@ class SQLite(Storage):
 
     async def set(self, shard: str, key: str, item: T) -> None:
         def inner() -> None:
-            _log.info(f'to shard {shard} setting {key}')
+            _log.info(f'setting {key} to shard {shard}')
             with self._connect(shard) as conn:
                 self._ensure_table(conn, KEY_VALUE_PAIR_KEY, KeyValuePair)
                 conn.execute(
                     f'INSERT OR REPLACE INTO {KEY_VALUE_PAIR_KEY} VALUES (?, ?)',
-                    [key, json.dumps(item)]
+                    [key, json.dumps(item)],
                 )
                 conn.commit()
 

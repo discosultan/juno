@@ -5,6 +5,7 @@ from typing import Any, Dict
 
 import discord
 
+from juno import Advice
 from juno.asyncio import cancel, create_task_cancel_on_exc
 from juno.components import Event
 from juno.itertools import chunks
@@ -99,8 +100,14 @@ class Discord(discord.Client, Plugin):
             )
 
         @self._event.on(agent_name, 'image')
-        async def on_image(path: str):
+        async def on_image(path: str) -> None:
             await self._send_file(channel_id, path)
+
+        @self._event.on(agent_name, 'advice')
+        async def on_advice(advice: Advice) -> None:
+            await self._send_message(
+                channel_id, format_message('received advice', advice.name, lang='')
+            )
 
         _log.info(f'activated for {agent_name} ({agent_type})')
 

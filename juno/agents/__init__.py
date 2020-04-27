@@ -4,6 +4,7 @@ from .foo import Foo
 from .live import Live
 from .optimize import Optimize
 from .paper import Paper
+from .signal import Signal
 
 __all__ = [
     'Agent',
@@ -13,4 +14,5 @@ __all__ = [
     'Live',
     'Optimize',
     'Paper',
+    'Signal',
 ]
