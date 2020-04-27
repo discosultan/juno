@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 import pytest
 
-from juno import Candle, Fill
+from juno import Advice, Candle, Fill
 from juno.components import Event
 from juno.time import DAY_MS
 from juno.trading import OpenLongPosition, TradingSummary
@@ -49,6 +49,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
         await event.emit('agent', 'position_closed', pos, trading_summary)
         await event.emit('agent', 'finished', trading_summary)
         await event.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
+        await event.emit('agent', 'advice', Advice.LIQUIDATE)
         try:
             raise Exception('Expected error.')
         except Exception as exc:
