@@ -33,13 +33,11 @@ class Signal(Agent):
         self._event = event
         self._storage = storage
 
-    async def on_running(self, config: Any, state: Agent.State[None]) -> None:
+    async def on_running(self, config: Config, state: Agent.State[None]) -> None:
         await super().on_running(config, state)
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        strategy = get_module_type(strategies, config.strategy)(
-            *config.strategy_args, **config.strategy_kwargs
-        )
+        strategy = get_module_type(strategies, strategy_name)(**strategy_kwargs)
 
         now = time_ms()
         start = floor_multiple(now, config.interval)
