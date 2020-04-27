@@ -139,6 +139,17 @@ def _calculate_statistics(
 
     # If benchmark provided, calculate alpha and beta.
     alpha, beta = 0.0, 0.0
+    import logging
+    pd.set_option('display.max_rows', None)
+    logging.critical(f'performance {performance}')
+    # logging.critical(f'a mean {a_returns.mean()}')
+    # logging.critical(f'a returns {a_returns}')
+    # logging.critical(f'a mean {a_returns.mean()}')
+    # logging.critical(f'g returns {g_returns}')
+    # logging.critical(f'g sum {g_returns.sum()}')
+    # logging.critical(f'g size {g_returns.size}')
+    # logging.critical(f'g mean {g_returns.mean()}')
+    # logging.critical(f'annualized return: {annualized_return}')
     if benchmark_g_returns is not None:
         covariance_matrix = pd.concat(
             [g_returns, benchmark_g_returns], axis=1

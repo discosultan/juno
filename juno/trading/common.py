@@ -209,6 +209,14 @@ class OpenShortPosition:
     def base_gain(self) -> Decimal:
         return self.borrowed
 
+    @property
+    def total_asset_value(self) -> Decimal:
+        price_at_borrow = (
+            Fill.total_size(self.fills)
+            / (Fill.total_quote(self.fills) + Fill.total_fee(self.fills))
+        )
+        return self.collateral + (self.borrowed * price_at_borrow)
+
 
 # TODO: both positions and candles could theoretically grow infinitely
 @dataclass(init=False)

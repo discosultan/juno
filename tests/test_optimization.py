@@ -64,6 +64,8 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: 
             end=portfolio_candles[-1].time + HOUR_MS,
             strategy='mamacx',
             quote=Decimal('1.0'),
+            long=True,
+            short=True,
             population_size=5,
             max_generations=10,
             seed=1
