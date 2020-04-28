@@ -12,7 +12,7 @@ class Kvo:
     _prev_dm: Decimal = Decimal('0.0')
     _cm: Decimal = Decimal('0.0')
     _trend: int = 0
-    _t: int = 0
+    _t: int = -1
     _t1: int = 1
 
     def __init__(self, short_period: int, long_period: int) -> None:
@@ -28,9 +28,15 @@ class Kvo:
 
     @property
     def maturity(self) -> int:
-        return 1
+        return self._t1
+
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
 
     def update(self, high: Decimal, low: Decimal, close: Decimal, volume: Decimal) -> Decimal:
+        self._t = min(self._t + 1, self._t1)
+
         hlc = high + low + close
         dm = high - low
 
@@ -52,5 +58,4 @@ class Kvo:
 
         self._prev_dm = dm
         self._prev_hlc = hlc
-        self._t = min(self._t + 1, self._t1)
         return self.value

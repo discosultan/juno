@@ -14,7 +14,7 @@ class Macd:
     _long_ema: Ema
     _signal_ema: Ema
 
-    _t: int = 0
+    _t: int = -1
     _t1: int
 
     def __init__(self, short_period: int, long_period: int, signal_period: int) -> None:
@@ -41,7 +41,12 @@ class Macd:
     def maturity(self) -> int:
         return self._t1
 
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
+
     def update(self, price: Decimal) -> Tuple[Decimal, Decimal, Decimal]:
+        self._t = min(self._t + 1, self._t1)
         self._short_ema.update(price)
         self._long_ema.update(price)
 
@@ -50,5 +55,4 @@ class Macd:
             self.signal = self._signal_ema.update(self.value)
             self.histogram = self.value - self.signal
 
-        self._t = min(self._t + 1, self._t1)
         return self.value, self.signal, self.histogram

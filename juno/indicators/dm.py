@@ -14,7 +14,7 @@ class DM:
     _prev_high: Decimal = Decimal('0.0')
     _prev_low: Decimal = Decimal('0.0')
 
-    _t: int = 0
+    _t: int = -1
     _t1: int = 1
     _t2: int
     _t3: int
@@ -33,6 +33,10 @@ class DM:
         return self._t2
 
     @property
+    def mature(self) -> bool:
+        return self._t >= self._t2
+
+    @property
     def diff(self) -> Decimal:
         return abs(self.plus_value - self.minus_value)
 
@@ -41,6 +45,8 @@ class DM:
         return self.plus_value + self.minus_value
 
     def update(self, high: Decimal, low: Decimal) -> Tuple[Decimal, Decimal]:
+        self._t = min(self._t + 1, self._t3)
+
         if self._t >= self._t1 and self._t < self._t3:
             dp, dm = _calc_direction(self._prev_high, self._prev_low, high, low)
             self._dmup += dp
@@ -58,7 +64,6 @@ class DM:
 
         self._prev_high = high
         self._prev_low = low
-        self._t = min(self._t + 1, self._t3)
         return self.plus_value, self.minus_value
 
 

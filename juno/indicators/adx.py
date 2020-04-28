@@ -9,7 +9,6 @@ class Adx:
     value: Decimal = Decimal('0.0')
     _dx: DX
     _smma: Smma
-    _t1: int
 
     def __init__(self, period: int) -> None:
         if period < 2:
@@ -17,11 +16,14 @@ class Adx:
 
         self._dx = DX(period)
         self._smma = Smma(period)
-        self._t1 = (period - 1) * 2
 
     @property
     def maturity(self) -> int:
-        return self._t1
+        return max(self._dx.maturity, self._smma.maturity)
+
+    @property
+    def mature(self) -> bool:
+        return self._dx.mature and self._smma.mature
 
     def update(self, high: Decimal, low: Decimal) -> Decimal:
         self._dx.update(high, low)

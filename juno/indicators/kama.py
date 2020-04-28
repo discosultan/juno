@@ -16,7 +16,7 @@ class Kama:
     _prices: Deque
     _diffs: Deque
 
-    _t: int = 0
+    _t: int = -1
     _t1: int
     _t2: int
 
@@ -37,7 +37,13 @@ class Kama:
     def maturity(self) -> int:
         return self._t1
 
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
+
     def update(self, price: Decimal) -> Decimal:
+        self._t = min(self._t + 1, self._t2)
+
         if self._t > 0:
             self._diffs.append(abs(price - self._prices[-1]))
 
@@ -54,5 +60,4 @@ class Kama:
             self.value += sc * (price - self.value)
 
         self._prices.append(price)
-        self._t = min(self._t + 1, self._t2)
         return self.value

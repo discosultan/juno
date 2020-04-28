@@ -14,7 +14,7 @@ class StochRsi:
     _min: Decimal = Decimal('0.0')
     _max: Decimal = Decimal('0.0')
     _rsi_values: Deque[Decimal]
-    _t: int = 0
+    _t: int = -1
     _t1: int
     _t2: int
 
@@ -31,13 +31,18 @@ class StochRsi:
     def maturity(self) -> int:
         return self._t2
 
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t2
+
     def update(self, price: Decimal) -> Decimal:
+        self._t = min(self._t + 1, self._t2)
         self._rsi.update(price)
 
         if self._t >= self._t1:
             self._rsi_values.append(self._rsi.value)
 
-        if self._t == self._t2:
+        if self._t >= self._t2:
             self._min = min(self._rsi_values)
             self._max = max(self._rsi_values)
             diff = self._max - self._min
@@ -46,5 +51,4 @@ class StochRsi:
             else:
                 self.value = (self._rsi.value - self._min) / diff
 
-        self._t = min(self._t + 1, self._t2)
         return self.value

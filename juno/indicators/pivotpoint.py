@@ -12,6 +12,10 @@ class PivotPoint:
     def maturity(self) -> int:
         return 0
 
+    @property
+    def mature(self) -> bool:
+        return True
+
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> None:
         raise NotImplementedError()
         diff = high - low

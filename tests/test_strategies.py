@@ -28,6 +28,16 @@ class DummyStrategy(strategies.Strategy):
         pass
 
 
+@pytest.mark.parametrize('maturity', [0, 1, 2])
+def test_mature(maturity: int) -> None:
+    strategy = strategies.Strategy(maturity=maturity)
+    assert strategy.mature == False
+
+    for i in range(maturity + 1):
+        strategy.update(Advice.NONE)
+        strategy.mature == True if i == maturity else False
+
+
 def test_mid_trend_ignore_false() -> None:
     target = strategies.MidTrend(ignore=False)
     assert target.maturity == 0

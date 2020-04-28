@@ -3,10 +3,19 @@ from decimal import Decimal
 from typing import Deque, Generic, TypeVar
 
 from juno import Advice, Candle, indicators
-from juno.math import minmax
+from juno.math import Choice, minmax
 from juno.modules import get_module_type
 
 from .strategy import Meta, Strategy
+
+_ma_choices = Choice([i.__name__.lower() for i in [
+    indicators.Ema,
+    indicators.Ema2,
+    indicators.Sma,
+    indicators.Smma,
+    indicators.Dema,
+    indicators.Kama,
+]])
 
 T = TypeVar('T', bound=indicators.MovingAverage)
 
@@ -20,6 +29,7 @@ class FourWeekRule(Generic[T], Strategy):
     def meta() -> Meta:
         return Meta(
             constraints={
+                'ma': _ma_choices,
             }
         )
 

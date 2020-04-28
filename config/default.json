@@ -2,26 +2,21 @@
     "log_format": "color",
     "log_level": "info",
     "storage": "sqlite",
-    "broker": "market",
-    "binance": {
-        "high_precision": false
-    },
     "agents": [
         {
-            "type": "paper",
+            "type": "backtest",
             "exchange": "binance",
             "symbol": "eth-btc",
-            "interval": "1m",
-            "quote": 0.005,
+            "interval": "1d",
+            "quote": 0.1,
             "strategy": {
-                "type": "fixed",
-                "advices": ["short", "liquidate"],
-                "maturity": 0,
-                "ignore_mid_trend": false,
-                "persistence": 0
+                "type": "singlema",
+                "ma": "sma",
+                "period": 14,
+                "persistence": 1
             },
-            "long": false,
-            "short": true
+            "long": true,
+            "short": false
         }
     ]
 }
