@@ -71,10 +71,6 @@ impl Kama {
 }
 
 impl MA for Kama {
-    fn new(period: u32) -> Self {
-        Self::new(period)
-    }
-
     fn update(&mut self, price: f64) {
         self.update(price)
     }

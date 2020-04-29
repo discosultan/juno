@@ -11,3 +11,10 @@ path = "juno_rs/lib.rs"
 [dependencies]
 ndarray = "0.13"
 ndarray-stats = "0.3"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
