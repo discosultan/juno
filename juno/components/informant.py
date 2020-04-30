@@ -129,7 +129,10 @@ class Informant:
             if pattern in all_intervals:
                 result[pattern] = None
             else:
-                raise ValueError(f'Exchange {exchange} does not support candle interval {pattern}')
+                raise ValueError(
+                    f'Exchange {exchange} does not support candle interval {pattern} '
+                    f'({strfinterval(pattern)})'
+                )
 
         return list(result.keys())
 

@@ -15,15 +15,17 @@ pub struct FourWeekRule {
     ma: Box<dyn indicators::MA>,
     advice: Advice,
     t: u32,
+    t1: u32,
 }
 
 impl FourWeekRule {
-    pub fn new(ma: u32) -> Self {
+    pub fn new(period: u32, ma: u32) -> Self {
         Self {
-            prices: VecDeque::with_capacity(28),
-            ma: indicators::ma_from_adler32(ma, 14),
+            prices: VecDeque::with_capacity(period as usize),
+            ma: indicators::ma_from_adler32(ma, period / 2),
             advice: Advice::None,
             t: 0,
+            t1: period,
         }
     }
 }
@@ -32,7 +34,7 @@ impl Strategy for FourWeekRule {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.ma.update(candle.close);
 
-        if self.t == 28 {
+        if self.t >= self.t1 {
             let (lowest, highest) = math::minmax(self.prices.iter());
 
             if candle.close >= highest {
@@ -49,7 +51,7 @@ impl Strategy for FourWeekRule {
         }
 
         self.prices.push_back(candle.close);
-        self.t = min(self.t + 1, 28);
+        self.t = min(self.t + 1, self.t1);
         self.advice
     }
 }
