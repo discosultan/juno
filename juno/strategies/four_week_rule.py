@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Deque, Generic, TypeVar
 
 from juno import Advice, Candle, indicators
-from juno.math import Choice, minmax
+from juno.math import Choice, Int, minmax
 from juno.modules import get_module_type
 
 from .strategy import Meta, Strategy
@@ -29,6 +29,7 @@ class FourWeekRule(Generic[T], Strategy):
     def meta() -> Meta:
         return Meta(
             constraints={
+                'period': Int(2, 100),
                 'ma': _ma_choices,
             }
         )
@@ -37,10 +38,10 @@ class FourWeekRule(Generic[T], Strategy):
     _ma: T
     _advice: Advice = Advice.NONE
 
-    def __init__(self, ma: str = indicators.Ema.__name__.lower()) -> None:
-        super().__init__(maturity=28, persistence=0, ignore_mid_trend=False)
-        self._prices = deque(maxlen=28)
-        self._ma = get_module_type(indicators, ma)(14)
+    def __init__(self, period: int = 28, ma: str = indicators.Sma.__name__.lower()) -> None:
+        super().__init__(maturity=period, persistence=0, ignore_mid_trend=False)
+        self._prices = deque(maxlen=period)
+        self._ma = get_module_type(indicators, ma)(period // 2)
 
     def tick(self, candle: Candle) -> Advice:
         self._ma.update(candle.close)
@@ -51,9 +52,10 @@ class FourWeekRule(Generic[T], Strategy):
                 self._advice = Advice.LONG
             elif candle.close <= lowest:
                 self._advice = Advice.SHORT
-            elif self._advice is Advice.LONG and candle.close <= self._ma.value:
-                self._advice = Advice.LIQUIDATE
-            elif self._advice is Advice.SHORT and candle.close >= self._ma.value:
+            elif (
+                (self._advice is Advice.LONG and candle.close <= self._ma.value)
+                or (self._advice is Advice.SHORT and candle.close >= self._ma.value)
+            ):
                 self._advice = Advice.LIQUIDATE
 
         self._prices.append(candle.close)

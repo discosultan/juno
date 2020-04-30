@@ -74,12 +74,12 @@ fn get_trades_from_summary(summary: &TradingSummary) -> HashMap<u64, Vec<(Asset,
     for (time, cost, base_gain, close_time, base_cost, gain) in long_pos.chain(short_pos) {
         // Open.
         let time = floor_multiple(time, DAY_MS);
-        let day_trades = trades.entry(time).or_insert(Vec::<(Asset, f64)>::new());
+        let day_trades = trades.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
         day_trades.push((Asset::Quote, -cost));
         day_trades.push((Asset::Base, base_gain));
         // Close.
         let time = floor_multiple(close_time, DAY_MS);
-        let day_trades = trades.entry(time).or_insert(Vec::<(Asset, f64)>::new());
+        let day_trades = trades.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
         day_trades.push((Asset::Base, -base_cost));
         day_trades.push((Asset::Quote, gain));
     }
@@ -138,8 +138,8 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
     }
 
     let mut g_returns = Vec::with_capacity(returns_len);
-    for i in 0..returns_len {
-        g_returns.push((a_returns[i] + 1.0).ln());
+    for val in a_returns {
+        g_returns.push((val + 1.0).ln());
     }
 
     // let mut neg_g_returns = Vec::new();

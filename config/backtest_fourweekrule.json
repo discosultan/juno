@@ -13,7 +13,7 @@
             "trailing_stop": 0.13,
             "strategy": {
                 "type": "fourweekrule",
-                "ma": "sma"
+                "ma": "kama"
             },
             "long": true,
             "short": true
