@@ -86,7 +86,7 @@ async def main() -> None:
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         fiat_daily_prices = await prices.map_fiat_daily_prices(
-            (base_asset, quote_asset), validation_start, validation_end
+            tc.exchange, (base_asset, quote_asset), validation_start, validation_end
         )
         benchmark = analyse_benchmark(fiat_daily_prices[quote_asset])
         portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, trading_summary)

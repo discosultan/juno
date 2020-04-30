@@ -29,7 +29,7 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
         pass
 
     @asynccontextmanager

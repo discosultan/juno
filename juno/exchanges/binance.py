@@ -206,7 +206,7 @@ class Binance(Exchange):
             ) for t in response_data
         ]
 
-    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
         url = '/sapi/v1/margin/account' if margin else '/api/v3/account'
         res = await self._api_request('GET', url, weight=5, security=_SEC_USER_DATA)
         return {
@@ -290,6 +290,20 @@ class Binance(Exchange):
             url=url, interval=12 * HOUR_SEC, name='depth', raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
+
+    async def list_orders(self, symbol: str, margin: bool = False) -> List[str]:
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#current-open-orders-user_data
+        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/margin-api.md#query-margin-accounts-open-order-user_data
+        url = '/sapi/v1/margin/openOrders' if margin else '/api/v3/openOrders'
+        weight = 10 if margin else 1
+        res = await self._api_request(
+            'GET',
+            url,
+            data={'symbol': _http_symbol(symbol)},
+            security=_SEC_USER_DATA,
+            weight=weight,
+        )
+        return [o['clientOrderId'] for o in res.data]
 
     @asynccontextmanager
     async def connect_stream_orders(

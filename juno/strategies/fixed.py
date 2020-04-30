@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import List
 
@@ -11,6 +12,7 @@ _log = logging.getLogger(__name__)
 class Fixed(Strategy):
     advices: List[Advice]
     updates: List[Candle]
+    cancel: bool
 
     def __init__(
         self,
@@ -18,6 +20,7 @@ class Fixed(Strategy):
         maturity: int = 0,
         ignore_mid_trend: bool = False,
         persistence: int = 0,
+        cancel: bool = False,
     ) -> None:
         super().__init__(
             maturity=maturity,
@@ -26,10 +29,17 @@ class Fixed(Strategy):
         )
         self.advices = [Advice[a.upper()] for a in advices]
         self.updates = []
+        self.cancel = cancel
 
     def tick(self, candle: Candle) -> Advice:
         self.updates.append(candle)
         if len(self.advices) > 0:
             return self.advices.pop(0)
-        _log.warning('ran out of predetermined advices; no more advice given')
+        if self.cancel:
+            _log.info('cancelling as no more advice defined')
+            current_task = asyncio.current_task()
+            assert current_task
+            current_task.cancel()
+        else:
+            _log.warning('ran out of predetermined advices; no more advice given')
         return Advice.NONE

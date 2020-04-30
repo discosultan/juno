@@ -108,13 +108,13 @@ class Backtest(Agent):
         await self._trader.run(trader_config, state.result)
         assert state.result.summary
 
-        if not self._prices or not self._prices.fiat_prices_available:
-            _log.warning('skipping analysis; fiat prices not available')
+        if not self._prices:
+            _log.warning('skipping analysis; prices component not available')
             return
 
         # Fetch necessary market data.
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
-            (config.base_asset, config.quote_asset), start, end
+            config.exchange, (config.base_asset, config.quote_asset), start, end
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])

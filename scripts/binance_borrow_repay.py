@@ -15,7 +15,7 @@ async def main() -> None:
     async with init_instance(Binance, from_env()) as client:
         if REPAY:
             if size is None:
-                balance = (await client.get_balances(margin=True))[ASSET]
+                balance = (await client.map_balances(margin=True))[ASSET]
                 size = balance.borrowed + balance.interest
             await client.repay(ASSET, size)
         else:

@@ -97,10 +97,10 @@ async def test_list_one_ticker(loop, request, exchange: Exchange) -> None:
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_balances(loop, request, exchange: Exchange) -> None:
+async def test_map_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    balances = await exchange.get_balances()
+    balances = await exchange.map_balances()
 
     assert types_match(balances, Dict[str, Balance])
 
@@ -112,7 +112,7 @@ async def test_get_margin_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_margin_trade)
 
-    balances = await exchange.get_balances(margin=True)
+    balances = await exchange.map_balances(margin=True)
 
     assert types_match(balances, Dict[str, Balance])
 

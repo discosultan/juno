@@ -107,7 +107,7 @@ class Kraken(Exchange):
             ) for pair, val in res['result'].items()
         ]
 
-    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
         if margin:
             raise NotImplementedError()
         res = await self._request_private('/0/private/Balance')

@@ -31,6 +31,7 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: 
         load_json_file(__file__, './data/binance_eth-btc_86400000_candles.json'),
         List[Candle]
     )
+    # TODO: Use binance usdt candles instead.
     statistics_fiat_candles = raw_to_type(
         load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
         List[Candle]
@@ -42,7 +43,7 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: 
     chandler = fakes.Chandler(candles={
         ('binance', 'eth-btc', HOUR_MS): portfolio_candles,
         ('binance', 'eth-btc', DAY_MS): statistics_candles,
-        ('coinbase', 'btc-eur', DAY_MS): statistics_fiat_candles,
+        ('binance', 'btc-usdt', DAY_MS): statistics_fiat_candles,
     })
     prices = Prices(chandler=chandler, exchanges=[])
     informant = fakes.Informant(
