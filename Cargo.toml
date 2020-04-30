@@ -7,7 +7,7 @@ edition = "2018"
 [lib]
 crate-type = [
     "cdylib",  # For FFI.
-    # "rlib",  # For benchmarking.
+    "rlib",  # For benchmarking.
 ]
 path = "juno_rs/lib.rs"
 

@@ -1,14 +1,6 @@
-use std::{
-    collections::VecDeque,
-    cmp::min,
-};
+use std::{cmp::min, collections::VecDeque};
 
-use crate::{
-    indicators,
-    math,
-    strategies::Strategy,
-    Advice, Candle,
-};
+use crate::{indicators, math, strategies::Strategy, Advice, Candle};
 
 pub struct FourWeekRule {
     prices: VecDeque<f64>,
@@ -41,9 +33,9 @@ impl Strategy for FourWeekRule {
                 self.advice = Advice::Long;
             } else if candle.close <= lowest {
                 self.advice = Advice::Short;
-            } else if self.advice == Advice::Long && candle.close <= self.ma.value() {
-                self.advice = Advice::Liquidate;
-            } else if self.advice == Advice::Short && candle.close >= self.ma.value() {
+            } else if (self.advice == Advice::Long && candle.close <= self.ma.value())
+                || (self.advice == Advice::Short && candle.close >= self.ma.value())
+            {
                 self.advice = Advice::Liquidate;
             }
 

@@ -28,7 +28,7 @@ pub fn minmax<'a>(values: impl Iterator<Item = &'a f64>) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ceil_multiple, floor_multiple, mean, round_half_up, minmax};
+    use super::{ceil_multiple, floor_multiple, mean, minmax, round_half_up};
 
     #[test]
     fn test_ceil_multiple() {

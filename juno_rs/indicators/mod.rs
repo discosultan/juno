@@ -32,12 +32,12 @@ pub trait MA {
 
 pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     // Adler32 of lowercased indicator name.
-    const EMA: u32 = 40698164;
-    const EMA2: u32 = 64160102;
-    const SMA: u32 = 43450690;
-    const SMMA: u32 = 72483247;
-    const DEMA: u32 = 66978200;
-    const KAMA: u32 = 68026779;
+    const EMA: u32 = 40_698_164;
+    const EMA2: u32 = 64_160_102;
+    const SMA: u32 = 43_450_690;
+    const SMMA: u32 = 72_483_247;
+    const DEMA: u32 = 66_978_200;
+    const KAMA: u32 = 68_026_779;
 
     match code {
         EMA => Box::new(Ema::new(period)),

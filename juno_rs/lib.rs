@@ -28,9 +28,7 @@ pub unsafe extern "C" fn fourweekrule(
     analysis_info: *const AnalysisInfo,
 ) -> Result {
     let strategy_info = &*strategy_info;
-    let strategy_factory = || {
-        strategies::FourWeekRule::new(strategy_info.period, strategy_info.ma)
-    };
+    let strategy_factory = || strategies::FourWeekRule::new(strategy_info.period, strategy_info.ma);
     run_test(trading_info, strategy_factory, analysis_info)
 }
 
