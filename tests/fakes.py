@@ -250,6 +250,11 @@ class Informant(components.Informant):
         return self.exchanges_supporting_symbol
 
 
+class Historian(components.Historian):
+    def __init__(self) -> None:
+        pass
+
+
 class Time:
     def __init__(self, time=0, increment=0):
         self.time = time

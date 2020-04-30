@@ -32,7 +32,14 @@ async def main() -> None:
     prices = Prices(chandler=chandler, exchanges=exchanges)
     trader = Trader(chandler=chandler, informant=informant, exchanges=exchanges)
     rust_solver = Rust()
-    optimizer = Optimizer(rust_solver, chandler, informant, prices, trader)
+    optimizer = Optimizer(
+        solver=rust_solver,
+        chandler=chandler,
+        informant=informant,
+        prices=prices,
+        trader=trader,
+        historian=historian,
+    )
     async with binance, coinbase, informant, rust_solver:
         first_candle = await historian.find_first_candle(exchange_name, SYMBOL, INTERVAL)
         training_start = floor_multiple(first_candle.time, INTERVAL)

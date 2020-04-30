@@ -12,7 +12,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 from deap import base, creator, tools
 
 from juno import Candle, Interval, OrderException, Timestamp, strategies
-from juno.components import Chandler, Informant, Prices
+from juno.components import Chandler, Historian, Informant, Prices
 from juno.itertools import flatten
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.modules import get_module_type
@@ -59,21 +59,23 @@ class Optimizer:
         informant: Informant,
         prices: Prices,
         trader: Trader,
+        historian: Historian,
     ) -> None:
         self._solver = solver
         self._chandler = chandler
         self._informant = informant
         self._prices = prices
         self._trader = trader
+        self._historian = historian
 
     async def run(
         self,
         exchange: str,
-        start: Timestamp,
         quote: Decimal,
         strategy: str,
         symbols: Optional[List[str]] = None,
         intervals: Optional[List[Interval]] = None,
+        start: Optional[Timestamp] = None,
         end: Optional[Timestamp] = None,
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE,
         trailing_stop: Optional[Decimal] = Decimal('0.0'),
@@ -88,17 +90,31 @@ class Optimizer:
     ) -> OptimizationSummary:
         now = time_ms()
 
+        assert not end or end <= now
+        assert not start or start < now
+        assert not end or not start or end > start
+        assert quote > 0
+        assert symbols is None or len(symbols) > 0
+        assert intervals is None or len(intervals) > 0
+
+        symbols = self._informant.list_symbols(exchange, symbols)
+        intervals = self._informant.list_candle_intervals(exchange, intervals)
+
+        if start is None:
+            # Pick latest time of all available symbol interval combinations so that optimization
+            # period would be same in all cases.
+            first_candles = await asyncio.gather(
+                *(
+                    self._historian.find_first_candle(exchange, s, i)
+                    for s, i in product(symbols, intervals)
+                )
+            )
+            start = max(first_candles, key=lambda c: c.time).time
+
         if end is None:
             end = now
 
         # We normalize `start` and `end` later to take all potential intervals into account.
-
-        assert end <= now
-        assert end > start
-        assert quote > 0
-
-        assert symbols is None or len(symbols) > 0
-        assert intervals is None or len(intervals) > 0
 
         strategy_type = get_module_type(strategies, strategy)
 
@@ -109,9 +125,6 @@ class Optimizer:
 
         summary = summary or OptimizationSummary()
 
-        symbols = self._informant.list_symbols(exchange, symbols)
-        intervals = self._informant.list_candle_intervals(exchange, intervals)
-
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
             {a for s in symbols for a in unpack_symbol(s)}, start, end
         )
@@ -119,7 +132,7 @@ class Optimizer:
         candles: Dict[Tuple[str, int], List[Candle]] = {}
 
         async def assign(symbol: str, interval: int) -> None:
-            assert end
+            assert start is not None and end is not None
             candles[(symbol, interval)] = await self._chandler.list_candles(
                 exchange, symbol, interval, floor_multiple(start, interval),
                 floor_multiple(end, interval)

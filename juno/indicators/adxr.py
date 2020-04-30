@@ -20,7 +20,7 @@ class Adxr:
         self._historical_adx = deque(maxlen=period)
         self._t1 = self._adx.maturity
         self._t2 = self._t1 + period - 1
-        self._t3 = (period - 1) * 3 
+        self._t3 = (period - 1) * 3
 
     @property
     def maturity(self) -> int:
