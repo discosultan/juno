@@ -21,11 +21,11 @@ class Optimize(Agent):
         exchange: str
         symbols: Optional[List[str]]
         intervals: Optional[List[Interval]]
-        start: Timestamp
         quote: Decimal
         strategy: str
         name: Optional[str] = None
         persist: bool = False
+        start: Optional[Timestamp] = None
         end: Optional[Timestamp] = None
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
         trailing_stop: Optional[Decimal] = Decimal('0.0')

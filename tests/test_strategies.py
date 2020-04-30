@@ -2,7 +2,7 @@ import operator
 
 import pytest
 
-from juno import Advice, math, strategies
+from juno import Advice, Candle, math, strategies
 
 
 def test_strategy_meta():
@@ -31,11 +31,11 @@ class DummyStrategy(strategies.Strategy):
 @pytest.mark.parametrize('maturity', [0, 1, 2])
 def test_mature(maturity: int) -> None:
     strategy = strategies.Strategy(maturity=maturity)
-    assert strategy.mature == False
+    assert not strategy.mature
 
     for i in range(maturity + 1):
-        strategy.update(Advice.NONE)
-        strategy.mature == True if i == maturity else False
+        strategy.update(Candle())
+        assert strategy.mature == (i == maturity)
 
 
 def test_mid_trend_ignore_false() -> None:
