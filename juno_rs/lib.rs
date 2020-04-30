@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
-mod analyse;
-mod common;
-mod filters;
-mod indicators;
-mod math;
-mod strategies;
-mod trade;
-mod trading;
+pub mod analyse;
+pub mod common;
+pub mod filters;
+pub mod indicators;
+pub mod math;
+pub mod strategies;
+pub mod trade;
+pub mod trading;
 
 use crate::{
     analyse::analyse,
