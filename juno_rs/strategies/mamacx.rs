@@ -1,14 +1,14 @@
 use std::cmp::{max, min};
 
 use crate::{
-    indicators::MA,
+    indicators::{ma_from_adler32, MA},
     strategies::{combine, MidTrend, Persistence, Strategy},
     Advice, Candle,
 };
 
-pub struct MAMACX<TShort: MA, TLong: MA> {
-    short_ma: TShort,
-    long_ma: TLong,
+pub struct MAMACX {
+    short_ma: Box<dyn MA>,
+    long_ma: Box<dyn MA>,
     neg_threshold: f64,
     pos_threshold: f64,
     mid_trend: MidTrend,
@@ -17,14 +17,18 @@ pub struct MAMACX<TShort: MA, TLong: MA> {
     t1: u32,
 }
 
-impl<TShort: MA, TLong: MA> MAMACX<TShort, TLong> {
+impl MAMACX {
     pub fn new(
-        short_ma: TShort,
-        long_ma: TLong,
+        short_period: u32,
+        long_period: u32,
         neg_threshold: f64,
         pos_threshold: f64,
         persistence: u32,
+        short_ma: u32,
+        long_ma: u32,
     ) -> Self {
+        let short_ma = ma_from_adler32(short_ma, short_period);
+        let long_ma = ma_from_adler32(long_ma, long_period);
         let t1 = max(long_ma.maturity(), short_ma.maturity());
         Self {
             short_ma,
@@ -39,7 +43,7 @@ impl<TShort: MA, TLong: MA> MAMACX<TShort, TLong> {
     }
 }
 
-impl<TShort: MA, TLong: MA> Strategy for MAMACX<TShort, TLong> {
+impl Strategy for MAMACX {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.short_ma.update(candle.close);
         self.long_ma.update(candle.close);

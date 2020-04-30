@@ -122,7 +122,7 @@ class Strategy:
     advice: Advice = Advice.NONE
     maturity: int
 
-    _age: int = 0
+    _t: int = -1
 
     # _maturity_filter: Maturity
     _mid_trend_filter: MidTrend
@@ -154,9 +154,10 @@ class Strategy:
 
     @property
     def mature(self) -> bool:
-        return self._age >= self.maturity
+        return self._t >= self.maturity
 
     def update(self, candle: Candle) -> Advice:
+        self._t = min(self._t + 1, self.maturity)
         advice = self.tick(candle)
 
         if self.mature:
@@ -167,13 +168,11 @@ class Strategy:
         else:
             assert advice is Advice.NONE
 
-        self._age = min(self._age + 1, self.maturity)
-
         self.advice = advice
         return advice
 
     def tick(self, candle: Candle) -> Advice:
-        pass
+        return Advice.NONE
 
     def validate(self, *args: Any) -> None:
         # Assumes ordered.

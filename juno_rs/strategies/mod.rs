@@ -1,8 +1,10 @@
+mod four_week_rule;
 mod macd;
 mod macdrsi;
 mod mamacx;
 mod rsi;
 
+pub use four_week_rule::FourWeekRule;
 pub use macd::Macd;
 pub use macdrsi::MacdRsi;
 pub use mamacx::MAMACX;

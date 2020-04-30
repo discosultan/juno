@@ -16,7 +16,7 @@ class Stoch:
     _k_sma: Sma
     _d_sma: Sma
 
-    _t: int = 0
+    _t: int = -1
     _t1: int
     _t2: int
     _t3: int
@@ -39,7 +39,12 @@ class Stoch:
     def maturity(self) -> int:
         return self._t3
 
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t3
+
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
+        self._t = min(self._t + 1, self._t3)
         self._k_high_window.append(high)
         self._k_low_window.append(low)
 
@@ -57,5 +62,4 @@ class Stoch:
                 self.k = self._k_sma.value
                 self.d = self._d_sma.value
 
-        self._t = min(self._t + 1, self._t3)
         return self.k, self.d

@@ -53,7 +53,8 @@ async def test_optimizer_same_result_with_predefined_seed(request, rust_solver: 
     )
     trader = Trader(chandler=chandler, informant=informant)
     optimizer = Optimizer(
-        solver=rust_solver, chandler=chandler, informant=informant, prices=prices, trader=trader
+        solver=rust_solver, chandler=chandler, informant=informant, prices=prices, trader=trader,
+        historian=fakes.Historian()
     )
 
     results = []

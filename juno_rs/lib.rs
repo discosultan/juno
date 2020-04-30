@@ -1,17 +1,16 @@
 #![allow(dead_code)]
 
-mod analyse;
-mod common;
-mod filters;
-mod indicators;
-mod math;
-mod strategies;
-mod trade;
-mod trading;
+pub mod analyse;
+pub mod common;
+pub mod filters;
+pub mod indicators;
+pub mod math;
+pub mod strategies;
+pub mod trade;
+pub mod trading;
 
 use crate::{
     analyse::analyse,
-    indicators::{Dema, Ema, Ema2, Kama, Sma, Smma, MA},
     strategies::{Macd, MacdRsi, Strategy, MAMACX},
     trade::trade,
 };
@@ -23,18 +22,29 @@ pub use crate::{
 use std::slice;
 
 #[no_mangle]
-pub unsafe extern "C" fn macd(
+pub unsafe extern "C" fn fourweekrule(
     trading_info: *const TradingInfo,
-    macd_info: *const MacdInfo,
+    strategy_info: *const FourWeekRuleInfo,
     analysis_info: *const AnalysisInfo,
 ) -> Result {
-    let macd_info = &*macd_info;
+    let strategy_info = &*strategy_info;
+    let strategy_factory = || strategies::FourWeekRule::new(strategy_info.period, strategy_info.ma);
+    run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn macd(
+    trading_info: *const TradingInfo,
+    strategy_info: *const MacdInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let strategy_info = &*strategy_info;
     let strategy_factory = || {
         Macd::new(
-            macd_info.short_period,
-            macd_info.long_period,
-            macd_info.signal_period,
-            macd_info.persistence,
+            strategy_info.short_period,
+            strategy_info.long_period,
+            strategy_info.signal_period,
+            strategy_info.persistence,
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
@@ -43,96 +53,40 @@ pub unsafe extern "C" fn macd(
 #[no_mangle]
 pub unsafe extern "C" fn macdrsi(
     trading_info: *const TradingInfo,
-    macdrsi_info: *const MacdRsiInfo,
+    strategy_info: *const MacdRsiInfo,
     analysis_info: *const AnalysisInfo,
 ) -> Result {
-    let macdrsi_info = &*macdrsi_info;
+    let strategy_info = &*strategy_info;
     let strategy_factory = || {
         MacdRsi::new(
-            macdrsi_info.macd_short_period,
-            macdrsi_info.macd_long_period,
-            macdrsi_info.macd_signal_period,
-            macdrsi_info.rsi_period,
-            macdrsi_info.rsi_up_threshold,
-            macdrsi_info.rsi_down_threshold,
-            macdrsi_info.persistence,
+            strategy_info.macd_short_period,
+            strategy_info.macd_long_period,
+            strategy_info.macd_signal_period,
+            strategy_info.rsi_period,
+            strategy_info.rsi_up_threshold,
+            strategy_info.rsi_down_threshold,
+            strategy_info.persistence,
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
 }
 
-// Adler32 of lowercased indicator name.
-const EMA_: u32 = 40698164;
-const EMA2: u32 = 64160102;
-const SMA_: u32 = 43450690;
-const SMMA: u32 = 72483247;
-const DEMA: u32 = 66978200;
-const KAMA: u32 = 68026779;
-
 #[no_mangle]
-#[rustfmt::skip]
 pub unsafe extern "C" fn mamacx(
     trading_info: *const TradingInfo,
-    mamacx_info: *const MAMACXInfo,
+    strategy_info: *const MAMACXInfo,
     analysis_info: *const AnalysisInfo,
 ) -> Result {
-    let mamacx_info = &*mamacx_info;
-    match (mamacx_info.short_ma, mamacx_info.long_ma) {
-        (EMA_, EMA_) => run_mamacx_test::<Ema, Ema>  (trading_info, mamacx_info, analysis_info),
-        (EMA_, EMA2) => run_mamacx_test::<Ema, Ema2> (trading_info, mamacx_info, analysis_info),
-        (EMA_, SMA_) => run_mamacx_test::<Ema, Sma>  (trading_info, mamacx_info, analysis_info),
-        (EMA_, SMMA) => run_mamacx_test::<Ema, Smma> (trading_info, mamacx_info, analysis_info),
-        (EMA_, DEMA) => run_mamacx_test::<Ema, Dema> (trading_info, mamacx_info, analysis_info),
-        (EMA_, KAMA) => run_mamacx_test::<Ema, Kama> (trading_info, mamacx_info, analysis_info),
-        (EMA2, EMA_) => run_mamacx_test::<Ema2, Ema> (trading_info, mamacx_info, analysis_info),
-        (EMA2, EMA2) => run_mamacx_test::<Ema2, Ema2>(trading_info, mamacx_info, analysis_info),
-        (EMA2, SMA_) => run_mamacx_test::<Ema2, Sma> (trading_info, mamacx_info, analysis_info),
-        (EMA2, SMMA) => run_mamacx_test::<Ema2, Smma>(trading_info, mamacx_info, analysis_info),
-        (EMA2, DEMA) => run_mamacx_test::<Ema2, Dema>(trading_info, mamacx_info, analysis_info),
-        (EMA2, KAMA) => run_mamacx_test::<Ema2, Kama>(trading_info, mamacx_info, analysis_info),
-        (SMA_, EMA_) => run_mamacx_test::<Sma, Ema>  (trading_info, mamacx_info, analysis_info),
-        (SMA_, EMA2) => run_mamacx_test::<Sma, Ema2> (trading_info, mamacx_info, analysis_info),
-        (SMA_, SMA_) => run_mamacx_test::<Sma, Sma>  (trading_info, mamacx_info, analysis_info),
-        (SMA_, SMMA) => run_mamacx_test::<Sma, Smma> (trading_info, mamacx_info, analysis_info),
-        (SMA_, DEMA) => run_mamacx_test::<Sma, Dema> (trading_info, mamacx_info, analysis_info),
-        (SMA_, KAMA) => run_mamacx_test::<Sma, Kama> (trading_info, mamacx_info, analysis_info),
-        (SMMA, EMA_) => run_mamacx_test::<Smma, Ema> (trading_info, mamacx_info, analysis_info),
-        (SMMA, EMA2) => run_mamacx_test::<Smma, Ema2>(trading_info, mamacx_info, analysis_info),
-        (SMMA, SMA_) => run_mamacx_test::<Smma, Sma> (trading_info, mamacx_info, analysis_info),
-        (SMMA, SMMA) => run_mamacx_test::<Smma, Smma>(trading_info, mamacx_info, analysis_info),
-        (SMMA, DEMA) => run_mamacx_test::<Smma, Dema>(trading_info, mamacx_info, analysis_info),
-        (SMMA, KAMA) => run_mamacx_test::<Smma, Kama>(trading_info, mamacx_info, analysis_info),
-        (DEMA, EMA_) => run_mamacx_test::<Dema, Ema> (trading_info, mamacx_info, analysis_info),
-        (DEMA, EMA2) => run_mamacx_test::<Dema, Ema2>(trading_info, mamacx_info, analysis_info),
-        (DEMA, SMA_) => run_mamacx_test::<Dema, Sma> (trading_info, mamacx_info, analysis_info),
-        (DEMA, SMMA) => run_mamacx_test::<Dema, Smma>(trading_info, mamacx_info, analysis_info),
-        (DEMA, DEMA) => run_mamacx_test::<Dema, Dema>(trading_info, mamacx_info, analysis_info),
-        (DEMA, KAMA) => run_mamacx_test::<Dema, Kama>(trading_info, mamacx_info, analysis_info),
-        (KAMA, EMA_) => run_mamacx_test::<Kama, Ema> (trading_info, mamacx_info, analysis_info),
-        (KAMA, EMA2) => run_mamacx_test::<Kama, Ema2>(trading_info, mamacx_info, analysis_info),
-        (KAMA, SMA_) => run_mamacx_test::<Kama, Sma> (trading_info, mamacx_info, analysis_info),
-        (KAMA, SMMA) => run_mamacx_test::<Kama, Smma>(trading_info, mamacx_info, analysis_info),
-        (KAMA, DEMA) => run_mamacx_test::<Kama, Dema>(trading_info, mamacx_info, analysis_info),
-        (KAMA, KAMA) => run_mamacx_test::<Kama, Kama>(trading_info, mamacx_info, analysis_info),
-        _ => panic!(
-            "Moving average ({}, {}) not implemented!",
-            mamacx_info.short_ma, mamacx_info.long_ma
-        ),
-    }
-}
-
-unsafe fn run_mamacx_test<TShort: MA, TLong: MA>(
-    trading_info: *const TradingInfo,
-    mamacx_info: &MAMACXInfo,
-    analysis_info: *const AnalysisInfo,
-) -> Result {
+    let strategy_info = &*strategy_info;
     let strategy_factory = || {
         MAMACX::new(
-            TShort::new(mamacx_info.short_period),
-            TLong::new(mamacx_info.long_period),
-            mamacx_info.neg_threshold,
-            mamacx_info.pos_threshold,
-            mamacx_info.persistence,
+            strategy_info.short_period,
+            strategy_info.long_period,
+            strategy_info.neg_threshold,
+            strategy_info.pos_threshold,
+            strategy_info.persistence,
+            strategy_info.short_ma,
+            strategy_info.long_ma,
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
@@ -227,6 +181,12 @@ pub struct TradingInfo {
     trailing_stop: f64,
     long: bool,
     short: bool,
+}
+
+#[repr(C)]
+pub struct FourWeekRuleInfo {
+    period: u32,
+    ma: u32,
 }
 
 #[repr(C)]

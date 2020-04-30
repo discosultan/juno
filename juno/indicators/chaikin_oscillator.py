@@ -14,6 +14,10 @@ class ChaikinOscillator:
     def maturity(self) -> int:
         return 0
 
+    @property
+    def mature(self) -> bool:
+        return True
+
     def update(self, high: Decimal, low: Decimal, close: Decimal, volume: Decimal) -> Decimal:
         if high != low:
             money_flow_multiplier = ((close - low) - (high - close)) / (high - low)

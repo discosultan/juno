@@ -8,7 +8,7 @@ class Smma:
     value: Decimal = Decimal('0.0')
     _sma: Sma
     _weight: int
-    _t: int = 0
+    _t: int = -1
     _t1: int
     _t2: int
 
@@ -22,7 +22,13 @@ class Smma:
     def maturity(self) -> int:
         return self._t1
 
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
+
     def update(self, price: Decimal) -> Decimal:
+        self._t = min(self._t + 1, self._t2)
+
         if self._t <= self._t1:
             self._sma.update(price)
 
@@ -31,5 +37,4 @@ class Smma:
         elif self._t == self._t2:
             self.value = (self.value * (self._weight - 1) + price) / self._weight
 
-        self._t = min(self._t + 1, self._t2)
         return self.value

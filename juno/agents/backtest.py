@@ -61,6 +61,7 @@ class Backtest(Agent):
         self._event = event
         self._storage = storage
 
+    # TODO: Fix typing for `config` (inheritance issue).
     async def on_running(self, config: Any, state: Agent.State[Trader.State]) -> None:
         await super().on_running(config, state)
 

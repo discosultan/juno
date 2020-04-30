@@ -11,7 +11,7 @@ class Cci:
     _sma: Sma
     _scale: Decimal
     _typical_prices: Deque[Decimal]
-    _t: int = 0
+    _t: int = -1
     _t1: int
 
     def __init__(self, period: int) -> None:
@@ -24,7 +24,13 @@ class Cci:
     def maturity(self) -> int:
         return self._t1
 
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
+
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> Decimal:
+        self._t = min(self._t + 1, self._t1)
+
         typical_price = (high + low + close) / 3
         self._typical_prices.append(typical_price)
         self._sma.update(typical_price)
@@ -33,5 +39,4 @@ class Cci:
             acc = sum(abs(self._sma.value - tp) for tp in self._typical_prices)
             self.value = (typical_price - self._sma.value) / (acc * self._scale * Decimal('0.015'))
 
-        self._t = min(self._t + 1, self._t1)
         return self.value

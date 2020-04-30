@@ -7,7 +7,7 @@ from .dm import DM
 class DX:
     value: Decimal = Decimal('0.0')
     _dm: DM
-    _t: int = 0
+    _t: int = -1
     _t1: int
 
     def __init__(self, period: int) -> None:
@@ -18,11 +18,15 @@ class DX:
     def maturity(self) -> int:
         return self._t1
 
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
+
     def update(self, high: Decimal, low: Decimal) -> Decimal:
+        self._t = min(self._t + 1, self._t1)
         self._dm.update(high, low)
 
         if self._t == self._t1:
             self.value = self._dm.diff / self._dm.sum * 100
 
-        self._t = min(self._t + 1, self._t1)
         return self.value

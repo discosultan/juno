@@ -15,6 +15,10 @@ class Obv:
     def maturity(self) -> int:
         return 0
 
+    @property
+    def mature(self) -> bool:
+        return True
+
     def update(self, price: Decimal, volume: Decimal) -> Decimal:
         if self._t > 0:
             if price > self._last_price:
@@ -39,6 +43,10 @@ class Obv2:
     @property
     def maturity(self) -> int:
         return 0
+
+    @property
+    def mature(self) -> bool:
+        return True
 
     def update(self, price: Decimal, volume: Decimal) -> Tuple[Decimal, Decimal]:
         if price > self._last_price:

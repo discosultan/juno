@@ -33,6 +33,10 @@ class Ema:
     def maturity(self) -> int:
         return 0
 
+    @property
+    def mature(self) -> bool:
+        return True
+
     def set_smoothing_factor(self, a: Decimal) -> None:
         self._a = a
         self._a_inv = 1 - self._a
