@@ -73,8 +73,10 @@ async def main() -> None:
         logging.info(f'{side.name} {args.symbol}')
         logging.info(f'total size: {Fill.total_size(res.fills)}')
         logging.info(f'total quote: {Fill.total_quote(res.fills)}')
+        logging.info(f'total fee: {Fill.total_fee(res.fills)}')
         logging.info(f'in case of market order total size: {Fill.total_size(market_fills)}')
         logging.info(f'in case of market order total quote: {Fill.total_quote(market_fills)}')
+        logging.info(f'in case of market order total fee: {Fill.total_fee(market_fills)}')
 
 
 asyncio.run(main())

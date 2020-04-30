@@ -7,7 +7,7 @@ from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 from juno.aliases import Timestamp
 from juno.filters import Filters
-from juno.math import round_half_up
+from juno.math import round_down, round_half_up
 from juno.time import datetime_utcfromtimestamp_ms
 
 
@@ -123,7 +123,7 @@ class Fill(NamedTuple):
         return Fill(
             price=price,
             size=size,
-            quote=round_half_up(quote, precision) if precision is not None else quote,
+            quote=round_down(quote, precision) if precision is not None else quote,
             fee=fee,
             fee_asset=fee_asset,
         )
@@ -144,6 +144,13 @@ class Fill(NamedTuple):
             raise NotImplementedError('Implement support for different fee assets')
 
         return sum((f.fee for f in fills), Decimal('0.0'))
+
+    @staticmethod
+    def expected_quote(fills: List[Fill], precision: int) -> Decimal:
+        return sum(
+            (round_down(f.price * f.size, precision) for f in fills),
+            Decimal('0.0'),
+        )
 
     @staticmethod
     def expected_base_fee(fills: List[Fill], fee_rate: Decimal, precision: int) -> Decimal:

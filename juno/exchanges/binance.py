@@ -309,7 +309,7 @@ class Binance(Exchange):
                     yield Order.Match(
                         client_id=data['c'],
                         fill=Fill(
-                            price=Decimal(data['p']),
+                            price=Decimal(data['L']),
                             size=Decimal(data['l']),
                             quote=Decimal(data['Y']),
                             fee=Decimal(data['n']),
@@ -320,7 +320,7 @@ class Binance(Exchange):
                     yield Order.Match(
                         client_id=data['c'],
                         fill=Fill(
-                            price=Decimal(data['p']),
+                            price=Decimal(data['L']),
                             size=Decimal(data['l']),
                             quote=Decimal(data['Y']),
                             fee=Decimal(data['n']),

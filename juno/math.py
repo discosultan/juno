@@ -1,6 +1,6 @@
 import math
 from abc import ABC, abstractmethod
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from random import Random
 from typing import Any, Callable, Iterable, List, Tuple, TypeVar
 
@@ -17,6 +17,10 @@ def floor_multiple(value: TNum, multiple: TNum) -> TNum:
 
 def round_half_up(value: Decimal, precision: int) -> Decimal:
     return value.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_HALF_UP)
+
+
+def round_down(value: Decimal, precision: int) -> Decimal:
+    return value.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_DOWN)
 
 
 def minmax(values: Iterable[Decimal]) -> Tuple[Decimal, Decimal]:
