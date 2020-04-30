@@ -7,7 +7,7 @@ edition = "2018"
 [lib]
 crate-type = [
     "cdylib",  # For FFI.
-    "rlib",  # For benchmarking.
+    # "rlib",  # For benchmarking.
 ]
 path = "juno_rs/lib.rs"
 
@@ -20,4 +20,5 @@ criterion = "0.3"
 
 [[bench]]
 name = "trade_benchmark"
+path = "juno_rs/benches/trade_benchmark.rs"
 harness = false

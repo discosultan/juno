@@ -22,18 +22,31 @@ pub use crate::{
 use std::slice;
 
 #[no_mangle]
-pub unsafe extern "C" fn macd(
+pub unsafe extern "C" fn fourweekrule(
     trading_info: *const TradingInfo,
-    macd_info: *const MacdInfo,
+    strategy_info: *const FourWeekRuleInfo,
     analysis_info: *const AnalysisInfo,
 ) -> Result {
-    let macd_info = &*macd_info;
+    let strategy_info = &*strategy_info;
+    let strategy_factory = || {
+        strategies::FourWeekRule::new(strategy_info.ma)
+    };
+    run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn macd(
+    trading_info: *const TradingInfo,
+    strategy_info: *const MacdInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let strategy_info = &*strategy_info;
     let strategy_factory = || {
         Macd::new(
-            macd_info.short_period,
-            macd_info.long_period,
-            macd_info.signal_period,
-            macd_info.persistence,
+            strategy_info.short_period,
+            strategy_info.long_period,
+            strategy_info.signal_period,
+            strategy_info.persistence,
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
@@ -42,19 +55,19 @@ pub unsafe extern "C" fn macd(
 #[no_mangle]
 pub unsafe extern "C" fn macdrsi(
     trading_info: *const TradingInfo,
-    macdrsi_info: *const MacdRsiInfo,
+    strategy_info: *const MacdRsiInfo,
     analysis_info: *const AnalysisInfo,
 ) -> Result {
-    let macdrsi_info = &*macdrsi_info;
+    let strategy_info = &*strategy_info;
     let strategy_factory = || {
         MacdRsi::new(
-            macdrsi_info.macd_short_period,
-            macdrsi_info.macd_long_period,
-            macdrsi_info.macd_signal_period,
-            macdrsi_info.rsi_period,
-            macdrsi_info.rsi_up_threshold,
-            macdrsi_info.rsi_down_threshold,
-            macdrsi_info.persistence,
+            strategy_info.macd_short_period,
+            strategy_info.macd_long_period,
+            strategy_info.macd_signal_period,
+            strategy_info.rsi_period,
+            strategy_info.rsi_up_threshold,
+            strategy_info.rsi_down_threshold,
+            strategy_info.persistence,
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
@@ -63,19 +76,19 @@ pub unsafe extern "C" fn macdrsi(
 #[no_mangle]
 pub unsafe extern "C" fn mamacx(
     trading_info: *const TradingInfo,
-    mamacx_info: *const MAMACXInfo,
+    strategy_info: *const MAMACXInfo,
     analysis_info: *const AnalysisInfo,
 ) -> Result {
-    let mamacx_info = &*mamacx_info;
+    let strategy_info = &*strategy_info;
     let strategy_factory = || {
         MAMACX::new(
-            mamacx_info.short_period,
-            mamacx_info.long_period,
-            mamacx_info.neg_threshold,
-            mamacx_info.pos_threshold,
-            mamacx_info.persistence,
-            mamacx_info.short_ma,
-            mamacx_info.long_ma,
+            strategy_info.short_period,
+            strategy_info.long_period,
+            strategy_info.neg_threshold,
+            strategy_info.pos_threshold,
+            strategy_info.persistence,
+            strategy_info.short_ma,
+            strategy_info.long_ma,
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
@@ -170,6 +183,11 @@ pub struct TradingInfo {
     trailing_stop: f64,
     long: bool,
     short: bool,
+}
+
+#[repr(C)]
+pub struct FourWeekRuleInfo {
+    ma: u32,
 }
 
 #[repr(C)]
