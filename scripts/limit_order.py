@@ -1,8 +1,6 @@
 import argparse
 import asyncio
 import logging
-from decimal import Decimal
-from typing import Optional
 
 from juno import Fill, Side, exchanges
 from juno.brokers import Limit
@@ -11,21 +9,14 @@ from juno.config import from_env, init_instance
 from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
-# EXCHANGE_TYPE = exchanges.Coinbase
-# SIDE = 'buy'
-# SYMBOL = 'btc-eur'
-# QUOTE: Optional[Decimal] = Decimal('10.0')
-# BASE = None
-
 EXCHANGE_TYPE = exchanges.Binance
 SIDE = 'buy'
 SYMBOL = 'eth-btc'
-QUOTE: Optional[Decimal] = Decimal('0.005')
-BASE = None
 
 parser = argparse.ArgumentParser()
 parser.add_argument('side', nargs='?', default=SIDE)
 parser.add_argument('symbol', nargs='?', default=SYMBOL)
+parser.add_argument('value', nargs='?', default=None, help='if buy, quote; otherwise base size')
 args = parser.parse_args()
 
 side = Side[args.side.upper()]
@@ -44,29 +35,29 @@ async def main() -> None:
     limit = Limit(informant, orderbook, exchanges)
     async with exchange, memory, informant, orderbook, wallet:
         fees, filters = informant.get_fees_filters(exchange_name, args.symbol)
-        base = (
-            BASE if BASE is not None else wallet.get_balance(exchange_name, base_asset).available
+        available_base = wallet.get_balance(exchange_name, base_asset).available
+        available_quote = wallet.get_balance(exchange_name, quote_asset).available
+        value = args.value if args.value is not None else (
+            available_quote if side is Side.BUY else available_base
         )
-        quote = (
-            QUOTE if QUOTE is not None
-            else wallet.get_balance(exchange_name, quote_asset).available
-        )
-        logging.info(f'base: {base} {base_asset}; quote: {quote} {quote_asset}')
+        logging.info(
+            f'available base: {available_base} {base_asset}; available quote: {available_quote} '
+            f'{quote_asset}')
         if side is Side.BUY:
             market_fills = orderbook.find_order_asks_by_quote(
-                exchange=exchange_name, symbol=args.symbol, quote=quote, fee_rate=fees.maker,
+                exchange=exchange_name, symbol=args.symbol, quote=value, fee_rate=fees.maker,
                 filters=filters
             )
             res = await limit.buy_by_quote(
-                exchange=exchange_name, symbol=args.symbol, quote=quote, test=False
+                exchange=exchange_name, symbol=args.symbol, quote=value, test=False
             )
         else:
             market_fills = orderbook.find_order_bids(
-                exchange=exchange_name, symbol=args.symbol, size=base, fee_rate=fees.maker,
+                exchange=exchange_name, symbol=args.symbol, size=value, fee_rate=fees.maker,
                 filters=filters
             )
             res = await limit.sell(
-                exchange=exchange_name, symbol=args.symbol, size=base, test=False
+                exchange=exchange_name, symbol=args.symbol, size=value, test=False
             )
 
         logging.info(res)
