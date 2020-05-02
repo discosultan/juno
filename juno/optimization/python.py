@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional
 
 from juno import Advice, Candle, Fill, OrderException
-from juno.math import ceil_multiple, round_half_up
+from juno.math import ceil_multiple, round_down, round_half_up
 from juno.strategies import Changed, Strategy
 from juno.time import HOUR_MS
 from juno.trading import (
@@ -144,10 +144,10 @@ def _open_long_position(config: Solver.Config, state: _State, candle: Candle) ->
     if size == 0:
         raise OrderException()
 
-    quote = round_half_up(size * price, config.filters.quote_precision)
+    quote = round_down(size * price, config.filters.quote_precision)
     fee = round_half_up(size * config.fees.taker, config.filters.base_precision)
 
-    state.open_long_position = OpenLongPosition(
+    position = OpenLongPosition(
         symbol=config.symbol,
         time=candle.time,
         fills=[Fill(
@@ -155,30 +155,29 @@ def _open_long_position(config: Solver.Config, state: _State, candle: Candle) ->
         )],
     )
 
-    state.quote -= quote
+    state.quote -= Fill.total_quote(position.fills)
+    state.open_long_position = position
 
 
 def _close_long_position(config: Solver.Config, state: _State, candle: Candle) -> None:
     assert state.open_long_position
+    open_position = state.open_long_position
 
     price = candle.close
-
-    size = config.filters.size.round_down(state.open_long_position.base_gain)
-
+    size = config.filters.size.round_down(open_position.base_gain)
     quote = round_half_up(size * price, config.filters.quote_precision)
     fee = round_half_up(quote * config.fees.taker, config.filters.quote_precision)
 
-    state.summary.append_position(
-        state.open_long_position.close(
-            time=candle.time,
-            fills=[Fill(
-                price=price, size=size, quote=quote, fee=fee, fee_asset=config.quote_asset
-            )]
-        )
+    position = open_position.close(
+        time=candle.time,
+        fills=[Fill(
+            price=price, size=size, quote=quote, fee=fee, fee_asset=config.quote_asset
+        )]
     )
 
-    state.quote += quote - fee
+    state.quote += Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
     state.open_long_position = None
+    state.summary.append_position(position)
 
 
 def _open_short_position(config: Solver.Config, state: _State, candle: Candle) -> None:
@@ -192,7 +191,7 @@ def _open_short_position(config: Solver.Config, state: _State, candle: Candle) -
     quote = round_half_up(price * borrowed, config.filters.quote_precision)
     fee = round_half_up(quote * config.fees.taker, config.filters.quote_precision)
 
-    state.open_short_position = OpenShortPosition(
+    position = OpenShortPosition(
         symbol=config.symbol,
         collateral=state.quote,
         borrowed=borrowed,
@@ -202,16 +201,18 @@ def _open_short_position(config: Solver.Config, state: _State, candle: Candle) -
         )],
     )
 
-    state.quote += quote - fee
+    state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
+    state.open_short_position = position
 
 
 def _close_short_position(config: Solver.Config, state: _State, candle: Candle) -> None:
     assert state.open_short_position
+    open_position = state.open_short_position
 
     price = candle.close
     borrowed = state.open_short_position.borrowed
 
-    duration = ceil_multiple(candle.time - state.open_short_position.time, HOUR_MS) // HOUR_MS
+    duration = ceil_multiple(candle.time - open_position.time, HOUR_MS) // HOUR_MS
     interest = duration * config.borrow_info.hourly_interest_rate
 
     size = borrowed + interest
@@ -219,7 +220,7 @@ def _close_short_position(config: Solver.Config, state: _State, candle: Candle) 
     fee = round_half_up(size * config.fees.taker, config.filters.base_precision)
     size += fee
 
-    position = state.open_short_position.close(
+    position = open_position.close(
         time=candle.time,
         interest=interest,
         fills=[Fill(
@@ -227,7 +228,6 @@ def _close_short_position(config: Solver.Config, state: _State, candle: Candle) 
         )],
     )
 
-    state.quote -= quote
-
+    state.quote -= Fill.total_quote(position.close_fills)
     state.open_short_position = None
     state.summary.append_position(position)
