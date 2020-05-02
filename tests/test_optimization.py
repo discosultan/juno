@@ -1,10 +1,10 @@
 import math
 from decimal import Decimal
-from typing import List, Tuple
+from typing import AsyncIterator, List, Tuple
 
 import pytest
 
-from juno import BorrowInfo, Candle, Fees, Filters
+from juno import Candle, Fees, Filters
 from juno.components import Prices
 from juno.optimization import Optimizer, Rust
 from juno.strategies import MAMACX
@@ -17,8 +17,8 @@ from . import fakes
 
 
 @pytest.fixture
-async def rust_solver(loop):
-    async with Rust() as rust:
+async def rust_solver(loop) -> AsyncIterator[Rust]:
+    async with Rust(informant=fakes.Informant()) as rust:
         yield rust
 
 
@@ -104,10 +104,7 @@ async def test_rust_solver_works_with_default_fees_filters(rust_solver: Rust) ->
             end=portfolio_candles[-1].time + HOUR_MS,
             quote=Decimal('1.0'),
             candles=portfolio_candles,
-            fees=Fees(),
-            filters=Filters(),
-            borrow_info=BorrowInfo(),
-            margin_multiplier=1,
+            exchange='exchange',
             symbol='eth-btc',
             interval=HOUR_MS,
             missed_candle_policy=MissedCandlePolicy.IGNORE,

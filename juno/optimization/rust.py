@@ -16,6 +16,7 @@ import pandas as pd
 
 from juno import BorrowInfo, Candle, Fees, Filters, Interval, Timestamp, strategies
 from juno.cffi import CDefBuilder
+from juno.components import Informant
 from juno.filters import Price, Size
 from juno.modules import list_concretes_from_module
 from juno.strategies import Strategy
@@ -41,7 +42,9 @@ TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
 
 
 class Rust(Solver):
-    def __init__(self) -> None:
+    def __init__(self, informant: Informant) -> None:
+        self._informant = informant
+
         self._c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
         self._c_borrow_infos: Dict[str, Any] = {}
         self._c_candles: Dict[TimeSeriesKey, Any] = {}
@@ -95,10 +98,11 @@ class Rust(Solver):
             (config.symbol, config.interval, config.start, config.end),
             config.candles,
         )
-        c_fees, c_filters = self._get_or_create_c_fees_filters(
-            config.symbol, config.fees, config.filters
-        )
-        c_borrow_info = self._get_or_create_c_borrow_info(config.symbol, config.borrow_info)
+        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+        c_fees, c_filters = self._get_or_create_c_fees_filters(config.symbol, fees, filters)
+        borrow_info = self._informant.get_borrow_info(config.exchange, config.base_asset)
+        c_borrow_info = self._get_or_create_c_borrow_info(config.symbol, borrow_info)
+        margin_multiplier = self._informant.get_margin_multiplier(config.exchange)
 
         # TODO: Pool it. No need for allocations per run.
         c_trading_info = self._ffi.new('TradingInfo *')
@@ -107,7 +111,7 @@ class Rust(Solver):
         c_trading_info.fees = c_fees
         c_trading_info.filters = c_filters
         c_trading_info.borrow_info = c_borrow_info
-        c_trading_info.margin_multiplier = config.margin_multiplier
+        c_trading_info.margin_multiplier = margin_multiplier
         c_trading_info.interval = config.interval
         c_trading_info.quote = config.quote
         c_trading_info.missed_candle_policy = config.missed_candle_policy

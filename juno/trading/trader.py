@@ -290,14 +290,12 @@ class Trader:
                 symbol=config.symbol,
                 test=config.test,
                 position=state.open_long_position,
-                quote=state.quote,
             ) if self._broker else close_simulated_long_position(
                 informant=self._informant,
                 candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
                 position=state.open_long_position,
-                quote=state.quote,
             )
         )
 
@@ -355,14 +353,12 @@ class Trader:
                 symbol=config.symbol,
                 test=config.test,
                 position=state.open_short_position,
-                quote=state.quote,
             ) if self._broker else close_simulated_short_position(
                 informant=self._informant,
                 candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
                 position=state.open_short_position,
-                quote=state.quote,
             )
         )
 
@@ -415,8 +411,7 @@ async def open_long_position(
 
 
 def close_simulated_long_position(
-    informant: Informant, candle: Candle, position: OpenLongPosition, exchange: str, symbol: str,
-    quote: Decimal
+    informant: Informant, candle: Candle, position: OpenLongPosition, exchange: str, symbol: str
 ) -> LongPosition:
     price = candle.close
     _, quote_asset = unpack_symbol(symbol)
@@ -434,7 +429,7 @@ def close_simulated_long_position(
 
 async def close_long_position(
     broker: Broker, candle: Candle, position: OpenLongPosition, exchange: str, symbol: str,
-    quote: Decimal, test: bool
+    test: bool
 ) -> LongPosition:
     res = await broker.sell(
         exchange=exchange,
@@ -476,16 +471,14 @@ async def open_short_position(
     base_asset, quote_asset = unpack_symbol(symbol)
     exchange_name = type(exchange).__name__.lower()
 
-    if not test:
-        _log.info(f'transferring {collateral} {quote_asset} to margin account')
-        await exchange.transfer(quote_asset, collateral, margin=True)
-
     borrowed = (
         _calculate_borrowed(informant, exchange_name, symbol, collateral, price) if test
         else await exchange.get_max_borrowable(quote_asset)
     )
 
     if not test:
+        _log.info(f'transferring {collateral} {quote_asset} to margin account')
+        await exchange.transfer(quote_asset, collateral, margin=True)
         _log.info(f'borrowing {borrowed} {base_asset} from exchange')
         await exchange.borrow(asset=base_asset, size=borrowed)
 
@@ -506,8 +499,7 @@ async def open_short_position(
 
 
 def close_simulated_short_position(
-    informant: Informant, candle: Candle, position: OpenShortPosition, exchange: str, symbol: str,
-    quote: Decimal
+    informant: Informant, candle: Candle, position: OpenShortPosition, exchange: str, symbol: str
 ) -> ShortPosition:
     price = candle.close
     base_asset, _ = unpack_symbol(symbol)
@@ -536,7 +528,7 @@ def close_simulated_short_position(
 
 async def close_short_position(
     informant: Informant, broker: Broker, exchange: Exchange, candle: Candle,
-    position: OpenShortPosition, symbol: str, quote: Decimal, test: bool
+    position: OpenShortPosition, symbol: str, test: bool
 ) -> ShortPosition:
     base_asset, quote_asset = unpack_symbol(symbol)
     exchange_name = type(exchange).__name__.lower()
@@ -558,6 +550,11 @@ async def close_short_position(
         test=test,
         margin=not test,
     )
+    closed_position = position.close(
+        interest=interest,
+        time=candle.time,
+        fills=res.fills,
+    )
 
     if not test:
         _log.info(
@@ -571,14 +568,11 @@ async def close_short_position(
             _log.error(f'did not repay enough; balance {new_balance}')
             assert new_balance.repay == 0
 
-        _log.info(f'transferring {quote} {quote_asset} to spot account')
-        await exchange.transfer(quote_asset, quote, margin=False)
+        transfer = closed_position.collateral + closed_position.profit
+        _log.info(f'transferring {transfer} {quote_asset} to spot account')
+        await exchange.transfer(quote_asset, transfer, margin=False)
 
-    return position.close(
-        interest=interest,
-        time=candle.time,
-        fills=res.fills,
-    )
+    return closed_position
 
 
 def _calculate_borrowed(
