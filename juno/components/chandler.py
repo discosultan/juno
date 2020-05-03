@@ -249,6 +249,9 @@ class Chandler:
                         yield candle
             if stream:  # Future.
                 async for candle in stream:
+                    if candle.time < start:
+                        continue
+
                     if candle.time >= end:
                         break
 

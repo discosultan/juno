@@ -123,7 +123,7 @@ class Coinbase(Exchange):
                     break
         return list(tickers.values())
 
-    async def get_balances(self, margin: bool = False) -> Dict[str, Balance]:
+    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
         if margin:
             raise NotImplementedError()
         res = await self._private_request('GET', '/accounts')

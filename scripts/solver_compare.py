@@ -79,8 +79,7 @@ async def main() -> None:
 
     storage = storages.SQLite()
     binance = init_instance(exchanges.Binance, from_env())
-    coinbase = init_instance(exchanges.Coinbase, from_env())
-    exchange_list = [binance, coinbase]
+    exchange_list = [binance]
     informant = components.Informant(storage, exchange_list)
     trades = components.Trades(storage, exchange_list)
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
@@ -88,10 +87,10 @@ async def main() -> None:
     trader = Trader(chandler=chandler, informant=informant, exchanges=exchange_list)
     rust_solver = optimization.Rust()
     python_solver = optimization.Python()
-    async with binance, coinbase, informant, rust_solver:
+    async with binance, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
         fiat_daily_prices = await prices.map_fiat_daily_prices(
-            ('btc', base_asset), start, end
+            'binance', ('btc', base_asset), start, end
         )
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         fees, filters = informant.get_fees_filters('binance', SYMBOL)

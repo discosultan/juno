@@ -59,15 +59,18 @@ class Limit(Broker):
     ) -> OrderResult:
         res = await self._fill(exchange, symbol, Side.BUY, margin, size=size, quote=quote)
 
-        # Validate fee expectation.
+        # Validate fee and quote expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         expected_fee = Fill.expected_base_fee(res.fills, fees.maker, filters.base_precision)
+        expected_quote = Fill.expected_quote(res.fills, filters.quote_precision)
         if Fill.total_fee(res.fills) != expected_fee:
             _log.warning(
                 f'total_fee={Fill.total_fee(res.fills)} != {expected_fee=} '
                 f'(total_size={Fill.total_size(res.fills)}, {fees.maker=}, '
                 f'{filters.base_precision=})'
             )
+        if Fill.total_quote(res.fills) != expected_quote:
+            _log.warning(f'total_quote={Fill.total_quote(res.fills)} != {expected_quote=}')
 
         return res
 
@@ -78,15 +81,18 @@ class Limit(Broker):
         _log.info(f'selling {size} base asset with limit orders at spread')
         res = await self._fill(exchange, symbol, Side.SELL, margin, size=size)
 
-        # Validate fee expectation.
+        # Validate fee and quote expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         expected_fee = Fill.expected_quote_fee(res.fills, fees.maker, filters.quote_precision)
+        expected_quote = Fill.expected_quote(res.fills, filters.quote_precision)
         if Fill.total_fee(res.fills) != expected_fee:
             _log.warning(
                 f'total_fee={Fill.total_fee(res.fills)} != {expected_fee=} '
                 f'(total_quote={Fill.total_quote(res.fills)}, {fees.maker=}, '
                 f'{filters.quote_precision=})'
             )
+        if Fill.total_quote(res.fills) != expected_quote:
+            _log.warning(f'total_quote={Fill.total_quote(res.fills)} != {expected_quote=}')
 
         return res
 

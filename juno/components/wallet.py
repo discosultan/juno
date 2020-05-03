@@ -87,7 +87,7 @@ class Wallet:
                 # However, it may be needed for Coinbase or Kraken. If it is, then we
                 # should add a new capability `can_stream_initial_balances`.
                 # Get initial status from REST API.
-                yield await exchange_instance.get_balances(margin=margin)
+                yield await exchange_instance.map_balances(margin=margin)
 
                 # Stream future updates over WS.
                 async for balances in stream:
@@ -97,7 +97,7 @@ class Wallet:
                 f'{exchange} does not support streaming {"margin" if margin else "spot"} '
                 'balances; fething only initial balances; further updates not implemented'
             )
-            yield await exchange_instance.get_balances(margin=margin)
+            yield await exchange_instance.map_balances(margin=margin)
 
 
 class _WalletData:

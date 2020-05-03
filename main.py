@@ -58,12 +58,12 @@ async def main() -> None:
     container = Container()
     container.add_singleton_instance(Dict[str, Any], lambda: cfg)
     container.add_singleton_instance(Storage, lambda: config.init_instance(Storage, cfg))
-    # container.add_singleton_instance(
-    #     List[Exchange], lambda: config.init_instances_mentioned_in_config(Exchange, cfg)
-    # )
     container.add_singleton_instance(
-        List[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
+        List[Exchange], lambda: config.init_instances_mentioned_in_config(Exchange, cfg)
     )
+    # container.add_singleton_instance(
+    #     List[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
+    # )
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
     container.add_singleton_type(Trader)

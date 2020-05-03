@@ -410,7 +410,7 @@ class Trader:
             interest = (
                 self._calculate_interest(config, state.open_short_position.time, candle.time)
                 if config.test
-                else (await exchange.get_balances(margin=True))[config.base_asset].interest
+                else (await exchange.map_balances(margin=True))[config.base_asset].interest
             )
 
             size = borrowed + interest
@@ -433,7 +433,7 @@ class Trader:
                 await exchange.repay(config.base_asset, borrowed + interest)
                 # Validate!
                 # TODO: Remove if known to work or pay extra if needed.
-                new_balance = (await exchange.get_balances(margin=True))[config.base_asset]
+                new_balance = (await exchange.map_balances(margin=True))[config.base_asset]
                 if new_balance.repay != 0:
                     _log.error(f'did not repay enough; balance {new_balance}')
                     assert new_balance.repay == 0

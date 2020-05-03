@@ -126,7 +126,7 @@ class Optimizer:
         summary = summary or OptimizationSummary()
 
         fiat_daily_prices = await self._prices.map_fiat_daily_prices(
-            {a for s in symbols for a in unpack_symbol(s)}, start, end
+            exchange, {a for s in symbols for a in unpack_symbol(s)}, start, end
         )
 
         candles: Dict[Tuple[str, int], List[Candle]] = {}

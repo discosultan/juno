@@ -9,7 +9,7 @@ EXCHANGE_TYPE = exchanges.Binance
 
 async def main() -> None:
     async with init_instance(EXCHANGE_TYPE, from_env()) as client:
-        balances = await client.get_balances()
+        balances = await client.map_balances()
         logging.info(balances)
 
 
