@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import itertools
 import statistics
-from abc import ABC, abstractproperty
 from dataclasses import dataclass
 from decimal import Decimal, Overflow
 from enum import IntEnum
-from typing import Iterable, List, Optional
+from types import ModuleType
+from typing import Iterable, List, Optional, Union
 
 from juno import Candle, Fees, Fill, Interval, Timestamp
 from juno.filters import Filters
@@ -18,196 +20,168 @@ class MissedCandlePolicy(IntEnum):
     LAST = 2
 
 
-class Position(ABC):
-    symbol: str
-    open_time: int
-    close_time: int
+class Position(ModuleType):
+    # TODO: Add support for external token fees (i.e BNB)
+    # Note that we cannot set the dataclass as frozen because that would break JSON
+    # deserialization.
+    @dataclass
+    class Long:
+        symbol: str
+        open_time: Timestamp
+        open_fills: List[Fill]
+        close_time: Timestamp
+        close_fills: List[Fill]
 
-    @abstractproperty
-    def cost(self) -> Decimal:
-        pass
+        @property
+        def cost(self) -> Decimal:
+            return Fill.total_quote(self.open_fills)
 
-    @abstractproperty
-    def base_gain(self) -> Decimal:
-        pass
+        @property
+        def base_gain(self) -> Decimal:
+            return Fill.total_size(self.open_fills) - Fill.total_fee(self.open_fills)
 
-    @abstractproperty
-    def base_cost(self) -> Decimal:
-        pass
+        @property
+        def base_cost(self) -> Decimal:
+            return Fill.total_size(self.close_fills)
 
-    @abstractproperty
-    def gain(self) -> Decimal:
-        pass
+        @property
+        def gain(self) -> Decimal:
+            return Fill.total_quote(self.close_fills) - Fill.total_fee(self.close_fills)
 
-    @abstractproperty
-    def profit(self) -> Decimal:
-        pass
+        @property
+        def profit(self) -> Decimal:
+            return self.gain - self.cost
 
-    @abstractproperty
-    def duration(self) -> int:
-        pass
+        @property
+        def roi(self) -> Decimal:
+            return self.profit / self.cost
 
+        @property
+        def annualized_roi(self) -> Decimal:
+            return _annualized_roi(self.duration, self.roi)
 
-# TODO: Add support for external token fees (i.e BNB)
-# Note that we cannot set the dataclass as frozen because that would break JSON deserialization.
-@dataclass
-class LongPosition(Position):
-    symbol: str
-    open_time: Timestamp
-    open_fills: List[Fill]
-    close_time: Timestamp
-    close_fills: List[Fill]
+        @property
+        def dust(self) -> Decimal:
+            return (
+                Fill.total_size(self.open_fills)
+                - Fill.total_fee(self.open_fills)
+                - Fill.total_size(self.close_fills)
+            )
 
-    @property
-    def cost(self) -> Decimal:
-        return Fill.total_quote(self.open_fills)
+        @property
+        def duration(self) -> Interval:
+            return self.close_time - self.open_time
 
-    @property
-    def base_gain(self) -> Decimal:
-        return Fill.total_size(self.open_fills) - Fill.total_fee(self.open_fills)
+    @dataclass
+    class OpenLong:
+        symbol: str
+        time: Timestamp
+        fills: List[Fill]
 
-    @property
-    def base_cost(self) -> Decimal:
-        return Fill.total_size(self.close_fills)
+        def close(self, time: Timestamp, fills: List[Fill]) -> Position.Long:
+            return Position.Long(
+                symbol=self.symbol,
+                open_time=self.time,
+                open_fills=self.fills,
+                close_time=time,
+                close_fills=fills,
+            )
 
-    @property
-    def gain(self) -> Decimal:
-        return Fill.total_quote(self.close_fills) - Fill.total_fee(self.close_fills)
+        @property
+        def cost(self) -> Decimal:
+            return Fill.total_quote(self.fills)
 
-    @property
-    def profit(self) -> Decimal:
-        return self.gain - self.cost
+        @property
+        def base_gain(self) -> Decimal:
+            return Fill.total_size(self.fills) - Fill.total_fee(self.fills)
 
-    @property
-    def roi(self) -> Decimal:
-        return self.profit / self.cost
+    @dataclass
+    class Short:
+        symbol: str
+        collateral: Decimal  # quote
+        borrowed: Decimal  # base
+        open_time: Timestamp
+        open_fills: List[Fill]
+        close_time: Timestamp
+        close_fills: List[Fill]
+        interest: Decimal  # base
 
-    @property
-    def annualized_roi(self) -> Decimal:
-        return _annualized_roi(self.duration, self.roi)
+        @property
+        def cost(self) -> Decimal:
+            return self.collateral
 
-    @property
-    def dust(self) -> Decimal:
-        return (
-            Fill.total_size(self.open_fills)
-            - Fill.total_fee(self.open_fills)
-            - Fill.total_size(self.close_fills)
-        )
+        @property
+        def base_gain(self) -> Decimal:
+            return self.borrowed
 
-    @property
-    def duration(self) -> Interval:
-        return self.close_time - self.open_time
+        @property
+        def base_cost(self) -> Decimal:
+            return self.borrowed
 
+        @property
+        def gain(self) -> Decimal:
+            return (
+                Fill.total_quote(self.open_fills)
+                - Fill.total_fee(self.open_fills)
+                + self.collateral
+                - Fill.total_quote(self.close_fills)
+            )
 
-@dataclass
-class OpenLongPosition:
-    symbol: str
-    time: Timestamp
-    fills: List[Fill]
+        @property
+        def profit(self) -> Decimal:
+            return self.gain - self.cost
 
-    def close(self, time: Timestamp, fills: List[Fill]) -> LongPosition:
-        return LongPosition(
-            symbol=self.symbol,
-            open_time=self.time,
-            open_fills=self.fills,
-            close_time=time,
-            close_fills=fills,
-        )
+        @property
+        def roi(self) -> Decimal:
+            return self.profit / self.cost
 
-    @property
-    def cost(self) -> Decimal:
-        return Fill.total_quote(self.fills)
+        @property
+        def annualized_roi(self) -> Decimal:
+            return _annualized_roi(self.duration, self.roi)
 
-    @property
-    def base_gain(self) -> Decimal:
-        return Fill.total_size(self.fills) - Fill.total_fee(self.fills)
+        # TODO: implement
+        # @property
+        # def dust(self) -> Decimal:
+        #     return (
+        #         Fill.total_size(self.open_fills)
+        #         - Fill.total_fee(self.open_fills)
+        #         - Fill.total_size(self.close_fills)
+        #     )
 
+        @property
+        def duration(self) -> Interval:
+            return self.close_time - self.open_time
 
-@dataclass
-class ShortPosition(Position):
-    symbol: str
-    collateral: Decimal  # quote
-    borrowed: Decimal  # base
-    open_time: Timestamp
-    open_fills: List[Fill]
-    close_time: Timestamp
-    close_fills: List[Fill]
-    interest: Decimal  # base
+    @dataclass
+    class OpenShort:
+        symbol: str
+        collateral: Decimal
+        borrowed: Decimal
+        time: Timestamp
+        fills: List[Fill]
 
-    @property
-    def cost(self) -> Decimal:
-        return self.collateral
+        def close(self, interest: Decimal, time: Timestamp, fills: List[Fill]) -> Position.Short:
+            return Position.Short(
+                symbol=self.symbol,
+                collateral=self.collateral,
+                borrowed=self.borrowed,
+                open_time=self.time,
+                open_fills=self.fills,
+                close_time=time,
+                close_fills=fills,
+                interest=interest,
+            )
 
-    @property
-    def base_gain(self) -> Decimal:
-        return self.borrowed
+        @property
+        def cost(self) -> Decimal:
+            return self.collateral
 
-    @property
-    def base_cost(self) -> Decimal:
-        return self.borrowed
+        @property
+        def base_gain(self) -> Decimal:
+            return self.borrowed
 
-    @property
-    def gain(self) -> Decimal:
-        return (
-            Fill.total_quote(self.open_fills)
-            - Fill.total_fee(self.open_fills)
-            + self.collateral
-            - Fill.total_quote(self.close_fills)
-        )
-
-    @property
-    def profit(self) -> Decimal:
-        return self.gain - self.cost
-
-    @property
-    def roi(self) -> Decimal:
-        return self.profit / self.cost
-
-    @property
-    def annualized_roi(self) -> Decimal:
-        return _annualized_roi(self.duration, self.roi)
-
-    # TODO: implement
-    # @property
-    # def dust(self) -> Decimal:
-    #     return (
-    #         Fill.total_size(self.open_fills)
-    #         - Fill.total_fee(self.open_fills)
-    #         - Fill.total_size(self.close_fills)
-    #     )
-
-    @property
-    def duration(self) -> Interval:
-        return self.close_time - self.open_time
-
-
-@dataclass
-class OpenShortPosition:
-    symbol: str
-    collateral: Decimal
-    borrowed: Decimal
-    time: Timestamp
-    fills: List[Fill]
-
-    def close(self, interest: Decimal, time: Timestamp, fills: List[Fill]) -> ShortPosition:
-        return ShortPosition(
-            symbol=self.symbol,
-            collateral=self.collateral,
-            borrowed=self.borrowed,
-            open_time=self.time,
-            open_fills=self.fills,
-            close_time=time,
-            close_fills=fills,
-            interest=interest,
-        )
-
-    @property
-    def cost(self) -> Decimal:
-        return self.collateral
-
-    @property
-    def base_gain(self) -> Decimal:
-        return self.borrowed
+    Any = Union[Long, OpenLong, OpenShort, Short]
+    Closed = Union[Long, Short]
 
 
 # TODO: both positions and candles could theoretically grow infinitely
@@ -219,8 +193,8 @@ class TradingSummary:
     quote: Decimal
     quote_asset: str
 
-    _long_positions: List[LongPosition]
-    _short_positions: List[ShortPosition]
+    _long_positions: List[Position.Long]
+    _short_positions: List[Position.Short]
     _drawdowns: List[Decimal]
     _max_drawdown: Decimal = Decimal('0.0')
     _mean_drawdown: Decimal = Decimal('0.0')
@@ -240,25 +214,25 @@ class TradingSummary:
         self._short_positions = []
         self._drawdowns = []
 
-    def append_position(self, pos: Position) -> None:
-        if isinstance(pos, LongPosition):
+    def append_position(self, pos: Position.Closed) -> None:
+        if isinstance(pos, Position.Long):
             self._long_positions.append(pos)
-        elif isinstance(pos, ShortPosition):
+        elif isinstance(pos, Position.Short):
             self._short_positions.append(pos)
         else:
             raise NotImplementedError()
         self._drawdowns_dirty = True
 
-    def get_positions(self) -> Iterable[Position]:
+    def get_positions(self) -> Iterable[Position.Closed]:
         return sorted(
             itertools.chain(self._long_positions, self._short_positions),
             key=lambda p: p.open_time,
         )
 
-    def get_long_positions(self) -> Iterable[LongPosition]:
+    def get_long_positions(self) -> Iterable[Position.Long]:
         return self._long_positions
 
-    def get_short_positions(self) -> Iterable[ShortPosition]:
+    def get_short_positions(self) -> Iterable[Position.Short]:
         return self._short_positions
 
     def finish(self, end: Timestamp) -> None:
@@ -304,7 +278,7 @@ class TradingSummary:
         return len(self._short_positions)
 
     @staticmethod
-    def _num_positions_in_profit(positions: Iterable[Position]) -> int:
+    def _num_positions_in_profit(positions: Iterable[Position.Closed]) -> int:
         return sum(1 for p in positions if p.profit >= 0)
 
     @property
@@ -320,7 +294,7 @@ class TradingSummary:
         return TradingSummary._num_positions_in_profit(self._short_positions)
 
     @staticmethod
-    def _num_positions_in_loss(positions: Iterable[Position]) -> int:
+    def _num_positions_in_loss(positions: Iterable[Position.Closed]) -> int:
         return sum(1 for p in positions if p.profit < 0)
 
     @property
@@ -336,7 +310,7 @@ class TradingSummary:
         return TradingSummary._num_positions_in_loss(self._short_positions)
 
     @staticmethod
-    def _mean_position_profit(positions: Iterable[Position]) -> Decimal:
+    def _mean_position_profit(positions: Iterable[Position.Closed]) -> Decimal:
         profits = [x.profit for x in positions]
         if len(profits) == 0:
             return Decimal('0.0')
@@ -355,7 +329,7 @@ class TradingSummary:
         return TradingSummary._mean_position_profit(self._short_positions)
 
     @staticmethod
-    def _mean_position_duration(positions: Iterable[Position]) -> Interval:
+    def _mean_position_duration(positions: Iterable[Position.Closed]) -> Interval:
         durations = [x.duration for x in positions]
         if len(durations) == 0:
             return 0

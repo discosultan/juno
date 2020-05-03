@@ -6,7 +6,7 @@ import pytest
 from juno import Advice, Candle, Fill
 from juno.components import Event
 from juno.time import DAY_MS
-from juno.trading import OpenLongPosition, TradingSummary
+from juno.trading import Position, TradingSummary
 from juno.utils import full_path
 
 
@@ -23,7 +23,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
         await discord.activate('agent', 'test')
 
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
-        open_pos = OpenLongPosition(
+        open_pos = Position.OpenLong(
             symbol='eth-btc',
             time=candle.time,
             fills=[

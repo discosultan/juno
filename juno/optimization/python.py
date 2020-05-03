@@ -5,8 +5,7 @@ from juno import Advice, Candle, Fill, OrderException
 from juno.components import Informant
 from juno.strategies import Changed, Strategy
 from juno.trading import (
-    MissedCandlePolicy, OpenLongPosition, OpenShortPosition, SimulatedPositionMixin,
-    TradingSummary, analyse_portfolio
+    MissedCandlePolicy, Position, SimulatedPositionMixin, TradingSummary, analyse_portfolio
 )
 
 from .solver import Solver, SolverResult
@@ -18,8 +17,8 @@ class _State:
         self.strategy = strategy
         self.changed = Changed(True)
         self.quote = quote
-        self.open_long_position: Optional[OpenLongPosition] = None
-        self.open_short_position: Optional[OpenShortPosition] = None
+        self.open_long_position: Optional[Position.OpenLong] = None
+        self.open_short_position: Optional[Position.OpenShort] = None
         self.first_candle: Optional[Candle] = None
         self.last_candle: Optional[Candle] = None
         self.highest_close_since_position = Decimal('0.0')

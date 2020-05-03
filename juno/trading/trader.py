@@ -12,7 +12,7 @@ from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
 from juno.utils import tonamedtuple, unpack_symbol
 
-from .common import MissedCandlePolicy, OpenLongPosition, OpenShortPosition, TradingSummary
+from .common import MissedCandlePolicy, Position, TradingSummary
 from .mixins import PositionMixin, SimulatedPositionMixin
 
 _log = logging.getLogger(__name__)
@@ -27,8 +27,8 @@ class Trader(PositionMixin, SimulatedPositionMixin):
         changed: Optional[Changed] = None
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
-        open_long_position: Optional[OpenLongPosition] = None
-        open_short_position: Optional[OpenShortPosition] = None
+        open_long_position: Optional[Position.OpenLong] = None
+        open_short_position: Optional[Position.OpenShort] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
         highest_close_since_position = Decimal('0.0')

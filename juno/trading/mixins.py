@@ -11,7 +11,7 @@ from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS
 from juno.utils import unpack_symbol
 
-from .common import LongPosition, OpenLongPosition, OpenShortPosition, ShortPosition
+from .common import Position
 
 _log = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class SimulatedPositionMixin(abc.ABC):
 
     def open_simulated_long_position(
         self, candle: Candle, exchange: str, symbol: str, quote: Decimal
-    ) -> OpenLongPosition:
+    ) -> Position.OpenLong:
         price = candle.close
         base_asset, _ = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -34,7 +34,7 @@ class SimulatedPositionMixin(abc.ABC):
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(size * fees.taker, filters.base_precision)
 
-        return OpenLongPosition(
+        return Position.OpenLong(
             symbol=symbol,
             time=candle.time,
             fills=[Fill(
@@ -44,8 +44,8 @@ class SimulatedPositionMixin(abc.ABC):
 
     # TODO: Take exchange and symbol from position?
     def close_simulated_long_position(
-        self, candle: Candle, position: OpenLongPosition, exchange: str, symbol: str
-    ) -> LongPosition:
+        self, candle: Candle, position: Position.OpenLong, exchange: str, symbol: str
+    ) -> Position.Long:
         price = candle.close
         _, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -63,7 +63,7 @@ class SimulatedPositionMixin(abc.ABC):
 
     def open_simulated_short_position(
         self, candle: Candle, exchange: str, symbol: str, collateral: Decimal
-    ) -> OpenShortPosition:
+    ) -> Position.OpenShort:
         price = candle.close
         _, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -73,7 +73,7 @@ class SimulatedPositionMixin(abc.ABC):
         quote = round_down(price * borrowed, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-        return OpenShortPosition(
+        return Position.OpenShort(
             symbol=symbol,
             collateral=collateral,
             borrowed=borrowed,
@@ -84,8 +84,8 @@ class SimulatedPositionMixin(abc.ABC):
         )
 
     def close_simulated_short_position(
-        self, candle: Candle, position: OpenShortPosition, exchange: str, symbol: str
-    ) -> ShortPosition:
+        self, candle: Candle, position: Position.OpenShort, exchange: str, symbol: str
+    ) -> Position.Short:
         price = candle.close
         base_asset, _ = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -125,7 +125,7 @@ class PositionMixin(abc.ABC):
 
     async def open_long_position(
         self, candle: Candle, exchange: str, symbol: str, quote: Decimal, test: bool
-    ) -> OpenLongPosition:
+    ) -> Position.OpenLong:
         res = await self.broker.buy_by_quote(
             exchange=exchange,
             symbol=symbol,
@@ -133,15 +133,15 @@ class PositionMixin(abc.ABC):
             test=test,
         )
 
-        return OpenLongPosition(
+        return Position.OpenLong(
             symbol=symbol,
             time=candle.time,
             fills=res.fills,
         )
 
     async def close_long_position(
-        self, candle: Candle, position: OpenLongPosition, exchange: str, symbol: str, test: bool
-    ) -> LongPosition:
+        self, candle: Candle, position: Position.OpenLong, exchange: str, symbol: str, test: bool
+    ) -> Position.Long:
         res = await self.broker.sell(
             exchange=exchange,
             symbol=symbol,
@@ -156,7 +156,7 @@ class PositionMixin(abc.ABC):
 
     async def open_short_position(
         self, candle: Candle, exchange: str, symbol: str, collateral: Decimal, test: bool
-    ) -> OpenShortPosition:
+    ) -> Position.OpenShort:
         price = candle.close
         base_asset, quote_asset = unpack_symbol(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -181,7 +181,7 @@ class PositionMixin(abc.ABC):
             margin=not test,
         )
 
-        return OpenShortPosition(
+        return Position.OpenShort(
             symbol=symbol,
             collateral=collateral,
             borrowed=borrowed,
@@ -190,8 +190,8 @@ class PositionMixin(abc.ABC):
         )
 
     async def close_short_position(
-        self, candle: Candle, position: OpenShortPosition, exchange: str, symbol: str, test: bool
-    ) -> ShortPosition:
+        self, candle: Candle, position: Position.OpenShort, exchange: str, symbol: str, test: bool
+    ) -> Position.Short:
         base_asset, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
         borrow_info = self.informant.get_borrow_info(exchange, symbol)
