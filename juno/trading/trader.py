@@ -4,27 +4,23 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, Generic, List, NamedTuple, Optional, TypeVar
 
-from juno import Advice, Candle, Fill, Filters, Interval, OrderException, Timestamp, strategies
+from juno import Advice, Candle, Fill, Interval, Timestamp, strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Event, Informant
 from juno.exchanges import Exchange
-from juno.math import ceil_multiple, round_down, round_half_up
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
-from juno.time import HOUR_MS
 from juno.utils import tonamedtuple, unpack_symbol
 
-from .common import (
-    LongPosition, MissedCandlePolicy, OpenLongPosition, OpenShortPosition, ShortPosition,
-    TradingSummary
-)
+from .common import MissedCandlePolicy, OpenLongPosition, OpenShortPosition, TradingSummary
+from .mixins import PositionMixin, SimulatedPositionMixin
 
 _log = logging.getLogger(__name__)
 
 TStrategy = TypeVar('TStrategy', bound=Strategy)
 
 
-class Trader:
+class Trader(PositionMixin, SimulatedPositionMixin):
     @dataclass
     class State(Generic[TStrategy]):
         strategy: Optional[TStrategy] = None
@@ -95,8 +91,17 @@ class Trader:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
     @property
-    def has_broker(self) -> bool:
-        return self._broker is not None
+    def informant(self) -> Informant:
+        return self._informant
+
+    @property
+    def broker(self) -> Broker:
+        assert self._broker
+        return self._broker
+
+    @property
+    def exchanges(self) -> Dict[str, Exchange]:
+        return self._exchanges
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start >= 0
@@ -257,15 +262,13 @@ class Trader:
         assert not state.open_short_position
 
         position = (
-            await open_long_position(
-                broker=self._broker,
+            await self.open_long_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
                 test=config.test,
                 quote=state.quote,
-            ) if self._broker else open_simulated_long_position(
-                informant=self._informant,
+            ) if self._broker else self.open_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
@@ -287,15 +290,13 @@ class Trader:
         assert state.open_long_position
 
         position = (
-            await close_long_position(
-                broker=self._broker,
+            await self.close_long_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
                 test=config.test,
                 position=state.open_long_position,
-            ) if self._broker else close_simulated_long_position(
-                informant=self._informant,
+            ) if self._broker else self.close_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
@@ -318,16 +319,13 @@ class Trader:
         assert not state.open_short_position
 
         position = (
-            await open_short_position(
-                informant=self._informant,
-                broker=self._broker,
-                exchange=self._exchanges[config.exchange],
+            await self.open_short_position(
                 candle=candle,
+                exchange=config.exchange,
                 symbol=config.symbol,
                 test=config.test,
                 collateral=state.quote,
-            ) if self._broker else open_simulated_short_position(
-                informant=self._informant,
+            ) if self._broker else self.open_simulated_short_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
@@ -349,16 +347,13 @@ class Trader:
         assert state.open_short_position
 
         position = (
-            await close_short_position(
-                informant=self._informant,
-                broker=self._broker,
-                exchange=self._exchanges[config.exchange],
+            await self.close_short_position(
                 candle=candle,
+                exchange=config.exchange,
                 symbol=config.symbol,
                 test=config.test,
                 position=state.open_short_position,
-            ) if self._broker else close_simulated_short_position(
-                informant=self._informant,
+            ) if self._broker else self.close_simulated_short_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
@@ -373,228 +368,3 @@ class Trader:
         _log.info(f'short position closed: {candle}')
         _log.debug(tonamedtuple(position))
         await self._event.emit(config.channel, 'position_closed', position, state.summary)
-
-
-def open_simulated_long_position(
-    informant: Informant, candle: Candle, exchange: str, symbol: str, quote: Decimal
-) -> OpenLongPosition:
-    price = candle.close
-    fees, filters = informant.get_fees_filters(exchange, symbol)
-
-    size = filters.size.round_down(quote / price)
-    if size == 0:
-        raise OrderException()
-
-    quote = round_down(price * size, filters.quote_precision)
-    fee = round_half_up(size * fees.taker, filters.base_precision)
-
-    base_asset, _ = unpack_symbol(symbol)
-    return OpenLongPosition(
-        symbol=symbol,
-        time=candle.time,
-        fills=[Fill(
-            price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
-        )],
-    )
-
-
-async def open_long_position(
-    broker: Broker, candle: Candle, exchange: str, symbol: str, quote: Decimal, test: bool
-) -> OpenLongPosition:
-    res = await broker.buy_by_quote(
-        exchange=exchange,
-        symbol=symbol,
-        quote=quote,
-        test=test,
-    )
-    return OpenLongPosition(
-        symbol=symbol,
-        time=candle.time,
-        fills=res.fills,
-    )
-
-
-def close_simulated_long_position(
-    informant: Informant, candle: Candle, position: OpenLongPosition, exchange: str, symbol: str
-) -> LongPosition:
-    price = candle.close
-    _, quote_asset = unpack_symbol(symbol)
-    fees, filters = informant.get_fees_filters(exchange, symbol)
-    size = filters.size.round_down(position.base_gain)
-    quote = round_down(price * size, filters.quote_precision)
-    fee = round_half_up(quote * fees.taker, filters.quote_precision)
-    return position.close(
-        time=candle.time,
-        fills=[Fill(
-            price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset
-        )],
-    )
-
-
-async def close_long_position(
-    broker: Broker, candle: Candle, position: OpenLongPosition, exchange: str, symbol: str,
-    test: bool
-) -> LongPosition:
-    res = await broker.sell(
-        exchange=exchange,
-        symbol=symbol,
-        size=position.base_gain,
-        test=test,
-    )
-    return position.close(
-        time=candle.time,
-        fills=res.fills,
-    )
-
-
-def open_simulated_short_position(
-    informant: Informant, candle: Candle, exchange: str, symbol: str, collateral: Decimal
-) -> OpenShortPosition:
-    fees, filters = informant.get_fees_filters(exchange, symbol)
-    margin_multiplier = informant.get_margin_multiplier(exchange)
-    price = candle.close
-    borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
-    quote = round_down(price * borrowed, filters.quote_precision)
-    fee = round_half_up(quote * fees.taker, filters.quote_precision)
-    _, quote_asset = unpack_symbol(symbol)
-    return OpenShortPosition(
-        symbol=symbol,
-        collateral=collateral,
-        borrowed=borrowed,
-        time=candle.time,
-        fills=[Fill(
-            price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset
-        )],
-    )
-
-
-async def open_short_position(
-    informant: Informant, broker: Broker, exchange: Exchange, candle: Candle, symbol: str,
-    collateral: Decimal, test: bool
-) -> OpenShortPosition:
-    base_asset, quote_asset = unpack_symbol(symbol)
-    exchange_name = type(exchange).__name__.lower()
-    _, filters = informant.get_fees_filters(exchange_name, symbol)
-    margin_multipler = informant.get_margin_multiplier(exchange_name)
-    price = candle.close
-
-    borrowed = (
-        _calculate_borrowed(filters, margin_multipler, collateral, price)
-        if test
-        else await exchange.get_max_borrowable(quote_asset)
-    )
-
-    if not test:
-        _log.info(f'transferring {collateral} {quote_asset} to margin account')
-        await exchange.transfer(quote_asset, collateral, margin=True)
-        _log.info(f'borrowing {borrowed} {base_asset} from exchange')
-        await exchange.borrow(asset=base_asset, size=borrowed)
-
-    res = await broker.sell(
-        exchange=exchange_name,
-        symbol=symbol,
-        size=borrowed,
-        test=test,
-        margin=not test,
-    )
-    return OpenShortPosition(
-        symbol=symbol,
-        collateral=collateral,
-        borrowed=borrowed,
-        time=candle.time,
-        fills=res.fills,
-    )
-
-
-def close_simulated_short_position(
-    informant: Informant, candle: Candle, position: OpenShortPosition, exchange: str, symbol: str
-) -> ShortPosition:
-    price = candle.close
-    base_asset, _ = unpack_symbol(symbol)
-    fees, filters = informant.get_fees_filters(exchange, symbol)
-    borrow_info = informant.get_borrow_info(exchange, base_asset)
-
-    interest = _calculate_interest(
-        borrow_info.hourly_interest_rate,
-        position.time,
-        candle.time,
-    )
-    size = position.borrowed + interest
-    quote = round_down(price * size, filters.quote_precision)
-    fee = round_half_up(size * fees.taker, filters.base_precision)
-    size += fee
-
-    return position.close(
-        time=candle.time,
-        interest=interest,
-        fills=[Fill(
-            price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
-        )],
-    )
-
-
-async def close_short_position(
-    informant: Informant, broker: Broker, exchange: Exchange, candle: Candle,
-    position: OpenShortPosition, symbol: str, test: bool
-) -> ShortPosition:
-    base_asset, quote_asset = unpack_symbol(symbol)
-    exchange_name = type(exchange).__name__.lower()
-    fees, filters = informant.get_fees_filters(exchange_name, symbol)
-    borrow_info = informant.get_borrow_info(exchange_name, symbol)
-
-    interest = (
-        _calculate_interest(borrow_info.hourly_interest_rate, position.time, candle.time)
-        if test
-        else (await exchange.map_balances(margin=True))[base_asset].interest
-    )
-    size = position.borrowed + interest
-    fee = round_half_up(size * fees.taker, filters.base_precision)
-    size = filters.size.round_up(size + fee)
-
-    res = await broker.buy(
-        exchange=exchange_name,
-        symbol=symbol,
-        size=size,
-        test=test,
-        margin=not test,
-    )
-    closed_position = position.close(
-        interest=interest,
-        time=candle.time,
-        fills=res.fills,
-    )
-
-    if not test:
-        _log.info(
-            f'repaying {position.borrowed} + {interest} {base_asset} to exchange'
-        )
-        await exchange.repay(base_asset, position.borrowed + interest)
-        # Validate!
-        # TODO: Remove if known to work or pay extra if needed.
-        new_balance = (await exchange.map_balances(margin=True))[base_asset]
-        if new_balance.repay != 0:
-            _log.error(f'did not repay enough; balance {new_balance}')
-            assert new_balance.repay == 0
-
-        transfer = closed_position.collateral + closed_position.profit
-        _log.info(f'transferring {transfer} {quote_asset} to spot account')
-        await exchange.transfer(quote_asset, transfer, margin=False)
-
-    return closed_position
-
-
-def _calculate_borrowed(
-    filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal
-) -> Decimal:
-    collateral_size = filters.size.round_down(collateral / price)
-    if collateral_size == 0:
-        raise OrderException('Collateral base size 0')
-    borrowed = collateral_size * (margin_multiplier - 1)
-    if borrowed == 0:
-        raise OrderException('Borrowed 0; incorrect margin multiplier?')
-    return borrowed
-
-
-def _calculate_interest(hourly_rate: Decimal, start: int, end: int) -> Decimal:
-    duration = ceil_multiple(end - start, HOUR_MS) // HOUR_MS
-    return duration * hourly_rate

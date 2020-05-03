@@ -1,11 +1,12 @@
 from decimal import Decimal
 from typing import Optional
 
-from juno import Advice, Candle, Fill, OrderException, trading
+from juno import Advice, Candle, Fill, OrderException
 from juno.components import Informant
 from juno.strategies import Changed, Strategy
 from juno.trading import (
-    MissedCandlePolicy, OpenLongPosition, OpenShortPosition, TradingSummary, analyse_portfolio
+    MissedCandlePolicy, OpenLongPosition, OpenShortPosition, SimulatedPositionMixin,
+    TradingSummary, analyse_portfolio
 )
 
 from .solver import Solver, SolverResult
@@ -27,9 +28,13 @@ class _State:
 
 # We could rename the class to PythonSolver but it's more user-friendly to allow people to just
 # specify { "solver": "python" } in config.
-class Python(Solver):
+class Python(Solver, SimulatedPositionMixin):
     def __init__(self, informant: Informant) -> None:
         self._informant = informant
+
+    @property
+    def informant(self) -> Informant:
+        return self._informant
 
     def solve(self, config: Solver.Config) -> SolverResult:
         summary = self._trade(config)
@@ -145,8 +150,7 @@ class Python(Solver):
         state.last_candle = candle
 
     def _open_long_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
-        position = trading.open_simulated_long_position(
-            self._informant,
+        position = self.open_simulated_long_position(
             candle,
             config.exchange,
             config.symbol,
@@ -158,8 +162,7 @@ class Python(Solver):
 
     def _close_long_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
         assert state.open_long_position
-        position = trading.close_simulated_long_position(
-            self._informant,
+        position = self.close_simulated_long_position(
             candle,
             state.open_long_position,
             config.exchange,
@@ -173,8 +176,7 @@ class Python(Solver):
         state.summary.append_position(position)
 
     def _open_short_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
-        position = trading.open_simulated_short_position(
-            self._informant,
+        position = self.open_simulated_short_position(
             candle,
             config.exchange,
             config.symbol,
@@ -186,8 +188,7 @@ class Python(Solver):
 
     def _close_short_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
         assert state.open_short_position
-        position = trading.close_simulated_short_position(
-            self._informant,
+        position = self.close_simulated_short_position(
             candle,
             state.open_short_position,
             config.exchange,

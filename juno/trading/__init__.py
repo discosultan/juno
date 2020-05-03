@@ -2,12 +2,9 @@ from .common import (
     LongPosition, MissedCandlePolicy, OpenLongPosition, OpenShortPosition, Position, ShortPosition,
     TradingSummary
 )
+from .mixins import PositionMixin, SimulatedPositionMixin
 from .statistics import AnalysisSummary, Statistics, analyse_benchmark, analyse_portfolio
-from .trader import (
-    Trader, close_long_position, close_short_position, close_simulated_long_position,
-    close_simulated_short_position, open_long_position, open_short_position,
-    open_simulated_long_position, open_simulated_short_position
-)
+from .trader import Trader
 
 __all__ = [
     'AnalysisSummary',
@@ -17,18 +14,12 @@ __all__ = [
     'OpenShortPosition',
     'PortfolioStatistics',
     'Position',
+    'PositionMixin',
     'ShortPosition',
+    'SimulatedPositionMixin',
     'Statistics',
     'Trader',
     'TradingSummary',
     'analyse_benchmark',
     'analyse_portfolio',
-    'close_long_position',
-    'close_short_position',
-    'close_simulated_long_position',
-    'close_simulated_short_position',
-    'open_long_position',
-    'open_short_position',
-    'open_simulated_long_position',
-    'open_simulated_short_position',
 ]
