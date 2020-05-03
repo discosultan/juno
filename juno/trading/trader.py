@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, Generic, List, NamedTuple, Optional, TypeVar
 
-from juno import Advice, Candle, Fill, Interval, OrderException, Timestamp, strategies
+from juno import Advice, Candle, Fill, Filters, Interval, OrderException, Timestamp, strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Event, Informant
 from juno.exchanges import Exchange
@@ -451,8 +451,9 @@ def open_simulated_short_position(
     informant: Informant, candle: Candle, exchange: str, symbol: str, collateral: Decimal
 ) -> OpenShortPosition:
     fees, filters = informant.get_fees_filters(exchange, symbol)
+    margin_multiplier = informant.get_margin_multiplier(exchange)
     price = candle.close
-    borrowed = _calculate_borrowed(informant, exchange, symbol, collateral, price)
+    borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
     quote = round_down(price * borrowed, filters.quote_precision)
     fee = round_half_up(quote * fees.taker, filters.quote_precision)
     _, quote_asset = unpack_symbol(symbol)
@@ -471,12 +472,15 @@ async def open_short_position(
     informant: Informant, broker: Broker, exchange: Exchange, candle: Candle, symbol: str,
     collateral: Decimal, test: bool
 ) -> OpenShortPosition:
-    price = candle.close
     base_asset, quote_asset = unpack_symbol(symbol)
     exchange_name = type(exchange).__name__.lower()
+    _, filters = informant.get_fees_filters(exchange_name, symbol)
+    margin_multipler = informant.get_margin_multiplier(exchange_name)
+    price = candle.close
 
     borrowed = (
-        _calculate_borrowed(informant, exchange_name, symbol, collateral, price) if test
+        _calculate_borrowed(filters, margin_multipler, collateral, price)
+        if test
         else await exchange.get_max_borrowable(quote_asset)
     )
 
@@ -508,11 +512,10 @@ def close_simulated_short_position(
     price = candle.close
     base_asset, _ = unpack_symbol(symbol)
     fees, filters = informant.get_fees_filters(exchange, symbol)
+    borrow_info = informant.get_borrow_info(exchange, base_asset)
 
     interest = _calculate_interest(
-        informant,
-        exchange,
-        symbol,
+        borrow_info.hourly_interest_rate,
         position.time,
         candle.time,
     )
@@ -537,9 +540,10 @@ async def close_short_position(
     base_asset, quote_asset = unpack_symbol(symbol)
     exchange_name = type(exchange).__name__.lower()
     fees, filters = informant.get_fees_filters(exchange_name, symbol)
+    borrow_info = informant.get_borrow_info(exchange_name, symbol)
 
     interest = (
-        _calculate_interest(informant, exchange_name, symbol, position.time, candle.time)
+        _calculate_interest(borrow_info.hourly_interest_rate, position.time, candle.time)
         if test
         else (await exchange.map_balances(margin=True))[base_asset].interest
     )
@@ -580,10 +584,8 @@ async def close_short_position(
 
 
 def _calculate_borrowed(
-    informant: Informant, exchange: str, symbol: str, collateral: Decimal, price: Decimal
+    filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal
 ) -> Decimal:
-    _, filters = informant.get_fees_filters(exchange, symbol)
-    margin_multiplier = informant.get_margin_multiplier(exchange)
     collateral_size = filters.size.round_down(collateral / price)
     if collateral_size == 0:
         raise OrderException('Collateral base size 0')
@@ -593,11 +595,6 @@ def _calculate_borrowed(
     return borrowed
 
 
-def _calculate_interest(
-    informant: Informant, exchange: str, symbol: str, start: int, end: int
-) -> Decimal:
-    base_asset, _ = unpack_symbol(symbol)
-    borrow_info = informant.get_borrow_info(exchange, base_asset)
+def _calculate_interest(hourly_rate: Decimal, start: int, end: int) -> Decimal:
     duration = ceil_multiple(end - start, HOUR_MS) // HOUR_MS
-    interest = duration * borrow_info.hourly_interest_rate
-    return interest
+    return duration * hourly_rate
