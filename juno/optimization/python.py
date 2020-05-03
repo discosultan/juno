@@ -40,7 +40,11 @@ class Python(Solver):
 
     def _trade(self, config: Solver.Config) -> TradingSummary:
         state = _State(
-            TradingSummary(start=config.candles[0].time, quote=config.quote),
+            TradingSummary(
+                start=config.candles[0].time,
+                quote=config.quote,
+                quote_asset=config.quote_asset,
+            ),
             config.new_strategy(),
             config.quote,
         )

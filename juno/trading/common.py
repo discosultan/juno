@@ -214,7 +214,10 @@ class OpenShortPosition:
 @dataclass(init=False)
 class TradingSummary:
     start: Timestamp
+    # TODO: We may want to store a dictionary of quote assets instead to support more pairs.
+    # Make sure to update `_get_asset_performance` in statistics.
     quote: Decimal
+    quote_asset: str
 
     _long_positions: List[LongPosition]
     _short_positions: List[ShortPosition]
@@ -228,9 +231,10 @@ class TradingSummary:
 
     _drawdowns_dirty: bool = True
 
-    def __init__(self, start: Timestamp, quote: Decimal) -> None:
+    def __init__(self, start: Timestamp, quote: Decimal, quote_asset: str) -> None:
         self.start = start
         self.quote = quote
+        self.quote_asset = quote_asset
 
         self._long_positions = []
         self._short_positions = []

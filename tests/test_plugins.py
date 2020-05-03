@@ -17,7 +17,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
 
     from juno.plugins.discord import Discord
 
-    trading_summary = TradingSummary(start=0, quote=Decimal('1.0'))
+    trading_summary = TradingSummary(start=0, quote=Decimal('1.0'), quote_asset='btc')
     event = Event()
     async with Discord(event, config) as discord:
         await discord.activate('agent', 'test')

@@ -15,6 +15,7 @@ async def main() -> None:
     trading_summary = TradingSummary(
         start=1582311900000,
         quote=Decimal('0.02'),
+        quote_asset='btc',
     )
     trading_summary._long_positions = [
         LongPosition(

@@ -115,7 +115,11 @@ class Trader:
             state.quote = config.quote
 
         if not state.summary:
-            state.summary = TradingSummary(start=config.start, quote=config.quote)
+            state.summary = TradingSummary(
+                start=config.start,
+                quote=config.quote,
+                quote_asset=config.quote_asset,
+            )
 
         if not state.strategy:
             state.strategy = config.new_strategy()
@@ -582,8 +586,11 @@ def _calculate_borrowed(
     margin_multiplier = informant.get_margin_multiplier(exchange)
     collateral_size = filters.size.round_down(collateral / price)
     if collateral_size == 0:
-        raise OrderException()
-    return collateral_size * (margin_multiplier - 1)
+        raise OrderException('Collateral base size 0')
+    borrowed = collateral_size * (margin_multiplier - 1)
+    if borrowed == 0:
+        raise OrderException('Borrowed 0; incorrect margin multiplier?')
+    return borrowed
 
 
 def _calculate_interest(

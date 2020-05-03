@@ -97,7 +97,7 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
         ),
         LongPosition,
     ),
-    (TradingSummary(start=1, quote=Decimal('1.0')), TradingSummary),
+    (TradingSummary(start=1, quote=Decimal('1.0'), quote_asset='btc'), TradingSummary),
 ])
 async def test_memory_set_get(memory: storages.Memory, item, type_) -> None:
     await memory.set('shard', 'key', item)
