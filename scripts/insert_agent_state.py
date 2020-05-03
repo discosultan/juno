@@ -7,7 +7,7 @@ from juno import Fill
 from juno.agents import Agent, AgentStatus
 from juno.storages import SQLite
 from juno.strategies import MAMACX
-from juno.trading import LongPosition, Trader, TradingSummary
+from juno.trading import Position, Trader, TradingSummary
 from juno.utils import format_as_config
 
 
@@ -15,9 +15,10 @@ async def main() -> None:
     trading_summary = TradingSummary(
         start=1582311900000,
         quote=Decimal('0.02'),
+        quote_asset='btc',
     )
     trading_summary._long_positions = [
-        LongPosition(
+        Position.Long(
             symbol='ada-btc',
             open_time=1582683600000,
             open_fills=[
@@ -40,7 +41,7 @@ async def main() -> None:
                 ),
             ],
         ),
-        LongPosition(
+        Position.Long(
             symbol='ada-btc',
             open_time=1582766400000,
             open_fills=[

@@ -31,7 +31,7 @@ async def main() -> None:
     informant = Informant(storage=sqlite, exchanges=exchanges)
     prices = Prices(chandler=chandler, exchanges=exchanges)
     trader = Trader(chandler=chandler, informant=informant, exchanges=exchanges)
-    rust_solver = Rust()
+    rust_solver = Rust(informant=informant)
     optimizer = Optimizer(
         solver=rust_solver,
         chandler=chandler,

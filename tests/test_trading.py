@@ -6,13 +6,13 @@ import pytest
 
 from juno import BorrowInfo, Candle, Fill, Filters, strategies
 from juno.asyncio import cancel
-from juno.trading import LongPosition, MissedCandlePolicy, OpenLongPosition, Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
 
 from . import fakes
 
 
 def test_long_position() -> None:
-    open_pos = OpenLongPosition(
+    open_pos = Position.OpenLong(
         symbol='eth-btc',
         time=0,
         fills=[
@@ -44,7 +44,7 @@ def test_long_position() -> None:
 
 
 def test_long_position_annualized_roi_overflow() -> None:
-    open_pos = OpenLongPosition(
+    open_pos = Position.OpenLong(
         symbol='eth-btc',
         time=0,
         fills=[
@@ -68,7 +68,7 @@ def test_long_position_annualized_roi_overflow() -> None:
 
 
 def test_trading_summary() -> None:
-    summary = TradingSummary(start=0, quote=Decimal('100.0'))
+    summary = TradingSummary(start=0, quote=Decimal('100.0'), quote_asset='btc')
     # Data based on: https://www.quantshare.com/sa-92-the-average-maximum-drawdown-metric
     # Series: 100, 110, 99, 103.95, 93.55, 102.91
     positions = [
@@ -88,7 +88,7 @@ def test_trading_summary() -> None:
 
 
 def test_empty_trading_summary() -> None:
-    summary = TradingSummary(start=0, quote=Decimal('100.0'))
+    summary = TradingSummary(start=0, quote=Decimal('100.0'), quote_asset='btc')
     assert summary.cost == 100
     assert summary.gain == 100
     assert summary.profit == 0
@@ -367,10 +367,10 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
     assert candle_times[5] == 5
 
 
-def new_closed_long_position(profit: Decimal) -> LongPosition:
+def new_closed_long_position(profit: Decimal) -> Position.Long:
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
-    open_pos = OpenLongPosition(
+    open_pos = Position.OpenLong(
         symbol='eth-btc',
         time=0,
         fills=[

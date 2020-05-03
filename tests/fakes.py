@@ -213,7 +213,7 @@ class Informant(components.Informant):
         exchanges=[],
         exchanges_supporting_symbol=[],
         borrow_info=BorrowInfo(),
-        margin_multiplier=1,
+        margin_multiplier=2,
     ):
         self.fees = fees
         self.filters = filters

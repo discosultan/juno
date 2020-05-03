@@ -42,7 +42,7 @@ class Paper(Backtest):
         self._storage = storage
         self._get_time_ms = get_time_ms
 
-        assert self._trader.has_broker
+        assert self._trader.broker
 
     async def on_running(self, config: Config, state: Agent.State[Trader.State]) -> None:
         await Agent.on_running(self, config, state)

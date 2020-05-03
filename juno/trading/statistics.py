@@ -94,8 +94,7 @@ def _get_asset_performance(
     trades: Dict[int, List[Tuple[str, Decimal]]]
 ) -> List[Dict[str, Decimal]]:
     asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
-    # TODO: Support other than BTC quote.
-    asset_holdings['btc'] = summary.quote
+    asset_holdings[summary.quote_asset] = summary.quote
 
     asset_performance: List[Dict[str, Decimal]] = []
 

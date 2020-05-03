@@ -9,7 +9,7 @@ import plotly.offline as py
 from juno import Candle
 from juno.components import Event
 from juno.time import datetime_utcfromtimestamp_ms
-from juno.trading import LongPosition, Position, ShortPosition, Trader
+from juno.trading import Position, Trader
 
 from .plugin import Plugin
 
@@ -35,7 +35,7 @@ class Discord(Plugin):
         _log.info(f'activated for {agent_name} ({agent_type})')
 
 
-def plot(candles_map: Dict[int, Candle], positions: Iterable[Position]) -> None:
+def plot(candles_map: Dict[int, Candle], positions: Iterable[Position.Closed]) -> None:
     candles = candles_map.values()
     times = [datetime_utcfromtimestamp_ms(c.time) for c in candles]
 
@@ -47,7 +47,7 @@ def plot(candles_map: Dict[int, Candle], positions: Iterable[Position]) -> None:
         low=[c.low for c in candles],
         close=[c.close for c in candles]
     )
-    long_positions = [p for p in positions if isinstance(p, LongPosition)]
+    long_positions = [p for p in positions if isinstance(p, Position.Long)]
     trace2 = go.Scatter(
         x=[datetime_utcfromtimestamp_ms(p.open_time) for p in long_positions],
         y=[candles_map[p.open_time].close for p in long_positions],
@@ -58,7 +58,7 @@ def plot(candles_map: Dict[int, Candle], positions: Iterable[Position]) -> None:
         },
         mode='markers',
     )
-    short_positions = [p for p in positions if isinstance(p, ShortPosition)]
+    short_positions = [p for p in positions if isinstance(p, Position.Short)]
     trace3 = go.Scatter(
         x=[datetime_utcfromtimestamp_ms(p.open_time) for p in short_positions],
         y=[candles_map[p.open_time].close for p in short_positions],

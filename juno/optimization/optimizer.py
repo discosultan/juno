@@ -146,12 +146,6 @@ class Optimizer:
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
                          f'{strfspan(start, end)}')
 
-        fees_filters = {s: self._informant.get_fees_filters(exchange, s) for s in symbols}
-        borrow_infos = {
-            s: self._informant.get_borrow_info(exchange, unpack_symbol(s)[0]) for s in symbols
-        }
-        margin_multiplier = self._informant.get_margin_multiplier(exchange)
-
         # Prepare benchmark stats.
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
 
@@ -195,17 +189,13 @@ class Optimizer:
         toolbox.register('select', tools.selNSGA2)
 
         def evaluate(ind: List[Any]) -> SolverResult:
-            fees, filters = fees_filters[ind[0]]
             return self._solver.solve(
                 Solver.Config(
                     fiat_daily_prices=fiat_daily_prices,
                     benchmark_g_returns=benchmark.g_returns,
                     candles=candles[(ind[0], ind[1])],
-                    borrow_info=borrow_infos[ind[0]],
-                    margin_multiplier=margin_multiplier,
-                    fees=fees,
-                    filters=filters,
                     strategy_type=strategy_type,
+                    exchange=exchange,
                     start=start,
                     end=end,
                     quote=quote,
@@ -307,17 +297,13 @@ class Optimizer:
             f'validating {solver_name} solver result with best args against actual trader'
         )
 
-        fees, filters = fees_filters[best_args[0]]
         solver_result = self._solver.solve(
             Solver.Config(
                 fiat_daily_prices=fiat_daily_prices,
                 benchmark_g_returns=benchmark.g_returns,
                 candles=candles[(best_args[0], best_args[1])],
-                fees=fees,
-                filters=filters,
-                borrow_info=borrow_infos[best_args[0]],
-                margin_multiplier=margin_multiplier,
                 strategy_type=strategy_type,
+                exchange=exchange,
                 start=start,
                 end=end,
                 quote=quote,

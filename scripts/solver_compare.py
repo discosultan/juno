@@ -85,17 +85,14 @@ async def main() -> None:
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
     prices = components.Prices(chandler=chandler, exchanges=exchange_list)
     trader = Trader(chandler=chandler, informant=informant, exchanges=exchange_list)
-    rust_solver = optimization.Rust()
-    python_solver = optimization.Python()
+    rust_solver = optimization.Rust(informant=informant)
+    python_solver = optimization.Python(informant=informant)
     async with binance, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
         fiat_daily_prices = await prices.map_fiat_daily_prices(
             'binance', ('btc', base_asset), start, end
         )
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        fees, filters = informant.get_fees_filters('binance', SYMBOL)
-        borrow_info = informant.get_borrow_info('binance', base_asset)
-        margin_multiplier = informant.get_margin_multiplier('binance')
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
@@ -107,10 +104,7 @@ async def main() -> None:
             end=end,
             quote=Decimal('1.0'),
             candles=candles,
-            fees=fees,
-            filters=filters,
-            borrow_info=borrow_info,
-            margin_multiplier=margin_multiplier,
+            exchange='binance',
             symbol=SYMBOL,
             interval=INTERVAL,
             missed_candle_policy=MISSED_CANDLE_POLICY,

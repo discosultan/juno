@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Ty
 
 import pandas as pd
 
-from juno import BorrowInfo, Candle, Fees, Filters, Interval, Timestamp
+from juno import Candle, Interval, Timestamp
 from juno.strategies import Strategy
 from juno.trading import MissedCandlePolicy, Statistics, TradingSummary
 from juno.utils import unpack_symbol
@@ -17,12 +17,9 @@ class Solver(ABC):
         fiat_daily_prices: Dict[str, List[Decimal]]
         benchmark_g_returns: pd.Series
         candles: List[Candle]
-        fees: Fees
-        filters: Filters
-        borrow_info: BorrowInfo
-        margin_multiplier: int
         strategy_type: Type[Strategy]
         strategy_args: Sequence[Any]
+        exchange: str
         symbol: str
         interval: Interval
         start: Timestamp

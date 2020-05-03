@@ -9,7 +9,7 @@ from juno import Advice
 from juno.asyncio import cancel, create_task_cancel_on_exc
 from juno.components import Event
 from juno.itertools import chunks
-from juno.trading import LongPosition, OpenLongPosition, Position
+from juno.trading import Position
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, format_as_config
 
@@ -68,7 +68,7 @@ class Discord(discord.Client, Plugin):
             await self._send_message(
                 channel_id,
                 format_message(
-                    f'opened {"long" if isinstance(pos, OpenLongPosition) else "short"} position',
+                    f'opened {"long" if isinstance(pos, Position.OpenLong) else "short"} position',
                     format_as_config(pos),
                 ),
             )
@@ -79,7 +79,7 @@ class Discord(discord.Client, Plugin):
             await self._send_message(
                 channel_id,
                 format_message(
-                    f'closed {"long" if isinstance(pos, LongPosition) else "short"} position',
+                    f'closed {"long" if isinstance(pos, Position.Long) else "short"} position',
                     format_as_config(pos),
                 ),
             )
