@@ -2,6 +2,8 @@ import math
 from decimal import Decimal
 from typing import List, Tuple
 
+import pytest
+
 from juno import Candle, Fees, Filters
 from juno.components import Prices
 from juno.optimization import Optimizer, Rust
@@ -14,7 +16,15 @@ from juno.utils import load_json_file
 from . import fakes
 
 
-async def test_optimizer_same_result_with_predefined_seed(request) -> None:
+@pytest.mark.parametrize('long,short', [
+    (True, False),
+    (False, True),
+    (True, True),
+    (False, False),
+])
+async def test_optimizer_same_result_with_predefined_seed(
+    request, long: bool, short: bool
+) -> None:
     portfolio_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]
@@ -63,7 +73,9 @@ async def test_optimizer_same_result_with_predefined_seed(request) -> None:
                 quote=Decimal('1.0'),
                 population_size=5,
                 max_generations=10,
-                seed=1
+                seed=1,
+                long=long,
+                short=short,
             )
             results.append(summary.best[0].portfolio_stats)
 
