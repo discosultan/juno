@@ -335,7 +335,7 @@ class Trader:
             )
         )
 
-        state.quote += Fill.total_quote(position.fills) + Fill.total_fee(position.fills)
+        state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
         state.open_short_position = position
 
         _log.info(f'short position opened: {candle}')

@@ -11,6 +11,11 @@ pub fn mean(list: &[f64]) -> f64 {
     sum / (list.len() as f64)
 }
 
+pub fn round_down(value: f64, precision: u32) -> f64 {
+    let factor = 10_u32.pow(precision) as f64;
+    (value * factor).floor() / factor
+}
+
 pub fn round_half_up(value: f64, precision: u32) -> f64 {
     let factor = 10_u32.pow(precision) as f64;
     (value * factor).round() / factor
@@ -28,7 +33,7 @@ pub fn minmax<'a>(values: impl Iterator<Item = &'a f64>) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
-    use super::{ceil_multiple, floor_multiple, mean, minmax, round_half_up};
+    use super::{ceil_multiple, floor_multiple, mean, minmax, round_down, round_half_up};
 
     #[test]
     fn test_ceil_multiple() {
@@ -47,6 +52,11 @@ mod tests {
     #[test]
     fn test_mean() {
         assert_eq!(mean(&[1.0, 2.0, 3.0]), 2.0)
+    }
+
+    #[test]
+    fn test_round_down() {
+        assert_eq!(round_down(0.004943799, 8), 0.00494379);
     }
 
     #[test]

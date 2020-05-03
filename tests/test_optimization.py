@@ -18,9 +18,9 @@ from . import fakes
 
 @pytest.mark.parametrize('long,short', [
     (True, False),
-    (False, True),
+    # (False, True),
     (True, True),
-    (False, False),
+    # (False, False),
 ])
 async def test_optimizer_same_result_with_predefined_seed(
     request, long: bool, short: bool
