@@ -125,7 +125,7 @@ class Optimizer:
 
         summary = summary or OptimizationSummary()
 
-        fiat_daily_prices = await self._prices.map_fiat_daily_prices(
+        fiat_daily_prices = await self._prices.map_prices(
             exchange, {a for s in symbols for a in unpack_symbol(s)}, start, end
         )
 

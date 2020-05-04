@@ -49,8 +49,19 @@ def list_names(config: Dict[str, Any], name: str) -> Set[str]:
     result = set()
     name_plural = name + 's'
     for keys, v in recursive_iter(config):
-        if (keys[-1] == name) or (len(keys) >= 2 and keys[-2] == name_plural):
+        # TODO: walrus
+        # Check for key value: `exchange: "binance"`.
+        last_key = keys[-1]
+        if isinstance(last_key, str) and any(n == name for n in last_key.split('_')):
             result.add(v)
+        # Check for key listL `exchanges: ["binance", "coinbase"]`
+        elif len(keys) >= 2:
+            second_to_last_key = keys[-2]
+            if (
+                isinstance(second_to_last_key, str)
+                and any(n == name_plural for n in second_to_last_key.split('_'))
+            ):
+                result.add(v)
     return result
 
 

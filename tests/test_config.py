@@ -119,7 +119,9 @@ def test_list_names() -> None:
         'qux': [{
             'bar': 'e'
         }],
+        'dummy_bar': 'f',
+        'dummy_bars': ['g'],
     }
-    expected_output = {'a', 'b', 'c', 'e'}
+    expected_output = {'a', 'b', 'c', 'e', 'f', 'g'}
     output = config.list_names(input_, 'bar')
     assert output == expected_output
