@@ -54,7 +54,7 @@ def list_names(config: Dict[str, Any], name: str) -> Set[str]:
         last_key = keys[-1]
         if isinstance(last_key, str) and any(n == name for n in last_key.split('_')):
             result.add(v)
-        # Check for key listL `exchanges: ["binance", "coinbase"]`
+        # Check for key list: `exchanges: ["binance", "coinbase"]`
         elif len(keys) >= 2:
             second_to_last_key = keys[-2]
             if (
