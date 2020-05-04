@@ -1,3 +1,4 @@
+import importlib
 import inspect
 from types import ModuleType
 from typing import Any, Dict, List, Type
@@ -28,3 +29,23 @@ def get_module_type(module: ModuleType, name: str) -> Type[Any]:
     if len(found_members) > 1:
         raise ValueError(f'Found more than one type named "{name}" in module "{module.__name__}".')
     return found_members[0][1]
+
+
+def get_fully_qualified_name(obj: Any) -> str:
+    # We separate module and type with a '::' in order to more easily resolve these components
+    # in reverse.
+    type_ = obj if inspect.isclass(obj) else type(obj)
+    return f'{type_.__module__}::{type_.__qualname__}'
+
+
+def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
+    # Resolve module.
+    module_name, type_name = name.split('::')
+    module = importlib.import_module(module_name)
+
+    # Resolve nested classes.
+    type_ = None
+    for sub_name in type_name.split('.'):
+        type_ = getattr(type_ if type_ else module, sub_name)
+    assert type_
+    return type_
