@@ -24,8 +24,8 @@ class Prices:
         fiat_asset: str = 'usdt',
         interval: int = DAY_MS,
     ) -> Dict[str, List[Decimal]]:
-
         """Maps all assets found in symbols to their fiat prices."""
+
         start = floor_multiple(start, interval)
         end = floor_multiple(end, interval)
 

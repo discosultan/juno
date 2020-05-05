@@ -61,7 +61,6 @@ def analyse_portfolio(
     asset_performance = _get_asset_performance(
         trading_summary, start_day, end_day, fiat_daily_prices, trades
     )
-    _log.critical(asset_performance)
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance]
     )
