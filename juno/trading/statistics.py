@@ -41,13 +41,14 @@ class AnalysisSummary(NamedTuple):
 
 def analyse_benchmark(prices: List[Decimal]) -> AnalysisSummary:
     performance = pd.Series([float(p) for p in prices])
+    _log.info('calculating benchmark statistics')
     return _calculate_statistics(performance)
 
 
 def analyse_portfolio(
     benchmark_g_returns: pd.Series,
     fiat_daily_prices: Dict[str, List[Decimal]],
-    trading_summary: TradingSummary
+    trading_summary: TradingSummary,
 ) -> AnalysisSummary:
     start_day = floor_multiple(trading_summary.start, DAY_MS)
     assert trading_summary.end is not None
@@ -64,6 +65,7 @@ def analyse_portfolio(
         [float(sum(v for v in apd.values())) for apd in asset_performance]
     )
 
+    _log.info('calculating portfolio statistics')
     return _calculate_statistics(portfolio_performance, benchmark_g_returns)
 
 
@@ -91,7 +93,7 @@ def _get_asset_performance(
     start_day: int,
     end_day: int,
     market_data: Dict[str, List[Decimal]],
-    trades: Dict[int, List[Tuple[str, Decimal]]]
+    trades: Dict[int, List[Tuple[str, Decimal]]],
 ) -> List[Dict[str, Decimal]]:
     asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
     asset_holdings[summary.quote_asset] = summary.quote

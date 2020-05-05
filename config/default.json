@@ -8,7 +8,9 @@
             "exchange": "binance",
             "symbol": "eth-btc",
             "interval": "1d",
-            "quote": 0.1,
+            "quote": 1.0,
+            "start": "2018-01-01",
+            "end": "2020-01-01",
             "strategy": {
                 "type": "singlema",
                 "ma": "sma",

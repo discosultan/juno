@@ -8,7 +8,7 @@ from juno.optimization import Optimizer
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import Trader, analyse_benchmark, analyse_portfolio
-from juno.utils import format_as_config, unpack_symbol
+from juno.utils import format_as_config
 
 from .agent import Agent
 
@@ -58,8 +58,11 @@ class Foo(Agent):
         state.result.summary.finish(end)
 
         # Statistics.
-        fiat_daily_prices = await self._prices.map_fiat_daily_prices(
-            exchange, {a for s in symbols for a in unpack_symbol(s)}, trading_start, end
+        fiat_daily_prices = await self._prices.map_prices(
+            exchange=exchange,
+            symbols=symbols,
+            start=trading_start,
+            end=end,
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])

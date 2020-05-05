@@ -251,8 +251,11 @@ class Informant(components.Informant):
 
 
 class Historian(components.Historian):
-    def __init__(self) -> None:
-        pass
+    def __init__(self, first_candle=Candle()):
+        self.first_candle = first_candle
+
+    async def find_first_candle(self, exchange, symbol, interval):
+        return self.first_candle
 
 
 class Time:

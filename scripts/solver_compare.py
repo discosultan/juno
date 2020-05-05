@@ -83,14 +83,18 @@ async def main() -> None:
     informant = components.Informant(storage, exchange_list)
     trades = components.Trades(storage, exchange_list)
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
-    prices = components.Prices(chandler=chandler, exchanges=exchange_list)
+    historian = components.Historian(chandler=chandler, storage=storage, exchanges=exchange_list)
+    prices = components.Prices(chandler=chandler, historian=historian)
     trader = Trader(chandler=chandler, informant=informant, exchanges=exchange_list)
     rust_solver = optimization.Rust(informant=informant)
     python_solver = optimization.Python(informant=informant)
     async with binance, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        fiat_daily_prices = await prices.map_fiat_daily_prices(
-            'binance', ('btc', base_asset), start, end
+        fiat_daily_prices = await prices.map_prices(
+            exchange='binance',
+            symbols=[SYMBOL],
+            start=start,
+            end=end,
         )
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
 

@@ -38,6 +38,8 @@ class Backtest(Agent):
         trailing_stop: Decimal = Decimal('0.0')
         long: bool = True
         short: bool = False
+        fiat_exchange: Optional[str] = None
+        fiat_asset: str = 'usdt'
 
         @property
         def base_asset(self) -> str:
@@ -113,8 +115,13 @@ class Backtest(Agent):
             return
 
         # Fetch necessary market data.
-        fiat_daily_prices = await self._prices.map_fiat_daily_prices(
-            config.exchange, (config.base_asset, config.quote_asset), start, end
+        fiat_daily_prices = await self._prices.map_prices(
+            exchange=config.exchange,
+            symbols=[config.symbol, f'btc-{config.fiat_asset}'],
+            fiat_asset=config.fiat_asset,
+            fiat_exchange=config.fiat_exchange,
+            start=start,
+            end=end,
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
