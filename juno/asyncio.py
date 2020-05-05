@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 import logging
 import traceback
 from typing import (
@@ -20,6 +21,11 @@ def resolved_future(result: T) -> asyncio.Future:
 async def resolved_stream(*results: T) -> AsyncIterable[T]:
     for result in results:
         yield result
+
+
+async def repeat_async(value: T) -> AsyncIterable[T]:
+    for val in itertools.repeat(value):
+        yield val
 
 
 async def chain_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:

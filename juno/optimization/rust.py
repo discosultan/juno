@@ -80,6 +80,7 @@ class Rust(Solver):
             await asyncio.get_running_loop().run_in_executor(
                 None, shutil.copy2, str(compiled_path), str(dst_path)
             )
+            _log.info('rust module compiled')
 
         self._ffi = cffi.FFI()
         self._ffi.cdef(_build_cdef())

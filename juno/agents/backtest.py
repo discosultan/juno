@@ -117,14 +117,14 @@ class Backtest(Agent):
         # Fetch necessary market data.
         fiat_daily_prices = await self._prices.map_prices(
             exchange=config.exchange,
-            assets=(config.base_asset, config.quote_asset),
+            symbols=[config.symbol, f'btc-{config.fiat_asset}'],
             fiat_asset=config.fiat_asset,
             fiat_exchange=config.fiat_exchange,
             start=start,
             end=end,
         )
 
-        benchmark = analyse_benchmark(fiat_daily_prices[config.quote_asset])
+        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
         portfolio = analyse_portfolio(
             benchmark.g_returns, fiat_daily_prices, state.result.summary
         )

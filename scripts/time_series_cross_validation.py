@@ -29,7 +29,7 @@ async def main() -> None:
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=exchanges)
     historian = Historian(chandler=chandler, storage=sqlite, exchanges=exchanges)
     informant = Informant(storage=sqlite, exchanges=exchanges)
-    prices = Prices(chandler=chandler, historian=historian, exchanges=exchanges)
+    prices = Prices(chandler=chandler, historian=historian)
     trader = Trader(chandler=chandler, informant=informant, exchanges=exchanges)
     rust_solver = Rust(informant=informant)
     optimizer = Optimizer(
@@ -86,7 +86,10 @@ async def main() -> None:
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         fiat_daily_prices = await prices.map_prices(
-            tc.exchange, (base_asset, quote_asset), validation_start, validation_end
+            exchange=tc.exchange,
+            symbols=[SYMBOL],
+            start=validation_start,
+            end=validation_end,
         )
         benchmark = analyse_benchmark(fiat_daily_prices[quote_asset])
         portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, trading_summary)

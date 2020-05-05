@@ -21,7 +21,6 @@ from juno.trading import (
     MissedCandlePolicy, Statistics, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
 )
 from juno.typing import map_input_args
-from juno.utils import unpack_symbol
 
 from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from .solver import Solver, SolverResult
@@ -87,6 +86,8 @@ class Optimizer:
         seed: Optional[int] = None,
         verbose: bool = False,
         summary: Optional[OptimizationSummary] = None,
+        fiat_exchange: Optional[str] = None,
+        fiat_asset: str = 'usdt',
     ) -> OptimizationSummary:
         now = time_ms()
 
@@ -126,7 +127,12 @@ class Optimizer:
         summary = summary or OptimizationSummary()
 
         fiat_daily_prices = await self._prices.map_prices(
-            exchange, {a for s in symbols for a in unpack_symbol(s)}, start, end
+            exchange=exchange,
+            symbols=symbols + [f'btc-{fiat_asset}'],
+            start=start,
+            end=end,
+            fiat_asset=fiat_asset,
+            fiat_exchange=fiat_exchange,
         )
 
         candles: Dict[Tuple[str, int], List[Candle]] = {}

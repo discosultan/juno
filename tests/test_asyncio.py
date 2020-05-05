@@ -2,7 +2,7 @@ import asyncio
 
 from juno.asyncio import (
     Barrier, Event, cancel, chain_async, enumerate_async, first_async, list_async, merge_async,
-    resolved_stream, zip_async
+    repeat_async, resolved_stream, zip_async
 )
 
 
@@ -75,6 +75,15 @@ async def test_merge_async() -> None:
         assert val == counter
         counter += 1
     assert counter == 4
+
+
+async def test_repeat_async() -> None:
+    counter = 0
+    async for value in repeat_async(1):
+        assert value == 1
+        counter += 1
+        if counter == 3:
+            break
 
 
 async def test_zip_async() -> None:
