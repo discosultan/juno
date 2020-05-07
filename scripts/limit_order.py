@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import logging
+from decimal import Decimal
 
 from juno import Fill, Side, exchanges
 from juno.brokers import Limit
@@ -10,16 +11,14 @@ from juno.storages import Memory, SQLite
 from juno.utils import unpack_symbol
 
 EXCHANGE_TYPE = exchanges.Binance
-SIDE = 'buy'
-SYMBOL = 'eth-btc'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('side', nargs='?', default=SIDE)
-parser.add_argument('symbol', nargs='?', default=SYMBOL)
-parser.add_argument('value', nargs='?', default=None, help='if buy, quote; otherwise base size')
+parser.add_argument('side', nargs='?', type=lambda s: Side[s.upper()], default=Side.BUY)
+parser.add_argument('symbol', nargs='?', default='eth-btc')
+parser.add_argument(
+    'value', nargs='?', type=Decimal, default=None, help='if buy, quote; otherwise base size'
+)
 args = parser.parse_args()
-
-side = Side[args.side.upper()]
 
 
 async def main() -> None:
@@ -38,12 +37,12 @@ async def main() -> None:
         available_base = wallet.get_balance(exchange_name, base_asset).available
         available_quote = wallet.get_balance(exchange_name, quote_asset).available
         value = args.value if args.value is not None else (
-            available_quote if side is Side.BUY else available_base
+            available_quote if args.side is Side.BUY else available_base
         )
         logging.info(
             f'available base: {available_base} {base_asset}; available quote: {available_quote} '
             f'{quote_asset}')
-        if side is Side.BUY:
+        if args.side is Side.BUY:
             market_fills = orderbook.find_order_asks_by_quote(
                 exchange=exchange_name, symbol=args.symbol, quote=value, fee_rate=fees.maker,
                 filters=filters
@@ -61,7 +60,7 @@ async def main() -> None:
             )
 
         logging.info(res)
-        logging.info(f'{side.name} {args.symbol}')
+        logging.info(f'{args.side.name} {args.symbol}')
         logging.info(f'total size: {Fill.total_size(res.fills)}')
         logging.info(f'total quote: {Fill.total_quote(res.fills)}')
         logging.info(f'total fee: {Fill.total_fee(res.fills)}')

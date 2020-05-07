@@ -92,9 +92,10 @@ class SimulatedPositionMixin(abc.ABC):
         borrow_info = self.informant.get_borrow_info(exchange, base_asset)
 
         interest = _calculate_interest(
-            borrow_info.hourly_interest_rate,
-            position.time,
-            candle.time,
+            borrowed=position.borrowed,
+            hourly_rate=borrow_info.hourly_interest_rate,
+            start=position.time,
+            end=candle.time,
         )
         size = position.borrowed + interest
         quote = round_down(price * size, filters.quote_precision)
@@ -198,8 +199,12 @@ class PositionMixin(abc.ABC):
         exchange_instance = self.exchanges[exchange]
 
         interest = (
-            _calculate_interest(borrow_info.hourly_interest_rate, position.time, candle.time)
-            if test
+            _calculate_interest(
+                borrowed=position.borrowed,
+                hourly_rate=borrow_info.hourly_interest_rate,
+                start=position.time,
+                end=candle.time,
+            ) if test
             else (await exchange_instance.map_balances(margin=True))[base_asset].interest
         )
         size = position.borrowed + interest
@@ -248,6 +253,6 @@ def _calculate_borrowed(
     return borrowed
 
 
-def _calculate_interest(hourly_rate: Decimal, start: int, end: int) -> Decimal:
+def _calculate_interest(borrowed: Decimal, hourly_rate: Decimal, start: int, end: int) -> Decimal:
     duration = ceil_multiple(end - start, HOUR_MS) // HOUR_MS
-    return duration * hourly_rate
+    return borrowed * duration * hourly_rate
