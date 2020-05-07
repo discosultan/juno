@@ -1,24 +1,25 @@
 {
     "log_format": "color",
-    "log_level": "info",
+    "log_level": "debug",
     "storage": "sqlite",
+    "binance": {
+        "high_precision": false
+    },
+    "broker": "limit",
     "agents": [
         {
-            "type": "backtest",
+            "type": "live",
             "exchange": "binance",
             "symbol": "eth-btc",
-            "interval": "1d",
-            "quote": 1.0,
-            "start": "2018-01-01",
-            "end": "2020-01-01",
+            "interval": "1m",
+            "quote": 0.005,
             "strategy": {
-                "type": "singlema",
-                "ma": "sma",
-                "period": 14,
-                "persistence": 1
+                "type": "fixed",
+                "advices": ["short", "liquidate"],
+                "cancel": true
             },
             "long": true,
-            "short": false
+            "short": true
         }
     ]
 }

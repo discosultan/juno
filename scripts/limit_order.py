@@ -18,6 +18,12 @@ parser.add_argument('symbol', nargs='?', default='eth-btc')
 parser.add_argument(
     'value', nargs='?', type=Decimal, default=None, help='if buy, quote; otherwise base size'
 )
+parser.add_argument(
+    '-m', '--margin',
+    action='store_true',
+    default=False,
+    help='if set, use margin; otherwise spot account',
+)
 args = parser.parse_args()
 
 
@@ -48,7 +54,8 @@ async def main() -> None:
                 filters=filters
             )
             res = await limit.buy_by_quote(
-                exchange=exchange_name, symbol=args.symbol, quote=value, test=False
+                exchange=exchange_name, symbol=args.symbol, quote=value, test=False,
+                margin=args.margin
             )
         else:
             market_fills = orderbook.find_order_bids(
@@ -56,11 +63,12 @@ async def main() -> None:
                 filters=filters
             )
             res = await limit.sell(
-                exchange=exchange_name, symbol=args.symbol, size=value, test=False
+                exchange=exchange_name, symbol=args.symbol, size=value, test=False,
+                margin=args.margin
             )
 
         logging.info(res)
-        logging.info(f'{args.side.name} {args.symbol}')
+        logging.info(f'{"margin" if args.margin else "spot"} {args.side.name} {args.symbol}')
         logging.info(f'total size: {Fill.total_size(res.fills)}')
         logging.info(f'total quote: {Fill.total_quote(res.fills)}')
         logging.info(f'total fee: {Fill.total_fee(res.fills)}')

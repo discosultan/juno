@@ -164,16 +164,15 @@ class PositionMixin(abc.ABC):
         margin_multipler = self.informant.get_margin_multiplier(exchange)
         exchange_instance = self.exchanges[exchange]
 
-        borrowed = (
-            _calculate_borrowed(filters, margin_multipler, collateral, price)
-            if test
-            else await exchange_instance.get_max_borrowable(quote_asset)
-        )
-        if not test:
+        if test:
+            borrowed = _calculate_borrowed(filters, margin_multipler, collateral, price)
+        else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
             await exchange_instance.transfer(quote_asset, collateral, margin=True)
+            borrowed = await exchange_instance.get_max_borrowable(quote_asset)
             _log.info(f'borrowing {borrowed} {base_asset} from exchange')
             await exchange_instance.borrow(asset=base_asset, size=borrowed)
+
         res = await self.broker.sell(
             exchange=exchange,
             symbol=symbol,
@@ -195,7 +194,7 @@ class PositionMixin(abc.ABC):
     ) -> Position.Short:
         base_asset, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
-        borrow_info = self.informant.get_borrow_info(exchange, symbol)
+        borrow_info = self.informant.get_borrow_info(exchange, base_asset)
         exchange_instance = self.exchanges[exchange]
 
         interest = (
