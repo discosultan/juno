@@ -80,6 +80,7 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
             value[key] = raw_to_type(sub_value, sub_type)
         return value
 
+    # Option type.
     if origin is Union:
         sub_type, _ = get_args(type_)
         if value is None:
