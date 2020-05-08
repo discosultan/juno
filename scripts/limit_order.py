@@ -40,8 +40,12 @@ async def main() -> None:
     limit = Limit(informant, orderbook, exchanges)
     async with exchange, memory, informant, orderbook, wallet:
         fees, filters = informant.get_fees_filters(exchange_name, args.symbol)
-        available_base = wallet.get_balance(exchange_name, base_asset).available
-        available_quote = wallet.get_balance(exchange_name, quote_asset).available
+        available_base = wallet.get_balance(
+            exchange_name, base_asset, margin=args.margin
+        ).available
+        available_quote = wallet.get_balance(
+            exchange_name, quote_asset, margin=args.margin
+        ).available
         value = args.value if args.value is not None else (
             available_quote if args.side is Side.BUY else available_base
         )
