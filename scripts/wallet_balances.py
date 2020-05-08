@@ -12,6 +12,9 @@ KEEP_STREAMING = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('exchange', nargs='?', default='binance')
+parser.add_argument(
+    '-s', '--stream', default=False, action='store_true', help='keep streaming balance updates'
+)
 args = parser.parse_args()
 
 

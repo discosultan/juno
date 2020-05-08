@@ -7,10 +7,9 @@ from juno.config import from_env, init_instance
 
 EXCHANGE_TYPE = exchanges.Binance
 CLIENT_ID = 'b311e925-6c5c-40ad-b73d-e79494af4d81'
-SYMBOL = 'eth-btc'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('symbol', nargs='?', default=SYMBOL)
+parser.add_argument('symbol', nargs='?', default='eth-btc')
 parser.add_argument('client_id', nargs='?', default=CLIENT_ID)
 args = parser.parse_args()
 
