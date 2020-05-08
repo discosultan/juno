@@ -12,26 +12,20 @@ from juno.utils import unpack_symbol
 
 MARKET_BROKER_TYPE = brokers.Market2
 EXCHANGE_TYPE = exchanges.Coinbase
-SIDE = 'buy'
-SYMBOL = 'btc-eur'
 QUOTE: Optional[Decimal] = Decimal('10.0')
 BASE = None
 TEST = False
 
 # MARKET_BROKER_TYPE = brokers.Market2
 # EXCHANGE_TYPE = exchanges.Binance
-# SIDE = 'buy'
-# SYMBOL = 'eth-btc'
 # QUOTE: Optional[Decimal] = Decimal('0.005')
 # BASE = None
 # TEST = False
 
 parser = argparse.ArgumentParser()
-parser.add_argument('side', nargs='?', default=SIDE)
-parser.add_argument('symbol', nargs='?', default=SYMBOL)
+parser.add_argument('side', nargs='?', type=lambda s: Side[s.upper()], default=Side.BUY)
+parser.add_argument('symbol', nargs='?', default='eth-btc')
 args = parser.parse_args()
-
-side = Side[args.side.upper()]
 
 
 async def main() -> None:
@@ -53,7 +47,7 @@ async def main() -> None:
             else wallet.get_balance(exchange_name, quote_asset).available
         )
         logging.info(f'base: {base} {base_asset}; quote: {quote} {quote_asset}')
-        if side is Side.BUY:
+        if args.side is Side.BUY:
             res = await market.buy_by_quote(
                 exchange=exchange_name, symbol=args.symbol, quote=quote, test=TEST
             )
@@ -63,7 +57,7 @@ async def main() -> None:
             )
 
         logging.info(res)
-        logging.info(f'{side.name} {args.symbol}')
+        logging.info(f'{args.side.name} {args.symbol}')
         logging.info(f'total size: {Fill.total_size(res.fills)}')
         logging.info(f'total quote: {Fill.total_quote(res.fills)}')
         logging.info(f'total fee: {Fill.total_fee(res.fills)}')

@@ -6,7 +6,7 @@
         {
             "type": "backtest",
             "exchange": "binance",
-            "symbol": "eth-btc",
+            "symbol": "ada-btc",
             "interval": "1d",
             "quote": 1.0,
             "missed_candle_policy": "ignore",

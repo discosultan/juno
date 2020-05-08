@@ -313,7 +313,7 @@ fn close_short_position<T: Strategy>(
 
         let duration = ceil_multiple(candle.time - pos.time, HOUR_MS) / HOUR_MS;
         let hourly_interest_rate = borrow_info.daily_interest_rate / 24.0;
-        let interest = duration as f64 * hourly_interest_rate;
+        let interest = borrowed * duration as f64 * hourly_interest_rate;
 
         let mut size = borrowed + interest;
         let quote = round_down(price * size, filters.quote_precision);

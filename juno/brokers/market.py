@@ -113,5 +113,5 @@ class Market(Broker):
             symbol=symbol, side=side, type_=OrderType.MARKET, size=size, quote=quote, test=test,
             margin=margin
         )
-        assert res.status is OrderStatus.FILLED
+        assert test or res.status is OrderStatus.FILLED
         return res

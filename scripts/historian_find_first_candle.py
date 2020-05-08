@@ -6,18 +6,14 @@ from juno import exchanges
 from juno.components import Chandler, Historian, Trades
 from juno.config import from_env, init_instance
 from juno.storages import SQLite
-from juno.time import strftimestamp, strpinterval
+from juno.time import HOUR_MS, strftimestamp, strpinterval
 
 EXCHANGE_TYPE = exchanges.Binance
-SYMBOL = 'eth-btc'
-INTERVAL = '1h'
 
 parser = argparse.ArgumentParser()
-parser.add_argument('symbol', nargs='?', default=SYMBOL)
-parser.add_argument('interval', nargs='?', default=INTERVAL)
+parser.add_argument('symbol', nargs='?', default='eth-btc')
+parser.add_argument('interval', nargs='?', type=strpinterval, default=HOUR_MS)
 args = parser.parse_args()
-
-interval = strpinterval(args.interval)
 
 
 async def main() -> None:
@@ -28,7 +24,7 @@ async def main() -> None:
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[client])
     historian = Historian(chandler=chandler, storage=sqlite, exchanges=[client])
     async with client:
-        candle = await historian.find_first_candle(exchange_name, args.symbol, interval)
+        candle = await historian.find_first_candle(exchange_name, args.symbol, args.interval)
         logging.info(strftimestamp(candle.time))
 
 
