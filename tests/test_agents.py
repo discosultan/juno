@@ -284,9 +284,7 @@ async def test_live_persist_and_resume(
         await cancel(agent_run_task)
 
         exchange.candle_queue.put_nowait(Candle(time=1, close=Decimal('1.0')))
-        # import logging
         agent_run_task = asyncio.create_task(agent.run(config))
-        await agent_run_task
         await exchange.candle_queue.join()
         await cancel(agent_run_task)
 

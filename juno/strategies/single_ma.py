@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Generic, TypeVar
 
 from juno import Advice, Candle, indicators
 from juno.math import Choice, Int
@@ -16,14 +15,12 @@ _ma_choices = Choice([i.__name__.lower() for i in [
     indicators.Kama,
 ]])
 
-T = TypeVar('T', bound=indicators.MovingAverage)
-
 
 # Signals a long position when a candle close price goes above moving average and moving average is
 # ascending.
 # Signals a short position when a candle close price goes below moving average and moving average
 # is descending.
-class SingleMA(Generic[T], Strategy):
+class SingleMA(Strategy):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -34,7 +31,7 @@ class SingleMA(Generic[T], Strategy):
             }
         )
 
-    _ma: T
+    _ma: indicators.MovingAverage
     _previous_ma_value: Decimal = Decimal('0.0')
     _advice: Advice = Advice.NONE
 

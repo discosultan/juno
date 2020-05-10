@@ -1,7 +1,6 @@
 import importlib
 import inspect
 from collections import deque
-from dataclasses import asdict, is_dataclass
 from decimal import Decimal
 from enum import Enum
 from types import TracebackType
@@ -55,6 +54,9 @@ def isenum(obj: Any) -> bool:
 
 def raw_to_type(value: Any, type_: Type[Any]) -> Any:
     origin = get_root_origin(type_) or type_
+
+    if origin is Any and value is None:
+        return None
 
     # Needs to be a list because type_ can be non-hashable for lookup in a set.
     if origin in [bool, int, float, str, Decimal]:
@@ -149,16 +151,14 @@ def type_to_raw(value: Any) -> Any:
     if isenum(value):
         return value.value
 
-    if is_dataclass(value):
-        value_dict = asdict(value)
-        value_dict['__type__'] = get_fully_qualified_name(value)
-        return {k: type_to_raw(v) for k, v in value_dict.items()}
-
+    # Data class and regular class. We don't want to use `dataclasses.asdict` because it is
+    # recursive in converting dataclasses.
     # TODO: walrus
     value_dict = getattr(value, '__dict__', None)
     if value_dict is not None:
-        value_dict['__type__'] = get_fully_qualified_name(value)
-        return {k: type_to_raw(v) for k, v in value_dict.items()}
+        res = {k: type_to_raw(v) for k, v in value_dict.items()}
+        res['__type__'] = get_fully_qualified_name(value)
+        return res
 
     raise NotImplementedError(f'Unable to convert {value}')
 
