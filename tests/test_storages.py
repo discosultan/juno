@@ -1,7 +1,9 @@
+import abc
 import asyncio
 import random
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, List, NamedTuple
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 import pytest
 
@@ -141,6 +143,10 @@ async def test_memory_set_get_different(memory: storages.Memory) -> None:
     assert out_filters == filters
 
 
+class Item(NamedTuple):
+    time: int
+
+
 async def test_memory_store_overlapping_time_series(memory: storages.Memory) -> None:
     await memory.store_time_series_and_span('shard', 'key', [Item(0), Item(1)], 0, 2)
     await memory.store_time_series_and_span('shard', 'key', [Item(0), Item(1), Item(2)], 0, 3)
@@ -174,5 +180,55 @@ async def test_memory_store_overlapping_time_series_concurrently(memory: storage
     assert items == [Item(i) for i in range(min_start, max_end)]
 
 
-class Item(NamedTuple):
-    time: int
+class Abstract(abc.ABC):
+    @abc.abstractproperty
+    def value(self) -> int:
+        return 0
+
+
+class Concrete(Abstract):
+    @property
+    def value(self) -> int:
+        return 1
+
+
+class UnionTypeA(NamedTuple):
+    value: int = 1
+
+
+class UnionTypeB(NamedTuple):
+    value: int = 2
+
+
+@dataclass
+class Container:
+    abstract: Abstract
+    union: Union[UnionTypeA, UnionTypeB]
+    any_: Any
+    optional: Optional[Abstract]
+
+
+async def test_memory_get_set_dynamic_types(storage: storages.Storage) -> None:
+    input_ = Container(
+        abstract=Concrete(),
+        union=UnionTypeB(),
+        any_=Container(
+            abstract=Concrete(),
+            union=UnionTypeB(),
+            any_=None,
+            optional=None,
+        ),
+        optional=Concrete(),
+    )
+    await storage.set('shard', 'key', input_)
+    output = await storage.get('shard', 'key', Container)
+
+    assert output
+    assert output.abstract.value == 1
+    assert output.union.value == 2
+    assert output.any_
+    assert output.any_.abstract.value == 1
+    assert output.any_.union.value == 2
+    assert not output.any_.any_
+    assert output.optional
+    assert output.optional.value == 1

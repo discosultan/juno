@@ -84,7 +84,7 @@ async def test_backtest(exchange: fakes.Exchange, container: Container) -> None:
     agent = container.resolve(Backtest)
 
     async with container:
-        res: Trader.State[Any] = await agent.run(config)
+        res = await agent.run(config)
 
     summary = res.summary
     assert summary

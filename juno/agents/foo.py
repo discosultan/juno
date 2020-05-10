@@ -28,7 +28,7 @@ class Foo(Agent):
         self._event = event
         self._storage = storage
 
-    async def on_running(self, config: Any, state: Agent.State[Trader.State]) -> None:
+    async def on_running(self, config: Any, state: Agent.State) -> None:
         await super().on_running(config, state)
 
         required_start = strptimestamp('2019-01-01')

@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Dict, NamedTuple, Optional
 
@@ -9,14 +10,14 @@ from juno.math import floor_multiple
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader
+from juno.utils import format_as_config
 
-from .agent import Agent
-from .backtest import Backtest
+from .agent import Agent, AgentStatus
 
 _log = logging.getLogger(__name__)
 
 
-class Paper(Backtest):
+class Paper(Agent):
     class Config(NamedTuple):
         exchange: str
         symbol: str
@@ -32,6 +33,12 @@ class Paper(Backtest):
         long: bool = True
         short: bool = False
 
+    @dataclass
+    class State:
+        name: str
+        status: AgentStatus
+        result: Optional[Trader.State] = None
+
     def __init__(
         self, informant: Informant, trader: Trader, event: Event = Event(),
         storage: Storage = Memory(), get_time_ms: Callable[[], int] = time_ms
@@ -44,7 +51,7 @@ class Paper(Backtest):
 
         assert self._trader.broker
 
-    async def on_running(self, config: Config, state: Agent.State[Trader.State]) -> None:
+    async def on_running(self, config: Config, state: State) -> None:
         await Agent.on_running(self, config, state)
 
         current = floor_multiple(self._get_time_ms(), config.interval)
@@ -73,5 +80,14 @@ class Paper(Backtest):
             long=config.long,
             short=config.short,
         )
-        state.result = Trader.State()
+        if not state.result:
+            state.result = Trader.State()
         await self._trader.run(trader_config, state.result)
+
+    async def on_finally(self, config: Config, state: State) -> None:
+        assert state.result
+        _log.info(
+            f'{self.get_name(state)}: finished with result '
+            f'{format_as_config(state.result.summary)}'
+        )
+        await self._event.emit(state.name, 'finished', state.result.summary)

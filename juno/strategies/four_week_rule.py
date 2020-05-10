@@ -1,6 +1,6 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque, Generic, TypeVar
+from typing import Deque
 
 from juno import Advice, Candle, indicators
 from juno.math import Choice, Int, minmax
@@ -17,14 +17,12 @@ _ma_choices = Choice([i.__name__.lower() for i in [
     indicators.Kama,
 ]])
 
-T = TypeVar('T', bound=indicators.MovingAverage)
-
 
 # Signals a long position when a candle close price goes above a highest four week close price.
 # Signals a short position when a candle close price goes below a lowest four week close price.
 # Signals liquidation when a candle close price crosses a two week moving average.
 # Works with daily candles!
-class FourWeekRule(Generic[T], Strategy):
+class FourWeekRule(Strategy):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -35,7 +33,7 @@ class FourWeekRule(Generic[T], Strategy):
         )
 
     _prices: Deque[Decimal]
-    _ma: T
+    _ma: indicators.MovingAverage
     _advice: Advice = Advice.NONE
 
     def __init__(self, period: int = 28, ma: str = indicators.Sma.__name__.lower()) -> None:

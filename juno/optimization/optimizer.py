@@ -280,7 +280,7 @@ class Optimizer:
             strategy_kwargs=map_input_args(strategy_type.__init__, best_args[6:]),
         )
 
-        state: Trader.State[Any] = Trader.State()
+        state = Trader.State()
         try:
             await self._trader.run(trading_config, state)
         except OrderException:

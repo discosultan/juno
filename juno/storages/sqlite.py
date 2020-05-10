@@ -12,7 +12,7 @@ from typing import (
 from juno import Interval, Timestamp, json
 from juno.itertools import generate_missing_spans, merge_adjacent_spans
 from juno.time import MAX_TIME_MS, strfspan
-from juno.typing import raw_to_type
+from juno.typing import raw_to_type, type_to_raw
 from juno.utils import home_path
 
 from .storage import Storage
@@ -20,7 +20,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = '41'
+_VERSION = '42'
 
 T = TypeVar('T')
 
@@ -56,7 +56,7 @@ class SQLite(Storage):
                 f'streaming span(s) between {strfspan(start, end)} from shard {shard} {key}'
             )
             with self._connect(shard) as conn:
-                span_key = f'{key}_{SPAN_KEY}'
+                span_key = f'{key}_{_SPAN_KEY}'
                 self._ensure_table(conn, span_key, Span)
                 return conn.execute(
                     f'SELECT * FROM {span_key} WHERE start < ? AND end > ? ORDER BY start',
@@ -98,7 +98,7 @@ class SQLite(Storage):
                 )
 
         def inner() -> None:
-            span_key = f'{key}_{SPAN_KEY}'
+            span_key = f'{key}_{_SPAN_KEY}'
             with self._connect(shard) as conn:
                 self._ensure_table(conn, span_key, Span)
                 if len(items) > 0:
@@ -143,9 +143,9 @@ class SQLite(Storage):
         def inner() -> Optional[T]:
             _log.info(f'getting {key} from shard {shard}')
             with self._connect(shard) as conn:
-                self._ensure_table(conn, KEY_VALUE_PAIR_KEY, KeyValuePair)
+                self._ensure_table(conn, _KEY_VALUE_PAIR_KEY, KeyValuePair)
                 row = conn.execute(
-                    f'SELECT * FROM {KEY_VALUE_PAIR_KEY} WHERE key=?', [key]
+                    f'SELECT * FROM {_KEY_VALUE_PAIR_KEY} WHERE key=?', [key]
                 ).fetchone()
                 return raw_to_type(json.loads(row[1]), type_) if row else None
 
@@ -155,10 +155,10 @@ class SQLite(Storage):
         def inner() -> None:
             _log.info(f'setting {key} to shard {shard}')
             with self._connect(shard) as conn:
-                self._ensure_table(conn, KEY_VALUE_PAIR_KEY, KeyValuePair)
+                self._ensure_table(conn, _KEY_VALUE_PAIR_KEY, KeyValuePair)
                 conn.execute(
-                    f'INSERT OR REPLACE INTO {KEY_VALUE_PAIR_KEY} VALUES (?, ?)',
-                    [key, json.dumps(item)],
+                    f'INSERT OR REPLACE INTO {_KEY_VALUE_PAIR_KEY} VALUES (?, ?)',
+                    [key, json.dumps(type_to_raw(item))],
                 )
                 conn.commit()
 
@@ -257,5 +257,5 @@ class Span(NamedTuple):
         }
 
 
-KEY_VALUE_PAIR_KEY = KeyValuePair.__name__.lower()
-SPAN_KEY = Span.__name__.lower()
+_KEY_VALUE_PAIR_KEY = KeyValuePair.__name__.lower()
+_SPAN_KEY = Span.__name__.lower()

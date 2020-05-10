@@ -1,3 +1,4 @@
+import importlib
 import inspect
 from collections import deque
 from decimal import Decimal
@@ -54,6 +55,9 @@ def isenum(obj: Any) -> bool:
 def raw_to_type(value: Any, type_: Type[Any]) -> Any:
     origin = get_root_origin(type_) or type_
 
+    if origin is Any and value is None:
+        return None
+
     # Needs to be a list because type_ can be non-hashable for lookup in a set.
     if origin in [bool, int, float, str, Decimal]:
         return value
@@ -80,6 +84,7 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
             value[key] = raw_to_type(sub_value, sub_type)
         return value
 
+    # Option type.
     if origin is Union:
         sub_type, _ = get_args(type_)
         if value is None:
@@ -101,6 +106,11 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
         return type_(*args)
 
     # Try constructing a regular dataclass.
+    # TODO: walrus
+    spec_type_name = value.get('__type__')
+    if spec_type_name is not None:
+        origin = get_type_by_fully_qualified_name(spec_type_name)
+
     annotations = get_type_hints(origin)
     type_args_map = {p: a for p, a in zip(get_parameters(origin), get_args(type_))}
     instance = origin.__new__(origin)  # type: ignore
@@ -122,6 +132,35 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
         sub_value = value[name]
         setattr(instance, name, raw_to_type(sub_value, sub_type))
     return instance
+
+
+def type_to_raw(value: Any) -> Any:
+    if value is None:
+        return value
+
+    if isinstance(value, (bool, int, float, str, Decimal)):
+        return value
+
+    # Also includes NamedTuple.
+    if isinstance(value, (list, tuple, deque)):
+        return list(map(type_to_raw, value))
+
+    if isinstance(value, dict):
+        return {k: type_to_raw(v) for k, v in value.items()}
+
+    if isenum(value):
+        return value.value
+
+    # Data class and regular class. We don't want to use `dataclasses.asdict` because it is
+    # recursive in converting dataclasses.
+    # TODO: walrus
+    value_dict = getattr(value, '__dict__', None)
+    if value_dict is not None:
+        res = {k: type_to_raw(v) for k, v in value_dict.items()}
+        res['__type__'] = get_fully_qualified_name(value)
+        return res
+
+    raise NotImplementedError(f'Unable to convert {value}')
 
 
 def types_match(obj: Any, type_: Type[Any]):
@@ -174,3 +213,23 @@ def resolve_generic_types(container: Any) -> List[type]:
         name = next(k for k, v in type_hints.items() if v is generic_param)
         result.append(type(getattr(container, name)))
     return result
+
+
+def get_fully_qualified_name(obj: Any) -> str:
+    # We separate module and type with a '::' in order to more easily resolve these components
+    # in reverse.
+    type_ = obj if inspect.isclass(obj) else type(obj)
+    return f'{type_.__module__}::{type_.__qualname__}'
+
+
+def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
+    # Resolve module.
+    module_name, type_name = name.split('::')
+    module = importlib.import_module(module_name)
+
+    # Resolve nested classes. We do not support function local classes.
+    type_ = None
+    for sub_name in type_name.split('.'):
+        type_ = getattr(type_ if type_ else module, sub_name)
+    assert type_
+    return type_

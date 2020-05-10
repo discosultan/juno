@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import IntEnum
 from typing import (  # type: ignore
-    Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar, _GenericAlias
+    Any, Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar, _GenericAlias
 )
 
 import pytest
@@ -119,3 +119,24 @@ def test_raw_to_type(obj, type_, expected_output) -> None:
 ])
 def test_types_match(input_, type_, expected_output) -> None:
     assert typing.types_match(input_, type_) == expected_output
+
+
+@pytest.mark.parametrize('input_,expected_output', [
+    (deque((1, 2, 3)), 'collections::deque'),
+    (deque, 'collections::deque'),
+])
+def test_get_fully_qualified_name(input_: Any, expected_output: str) -> None:
+    assert typing.get_fully_qualified_name(input_) == expected_output
+
+
+def test_get_type_by_fully_qualified_name() -> None:
+    assert typing.get_type_by_fully_qualified_name('collections::deque') is deque
+
+
+# Function local types not supported!
+# def test_get_function_local_type_by_fully_qualified_named() -> None:
+#     class Local:
+#         pass
+
+#     name = typing.get_fully_qualified_name(Local)
+#     assert typing.get_type_by_fully_qualified_name(name) is Local
