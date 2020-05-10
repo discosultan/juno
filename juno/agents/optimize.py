@@ -42,7 +42,7 @@ class Optimize(Agent):
     class State:
         name: str
         status: AgentStatus
-        result: OptimizationSummary
+        result: Optional[OptimizationSummary] = None
 
     def __init__(
         self, optimizer: Optimizer, event: Event = Event(), storage: Storage = Memory()
@@ -76,6 +76,7 @@ class Optimize(Agent):
         )
 
     async def on_finally(self, config: Config, state: State) -> None:
+        assert state.result
         for ind in state.result.best:
             # Create a new typed named tuple for correctly formatting strategy kwargs for the
             # particular strategy type.

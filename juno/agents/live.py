@@ -45,7 +45,7 @@ class Live(Agent):
     class State:
         name: str
         status: AgentStatus
-        result: Trader.State
+        result: Optional[Trader.State] = None
 
     def __init__(
         self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage,
@@ -60,7 +60,7 @@ class Live(Agent):
 
         assert self._trader.broker
 
-    async def on_running(self, config: Config, state: Agent.State) -> None:
+    async def on_running(self, config: Config, state: State) -> None:
         await Agent.on_running(self, config, state)
 
         current = floor_multiple(self._get_time_ms(), config.interval)
@@ -103,6 +103,7 @@ class Live(Agent):
         await self._trader.run(trader_config, state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:
+        assert state.result
         _log.info(
             f'{self.get_name(state)}: finished with result '
             f'{format_as_config(state.result.summary)}'

@@ -37,7 +37,7 @@ class Paper(Agent):
     class State:
         name: str
         status: AgentStatus
-        result: Trader.State
+        result: Optional[Trader.State] = None
 
     def __init__(
         self, informant: Informant, trader: Trader, event: Event = Event(),
@@ -85,6 +85,7 @@ class Paper(Agent):
         await self._trader.run(trader_config, state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:
+        assert state.result
         _log.info(
             f'{self.get_name(state)}: finished with result '
             f'{format_as_config(state.result.summary)}'

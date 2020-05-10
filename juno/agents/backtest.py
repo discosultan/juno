@@ -51,7 +51,7 @@ class Backtest(Agent):
     class State:
         name: str
         status: AgentStatus
-        result: Trader.State
+        result: Optional[Trader.State] = None
 
     def __init__(
         self,
@@ -138,6 +138,7 @@ class Backtest(Agent):
         _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')
 
     async def on_finally(self, config: Config, state: State) -> None:
+        assert state.result
         _log.info(
             f'{self.get_name(state)}: finished with result '
             f'{format_as_config(state.result.summary)}'

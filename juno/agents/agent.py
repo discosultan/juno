@@ -91,13 +91,14 @@ class Agent:
 
     async def _get_or_create_state(self, config: Any) -> Agent.State:
         name = getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}'
+        state_type = type(self).State
 
         if getattr(config, 'persist', False):
             # TODO: walrus
             existing_state = await self._storage.get(
                 'default',
                 self._get_storage_key(name),
-                Agent.State,
+                state_type,
             )
             if existing_state:
                 if existing_state.status is AgentStatus.FINISHED:
@@ -116,7 +117,7 @@ class Agent:
         else:
             _log.info(f'creating new state')
 
-        return Agent.State(
+        return state_type(
             name=name,
             status=AgentStatus.RUNNING,
         )
