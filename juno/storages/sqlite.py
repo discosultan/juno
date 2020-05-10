@@ -12,7 +12,7 @@ from typing import (
 from juno import Interval, Timestamp, json
 from juno.itertools import generate_missing_spans, merge_adjacent_spans
 from juno.time import MAX_TIME_MS, strfspan
-from juno.typing import raw_to_type
+from juno.typing import raw_to_type, type_to_raw
 from juno.utils import home_path
 
 from .storage import Storage
@@ -158,7 +158,7 @@ class SQLite(Storage):
                 self._ensure_table(conn, _KEY_VALUE_PAIR_KEY, KeyValuePair)
                 conn.execute(
                     f'INSERT OR REPLACE INTO {_KEY_VALUE_PAIR_KEY} VALUES (?, ?)',
-                    [key, json.dumps(item)],
+                    [key, json.dumps(type_to_raw(item))],
                 )
                 conn.commit()
 

@@ -179,26 +179,32 @@ async def test_memory_store_overlapping_time_series_concurrently(memory: storage
     assert items == [Item(i) for i in range(min_start, max_end)]
 
 
+class Abstract(abc.ABC):
+    @abc.abstractproperty
+    def value(self) -> int:
+        return 0
+
+
+class Concrete(Abstract):
+    @property
+    def value(self) -> int:
+        return 1
+
+
+class UnionTypeA(NamedTuple):
+    value: int = 1
+
+
+class UnionTypeB(NamedTuple):
+    value: int = 2
+
+
+class Container(NamedTuple):
+    abstract: Abstract
+    union: Union[UnionTypeA, UnionTypeB]
+
+
 async def test_memory_get_set_dynamic_types(storage: storages.Storage) -> None:
-    class Abstract(abc.ABC):
-        @abc.abstractproperty
-        def value(self) -> int:
-            return 0
-
-    class Concrete(Abstract):
-        def value(self) -> int:
-            return 1
-
-    class UnionTypeA(NamedTuple):
-        value: int = 1
-
-    class UnionTypeB(NamedTuple):
-        value: int = 2
-
-    class Container(NamedTuple):
-        abstract: Abstract
-        union: Union[UnionTypeA, UnionTypeB]
-
     input_ = Container(
         abstract=Concrete(),
         union=UnionTypeB(),
