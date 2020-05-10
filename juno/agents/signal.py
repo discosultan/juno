@@ -33,7 +33,7 @@ class Signal(Agent):
         self._event = event
         self._storage = storage
 
-    async def on_running(self, config: Config, state: Agent.State[None]) -> None:
+    async def on_running(self, config: Config, state: Agent.State) -> None:
         await super().on_running(config, state)
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)

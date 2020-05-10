@@ -231,12 +231,12 @@ async def test_trader_assume_same_as_last_on_missed_candle() -> None:
         strategy_kwargs={'advices': ['none'] * 5},
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
-    state: Trader.State[strategies.Fixed] = Trader.State()
+    state = Trader.State()
     await trader.run(config, state)
 
     assert state.strategy
 
-    candle_times = [c.time for c in state.strategy.updates]
+    candle_times = [c.time for c in state.strategy.updates]  # type: ignore
     assert len(candle_times) == 5
     assert candle_times[0] == 0
     assert candle_times[1] == 1
@@ -343,7 +343,7 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
         strategy_kwargs={'advices': ['none'] * 100, 'maturity': 2},
         adjust_start=True,
     )
-    state: Trader.State[strategies.Fixed] = Trader.State()
+    state = Trader.State()
 
     trader_run_task = asyncio.create_task(trader.run(config, state))
 
@@ -352,12 +352,12 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
     await cancel(trader_run_task)
     await storage.set('shard', 'key', state)
     future_candle_queue.put_nowait(Candle(time=5))
-    state = await storage.get('shard', 'key', Trader.State[strategies.Fixed])
+    state = await storage.get('shard', 'key', Trader.State)
 
     await trader.run(config, state)
 
     assert state.strategy
-    candle_times = [c.time for c in state.strategy.updates]
+    candle_times = [c.time for c in state.strategy.updates]  # type: ignore
     assert len(candle_times) == 6
     assert candle_times[0] == 0
     assert candle_times[1] == 1

@@ -1,8 +1,9 @@
 import abc
 import asyncio
 import random
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Dict, List, NamedTuple, Union
+from typing import Any, Dict, List, NamedTuple, Union
 
 import pytest
 
@@ -199,15 +200,22 @@ class UnionTypeB(NamedTuple):
     value: int = 2
 
 
-class Container(NamedTuple):
+@dataclass
+class Container:
     abstract: Abstract
     union: Union[UnionTypeA, UnionTypeB]
+    any_: Any
 
 
 async def test_memory_get_set_dynamic_types(storage: storages.Storage) -> None:
     input_ = Container(
         abstract=Concrete(),
         union=UnionTypeB(),
+        any_=Container(
+            abstract=Concrete(),
+            union=UnionTypeB(),
+            any_=None,
+        ),
     )
     await storage.set('shard', 'key', input_)
     output = await storage.get('shard', 'key', Container)
@@ -215,3 +223,7 @@ async def test_memory_get_set_dynamic_types(storage: storages.Storage) -> None:
     assert output
     assert output.abstract.value == 1
     assert output.union.value == 2
+    assert output.any_
+    assert output.any_.abstract.value == 1
+    assert output.any_.union.value == 2
+    assert not output.any_.any_

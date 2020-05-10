@@ -84,7 +84,7 @@ async def test_backtest(exchange: fakes.Exchange, container: Container) -> None:
     agent = container.resolve(Backtest)
 
     async with container:
-        res: Trader.State[Any] = await agent.run(config)
+        res = await agent.run(config)
 
     summary = res.summary
     assert summary
@@ -284,7 +284,9 @@ async def test_live_persist_and_resume(
         await cancel(agent_run_task)
 
         exchange.candle_queue.put_nowait(Candle(time=1, close=Decimal('1.0')))
+        # import logging
         agent_run_task = asyncio.create_task(agent.run(config))
+        await agent_run_task
         await exchange.candle_queue.join()
         await cancel(agent_run_task)
 

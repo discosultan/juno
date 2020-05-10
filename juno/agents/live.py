@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Dict, NamedTuple, Optional, TypeVar
 
@@ -10,17 +11,16 @@ from juno.storages import Storage
 from juno.strategies import Strategy
 from juno.time import MAX_TIME_MS, time_ms
 from juno.trading import MissedCandlePolicy, Trader
-from juno.utils import unpack_symbol
+from juno.utils import format_as_config, unpack_symbol
 
-from .agent import Agent
-from .backtest import Backtest
+from .agent import Agent, AgentStatus
 
 _log = logging.getLogger(__name__)
 
 TStrategy = TypeVar('TStrategy', bound=Strategy)
 
 
-class Live(Backtest):
+class Live(Agent):
     class Config(NamedTuple):
         exchange: str
         symbol: str
@@ -40,6 +40,12 @@ class Live(Backtest):
         @property
         def quote_asset(self) -> str:
             return unpack_symbol(self.symbol)[1]
+
+    @dataclass
+    class State:
+        name: str
+        status: AgentStatus
+        result: Trader.State
 
     def __init__(
         self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage,
@@ -92,4 +98,13 @@ class Live(Backtest):
             long=config.long,
             short=config.short,
         )
+        if not state.result:
+            state.result = Trader.State()
         await self._trader.run(trader_config, state.result)
+
+    async def on_finally(self, config: Config, state: State) -> None:
+        _log.info(
+            f'{self.get_name(state)}: finished with result '
+            f'{format_as_config(state.result.summary)}'
+        )
+        await self._event.emit(state.name, 'finished', state.result.summary)

@@ -5,7 +5,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, Generic, List, TypeVar
+from typing import Any, List, Optional
 
 from juno.components import Event
 from juno.plugins import Plugin
@@ -15,8 +15,6 @@ from juno.utils import exc_traceback, format_as_config, generate_random_words
 _log = logging.getLogger(__name__)
 
 _random_names = generate_random_words()
-
-T = TypeVar('T')
 
 
 class AgentStatus(IntEnum):
@@ -34,23 +32,23 @@ class Agent:
         pass
 
     @dataclass
-    class State(Generic[T]):
+    class State:
         name: str
         status: AgentStatus
-        result: T
+        result: Optional[Any] = None
 
     def __init__(self, event: Event = Event(), storage: Storage = Memory()) -> None:
         self._event = event
         self._storage = storage
 
-    async def run(self, config: Any, plugins: List[Plugin] = []) -> T:
+    async def run(self, config: Any, plugins: List[Plugin] = []) -> Any:
         state = await self._get_or_create_state(config)
 
         # Activate plugins.
         type_name = type(self).__name__.lower()
         await asyncio.gather(*(p.activate(state.name, type_name) for p in plugins))
         _log.info(
-            f'{self._get_name(state)}: activated plugins '
+            f'{self.get_name(state)}: activated plugins '
             f'[{", ".join(type(p).__name__.lower() for p in plugins)}]'
         )
 
@@ -71,33 +69,35 @@ class Agent:
         return state.result
 
     async def on_running(self, config: Any, state: Any) -> None:
-        _log.info(f'{self._get_name(state)}: running with config {format_as_config(config)}')
+        _log.info(f'{self.get_name(state)}: running with config {format_as_config(config)}')
         await self._event.emit(state.name, 'starting', config)
 
     async def on_cancelled(self, config: Any, state: Any) -> None:
-        _log.info(f'{self._get_name(state)}: cancelled')
+        _log.info(f'{self.get_name(state)}: cancelled')
         await self._event.emit(state.name, 'cancelled')
 
     async def on_errored(self, config: Any, state: Any, exc: Exception) -> None:
-        _log.error(f'{self._get_name(state)}: unhandled exception {exc_traceback(exc)}')
+        _log.error(f'{self.get_name(state)}: unhandled exception {exc_traceback(exc)}')
         await self._event.emit(state.name, 'errored', exc)
 
     async def on_finally(self, config: Any, state: Any) -> None:
         _log.info(
-            f'{self._get_name(state)}: finished with result {format_as_config(state.result)}'
+            f'{self.get_name(state)}: finished with result {format_as_config(state.result)}'
         )
         await self._event.emit(state.name, 'finished', state.result)
 
+    def get_name(self, state: Any) -> str:
+        return f'{state.name} ({type(self).__name__.lower()})'
+
     async def _get_or_create_state(self, config: Any) -> Agent.State:
         name = getattr(config, 'name', None) or f'{next(_random_names)}-{uuid.uuid4()}'
-        result_type = self._get_result_type(config)
 
         if getattr(config, 'persist', False):
             # TODO: walrus
             existing_state = await self._storage.get(
                 'default',
                 self._get_storage_key(name),
-                Agent.State[self._get_result_type(config)],  # type: ignore
+                Agent.State,
             )
             if existing_state:
                 if existing_state.status is AgentStatus.FINISHED:
@@ -119,7 +119,6 @@ class Agent:
         return Agent.State(
             name=name,
             status=AgentStatus.RUNNING,
-            result=result_type(),
         )
 
     async def _try_save_state(self, config: Config, state: Agent.State) -> None:
@@ -133,11 +132,5 @@ class Agent:
                 state,
             )
 
-    def _get_result_type(self, config: Any) -> type:
-        return type(None)
-
     def _get_storage_key(self, name: str) -> str:
         return f'{type(self).__name__.lower()}_{name}_state'
-
-    def _get_name(self, state: Any) -> str:
-        return f'{state.name} ({type(self).__name__.lower()})'

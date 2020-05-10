@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
@@ -11,7 +12,7 @@ from juno.trading import MissedCandlePolicy
 from juno.typing import get_input_type_hints
 from juno.utils import format_as_config
 
-from .agent import Agent
+from .agent import Agent, AgentStatus
 
 _log = logging.getLogger(__name__)
 
@@ -37,6 +38,12 @@ class Optimize(Agent):
         seed: Optional[int] = None
         verbose: bool = False
 
+    @dataclass
+    class State:
+        name: str
+        status: AgentStatus
+        result: OptimizationSummary
+
     def __init__(
         self, optimizer: Optimizer, event: Event = Event(), storage: Storage = Memory()
     ) -> None:
@@ -44,9 +51,10 @@ class Optimize(Agent):
         self._event = event
         self._storage = storage
 
-    async def on_running(self, config: Config, state: Agent.State[OptimizationSummary]) -> None:
+    async def on_running(self, config: Config, state: State) -> None:
         await super().on_running(config, state)
-        state.result = OptimizationSummary()
+        if not state.result:
+            state.result = OptimizationSummary()
         await self._optimizer.run(
             exchange=config.exchange,
             symbols=config.symbols,
@@ -67,7 +75,7 @@ class Optimize(Agent):
             summary=state.result,
         )
 
-    async def on_finally(self, config: Config, state: Agent.State[OptimizationSummary]) -> None:
+    async def on_finally(self, config: Config, state: State) -> None:
         for ind in state.result.best:
             # Create a new typed named tuple for correctly formatting strategy kwargs for the
             # particular strategy type.
@@ -91,6 +99,3 @@ class Optimize(Agent):
             _log.info(f'trading config: {format_as_config(trading_config_instance)}')
             _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
             _log.info(f'portfolio stats: {format_as_config(ind.portfolio_stats)}')
-
-    def _get_result_type(self, config: Config) -> type:
-        return OptimizationSummary
