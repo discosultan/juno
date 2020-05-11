@@ -19,21 +19,6 @@ _log = logging.getLogger(__name__)
 
 
 class Trader(PositionMixin, SimulatedPositionMixin):
-    @dataclass
-    class State:
-        strategy: Optional[Strategy] = None
-        changed: Optional[Changed] = None
-        quote: Decimal = Decimal('-1.0')
-        summary: Optional[TradingSummary] = None
-        open_long_position: Optional[Position.OpenLong] = None
-        open_short_position: Optional[Position.OpenShort] = None
-        first_candle: Optional[Candle] = None
-        last_candle: Optional[Candle] = None
-        highest_close_since_position = Decimal('0.0')
-        lowest_close_since_position = Decimal('Inf')
-        current: Timestamp = 0
-        start_adjusted: bool = False
-
     class Config(NamedTuple):
         exchange: str
         symbol: str
@@ -73,6 +58,21 @@ class Trader(PositionMixin, SimulatedPositionMixin):
             return get_module_type(importlib.import_module(self.strategy_module), self.strategy)(
                 *self.strategy_args, **self.strategy_kwargs
             )
+
+    @dataclass
+    class State:
+        strategy: Optional[Strategy] = None
+        changed: Optional[Changed] = None
+        quote: Decimal = Decimal('-1.0')
+        summary: Optional[TradingSummary] = None
+        open_long_position: Optional[Position.OpenLong] = None
+        open_short_position: Optional[Position.OpenShort] = None
+        first_candle: Optional[Candle] = None
+        last_candle: Optional[Candle] = None
+        highest_close_since_position = Decimal('0.0')
+        lowest_close_since_position = Decimal('Inf')
+        current: Timestamp = 0
+        start_adjusted: bool = False
 
     def __init__(
         self,
