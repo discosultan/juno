@@ -291,13 +291,11 @@ class Trader(PositionMixin, SimulatedPositionMixin):
             await self.close_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
                 test=config.test,
                 position=state.open_long_position,
             ) if self._broker else self.close_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
                 position=state.open_long_position,
             )
         )
@@ -348,13 +346,11 @@ class Trader(PositionMixin, SimulatedPositionMixin):
             await self.close_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
                 test=config.test,
                 position=state.open_short_position,
             ) if self._broker else self.close_simulated_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
                 position=state.open_short_position,
             )
         )
