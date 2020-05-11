@@ -165,7 +165,6 @@ class Python(Solver, SimulatedPositionMixin):
             candle,
             state.open_long_position,
             config.exchange,
-            config.symbol,
         )
 
         state.quote += (
@@ -191,7 +190,6 @@ class Python(Solver, SimulatedPositionMixin):
             candle,
             state.open_short_position,
             config.exchange,
-            config.symbol,
         )
 
         state.quote -= Fill.total_quote(position.close_fills)

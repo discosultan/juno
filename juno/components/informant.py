@@ -136,14 +136,23 @@ class Informant:
 
         return list(result.keys())
 
-    def list_tickers(self, exchange: str) -> List[Ticker]:
-        return self._synced_data[exchange][_Timestamped[List[Ticker]]].item
+    def list_tickers(self, exchange: str, symbol_pattern: Optional[str] = None) -> List[Ticker]:
+        tickers = self._synced_data[exchange][_Timestamped[List[Ticker]]].item
+        # Filtering.
+        if symbol_pattern is not None:
+            ticker_symbols = (t.symbol for t in tickers)
+            matched_symbols = set(fnmatch.filter(ticker_symbols, symbol_pattern))
+            tickers = (t for t in tickers if t.symbol in matched_symbols)
+        # Ordering.
+        # Sorted by quote volume desc. Watch out when queried with different quote assets.
+        return sorted(tickers, key=lambda t: t.quote_volume, reverse=True)
 
-    def list_exchanges(self) -> List[str]:
-        return list(self._exchanges.keys())
-
-    def list_exchanges_supporting_symbol(self, symbol: str) -> List[str]:
-        return [e for e in self._exchanges.keys() if symbol in self.list_symbols(e)]
+    def list_exchanges(self, symbol: Optional[str] = None) -> List[str]:
+        exchanges = (e for e in self._exchanges.keys())
+        # Filtering.
+        if symbol is not None:
+            exchanges = (e for e in exchanges if symbol in self.list_symbols(e))
+        return list(exchanges)
 
     async def _periodic_sync_for_exchanges(
         self, key: str, type_: Type[_Timestamped[T]], initial_sync_event: asyncio.Event,

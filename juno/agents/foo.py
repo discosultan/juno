@@ -74,10 +74,8 @@ class Foo(Agent):
     async def _find_top_symbols_by_volume_with_sufficient_history(
         self, exchange: str, required_start: int, count: int
     ) -> List[str]:
-        tickers = [t for t in self._informant.list_tickers(exchange) if t.symbol.endswith('-btc')]
-
+        tickers = self._informant.list_tickers(exchange, symbol_pattern='*-btc')
         assert any(t.quote_volume > 0 for t in tickers)
-        tickers.sort(key=lambda t: t.quote_volume, reverse=True)
 
         symbols = []
         skipped_symbols = []

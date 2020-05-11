@@ -211,7 +211,6 @@ class Informant(components.Informant):
         candle_intervals=[],
         tickers=[],
         exchanges=[],
-        exchanges_supporting_symbol=[],
         borrow_info=BorrowInfo(),
         margin_multiplier=2,
     ):
@@ -221,7 +220,6 @@ class Informant(components.Informant):
         self.candle_intervals = candle_intervals
         self.tickers = tickers
         self.exchanges = exchanges
-        self.exchanges_supporting_symbol = exchanges_supporting_symbol
         self.borrow_info = borrow_info
         self.margin_multiplier = margin_multiplier
 
@@ -245,9 +243,6 @@ class Informant(components.Informant):
 
     def list_exchanges(self, exchange):
         return self.exchanges
-
-    def list_exchanges_supporting_symbol(self, symbol):
-        return self.exchanges_supporting_symbol
 
 
 class Historian(components.Historian):
