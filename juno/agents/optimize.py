@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
 from juno import Interval, Timestamp, strategies
-from juno.components import Event
+from juno.components import Events
 from juno.modules import get_module_type
 from juno.optimization import OptimizationSummary, Optimizer
 from juno.storages import Memory, Storage
@@ -45,10 +45,10 @@ class Optimize(Agent):
         result: Optional[OptimizationSummary] = None
 
     def __init__(
-        self, optimizer: Optimizer, event: Event = Event(), storage: Storage = Memory()
+        self, optimizer: Optimizer, events: Events = Events(), storage: Storage = Memory()
     ) -> None:
         self._optimizer = optimizer
-        self._event = event
+        self._events = events
         self._storage = storage
 
     async def on_running(self, config: Config, state: State) -> None:

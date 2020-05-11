@@ -6,7 +6,7 @@ from typing import Any, Dict, List, NamedTuple, Optional
 
 from juno import Advice, Candle, Fill, Interval, Timestamp, strategies
 from juno.brokers import Broker
-from juno.components import Chandler, Event, Informant
+from juno.components import Chandler, Events, Informant
 from juno.exchanges import Exchange
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
@@ -79,13 +79,13 @@ class Trader(PositionMixin, SimulatedPositionMixin):
         chandler: Chandler,
         informant: Informant,
         broker: Optional[Broker] = None,
-        event: Event = Event(),
+        events: Events = Events(),
         exchanges: List[Exchange] = [],
     ) -> None:
         self._chandler = chandler
         self._informant = informant
         self._broker = broker
-        self._event = event
+        self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
     @property
@@ -205,7 +205,7 @@ class Trader(PositionMixin, SimulatedPositionMixin):
         return state.summary
 
     async def _tick(self, config: Config, state: State, candle: Candle) -> None:
-        await self._event.emit(config.channel, 'candle', candle)
+        await self._events.emit(config.channel, 'candle', candle)
 
         assert state.strategy
         assert state.changed
@@ -279,7 +279,7 @@ class Trader(PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'long position opened: {candle}')
         _log.debug(tonamedtuple(state.open_long_position))
-        await self._event.emit(
+        await self._events.emit(
             config.channel, 'position_opened', state.open_long_position, state.summary
         )
 
@@ -308,7 +308,7 @@ class Trader(PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'long position closed: {candle}')
         _log.debug(tonamedtuple(position))
-        await self._event.emit(config.channel, 'position_closed', position, state.summary)
+        await self._events.emit(config.channel, 'position_closed', position, state.summary)
 
     async def _open_short_position(self, config: Config, state: State, candle: Candle) -> None:
         assert not state.open_long_position
@@ -334,7 +334,7 @@ class Trader(PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'short position opened: {candle}')
         _log.debug(tonamedtuple(state.open_short_position))
-        await self._event.emit(
+        await self._events.emit(
             config.channel, 'position_opened', state.open_short_position, state.summary
         )
 
@@ -361,4 +361,4 @@ class Trader(PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'short position closed: {candle}')
         _log.debug(tonamedtuple(position))
-        await self._event.emit(config.channel, 'position_closed', position, state.summary)
+        await self._events.emit(config.channel, 'position_closed', position, state.summary)

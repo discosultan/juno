@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, List, Optional
 
-from juno.components import Event
+from juno.components import Events
 from juno.plugins import Plugin
 from juno.storages import Memory, Storage
 from juno.utils import exc_traceback, format_as_config, generate_random_words
@@ -25,7 +25,7 @@ class AgentStatus(IntEnum):
 
 
 class Agent:
-    _event: Event
+    _events: Events
     _storage: Storage
 
     class Config:
@@ -37,8 +37,8 @@ class Agent:
         status: AgentStatus
         result: Optional[Any] = None
 
-    def __init__(self, event: Event = Event(), storage: Storage = Memory()) -> None:
-        self._event = event
+    def __init__(self, events: Events = Events(), storage: Storage = Memory()) -> None:
+        self._events = events
         self._storage = storage
 
     async def run(self, config: Any, plugins: List[Plugin] = []) -> Any:
@@ -70,21 +70,21 @@ class Agent:
 
     async def on_running(self, config: Any, state: Any) -> None:
         _log.info(f'{self.get_name(state)}: running with config {format_as_config(config)}')
-        await self._event.emit(state.name, 'starting', config)
+        await self._events.emit(state.name, 'starting', config)
 
     async def on_cancelled(self, config: Any, state: Any) -> None:
         _log.info(f'{self.get_name(state)}: cancelled')
-        await self._event.emit(state.name, 'cancelled')
+        await self._events.emit(state.name, 'cancelled')
 
     async def on_errored(self, config: Any, state: Any, exc: Exception) -> None:
         _log.error(f'{self.get_name(state)}: unhandled exception {exc_traceback(exc)}')
-        await self._event.emit(state.name, 'errored', exc)
+        await self._events.emit(state.name, 'errored', exc)
 
     async def on_finally(self, config: Any, state: Any) -> None:
         _log.info(
             f'{self.get_name(state)}: finished with result {format_as_config(state.result)}'
         )
-        await self._event.emit(state.name, 'finished', state.result)
+        await self._events.emit(state.name, 'finished', state.result)
 
     def get_name(self, state: Any) -> str:
         return f'{state.name} ({type(self).__name__.lower()})'

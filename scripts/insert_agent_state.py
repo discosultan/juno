@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Any
 
 from juno import Fill
 from juno.agents import Agent, AgentStatus
@@ -65,7 +64,7 @@ async def main() -> None:
             ],
         ),
     ]
-    trader_state: Trader.State[Any] = Trader.State(
+    trader_state = Trader.State(
         strategy=MAMACX(84, 92, Decimal('-0.172'), Decimal('0.377'), 0, 'sma', 'ema2'),
         quote=Decimal('0.0205325200000000'),
         summary=trading_summary,

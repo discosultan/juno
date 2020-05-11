@@ -7,7 +7,7 @@ import discord
 
 from juno import Advice
 from juno.asyncio import cancel, create_task_cancel_on_exc
-from juno.components import Event
+from juno.components import Events
 from juno.itertools import chunks
 from juno.trading import Position
 from juno.typing import ExcType, ExcValue, Traceback
@@ -19,7 +19,7 @@ _log = logging.getLogger(__name__)
 
 
 class Discord(discord.Client, Plugin):
-    def __init__(self, event: Event, config: Dict[str, Any]) -> None:
+    def __init__(self, events: Events, config: Dict[str, Any]) -> None:
         discord_config = config.get(type(self).__name__.lower(), {})
         # TODO: walrus
         token = discord_config.get('token')
@@ -27,7 +27,7 @@ class Discord(discord.Client, Plugin):
             raise ValueError(f'Missing token from config')
 
         super().__init__()
-        self._event = event
+        self._events = events
         self._token = token
         self._channel_ids = discord_config.get('channel_id', {})
 
@@ -57,13 +57,13 @@ class Discord(discord.Client, Plugin):
             raise ValueError(f'Missing {channel_name} channel ID from config')
         channel_id = int(channel_id)
 
-        @self._event.on(agent_name, 'starting')
+        @self._events.on(agent_name, 'starting')
         async def on_starting(config: Any) -> None:
             await self._send_message(
                 channel_id, format_message('starting with config', format_as_config(config))
             )
 
-        @self._event.on(agent_name, 'position_opened')
+        @self._events.on(agent_name, 'position_opened')
         async def on_position_opened(pos: Position, result: Any) -> None:
             await self._send_message(
                 channel_id,
@@ -73,7 +73,7 @@ class Discord(discord.Client, Plugin):
                 ),
             )
 
-        @self._event.on(agent_name, 'position_closed')
+        @self._events.on(agent_name, 'position_closed')
         async def on_position_closed(pos: Position, result: Any) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await self._send_message(
@@ -87,23 +87,23 @@ class Discord(discord.Client, Plugin):
                 channel_id, format_message('summary', format_as_config(result))
             )
 
-        @self._event.on(agent_name, 'finished')
+        @self._events.on(agent_name, 'finished')
         async def on_finished(result: Any) -> None:
             await self._send_message(
                 channel_id, format_message('finished with summary', format_as_config(result))
             )
 
-        @self._event.on(agent_name, 'errored')
+        @self._events.on(agent_name, 'errored')
         async def on_errored(exc: Exception) -> None:
             await self._send_message(
                 channel_id, format_message('errored', exc_traceback(exc), lang='')
             )
 
-        @self._event.on(agent_name, 'image')
+        @self._events.on(agent_name, 'image')
         async def on_image(path: str) -> None:
             await self._send_file(channel_id, path)
 
-        @self._event.on(agent_name, 'advice')
+        @self._events.on(agent_name, 'advice')
         async def on_advice(advice: Advice) -> None:
             await self._send_message(
                 channel_id, format_message('received advice', advice.name, lang='')
