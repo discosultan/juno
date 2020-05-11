@@ -181,6 +181,7 @@ class Position(ModuleType):
             return self.borrowed
 
     Any = Union[Long, OpenLong, OpenShort, Short]
+    Open = Union[OpenLong, OpenShort]
     Closed = Union[Long, Short]
 
 

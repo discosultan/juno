@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import asyncio
 import importlib
 import logging
 from dataclasses import dataclass
@@ -16,6 +19,21 @@ from .common import Position, TradingSummary
 from .mixins import PositionMixin, SimulatedPositionMixin
 
 _log = logging.getLogger(__name__)
+
+TRACK_COUNT = 20
+POSITION_COUNT = 5
+SYMBOL_PATTERN = '*-btc'
+
+
+@dataclass
+class _SymbolState:
+    strategy: Strategy
+    changed: Changed
+    current: Timestamp
+    start_adjusted: bool = False
+    open_position: Optional[Position.Open] = None
+    highest_close_since_position = Decimal('0.0')
+    lowest_close_since_position = Decimal('Inf')
 
 
 class MultiTrader(PositionMixin, SimulatedPositionMixin):
@@ -49,19 +67,11 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
 
     @dataclass
     class State:
-        strategy: Optional[Strategy] = None
-        changed: Optional[Changed] = None
+        symbol_states: Dict[str, _SymbolState] = {}
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
-        open_long_position: Optional[Position.OpenLong] = None
-        open_short_position: Optional[Position.OpenShort] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
-        highest_close_since_position = Decimal('0.0')
-        lowest_close_since_position = Decimal('Inf')
-        current: Timestamp = 0
-        start_adjusted: bool = False
-        symbols: List[str] = []
 
     def __init__(
         self,
@@ -95,6 +105,8 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
+        assert POSITION_COUNT > 0
+        assert POSITION_COUNT <= TRACK_COUNT
 
         state = state or MultiTrader.State()
 
@@ -105,31 +117,24 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             state.summary = TradingSummary(
                 start=config.start,
                 quote=config.quote,
-                quote_asset='btc',
+                quote_asset='btc',  # TODO: support others
             )
 
-        if not state.strategy:
-            state.strategy = config.new_strategy()
-
-        if not state.changed:
-            state.changed = Changed(True)
-
-        if not state.current:
-            state.current = config.start
-
-        if not state.start_adjusted:
-            _log.info(
-                f'fetching {state.strategy.adjust_hint} candle(s) before start time to warm-up '
-                'strategy'
-            )
-            state.current -= state.strategy.adjust_hint * config.interval
-            state.start_adjusted = True
-
-        if len(state.symbols) == 0:
-            state.symbols = await self._find_top_symbols(config)
+        if len(state.symbol_states) == 0:
+            symbols = self._find_top_symbols(config)
+            state.symbol_states = {s: _SymbolState(
+                strategy=config.new_strategy(),
+                changed=Changed(True),
+                current=config.start,
+            ) for s in symbols}
 
         try:
-            await self._trade_symbols(config, state)
+            advice_changed = asyncio.Event()
+            await asyncio.gather(
+                self._manage_positions(config, state, advice_changed),
+                *(self._track_advice(config, symbol_state, symbol, advice_changed)
+                  for symbol, symbol_state in state.symbol_states.items())
+            )
         finally:
             if state.last_candle:
                 await self._close_all_open_positions(config, state)
@@ -139,21 +144,43 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
 
         return state.summary
 
-    async def _find_top_symbols(config: Config) -> List[str]:
-        pass
-        # self._informant.list
+    def _find_top_symbols(self, config: Config) -> List[str]:
+        tickers = self._informant.list_tickers(config.exchange, symbol_pattern=SYMBOL_PATTERN)
+        if len(tickers) < TRACK_COUNT:
+            raise ValueError(
+                f'Exchange only support {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
+                f'while {TRACK_COUNT} requested'
+            )
+        return [t.symbol for t in tickers[0:TRACK_COUNT]]
 
-    async def _trade_symbols(self, config: Config, state: State) -> None:
+    async def _manage_positions(
+        self, config: Config, state: State, advice_changed: asyncio.Event
+    ) -> None:
         pass
-        # async for candle in self._chandler.stream_candles(
-        #         exchange=config.exchange,
-        #         symbol=config.symbol,
-        #         interval=config.interval,
-        #         start=state.current,
-        #         end=config.end,
-        #         fill_missing_with_last=True,
-        #     ):
-        #         await self._tick(config, state, candle)
+
+    async def _track_advice(
+        self, config: Config, state: _SymbolState, symbol: str, advice_changed: asyncio.Event
+    ) -> None:
+        if not state.start_adjusted:
+            _log.info(
+                f'fetching {state.strategy.adjust_hint} {symbol} candle(s) before start time to '
+                'warm-up strategy'
+            )
+            state.current -= state.strategy.adjust_hint * config.interval
+            state.start_adjusted = True
+
+        async for candle in self._chandler.stream_candles(
+            exchange=config.exchange,
+            symbol=symbol,
+            interval=config.interval,
+            start=state.current,
+            end=config.end,
+            fill_missing_with_last=True,
+        ):
+            advice = state.strategy.update(candle)
+            advice = state.changed.update(advice)
+            _log.debug(f'received advice: {advice.name}')
+
 
     async def _tick(self, config: Config, state: State, candle: Candle) -> None:
         await self._event.emit(config.channel, 'candle', candle)
@@ -206,7 +233,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         state.last_candle = candle
         state.current = candle.time + config.interval
 
-    async def _close_all_open_positions(config: Config, state: State) -> None:
+    async def _close_all_open_positions(self, config: Config, state: State) -> None:
         pass
 
     async def _open_long_position(
