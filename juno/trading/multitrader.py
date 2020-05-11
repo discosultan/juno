@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional
 
 from juno import Advice, Candle, Fill, Interval, Timestamp, strategies
+from juno.asyncio import Event
 from juno.brokers import Broker
 from juno.components import Chandler, Event, Informant
 from juno.exchanges import Exchange
@@ -167,9 +168,10 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         return [t.symbol for t in tickers[0:TRACK_COUNT]]
 
     async def _manage_positions(
-        self, config: Config, state: State, advice_changed: asyncio.Event
+        self, config: Config, state: State, advice_changed: Event
     ) -> None:
-        pass
+        while True:
+            await advice_changed.wait()
 
     async def _track_advice(
         self, config: Config, state: State, symbol: str, advice_changed: asyncio.Event
