@@ -34,6 +34,14 @@ class _SymbolState:
     open_position: Optional[Position.Open] = None
     highest_close_since_position = Decimal('0.0')
     lowest_close_since_position = Decimal('Inf')
+    first_candle: Optional[Candle] = None
+    last_candle: Optional[Candle] = None
+
+
+class _AdviceHint(NamedTuple):
+    time: Timestamp
+    symbol: str
+    advice: Advice
 
 
 class MultiTrader(PositionMixin, SimulatedPositionMixin):
@@ -70,8 +78,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         symbol_states: Dict[str, _SymbolState] = {}
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
-        first_candle: Optional[Candle] = None
-        last_candle: Optional[Candle] = None
+        advice_queue: Optional[List[_AdviceHint]] = None
 
     def __init__(
         self,
@@ -128,17 +135,23 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
                 current=config.start,
             ) for s in symbols}
 
+        if state.advice_queue is None:
+            state.advice_queue = []
+
         try:
             advice_changed = asyncio.Event()
             await asyncio.gather(
                 self._manage_positions(config, state, advice_changed),
-                *(self._track_advice(config, symbol_state, symbol, advice_changed)
-                  for symbol, symbol_state in state.symbol_states.items())
+                *(self._track_advice(config, state, symbol, advice_changed)
+                  for symbol in state.symbol_states.keys())
             )
         finally:
-            if state.last_candle:
+            last_candle_times = [
+                s.last_candle.time for s in state.symbol_states.values() if s.last_candle
+            ]
+            if any(last_candle_times):
                 await self._close_all_open_positions(config, state)
-                state.summary.finish(state.last_candle.time + config.interval)
+                state.summary.finish(max(last_candle_times) + config.interval)
             else:
                 state.summary.finish(config.start)
 
@@ -159,79 +172,108 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         pass
 
     async def _track_advice(
-        self, config: Config, state: _SymbolState, symbol: str, advice_changed: asyncio.Event
+        self, config: Config, state: State, symbol: str, advice_changed: asyncio.Event
     ) -> None:
-        if not state.start_adjusted:
+        symbol_state = state.symbol_states[symbol]
+        if not symbol_state.start_adjusted:
             _log.info(
-                f'fetching {state.strategy.adjust_hint} {symbol} candle(s) before start time to '
-                'warm-up strategy'
+                f'fetching {symbol_state.strategy.adjust_hint} {symbol} candle(s) before start '
+                'time to warm-up strategy'
             )
-            state.current -= state.strategy.adjust_hint * config.interval
-            state.start_adjusted = True
+            symbol_state.current -= symbol_state.strategy.adjust_hint * config.interval
+            symbol_state.start_adjusted = True
 
         async for candle in self._chandler.stream_candles(
             exchange=config.exchange,
             symbol=symbol,
             interval=config.interval,
-            start=state.current,
+            start=symbol_state.current,
             end=config.end,
             fill_missing_with_last=True,
         ):
-            advice = state.strategy.update(candle)
-            advice = state.changed.update(advice)
+            assert state.advice_queue is not None
+
+            advice = symbol_state.strategy.update(candle)
+            advice = symbol_state.changed.update(advice)
             _log.debug(f'received advice: {advice.name}')
 
+            if isinstance(symbol_state.open_position, Position.OpenLong):
+                if advice in [Advice.SHORT, Advice.LIQUIDATE]:
+                    state.advice_queue.append(_AdviceHint(
+                        time=candle.time,
+                        symbol=symbol,
+                        advice=advice,
+                    ))
+                    advice_changed.set()
+                elif config.trailing_stop:
+                    symbol_state.highest_close_since_position = max(
+                        symbol_state.highest_close_since_position, candle.close
+                    )
+                    target = (
+                        symbol_state.highest_close_since_position * config.upside_trailing_factor
+                    )
+                    if candle.close <= target:
+                        _log.info(
+                            f'{symbol} upside trailing stop hit at {config.trailing_stop}; selling'
+                        )
+                        state.advice_queue.append(_AdviceHint(
+                            time=candle.time,
+                            symbol=symbol,
+                            advice=advice,
+                        ))
+                        advice_changed.set()
+                        assert advice is not Advice.LONG
+            elif isinstance(symbol_state.open_position, Position.OpenShort):
+                if advice in [Advice.LONG, Advice.LIQUIDATE]:
+                    state.advice_queue.append(_AdviceHint(
+                        time=candle.time,
+                        symbol=symbol,
+                        advice=advice,
+                    ))
+                    advice_changed.set()
+                elif config.trailing_stop:
+                    symbol_state.lowest_close_since_position = min(
+                        symbol_state.lowest_close_since_position, candle.close
+                    )
+                    target = (
+                        symbol_state.lowest_close_since_position * config.downside_trailing_factor
+                    )
+                    if candle.close >= target:
+                        _log.info(
+                            f'{symbol} downside trailing stop hit at {config.trailing_stop}; '
+                            'selling'
+                        )
+                        state.advice_queue.append(_AdviceHint(
+                            time=candle.time,
+                            symbol=symbol,
+                            advice=advice,
+                        ))
+                        advice_changed.set()
+                        assert advice is not Advice.SHORT
 
-    async def _tick(self, config: Config, state: State, candle: Candle) -> None:
-        await self._event.emit(config.channel, 'candle', candle)
+            if not symbol_state.open_position:
+                if config.long and advice is Advice.LONG:
+                    state.advice_queue.append(_AdviceHint(
+                        time=candle.time,
+                        symbol=symbol,
+                        advice=advice,
+                    ))
+                    advice_changed.set()
+                    symbol_state.highest_close_since_position = candle.close
+                elif config.short and advice is Advice.SHORT:
+                    state.advice_queue.append(_AdviceHint(
+                        time=candle.time,
+                        symbol=symbol,
+                        advice=advice,
+                    ))
+                    advice_changed.set()
+                    symbol_state.lowest_close_since_position = candle.close
 
-        assert state.strategy
-        assert state.changed
-        assert state.summary
-        advice = state.changed.update(state.strategy.update(candle))
-        _log.debug(f'received advice: {advice.name}')
-        # Make sure strategy doesn't give advice during "adjusted start" period.
-        if state.current < state.summary.start:
-            assert advice is Advice.NONE
-
-        if state.open_long_position:
-            if advice in [Advice.SHORT, Advice.LIQUIDATE]:
-                await self._close_long_position(config, state, candle)
-            elif config.trailing_stop:
-                state.highest_close_since_position = max(
-                    state.highest_close_since_position, candle.close
-                )
-                target = state.highest_close_since_position * config.upside_trailing_factor
-                if candle.close <= target:
-                    _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
-                    await self._close_long_position(config, state, candle)
-                    assert advice is not Advice.LONG
-        elif state.open_short_position:
-            if advice in [Advice.LONG, Advice.LIQUIDATE]:
-                await self._close_short_position(config, state, candle)
-            elif config.trailing_stop:
-                state.lowest_close_since_position = min(
-                    state.lowest_close_since_position, candle.close
-                )
-                target = state.lowest_close_since_position * config.downside_trailing_factor
-                if candle.close >= target:
-                    _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
-                    await self._close_short_position(config, state, candle)
-                    assert advice is not Advice.SHORT
-
-        if not state.open_long_position and not state.open_short_position:
-            if config.long and advice is Advice.LONG:
-                await self._open_long_position(config, state, candle)
-                state.highest_close_since_position = candle.close
-            elif config.short and advice is Advice.SHORT:
-                await self._open_short_position(config, state, candle)
-                state.lowest_close_since_position = candle.close
-
-        if not state.first_candle:
-            _log.info(f'first candle {candle}')
-            state.first_candle = candle
-        state.last_candle = candle
-        state.current = candle.time + config.interval
+            if not symbol_state.first_candle:
+                _log.info(f'{symbol} first candle {candle}')
+                symbol_state.first_candle = candle
+            symbol_state.last_candle = candle
+            symbol_state.current = candle.time + config.interval
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
         pass
