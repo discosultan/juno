@@ -7,7 +7,7 @@ import plotly.graph_objs as go
 import plotly.offline as py
 
 from juno import Candle
-from juno.components import Event
+from juno.components import Events
 from juno.time import datetime_utcfromtimestamp_ms
 from juno.trading import Position, Trader
 
@@ -17,17 +17,17 @@ _log = logging.getLogger(__name__)
 
 
 class Discord(Plugin):
-    def __init__(self, event: Event) -> None:
-        self._event = event
+    def __init__(self, events: Events) -> None:
+        self._events = events
 
     async def activate(self, agent_name: str, agent_type: str) -> None:
         candles_map = {}
 
-        @self._event.on(agent_name, 'candle')
+        @self._events.on(agent_name, 'candle')
         async def on_candle(candle: Candle) -> None:
             candles_map[candle.time] = candle
 
-        @self._event.on(agent_name, 'finished')
+        @self._events.on(agent_name, 'finished')
         async def on_finished(result: Trader.State) -> None:
             assert result.summary
             plot(candles_map, result.summary.get_positions())

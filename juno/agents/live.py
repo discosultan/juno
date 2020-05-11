@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, NamedTuple, Optional, TypeVar
 
 from juno import Interval, Timestamp
-from juno.components import Event, Informant, Wallet
+from juno.components import Events, Informant, Wallet
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.storages import Storage
@@ -49,13 +49,13 @@ class Live(Agent):
 
     def __init__(
         self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage,
-        event: Event = Event(), get_time_ms: Callable[[], int] = time_ms
+        events: Events = Events(), get_time_ms: Callable[[], int] = time_ms
     ) -> None:
         self._informant = informant
         self._wallet = wallet
         self._trader = trader
         self._storage = storage
-        self._event = event
+        self._events = events
         self._get_time_ms = get_time_ms
 
         assert self._trader.broker
@@ -108,4 +108,4 @@ class Live(Agent):
             f'{self.get_name(state)}: finished with result '
             f'{format_as_config(state.result.summary)}'
         )
-        await self._event.emit(state.name, 'finished', state.result.summary)
+        await self._events.emit(state.name, 'finished', state.result.summary)

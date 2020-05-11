@@ -2,7 +2,7 @@ import logging
 from typing import Any, Dict, NamedTuple, Optional
 
 from juno import Advice, Interval, strategies
-from juno.components import Chandler, Event
+from juno.components import Chandler, Events
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.modules import get_module_type
@@ -26,11 +26,11 @@ class Signal(Agent):
     def __init__(
         self,
         chandler: Chandler,
-        event: Event = Event(),
+        events: Events = Events(),
         storage: Storage = Memory(),
     ) -> None:
         self._chandler = chandler
-        self._event = event
+        self._events = events
         self._storage = storage
 
     async def on_running(self, config: Config, state: Agent.State) -> None:
@@ -55,4 +55,4 @@ class Signal(Agent):
             _log.info(f'received advice: {advice.name}')
             advice = changed.update(advice)
             if advice is not Advice.NONE:
-                await self._event.emit(state.name, 'advice', advice)
+                await self._events.emit(state.name, 'advice', advice)

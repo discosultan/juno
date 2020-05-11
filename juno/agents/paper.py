@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any, Callable, Dict, NamedTuple, Optional
 
 from juno import Interval, Timestamp
-from juno.components import Event, Informant
+from juno.components import Events, Informant
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.storages import Memory, Storage
@@ -40,12 +40,12 @@ class Paper(Agent):
         result: Optional[Trader.State] = None
 
     def __init__(
-        self, informant: Informant, trader: Trader, event: Event = Event(),
+        self, informant: Informant, trader: Trader, events: Events = Events(),
         storage: Storage = Memory(), get_time_ms: Callable[[], int] = time_ms
     ) -> None:
         self._informant = informant
         self._trader = trader
-        self._event = event
+        self._events = events
         self._storage = storage
         self._get_time_ms = get_time_ms
 
@@ -90,4 +90,4 @@ class Paper(Agent):
             f'{self.get_name(state)}: finished with result '
             f'{format_as_config(state.result.summary)}'
         )
-        await self._event.emit(state.name, 'finished', state.result.summary)
+        await self._events.emit(state.name, 'finished', state.result.summary)

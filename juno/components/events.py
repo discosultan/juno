@@ -8,7 +8,7 @@ from juno.utils import exc_traceback
 _log = logging.getLogger(__name__)
 
 
-class Event:
+class Events:
     def __init__(self) -> None:
         self._handlers: Dict[Tuple[str, str], List[Callable[..., Awaitable[None]]]] = (
             defaultdict(list)

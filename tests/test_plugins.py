@@ -4,7 +4,7 @@ from typing import Any, Dict
 import pytest
 
 from juno import Advice, Candle, Fill
-from juno.components import Event
+from juno.components import Events
 from juno.time import DAY_MS
 from juno.trading import Position, TradingSummary
 from juno.utils import full_path
@@ -18,8 +18,8 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
     from juno.plugins.discord import Discord
 
     trading_summary = TradingSummary(start=0, quote=Decimal('1.0'), quote_asset='btc')
-    event = Event()
-    async with Discord(event, config) as discord:
+    events = Events()
+    async with Discord(events, config) as discord:
         await discord.activate('agent', 'test')
 
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
@@ -33,7 +33,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
                 )
             ],
         )
-        await event.emit('agent', 'position_opened', open_pos, trading_summary)
+        await events.emit('agent', 'position_opened', open_pos, trading_summary)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
         pos = open_pos.close(
             time=candle.time,
@@ -46,14 +46,14 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
         )
         trading_summary.append_position(pos)
         trading_summary.finish(pos.close_time + DAY_MS)
-        await event.emit('agent', 'position_closed', pos, trading_summary)
-        await event.emit('agent', 'finished', trading_summary)
-        await event.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
-        await event.emit('agent', 'advice', Advice.LIQUIDATE)
+        await events.emit('agent', 'position_closed', pos, trading_summary)
+        await events.emit('agent', 'finished', trading_summary)
+        await events.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
+        await events.emit('agent', 'advice', Advice.LIQUIDATE)
         try:
             raise Exception('Expected error.')
         except Exception as exc:
-            await event.emit('agent', 'errored', exc)
+            await events.emit('agent', 'errored', exc)
 
 
 def skip_non_configured(request, config):

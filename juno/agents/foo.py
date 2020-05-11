@@ -3,7 +3,7 @@ import logging
 from decimal import Decimal
 from typing import Any, List
 
-from juno.components import Event, Historian, Informant, Prices
+from juno.components import Events, Historian, Informant, Prices
 from juno.optimization import Optimizer
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
@@ -18,14 +18,14 @@ _log = logging.getLogger(__name__)
 class Foo(Agent):
     def __init__(
         self, historian: Historian, informant: Informant, prices: Prices, trader: Trader,
-        optimizer: Optimizer, event: Event = Event(), storage: Storage = Memory()
+        optimizer: Optimizer, events: Events = Events(), storage: Storage = Memory()
     ) -> None:
         self._historian = historian
         self._informant = informant
         self._prices = prices
         self._trader = trader
         self._optimizer = optimizer
-        self._event = event
+        self._events = events
         self._storage = storage
 
     async def on_running(self, config: Any, state: Agent.State) -> None:
