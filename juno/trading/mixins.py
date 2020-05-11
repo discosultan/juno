@@ -44,11 +44,11 @@ class SimulatedPositionMixin(abc.ABC):
 
     # TODO: Take exchange and symbol from position?
     def close_simulated_long_position(
-        self, candle: Candle, position: Position.OpenLong, exchange: str, symbol: str
+        self, candle: Candle, position: Position.OpenLong, exchange: str
     ) -> Position.Long:
         price = candle.close
-        _, quote_asset = unpack_symbol(symbol)
-        fees, filters = self.informant.get_fees_filters(exchange, symbol)
+        _, quote_asset = unpack_symbol(position.symbol)
+        fees, filters = self.informant.get_fees_filters(exchange, position.symbol)
 
         size = filters.size.round_down(position.base_gain)
         quote = round_down(price * size, filters.quote_precision)
@@ -84,11 +84,11 @@ class SimulatedPositionMixin(abc.ABC):
         )
 
     def close_simulated_short_position(
-        self, candle: Candle, position: Position.OpenShort, exchange: str, symbol: str
+        self, candle: Candle, position: Position.OpenShort, exchange: str
     ) -> Position.Short:
         price = candle.close
-        base_asset, _ = unpack_symbol(symbol)
-        fees, filters = self.informant.get_fees_filters(exchange, symbol)
+        base_asset, _ = unpack_symbol(position.symbol)
+        fees, filters = self.informant.get_fees_filters(exchange, position.symbol)
         borrow_info = self.informant.get_borrow_info(exchange, base_asset)
 
         interest = _calculate_interest(
@@ -141,11 +141,11 @@ class PositionMixin(abc.ABC):
         )
 
     async def close_long_position(
-        self, candle: Candle, position: Position.OpenLong, exchange: str, symbol: str, test: bool
+        self, candle: Candle, position: Position.OpenLong, exchange: str, test: bool
     ) -> Position.Long:
         res = await self.broker.sell(
             exchange=exchange,
-            symbol=symbol,
+            symbol=position.symbol,
             size=position.base_gain,
             test=test,
         )
@@ -190,10 +190,10 @@ class PositionMixin(abc.ABC):
         )
 
     async def close_short_position(
-        self, candle: Candle, position: Position.OpenShort, exchange: str, symbol: str, test: bool
+        self, candle: Candle, position: Position.OpenShort, exchange: str, test: bool
     ) -> Position.Short:
-        base_asset, quote_asset = unpack_symbol(symbol)
-        fees, filters = self.informant.get_fees_filters(exchange, symbol)
+        base_asset, quote_asset = unpack_symbol(position.symbol)
+        fees, filters = self.informant.get_fees_filters(exchange, position.symbol)
         borrow_info = self.informant.get_borrow_info(exchange, base_asset)
         exchange_instance = self.exchanges[exchange]
 
@@ -211,7 +211,7 @@ class PositionMixin(abc.ABC):
         size = filters.size.round_up(size + fee)
         res = await self.broker.buy(
             exchange=exchange,
-            symbol=symbol,
+            symbol=position.symbol,
             size=size,
             test=test,
             margin=not test,

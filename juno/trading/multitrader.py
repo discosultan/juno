@@ -10,9 +10,9 @@ from juno.components import Chandler, Event, Informant
 from juno.exchanges import Exchange
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
-from juno.utils import tonamedtuple, unpack_symbol
+from juno.utils import tonamedtuple
 
-from .common import MissedCandlePolicy, Position, TradingSummary
+from .common import Position, TradingSummary
 from .mixins import PositionMixin, SimulatedPositionMixin
 
 _log = logging.getLogger(__name__)
@@ -21,7 +21,6 @@ _log = logging.getLogger(__name__)
 class MultiTrader(PositionMixin, SimulatedPositionMixin):
     class Config(NamedTuple):
         exchange: str
-        symbol: str
         interval: Interval
         start: Timestamp
         end: Timestamp
@@ -29,22 +28,11 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         strategy: str
         strategy_module: str = strategies.__name__
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
-        test: bool = True  # No effect if broker is None.
         strategy_args: List[Any] = []
         strategy_kwargs: Dict[str, Any] = {}
         channel: str = 'default'
-        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-        adjust_start: bool = False
         long: bool = True  # Take long positions.
         short: bool = False  # Also take short positions.
-
-        @property
-        def base_asset(self) -> str:
-            return unpack_symbol(self.symbol)[0]
-
-        @property
-        def quote_asset(self) -> str:
-            return unpack_symbol(self.symbol)[1]
 
         @property
         def upside_trailing_factor(self) -> Decimal:
@@ -73,6 +61,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         lowest_close_since_position = Decimal('Inf')
         current: Timestamp = 0
         start_adjusted: bool = False
+        symbols: List[str] = []
 
     def __init__(
         self,
@@ -106,13 +95,8 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
-        if config.short:
-            assert self._informant.get_borrow_info(config.exchange, config.quote_asset)
-            assert self._informant.get_fees_filters(
-                config.exchange, config.symbol
-            )[1].is_margin_trading_allowed
 
-        state = state or Trader.State()
+        state = state or MultiTrader.State()
 
         if state.quote == -1:
             state.quote = config.quote
@@ -121,7 +105,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             state.summary = TradingSummary(
                 start=config.start,
                 quote=config.quote,
-                quote_asset=config.quote_asset,
+                quote_asset='btc',
             )
 
         if not state.strategy:
@@ -133,10 +117,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         if not state.current:
             state.current = config.start
 
-        if config.adjust_start and not state.start_adjusted:
-            # Adjust start to accommodate for the required history before a strategy
-            # becomes effective. Only do it on first run because subsequent runs mean
-            # missed candles and we don't want to fetch passed a missed candle.
+        if not state.start_adjusted:
             _log.info(
                 f'fetching {state.strategy.adjust_hint} candle(s) before start time to warm-up '
                 'strategy'
@@ -144,65 +125,35 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             state.current -= state.strategy.adjust_hint * config.interval
             state.start_adjusted = True
 
+        if len(state.symbols) == 0:
+            state.symbols = await self._find_top_symbols(config)
+
         try:
-            while True:
-                restart = False
-
-                async for candle in self._chandler.stream_candles(
-                    exchange=config.exchange,
-                    symbol=config.symbol,
-                    interval=config.interval,
-                    start=state.current,
-                    end=config.end,
-                ):
-                    # Check if we have missed a candle.
-                    if (
-                        state.last_candle
-                        and candle.time - state.last_candle.time >= config.interval * 2
-                    ):
-                        # TODO: walrus operator
-                        num_missed = (candle.time - state.last_candle.time) // config.interval - 1
-                        if config.missed_candle_policy is MissedCandlePolicy.RESTART:
-                            _log.info('restarting strategy due to missed candle(s)')
-                            restart = True
-                            state.strategy = config.new_strategy()
-                            state.current = candle.time + config.interval
-                        elif config.missed_candle_policy is MissedCandlePolicy.LAST:
-                            _log.info(f'filling {num_missed} missed candles with last values')
-                            last_candle = state.last_candle
-                            for i in range(1, num_missed + 1):
-                                missed_candle = Candle(
-                                    time=last_candle.time + i * config.interval,
-                                    open=last_candle.open,
-                                    high=last_candle.high,
-                                    low=last_candle.low,
-                                    close=last_candle.close,
-                                    volume=last_candle.volume,
-                                    closed=last_candle.closed,
-                                )
-                                await self._tick(config, state, missed_candle)
-
-                    await self._tick(config, state, candle)
-
-                    if restart:
-                        break
-
-                if not restart:
-                    break
+            await self._trade_symbols(config, state)
         finally:
             if state.last_candle:
-                if state.open_long_position:
-                    _log.info('ending trading but long position open; closing')
-                    await self._close_long_position(config, state, state.last_candle)
-                if state.open_short_position:
-                    _log.info('ending trading but short position open; closing')
-                    await self._close_short_position(config, state, state.last_candle)
-
+                await self._close_all_open_positions(config, state)
                 state.summary.finish(state.last_candle.time + config.interval)
             else:
                 state.summary.finish(config.start)
 
         return state.summary
+
+    async def _find_top_symbols(config: Config) -> List[str]:
+        pass
+        # self._informant.list
+
+    async def _trade_symbols(self, config: Config, state: State) -> None:
+        pass
+        # async for candle in self._chandler.stream_candles(
+        #         exchange=config.exchange,
+        #         symbol=config.symbol,
+        #         interval=config.interval,
+        #         start=state.current,
+        #         end=config.end,
+        #         fill_missing_with_last=True,
+        #     ):
+        #         await self._tick(config, state, candle)
 
     async def _tick(self, config: Config, state: State, candle: Candle) -> None:
         await self._event.emit(config.channel, 'candle', candle)
@@ -255,7 +206,12 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         state.last_candle = candle
         state.current = candle.time + config.interval
 
-    async def _open_long_position(self, config: Config, state: State, candle: Candle) -> None:
+    async def _close_all_open_positions(config: Config, state: State) -> None:
+        pass
+
+    async def _open_long_position(
+        self, config: Config, state: State, candle: Candle, symbol: str
+    ) -> None:
         assert not state.open_long_position
         assert not state.open_short_position
 
@@ -263,13 +219,13 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             await self.open_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
-                test=config.test,
+                symbol=symbol,
                 quote=state.quote,
+                test=False,
             ) if self._broker else self.open_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
+                symbol=symbol,
                 quote=state.quote,
             )
         )
@@ -283,7 +239,9 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             config.channel, 'position_opened', state.open_long_position, state.summary
         )
 
-    async def _close_long_position(self, config: Config, state: State, candle: Candle) -> None:
+    async def _close_long_position(
+        self, config: Config, state: State, candle: Candle
+    ) -> None:
         assert state.summary
         assert state.open_long_position
 
@@ -291,13 +249,11 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             await self.close_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
-                test=config.test,
                 position=state.open_long_position,
+                test=False,
             ) if self._broker else self.close_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
                 position=state.open_long_position,
             )
         )
@@ -312,7 +268,9 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         _log.debug(tonamedtuple(position))
         await self._event.emit(config.channel, 'position_closed', position, state.summary)
 
-    async def _open_short_position(self, config: Config, state: State, candle: Candle) -> None:
+    async def _open_short_position(
+        self, config: Config, state: State, candle: Candle, symbol: str
+    ) -> None:
         assert not state.open_long_position
         assert not state.open_short_position
 
@@ -320,9 +278,9 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             await self.open_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
-                test=config.test,
+                symbol=symbol,
                 collateral=state.quote,
+                test=False,
             ) if self._broker else self.open_simulated_short_position(
                 candle=candle,
                 exchange=config.exchange,
@@ -340,7 +298,9 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             config.channel, 'position_opened', state.open_short_position, state.summary
         )
 
-    async def _close_short_position(self, config: Config, state: State, candle: Candle) -> None:
+    async def _close_short_position(
+        self, config: Config, state: State, candle: Candle
+    ) -> None:
         assert state.summary
         assert state.open_short_position
 
@@ -348,13 +308,11 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             await self.close_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
-                test=config.test,
                 position=state.open_short_position,
+                test=False,
             ) if self._broker else self.close_simulated_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
                 position=state.open_short_position,
             )
         )
