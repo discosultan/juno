@@ -94,7 +94,6 @@ class Agent:
         state_type = type(self).State
 
         if getattr(config, 'persist', False):
-            # TODO: walrus
             existing_state = await self._storage.get(
                 'default',
                 self._get_storage_key(name),
@@ -115,7 +114,7 @@ class Agent:
             else:
                 _log.info(f'existing state with name {name} not found; creating new')
         else:
-            _log.info(f'creating new state')
+            _log.info('creating new state')
 
         return state_type(
             name=name,

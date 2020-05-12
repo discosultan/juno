@@ -133,9 +133,7 @@ def create_task_cancel_on_exc(coro):
         if task.cancelled():
             _log.info(f'{task_name} task cancelled')
         else:
-            # TODO: walrus
-            exc = task.exception()
-            if exc:
+            if exc := task.exception():
                 msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
                 _log.error(f'unhandled exception in {task_name} task ({msg})')
                 # current_task.set_exception(exc)  # Not allowed for a task.

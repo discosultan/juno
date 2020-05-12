@@ -25,6 +25,6 @@ class ChaikinOscillator:
 
         self._short_ema.update(self._money_flow_volume)
         self._long_ema.update(self._money_flow_volume)
-        # TODO: walrus
+
         self.value = self._short_ema.value - self._long_ema.value
         return self.value

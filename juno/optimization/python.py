@@ -62,22 +62,16 @@ class Python(Solver, SimulatedPositionMixin):
                     if not candle.closed:
                         continue
 
-                    # TODO: python 3.8 assignment expression
                     if (
                         config.missed_candle_policy is not MissedCandlePolicy.IGNORE
-                        and state.last_candle
-                        and candle.time - state.last_candle.time >= config.interval * 2
+                        and (last_candle := state.last_candle)
+                        and (time_diff := (candle.time - last_candle.time)) >= config.interval * 2
                     ):
                         if config.missed_candle_policy is MissedCandlePolicy.RESTART:
                             restart = True
                             state.strategy = config.new_strategy()
                         elif config.missed_candle_policy is MissedCandlePolicy.LAST:
-                            num_missed = (
-                                (candle.time - state.last_candle.time)
-                                // config.interval
-                                - 1
-                            )
-                            last_candle = state.last_candle
+                            num_missed = time_diff // config.interval - 1
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
                                     time=last_candle.time + i * config.interval,

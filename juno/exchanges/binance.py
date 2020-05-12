@@ -601,15 +601,13 @@ class Binance(Exchange):
             security=security,
         )
         if isinstance(res.data, dict):
-            # TODO: walrus
-            error_code = res.data.get('code')
-            if error_code is not None:
+            if (error_code := res.data.get('code')) is not None:
                 error_msg = res.data.get('msg')
                 _log.warning(
                     f'received http status {res.status}; code {error_code}; msg {error_msg}'
                 )
                 if error_code == _ERR_INVALID_TIMESTAMP:
-                    _log.warning(f'received invalid timestamp; syncing clock before exc')
+                    _log.warning('received invalid timestamp; syncing clock before exc')
                     self._clock.clear()
                     raise ExchangeException(error_msg)
                 elif error_code == _ERR_INVALID_LISTEN_KEY:

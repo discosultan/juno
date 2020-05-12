@@ -114,18 +114,20 @@ class Chandler:
                     exchange, symbol, interval, span_start, span_end
                 )
             async for candle in stream:
-                if not last_closed_candle and candle.closed:
-                    num_missed = (candle.time - start) // interval
-                    if num_missed > 0:
-                        _log.warning(
-                            f'missed {num_missed} {candle_msg} from the start '
-                            f'{strftimestamp(start)}; current candle {candle}'
-                        )
+                if (
+                    not last_closed_candle
+                    and candle.closed
+                    and (num_missed := (candle.time - start) // interval) > 0
+                ):
+                    _log.warning(
+                        f'missed {num_missed} {candle_msg} from the start '
+                        f'{strftimestamp(start)}; current candle {candle}'
+                    )
 
-                # TODO: use walrus operator
-                time_diff = candle.time - last_closed_candle.time if last_closed_candle else 0
-                if time_diff >= interval * 2:
-                    assert last_closed_candle
+                if (
+                    last_closed_candle
+                    and (time_diff := candle.time - last_closed_candle.time) >= interval * 2
+                ):
                     num_missed = time_diff // interval - 1
                     _log.warning(
                         f'missed {num_missed} {candle_msg}; last closed candle '
@@ -148,16 +150,14 @@ class Chandler:
                 if candle.closed:
                     last_closed_candle = candle
 
-        if not last_closed_candle:
-            _log.warning(f'missed all {candle_msg} between {strfspan(start, end)}')
+        if last_closed_candle and (time_diff := end - last_closed_candle.time) >= interval * 2:
+            num_missed = time_diff // interval - 1
+            _log.warning(
+                f'missed {num_missed} {candle_msg} from the end {strftimestamp(end)}; '
+                f'current candle {candle}'
+            )
         else:
-            time_diff = end - last_closed_candle.time
-            if time_diff >= interval * 2:
-                num_missed = time_diff // interval - 1
-                _log.warning(
-                    f'missed {num_missed} {candle_msg} from the end {strftimestamp(end)}; '
-                    f'current candle {candle}'
-                )
+            _log.warning(f'missed all {candle_msg} between {strfspan(start, end)}')
 
     async def _stream_and_store_exchange_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int
