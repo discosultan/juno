@@ -93,9 +93,18 @@ class Changed:
     """Pass an advice only if was changed on current tick."""
     _previous: Advice = Advice.NONE
     _enabled: bool
+    _age: int = 0
 
     def __init__(self, enabled: bool) -> None:
         self._enabled = enabled
+
+    @property
+    def prevailing_advice(self) -> Advice:
+        return self._previous
+
+    @property
+    def prevailing_advice_age(self) -> int:
+        return self._age
 
     @property
     def maturity(self) -> int:
@@ -105,8 +114,13 @@ class Changed:
         if not self._enabled:
             return value
 
-        result = value if value is not self._previous else Advice.NONE
+        if value is self._previous:
+            result = Advice.NONE
+        else:
+            self._age = 0
+            result = value
         self._previous = value
+        self._age += 1
         return result
 
 

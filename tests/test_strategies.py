@@ -108,10 +108,21 @@ def test_changed_disabled() -> None:
 
 def test_changed_enabled() -> None:
     target = strategies.Changed(enabled=True)
+    assert target.prevailing_advice is Advice.NONE
+    assert target.prevailing_advice_age == 0
+
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.NONE
+    assert target.prevailing_advice is Advice.LONG
+    assert target.prevailing_advice_age == 2
+
     assert target.update(Advice.NONE) is Advice.NONE
+    assert target.prevailing_advice is Advice.NONE
+    assert target.prevailing_advice_age == 1
+
     assert target.update(Advice.SHORT) is Advice.SHORT
+    assert target.prevailing_advice is Advice.SHORT
+    assert target.prevailing_advice_age == 1
 
 
 def test_mid_trend_persistence_combination() -> None:
