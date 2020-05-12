@@ -368,9 +368,8 @@ class Coinbase(Exchange):
         }
         url = _BASE_REST_URL + url
         async with self._session.request_json(method, url, headers=headers, data=body) as res:
-            # TODO: walrus
-            if res.status == 404 and res.data.get('message') == 'order not found':
-                raise OrderException(res.data['message'])
+            if res.status == 404 and (msg := res.data.get('message')) == 'order not found':
+                raise OrderException(msg)
             return res.data
 
 

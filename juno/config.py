@@ -49,7 +49,6 @@ def list_names(config: Dict[str, Any], name: str) -> Set[str]:
     result = set()
     name_plural = name + 's'
     for keys, v in recursive_iter(config):
-        # TODO: walrus
         # Check for key value: `exchange: "binance"`.
         last_key = keys[-1]
         if isinstance(last_key, str) and any(n == name for n in last_key.split('_')):
@@ -151,12 +150,9 @@ def init_instance(type_: Type[Any], config: Dict[str, Any]) -> Any:
 
 
 def kwargs_for(signature: Any, config: Dict[str, Any]) -> Dict[str, Any]:
-    type_hints = get_input_type_hints(signature)
     parsed_config = {}
-    # TODO: assignment expression?
-    for k, t in type_hints.items():
-        config_val = config.get(k, '__missing__')
-        if config_val != '__missing__':
+    for k, t in get_input_type_hints(signature).items():
+        if (config_val := config.get(k, '__missing__')) != '__missing__':
             parsed_config[k] = config_to_type(config_val, t)
     return parsed_config
 

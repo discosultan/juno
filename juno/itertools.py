@@ -69,21 +69,21 @@ def flatten(items: Iterable[Union[T, List[T]]]) -> Iterable[T]:
 
 
 @overload
-def chunks(l: List[T], n: int) -> Iterable[List[T]]:
+def chunks(seq: List[T], n: int) -> Iterable[List[T]]:
     ...
 
 
 @overload
-def chunks(l: str, n: int) -> Iterable[str]:
+def chunks(seq: str, n: int) -> Iterable[str]:
     ...
 
 
 # Ref: https://stackoverflow.com/a/312464/1466456
-def chunks(l, n):
+def chunks(seq, n):
     """Yield successive n-sized chunks from l."""
-    length = len(l)
+    length = len(seq)
     if length <= n:
-        yield l
+        yield seq
     else:
         for i in range(0, length, n):
-            yield l[i:i + n]
+            yield seq[i:i + n]

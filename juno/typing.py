@@ -106,9 +106,7 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
         return type_(*args)
 
     # Try constructing a regular dataclass.
-    # TODO: walrus
-    spec_type_name = value.get('__type__')
-    if spec_type_name is not None:
+    if (spec_type_name := value.get('__type__')) is not None:
         origin = get_type_by_fully_qualified_name(spec_type_name)
 
     annotations = get_type_hints(origin)
@@ -153,9 +151,7 @@ def type_to_raw(value: Any) -> Any:
 
     # Data class and regular class. We don't want to use `dataclasses.asdict` because it is
     # recursive in converting dataclasses.
-    # TODO: walrus
-    value_dict = getattr(value, '__dict__', None)
-    if value_dict is not None:
+    if (value_dict := getattr(value, '__dict__', None)) is not None:
         res = {k: type_to_raw(v) for k, v in value_dict.items()}
         res['__type__'] = get_fully_qualified_name(value)
         return res

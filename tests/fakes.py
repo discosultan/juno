@@ -182,9 +182,7 @@ class Chandler(components.Chandler):
                 yield c
             last_c = c
 
-        # TODO: walrus
-        future_candles = self.future_candle_queues.get((exchange, symbol, interval))
-        if future_candles:
+        if future_candles := self.future_candle_queues.get((exchange, symbol, interval)):
             while True:
                 candle = await future_candles.get()
                 yield candle

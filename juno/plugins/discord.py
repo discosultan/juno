@@ -21,10 +21,8 @@ _log = logging.getLogger(__name__)
 class Discord(discord.Client, Plugin):
     def __init__(self, events: Events, config: Dict[str, Any]) -> None:
         discord_config = config.get(type(self).__name__.lower(), {})
-        # TODO: walrus
-        token = discord_config.get('token')
-        if not token:
-            raise ValueError(f'Missing token from config')
+        if not (token := discord_config.get('token')):
+            raise ValueError('Missing token from config')
 
         super().__init__()
         self._events = events
@@ -51,9 +49,7 @@ class Discord(discord.Client, Plugin):
                 f'{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'
             )
 
-        # TODO: walrus
-        channel_id = self._channel_ids.get(channel_name)
-        if not channel_id:
+        if not (channel_id := self._channel_ids.get(channel_name)):
             raise ValueError(f'Missing {channel_name} channel ID from config')
         channel_id = int(channel_id)
 

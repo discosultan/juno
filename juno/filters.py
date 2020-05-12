@@ -1,8 +1,6 @@
 # Exchange filters.
 # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#filters
 
-from __future__ import annotations
-
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 from typing import NamedTuple
 

@@ -157,19 +157,17 @@ class Trader(PositionMixin, SimulatedPositionMixin):
                 ):
                     # Check if we have missed a candle.
                     if (
-                        state.last_candle
-                        and candle.time - state.last_candle.time >= config.interval * 2
+                        (last_candle := state.last_candle)
+                        and (time_diff := (candle.time - last_candle.time)) >= config.interval * 2
                     ):
-                        # TODO: walrus operator
-                        num_missed = (candle.time - state.last_candle.time) // config.interval - 1
                         if config.missed_candle_policy is MissedCandlePolicy.RESTART:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
                             state.strategy = config.new_strategy()
                             state.current = candle.time + config.interval
                         elif config.missed_candle_policy is MissedCandlePolicy.LAST:
+                            num_missed = time_diff // config.interval - 1
                             _log.info(f'filling {num_missed} missed candles with last values')
-                            last_candle = state.last_candle
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
                                     time=last_candle.time + i * config.interval,
