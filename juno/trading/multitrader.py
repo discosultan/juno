@@ -22,8 +22,6 @@ from .mixins import PositionMixin, SimulatedPositionMixin
 
 _log = logging.getLogger(__name__)
 
-TRACK_COUNT = 4
-POSITION_COUNT = 2
 SYMBOL_PATTERN = '*-btc'
 
 
@@ -56,6 +54,8 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         channel: str = 'default'
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
+        track_count: int = 4
+        position_count: int = 2
 
         @property
         def upside_trailing_factor(self) -> Decimal:
@@ -107,8 +107,8 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
-        assert POSITION_COUNT > 0
-        assert POSITION_COUNT <= TRACK_COUNT
+        assert config.position_count > 0
+        assert config.position_count <= config.track_count
 
         state = state or MultiTrader.State()
 
@@ -120,8 +120,8 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             )
 
         if len(state.symbol_states) == 0:
-            ratio = Decimal('1.0') / POSITION_COUNT
-            quotes = split_by_ratios(config.quote, [ratio] * POSITION_COUNT)
+            ratio = Decimal('1.0') / config.position_count
+            quotes = split_by_ratios(config.quote, [ratio] * config.position_count)
             symbols = self._find_top_symbols(config)
             state.symbol_states = {s: _SymbolState(
                 strategy=config.new_strategy(),
@@ -131,8 +131,8 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             ) for s, q in zip(symbols, quotes)}
 
         _log.info(
-            f'managing up to {POSITION_COUNT} positions by tracking top {TRACK_COUNT} symbols: '
-            f'{symbols}'
+            f'managing up to {config.position_count} positions by tracking top '
+            f'{config.track_count} symbols: {symbols}'
         )
 
         try:
@@ -156,12 +156,12 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
 
     def _find_top_symbols(self, config: Config) -> List[str]:
         tickers = self._informant.list_tickers(config.exchange, symbol_pattern=SYMBOL_PATTERN)
-        if len(tickers) < TRACK_COUNT:
+        if len(tickers) < config.track_count:
             raise ValueError(
                 f'Exchange only support {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
-                f'while {TRACK_COUNT} requested'
+                f'while {config.track_count} requested'
             )
-        return [t.symbol for t in tickers[0:TRACK_COUNT]]
+        return [t.symbol for t in tickers[0:config.track_count]]
 
     async def _manage_positions(
         self, config: Config, state: State, candles_updated: SlotBarrier
@@ -198,8 +198,8 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             # Try open new positions.
             to_open.clear()
             count = sum(1 for ss in state.symbol_states.values() if ss.open_position is not None)
-            assert count <= POSITION_COUNT
-            available = POSITION_COUNT - count
+            assert count <= config.position_count
+            available = config.position_count - count
             for symbol, ss in state.symbol_states.items():
                 if available == 0:
                     break
