@@ -1,8 +1,8 @@
 import asyncio
 
 from juno.asyncio import (
-    Barrier, Event, cancel, chain_async, enumerate_async, first_async, list_async, merge_async,
-    repeat_async, resolved_stream, zip_async
+    Barrier, Event, SlotBarrier, cancel, chain_async, enumerate_async, first_async, list_async,
+    merge_async, repeat_async, resolved_stream, zip_async
 )
 
 
@@ -105,23 +105,66 @@ async def test_zip_async() -> None:
 
 async def test_barrier() -> None:
     barrier = Barrier(2)
-    event = asyncio.Event()
-
-    async def process_event():
-        await barrier.wait()
-        event.set()
-
-    process_event_task = asyncio.create_task(process_event())
+    wait_task = asyncio.create_task(barrier.wait())
+    assert barrier.locked
+    assert not wait_task.done()
 
     barrier.release()
     await asyncio.sleep(0)
-    assert not event.is_set()
+    assert barrier.locked
+    assert not wait_task.done()
 
     barrier.release()
     await asyncio.sleep(0)
-    assert event.is_set()
+    assert not barrier.locked
+    assert wait_task.done()
 
-    assert process_event_task.done()
+    barrier.clear()
+    wait_task = asyncio.create_task(barrier.wait())
+    assert barrier.locked
+    assert not wait_task.done()
+
+    barrier.release()
+    await asyncio.sleep(0)
+    assert barrier.locked
+    assert not wait_task.done()
+
+    barrier.release()
+    await asyncio.sleep(0)
+    assert not barrier.locked
+    assert wait_task.done()
+
+
+async def test_slot_barrier() -> None:
+    barrier = SlotBarrier(['a', 'b'])
+    wait_task = asyncio.create_task(barrier.wait())
+    assert barrier.locked
+    assert not wait_task.done()
+
+    barrier.release('a')
+    await asyncio.sleep(0)
+    assert barrier.locked
+    assert not wait_task.done()
+
+    barrier.release('b')
+    await asyncio.sleep(0)
+    assert not barrier.locked
+    assert wait_task.done()
+
+    barrier.clear()
+    wait_task = asyncio.create_task(barrier.wait())
+    assert barrier.locked
+    assert not wait_task.done()
+
+    barrier.release('a')
+    await asyncio.sleep(0)
+    assert barrier.locked
+    assert not wait_task.done()
+
+    barrier.release('b')
+    await asyncio.sleep(0)
+    assert not barrier.locked
+    assert wait_task.done()
 
 
 async def test_cancel() -> None:

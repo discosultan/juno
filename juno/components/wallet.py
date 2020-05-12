@@ -8,7 +8,7 @@ from typing import AsyncIterable, Dict, List, Tuple
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Balance, ExchangeException
-from juno.asyncio import Barrier, Event, cancel, create_task_cancel_on_exc
+from juno.asyncio import Event, SlotBarrier, cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
@@ -23,8 +23,9 @@ class Wallet:
         self._data: Dict[Tuple[str, bool], _WalletData] = defaultdict(_WalletData)
 
     async def __aenter__(self) -> Wallet:
-        self._initial_balances_fetched = Barrier(
-            len(self._exchanges) + len([e for e in self._exchanges.values() if e.can_margin_trade])
+        self._initial_balances_fetched = SlotBarrier(
+            [(e, False) for e in self._exchanges.keys()]
+            + [(e, True) for e, i in self._exchanges.items() if i.can_margin_trade]
         )
         self._sync_all_balances_task = create_task_cancel_on_exc(self._sync_all_balances())
         await self._initial_balances_fetched.wait()
@@ -68,7 +69,7 @@ class Wallet:
                     exchange_data.balances = balances
                     if is_first:
                         is_first = False
-                        self._initial_balances_fetched.release()
+                        self._initial_balances_fetched.release((exchange, margin))
                     exchange_data.updated.set()
 
     async def _stream_balances(

@@ -41,7 +41,7 @@ class Trades:
     ) -> AsyncIterable[Trade]:
         key = (exchange, symbol)
         lock = self._streaming_locks[key]
-        if lock.locked():
+        if lock.locked:
             _log.info(f'{key} trades are already being streamed; waiting for release')
         async with lock:
             async for trade in self._stream_trades(exchange, symbol, start, end):
