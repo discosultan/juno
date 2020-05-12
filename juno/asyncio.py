@@ -3,7 +3,8 @@ import itertools
 import logging
 import traceback
 from typing import (
-    Any, AsyncIterable, AsyncIterator, Dict, Generic, List, Optional, Tuple, TypeVar, cast
+    Any, AsyncIterable, AsyncIterator, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar,
+    cast
 )
 
 _log = logging.getLogger(__name__)
@@ -166,20 +167,65 @@ class Barrier:
         if count < 0:
             raise ValueError('Count cannot be negative')
 
-        self._remaining_count = count
+        self._count = count
         self._event = asyncio.Event()
-        if count == 0:
+        self.clear()
+
+    @property
+    def locked(self) -> bool:
+        return self._remaining_count > 0
+
+    def clear(self) -> None:
+        self._event.clear()
+        self._remaining_count = self._count
+        if not self.locked:
             self._event.set()
 
     async def wait(self) -> None:
         await self._event.wait()
 
-    def locked(self) -> bool:
-        return self._remaining_count > 0
-
     def release(self) -> None:
-        self._remaining_count = max(self._remaining_count - 1, 0)
-        if not self.locked():
+        if self._remaining_count > 0:
+            self._remaining_count -= 1
+        else:
+            _log.warning('released already unlocked barrier')
+
+        if not self.locked:
+            self._event.set()
+
+
+class SlotBarrier(Generic[T]):
+    def __init__(self, slots: Iterable[T]) -> None:
+        self._slots = {s: True for s in set(slots)}
+        self._event = asyncio.Event()
+        self.clear()
+
+    @property
+    def locked(self) -> bool:
+        return any(self._slots.values())
+
+    def clear(self) -> None:
+        self._event.clear()
+        for slot in self._slots.keys():
+            self._slots[slot] = True
+        if not self.locked:
+            self._event.set()
+
+    async def wait(self) -> None:
+        await self._event.wait()
+
+    def release(self, slot: T) -> None:
+        is_locked = self._slots.get(slot)
+
+        if is_locked is None:
+            raise ValueError(f'Slot {slot} does not exist')
+
+        if is_locked:
+            self._slots[slot] = False
+        else:
+            _log.warning(f'released already unlocked slot {slot}')
+
+        if not self.locked:
             self._event.set()
 
 

@@ -62,7 +62,7 @@ class Chandler:
     ) -> AsyncIterable[Candle]:
         key = (exchange, symbol, interval)
         lock = self._streaming_locks[key]
-        if lock.locked():
+        if lock.locked:
             _log.info(f'{key} candles are already being streamed; waiting for release')
         async with lock:
             async for candle in self._stream_candles(

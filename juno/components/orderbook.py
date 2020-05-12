@@ -10,7 +10,7 @@ from typing import Any, AsyncIterable, Dict, List, Tuple
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Depth, ExchangeException, Fill, Filters, Side
-from juno.asyncio import Barrier, Event, cancel, create_task_cancel_on_exc
+from juno.asyncio import Event, SlotBarrier, cancel, create_task_cancel_on_exc
 from juno.config import list_names
 from juno.exchanges import Exchange
 from juno.math import round_half_up
@@ -43,7 +43,7 @@ class Orderbook:
         )
 
     async def __aenter__(self) -> Orderbook:
-        self._initial_orderbook_fetched = Barrier(len(self._orderbooks_product))
+        self._initial_orderbook_fetched = SlotBarrier(self._orderbooks_product)
         self._sync_task = create_task_cancel_on_exc(self._sync_orderbooks())
         await self._initial_orderbook_fetched.wait()
         _log.info('ready')
@@ -151,7 +151,7 @@ class Orderbook:
                         orderbook.sides[Side.BUY] = {k: v for k, v in depth.asks}
                         orderbook.sides[Side.SELL] = {k: v for k, v in depth.bids}
                         orderbook.snapshot_received = True
-                        self._initial_orderbook_fetched.release()
+                        self._initial_orderbook_fetched.release((exchange, symbol))
                     elif isinstance(depth, Depth.Update):
                         # TODO: For example, with depth level 10, Kraken expects us to discard
                         # levels outside level 10. They will not publish messages to delete them.
