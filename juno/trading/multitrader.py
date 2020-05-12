@@ -5,13 +5,14 @@ import importlib
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Coroutine, Dict, List, NamedTuple, Optional
 
 from juno import Advice, Candle, Fill, Interval, Timestamp, strategies
-from juno.asyncio import Event
+from juno.asyncio import SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant
 from juno.exchanges import Exchange
+from juno.math import split_by_ratios
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
 from juno.utils import tonamedtuple
@@ -31,18 +32,13 @@ class _SymbolState:
     strategy: Strategy
     changed: Changed
     current: Timestamp
+    quote: Decimal
     start_adjusted: bool = False
     open_position: Optional[Position.Open] = None
     highest_close_since_position = Decimal('0.0')
     lowest_close_since_position = Decimal('Inf')
     first_candle: Optional[Candle] = None
     last_candle: Optional[Candle] = None
-
-
-class _AdviceHint(NamedTuple):
-    time: Timestamp
-    symbol: str
-    advice: Advice
 
 
 class MultiTrader(PositionMixin, SimulatedPositionMixin):
@@ -59,7 +55,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         strategy_kwargs: Dict[str, Any] = {}
         channel: str = 'default'
         long: bool = True  # Take long positions.
-        short: bool = False  # Also take short positions.
+        short: bool = False  # Take short positions.
 
         @property
         def upside_trailing_factor(self) -> Decimal:
@@ -77,9 +73,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
     @dataclass
     class State:
         symbol_states: Dict[str, _SymbolState] = {}
-        quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
-        advice_queue: Optional[List[_AdviceHint]] = None
 
     def __init__(
         self,
@@ -118,9 +112,6 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
 
         state = state or MultiTrader.State()
 
-        if state.quote == -1:
-            state.quote = config.quote
-
         if not state.summary:
             state.summary = TradingSummary(
                 start=config.start,
@@ -129,21 +120,21 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             )
 
         if len(state.symbol_states) == 0:
+            ratio = Decimal('1.0') / POSITION_COUNT
+            quotes = split_by_ratios(config.quote, [ratio] * POSITION_COUNT)
             symbols = self._find_top_symbols(config)
             state.symbol_states = {s: _SymbolState(
                 strategy=config.new_strategy(),
                 changed=Changed(True),
                 current=config.start,
-            ) for s in symbols}
-
-        if state.advice_queue is None:
-            state.advice_queue = []
+                quote=q,
+            ) for s, q in zip(symbols, quotes)}
 
         try:
-            advice_changed: Event[None] = Event(autoclear=True)
+            candles_updated = SlotBarrier(symbols)
             await asyncio.gather(
-                self._manage_positions(config, state, advice_changed),
-                *(self._track_advice(config, state, symbol, advice_changed)
+                self._manage_positions(config, state, candles_updated),
+                *(self._track_advice(config, state, symbol, candles_updated)
                   for symbol in state.symbol_states.keys())
             )
         finally:
@@ -168,13 +159,76 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         return [t.symbol for t in tickers[0:TRACK_COUNT]]
 
     async def _manage_positions(
-        self, config: Config, state: State, advice_changed: Event
+        self, config: Config, state: State, candles_updated: SlotBarrier
     ) -> None:
+        to_close: List[Coroutine[None, None, None]] = []
+        to_open: List[Coroutine[None, None, Position.Open]] = []
         while True:
-            await advice_changed.wait()
+            # Wait until we've received candle updates for all symbols.
+            await candles_updated.wait()
+
+            # Try close existing positions.
+            to_close.clear()
+            for ss in state.symbol_states.values():
+                assert ss.last_candle
+                if (
+                    isinstance(ss.open_position, Position.OpenLong)
+                    and ss.changed.prevailing_advice in [Advice.LIQUIDATE, Advice.SHORT]
+                ):
+                    to_close.append(self._close_long_position(
+                        config, state, ss.open_position, ss.last_candle
+                    ))
+                    ss.open_position = None
+                elif (
+                    isinstance(ss.open_position, Position.OpenShort)
+                    and ss.changed.prevailing_advice in [Advice.LIQUIDATE, Advice.LONG]
+                ):
+                    to_close.append(self._close_short_position(
+                        config, state, ss.open_position, ss.last_candle
+                    ))
+                    ss.open_position = None
+            if len(to_close) > 0:
+                await asyncio.gather(*to_close)
+
+            # Try open new positions.
+            to_open.clear()
+            count = sum(1 for ss in state.symbol_states.values() if ss.open_position is not None)
+            assert count <= POSITION_COUNT
+            available = POSITION_COUNT - count
+            for symbol, ss in state.symbol_states.items():
+                if available == 0:
+                    break
+
+                if ss.open_position:
+                    continue
+
+                assert ss.last_candle
+                if (
+                    ss.changed.prevailing_advice is Advice.LONG
+                    and ss.changed.prevailing_advice_age == 1  # TODO: Be more flexible?
+                ):
+                    to_open.append(self._open_long_position(
+                        config, state, ss.last_candle, symbol
+                    ))
+                    available -= 1
+                elif (
+                    ss.changed.prevailing_advice is Advice.SHORT
+                    and ss.changed.prevailing_advice_age == 1
+                ):
+                    to_open.append(self._open_short_position(
+                        config, state, ss.last_candle, symbol
+                    ))
+                    available -= 1
+            if len(to_open) > 0:
+                positions = await asyncio.gather(*to_open)
+                for pos in positions:
+                    state.symbol_states[pos.symbol].open_position = pos
+
+            # Clear barrier for next update.
+            candles_updated.clear()
 
     async def _track_advice(
-        self, config: Config, state: State, symbol: str, advice_changed: Event
+        self, config: Config, state: State, symbol: str, candles_updated: SlotBarrier
     ) -> None:
         symbol_state = state.symbol_states[symbol]
         if not symbol_state.start_adjusted:
@@ -193,83 +247,52 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             end=config.end,
             fill_missing_with_last=True,
         ):
-            assert state.advice_queue is not None
-
             advice = symbol_state.strategy.update(candle)
-            advice = symbol_state.changed.update(advice)
             _log.debug(f'received advice: {advice.name}')
 
-            if isinstance(symbol_state.open_position, Position.OpenLong):
-                if advice in [Advice.SHORT, Advice.LIQUIDATE]:
-                    state.advice_queue.append(_AdviceHint(
-                        time=candle.time,
-                        symbol=symbol,
-                        advice=advice,
-                    ))
-                    advice_changed.set()
-                elif config.trailing_stop:
-                    symbol_state.highest_close_since_position = max(
-                        symbol_state.highest_close_since_position, candle.close
+            if (
+                isinstance(symbol_state.open_position, Position.OpenLong)
+                and advice not in [Advice.SHORT, Advice.LIQUIDATE]
+                and config.trailing_stop
+            ):
+                assert advice is not Advice.LONG
+                symbol_state.highest_close_since_position = max(
+                    symbol_state.highest_close_since_position, candle.close
+                )
+                target = (
+                    symbol_state.highest_close_since_position * config.upside_trailing_factor
+                )
+                if candle.close <= target:
+                    _log.info(
+                        f'{symbol} upside trailing stop hit at {config.trailing_stop}; selling'
                     )
-                    target = (
-                        symbol_state.highest_close_since_position * config.upside_trailing_factor
+                    advice = Advice.LIQUIDATE
+            elif (
+                isinstance(symbol_state.open_position, Position.OpenShort)
+                and advice not in [Advice.LONG, Advice.LIQUIDATE]
+                and config.trailing_stop
+            ):
+                assert advice is not Advice.SHORT
+                symbol_state.lowest_close_since_position = min(
+                    symbol_state.lowest_close_since_position, candle.close
+                )
+                target = (
+                    symbol_state.lowest_close_since_position * config.downside_trailing_factor
+                )
+                if candle.close >= target:
+                    _log.info(
+                        f'{symbol} downside trailing stop hit at {config.trailing_stop}; '
+                        'selling'
                     )
-                    if candle.close <= target:
-                        _log.info(
-                            f'{symbol} upside trailing stop hit at {config.trailing_stop}; selling'
-                        )
-                        state.advice_queue.append(_AdviceHint(
-                            time=candle.time,
-                            symbol=symbol,
-                            advice=advice,
-                        ))
-                        advice_changed.set()
-                        assert advice is not Advice.LONG
-            elif isinstance(symbol_state.open_position, Position.OpenShort):
-                if advice in [Advice.LONG, Advice.LIQUIDATE]:
-                    state.advice_queue.append(_AdviceHint(
-                        time=candle.time,
-                        symbol=symbol,
-                        advice=advice,
-                    ))
-                    advice_changed.set()
-                elif config.trailing_stop:
-                    symbol_state.lowest_close_since_position = min(
-                        symbol_state.lowest_close_since_position, candle.close
-                    )
-                    target = (
-                        symbol_state.lowest_close_since_position * config.downside_trailing_factor
-                    )
-                    if candle.close >= target:
-                        _log.info(
-                            f'{symbol} downside trailing stop hit at {config.trailing_stop}; '
-                            'selling'
-                        )
-                        state.advice_queue.append(_AdviceHint(
-                            time=candle.time,
-                            symbol=symbol,
-                            advice=advice,
-                        ))
-                        advice_changed.set()
-                        assert advice is not Advice.SHORT
+                    advice = Advice.LIQUIDATE
 
             if not symbol_state.open_position:
                 if config.long and advice is Advice.LONG:
-                    state.advice_queue.append(_AdviceHint(
-                        time=candle.time,
-                        symbol=symbol,
-                        advice=advice,
-                    ))
-                    advice_changed.set()
                     symbol_state.highest_close_since_position = candle.close
                 elif config.short and advice is Advice.SHORT:
-                    state.advice_queue.append(_AdviceHint(
-                        time=candle.time,
-                        symbol=symbol,
-                        advice=advice,
-                    ))
-                    advice_changed.set()
                     symbol_state.lowest_close_since_position = candle.close
+
+            symbol_state.changed.update(advice)
 
             if not symbol_state.first_candle:
                 _log.info(f'{symbol} first candle {candle}')
@@ -277,121 +300,119 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             symbol_state.last_candle = candle
             symbol_state.current = candle.time + config.interval
 
+            candles_updated.release(symbol)
+
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
         pass
 
     async def _open_long_position(
         self, config: Config, state: State, candle: Candle, symbol: str
-    ) -> None:
-        assert not state.open_long_position
-        assert not state.open_short_position
+    ) -> Position.OpenLong:
+        symbol_state = state.symbol_states[symbol]
 
         position = (
             await self.open_long_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=symbol,
-                quote=state.quote,
+                quote=symbol_state.quote,
                 test=False,
             ) if self._broker else self.open_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=symbol,
-                quote=state.quote,
+                quote=symbol_state.quote,
             )
         )
 
-        state.quote -= Fill.total_quote(position.fills)
-        state.open_long_position = position
+        symbol_state.quote -= Fill.total_quote(position.fills)
 
         _log.info(f'long position opened: {candle}')
-        _log.debug(tonamedtuple(state.open_long_position))
+        _log.debug(tonamedtuple(position))
         await self._events.emit(
-            config.channel, 'position_opened', state.open_long_position, state.summary
+            config.channel, 'position_opened', position, state.summary
         )
+        return position
 
     async def _close_long_position(
-        self, config: Config, state: State, candle: Candle
+        self, config: Config, state: State, open_position: Position.OpenLong, candle: Candle
     ) -> None:
         assert state.summary
-        assert state.open_long_position
+        symbol_state = state.symbol_states[open_position.symbol]
 
         position = (
             await self.close_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                position=state.open_long_position,
+                position=open_position,
                 test=False,
             ) if self._broker else self.close_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                position=state.open_long_position,
+                position=open_position,
             )
         )
 
-        state.quote += (
+        symbol_state.quote += (
             Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
         )
-        state.open_long_position = None
         state.summary.append_position(position)
 
-        _log.info(f'long position closed: {candle}')
+        _log.info(f'{position.symbol} long position closed: {candle}')
         _log.debug(tonamedtuple(position))
         await self._events.emit(config.channel, 'position_closed', position, state.summary)
 
     async def _open_short_position(
         self, config: Config, state: State, candle: Candle, symbol: str
-    ) -> None:
-        assert not state.open_long_position
-        assert not state.open_short_position
+    ) -> Position.OpenShort:
+        symbol_state = state.symbol_states[symbol]
 
         position = (
             await self.open_short_position(
                 candle=candle,
                 exchange=config.exchange,
                 symbol=symbol,
-                collateral=state.quote,
+                collateral=symbol_state.quote,
                 test=False,
             ) if self._broker else self.open_simulated_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=config.symbol,
-                collateral=state.quote,
+                symbol=symbol,
+                collateral=symbol_state.quote,
             )
         )
 
-        state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
-        state.open_short_position = position
+        symbol_state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
 
         _log.info(f'short position opened: {candle}')
-        _log.debug(tonamedtuple(state.open_short_position))
+        _log.debug(tonamedtuple(position))
         await self._events.emit(
-            config.channel, 'position_opened', state.open_short_position, state.summary
+            config.channel, 'position_opened', position, state.summary
         )
+        return position
 
     async def _close_short_position(
-        self, config: Config, state: State, candle: Candle
+        self, config: Config, state: State, open_position: Position.OpenShort, candle: Candle
     ) -> None:
         assert state.summary
-        assert state.open_short_position
+        symbol_state = state.symbol_states[open_position.symbol]
 
         position = (
             await self.close_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                position=state.open_short_position,
+                position=open_position,
                 test=False,
             ) if self._broker else self.close_simulated_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                position=state.open_short_position,
+                position=open_position,
             )
         )
 
-        state.quote -= Fill.total_quote(position.close_fills)
-        state.open_short_position = None
+        symbol_state.quote -= Fill.total_quote(position.close_fills)
         state.summary.append_position(position)
 
-        _log.info(f'short position closed: {candle}')
+        _log.info(f'{position.symbol} short position closed: {candle}')
         _log.debug(tonamedtuple(position))
         await self._events.emit(config.channel, 'position_closed', position, state.summary)
