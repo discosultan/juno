@@ -22,8 +22,8 @@ from .mixins import PositionMixin, SimulatedPositionMixin
 
 _log = logging.getLogger(__name__)
 
-TRACK_COUNT = 20
-POSITION_COUNT = 5
+TRACK_COUNT = 4
+POSITION_COUNT = 2
 SYMBOL_PATTERN = '*-btc'
 
 
@@ -129,6 +129,11 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
                 current=config.start,
                 quote=q,
             ) for s, q in zip(symbols, quotes)}
+
+        _log.info(
+            f'managing up to {POSITION_COUNT} positions by tracking top {TRACK_COUNT} symbols: '
+            f'{symbols}'
+        )
 
         try:
             candles_updated = SlotBarrier(symbols)
@@ -303,7 +308,19 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             candles_updated.release(symbol)
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
-        pass
+        to_close = []
+        for ss in state.symbol_states.values():
+            assert ss.last_candle
+            if isinstance(ss.open_position, Position.OpenLong):
+                to_close.append(self._close_long_position(
+                    config, state, ss.open_position, ss.last_candle
+                ))
+            elif isinstance(ss.open_position, Position.OpenShort):
+                to_close.append(self._close_short_position(
+                    config, state, ss.open_position, ss.last_candle
+                ))
+        if len(to_close) > 0:
+            await asyncio.gather(*to_close)
 
     async def _open_long_position(
         self, config: Config, state: State, candle: Candle, symbol: str
