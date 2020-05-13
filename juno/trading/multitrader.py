@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Coroutine, Dict, List, NamedTuple, Optional
 
@@ -72,7 +72,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
 
     @dataclass
     class State:
-        symbol_states: Dict[str, _SymbolState] = {}
+        symbol_states: Dict[str, _SymbolState] = field(default_factory=dict)
         summary: Optional[TradingSummary] = None
 
     def __init__(

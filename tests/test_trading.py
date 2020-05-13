@@ -4,9 +4,9 @@ from typing import cast
 
 import pytest
 
-from juno import BorrowInfo, Candle, Fill, Filters, strategies
+from juno import BorrowInfo, Candle, Fill, Filters, Ticker, strategies
 from juno.asyncio import cancel
-from juno.trading import MissedCandlePolicy, Position, Trader, TradingSummary
+from juno.trading import MissedCandlePolicy, MultiTrader, Position, Trader, TradingSummary
 
 from . import fakes
 
@@ -365,6 +365,37 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
     assert candle_times[3] == 3
     assert candle_times[4] == 4
     assert candle_times[5] == 5
+
+
+async def test_multitrader() -> None:
+    chandler = fakes.Chandler(future_candles={
+        ('dummy', 'eth-btc', 1): [
+            Candle(time=0),
+        ]
+    })
+    informant = fakes.Informant(tickers=[
+        Ticker(symbol='eth-btc', volume=Decimal('3.0'), quote_volume=Decimal('3.0')),
+        Ticker(symbol='ltc-btc', volume=Decimal('2.0'), quote_volume=Decimal('2.0')),
+        Ticker(symbol='xmr-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
+    ])
+    trader = MultiTrader(chandler=chandler, informant=informant)
+    config = MultiTrader.Config(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=4,
+        quote=Decimal('1.0'),
+        strategy='fixed',
+        strategy_kwargs={'advices': ['long', 'liquidate', 'short', 'short']},
+        long=True,
+        short=True,
+        track_count=3,
+        position_count=2,
+    )
+
+    summary = await trader.run(config)
+
+    assert summary
 
 
 def new_closed_long_position(profit: Decimal) -> Position.Long:
