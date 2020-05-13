@@ -34,7 +34,7 @@ def test_mature(maturity: int) -> None:
     assert not strategy.mature
 
     for i in range(maturity + 1):
-        strategy.update(Candle())
+        strategy.update(Candle(time=i))
         assert strategy.mature == (i == maturity)
 
 
