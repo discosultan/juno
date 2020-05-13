@@ -161,26 +161,26 @@ class Chandler(components.Chandler):
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False
     ):
-        candles = self.candles[(exchange, symbol, interval)]
-        last_c = None
-        for c in (c for c in candles if c.time >= start and c.time < end):
-            time_diff = c.time - last_c.time if last_c else 0
-            if time_diff >= interval * 2:
-                num_missed = time_diff // interval - 1
-                if fill_missing_with_last:
-                    for i in range(1, num_missed + 1):
-                        yield Candle(
-                            time=last_c.time + i * interval,
-                            open=last_c.open,
-                            high=last_c.high,
-                            low=last_c.low,
-                            close=last_c.close,
-                            volume=last_c.volume,
-                            closed=True
-                        )
-            if not closed or c.closed:
-                yield c
-            last_c = c
+        if candles := self.candles.get((exchange, symbol, interval)):
+            last_c = None
+            for c in (c for c in candles if c.time >= start and c.time < end):
+                time_diff = c.time - last_c.time if last_c else 0
+                if time_diff >= interval * 2:
+                    num_missed = time_diff // interval - 1
+                    if fill_missing_with_last:
+                        for i in range(1, num_missed + 1):
+                            yield Candle(
+                                time=last_c.time + i * interval,
+                                open=last_c.open,
+                                high=last_c.high,
+                                low=last_c.low,
+                                close=last_c.close,
+                                volume=last_c.volume,
+                                closed=True
+                            )
+                if not closed or c.closed:
+                    yield c
+                last_c = c
 
         if future_candles := self.future_candle_queues.get((exchange, symbol, interval)):
             while True:

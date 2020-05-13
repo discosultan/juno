@@ -36,7 +36,7 @@ class Trader(PositionMixin, SimulatedPositionMixin):
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
         adjust_start: bool = False
         long: bool = True  # Take long positions.
-        short: bool = False  # Also take short positions.
+        short: bool = False  # Take short positions.
 
         @property
         def base_asset(self) -> str:

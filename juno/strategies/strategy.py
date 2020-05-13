@@ -143,6 +143,8 @@ class Strategy:
     _persistence_filter: Persistence
     _changed_filter: Changed
 
+    _last_candle_time: int = -1
+
     @staticmethod
     def meta() -> Meta:
         return Meta()
@@ -171,6 +173,8 @@ class Strategy:
         return self._t >= self.maturity
 
     def update(self, candle: Candle) -> Advice:
+        assert candle.time > self._last_candle_time
+
         self._t = min(self._t + 1, self.maturity)
         advice = self.tick(candle)
 
@@ -183,6 +187,7 @@ class Strategy:
             assert advice is Advice.NONE
 
         self.advice = advice
+        self._last_candle_time = candle.time
         return advice
 
     def tick(self, candle: Candle) -> Advice:
