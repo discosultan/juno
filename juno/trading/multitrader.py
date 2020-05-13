@@ -237,7 +237,6 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
             ):
                 break
 
-
     async def _track_advice(
         self, config: Config, state: State, symbol: str, candles_updated: SlotBarrier
     ) -> None:
@@ -440,7 +439,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         )
 
         symbol_state.allocated_quote -= Fill.total_quote(position.close_fills)
-        state.quotes.append(symbol_state.allocated_quote)
+        state.quotes.append(symbol_state.allocated_quote)  # TODO: Rebalance quotes list?
         symbol_state.allocated_quote = Decimal('0.0')
 
         state.summary.append_position(position)
