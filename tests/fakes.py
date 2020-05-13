@@ -236,10 +236,10 @@ class Informant(components.Informant):
     def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
 
-    def list_tickers(self, exchange):
+    def list_tickers(self, exchange, symbol_pattern=None):
         return self.tickers
 
-    def list_exchanges(self, exchange):
+    def list_exchanges(self, exchange, symbol=None):
         return self.exchanges
 
 
