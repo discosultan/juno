@@ -368,11 +368,10 @@ async def test_trader_persist_and_resume(storage: fakes.Storage) -> None:
 
 
 async def test_multitrader() -> None:
-    chandler = fakes.Chandler(future_candles={
-        ('dummy', 'eth-btc', 1): [
-            Candle(time=0),
-        ]
-    })
+    symbols = ['eth-btc', 'ltc-btc', 'xmr-btc']
+    chandler = fakes.Chandler(
+        future_candles={('dummy', s, 1): [Candle(time=0, close=Decimal('1.0'))] for s in symbols},
+    )
     informant = fakes.Informant(tickers=[
         Ticker(symbol='eth-btc', volume=Decimal('3.0'), quote_volume=Decimal('3.0')),
         Ticker(symbol='ltc-btc', volume=Decimal('2.0'), quote_volume=Decimal('2.0')),
@@ -384,7 +383,7 @@ async def test_multitrader() -> None:
         interval=1,
         start=0,
         end=4,
-        quote=Decimal('1.0'),
+        quote=Decimal('2.0'),
         strategy='fixed',
         strategy_kwargs={'advices': ['long', 'liquidate', 'short', 'short']},
         long=True,
@@ -393,9 +392,41 @@ async def test_multitrader() -> None:
         position_count=2,
     )
 
-    summary = await trader.run(config)
+    trader_task = asyncio.create_task(trader.run(config))
 
-    assert summary
+    for i in range(1, 4):
+        await asyncio.gather(
+            *(chandler.future_candle_queues[('dummy', s, 1)].join() for s in symbols)
+        )
+        # Sleep to give control back to position manager.
+        await asyncio.sleep(0)
+        for s in symbols:
+            chandler.future_candle_queues[('dummy', s, 1)].put_nowait(
+                Candle(time=i, close=Decimal('1.0'))
+            )
+
+    summary = await trader_task
+
+    #     L - S S
+    # ETH L - S S
+    # LTC L - S S
+    # XMR - - - -
+    long_positions = list(summary.get_long_positions())
+    short_positions = list(summary.get_short_positions())
+    assert len(long_positions) == 2
+    assert len(short_positions) == 2
+    assert long_positions[0].open_time == 0
+    assert long_positions[0].close_time == 1
+    assert long_positions[0].symbol == 'eth-btc'
+    assert long_positions[1].open_time == 0
+    assert long_positions[1].close_time == 1
+    assert long_positions[1].symbol == 'ltc-btc'
+    assert short_positions[0].open_time == 2
+    assert short_positions[0].close_time == 3
+    assert short_positions[0].symbol == 'eth-btc'
+    assert short_positions[1].open_time == 2
+    assert short_positions[1].close_time == 3
+    assert short_positions[1].symbol == 'ltc-btc'
 
 
 def new_closed_long_position(profit: Decimal) -> Position.Long:
