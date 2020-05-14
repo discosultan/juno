@@ -4,21 +4,22 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional
 
-from juno import Advice, Candle, Fill, Interval, Timestamp, strategies
+from juno import Advice, Candle, Fill, Interval, MissedCandlePolicy, Timestamp, strategies
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant
 from juno.exchanges import Exchange
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
+from juno.trading import Position, TradingSummary
 from juno.utils import tonamedtuple, unpack_symbol
 
-from .common import MissedCandlePolicy, Position, TradingSummary
 from .mixins import PositionMixin, SimulatedPositionMixin
+from .trader import Trader
 
 _log = logging.getLogger(__name__)
 
 
-class Trader(PositionMixin, SimulatedPositionMixin):
+class Basic(Trader, PositionMixin, SimulatedPositionMixin):
     class Config(NamedTuple):
         exchange: str
         symbol: str
@@ -112,7 +113,7 @@ class Trader(PositionMixin, SimulatedPositionMixin):
                 config.exchange, config.symbol
             )[1].is_margin_trading_allowed
 
-        state = state or Trader.State()
+        state = state or Basic.State()
 
         if state.quote == -1:
             state.quote = config.quote

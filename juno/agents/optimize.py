@@ -3,12 +3,11 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import List, NamedTuple, Optional
 
-from juno import Interval, Timestamp, strategies
+from juno import Interval, MissedCandlePolicy, Timestamp, strategies
 from juno.components import Events
 from juno.modules import get_module_type
 from juno.optimization import OptimizationSummary, Optimizer
 from juno.storages import Memory, Storage
-from juno.trading import MissedCandlePolicy
 from juno.typing import get_input_type_hints
 from juno.utils import format_as_config
 

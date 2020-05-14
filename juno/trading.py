@@ -4,7 +4,6 @@ import itertools
 import statistics
 from dataclasses import dataclass
 from decimal import Decimal, Overflow
-from enum import IntEnum
 from types import ModuleType
 from typing import Iterable, List, Optional, Union
 
@@ -12,12 +11,6 @@ from juno import Candle, Fees, Fill, Interval, Timestamp
 from juno.filters import Filters
 from juno.math import round_half_up
 from juno.time import YEAR_MS
-
-
-class MissedCandlePolicy(IntEnum):
-    IGNORE = 0
-    RESTART = 1
-    LAST = 2
 
 
 class Position(ModuleType):

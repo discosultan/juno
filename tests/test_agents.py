@@ -6,7 +6,9 @@ from typing import Any, Callable, Dict, List
 
 import pytest
 
-from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
+from juno import (
+    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, MissedCandlePolicy, OrderResult, OrderStatus
+)
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel
 from juno.brokers import Broker, Market
@@ -16,7 +18,7 @@ from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.storages import Storage
 from juno.time import HOUR_MS
-from juno.trading import MissedCandlePolicy, Trader
+from juno.traders import Basic, Trader
 from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
@@ -38,7 +40,7 @@ async def container(storage: Storage, exchange: Exchange) -> Container:
     container.add_singleton_type(Orderbook)
     container.add_singleton_type(Chandler)
     container.add_singleton_type(Wallet)
-    container.add_singleton_type(Trader)
+    container.add_singleton_type(Trader, lambda: Basic)
     return container
 
 
@@ -288,7 +290,7 @@ async def test_live_persist_and_resume(
         await exchange.candle_queue.join()
         await cancel(agent_run_task)
 
-    state: Trader.State = agent_run_task.result()
+    state: Basic.State = agent_run_task.result()
     assert state.first_candle and state.last_candle
     assert state.first_candle.time == 0
     assert state.last_candle.time == 1

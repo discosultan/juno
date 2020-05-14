@@ -1,5 +1,5 @@
-import abc
 import logging
+from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Dict
 
@@ -9,15 +9,15 @@ from juno.components import Informant
 from juno.exchanges import Exchange
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS
+from juno.trading import Position
 from juno.utils import unpack_symbol
-
-from .common import Position
 
 _log = logging.getLogger(__name__)
 
 
-class SimulatedPositionMixin(abc.ABC):
-    @abc.abstractproperty
+class SimulatedPositionMixin(ABC):
+    @property
+    @abstractmethod
     def informant(self) -> Informant:
         pass
 
@@ -111,16 +111,19 @@ class SimulatedPositionMixin(abc.ABC):
         )
 
 
-class PositionMixin(abc.ABC):
-    @abc.abstractproperty
+class PositionMixin(ABC):
+    @property
+    @abstractmethod
     def informant(self) -> Informant:
         pass
 
-    @abc.abstractproperty
+    @property
+    @abstractmethod
     def broker(self) -> Broker:
         pass
 
-    @abc.abstractproperty
+    @property
+    @abstractmethod
     def exchanges(self) -> Dict[str, Exchange]:
         pass
 

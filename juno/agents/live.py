@@ -3,14 +3,14 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Dict, NamedTuple, Optional, TypeVar
 
-from juno import Interval, Timestamp
+from juno import Interval, MissedCandlePolicy, Timestamp
 from juno.components import Events, Informant, Wallet
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.strategies import Strategy
 from juno.time import MAX_TIME_MS, time_ms
-from juno.trading import MissedCandlePolicy, Trader
+from juno.traders import Trader
 from juno.utils import format_as_config, unpack_symbol
 
 from .agent import Agent, AgentStatus
@@ -45,7 +45,7 @@ class Live(Agent):
     class State:
         name: str
         status: AgentStatus
-        result: Optional[Trader.State] = None
+        result: Optional[Any] = None
 
     def __init__(
         self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage,
@@ -81,7 +81,7 @@ class Live(Agent):
             _log.info(f'using pre-defined quote {quote} {config.quote_asset}')
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        trader_config = Trader.Config(
+        trader_config = self._trader.Config(
             exchange=config.exchange,
             symbol=config.symbol,
             interval=config.interval,
@@ -99,7 +99,7 @@ class Live(Agent):
             short=config.short,
         )
         if not state.result:
-            state.result = Trader.State()
+            state.result = self._trader.State()
         await self._trader.run(trader_config, state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:

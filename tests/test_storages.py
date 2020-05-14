@@ -1,6 +1,6 @@
-import abc
 import asyncio
 import random
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional, Union
@@ -180,8 +180,9 @@ async def test_memory_store_overlapping_time_series_concurrently(memory: storage
     assert items == [Item(i) for i in range(min_start, max_end)]
 
 
-class Abstract(abc.ABC):
-    @abc.abstractproperty
+class Abstract(ABC):
+    @property
+    @abstractmethod
     def value(self) -> int:
         return 0
 

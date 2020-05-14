@@ -10,7 +10,7 @@ from juno.math import floor_multiple
 from juno.time import DAY_MS
 from juno.utils import unpack_symbol
 
-from .common import TradingSummary
+from .trading import TradingSummary
 
 Operator = Callable[[Decimal, Decimal], Decimal]
 

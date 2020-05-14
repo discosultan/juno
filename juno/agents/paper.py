@@ -3,13 +3,13 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Dict, NamedTuple, Optional
 
-from juno import Interval, Timestamp
+from juno import Interval, MissedCandlePolicy, Timestamp
 from juno.components import Events, Informant
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
-from juno.trading import MissedCandlePolicy, Trader
+from juno.traders import Trader
 from juno.utils import format_as_config
 
 from .agent import Agent, AgentStatus
@@ -37,7 +37,7 @@ class Paper(Agent):
     class State:
         name: str
         status: AgentStatus
-        result: Optional[Trader.State] = None
+        result: Optional[Any] = None
 
     def __init__(
         self, informant: Informant, trader: Trader, events: Events = Events(),
@@ -63,7 +63,7 @@ class Paper(Agent):
         assert config.quote > filters.price.min
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        trader_config = Trader.Config(
+        trader_config = self._trader.Config(
             exchange=config.exchange,
             symbol=config.symbol,
             interval=config.interval,
@@ -81,7 +81,7 @@ class Paper(Agent):
             short=config.short,
         )
         if not state.result:
-            state.result = Trader.State()
+            state.result = self._trader.State()
         await self._trader.run(trader_config, state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:

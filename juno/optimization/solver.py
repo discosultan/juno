@@ -6,9 +6,10 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Ty
 
 import pandas as pd
 
-from juno import Candle, Interval, Timestamp
+from juno import Candle, Interval, MissedCandlePolicy, Timestamp
+from juno.statistics import Statistics
 from juno.strategies import Strategy
-from juno.trading import MissedCandlePolicy, Statistics, TradingSummary
+from juno.trading import TradingSummary
 from juno.utils import unpack_symbol
 
 

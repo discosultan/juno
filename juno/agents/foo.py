@@ -5,9 +5,10 @@ from typing import Any, List
 
 from juno.components import Events, Historian, Informant, Prices
 from juno.optimization import Optimizer
+from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
-from juno.trading import Trader, analyse_benchmark, analyse_portfolio
+from juno.traders import Trader
 from juno.utils import format_as_config
 
 from .agent import Agent
@@ -43,7 +44,7 @@ class Foo(Agent):
         )
         quote_per_symbol = quote / len(symbols)
 
-        state.result = Trader.State()
+        state.result = self._trader.State()
         await asyncio.gather(
             *(self._optimize_and_trade(
                 exchange,
@@ -108,7 +109,7 @@ class Foo(Agent):
         trading_start: int,
         end: int,
         quote: Decimal,
-        state: Trader.State
+        state: Any,
     ) -> None:
         optimization_start = (
             await self._historian.find_first_candle(exchange, symbol, DAY_MS)
@@ -141,4 +142,4 @@ class Foo(Agent):
             'end': end,
         })
 
-        await self._trader.run(Trader.Config(**tc), state)
+        await self._trader.run(self._trader.Config(**tc), state)

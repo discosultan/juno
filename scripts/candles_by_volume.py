@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pandas as pd
 
+from juno import MissedCandlePolicy
 from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
@@ -12,7 +13,6 @@ from juno.optimization.python import Python
 from juno.storages import SQLite
 from juno.strategies import MAMACX
 from juno.time import strptimestamp
-from juno.trading import MissedCandlePolicy
 from juno.utils import tonamedtuple
 
 

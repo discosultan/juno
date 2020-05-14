@@ -3,7 +3,7 @@
 # - https://github.com/voice32/stock_market_indicators
 # - https://school.stockcharts.com/doku.php
 
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractmethod
 from decimal import Decimal
 
 from .adx import Adx
@@ -30,7 +30,8 @@ from .tsi import Tsi
 class MovingAverage(ABC):
     value: Decimal
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def maturity(self) -> int:
         ...
 
