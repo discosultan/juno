@@ -1,9 +1,10 @@
+import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, NamedTuple, Optional, TypeVar
 
-from juno import Interval, MissedCandlePolicy, Timestamp
+from juno import Interval, Timestamp
 from juno.components import Events, Historian, Prices
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
@@ -11,8 +12,8 @@ from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.strategies import Strategy
 from juno.time import time_ms
-from juno.traders import Basic
-from juno.utils import format_as_config, unpack_symbol
+from juno.traders import Multi
+from juno.utils import format_as_config
 
 from .agent import Agent, AgentStatus
 
@@ -21,10 +22,10 @@ _log = logging.getLogger(__name__)
 TStrategy = TypeVar('TStrategy', bound=Strategy)
 
 
-class Backtest(Agent):
+# TODO: Consolidate into existing backtest agent.
+class MultiBacktest(Agent):
     class Config(NamedTuple):
         exchange: str
-        symbol: str
         interval: Interval
         quote: Decimal
         strategy: Dict[str, Any]
@@ -32,21 +33,13 @@ class Backtest(Agent):
         persist: bool = False
         start: Optional[Timestamp] = None
         end: Optional[Timestamp] = None
-        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-        adjust_start: bool = True
         trailing_stop: Decimal = Decimal('0.0')
         long: bool = True
         short: bool = False
+        track_count: int = 4
+        position_count: int = 2
         fiat_exchange: Optional[str] = None
         fiat_asset: str = 'usdt'
-
-        @property
-        def base_asset(self) -> str:
-            return unpack_symbol(self.symbol)[0]
-
-        @property
-        def quote_asset(self) -> str:
-            return unpack_symbol(self.symbol)[1]
 
     @dataclass
     class State:
@@ -56,7 +49,7 @@ class Backtest(Agent):
 
     def __init__(
         self,
-        trader: Basic,
+        trader: Multi,
         historian: Optional[Historian] = None,
         prices: Optional[Prices] = None,
         events: Events = Events(),
@@ -73,11 +66,15 @@ class Backtest(Agent):
 
         start = config.start
         if self._historian:
-            first_candle = await self._historian.find_first_candle(
-                config.exchange, config.symbol, config.interval
+            symbols = self._trader.find_top_symbols(config.exchange, config.track_count)
+            first_candles = await asyncio.gather(
+                *(self._historian.find_first_candle(
+                    config.exchange, s, config.interval
+                ) for s in symbols)
             )
-            if not start or start < first_candle.time:
-                start = first_candle.time
+            latest_first_time = max(first_candles, key=lambda c: c.time).time
+            if not start or start < latest_first_time:
+                start = latest_first_time
 
         if start is None:
             raise ValueError('Must manually specify backtest start time; historian not configured')
@@ -95,9 +92,8 @@ class Backtest(Agent):
         assert config.quote > 0
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        trader_config = Basic.Config(
+        trader_config = Multi.Config(
             exchange=config.exchange,
-            symbol=config.symbol,
             interval=config.interval,
             start=start,
             end=end,
@@ -105,14 +101,14 @@ class Backtest(Agent):
             strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
             channel=state.name,
-            missed_candle_policy=config.missed_candle_policy,
-            adjust_start=config.adjust_start,
             trailing_stop=config.trailing_stop,
             long=config.long,
             short=config.short,
+            track_count=config.track_count,
+            position_count=config.position_count,
         )
         if not state.result:
-            state.result = Basic.State()
+            state.result = Multi.State()
         await self._trader.run(trader_config, state.result)
         assert state.result.summary
 

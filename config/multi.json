@@ -4,9 +4,8 @@
     "storage": "sqlite",
     "agents": [
         {
-            "type": "backtest",
+            "type": "multibacktest",
             "exchange": "binance",
-            "symbol": "eth-btc",
             "interval": "1d",
             "quote": 1.0,
             "strategy": {

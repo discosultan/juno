@@ -10,7 +10,7 @@ from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.strategies import Strategy
 from juno.time import MAX_TIME_MS, time_ms
-from juno.traders import Trader
+from juno.traders import Basic
 from juno.utils import format_as_config, unpack_symbol
 
 from .agent import Agent, AgentStatus
@@ -48,7 +48,7 @@ class Live(Agent):
         result: Optional[Any] = None
 
     def __init__(
-        self, informant: Informant, wallet: Wallet, trader: Trader, storage: Storage,
+        self, informant: Informant, wallet: Wallet, trader: Basic, storage: Storage,
         events: Events = Events(), get_time_ms: Callable[[], int] = time_ms
     ) -> None:
         self._informant = informant
@@ -81,7 +81,7 @@ class Live(Agent):
             _log.info(f'using pre-defined quote {quote} {config.quote_asset}')
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        trader_config = self._trader.Config(
+        trader_config = Basic.Config(
             exchange=config.exchange,
             symbol=config.symbol,
             interval=config.interval,
@@ -99,7 +99,7 @@ class Live(Agent):
             short=config.short,
         )
         if not state.result:
-            state.result = self._trader.State()
+            state.result = Basic.State()
         await self._trader.run(trader_config, state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:

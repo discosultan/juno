@@ -18,7 +18,7 @@ from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.storages import Storage
 from juno.time import HOUR_MS
-from juno.traders import Basic, Trader
+from juno.traders import Basic
 from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
@@ -40,7 +40,7 @@ async def container(storage: Storage, exchange: Exchange) -> Container:
     container.add_singleton_type(Orderbook)
     container.add_singleton_type(Chandler)
     container.add_singleton_type(Wallet)
-    container.add_singleton_type(Trader, lambda: Basic)
+    container.add_singleton_type(Basic)
     return container
 
 

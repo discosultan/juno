@@ -123,7 +123,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             state.quotes = split_by_ratios(config.quote, [ratio] * config.position_count)
 
         if len(state.symbol_states) == 0:
-            symbols = self._find_top_symbols(config)
+            symbols = self.find_top_symbols(config.exchange, config.track_count)
             for s in symbols:
                 state.symbol_states[s] = _SymbolState(
                     strategy=config.new_strategy(),
@@ -138,9 +138,10 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         try:
             candles_updated = SlotBarrier(symbols)
+            barrier_ready = asyncio.Event()
             await asyncio.gather(
-                self._manage_positions(config, state, candles_updated),
-                *(self._track_advice(config, state, symbol, candles_updated)
+                self._manage_positions(config, state, candles_updated, barrier_ready),
+                *(self._track_advice(config, state, symbol, candles_updated, barrier_ready)
                   for symbol in state.symbol_states.keys())
             )
         finally:
@@ -155,22 +156,25 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         return state.summary
 
-    def _find_top_symbols(self, config: Config) -> List[str]:
-        tickers = self._informant.list_tickers(config.exchange, symbol_pattern=SYMBOL_PATTERN)
-        if len(tickers) < config.track_count:
+    def find_top_symbols(self, exchange: str, track_count: int) -> List[str]:
+        tickers = self._informant.list_tickers(exchange, symbol_pattern=SYMBOL_PATTERN)
+        if len(tickers) < track_count:
             raise ValueError(
                 f'Exchange only support {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
-                f'while {config.track_count} requested'
+                f'while {track_count} requested'
             )
-        return [t.symbol for t in tickers[0:config.track_count]]
+        return [t.symbol for t in tickers[0:track_count]]
 
     async def _manage_positions(
-        self, config: Config, state: State, candles_updated: SlotBarrier
+        self, config: Config, state: State, candles_updated: SlotBarrier,
+        barrier_ready: asyncio.Event
     ) -> None:
         to_process: List[Coroutine[None, None, None]] = []
         while True:
             # Wait until we've received candle updates for all symbols.
+            barrier_ready.set()
             await candles_updated.wait()
+            barrier_ready.clear()
 
             # Try close existing positions.
             to_process.clear()
@@ -238,7 +242,8 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 break
 
     async def _track_advice(
-        self, config: Config, state: State, symbol: str, candles_updated: SlotBarrier
+        self, config: Config, state: State, symbol: str, candles_updated: SlotBarrier,
+        barrier_ready: asyncio.Event
     ) -> None:
         symbol_state = state.symbol_states[symbol]
         if not symbol_state.start_adjusted:
@@ -310,6 +315,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             symbol_state.last_candle = candle
             symbol_state.current = candle.time + config.interval
 
+            await barrier_ready.wait()
             candles_updated.release(symbol)
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
