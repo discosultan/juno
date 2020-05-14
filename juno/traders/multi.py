@@ -15,9 +15,9 @@ from juno.exchanges import Exchange
 from juno.math import split_by_ratios
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
+from juno.trading import Position, TradingSummary
 from juno.utils import tonamedtuple
 
-from .common import Position, TradingSummary
 from .mixins import PositionMixin, SimulatedPositionMixin
 
 _log = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ class _SymbolState:
     last_candle: Optional[Candle] = None
 
 
-class MultiTrader(PositionMixin, SimulatedPositionMixin):
+class Multi(PositionMixin, SimulatedPositionMixin):
     class Config(NamedTuple):
         exchange: str
         interval: Interval
@@ -111,7 +111,7 @@ class MultiTrader(PositionMixin, SimulatedPositionMixin):
         assert config.position_count > 0
         assert config.position_count <= config.track_count
 
-        state = state or MultiTrader.State()
+        state = state or Multi.State()
 
         if not state.summary:
             state.summary = TradingSummary(

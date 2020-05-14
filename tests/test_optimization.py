@@ -4,12 +4,13 @@ from typing import List, Tuple
 
 import pytest
 
-from juno import Candle, Fees, Filters
+from juno import Candle, Fees, Filters, MissedCandlePolicy
 from juno.components import Prices
 from juno.optimization import Optimizer, Rust
+from juno.statistics import analyse_benchmark
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
-from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark
+from juno.traders import Basic
 from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
@@ -55,7 +56,7 @@ async def test_optimizer_same_result_with_predefined_seed(
         filters=filters
     )
     rust_solver = Rust(informant=informant)
-    trader = Trader(chandler=chandler, informant=informant)
+    trader = Basic(chandler=chandler, informant=informant)
     optimizer = Optimizer(
         solver=rust_solver, chandler=chandler, informant=informant, prices=prices, trader=trader,
         historian=fakes.Historian()

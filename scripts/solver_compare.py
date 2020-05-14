@@ -2,10 +2,13 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import components, exchanges, optimization, storages, strategies, time, utils
+from juno import (
+    MissedCandlePolicy, components, exchanges, optimization, storages, strategies, time, utils
+)
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
-from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
+from juno.statistics import analyse_benchmark, analyse_portfolio
+from juno.traders import Basic
 from juno.utils import unpack_symbol
 
 # SYMBOL = 'eth-btc'
@@ -85,7 +88,7 @@ async def main() -> None:
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
     historian = components.Historian(chandler=chandler, storage=storage, exchanges=exchange_list)
     prices = components.Prices(chandler=chandler, historian=historian)
-    trader = Trader(chandler=chandler, informant=informant, exchanges=exchange_list)
+    trader = Basic(chandler=chandler, informant=informant, exchanges=exchange_list)
     rust_solver = optimization.Rust(informant=informant)
     python_solver = optimization.Python(informant=informant)
     async with binance, informant, rust_solver:
@@ -128,7 +131,7 @@ async def main() -> None:
         rust_result = rust_solver.solve(solver_config)
         python_result = python_solver.solve(solver_config)
 
-        trading_summary = await trader.run(Trader.Config(
+        trading_summary = await trader.run(Basic.Config(
             exchange='binance',
             symbol=SYMBOL,
             interval=INTERVAL,

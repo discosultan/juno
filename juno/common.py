@@ -167,6 +167,12 @@ class Fill(NamedTuple):
         )
 
 
+class MissedCandlePolicy(IntEnum):
+    IGNORE = 0
+    RESTART = 1
+    LAST = 2
+
+
 class OrderResult(NamedTuple):
     status: OrderStatus
     fills: List[Fill] = []

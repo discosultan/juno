@@ -8,8 +8,9 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.optimization import Optimizer, Rust
+from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
-from juno.trading import Trader, analyse_benchmark, analyse_portfolio
+from juno.traders import Basic
 from juno.utils import tonamedtuple, unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -30,7 +31,7 @@ async def main() -> None:
     historian = Historian(chandler=chandler, storage=sqlite, exchanges=exchanges)
     informant = Informant(storage=sqlite, exchanges=exchanges)
     prices = Prices(chandler=chandler, historian=historian)
-    trader = Trader(chandler=chandler, informant=informant, exchanges=exchanges)
+    trader = Basic(chandler=chandler, informant=informant, exchanges=exchanges)
     rust_solver = Rust(informant=informant)
     optimizer = Optimizer(
         solver=rust_solver,
@@ -71,7 +72,7 @@ async def main() -> None:
 
         tc = best.trading_config
 
-        trading_summary = await trader.run(Trader.Config(
+        trading_summary = await trader.run(Basic.Config(
             start=validation_start,
             end=validation_end,
             exchange=tc.exchange,

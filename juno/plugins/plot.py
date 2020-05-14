@@ -9,7 +9,7 @@ import plotly.offline as py
 from juno import Candle
 from juno.components import Events
 from juno.time import datetime_utcfromtimestamp_ms
-from juno.trading import Position, Trader
+from juno.trading import Position, TradingSummary
 
 from .plugin import Plugin
 
@@ -28,9 +28,8 @@ class Discord(Plugin):
             candles_map[candle.time] = candle
 
         @self._events.on(agent_name, 'finished')
-        async def on_finished(result: Trader.State) -> None:
-            assert result.summary
-            plot(candles_map, result.summary.get_positions())
+        async def on_finished(summary: TradingSummary) -> None:
+            plot(candles_map, summary.get_positions())
 
         _log.info(f'activated for {agent_name} ({agent_type})')
 

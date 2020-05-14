@@ -3,14 +3,15 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, NamedTuple, Optional, TypeVar
 
-from juno import Interval, Timestamp
+from juno import Interval, MissedCandlePolicy, Timestamp
 from juno.components import Events, Historian, Prices
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
+from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.strategies import Strategy
 from juno.time import time_ms
-from juno.trading import MissedCandlePolicy, Trader, analyse_benchmark, analyse_portfolio
+from juno.traders import Trader
 from juno.utils import format_as_config, unpack_symbol
 
 from .agent import Agent, AgentStatus
@@ -51,7 +52,7 @@ class Backtest(Agent):
     class State:
         name: str
         status: AgentStatus
-        result: Optional[Trader.State] = None
+        result: Optional[Any] = None
 
     def __init__(
         self,
@@ -94,7 +95,7 @@ class Backtest(Agent):
         assert config.quote > 0
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        trader_config = Trader.Config(
+        trader_config = self._trader.Config(
             exchange=config.exchange,
             symbol=config.symbol,
             interval=config.interval,
@@ -111,7 +112,7 @@ class Backtest(Agent):
             short=config.short,
         )
         if not state.result:
-            state.result = Trader.State()
+            state.result = self._trader.State()
         await self._trader.run(trader_config, state.result)
         assert state.result.summary
 

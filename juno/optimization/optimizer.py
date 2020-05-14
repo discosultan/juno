@@ -11,15 +11,15 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 
 from deap import base, creator, tools
 
-from juno import Candle, Interval, OrderException, Timestamp, strategies
+from juno import Candle, Interval, MissedCandlePolicy, OrderException, Timestamp, strategies
 from juno.components import Chandler, Historian, Informant, Prices
 from juno.itertools import flatten
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.modules import get_module_type
+from juno.statistics import Statistics, analyse_benchmark, analyse_portfolio
 from juno.time import strfinterval, strfspan, time_ms
-from juno.trading import (
-    MissedCandlePolicy, Statistics, Trader, TradingSummary, analyse_benchmark, analyse_portfolio
-)
+from juno.traders import Basic
+from juno.trading import TradingSummary
 from juno.typing import map_input_args
 
 from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
@@ -40,7 +40,7 @@ _boolean_constraint = Choice([True, False])
 
 
 class OptimizationRecord(NamedTuple):
-    trading_config: Trader.Config
+    trading_config: Basic.Config
     trading_summary: TradingSummary
     portfolio_stats: Statistics
 
@@ -57,7 +57,7 @@ class Optimizer:
         chandler: Chandler,
         informant: Informant,
         prices: Prices,
-        trader: Trader,
+        trader: Basic,
         historian: Historian,
     ) -> None:
         self._solver = solver
@@ -264,7 +264,7 @@ class Optimizer:
         best_args = list(flatten(hall_of_fame[0]))
 
         start = floor_multiple(start, best_args[1])
-        trading_config = Trader.Config(
+        trading_config = Basic.Config(
             exchange=exchange,
             symbol=best_args[0],
             interval=best_args[1],
@@ -280,7 +280,7 @@ class Optimizer:
             strategy_kwargs=map_input_args(strategy_type.__init__, best_args[6:]),
         )
 
-        state = Trader.State()
+        state = Basic.State()
         try:
             await self._trader.run(trading_config, state)
         except OrderException:

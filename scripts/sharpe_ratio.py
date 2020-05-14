@@ -7,13 +7,14 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
+from juno import MissedCandlePolicy
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
-from juno.trading import MissedCandlePolicy, Trader
+from juno.traders import Basic
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -34,13 +35,13 @@ async def main() -> None:
         exchanges=exchanges,
     )
     informant = Informant(sqlite, exchanges)
-    trader = Trader(informant=informant, chandler=chandler, exchanges=exchanges)
+    trader = Basic(informant=informant, chandler=chandler, exchanges=exchanges)
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     base_asset, quote_asset = unpack_symbol(SYMBOL)
     async with binance, coinbase, informant:
         trading_summary = await trader.run(
-            config=Trader.Config(
+            config=Basic.Config(
                 exchange='binance',
                 symbol=SYMBOL,
                 interval=INTERVAL,

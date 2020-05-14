@@ -14,14 +14,15 @@ from typing import Any, Dict, List, Tuple
 import cffi
 import pandas as pd
 
-from juno import BorrowInfo, Candle, Fees, Filters, Interval, Timestamp, strategies
+from juno import (
+    BorrowInfo, Candle, Fees, Filters, Interval, MissedCandlePolicy, Timestamp, strategies
+)
 from juno.cffi import CDefBuilder
 from juno.components import Informant
 from juno.filters import Price, Size
 from juno.modules import list_concretes_from_module
 from juno.strategies import Strategy
 from juno.time import DAY_MS
-from juno.trading import MissedCandlePolicy
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path
 
