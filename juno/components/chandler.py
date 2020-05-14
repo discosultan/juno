@@ -156,7 +156,7 @@ class Chandler:
                 f'missed {num_missed} {candle_msg} from the end {strftimestamp(end)}; '
                 f'current candle {candle}'
             )
-        else:
+        elif not last_closed_candle:
             _log.warning(f'missed all {candle_msg} between {strfspan(start, end)}')
 
     async def _stream_and_store_exchange_candles(
