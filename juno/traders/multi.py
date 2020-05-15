@@ -54,6 +54,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         channel: str = 'default'
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
+        track: List[str] = []
         track_count: int = 4
         position_count: int = 2
 
@@ -110,6 +111,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         assert 0 <= config.trailing_stop < 1
         assert config.position_count > 0
         assert config.position_count <= config.track_count
+        assert len(config.track) <= config.track_count
 
         state = state or Multi.State()
 
@@ -123,7 +125,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             state.quotes = split_by_ratios(config.quote, [ratio] * config.position_count)
 
         if len(state.symbol_states) == 0:
-            symbols = self.find_top_symbols(config.exchange, config.track_count)
+            symbols = self.find_top_symbols(config.exchange, config.track, config.track_count)
             for s in symbols:
                 state.symbol_states[s] = _SymbolState(
                     strategy=config.new_strategy(),
@@ -155,14 +157,15 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         return state.summary
 
-    def find_top_symbols(self, exchange: str, track_count: int) -> List[str]:
+    def find_top_symbols(self, exchange: str, track: List[str], track_count: int) -> List[str]:
+        count = track_count - len(track)
         tickers = self._informant.list_tickers(exchange, symbol_pattern=SYMBOL_PATTERN)
         if len(tickers) < track_count:
             raise ValueError(
                 f'Exchange only support {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
                 f'while {track_count} requested'
             )
-        return [t.symbol for t in tickers[0:track_count]]
+        return track + [t.symbol for t in tickers[0:count] if t not in track]
 
     async def _manage_positions(
         self, config: Config, state: State, candles_updated: SlotBarrier

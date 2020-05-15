@@ -12,6 +12,9 @@
                 "type": "fourweekrule",
                 "ma": "kama"
             },
+            "position_count": 2,
+            "track_count": 4,
+            "track": ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"],
             "long": true,
             "short": true,
             "fiat_asset": "eur",

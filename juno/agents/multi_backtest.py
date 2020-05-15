@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, NamedTuple, Optional, TypeVar
+from typing import Any, Dict, List, NamedTuple, Optional, TypeVar
 
 from juno import Interval, Timestamp
 from juno.components import Events, Historian, Prices
@@ -36,6 +36,7 @@ class MultiBacktest(Agent):
         trailing_stop: Decimal = Decimal('0.0')
         long: bool = True
         short: bool = False
+        track: List[str] = []
         track_count: int = 4
         position_count: int = 2
         fiat_exchange: Optional[str] = None
@@ -66,7 +67,9 @@ class MultiBacktest(Agent):
 
         start = config.start
         if self._historian:
-            symbols = self._trader.find_top_symbols(config.exchange, config.track_count)
+            symbols = self._trader.find_top_symbols(
+                config.exchange, config.track, config.track_count
+            )
             first_candles = await asyncio.gather(
                 *(self._historian.find_first_candle(
                     config.exchange, s, config.interval
@@ -106,6 +109,7 @@ class MultiBacktest(Agent):
             long=config.long,
             short=config.short,
             track_count=config.track_count,
+            track=config.track,
             position_count=config.position_count,
         )
         if not state.result:
@@ -116,6 +120,8 @@ class MultiBacktest(Agent):
         if not self._prices:
             _log.warning('skipping analysis; prices component not available')
             return
+
+        _log.info('analysing trading summary')
 
         # Fetch necessary market data.
         symbols = (
