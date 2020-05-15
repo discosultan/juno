@@ -384,7 +384,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.allocated_quote += (
             Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
         )
-        state.quotes.append(symbol_state.allocated_quote)
+        state.quotes.append(symbol_state.allocated_quote)  # TODO: Rebalance quotes list?
         symbol_state.allocated_quote = Decimal('0.0')
 
         state.summary.append_position(position)
@@ -445,7 +445,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         )
 
         symbol_state.allocated_quote -= Fill.total_quote(position.close_fills)
-        state.quotes.append(symbol_state.allocated_quote)  # TODO: Rebalance quotes list?
+        state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal('0.0')
 
         state.summary.append_position(position)
