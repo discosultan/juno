@@ -59,7 +59,24 @@ async def test_map_prices(symbols, chandler_symbols, expected_output) -> None:
     assert output == expected_output
 
 
-async def test_map_prices_with_different_fiat_exchange() -> None:
+@pytest.mark.parametrize('symbols,expected_output', [
+    (
+        ['eth-btc'],
+        {
+            'eth': [Decimal('2.0'), Decimal('8.0'), Decimal('18.0')],
+            'btc': [Decimal('2.0'), Decimal('4.0'), Decimal('6.0')],
+        },
+    ),
+    (
+        ['eth-btc', 'btc-usdt'],
+        {
+            'eth': [Decimal('2.0'), Decimal('8.0'), Decimal('18.0')],
+            'btc': [Decimal('2.0'), Decimal('4.0'), Decimal('6.0')],
+            'usdt': [Decimal('1.0'), Decimal('1.0'), Decimal('1.0')],
+        },
+    ),
+])
+async def test_map_prices_with_different_fiat_exchange(symbols, expected_output) -> None:
     exchange1_candles = [
         Candle(time=0, close=Decimal('1.0')),
         Candle(time=1, close=Decimal('2.0')),
@@ -79,14 +96,11 @@ async def test_map_prices_with_different_fiat_exchange() -> None:
     )
     output = await prices.map_prices(
         exchange='exchange1',
-        symbols=['eth-btc'],
+        symbols=symbols,
         interval=1,
         fiat_exchange='exchange2',
         fiat_asset='usdt',
         start=0,
         end=3,
     )
-    assert output == {
-        'eth': [Decimal('2.0'), Decimal('8.0'), Decimal('18.0')],
-        'btc': [Decimal('2.0'), Decimal('4.0'), Decimal('6.0')],
-    }
+    assert output == expected_output
