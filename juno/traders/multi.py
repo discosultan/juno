@@ -138,10 +138,9 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         try:
             candles_updated = SlotBarrier(symbols)
-            barrier_ready = asyncio.Event()
             await asyncio.gather(
-                self._manage_positions(config, state, candles_updated, barrier_ready),
-                *(self._track_advice(config, state, symbol, candles_updated, barrier_ready)
+                self._manage_positions(config, state, candles_updated),
+                *(self._track_advice(config, state, symbol, candles_updated)
                   for symbol in state.symbol_states.keys())
             )
         finally:
@@ -166,15 +165,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         return [t.symbol for t in tickers[0:track_count]]
 
     async def _manage_positions(
-        self, config: Config, state: State, candles_updated: SlotBarrier,
-        barrier_ready: asyncio.Event
+        self, config: Config, state: State, candles_updated: SlotBarrier
     ) -> None:
         to_process: List[Coroutine[None, None, None]] = []
         while True:
             # Wait until we've received candle updates for all symbols.
-            barrier_ready.set()
             await candles_updated.wait()
-            barrier_ready.clear()
 
             # Try close existing positions.
             to_process.clear()
@@ -242,8 +238,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 break
 
     async def _track_advice(
-        self, config: Config, state: State, symbol: str, candles_updated: SlotBarrier,
-        barrier_ready: asyncio.Event
+        self, config: Config, state: State, symbol: str, candles_updated: SlotBarrier
     ) -> None:
         symbol_state = state.symbol_states[symbol]
         if not symbol_state.start_adjusted:
@@ -315,8 +310,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             symbol_state.last_candle = candle
             symbol_state.current = candle.time + config.interval
 
-            await barrier_ready.wait()
-            candles_updated.release(symbol)
+            await candles_updated.release(symbol)
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
         to_close = []
