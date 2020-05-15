@@ -350,7 +350,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.allocated_quote -= Fill.total_quote(position.fills)
         symbol_state.open_position = position
 
-        _log.info(f'long position opened: {candle}')
+        _log.info(f'{symbol} long position opened: {candle}')
         _log.debug(tonamedtuple(position))
         await self._events.emit(
             config.channel, 'position_opened', position, state.summary
@@ -413,7 +413,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         )
         symbol_state.open_position = position
 
-        _log.info(f'short position opened: {candle}')
+        _log.info(f'{symbol} short position opened: {candle}')
         _log.debug(tonamedtuple(position))
         await self._events.emit(
             config.channel, 'position_opened', position, state.summary

@@ -9,6 +9,7 @@
             "symbol": "eth-btc",
             "interval": "1d",
             "quote": 1.0,
+            "start": "2019-04-26",
             "strategy": {
                 "type": "fourweekrule",
                 "ma": "kama"

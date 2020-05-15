@@ -11,7 +11,7 @@ from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.strategies import Strategy
-from juno.time import time_ms
+from juno.time import strftimestamp, time_ms
 from juno.traders import Multi
 from juno.utils import format_as_config
 
@@ -73,8 +73,9 @@ class MultiBacktest(Agent):
                 ) for s in symbols)
             )
             latest_first_time = max(first_candles, key=lambda c: c.time).time
-            if not start or start < latest_first_time:
+            if start is None or start < latest_first_time:
                 start = latest_first_time
+                _log.info(f'as no start specified; start set to {strftimestamp(start)}')
 
         if start is None:
             raise ValueError('Must manually specify backtest start time; historian not configured')
