@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections import defaultdict, deque
-from typing import AsyncIterable, Callable, Deque, Dict, List, Optional, Tuple
+from collections import deque
+from typing import AsyncIterable, Callable, Deque, List, Optional
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -34,20 +34,7 @@ class Trades:
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
 
-        self._streaming_locks: Dict[Tuple[str, str], asyncio.Lock] = defaultdict(asyncio.Lock)
-
     async def stream_trades(
-        self, exchange: str, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
-        key = (exchange, symbol)
-        lock = self._streaming_locks[key]
-        if lock.locked:
-            _log.info(f'{key} trades are already being streamed; waiting for release')
-        async with lock:
-            async for trade in self._stream_trades(exchange, symbol, start, end):
-                yield trade
-
-    async def _stream_trades(
         self, exchange: str, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
         """Tries to stream trades for the specified range from local storage. If trades don't
