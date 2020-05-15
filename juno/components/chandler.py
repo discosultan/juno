@@ -3,9 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import sys
-from collections import defaultdict
 from decimal import Decimal
-from typing import AsyncIterable, Callable, Dict, List, Optional, Tuple
+from typing import AsyncIterable, Callable, List, Optional
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -46,8 +45,6 @@ class Chandler:
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
 
-        self._streaming_locks: Dict[Tuple[str, str, int], asyncio.Lock] = defaultdict(asyncio.Lock)
-
     async def list_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int = MAX_TIME_MS,
         closed: bool = True, fill_missing_with_last: bool = False
@@ -59,20 +56,6 @@ class Chandler:
     async def stream_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int = MAX_TIME_MS,
         closed: bool = True, fill_missing_with_last: bool = False
-    ) -> AsyncIterable[Candle]:
-        key = (exchange, symbol, interval)
-        lock = self._streaming_locks[key]
-        if lock.locked:
-            _log.info(f'{key} candles are already being streamed; waiting for release')
-        async with lock:
-            async for candle in self._stream_candles(
-                exchange, symbol, interval, start, end, closed, fill_missing_with_last
-            ):
-                yield candle
-
-    async def _stream_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int, closed: bool,
-        fill_missing_with_last: bool
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
