@@ -285,6 +285,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             and advice not in [Advice.SHORT, Advice.LIQUIDATE]
             and config.trailing_stop
         ):
+            # TODO: fix poop
             assert advice is not Advice.LONG
             assert candle
             symbol_state.highest_close_since_position = max(
