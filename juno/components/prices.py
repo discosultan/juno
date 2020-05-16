@@ -33,7 +33,8 @@ class Prices:
 
         # Validate we have enough price data.
         quote_fiat_symbols = {
-            f'{q}-{fiat_asset}' for b, q in map(unpack_symbol, symbols) if q != fiat_asset
+            f'{q}-{fiat_asset}' if q != fiat_asset else f'{b}-{q}'
+            for b, q in map(unpack_symbol, symbols)
         }
         await asyncio.gather(
             *(self._validate_start(fiat_exchange, s, interval, start) for s in quote_fiat_symbols),
