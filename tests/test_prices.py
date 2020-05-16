@@ -75,6 +75,13 @@ async def test_map_prices(symbols, chandler_symbols, expected_output) -> None:
             'usdt': [Decimal('1.0'), Decimal('1.0'), Decimal('1.0')],
         },
     ),
+    (
+        ['btc-usdt'],
+        {
+            'btc': [Decimal('2.0'), Decimal('4.0'), Decimal('6.0')],
+            'usdt': [Decimal('1.0'), Decimal('1.0'), Decimal('1.0')],
+        },
+    ),
 ])
 async def test_map_prices_with_different_fiat_exchange(symbols, expected_output) -> None:
     exchange1_candles = [
