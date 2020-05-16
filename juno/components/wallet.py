@@ -69,7 +69,7 @@ class Wallet:
                     exchange_data.balances = balances
                     if is_first:
                         is_first = False
-                        self._initial_balances_fetched.release_nowait((exchange, margin))
+                        self._initial_balances_fetched.release((exchange, margin))
                     exchange_data.updated.set()
 
     async def _stream_balances(

@@ -340,7 +340,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         # TODO: FIX SYNC
         _log.debug(f'{symbol_state.symbol} received advice: {advice.name}')
         symbol_state.changed.update(advice)
-        candles_updated.release_nowait(symbol_state.symbol)
+        candles_updated.release(symbol_state.symbol)
         await ready.wait()
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:

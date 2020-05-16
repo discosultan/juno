@@ -111,12 +111,12 @@ async def test_barrier() -> None:
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release_nowait()
+    barrier.release()
     await asyncio.sleep(0)
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release_nowait()
+    barrier.release()
     await asyncio.sleep(0)
     assert not barrier.locked
     assert wait_task.done()
@@ -126,12 +126,12 @@ async def test_barrier() -> None:
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release_nowait()
+    barrier.release()
     await asyncio.sleep(0)
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release_nowait()
+    barrier.release()
     await asyncio.sleep(0)
     assert not barrier.locked
     assert wait_task.done()
@@ -141,8 +141,8 @@ async def test_barrier_exceptions() -> None:
     barrier = Barrier(1)
 
     with pytest.raises(ValueError):
-        barrier.release_nowait()
-        barrier.release_nowait()
+        barrier.release()
+        barrier.release()
 
     assert not barrier.locked
 
@@ -153,12 +153,12 @@ async def test_slot_barrier() -> None:
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release_nowait('a')
+    barrier.release('a')
     await asyncio.sleep(0)
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release_nowait('b')
+    barrier.release('b')
     await asyncio.sleep(0)
     assert not barrier.locked
     assert wait_task.done()
@@ -168,12 +168,12 @@ async def test_slot_barrier() -> None:
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release_nowait('a')
+    barrier.release('a')
     await asyncio.sleep(0)
     assert barrier.locked
     assert not wait_task.done()
 
-    barrier.release_nowait('b')
+    barrier.release('b')
     await asyncio.sleep(0)
     assert not barrier.locked
     assert wait_task.done()
@@ -183,39 +183,13 @@ async def test_slot_barrier_exceptions() -> None:
     barrier = SlotBarrier(['a'])
 
     with pytest.raises(ValueError):
-        barrier.release_nowait('b')
+        barrier.release('b')
 
     with pytest.raises(ValueError):
-        barrier.release_nowait('a')
-        barrier.release_nowait('a')
+        barrier.release('a')
+        barrier.release('a')
 
     assert not barrier.locked
-
-
-async def test_slot_barrier_release() -> None:
-    barrier = SlotBarrier(['a', 'b'])
-
-    await barrier.release('a')
-    release_a_task = asyncio.create_task(barrier.release('a'))
-    await asyncio.sleep(0)
-    assert not release_a_task.done()
-
-    await barrier.release('b')
-    barrier.clear()
-    await asyncio.sleep(0)
-    await release_a_task
-
-    await barrier.release('b')
-    release_b_task = asyncio.create_task(barrier.release('b'))
-    await asyncio.sleep(0)
-    assert not release_b_task.done()
-
-    release_a_task = asyncio.create_task(barrier.release('a'))
-    await asyncio.sleep(0)
-    assert not release_a_task.done()
-
-    barrier.clear()
-    await asyncio.gather(release_a_task, release_b_task)
 
 
 async def test_cancel() -> None:

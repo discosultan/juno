@@ -185,7 +185,7 @@ class Barrier:
     async def wait(self) -> None:
         await self._event.wait()
 
-    def release_nowait(self) -> None:
+    def release(self) -> None:
         if self._remaining_count > 0:
             self._remaining_count -= 1
         else:
@@ -221,21 +221,7 @@ class SlotBarrier(Generic[T]):
     async def wait(self) -> None:
         await self._event.wait()
 
-    async def release(self, slot: T) -> None:
-        slot_ = self._slots.get(slot)
-
-        if slot_ is None:
-            raise ValueError(f'Slot {slot} does not exist')
-
-        # TODO: FIX SYNC
-        slot_.cleared.clear()
-        if not slot_.locked:
-            await slot_.cleared.wait()
-        slot_.locked = False
-
-        self._update_locked()
-
-    def release_nowait(self, slot: T) -> None:
+    def release(self, slot: T) -> None:
         slot_ = self._slots.get(slot)
 
         if slot_ is None:
