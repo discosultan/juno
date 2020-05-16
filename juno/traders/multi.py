@@ -27,6 +27,7 @@ SYMBOL_PATTERN = '*-btc'
 
 @dataclass
 class _SymbolState:
+    symbol: str
     strategy: Strategy
     changed: Changed
     current: Timestamp
@@ -37,6 +38,10 @@ class _SymbolState:
     lowest_close_since_position = Decimal('Inf')
     first_candle: Optional[Candle] = None
     last_candle: Optional[Candle] = None
+
+    @property
+    def ready(self) -> bool:
+        return self.first_candle is not None
 
 
 class Multi(PositionMixin, SimulatedPositionMixin):
@@ -128,6 +133,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             symbols = self.find_top_symbols(config.exchange, config.track, config.track_count)
             for s in symbols:
                 state.symbol_states[s] = _SymbolState(
+                    symbol=s,
                     strategy=config.new_strategy(),
                     changed=Changed(True),
                     current=config.start,
@@ -142,9 +148,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             candles_updated = SlotBarrier(symbols)
             await asyncio.gather(
                 self._manage_positions(config, state, candles_updated),
-                *(self._track_advice(config, state, symbol, candles_updated)
-                  for symbol in state.symbol_states.keys())
+                *(self._track_advice(config, symbol_state, candles_updated)
+                  for symbol, symbol_state in state.symbol_states.items())
             )
+        except Exception as e:
+            _log.critical(e)
+            _log.critical(type(e))
+            raise
         finally:
             last_candle_times = [
                 s.last_candle.time for s in state.symbol_states.values() if s.last_candle
@@ -157,6 +167,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         return state.summary
 
+    # TODO: this is poop.
     def find_top_symbols(self, exchange: str, track: List[str], track_count: int) -> List[str]:
         count = track_count - len(track)
         tickers = self._informant.list_tickers(exchange, symbol_pattern=SYMBOL_PATTERN)
@@ -177,23 +188,22 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
             # Try close existing positions.
             to_process.clear()
-            for ss in state.symbol_states.values():
+            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
                 assert ss.last_candle
                 if (
                     isinstance(ss.open_position, Position.OpenLong)
                     and ss.changed.prevailing_advice in [Advice.LIQUIDATE, Advice.SHORT]
                 ):
-                    to_process.append(self._close_long_position(
-                        config, state, ss, ss.last_candle
-                    ))
+                    to_process.append(
+                        self._close_long_position(config, state, ss, ss.last_candle)
+                    )
                 elif (
                     isinstance(ss.open_position, Position.OpenShort)
                     and ss.changed.prevailing_advice in [Advice.LIQUIDATE, Advice.LONG]
                 ):
-                    to_process.append(self._close_short_position(
-                        config, state, ss, ss.last_candle
-                    ))
-
+                    to_process.append(
+                        self._close_short_position(config, state, ss, ss.last_candle)
+                    )
             if len(to_process) > 0:
                 await asyncio.gather(*to_process)
 
@@ -202,7 +212,8 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             count = sum(1 for ss in state.symbol_states.values() if ss.open_position is not None)
             assert count <= config.position_count
             available = config.position_count - count
-            for symbol, ss in state.symbol_states.items():
+            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
+                import pdb; pdb.set_trace()
                 if available == 0:
                     break
 
@@ -214,19 +225,14 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                     ss.changed.prevailing_advice is Advice.LONG
                     and ss.changed.prevailing_advice_age == 1  # TODO: Be more flexible?
                 ):
-                    to_process.append(self._open_long_position(
-                        config, state, ss, ss.last_candle, symbol
-                    ))
+                    to_process.append(self._open_long_position(config, state, ss, ss.last_candle))
                     available -= 1
                 elif (
                     ss.changed.prevailing_advice is Advice.SHORT
                     and ss.changed.prevailing_advice_age == 1
                 ):
-                    to_process.append(self._open_short_position(
-                        config, state, ss, ss.last_candle, symbol
-                    ))
+                    to_process.append(self._open_short_position(config, state, ss, ss.last_candle))
                     available -= 1
-
             if len(to_process) > 0:
                 await asyncio.gather(*to_process)
 
@@ -241,79 +247,101 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 break
 
     async def _track_advice(
-        self, config: Config, state: State, symbol: str, candles_updated: SlotBarrier
+        self, config: Config, symbol_state: _SymbolState, candles_updated: SlotBarrier
     ) -> None:
-        symbol_state = state.symbol_states[symbol]
         if not symbol_state.start_adjusted:
             _log.info(
-                f'fetching {symbol_state.strategy.adjust_hint} {symbol} candle(s) before start '
-                'time to warm-up strategy'
+                f'fetching {symbol_state.strategy.adjust_hint} {symbol_state.symbol} candle(s) '
+                'before start time to warm-up strategy'
             )
             symbol_state.current -= symbol_state.strategy.adjust_hint * config.interval
             symbol_state.start_adjusted = True
 
         async for candle in self._chandler.stream_candles(
             exchange=config.exchange,
-            symbol=symbol,
+            symbol=symbol_state.symbol,
             interval=config.interval,
             start=symbol_state.current,
             end=config.end,
             fill_missing_with_last=True,
         ):
-            advice = symbol_state.strategy.update(candle)
-            _log.debug(f'received advice: {advice.name}')
+            # Perform empty ticks when missing initial candles.
+            initial_missed = False
+            if (time_diff := candle.time - symbol_state.current) > 0:
+                assert not initial_missed
+                assert symbol_state.current <= config.start
+                initial_missed = True
+                num_missed = time_diff // config.interval
+                for _ in range(num_missed):
+                    await self._process_advice(symbol_state, candles_updated, Advice.NONE)
 
-            if (
-                isinstance(symbol_state.open_position, Position.OpenLong)
-                and advice not in [Advice.SHORT, Advice.LIQUIDATE]
-                and config.trailing_stop
-            ):
-                assert advice is not Advice.LONG
-                symbol_state.highest_close_since_position = max(
-                    symbol_state.highest_close_since_position, candle.close
+            advice = self._process_candle(config, symbol_state, candle)
+            await self._process_advice(symbol_state, candles_updated, advice)
+
+    def _process_candle(
+        self, config: Config, symbol_state: _SymbolState, candle: Candle
+    ) -> Advice:
+        advice = symbol_state.strategy.update(candle)
+        if (
+            isinstance(symbol_state.open_position, Position.OpenLong)
+            and advice not in [Advice.SHORT, Advice.LIQUIDATE]
+            and config.trailing_stop
+        ):
+            assert advice is not Advice.LONG
+            assert candle
+            symbol_state.highest_close_since_position = max(
+                symbol_state.highest_close_since_position, candle.close
+            )
+            target = (
+                symbol_state.highest_close_since_position * config.upside_trailing_factor
+            )
+            if candle.close <= target:
+                _log.info(
+                    f'{symbol_state.symbol} upside trailing stop hit at {config.trailing_stop}; '
+                    'selling'
                 )
-                target = (
-                    symbol_state.highest_close_since_position * config.upside_trailing_factor
+                advice = Advice.LIQUIDATE
+        elif (
+            isinstance(symbol_state.open_position, Position.OpenShort)
+            and advice not in [Advice.LONG, Advice.LIQUIDATE]
+            and config.trailing_stop
+        ):
+            assert advice is not Advice.SHORT
+            assert candle
+            symbol_state.lowest_close_since_position = min(
+                symbol_state.lowest_close_since_position, candle.close
+            )
+            target = (
+                symbol_state.lowest_close_since_position * config.downside_trailing_factor
+            )
+            if candle.close >= target:
+                _log.info(
+                    f'{symbol_state.symbol} downside trailing stop hit at {config.trailing_stop}; '
+                    'selling'
                 )
-                if candle.close <= target:
-                    _log.info(
-                        f'{symbol} upside trailing stop hit at {config.trailing_stop}; selling'
-                    )
-                    advice = Advice.LIQUIDATE
-            elif (
-                isinstance(symbol_state.open_position, Position.OpenShort)
-                and advice not in [Advice.LONG, Advice.LIQUIDATE]
-                and config.trailing_stop
-            ):
-                assert advice is not Advice.SHORT
-                symbol_state.lowest_close_since_position = min(
-                    symbol_state.lowest_close_since_position, candle.close
-                )
-                target = (
-                    symbol_state.lowest_close_since_position * config.downside_trailing_factor
-                )
-                if candle.close >= target:
-                    _log.info(
-                        f'{symbol} downside trailing stop hit at {config.trailing_stop}; '
-                        'selling'
-                    )
-                    advice = Advice.LIQUIDATE
+                advice = Advice.LIQUIDATE
 
-            if not symbol_state.open_position:
-                if config.long and advice is Advice.LONG:
-                    symbol_state.highest_close_since_position = candle.close
-                elif config.short and advice is Advice.SHORT:
-                    symbol_state.lowest_close_since_position = candle.close
+        if not symbol_state.open_position:
+            if config.long and advice is Advice.LONG:
+                symbol_state.highest_close_since_position = candle.close
+            elif config.short and advice is Advice.SHORT:
+                symbol_state.lowest_close_since_position = candle.close
 
-            symbol_state.changed.update(advice)
+        if not symbol_state.first_candle:
+            _log.info(f'{symbol_state.symbol} first candle {candle}')
+            symbol_state.first_candle = candle
+        symbol_state.last_candle = candle
+        symbol_state.current = candle.time + config.interval
 
-            if not symbol_state.first_candle:
-                _log.info(f'{symbol} first candle {candle}')
-                symbol_state.first_candle = candle
-            symbol_state.last_candle = candle
-            symbol_state.current = candle.time + config.interval
+        return advice
 
-            await candles_updated.release(symbol)
+    async def _process_advice(
+        self, symbol_state: _SymbolState, candles_updated: SlotBarrier, advice: Advice
+    ) -> None:
+        # TODO: FIX SYNC
+        _log.debug(f'{symbol_state.symbol} received advice: {advice.name}')
+        symbol_state.changed.update(advice)
+        await candles_updated.release(symbol_state.symbol)
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
         to_close = []
@@ -331,7 +359,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             await asyncio.gather(*to_close)
 
     async def _open_long_position(
-        self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle, symbol: str
+        self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
     ) -> None:
         symbol_state.allocated_quote = state.quotes.pop(0)
 
@@ -339,13 +367,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             await self.open_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=symbol,
+                symbol=symbol_state.symbol,
                 quote=symbol_state.allocated_quote,
                 test=False,
             ) if self._broker else self.open_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=symbol,
+                symbol=symbol_state.symbol,
                 quote=symbol_state.allocated_quote,
             )
         )
@@ -353,7 +381,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.allocated_quote -= Fill.total_quote(position.fills)
         symbol_state.open_position = position
 
-        _log.info(f'{symbol} long position opened: {candle}')
+        _log.info(f'{symbol_state.symbol} long position opened: {candle}')
         _log.debug(tonamedtuple(position))
         await self._events.emit(
             config.channel, 'position_opened', position, state.summary
@@ -392,7 +420,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         await self._events.emit(config.channel, 'position_closed', position, state.summary)
 
     async def _open_short_position(
-        self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle, symbol: str
+        self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
     ) -> None:
         symbol_state.allocated_quote = state.quotes.pop(0)
 
@@ -400,13 +428,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             await self.open_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=symbol,
+                symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
                 test=False,
             ) if self._broker else self.open_simulated_short_position(
                 candle=candle,
                 exchange=config.exchange,
-                symbol=symbol,
+                symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
             )
         )
@@ -416,7 +444,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         )
         symbol_state.open_position = position
 
-        _log.info(f'{symbol} short position opened: {candle}')
+        _log.info(f'{symbol_state.symbol} short position opened: {candle}')
         _log.debug(tonamedtuple(position))
         await self._events.emit(
             config.channel, 'position_opened', position, state.summary

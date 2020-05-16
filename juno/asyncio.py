@@ -227,6 +227,8 @@ class SlotBarrier(Generic[T]):
         if slot_ is None:
             raise ValueError(f'Slot {slot} does not exist')
 
+        # TODO: FIX SYNC
+        slot_.cleared.clear()
         if not slot_.locked:
             await slot_.cleared.wait()
         slot_.locked = False

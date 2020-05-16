@@ -192,6 +192,32 @@ async def test_slot_barrier_exceptions() -> None:
     assert not barrier.locked
 
 
+async def test_slot_barrier_release() -> None:
+    barrier = SlotBarrier(['a', 'b'])
+
+    await barrier.release('a')
+    release_a_task = asyncio.create_task(barrier.release('a'))
+    await asyncio.sleep(0)
+    assert not release_a_task.done()
+
+    await barrier.release('b')
+    barrier.clear()
+    await asyncio.sleep(0)
+    await release_a_task
+
+    await barrier.release('b')
+    release_b_task = asyncio.create_task(barrier.release('b'))
+    await asyncio.sleep(0)
+    assert not release_b_task.done()
+
+    release_a_task = asyncio.create_task(barrier.release('a'))
+    await asyncio.sleep(0)
+    assert not release_a_task.done()
+
+    barrier.clear()
+    await asyncio.gather(release_a_task, release_b_task)
+
+
 async def test_cancel() -> None:
     done_task = asyncio.create_task(asyncio.sleep(0))
     await done_task

@@ -346,7 +346,8 @@ async def test_multi_historical() -> None:
     chandler = fakes.Chandler(
         candles={
             ('dummy', 'eth-btc', 1): [Candle(time=i, close=Decimal('1.0')) for i in range(10)],
-            ('dummy', 'ltc-btc', 1): [Candle(time=i, close=Decimal('1.0')) for i in range(10)],
+            # Missing first half of candles. Should tick empty advice for missing.
+            ('dummy', 'ltc-btc', 1): [Candle(time=i, close=Decimal('1.0')) for i in range(5, 10)],
         },
     )
     informant = fakes.Informant(tickers=[
@@ -361,11 +362,22 @@ async def test_multi_historical() -> None:
         end=10,
         quote=Decimal('2.0'),
         strategy='fixed',
-        strategy_kwargs={'advices': ['none'] * 10},
+        strategy_kwargs={'advices': ['long'] * 10},
         long=True,
         short=True,
         track_count=2,
         position_count=2,
     )
 
-    await trader.run(config)
+    summary = await trader.run(config)
+
+    long_positions = list(summary.get_long_positions())
+    import logging
+    logging.critical(long_positions)
+    assert len(long_positions) == 2
+    assert long_positions[0].symbol == 'eth-btc'
+    assert long_positions[0].open_time == 0
+    assert long_positions[0].close_time == 9
+    assert long_positions[1].symbol == 'ltc-btc'
+    assert long_positions[1].open_time == 5
+    assert long_positions[1].close_time == 9
