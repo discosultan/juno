@@ -63,8 +63,7 @@ class Prices:
                 if q != fiat_asset else repeat_async(Decimal('1.0')),
             )]
         await asyncio.gather(
-            *(assign_with_prices(s) for s in set(symbols)
-              if (us := unpack_symbol(s)) and us[0] not in result and us[1] != fiat_asset)
+            *(assign_with_prices(s) for s in set(symbols) if unpack_symbol(s)[0] not in result)
         )
 
         # Add fiat currency itself to prices if it's specified as a quote of any symbol.
