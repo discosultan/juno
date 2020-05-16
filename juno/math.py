@@ -43,6 +43,18 @@ def split_by_ratios(total: Decimal, ratios: List[Decimal]) -> List[Decimal]:
     return result
 
 
+def split(total: Decimal, parts: int) -> List[Decimal]:
+    assert parts > 0
+
+    if parts == 1:
+        return [total]
+
+    part = (total / parts).quantize(total, rounding=ROUND_DOWN)
+    result = [part for _ in range(parts - 1)]
+    result.append(total - sum(result))
+    return result
+
+
 def spans_overlap(span1: Tuple[int, int], span2: Tuple[int, int]) -> bool:
     for _ in range(max(span1[0], span2[0]), min(span1[-1], span2[-1])):
         return True

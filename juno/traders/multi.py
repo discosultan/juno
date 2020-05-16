@@ -7,12 +7,11 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Coroutine, Dict, List, NamedTuple, Optional
 
-from juno import Advice, Candle, Fill, Interval, Timestamp, strategies
-from juno.asyncio import SlotBarrier
+from juno import Advice, Candle, Fill, Interval, Timestamp, math, strategies
+from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant
 from juno.exchanges import Exchange
-from juno.math import split_by_ratios
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
 from juno.trading import Position, TradingSummary
@@ -126,8 +125,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 quote=config.quote,
                 quote_asset='btc',  # TODO: support others
             )
-            ratio = Decimal('1.0') / config.position_count
-            state.quotes = split_by_ratios(config.quote, [ratio] * config.position_count)
+            state.quotes = math.split(config.quote, config.position_count)
 
         if len(state.symbol_states) == 0:
             symbols = self.find_top_symbols(config.exchange, config.track, config.track_count)
@@ -146,15 +144,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         try:
             candles_updated = SlotBarrier(symbols)
+            trackers_ready: Dict[str, Event] = {s: Event(autoclear=True) for s in symbols}
             await asyncio.gather(
-                self._manage_positions(config, state, candles_updated),
-                *(self._track_advice(config, symbol_state, candles_updated)
-                  for symbol, symbol_state in state.symbol_states.items())
+                self._manage_positions(config, state, candles_updated, trackers_ready),
+                *(self._track_advice(config, ss, candles_updated, trackers_ready[s])
+                  for s, ss in state.symbol_states.items())
             )
-        except Exception as e:
-            _log.critical(e)
-            _log.critical(type(e))
-            raise
         finally:
             last_candle_times = [
                 s.last_candle.time for s in state.symbol_states.values() if s.last_candle
@@ -179,7 +174,8 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         return track + [t.symbol for t in tickers[0:count] if t not in track]
 
     async def _manage_positions(
-        self, config: Config, state: State, candles_updated: SlotBarrier
+        self, config: Config, state: State, candles_updated: SlotBarrier,
+        trackers_ready: Dict[str, Event]
     ) -> None:
         to_process: List[Coroutine[None, None, None]] = []
         while True:
@@ -213,7 +209,6 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             assert count <= config.position_count
             available = config.position_count - count
             for ss in (ss for ss in state.symbol_states.values() if ss.ready):
-                import pdb; pdb.set_trace()
                 if available == 0:
                     break
 
@@ -238,6 +233,8 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
             # Clear barrier for next update.
             candles_updated.clear()
+            for e in trackers_ready.values():
+                e.set()
 
             # Exit if last candle.
             if (
@@ -247,7 +244,8 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 break
 
     async def _track_advice(
-        self, config: Config, symbol_state: _SymbolState, candles_updated: SlotBarrier
+        self, config: Config, symbol_state: _SymbolState, candles_updated: SlotBarrier,
+        ready: Event
     ) -> None:
         if not symbol_state.start_adjusted:
             _log.info(
@@ -273,10 +271,10 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 initial_missed = True
                 num_missed = time_diff // config.interval
                 for _ in range(num_missed):
-                    await self._process_advice(symbol_state, candles_updated, Advice.NONE)
+                    await self._process_advice(symbol_state, candles_updated, ready, Advice.NONE)
 
             advice = self._process_candle(config, symbol_state, candle)
-            await self._process_advice(symbol_state, candles_updated, advice)
+            await self._process_advice(symbol_state, candles_updated, ready, advice)
 
     def _process_candle(
         self, config: Config, symbol_state: _SymbolState, candle: Candle
@@ -336,12 +334,14 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         return advice
 
     async def _process_advice(
-        self, symbol_state: _SymbolState, candles_updated: SlotBarrier, advice: Advice
+        self, symbol_state: _SymbolState, candles_updated: SlotBarrier, ready: Event,
+        advice: Advice
     ) -> None:
         # TODO: FIX SYNC
         _log.debug(f'{symbol_state.symbol} received advice: {advice.name}')
         symbol_state.changed.update(advice)
-        await candles_updated.release(symbol_state.symbol)
+        candles_updated.release_nowait(symbol_state.symbol)
+        await ready.wait()
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
         to_close = []

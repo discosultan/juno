@@ -372,8 +372,6 @@ async def test_multi_historical() -> None:
     summary = await trader.run(config)
 
     long_positions = list(summary.get_long_positions())
-    import logging
-    logging.critical(long_positions)
     assert len(long_positions) == 2
     assert long_positions[0].symbol == 'eth-btc'
     assert long_positions[0].open_time == 0

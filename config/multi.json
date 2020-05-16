@@ -12,7 +12,8 @@
                 "type": "fourweekrule",
                 "ma": "kama"
             },
-            "position_count": 2,
+            "trailing_stop": 0.10,
+            "position_count": 4,
             "track_count": 4,
             "track": ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"],
             "long": true,
