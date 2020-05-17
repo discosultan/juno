@@ -4,13 +4,12 @@ from decimal import Decimal
 from typing import Any, Dict, NamedTuple, Optional, TypeVar
 
 from juno import Interval, MissedCandlePolicy, Timestamp
-from juno.components import Chandler, Events, Prices
+from juno.components import Events, Prices
 from juno.config import get_type_name_and_kwargs
-from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.strategies import Strategy
-from juno.time import strftimestamp, time_ms
+from juno.time import time_ms
 from juno.traders import Basic
 from juno.utils import format_as_config, unpack_symbol
 
@@ -57,13 +56,11 @@ class Backtest(Agent):
     def __init__(
         self,
         trader: Basic,
-        chandler: Chandler,
         prices: Optional[Prices] = None,
         events: Events = Events(),
         storage: Storage = Memory(),
     ) -> None:
         self._trader = trader
-        self._chandler = chandler
         self._prices = prices
         self._events = events
         self._storage = storage
@@ -71,24 +68,12 @@ class Backtest(Agent):
     async def on_running(self, config: Config, state: State) -> None:
         await super().on_running(config, state)
 
-        start = config.start
-        first_candle = await self._chandler.find_first_candle(
-            config.exchange, config.symbol, config.interval
-        )
-        if start is None or start < first_candle.time:
-            start = first_candle.time
-            _log.info(f'start not specified; start set to {strftimestamp(start)}')
-
         now = time_ms()
 
-        start = floor_multiple(start, config.interval)
-        end = config.end
-        if end is None:
-            end = now
-        end = floor_multiple(end, config.interval)
+        end = now if config.end is None else config.end
 
         assert end <= now
-        assert end > start
+        assert config.start is None or end > config.start
         assert config.quote > 0
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
@@ -96,7 +81,7 @@ class Backtest(Agent):
             exchange=config.exchange,
             symbol=config.symbol,
             interval=config.interval,
-            start=start,
+            start=config.start,
             end=end,
             quote=config.quote,
             strategy=strategy_name,
@@ -117,9 +102,11 @@ class Backtest(Agent):
             _log.warning('skipping analysis; prices component not available')
             return
 
+        summary = state.result.summary
+
         # Fetch necessary market data.
         symbols = (
-            [p.symbol for p in state.result.summary.get_positions()]
+            [p.symbol for p in summary.get_positions()]
             + [f'btc-{config.fiat_asset}']  # Use BTC as benchmark.
         )
         fiat_daily_prices = await self._prices.map_prices(
@@ -127,14 +114,12 @@ class Backtest(Agent):
             symbols=symbols,
             fiat_asset=config.fiat_asset,
             fiat_exchange=config.fiat_exchange,
-            start=start,
-            end=end,
+            start=summary.start,
+            end=summary.end,
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        portfolio = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, state.result.summary
-        )
+        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, summary)
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
         _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')

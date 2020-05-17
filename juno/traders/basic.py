@@ -8,8 +8,10 @@ from juno import Advice, Candle, Fill, Interval, MissedCandlePolicy, Timestamp, 
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant
 from juno.exchanges import Exchange
+from juno.math import floor_multiple
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
+from juno.time import strftimestamp
 from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 from juno.utils import tonamedtuple, unpack_symbol
 
@@ -23,11 +25,11 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         exchange: str
         symbol: str
         interval: Interval
-        start: Timestamp
         end: Timestamp
         quote: Decimal
         strategy: str
         strategy_module: str = strategies.__name__
+        start: Optional[Timestamp] = None  # None means earliest is found.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
         strategy_args: List[Any] = []
@@ -102,7 +104,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         return self._exchanges
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
-        assert config.start >= 0
+        assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
@@ -117,9 +119,20 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         if state.quote == -1:
             state.quote = config.quote
 
+        if not state.current:
+            if config.start is None:
+                first_candle = await self._chandler.find_first_candle(
+                    config.exchange, config.symbol, config.interval
+                )
+                start = first_candle.time
+                _log.info(f'start not specified; start set to {strftimestamp(start)}')
+            else:
+                start = floor_multiple(config.start, config.interval)
+            state.current = start
+
         if not state.summary:
             state.summary = TradingSummary(
-                start=config.start,
+                start=start.current,
                 quote=config.quote,
                 quote_asset=config.quote_asset,
             )
@@ -129,9 +142,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         if not state.changed:
             state.changed = Changed(True)
-
-        if not state.current:
-            state.current = config.start
 
         if config.adjust_start and not state.start_adjusted:
             # Adjust start to accommodate for the required history before a strategy
@@ -153,7 +163,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                     symbol=config.symbol,
                     interval=config.interval,
                     start=state.current,
-                    end=config.end,
+                    end=floot_multiple(config.end, config.interval),
                 ):
                     # Check if we have missed a candle.
                     if (

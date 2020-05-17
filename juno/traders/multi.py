@@ -12,8 +12,10 @@ from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant
 from juno.exchanges import Exchange
+from juno.math import floor_multiple
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
+from juno.time import strftimestamp
 from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 from juno.utils import tonamedtuple
 
@@ -62,11 +64,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
     class Config(NamedTuple):
         exchange: str
         interval: Interval
-        start: Timestamp
         end: Timestamp
         quote: Decimal
         strategy: str
         strategy_module: str = strategies.__name__
+        start: Optional[Timestamp] = None,  # None means earliest is found.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         strategy_args: List[Any] = []
         strategy_kwargs: Dict[str, Any] = {}
@@ -124,9 +126,9 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         return self._exchanges
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
-        assert config.start >= 0
+        assert config.start is None or config.start >= 0
         assert config.end > 0
-        assert config.end > config.start
+        assert config.start is None or config.end > config.start
         assert 0 <= config.trailing_stop < 1
         assert config.position_count > 0
         assert config.position_count <= config.track_count
@@ -134,9 +136,18 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         state = state or Multi.State()
 
+        if config.start is None:
+            first_candle = await self._chandler.find_first_candle(
+                config.exchange, config.symbol, config.interval
+            )
+            start = first_candle.time
+            _log.info(f'start not specified; start set to {strftimestamp(start)}')
+        else:
+            start = floor_multiple(config.start, config.interval)
+
         if not state.summary:
             state.summary = TradingSummary(
-                start=config.start,
+                start=start,
                 quote=config.quote,
                 quote_asset='btc',  # TODO: support others
             )
@@ -150,7 +161,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                     strategy=config.new_strategy(),
                     changed=Changed(True),
                     override_changed=Changed(True),
-                    current=config.start,
+                    current=start,
                 )
 
         _log.info(
@@ -174,7 +185,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 await self._close_all_open_positions(config, state)
                 state.summary.finish(max(last_candle_times) + config.interval)
             else:
-                state.summary.finish(config.start)
+                state.summary.finish(start)
 
         return state.summary
 
