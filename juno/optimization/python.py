@@ -5,8 +5,7 @@ from juno import Advice, Candle, Fill, MissedCandlePolicy, OrderException
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
-from juno.traders import SimulatedPositionMixin
-from juno.trading import Position, TradingSummary
+from juno.trading import Position, SimulatedPositionMixin, TradingSummary
 
 from .solver import Solver, SolverResult
 

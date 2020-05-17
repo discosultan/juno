@@ -14,10 +14,8 @@ from juno.components import Chandler, Events, Informant
 from juno.exchanges import Exchange
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
-from juno.trading import Position, TradingSummary
+from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 from juno.utils import tonamedtuple
-
-from .mixins import PositionMixin, SimulatedPositionMixin
 
 _log = logging.getLogger(__name__)
 
