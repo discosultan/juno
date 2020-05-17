@@ -5,7 +5,7 @@ import importlib
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Coroutine, Dict, List, NamedTuple, Optional
+from typing import Any, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
 from juno import Advice, Candle, Fill, Interval, Timestamp, math, strategies
 from juno.asyncio import Event, SlotBarrier
@@ -29,6 +29,7 @@ class _SymbolState:
     symbol: str
     strategy: Strategy
     changed: Changed
+    override_changed: Changed
     current: Timestamp
     start_adjusted: bool = False
     open_position: Optional[Position.Open] = None
@@ -41,6 +42,22 @@ class _SymbolState:
     @property
     def ready(self) -> bool:
         return self.first_candle is not None
+
+    @property
+    def advice(self) -> Advice:
+        return (
+            self.override_changed.prevailing_advice
+            if self.override_changed.prevailing_advice is not Advice.NONE
+            else self.changed.prevailing_advice
+        )
+
+    @property
+    def advice_age(self) -> int:
+        return (
+            self.override_changed.prevailing_advice_age
+            if self.override_changed.prevailing_advice is not Advice.NONE
+            else self.changed.prevailing_advice_age
+        )
 
 
 class Multi(PositionMixin, SimulatedPositionMixin):
@@ -134,6 +151,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                     symbol=s,
                     strategy=config.new_strategy(),
                     changed=Changed(True),
+                    override_changed=Changed(True),
                     current=config.start,
                 )
 
@@ -188,14 +206,14 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 assert ss.last_candle
                 if (
                     isinstance(ss.open_position, Position.OpenLong)
-                    and ss.changed.prevailing_advice in [Advice.LIQUIDATE, Advice.SHORT]
+                    and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]
                 ):
                     to_process.append(
                         self._close_long_position(config, state, ss, ss.last_candle)
                     )
                 elif (
                     isinstance(ss.open_position, Position.OpenShort)
-                    and ss.changed.prevailing_advice in [Advice.LIQUIDATE, Advice.LONG]
+                    and ss.advice in [Advice.LIQUIDATE, Advice.LONG]
                 ):
                     to_process.append(
                         self._close_short_position(config, state, ss, ss.last_candle)
@@ -216,16 +234,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                     continue
 
                 assert ss.last_candle
-                if (
-                    ss.changed.prevailing_advice is Advice.LONG
-                    and ss.changed.prevailing_advice_age == 1  # TODO: Be more flexible?
-                ):
+                # TODO: Be more flexible?
+                if ss.advice is Advice.LONG and ss.advice_age == 1:
                     to_process.append(self._open_long_position(config, state, ss, ss.last_candle))
                     available -= 1
-                elif (
-                    ss.changed.prevailing_advice is Advice.SHORT
-                    and ss.changed.prevailing_advice_age == 1
-                ):
+                elif ss.advice is Advice.SHORT and ss.advice_age == 1:
                     to_process.append(self._open_short_position(config, state, ss, ss.last_candle))
                     available -= 1
             if len(to_process) > 0:
@@ -271,22 +284,25 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 initial_missed = True
                 num_missed = time_diff // config.interval
                 for _ in range(num_missed):
-                    await self._process_advice(symbol_state, candles_updated, ready, Advice.NONE)
+                    await self._process_advice(
+                        symbol_state, candles_updated, ready, Advice.NONE, Advice.NONE
+                    )
 
-            advice = self._process_candle(config, symbol_state, candle)
-            await self._process_advice(symbol_state, candles_updated, ready, advice)
+            advice, override_advice = self._process_candle(config, symbol_state, candle)
+            await self._process_advice(
+                symbol_state, candles_updated, ready, advice, override_advice
+            )
 
     def _process_candle(
         self, config: Config, symbol_state: _SymbolState, candle: Candle
-    ) -> Advice:
+    ) -> Tuple[Advice, Advice]:
         advice = symbol_state.strategy.update(candle)
+        override_advice = Advice.NONE
         if (
             isinstance(symbol_state.open_position, Position.OpenLong)
             and advice not in [Advice.SHORT, Advice.LIQUIDATE]
             and config.trailing_stop
         ):
-            # TODO: fix poop
-            assert advice is not Advice.LONG
             assert candle
             symbol_state.highest_close_since_position = max(
                 symbol_state.highest_close_since_position, candle.close
@@ -299,13 +315,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                     f'{symbol_state.symbol} upside trailing stop hit at {config.trailing_stop}; '
                     'selling'
                 )
-                advice = Advice.LIQUIDATE
+                override_advice = Advice.LIQUIDATE
         elif (
             isinstance(symbol_state.open_position, Position.OpenShort)
             and advice not in [Advice.LONG, Advice.LIQUIDATE]
             and config.trailing_stop
         ):
-            assert advice is not Advice.SHORT
             assert candle
             symbol_state.lowest_close_since_position = min(
                 symbol_state.lowest_close_since_position, candle.close
@@ -318,7 +333,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                     f'{symbol_state.symbol} downside trailing stop hit at {config.trailing_stop}; '
                     'selling'
                 )
-                advice = Advice.LIQUIDATE
+                override_advice = Advice.LIQUIDATE
 
         if not symbol_state.open_position:
             if config.long and advice is Advice.LONG:
@@ -332,15 +347,23 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.last_candle = candle
         symbol_state.current = candle.time + config.interval
 
-        return advice
+        return advice, override_advice
 
     async def _process_advice(
         self, symbol_state: _SymbolState, candles_updated: SlotBarrier, ready: Event,
-        advice: Advice
+        advice: Advice, override_advice: Advice
     ) -> None:
-        # TODO: FIX SYNC
-        _log.debug(f'{symbol_state.symbol} received advice: {advice.name}')
+        _log.debug(f'{symbol_state.symbol} received advice: {advice.name} {override_advice.name}')
+
+        if override_advice is not Advice.NONE:
+            symbol_state.override_changed.update(override_advice)
+        elif advice is not symbol_state.changed.prevailing_advice:
+            symbol_state.override_changed.update(Advice.NONE)
+        else:
+            symbol_state.override_changed.update(symbol_state.override_changed.prevailing_advice)
+
         symbol_state.changed.update(advice)
+
         candles_updated.release(symbol_state.symbol)
         await ready.wait()
 

@@ -402,7 +402,7 @@ async def test_multi_trailing_stop() -> None:
         exchange='dummy',
         interval=1,
         start=0,
-        end=3,
+        end=6,
         quote=Decimal('3.0'),
         trailing_stop=Decimal('0.5'),
         strategy='fixed',
