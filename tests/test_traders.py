@@ -388,6 +388,9 @@ async def test_multi_trailing_stop() -> None:
                 Candle(time=0, close=Decimal('3.0')),
                 Candle(time=1, close=Decimal('1.0')),  # Triggers trailing stop.
                 Candle(time=2, close=Decimal('1.0')),
+                Candle(time=3, close=Decimal('1.0')),
+                Candle(time=4, close=Decimal('1.0')),
+                Candle(time=5, close=Decimal('1.0')),
             ],
         },
     )
@@ -403,7 +406,7 @@ async def test_multi_trailing_stop() -> None:
         quote=Decimal('3.0'),
         trailing_stop=Decimal('0.5'),
         strategy='fixed',
-        strategy_kwargs={'advices': ['long'] * 3},
+        strategy_kwargs={'advices': ['long', 'long', 'long', 'liquidate', 'long', 'long']},
         long=True,
         short=True,
         track_count=1,
@@ -413,6 +416,8 @@ async def test_multi_trailing_stop() -> None:
     summary = await trader.run(config)
 
     long_positions = list(summary.get_long_positions())
-    assert len(long_positions) == 1
+    assert len(long_positions) == 2
     assert long_positions[0].open_time == 0
     assert long_positions[0].close_time == 1
+    assert long_positions[1].open_time == 4
+    assert long_positions[1].close_time == 5
