@@ -9,7 +9,7 @@ from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
-from juno.traders import Trader
+from juno.traders import Basic
 from juno.utils import format_as_config
 
 from .agent import Agent, AgentStatus
@@ -40,7 +40,7 @@ class Paper(Agent):
         result: Optional[Any] = None
 
     def __init__(
-        self, informant: Informant, trader: Trader, events: Events = Events(),
+        self, informant: Informant, trader: Basic, events: Events = Events(),
         storage: Storage = Memory(), get_time_ms: Callable[[], int] = time_ms
     ) -> None:
         self._informant = informant
@@ -63,7 +63,7 @@ class Paper(Agent):
         assert config.quote > filters.price.min
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        trader_config = self._trader.Config(
+        trader_config = Basic.Config(
             exchange=config.exchange,
             symbol=config.symbol,
             interval=config.interval,
@@ -81,7 +81,7 @@ class Paper(Agent):
             short=config.short,
         )
         if not state.result:
-            state.result = self._trader.State()
+            state.result = Basic.State()
         await self._trader.run(trader_config, state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:

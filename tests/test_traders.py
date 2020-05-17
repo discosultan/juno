@@ -340,3 +340,84 @@ async def test_multi() -> None:
     assert short_positions[1].open_time == 2
     assert short_positions[1].close_time == 3
     assert short_positions[1].symbol == 'ltc-btc'
+
+
+async def test_multi_historical() -> None:
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [Candle(time=i, close=Decimal('1.0')) for i in range(10)],
+            # Missing first half of candles. Should tick empty advice for missing.
+            ('dummy', 'ltc-btc', 1): [Candle(time=i, close=Decimal('1.0')) for i in range(5, 10)],
+        },
+    )
+    informant = fakes.Informant(tickers=[
+        Ticker(symbol='eth-btc', volume=Decimal('2.0'), quote_volume=Decimal('2.0')),
+        Ticker(symbol='ltc-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
+    ])
+    trader = traders.Multi(chandler=chandler, informant=informant)
+    config = traders.Multi.Config(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=10,
+        quote=Decimal('2.0'),
+        strategy='fixed',
+        strategy_kwargs={'advices': ['long'] * 10},
+        long=True,
+        short=True,
+        track_count=2,
+        position_count=2,
+    )
+
+    summary = await trader.run(config)
+
+    long_positions = list(summary.get_long_positions())
+    assert len(long_positions) == 2
+    assert long_positions[0].symbol == 'eth-btc'
+    assert long_positions[0].open_time == 0
+    assert long_positions[0].close_time == 9
+    assert long_positions[1].symbol == 'ltc-btc'
+    assert long_positions[1].open_time == 5
+    assert long_positions[1].close_time == 9
+
+
+async def test_multi_trailing_stop() -> None:
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('3.0')),
+                Candle(time=1, close=Decimal('1.0')),  # Triggers trailing stop.
+                Candle(time=2, close=Decimal('1.0')),
+                Candle(time=3, close=Decimal('1.0')),
+                Candle(time=4, close=Decimal('1.0')),
+                Candle(time=5, close=Decimal('1.0')),
+            ],
+        },
+    )
+    informant = fakes.Informant(tickers=[
+        Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
+    ])
+    trader = traders.Multi(chandler=chandler, informant=informant)
+    config = traders.Multi.Config(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=6,
+        quote=Decimal('3.0'),
+        trailing_stop=Decimal('0.5'),
+        strategy='fixed',
+        strategy_kwargs={'advices': ['long', 'long', 'long', 'liquidate', 'long', 'long']},
+        long=True,
+        short=True,
+        track_count=1,
+        position_count=1,
+    )
+
+    summary = await trader.run(config)
+
+    long_positions = list(summary.get_long_positions())
+    assert len(long_positions) == 2
+    assert long_positions[0].open_time == 0
+    assert long_positions[0].close_time == 1
+    assert long_positions[1].open_time == 4
+    assert long_positions[1].close_time == 5

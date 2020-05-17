@@ -4,16 +4,18 @@
     "storage": "sqlite",
     "agents": [
         {
-            "type": "backtest",
+            "type": "multibacktest",
             "exchange": "binance",
-            "symbol": "eth-btc",
             "interval": "1d",
             "quote": 1.0,
-            "start": "2019-04-26",
             "strategy": {
                 "type": "fourweekrule",
                 "ma": "kama"
             },
+            "trailing_stop": 0.10,
+            "position_count": 4,
+            "track_count": 4,
+            "track": ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"],
             "long": true,
             "short": true,
             "fiat_asset": "eur",

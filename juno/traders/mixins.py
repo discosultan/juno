@@ -15,6 +15,7 @@ from juno.utils import unpack_symbol
 _log = logging.getLogger(__name__)
 
 
+# TODO: Move to trading module.
 class SimulatedPositionMixin(ABC):
     @property
     @abstractmethod

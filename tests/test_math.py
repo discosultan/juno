@@ -1,7 +1,7 @@
 import operator
 from decimal import Decimal
 from random import Random
-from typing import Tuple
+from typing import List, Tuple
 
 import pytest
 
@@ -52,6 +52,23 @@ def test_split_by_ratios() -> None:
         ),
     )
     assert output == [Decimal('0.20000'), Decimal('0.04680'), Decimal('0.00010')]
+
+
+@pytest.mark.parametrize('input_,parts,expected_output', [
+    (
+        Decimal('1.0001'),
+        4,
+        [Decimal('0.2500'), Decimal('0.2500'), Decimal('0.2500'), Decimal('0.2501')],
+    ),
+    (
+        Decimal('1.0001'),
+        1,
+        [Decimal('1.0001')],
+    ),
+])
+def test_split(input_: Decimal, parts: int, expected_output: List[Decimal]) -> None:
+    output = math.split(input_, parts)
+    assert output == expected_output
 
 
 @pytest.mark.parametrize('span1,span2,expected_output', [

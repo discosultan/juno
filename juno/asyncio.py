@@ -2,6 +2,7 @@ import asyncio
 import itertools
 import logging
 import traceback
+from dataclasses import dataclass, field
 from typing import (
     Any, AsyncIterable, AsyncIterator, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar,
     cast
@@ -188,43 +189,52 @@ class Barrier:
         if self._remaining_count > 0:
             self._remaining_count -= 1
         else:
-            _log.warning('released already unlocked barrier')
+            raise ValueError('Barrier already unlocked')
 
         if not self.locked:
             self._event.set()
 
 
+@dataclass
+class _Slot:
+    locked: bool = True
+    cleared: asyncio.Event = field(default_factory=asyncio.Event)
+
+
 class SlotBarrier(Generic[T]):
     def __init__(self, slots: Iterable[T]) -> None:
-        self._slots = {s: True for s in set(slots)}
+        self._slots = {s: _Slot() for s in set(slots)}
         self._event = asyncio.Event()
         self.clear()
 
     @property
     def locked(self) -> bool:
-        return any(self._slots.values())
+        return any(s.locked for s in self._slots.values())
 
     def clear(self) -> None:
         self._event.clear()
-        for slot in self._slots.keys():
-            self._slots[slot] = True
-        if not self.locked:
-            self._event.set()
+        for slot in self._slots.values():
+            slot.locked = True
+            slot.cleared.set()
+        self._update_locked()
 
     async def wait(self) -> None:
         await self._event.wait()
 
     def release(self, slot: T) -> None:
-        is_locked = self._slots.get(slot)
+        slot_ = self._slots.get(slot)
 
-        if is_locked is None:
+        if slot_ is None:
             raise ValueError(f'Slot {slot} does not exist')
 
-        if is_locked:
-            self._slots[slot] = False
+        if slot_.locked:
+            slot_.locked = False
         else:
-            _log.warning(f'released already unlocked slot {slot}')
+            raise ValueError(f'Slot {slot} already released')
 
+        self._update_locked()
+
+    def _update_locked(self) -> None:
         if not self.locked:
             self._event.set()
 

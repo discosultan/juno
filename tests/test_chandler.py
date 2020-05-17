@@ -223,18 +223,26 @@ async def test_stream_candles_on_exchange_exception_and_cancelled(storage: fakes
 
 async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> None:
     exchange = fakes.Exchange(historical_candles=[
-        Candle(time=0, close=Decimal('1.0')),
-        # Missed candle.
-        Candle(time=2, close=Decimal('2.0')),
+        # Missed candle should NOT get filled.
+        Candle(time=1, close=Decimal('1.0')),
+        # Missed candle should get filled with previous.
+        Candle(time=3, close=Decimal('2.0')),
     ])
     chandler = Chandler(storage=storage, exchanges=[exchange])
     output = await list_async(
-        chandler.stream_candles('exchange', 'eth-btc', 1, 0, 3, fill_missing_with_last=True)
+        chandler.stream_candles(
+            exchange='exchange',
+            symbol='eth-btc',
+            interval=1,
+            start=0,
+            end=4,
+            fill_missing_with_last=True,
+        )
     )
     assert output == [
-        Candle(time=0, close=Decimal('1.0')),
         Candle(time=1, close=Decimal('1.0')),
-        Candle(time=2, close=Decimal('2.0')),
+        Candle(time=2, close=Decimal('1.0')),
+        Candle(time=3, close=Decimal('2.0')),
     ]
 
 

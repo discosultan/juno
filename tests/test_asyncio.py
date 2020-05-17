@@ -1,5 +1,7 @@
 import asyncio
 
+import pytest
+
 from juno.asyncio import (
     Barrier, Event, SlotBarrier, cancel, chain_async, enumerate_async, first_async, list_async,
     merge_async, repeat_async, resolved_stream, zip_async
@@ -135,6 +137,16 @@ async def test_barrier() -> None:
     assert wait_task.done()
 
 
+async def test_barrier_exceptions() -> None:
+    barrier = Barrier(1)
+
+    with pytest.raises(ValueError):
+        barrier.release()
+        barrier.release()
+
+    assert not barrier.locked
+
+
 async def test_slot_barrier() -> None:
     barrier = SlotBarrier(['a', 'b'])
     wait_task = asyncio.create_task(barrier.wait())
@@ -165,6 +177,19 @@ async def test_slot_barrier() -> None:
     await asyncio.sleep(0)
     assert not barrier.locked
     assert wait_task.done()
+
+
+async def test_slot_barrier_exceptions() -> None:
+    barrier = SlotBarrier(['a'])
+
+    with pytest.raises(ValueError):
+        barrier.release('b')
+
+    with pytest.raises(ValueError):
+        barrier.release('a')
+        barrier.release('a')
+
+    assert not barrier.locked
 
 
 async def test_cancel() -> None:
