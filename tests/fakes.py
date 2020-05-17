@@ -150,13 +150,14 @@ class Exchange(exchanges.Exchange):
 
 
 class Chandler(components.Chandler):
-    def __init__(self, candles={}, future_candles={}):
+    def __init__(self, candles={}, future_candles={}, first_candle=Candle()):
         self.candles = candles
         self.future_candle_queues = defaultdict(asyncio.Queue)
         for k, cl in future_candles.items():
             future_candle_queue = self.future_candle_queues[k]
             for c in cl:
                 future_candle_queue.put_nowait(c)
+        self.first_candle = first_candle
 
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False
@@ -189,6 +190,9 @@ class Chandler(components.Chandler):
                 future_candles.task_done()
                 if candle.time >= end - interval:
                     break
+
+    async def find_first_candle(self, exchange, symbol, interval):
+        return self.first_candle
 
 
 class Trades(components.Trades):
@@ -241,14 +245,6 @@ class Informant(components.Informant):
 
     def list_exchanges(self, exchange, symbol=None):
         return self.exchanges
-
-
-class Historian(components.Historian):
-    def __init__(self, first_candle=Candle()):
-        self.first_candle = first_candle
-
-    async def find_first_candle(self, exchange, symbol, interval):
-        return self.first_candle
 
 
 class Time:

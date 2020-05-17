@@ -3,7 +3,7 @@ import logging
 from decimal import Decimal
 
 from juno import time
-from juno.components import Chandler, Historian, Informant, Prices, Trades
+from juno.components import Chandler, Informant, Prices, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
@@ -28,9 +28,8 @@ async def main() -> None:
     exchange_name = Binance.__name__.lower()
     trades = Trades(sqlite, exchanges)
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=exchanges)
-    historian = Historian(chandler=chandler, storage=sqlite, exchanges=exchanges)
     informant = Informant(storage=sqlite, exchanges=exchanges)
-    prices = Prices(chandler=chandler, historian=historian)
+    prices = Prices(chandler=chandler)
     trader = Basic(chandler=chandler, informant=informant, exchanges=exchanges)
     rust_solver = Rust(informant=informant)
     optimizer = Optimizer(
@@ -39,10 +38,9 @@ async def main() -> None:
         informant=informant,
         prices=prices,
         trader=trader,
-        historian=historian,
     )
     async with binance, coinbase, informant, rust_solver:
-        first_candle = await historian.find_first_candle(exchange_name, SYMBOL, INTERVAL)
+        first_candle = await chandler.find_first_candle(exchange_name, SYMBOL, INTERVAL)
         training_start = floor_multiple(first_candle.time, INTERVAL)
         validation_end = floor_multiple(time.time_ms(), INTERVAL)
         validation_start = floor_multiple(

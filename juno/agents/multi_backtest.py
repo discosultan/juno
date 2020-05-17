@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional, TypeVar
 
 from juno import Interval, Timestamp
-from juno.components import Events, Historian, Prices
+from juno.components import Chandler, Events, Prices
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
@@ -51,13 +51,13 @@ class MultiBacktest(Agent):
     def __init__(
         self,
         trader: Multi,
-        historian: Optional[Historian] = None,
+        chandler: Chandler,
         prices: Optional[Prices] = None,
         events: Events = Events(),
         storage: Storage = Memory(),
     ) -> None:
         self._trader = trader
-        self._historian = historian
+        self._chandler = chandler
         self._prices = prices
         self._events = events
         self._storage = storage
@@ -66,22 +66,18 @@ class MultiBacktest(Agent):
         await super().on_running(config, state)
 
         start = config.start
-        if self._historian:
-            symbols = self._trader.find_top_symbols(
-                config.exchange, config.track, config.track_count
-            )
-            first_candles = await asyncio.gather(
-                *(self._historian.find_first_candle(
-                    config.exchange, s, config.interval
-                ) for s in symbols)
-            )
-            latest_first_time = max(first_candles, key=lambda c: c.time).time
-            if start is None or start < latest_first_time:
-                start = latest_first_time
-                _log.info(f'as no start specified; start set to {strftimestamp(start)}')
-
-        if start is None:
-            raise ValueError('Must manually specify backtest start time; historian not configured')
+        symbols = self._trader.find_top_symbols(
+            config.exchange, config.track, config.track_count
+        )
+        first_candles = await asyncio.gather(
+            *(self._chandler.find_first_candle(
+                config.exchange, s, config.interval
+            ) for s in symbols)
+        )
+        latest_first_time = max(first_candles, key=lambda c: c.time).time
+        if start is None or start < latest_first_time:
+            start = latest_first_time
+            _log.info(f'start not specified; start set to {strftimestamp(start)}')
 
         now = time_ms()
 

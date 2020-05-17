@@ -3,7 +3,7 @@ import logging
 from decimal import Decimal
 from typing import Any, List
 
-from juno.components import Events, Historian, Informant, Prices
+from juno.components import Chandler, Events, Informant, Prices
 from juno.optimization import Optimizer
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
@@ -18,10 +18,10 @@ _log = logging.getLogger(__name__)
 
 class Foo(Agent):
     def __init__(
-        self, historian: Historian, informant: Informant, prices: Prices, trader: Trader,
+        self, chandler: Chandler, informant: Informant, prices: Prices, trader: Trader,
         optimizer: Optimizer, events: Events = Events(), storage: Storage = Memory()
     ) -> None:
-        self._historian = historian
+        self._chandler = chandler
         self._informant = informant
         self._prices = prices
         self._trader = trader
@@ -81,7 +81,7 @@ class Foo(Agent):
         symbols = []
         skipped_symbols = []
         for ticker in tickers:
-            first_candle = await self._historian.find_first_candle(exchange, ticker.symbol, DAY_MS)
+            first_candle = await self._chandler.find_first_candle(exchange, ticker.symbol, DAY_MS)
             if first_candle.time > required_start:
                 skipped_symbols.append(ticker.symbol)
                 continue
@@ -112,7 +112,7 @@ class Foo(Agent):
         state: Any,
     ) -> None:
         optimization_start = (
-            await self._historian.find_first_candle(exchange, symbol, DAY_MS)
+            await self._chandler.find_first_candle(exchange, symbol, DAY_MS)
         ).time
 
         if optimization_start > trading_start:

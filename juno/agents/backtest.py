@@ -4,13 +4,13 @@ from decimal import Decimal
 from typing import Any, Dict, NamedTuple, Optional, TypeVar
 
 from juno import Interval, MissedCandlePolicy, Timestamp
-from juno.components import Events, Historian, Prices
+from juno.components import Chandler, Events, Prices
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.strategies import Strategy
-from juno.time import time_ms
+from juno.time import strftimestamp, time_ms
 from juno.traders import Basic
 from juno.utils import format_as_config, unpack_symbol
 
@@ -57,13 +57,13 @@ class Backtest(Agent):
     def __init__(
         self,
         trader: Basic,
-        historian: Optional[Historian] = None,
+        chandler: Chandler,
         prices: Optional[Prices] = None,
         events: Events = Events(),
         storage: Storage = Memory(),
     ) -> None:
         self._trader = trader
-        self._historian = historian
+        self._chandler = chandler
         self._prices = prices
         self._events = events
         self._storage = storage
@@ -72,15 +72,12 @@ class Backtest(Agent):
         await super().on_running(config, state)
 
         start = config.start
-        if self._historian:
-            first_candle = await self._historian.find_first_candle(
-                config.exchange, config.symbol, config.interval
-            )
-            if not start or start < first_candle.time:
-                start = first_candle.time
-
-        if start is None:
-            raise ValueError('Must manually specify backtest start time; historian not configured')
+        first_candle = await self._chandler.find_first_candle(
+            config.exchange, config.symbol, config.interval
+        )
+        if start is None or start < first_candle.time:
+            start = first_candle.time
+            _log.info(f'start not specified; start set to {strftimestamp(start)}')
 
         now = time_ms()
 

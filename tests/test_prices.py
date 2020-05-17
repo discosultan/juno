@@ -46,7 +46,6 @@ async def test_map_prices(symbols, chandler_symbols, expected_output) -> None:
     ]
     prices = Prices(
         chandler=fakes.Chandler(candles={('exchange', s, 1): candles for s in chandler_symbols}),
-        historian=fakes.Historian(),
     )
     output = await prices.map_prices(
         exchange='exchange',
@@ -99,7 +98,6 @@ async def test_map_prices_with_different_fiat_exchange(symbols, expected_output)
             ('exchange1', 'eth-btc', 1): exchange1_candles,
             ('exchange2', 'btc-usdt', 1): exchange2_candles,
         }),
-        historian=fakes.Historian(),
     )
     output = await prices.map_prices(
         exchange='exchange1',
