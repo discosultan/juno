@@ -1,19 +1,19 @@
 import importlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional
 
 from juno import Advice, Candle, Fill, Interval, MissedCandlePolicy, Timestamp, strategies
 from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant
+from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
-from juno.trading import Position, TradingSummary
+from juno.time import strftimestamp
+from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 from juno.utils import tonamedtuple, unpack_symbol
 
-from .mixins import PositionMixin, SimulatedPositionMixin
 from .trader import Trader
 
 _log = logging.getLogger(__name__)
@@ -24,11 +24,11 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         exchange: str
         symbol: str
         interval: Interval
-        start: Timestamp
         end: Timestamp
-        quote: Decimal
         strategy: str
         strategy_module: str = strategies.__name__
+        start: Optional[Timestamp] = None  # None means earliest is found.
+        quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
         strategy_args: List[Any] = []
@@ -63,7 +63,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
     @dataclass
     class State:
         strategy: Optional[Strategy] = None
-        changed: Optional[Changed] = None
+        changed: Changed = field(default_factory=lambda: Changed(True))
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
         open_long_position: Optional[Position.OpenLong] = None
@@ -79,12 +79,14 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         self,
         chandler: Chandler,
         informant: Informant,
+        wallet: Optional[Wallet] = None,
         broker: Optional[Broker] = None,
         events: Events = Events(),
         exchanges: List[Exchange] = [],
     ) -> None:
         self._chandler = chandler
         self._informant = informant
+        self._wallet = wallet
         self._broker = broker
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -103,7 +105,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         return self._exchanges
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
-        assert config.start >= 0
+        assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.end > config.start
         assert 0 <= config.trailing_stop < 1
@@ -113,26 +115,40 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 config.exchange, config.symbol
             )[1].is_margin_trading_allowed
 
+        # Resolve and assert available quote.
+        if (quote := config.quote) is None:
+            assert self._wallet
+            quote = self._wallet.get_balance(
+                config.exchange, config.quote_asset
+            ).available
+            _log.info(f'quote not specified; using available {quote} {config.quote_asset}')
+        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+        assert quote > filters.price.min
+
+        # Resolve start.
+        if (start := config.start) is None:
+            start = (await self._chandler.find_first_candle(
+                config.exchange, config.symbol, config.interval
+            )).time
+            _log.info(f'start not specified; start set to {strftimestamp(start)}')
+
         state = state or Basic.State()
 
         if state.quote == -1:
-            state.quote = config.quote
+            state.quote = quote
 
         if not state.summary:
             state.summary = TradingSummary(
-                start=config.start,
-                quote=config.quote,
+                start=start,
+                quote=quote,
                 quote_asset=config.quote_asset,
             )
 
         if not state.strategy:
             state.strategy = config.new_strategy()
 
-        if not state.changed:
-            state.changed = Changed(True)
-
         if not state.current:
-            state.current = config.start
+            state.current = start
 
         if config.adjust_start and not state.start_adjusted:
             # Adjust start to accommodate for the required history before a strategy
@@ -199,7 +215,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
                 state.summary.finish(state.last_candle.time + config.interval)
             else:
-                state.summary.finish(config.start)
+                state.summary.finish(start)
 
         return state.summary
 

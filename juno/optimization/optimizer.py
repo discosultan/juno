@@ -12,7 +12,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple
 from deap import base, creator, tools
 
 from juno import Candle, Interval, MissedCandlePolicy, OrderException, Timestamp, strategies
-from juno.components import Chandler, Historian, Informant, Prices
+from juno.components import Chandler, Informant, Prices
 from juno.itertools import flatten
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.modules import get_module_type
@@ -58,14 +58,12 @@ class Optimizer:
         informant: Informant,
         prices: Prices,
         trader: Basic,
-        historian: Historian,
     ) -> None:
         self._solver = solver
         self._chandler = chandler
         self._informant = informant
         self._prices = prices
         self._trader = trader
-        self._historian = historian
 
     async def run(
         self,
@@ -106,7 +104,7 @@ class Optimizer:
             # period would be same in all cases.
             first_candles = await asyncio.gather(
                 *(
-                    self._historian.find_first_candle(exchange, s, i)
+                    self._chandler.find_first_candle(exchange, s, i)
                     for s, i in product(symbols, intervals)
                 )
             )

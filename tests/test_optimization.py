@@ -48,7 +48,7 @@ async def test_optimizer_same_result_with_predefined_seed(
         ('binance', 'eth-btc', DAY_MS): statistics_candles,
         ('binance', 'btc-usdt', DAY_MS): statistics_fiat_candles,
     })
-    prices = Prices(chandler=chandler, historian=fakes.Historian())
+    prices = Prices(chandler=chandler)
     informant = fakes.Informant(
         candle_intervals=[HOUR_MS],
         symbols=['eth-btc'],
@@ -59,7 +59,6 @@ async def test_optimizer_same_result_with_predefined_seed(
     trader = Basic(chandler=chandler, informant=informant)
     optimizer = Optimizer(
         solver=rust_solver, chandler=chandler, informant=informant, prices=prices, trader=trader,
-        historian=fakes.Historian()
     )
 
     results = []

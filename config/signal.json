@@ -1,0 +1,22 @@
+{
+    "log_format": "json",
+    "log_level": "debug",
+    "log_directory": "logs_signal",
+    "storage": "sqlite",
+    "broker": "market",
+    "agents": [
+        {
+            "type": "signal",
+            "exchange": "binance",
+            "symbol": "btc-usdt",
+            "interval": "1d",
+            "strategy": {
+                "type": "fourweekrule",
+                "ma": "kama"
+            },
+            "plugins": [
+                "discord"
+            ]
+        }
+    ]
+}

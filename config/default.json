@@ -6,7 +6,6 @@
         {
             "type": "backtest",
             "exchange": "binance",
-            "symbol": "eth-btc",
             "interval": "1d",
             "quote": 1.0,
             "start": "2019-04-26",
@@ -14,8 +13,13 @@
                 "type": "fourweekrule",
                 "ma": "kama"
             },
-            "long": true,
-            "short": true,
+            "trader": {
+                "type": "basic",
+                "symbol": "eth-btc",
+                "long": true,
+                "short": true,
+                "trailing_stop": 0.0
+            },
             "fiat_asset": "eur",
             "fiat_exchange": "coinbase"
         }

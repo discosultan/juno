@@ -1,18 +1,18 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, NamedTuple, Optional, TypeVar
+from typing import Any, Dict, List, NamedTuple, Optional, TypeVar
 
-from juno import Interval, MissedCandlePolicy, Timestamp
-from juno.components import Events, Historian, Prices
+from juno import Interval, Timestamp
+from juno.components import Chandler, Events, Prices
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.strategies import Strategy
 from juno.time import time_ms
-from juno.traders import Basic
-from juno.utils import format_as_config, unpack_symbol
+from juno.traders import Trader
+from juno.utils import format_as_config
 
 from .agent import Agent, AgentStatus
 
@@ -24,29 +24,16 @@ TStrategy = TypeVar('TStrategy', bound=Strategy)
 class Backtest(Agent):
     class Config(NamedTuple):
         exchange: str
-        symbol: str
         interval: Interval
         quote: Decimal
+        trader: Dict[str, Any]
         strategy: Dict[str, Any]
         name: Optional[str] = None
         persist: bool = False
         start: Optional[Timestamp] = None
         end: Optional[Timestamp] = None
-        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-        adjust_start: bool = True
-        trailing_stop: Decimal = Decimal('0.0')
-        long: bool = True
-        short: bool = False
         fiat_exchange: Optional[str] = None
         fiat_asset: str = 'usdt'
-
-        @property
-        def base_asset(self) -> str:
-            return unpack_symbol(self.symbol)[0]
-
-        @property
-        def quote_asset(self) -> str:
-            return unpack_symbol(self.symbol)[1]
 
     @dataclass
     class State:
@@ -56,14 +43,14 @@ class Backtest(Agent):
 
     def __init__(
         self,
-        trader: Basic,
-        historian: Optional[Historian] = None,
+        traders: List[Trader],
+        chandler: Chandler,
         prices: Optional[Prices] = None,
         events: Events = Events(),
         storage: Storage = Memory(),
     ) -> None:
-        self._trader = trader
-        self._historian = historian
+        self._traders = {type(t).__name__.lower(): t for t in traders}
+        self._chandler = chandler
         self._prices = prices
         self._events = events
         self._storage = storage
@@ -71,33 +58,21 @@ class Backtest(Agent):
     async def on_running(self, config: Config, state: State) -> None:
         await super().on_running(config, state)
 
-        start = config.start
-        if self._historian:
-            first_candle = await self._historian.find_first_candle(
-                config.exchange, config.symbol, config.interval
-            )
-            if not start or start < first_candle.time:
-                start = first_candle.time
-
-        if start is None:
-            raise ValueError('Must manually specify backtest start time; historian not configured')
-
         now = time_ms()
 
-        start = floor_multiple(start, config.interval)
-        end = config.end
-        if end is None:
-            end = now
+        start = None if config.start is None else floor_multiple(config.start, config.interval)
+        end = now if config.end is None else config.end
         end = floor_multiple(end, config.interval)
 
         assert end <= now
-        assert end > start
+        assert start is None or end > start
         assert config.quote > 0
 
+        trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        trader_config = Basic.Config(
+        trader = self._traders[trader_name]
+        trader_config = trader.Config(
             exchange=config.exchange,
-            symbol=config.symbol,
             interval=config.interval,
             start=start,
             end=end,
@@ -105,16 +80,12 @@ class Backtest(Agent):
             strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
             channel=state.name,
-            missed_candle_policy=config.missed_candle_policy,
-            adjust_start=config.adjust_start,
-            trailing_stop=config.trailing_stop,
-            long=config.long,
-            short=config.short,
+            **trader_kwargs,
         )
         if not state.result:
-            state.result = Basic.State()
-        await self._trader.run(trader_config, state.result)
-        assert state.result.summary
+            state.result = trader.State()
+        await trader.run(trader_config, state.result)
+        assert (summary := state.result.summary)
 
         if not self._prices:
             _log.warning('skipping analysis; prices component not available')
@@ -122,7 +93,7 @@ class Backtest(Agent):
 
         # Fetch necessary market data.
         symbols = (
-            [p.symbol for p in state.result.summary.get_positions()]
+            [p.symbol for p in summary.get_positions()]
             + [f'btc-{config.fiat_asset}']  # Use BTC as benchmark.
         )
         fiat_daily_prices = await self._prices.map_prices(
@@ -130,14 +101,12 @@ class Backtest(Agent):
             symbols=symbols,
             fiat_asset=config.fiat_asset,
             fiat_exchange=config.fiat_exchange,
-            start=start,
-            end=end,
+            start=summary.start,
+            end=summary.end,
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        portfolio = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, state.result.summary
-        )
+        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, summary)
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
         _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')

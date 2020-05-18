@@ -3,16 +3,15 @@ from decimal import Decimal
 from typing import Dict, Iterable, List, Optional
 
 from juno.asyncio import repeat_async, resolved_stream, zip_async
-from juno.components import Chandler, Historian
+from juno.components import Chandler
 from juno.math import floor_multiple
 from juno.time import DAY_MS, strftimestamp
 from juno.utils import unpack_symbol
 
 
 class Prices:
-    def __init__(self, chandler: Chandler, historian: Historian) -> None:
+    def __init__(self, chandler: Chandler) -> None:
         self._chandler = chandler
-        self._historian = historian
 
     async def map_prices(
         self,
@@ -74,7 +73,7 @@ class Prices:
         return result
 
     async def _validate_start(self, exchange: str, symbol: str, interval: int, start: int) -> None:
-        first = await self._historian.find_first_candle(exchange, symbol, interval)
+        first = await self._chandler.find_first_candle(exchange, symbol, interval)
         if first.time > start:
             raise ValueError(
                 f'Unable to map prices; first candle for {symbol} at {strftimestamp(first.time)} '
