@@ -1,6 +1,6 @@
 import importlib
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional
 
@@ -64,7 +64,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
     @dataclass
     class State:
         strategy: Optional[Strategy] = None
-        changed: Optional[Changed] = None
+        changed: Changed = field(default_factory=lambda: Changed(True))
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
         open_long_position: Optional[Position.OpenLong] = None
@@ -139,8 +139,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
             )
 
             state.strategy = config.new_strategy()
-
-            state.changed = Changed(True)
 
             if config.adjust_start:
                 # Adjust start to accommodate for the required history before a strategy

@@ -96,7 +96,7 @@ class Backtest(Agent):
         if not state.result:
             state.result = Basic.State()
         await self._trader.run(trader_config, state.result)
-        assert state.result.summary
+        assert (summary := state.result.summary)
 
         if not self._prices:
             _log.warning('skipping analysis; prices component not available')
