@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
@@ -11,7 +10,7 @@ from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.strategies import Strategy
-from juno.time import strftimestamp, time_ms
+from juno.time import time_ms
 from juno.traders import Multi
 from juno.utils import format_as_config
 
@@ -65,30 +64,14 @@ class MultiBacktest(Agent):
     async def on_running(self, config: Config, state: State) -> None:
         await super().on_running(config, state)
 
-        start = config.start
-        symbols = self._trader.find_top_symbols(
-            config.exchange, config.track, config.track_count
-        )
-        first_candles = await asyncio.gather(
-            *(self._chandler.find_first_candle(
-                config.exchange, s, config.interval
-            ) for s in symbols)
-        )
-        latest_first_time = max(first_candles, key=lambda c: c.time).time
-        if start is None or start < latest_first_time:
-            start = latest_first_time
-            _log.info(f'start not specified; start set to {strftimestamp(start)}')
-
         now = time_ms()
 
-        start = floor_multiple(start, config.interval)
-        end = config.end
-        if end is None:
-            end = now
+        start = None if config.start is None else floor_multiple(config.start, config.interval)
+        end = now if config.end is None else config.end
         end = floor_multiple(end, config.interval)
 
         assert end <= now
-        assert end > start
+        assert start is None or end > start
         assert config.quote > 0
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
@@ -111,7 +94,7 @@ class MultiBacktest(Agent):
         if not state.result:
             state.result = Multi.State()
         await self._trader.run(trader_config, state.result)
-        assert state.result.summary
+        assert (summary := state.result.summary)
 
         if not self._prices:
             _log.warning('skipping analysis; prices component not available')
@@ -129,14 +112,12 @@ class MultiBacktest(Agent):
             symbols=symbols,
             fiat_asset=config.fiat_asset,
             fiat_exchange=config.fiat_exchange,
-            start=start,
-            end=end,
+            start=summary.start,
+            end=summary.end,
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        portfolio = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, state.result.summary
-        )
+        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, summary)
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
         _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')

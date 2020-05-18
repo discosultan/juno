@@ -14,6 +14,7 @@ from juno.components import Chandler, Events, Informant
 from juno.exchanges import Exchange
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
+from juno.time import strftimestamp
 from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 from juno.utils import tonamedtuple
 
@@ -62,11 +63,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
     class Config(NamedTuple):
         exchange: str
         interval: Interval
-        start: Timestamp
         end: Timestamp
         quote: Decimal
         strategy: str
         strategy_module: str = strategies.__name__
+        start: Optional[Timestamp] = None  # None means max earliest is found.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         strategy_args: List[Any] = []
         strategy_kwargs: Dict[str, Any] = {}
@@ -92,6 +93,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
     @dataclass
     class State:
+        start: int = -1
         symbol_states: Dict[str, _SymbolState] = field(default_factory=dict)
         quotes: List[Decimal] = field(default_factory=list)
         summary: Optional[TradingSummary] = None
@@ -124,33 +126,50 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         return self._exchanges
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
-        assert config.start >= 0
+        assert config.start is None or config.start >= 0
         assert config.end > 0
-        assert config.end > config.start
+        assert config.start is None or config.end > config.start
         assert 0 <= config.trailing_stop < 1
         assert config.position_count > 0
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
 
+        symbols = self._find_top_symbols(
+            config.exchange, config.track, config.track_count
+        )
+
+        start = config.start
+        if start is None:
+            first_candles = await asyncio.gather(
+                *(self._chandler.find_first_candle(
+                    config.exchange, s, config.interval
+                ) for s in symbols)
+            )
+            latest_first_time = max(first_candles, key=lambda c: c.time).time
+            start = latest_first_time
+            _log.info(f'start not specified; start set to {strftimestamp(start)}')
+
         state = state or Multi.State()
+
+        if state.start == -1:
+            state.start = start
 
         if not state.summary:
             state.summary = TradingSummary(
-                start=config.start,
+                start=start,
                 quote=config.quote,
                 quote_asset='btc',  # TODO: support others
             )
             state.quotes = math.split(config.quote, config.position_count)
 
         if len(state.symbol_states) == 0:
-            symbols = self.find_top_symbols(config.exchange, config.track, config.track_count)
             for s in symbols:
                 state.symbol_states[s] = _SymbolState(
                     symbol=s,
                     strategy=config.new_strategy(),
                     changed=Changed(True),
                     override_changed=Changed(True),
-                    current=config.start,
+                    current=start,
                 )
 
         _log.info(
@@ -163,7 +182,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             trackers_ready: Dict[str, Event] = {s: Event(autoclear=True) for s in symbols}
             await asyncio.gather(
                 self._manage_positions(config, state, candles_updated, trackers_ready),
-                *(self._track_advice(config, ss, candles_updated, trackers_ready[s])
+                *(self._track_advice(config, state, ss, candles_updated, trackers_ready[s])
                   for s, ss in state.symbol_states.items())
             )
         finally:
@@ -174,12 +193,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 await self._close_all_open_positions(config, state)
                 state.summary.finish(max(last_candle_times) + config.interval)
             else:
-                state.summary.finish(config.start)
+                state.summary.finish(start)
 
         return state.summary
 
-    # TODO: this is poop.
-    def find_top_symbols(self, exchange: str, track: List[str], track_count: int) -> List[str]:
+    def _find_top_symbols(self, exchange: str, track: List[str], track_count: int) -> List[str]:
         count = track_count - len(track)
         tickers = self._informant.list_tickers(exchange, symbol_pattern=SYMBOL_PATTERN)
         if len(tickers) < track_count:
@@ -255,8 +273,8 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 break
 
     async def _track_advice(
-        self, config: Config, symbol_state: _SymbolState, candles_updated: SlotBarrier,
-        ready: Event
+        self, config: Config, state: State, symbol_state: _SymbolState,
+        candles_updated: SlotBarrier, ready: Event
     ) -> None:
         if not symbol_state.start_adjusted:
             _log.info(
@@ -278,7 +296,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             initial_missed = False
             if (time_diff := candle.time - symbol_state.current) > 0:
                 assert not initial_missed
-                assert symbol_state.current <= config.start
+                assert symbol_state.current <= state.start
                 initial_missed = True
                 num_missed = time_diff // config.interval
                 for _ in range(num_missed):
