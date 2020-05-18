@@ -74,7 +74,10 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         highest_close_since_position = Decimal('0.0')
         lowest_close_since_position = Decimal('Inf')
         current: Timestamp = 0
-        start_adjusted: bool = False
+
+        @property
+        def initialized(self) -> bool:
+            return self.strategy is not None
 
     def __init__(
         self,
@@ -116,10 +119,9 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         state = state or Basic.State()
 
-        if state.quote == -1:
+        if not state.initialized:
             state.quote = config.quote
 
-        if not state.current:
             if config.start is None:
                 first_candle = await self._chandler.find_first_candle(
                     config.exchange, config.symbol, config.interval
@@ -130,30 +132,27 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 start = floor_multiple(config.start, config.interval)
             state.current = start
 
-        if not state.summary:
             state.summary = TradingSummary(
-                start=start.current,
+                start=start,
                 quote=config.quote,
                 quote_asset=config.quote_asset,
             )
 
-        if not state.strategy:
             state.strategy = config.new_strategy()
 
-        if not state.changed:
             state.changed = Changed(True)
 
-        if config.adjust_start and not state.start_adjusted:
-            # Adjust start to accommodate for the required history before a strategy
-            # becomes effective. Only do it on first run because subsequent runs mean
-            # missed candles and we don't want to fetch passed a missed candle.
-            _log.info(
-                f'fetching {state.strategy.adjust_hint} candle(s) before start time to warm-up '
-                'strategy'
-            )
-            state.current -= state.strategy.adjust_hint * config.interval
-            state.start_adjusted = True
+            if config.adjust_start:
+                # Adjust start to accommodate for the required history before a strategy
+                # becomes effective. Only do it on first run because subsequent runs mean
+                # missed candles and we don't want to fetch passed a missed candle.
+                _log.info(
+                    f'fetching {state.strategy.adjust_hint} candle(s) before start time to '
+                    'warm-up strategy'
+                )
+                state.current -= state.strategy.adjust_hint * config.interval
 
+        assert state.summary
         try:
             while True:
                 restart = False
@@ -163,7 +162,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                     symbol=config.symbol,
                     interval=config.interval,
                     start=state.current,
-                    end=floot_multiple(config.end, config.interval),
+                    end=floor_multiple(config.end, config.interval),
                 ):
                     # Check if we have missed a candle.
                     if (
