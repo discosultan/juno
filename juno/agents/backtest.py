@@ -10,7 +10,7 @@ from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.strategies import Strategy
-from juno.time import strftimestamp, time_ms
+from juno.time import time_ms
 from juno.traders import Basic
 from juno.utils import format_as_config, unpack_symbol
 
@@ -71,24 +71,14 @@ class Backtest(Agent):
     async def on_running(self, config: Config, state: State) -> None:
         await super().on_running(config, state)
 
-        start = config.start
-        first_candle = await self._chandler.find_first_candle(
-            config.exchange, config.symbol, config.interval
-        )
-        if start is None or start < first_candle.time:
-            start = first_candle.time
-            _log.info(f'start not specified; start set to {strftimestamp(start)}')
-
         now = time_ms()
 
-        start = floor_multiple(start, config.interval)
-        end = config.end
-        if end is None:
-            end = now
+        start = None if config.start is None else floor_multiple(config.start, config.interval)
+        end = now if config.end is None else config.end
         end = floor_multiple(end, config.interval)
 
         assert end <= now
-        assert end > start
+        assert start is None or end > start
         assert config.quote > 0
 
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
