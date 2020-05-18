@@ -6,7 +6,7 @@ from typing import Any, Dict, List, NamedTuple, Optional
 
 from juno import Advice, Candle, Fill, Interval, MissedCandlePolicy, Timestamp, strategies
 from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant
+from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
@@ -25,10 +25,10 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         symbol: str
         interval: Interval
         end: Timestamp
-        quote: Decimal
         strategy: str
         strategy_module: str = strategies.__name__
         start: Optional[Timestamp] = None  # None means earliest is found.
+        quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
         strategy_args: List[Any] = []
@@ -79,12 +79,14 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         self,
         chandler: Chandler,
         informant: Informant,
+        wallet: Optional[Wallet] = None,
         broker: Optional[Broker] = None,
         events: Events = Events(),
         exchanges: List[Exchange] = [],
     ) -> None:
         self._chandler = chandler
         self._informant = informant
+        self._wallet = wallet
         self._broker = broker
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -113,8 +115,18 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 config.exchange, config.symbol
             )[1].is_margin_trading_allowed
 
-        start = config.start
-        if start is None:
+        # Resolve and assert available quote.
+        if (quote := config.quote) is None:
+            assert self._wallet
+            quote = self._wallet.get_balance(
+                config.exchange, config.quote_asset
+            ).available
+            _log.info(f'quote not specified; using available {quote} {config.quote_asset}')
+        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+        assert quote > filters.price.min
+
+        # Resolve start.
+        if (start := config.start) is None:
             start = (await self._chandler.find_first_candle(
                 config.exchange, config.symbol, config.interval
             )).time
@@ -123,12 +135,12 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         state = state or Basic.State()
 
         if state.quote == -1:
-            state.quote = config.quote
+            state.quote = quote
 
         if not state.summary:
             state.summary = TradingSummary(
                 start=start,
-                quote=config.quote,
+                quote=quote,
                 quote_asset=config.quote_asset,
             )
 

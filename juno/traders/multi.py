@@ -10,7 +10,7 @@ from typing import Any, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 from juno import Advice, Candle, Fill, Interval, Timestamp, math, strategies
 from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant
+from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
@@ -64,11 +64,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         exchange: str
         interval: Interval
         end: Timestamp
-        quote: Decimal
         strategy: str
         strategy_module: str = strategies.__name__
         start: Optional[Timestamp] = None  # None means max earliest is found.
+        quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
+        test: bool = True  # No effect if broker is None.
         strategy_args: List[Any] = []
         strategy_kwargs: Dict[str, Any] = {}
         channel: str = 'default'
@@ -102,12 +103,14 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         self,
         chandler: Chandler,
         informant: Informant,
+        wallet: Optional[Wallet] = None,
         broker: Optional[Broker] = None,
         events: Events = Events(),
         exchanges: List[Exchange] = [],
     ) -> None:
         self._chandler = chandler
         self._informant = informant
+        self._wallet = wallet
         self._broker = broker
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -138,8 +141,18 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             config.exchange, config.track, config.track_count
         )
 
-        start = config.start
-        if start is None:
+        # Resolve and assert available quote.
+        if (quote := config.quote) is None:
+            assert self._wallet
+            quote = self._wallet.get_balance(config.exchange, 'btc').available
+            _log.info(f'quote not specified; using available {quote} btc')
+        position_quote = quote / config.position_count
+        for symbol in symbols:
+            fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
+            assert position_quote > filters.price.min
+
+        # Resolve start.
+        if (start := config.start) is None:
             first_candles = await asyncio.gather(
                 *(self._chandler.find_first_candle(
                     config.exchange, s, config.interval
@@ -157,10 +170,10 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         if not state.summary:
             state.summary = TradingSummary(
                 start=start,
-                quote=config.quote,
+                quote=quote,
                 quote_asset='btc',  # TODO: support others
             )
-            state.quotes = math.split(config.quote, config.position_count)
+            state.quotes = math.split(quote, config.position_count)
 
         if len(state.symbol_states) == 0:
             for s in symbols:
@@ -409,7 +422,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 quote=symbol_state.allocated_quote,
-                test=False,
+                test=config.test,
             ) if self._broker else self.open_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,
@@ -438,7 +451,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 candle=candle,
                 exchange=config.exchange,
                 position=symbol_state.open_position,
-                test=False,
+                test=config.test,
             ) if self._broker else self.close_simulated_long_position(
                 candle=candle,
                 exchange=config.exchange,

@@ -18,7 +18,7 @@ from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.storages import Storage
 from juno.time import HOUR_MS
-from juno.traders import Basic
+from juno.traders import Basic, Trader
 from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
@@ -36,11 +36,11 @@ async def container(storage: Storage, exchange: Exchange) -> Container:
     container.add_singleton_instance(Dict[str, Any], lambda: {'symbol': 'eth-btc'})
     container.add_singleton_instance(Storage, lambda: storage)
     container.add_singleton_instance(List[Exchange], lambda: [exchange])
+    container.add_singleton_instance(List[Trader], lambda: [container.resolve(Basic)])
     container.add_singleton_type(Informant)
     container.add_singleton_type(Orderbook)
     container.add_singleton_type(Chandler)
     container.add_singleton_type(Wallet)
-    container.add_singleton_type(Basic)
     return container
 
 
@@ -69,7 +69,6 @@ async def test_backtest(exchange: fakes.Exchange, container: Container) -> None:
     )
     config = Backtest.Config(
         exchange='exchange',
-        symbol='eth-btc',
         interval=1,
         start=0,
         end=6,
@@ -81,7 +80,11 @@ async def test_backtest(exchange: fakes.Exchange, container: Container) -> None:
             'neg_threshold': Decimal('-1.0'),
             'pos_threshold': Decimal('1.0'),
             'persistence': 0
-        }
+        },
+        trader={
+            'type': 'basic',
+            'symbol': 'eth-btc',
+        },
     )
     agent = container.resolve(Backtest)
 
@@ -127,12 +130,10 @@ async def test_backtest_scenarios(
     )
     config = Backtest.Config(
         exchange='exchange',
-        symbol='eth-btc',
         start=1483225200000,
         end=1514761200000,
         interval=HOUR_MS,
         quote=Decimal('100.0'),
-        missed_candle_policy=MissedCandlePolicy.IGNORE,
         strategy={
             'type': 'mamacx',
             'short_period': 18,
@@ -140,6 +141,11 @@ async def test_backtest_scenarios(
             'neg_threshold': Decimal('-0.25'),
             'pos_threshold': Decimal('0.25'),
             'persistence': 4,
+        },
+        trader={
+            'type': 'basic',
+            'symbol': 'eth-btc',
+            'missed_candle_policy': MissedCandlePolicy.IGNORE,
         },
     )
     agent = container.resolve(Backtest)
@@ -178,7 +184,6 @@ async def test_paper(exchange: fakes.Exchange, container: Container) -> None:
     agent = container.resolve(Paper)
     config = Paper.Config(
         exchange='exchange',
-        symbol='eth-btc',
         interval=1,
         quote=Decimal('100.0'),
         strategy={
@@ -188,6 +193,10 @@ async def test_paper(exchange: fakes.Exchange, container: Container) -> None:
             'neg_threshold': Decimal('-1.0'),
             'pos_threshold': Decimal('1.0'),
             'persistence': 0,
+        },
+        trader={
+            'type': 'basic',
+            'symbol': 'eth-btc',
         },
     )
 
@@ -235,7 +244,6 @@ async def test_live(exchange: fakes.Exchange, container: Container) -> None:
     agent = container.resolve(Live)
     config = Live.Config(
         exchange='exchange',
-        symbol='eth-btc',
         interval=1,
         strategy={
             'type': 'mamacx',
@@ -244,6 +252,10 @@ async def test_live(exchange: fakes.Exchange, container: Container) -> None:
             'neg_threshold': Decimal('-1.0'),
             'pos_threshold': Decimal('1.0'),
             'persistence': 0,
+        },
+        trader={
+            'type': 'basic',
+            'symbol': 'eth-btc',
         },
     )
 
@@ -274,9 +286,12 @@ async def test_live_persist_and_resume(
         name='name',
         persist=True,
         exchange='exchange',
-        symbol='eth-btc',
         interval=1,
         strategy={'type': strategy},
+        trader={
+            'type': 'basic',
+            'symbol': 'eth-btc',
+        },
     )
     agent = container.resolve(Live)
 

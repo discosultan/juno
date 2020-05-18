@@ -28,8 +28,8 @@ class Rsi(Strategy):
     def __init__(
         self,
         period: int = 14,
-        up_threshold: Decimal = Decimal('75.0'),
-        down_threshold: Decimal = Decimal('25.0'),
+        up_threshold: Decimal = Decimal('70.0'),
+        down_threshold: Decimal = Decimal('30.0'),
         persistence: int = 0,
     ) -> None:
         super().__init__(maturity=period - 1, persistence=persistence)

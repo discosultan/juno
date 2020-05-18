@@ -32,8 +32,8 @@ class MacdRsi(Strategy):
         macd_long_period: int = 26,
         macd_signal_period: int = 9,
         rsi_period: int = 14,
-        rsi_up_threshold: Decimal = Decimal('75.0'),
-        rsi_down_threshold: Decimal = Decimal('25.0'),
+        rsi_up_threshold: Decimal = Decimal('70.0'),
+        rsi_down_threshold: Decimal = Decimal('30.0'),
         persistence: int = 0,
     ) -> None:
         self._macd = Macd(macd_short_period, macd_long_period, macd_signal_period, 0)

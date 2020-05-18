@@ -12,10 +12,13 @@
             "name": "testing_live",
             "type": "live",
             "exchange": "binance",
-            "symbol": "eth-btc",
             "interval": "1h",
-            "missed_candle_policy": "restart",
-            "trailing_stop": 0.1832,
+            "trader": {
+                "type": "basic",
+                "symbol": "eth-btc",
+                "missed_candle_policy": "restart",
+                "trailing_stop": 0.1832
+            },
             "strategy": {
                 "type": "mamacx",
                 "short_period": 19,

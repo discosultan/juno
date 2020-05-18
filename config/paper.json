@@ -1,16 +1,19 @@
 {
-    "log_format": "color",
-    "log_level": "info",
+    "log_format": "json",
+    "log_level": "debug",
     "storage": "sqlite",
     "broker": "market",
     "agents": [
         {
             "type": "paper",
             "exchange": "binance",
-            "symbol": "eth-btc",
             "interval": "1h",
             "quote": 1.0,
-            "missed_candle_policy": "ignore",
+            "trader": {
+                "type": "basic",
+                "symbol": "eth-btc",
+                "missed_candle_policy": "ignore"
+            },
             "strategy": {
                 "type": "mamacx",
                 "short_period": 18,

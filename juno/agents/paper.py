@@ -1,15 +1,15 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Callable, Dict, NamedTuple, Optional
+from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
-from juno import Interval, MissedCandlePolicy, Timestamp
+from juno import Interval, Timestamp
 from juno.components import Events, Informant
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
-from juno.traders import Basic
+from juno.traders import Trader
 from juno.utils import format_as_config
 
 from .agent import Agent, AgentStatus
@@ -20,18 +20,13 @@ _log = logging.getLogger(__name__)
 class Paper(Agent):
     class Config(NamedTuple):
         exchange: str
-        symbol: str
         interval: Interval
         quote: Decimal
+        trader: Dict[str, Any]
         strategy: Dict[str, Any]
         name: Optional[str] = None
         persist: bool = False
         end: Timestamp = MAX_TIME_MS
-        missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-        adjust_start: bool = True
-        trailing_stop: Decimal = Decimal('0.0')
-        long: bool = True
-        short: bool = False
 
     @dataclass
     class State:
@@ -40,16 +35,17 @@ class Paper(Agent):
         result: Optional[Any] = None
 
     def __init__(
-        self, informant: Informant, trader: Basic, events: Events = Events(),
+        self, informant: Informant, traders: List[Trader], events: Events = Events(),
         storage: Storage = Memory(), get_time_ms: Callable[[], int] = time_ms
     ) -> None:
         self._informant = informant
-        self._trader = trader
+        self._traders = {type(t).__name__.lower(): t for t in traders}
+        self._trader = traders
         self._events = events
         self._storage = storage
         self._get_time_ms = get_time_ms
 
-        assert self._trader.broker
+        assert all(t.broker for t in self._traders.values())
 
     async def on_running(self, config: Config, state: State) -> None:
         await Agent.on_running(self, config, state)
@@ -58,14 +54,11 @@ class Paper(Agent):
         end = floor_multiple(config.end, config.interval)
         assert end > current
 
-        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-
-        assert config.quote > filters.price.min
-
+        trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
-        trader_config = Basic.Config(
+        trader = self._traders[trader_name]
+        trader_config = trader.Config(
             exchange=config.exchange,
-            symbol=config.symbol,
             interval=config.interval,
             start=current,
             end=end,
@@ -74,15 +67,11 @@ class Paper(Agent):
             strategy_kwargs=strategy_kwargs,
             test=True,
             channel=state.name,
-            missed_candle_policy=config.missed_candle_policy,
-            adjust_start=config.adjust_start,
-            trailing_stop=config.trailing_stop,
-            long=config.long,
-            short=config.short,
+            **trader_kwargs,
         )
         if not state.result:
-            state.result = Basic.State()
-        await self._trader.run(trader_config, state.result)
+            state.result = trader.State()
+        await trader.run(trader_config, state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:
         assert state.result

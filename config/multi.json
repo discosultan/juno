@@ -4,7 +4,7 @@
     "storage": "sqlite",
     "agents": [
         {
-            "type": "multibacktest",
+            "type": "backtest",
             "exchange": "binance",
             "interval": "1d",
             "quote": 1.0,
@@ -12,12 +12,15 @@
                 "type": "fourweekrule",
                 "ma": "kama"
             },
-            "trailing_stop": 0.10,
-            "position_count": 4,
-            "track_count": 4,
-            "track": ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"],
-            "long": true,
-            "short": true,
+            "trader": {
+                "type": "multi",
+                "trailing_stop": 0.10,
+                "position_count": 4,
+                "track_count": 5,
+                "track": ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc", "ada-btc"],
+                "long": true,
+                "short": true
+            },
             "fiat_asset": "eur",
             "fiat_exchange": "coinbase"
         }
