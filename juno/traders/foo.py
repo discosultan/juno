@@ -1,25 +1,25 @@
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Any, List
+from typing import Any, List, Optional
 
 from juno.components import Chandler, Events, Informant, Prices
 from juno.optimization import Optimizer
 from juno.statistics import analyse_benchmark, analyse_portfolio
-from juno.storages import Memory, Storage
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
-from juno.traders import Trader
+from juno.trading import TradingSummary
 from juno.utils import format_as_config
 
-from .agent import Agent
+from .basic import Basic
+from .trader import Trader
 
 _log = logging.getLogger(__name__)
 
 
-class Foo(Agent):
+class Foo(Trader):
     def __init__(
-        self, chandler: Chandler, informant: Informant, prices: Prices, trader: Trader,
-        optimizer: Optimizer, events: Events = Events(), storage: Storage = Memory()
+        self, chandler: Chandler, informant: Informant, prices: Prices, trader: Basic,
+        optimizer: Optimizer, events: Events = Events()
     ) -> None:
         self._chandler = chandler
         self._informant = informant
@@ -27,11 +27,8 @@ class Foo(Agent):
         self._trader = trader
         self._optimizer = optimizer
         self._events = events
-        self._storage = storage
 
-    async def on_running(self, config: Any, state: Agent.State) -> None:
-        await super().on_running(config, state)
-
+    async def run(self, config: Any, state: Optional[State]) -> TradingSummary:
         required_start = strptimestamp('2019-01-01')
         trading_start = strptimestamp('2019-07-01')
         end = strptimestamp('2020-01-01')
@@ -57,20 +54,6 @@ class Foo(Agent):
         )
         assert state.result.summary
         state.result.summary.finish(end)
-
-        # Statistics.
-        fiat_daily_prices = await self._prices.map_prices(
-            exchange=exchange,
-            symbols=symbols,
-            start=trading_start,
-            end=end,
-        )
-
-        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, state.result.summary)
-
-        _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
-        _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')
 
     async def _find_top_symbols_by_volume_with_sufficient_history(
         self, exchange: str, required_start: int, count: int
