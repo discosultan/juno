@@ -107,7 +107,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start is None or config.start >= 0
         assert config.end > 0
-        assert config.end > config.start
+        assert config.start is None or config.end > config.start
         assert 0 <= config.trailing_stop < 1
         if config.short:
             assert self._informant.get_borrow_info(config.exchange, config.quote_asset)

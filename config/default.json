@@ -8,7 +8,6 @@
             "exchange": "binance",
             "interval": "1d",
             "quote": 1.0,
-            "start": "2019-04-26",
             "strategy": {
                 "type": "fourweekrule",
                 "ma": "kama"
@@ -18,7 +17,7 @@
                 "symbol": "eth-btc",
                 "long": true,
                 "short": true,
-                "trailing_stop": 0.0
+                "trailing_stop": 0.13
             },
             "fiat_asset": "eur",
             "fiat_exchange": "coinbase"
