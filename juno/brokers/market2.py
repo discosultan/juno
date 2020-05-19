@@ -42,6 +42,7 @@ class Market2(Broker):
         _log.info(f'buying {quote} quote worth of base asset with market order')
         exchange_instance = self._exchanges[exchange]
         if not exchange_instance.can_place_order_market_quote:
+            await self._orderbook.ensure_sync([exchange], [symbol])
             fees, filters = self._informant.get_fees_filters(exchange, symbol)
             fills = self._orderbook.find_order_asks_by_quote(
                 exchange, symbol, quote, fees.taker, filters

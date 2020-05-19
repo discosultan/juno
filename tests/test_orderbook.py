@@ -194,7 +194,19 @@ async def test_find_order_bids(size, snapshot_bids, update_bids, expected_output
         assert_fills(output, expected_output)
 
 
-def assert_fills(output, expected_output):
+async def test_sync_on_demand() -> None:
+    exchange = fakes.Exchange(depth=Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))]))
+    exchange.can_stream_depth_snapshot = False
+    async with Orderbook(exchanges=[exchange]) as orderbook:
+        assert orderbook.list_asks('exchange', 'eth-btc') == []
+
+        await orderbook.ensure_sync(['exchange'], ['eth-btc'])
+        # Second call shouldn't do anything.
+        await orderbook.ensure_sync(['exchange'], ['eth-btc'])
+        assert orderbook.list_asks('exchange', 'eth-btc') == [(Decimal('1.0'), Decimal('1.0'))]
+
+
+def assert_fills(output, expected_output) -> None:
     for o, (eoprice, eosize, eofee) in zip(output, expected_output):
         assert o.price == eoprice
         assert o.size == eosize

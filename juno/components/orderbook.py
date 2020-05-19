@@ -22,7 +22,7 @@ _log = logging.getLogger(__name__)
 
 
 class Orderbook:
-    def __init__(self, exchanges: List[Exchange], config: Dict[str, Any]) -> None:
+    def __init__(self, exchanges: List[Exchange], config: Dict[str, Any] = {}) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._symbols = list_names(config, 'symbol')
         self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
@@ -140,6 +140,8 @@ class Orderbook:
         if len(products) == 0:
             return
 
+        _log.info(f'syncing {products}')
+
         # Barrier to wait for initial data to be fetched.
         barrier = SlotBarrier(products)
         for exchange, symbol in products:
@@ -159,8 +161,8 @@ class Orderbook:
                 orderbook.snapshot_received = False
                 async for depth in self._stream_depth(exchange, symbol):
                     if isinstance(depth, Depth.Snapshot):
-                        orderbook.sides[Side.BUY] = {k: v for k, v in depth.asks}
-                        orderbook.sides[Side.SELL] = {k: v for k, v in depth.bids}
+                        _set_orderbook_side(orderbook.sides[Side.BUY], depth.asks)
+                        _set_orderbook_side(orderbook.sides[Side.SELL], depth.bids)
                         orderbook.snapshot_received = True
                         barrier.release((exchange, symbol))
                     elif isinstance(depth, Depth.Update):
@@ -224,6 +226,14 @@ class Orderbook:
                 break
 
 
+def _set_orderbook_side(
+    orderbook_side: Dict[Decimal, Decimal], values: List[Tuple[Decimal, Decimal]]
+) -> None:
+    orderbook_side.clear()
+    for price, size in values:
+        orderbook_side[price] = size
+
+
 def _update_orderbook_side(
     orderbook_side: Dict[Decimal, Decimal], values: List[Tuple[Decimal, Decimal]]
 ) -> None:
@@ -240,6 +250,9 @@ def _update_orderbook_side(
 
 class _OrderbookData:
     def __init__(self) -> None:
-        self.sides: Dict[Side, Dict[Decimal, Decimal]] = {}
+        self.sides: Dict[Side, Dict[Decimal, Decimal]] = {
+            Side.BUY: {},
+            Side.SELL: {},
+        }
         self.updated: Event[None] = Event(autoclear=True)
         self.snapshot_received = False
