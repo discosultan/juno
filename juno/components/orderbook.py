@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import Any, AsyncIterable, Dict, List, Tuple
+from typing import Any, AsyncIterable, Dict, Iterable, List, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -22,10 +22,10 @@ _log = logging.getLogger(__name__)
 
 
 class Orderbook:
-    def __init__(self, exchanges: List[Exchange], config: Dict[str, Any]) -> None:
+    def __init__(self, exchanges: List[Exchange], config: Dict[str, Any] = {}) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._symbols = list_names(config, 'symbol')
-        self._orderbooks_product = list(product(self._exchanges.keys(), self._symbols))
+        self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
 
         # {
         #   "binance": {
@@ -43,14 +43,12 @@ class Orderbook:
         )
 
     async def __aenter__(self) -> Orderbook:
-        self._initial_orderbook_fetched = SlotBarrier(self._orderbooks_product)
-        self._sync_task = create_task_cancel_on_exc(self._sync_orderbooks())
-        await self._initial_orderbook_fetched.wait()
+        await self.ensure_sync(self._exchanges.keys(), self._symbols)
         _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(self._sync_task)
+        await cancel(*self._sync_tasks.values())
 
     def get_updated_event(self, exchange: str, symbol: str) -> Event[None]:
         return self._data[exchange][symbol].updated
@@ -134,10 +132,25 @@ class Orderbook:
                 size -= bsize
         return result
 
-    async def _sync_orderbooks(self) -> None:
-        await asyncio.gather(*(self._sync_orderbook(e, s) for e, s in self._orderbooks_product))
+    async def ensure_sync(self, exchanges: Iterable[str], symbols: Iterable[str]) -> None:
+        # Only pick products which are not being synced yet.
+        products = [
+            p for p in product(exchanges, symbols) if p not in self._sync_tasks.keys()
+        ]
+        if len(products) == 0:
+            return
 
-    async def _sync_orderbook(self, exchange: str, symbol: str) -> None:
+        _log.info(f'syncing {products}')
+
+        # Barrier to wait for initial data to be fetched.
+        barrier = SlotBarrier(products)
+        for exchange, symbol in products:
+            self._sync_tasks[(exchange, symbol)] = create_task_cancel_on_exc(
+                self._sync_orderbook(exchange, symbol, barrier)
+            )
+        await barrier.wait()
+
+    async def _sync_orderbook(self, exchange: str, symbol: str, barrier: SlotBarrier) -> None:
         orderbook = self._data[exchange][symbol]
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
@@ -148,10 +161,10 @@ class Orderbook:
                 orderbook.snapshot_received = False
                 async for depth in self._stream_depth(exchange, symbol):
                     if isinstance(depth, Depth.Snapshot):
-                        orderbook.sides[Side.BUY] = {k: v for k, v in depth.asks}
-                        orderbook.sides[Side.SELL] = {k: v for k, v in depth.bids}
+                        _set_orderbook_side(orderbook.sides[Side.BUY], depth.asks)
+                        _set_orderbook_side(orderbook.sides[Side.SELL], depth.bids)
                         orderbook.snapshot_received = True
-                        self._initial_orderbook_fetched.release((exchange, symbol))
+                        barrier.release((exchange, symbol))
                     elif isinstance(depth, Depth.Update):
                         # TODO: For example, with depth level 10, Kraken expects us to discard
                         # levels outside level 10. They will not publish messages to delete them.
@@ -213,6 +226,14 @@ class Orderbook:
                 break
 
 
+def _set_orderbook_side(
+    orderbook_side: Dict[Decimal, Decimal], values: List[Tuple[Decimal, Decimal]]
+) -> None:
+    orderbook_side.clear()
+    for price, size in values:
+        orderbook_side[price] = size
+
+
 def _update_orderbook_side(
     orderbook_side: Dict[Decimal, Decimal], values: List[Tuple[Decimal, Decimal]]
 ) -> None:
@@ -229,6 +250,9 @@ def _update_orderbook_side(
 
 class _OrderbookData:
     def __init__(self) -> None:
-        self.sides: Dict[Side, Dict[Decimal, Decimal]] = {}
+        self.sides: Dict[Side, Dict[Decimal, Decimal]] = {
+            Side.BUY: {},
+            Side.SELL: {},
+        }
         self.updated: Event[None] = Event(autoclear=True)
         self.snapshot_received = False

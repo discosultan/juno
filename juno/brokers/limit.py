@@ -100,6 +100,8 @@ class Limit(Broker):
         self, exchange: str, symbol: str, side: Side, margin: bool, size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None
     ) -> OrderResult:
+        await self._orderbook.ensure_sync([exchange], [symbol])
+
         client_id = self._get_client_id()
         if size is not None:
             ctx = _Context(available=size, use_quote=False, client_id=client_id)
