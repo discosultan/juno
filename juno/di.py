@@ -92,8 +92,7 @@ class Container:
                 # 5. default value
                 if default is not inspect.Parameter.empty:
                     return default
-                _log.exception(f'unable to construct {type_}')
-                raise TypeError()
+                raise TypeError(f'Unable to construct {type_}')
 
             kwargs: Dict[str, Any] = {}
             signature = inspect.signature(instance_type.__init__)
