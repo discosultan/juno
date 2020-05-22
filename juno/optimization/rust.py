@@ -41,6 +41,8 @@ _strategy_types = list_concretes_from_module(strategies, Strategy)
 # (symbol, interval, start, end)
 TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
 
+_DEFAULT_BORROW_INFO = BorrowInfo()
+
 
 class Rust(Solver):
     def __init__(self, informant: Informant) -> None:
@@ -104,7 +106,7 @@ class Rust(Solver):
         c_fees, c_filters = self._get_or_create_c_fees_filters(config.symbol, fees, filters)
         borrow_info = (
             self._informant.get_borrow_info(config.exchange, config.base_asset) if config.short
-            else BorrowInfo()
+            else _DEFAULT_BORROW_INFO
         )
         c_borrow_info = self._get_or_create_c_borrow_info(config.symbol, borrow_info)
         margin_multiplier = self._informant.get_margin_multiplier(config.exchange)
