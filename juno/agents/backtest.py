@@ -12,7 +12,7 @@ from juno.storages import Memory, Storage
 from juno.strategies import Strategy
 from juno.time import time_ms
 from juno.traders import Trader
-from juno.utils import format_as_config
+from juno.utils import construct, format_as_config
 
 from .agent import Agent, AgentStatus
 
@@ -71,17 +71,27 @@ class Backtest(Agent):
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
         trader = self._traders[trader_name]
-        trader_config = trader.Config(
-            exchange=config.exchange,
-            interval=config.interval,
+        trader_config = construct(
+            trader.Config,
+            config,
             start=start,
             end=end,
-            quote=config.quote,
             strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
             channel=state.name,
             **trader_kwargs,
         )
+        # trader_config = trader.Config(
+        #     exchange=config.exchange,
+        #     interval=config.interval,
+        #     start=start,
+        #     end=end,
+        #     quote=config.quote,
+        #     strategy=strategy_name,
+        #     strategy_kwargs=strategy_kwargs,
+        #     channel=state.name,
+        #     **trader_kwargs,
+        # )
         if not state.result:
             state.result = trader.State()
         await trader.run(trader_config, state.result)

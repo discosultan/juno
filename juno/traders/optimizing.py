@@ -1,14 +1,16 @@
 import asyncio
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, List, Optional
+from typing import Any, Dict, List, NamedTuple, Optional
 
-from juno.components import Chandler, Events, Informant, Prices
+from juno import Interval, Timestamp
+from juno.brokers import Broker
+from juno.components import Chandler, Informant
 from juno.optimization import Optimizer
-from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import TradingSummary
-from juno.utils import format_as_config
+from juno.utils import construct
 
 from .basic import Basic
 from .trader import Trader
@@ -16,19 +18,38 @@ from .trader import Trader
 _log = logging.getLogger(__name__)
 
 
-class Foo(Trader):
+class Optimizing(Trader):
+    class Config(NamedTuple):
+        exchange: str
+        interval: Interval
+        end: Timestamp
+        quote: Decimal
+        strategy: str
+        strategy_kwargs: Dict[str, Any]
+        start: Optional[Timestamp] = None
+        channel: str = 'default'
+        long: bool = True
+        short: bool = False
+        fiat_exchange: Optional[str] = None
+        fiat_asset: str = 'usdt'
+
+    @dataclass
+    class State:
+        summary: Optional[TradingSummary] = None
+
     def __init__(
-        self, chandler: Chandler, informant: Informant, prices: Prices, trader: Basic,
-        optimizer: Optimizer, events: Events = Events()
+        self, chandler: Chandler, informant: Informant, basic: Basic, optimizer: Optimizer
     ) -> None:
         self._chandler = chandler
         self._informant = informant
-        self._prices = prices
-        self._trader = trader
+        self._basic = basic
         self._optimizer = optimizer
-        self._events = events
 
-    async def run(self, config: Any, state: Optional[State]) -> TradingSummary:
+    @property
+    def broker(self) -> Broker:
+        return self._basic.broker
+
+    async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         required_start = strptimestamp('2019-01-01')
         trading_start = strptimestamp('2019-07-01')
         end = strptimestamp('2020-01-01')
@@ -37,28 +58,36 @@ class Foo(Trader):
         num_symbols = 4
 
         symbols = await self._find_top_symbols_by_volume_with_sufficient_history(
-            exchange, required_start, num_symbols
+            exchange, required_start, num_symbols, config.short
         )
         quote_per_symbol = quote / len(symbols)
 
-        state.result = self._trader.State()
+        state = state or Optimizing.State()
+
+        if not state.summary:
+            state.summary = TradingSummary(
+                start=trading_start,
+                quote=quote,
+                quote_asset='btc',
+            )
+
         await asyncio.gather(
             *(self._optimize_and_trade(
-                exchange,
+                config,
                 s,
                 trading_start,
                 end,
                 quote_per_symbol,
-                state.result,
+                state.summary,
             ) for s in symbols)
         )
-        assert state.result.summary
-        state.result.summary.finish(end)
+        state.summary.finish(end)
+        return state.summary
 
     async def _find_top_symbols_by_volume_with_sufficient_history(
-        self, exchange: str, required_start: int, count: int
+        self, exchange: str, required_start: int, count: int, short: bool
     ) -> List[str]:
-        tickers = self._informant.list_tickers(exchange, symbol_pattern='*-btc')
+        tickers = self._informant.list_tickers(exchange, symbol_pattern='*-btc', short=short)
         assert any(t.quote_volume > 0 for t in tickers)
 
         symbols = []
@@ -87,29 +116,31 @@ class Foo(Trader):
 
     async def _optimize_and_trade(
         self,
-        exchange: str,
+        config: Config,
         symbol: str,
         trading_start: int,
         end: int,
         quote: Decimal,
-        state: Any,
+        summary: TradingSummary,
     ) -> None:
         optimization_start = (
-            await self._chandler.find_first_candle(exchange, symbol, DAY_MS)
+            await self._chandler.find_first_candle(config.exchange, symbol, DAY_MS)
         ).time
 
         if optimization_start > trading_start:
             raise ValueError(
-                f'Requested {exchange} {symbol} trading start {strftimestamp(trading_start)} but '
-                f'first candle found at {strftimestamp(optimization_start)}'
+                f'Requested {config.exchange} {symbol} trading start '
+                f'{strftimestamp(trading_start)} but first candle found at '
+                f'{strftimestamp(optimization_start)}'
             )
         else:
             _log.info(
-                f'first {exchange} {symbol} candle found from {strftimestamp(optimization_start)}'
+                f'first {config.exchange} {symbol} candle found from '
+                f'{strftimestamp(optimization_start)}'
             )
 
         optimization_summary = await self._optimizer.run(
-            exchange=exchange,
+            exchange=config.exchange,
             start=optimization_start,
             end=trading_start,
             quote=quote,
@@ -118,11 +149,18 @@ class Foo(Trader):
             intervals=list(map(strpinterval, ('2h',))),
             population_size=10,
             max_generations=100,
+            long=config.long,
+            short=config.short,
+            fiat_asset=config.fiat_asset,
+            fiat_exchange=config.fiat_exchange,
         )
-        tc = optimization_summary.best[0].trading_config._asdict()
-        tc.update({
-            'start': trading_start,
-            'end': end,
-        })
 
-        await self._trader.run(self._trader.Config(**tc), state)
+        trader_config = construct(
+            Basic.Config,
+            optimization_summary.best[0].trading_config,
+            start=trading_start,
+            end=end,
+            channel=config.channel,
+        )
+        trader_state = Basic.State(summary=summary)
+        await self._basic.run(trader_config, trader_state)

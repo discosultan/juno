@@ -40,6 +40,9 @@ def get_root_origin(type_: Any) -> Optional[Type[Any]]:
 
 
 def isnamedtuple(obj: Any) -> bool:
+    if not isinstance(obj, type):
+        obj = type(obj)
+
     # Note that '_fields' is present only if the tuple has at least 1 field.
     return (
         inspect.isclass(obj)

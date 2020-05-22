@@ -6,6 +6,7 @@ import random
 import traceback
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
+from dataclasses import asdict, is_dataclass
 from os import path
 from pathlib import Path
 from typing import Any, Dict, Iterator, NamedTuple, Optional, Tuple, TypeVar, get_type_hints
@@ -19,6 +20,24 @@ from juno.typing import isnamedtuple
 T = TypeVar('T')
 
 _log = logging.getLogger(__name__)
+
+
+def _asdict(a: Any) -> dict:
+    if isinstance(a, dict):
+        return a
+    if is_dataclass(a):
+        return asdict(a)
+    if isnamedtuple(a):
+        return a._asdict()
+    return a.__dict__
+
+
+def construct(type_: type, *args, **kwargs) -> Any:
+    type_hints = get_type_hints(type_)
+    final_kwargs = {}
+    for d in itertools.chain(map(_asdict, args), [kwargs]):
+        final_kwargs.update({k: v for k, v in d.items() if k in type_hints.keys()})
+    return type_(**final_kwargs)
 
 
 def key(*items: Any) -> str:

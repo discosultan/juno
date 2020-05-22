@@ -8,7 +8,7 @@ import pkg_resources
 from mergedeep import merge
 
 import juno
-from juno import agents, components, config
+from juno import agents, components, config, traders
 from juno.agents import Agent
 from juno.brokers import Broker
 from juno.di import Container
@@ -18,7 +18,7 @@ from juno.modules import map_module_types
 from juno.optimization import Optimizer, Solver
 from juno.plugins import Plugin, map_plugin_types
 from juno.storages import Storage
-from juno.traders import Basic, Multi, Trader
+from juno.traders import Basic, Multi, Optimizing, Trader
 from juno.utils import full_path
 
 _log = logging.getLogger(__name__)
@@ -64,14 +64,14 @@ async def main() -> None:
     # container.add_singleton_instance(
     #     List[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
     # )
-    container.add_singleton_instance(
-        List[Trader], lambda: map(container.resolve, [Basic, Multi])
-    )
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
-    container.add_singleton_type(Basic)
-    container.add_singleton_type(Multi)
     container.add_singleton_type(Optimizer)
+    for _name, type_ in inspect.getmembers(traders, inspect.isclass):
+        container.add_singleton_type(type_)
+    container.add_singleton_instance(
+        List[Trader], lambda: map(container.resolve, [Basic, Multi, Optimizing])
+    )
     for _name, type_ in inspect.getmembers(components, inspect.isclass):
         container.add_singleton_type(type_)
 
