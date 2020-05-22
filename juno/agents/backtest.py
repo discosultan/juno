@@ -81,17 +81,6 @@ class Backtest(Agent):
             channel=state.name,
             **trader_kwargs,
         )
-        # trader_config = trader.Config(
-        #     exchange=config.exchange,
-        #     interval=config.interval,
-        #     start=start,
-        #     end=end,
-        #     quote=config.quote,
-        #     strategy=strategy_name,
-        #     strategy_kwargs=strategy_kwargs,
-        #     channel=state.name,
-        #     **trader_kwargs,
-        # )
         if not state.result:
             state.result = trader.State()
         await trader.run(trader_config, state.result)

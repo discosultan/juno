@@ -10,7 +10,7 @@ from juno.math import floor_multiple
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
 from juno.traders import Trader
-from juno.utils import format_as_config
+from juno.utils import construct, format_as_config
 
 from .agent import Agent, AgentStatus
 
@@ -57,12 +57,11 @@ class Paper(Agent):
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
         trader = self._traders[trader_name]
-        trader_config = trader.Config(
-            exchange=config.exchange,
-            interval=config.interval,
+        trader_config = construct(
+            trader.Config,
+            config,
             start=current,
             end=end,
-            quote=config.quote,
             strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
             test=True,

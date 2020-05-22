@@ -70,7 +70,7 @@ async def main() -> None:
     for _name, type_ in inspect.getmembers(traders, inspect.isclass):
         container.add_singleton_type(type_)
     container.add_singleton_instance(
-        List[Trader], lambda: map(container.resolve, [Basic, Multi, Optimizing])
+        List[Trader], lambda: map(container.resolve, [Basic, Multi])
     )
     for _name, type_ in inspect.getmembers(components, inspect.isclass):
         container.add_singleton_type(type_)
