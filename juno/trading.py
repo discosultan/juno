@@ -133,7 +133,9 @@ class Position(ModuleType):
 
         @property
         def roi(self) -> Decimal:
-            return self.profit / self.cost
+            # TODO: Because we don't simulate margin call liquidation, ROI can go negative.
+            # For now, we simply cap the value to min -1.
+            return max(self.profit / self.cost, Decimal('-1.0'))
 
         @property
         def annualized_roi(self) -> Decimal:
@@ -396,6 +398,7 @@ class TradingSummary:
 
 # Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
 def _annualized_roi(duration: int, roi: Decimal) -> Decimal:
+    assert roi >= -1
     n = Decimal(duration) / YEAR_MS
     if n == 0:
         return Decimal('0.0')
