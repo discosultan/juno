@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar
 
 from juno import Interval, Timestamp
 from juno.components import Events, Informant
-from juno.config import get_type_name_and_kwargs
+from juno.config import get_type_name_and_kwargs, kwargs_for
 from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.strategies import Strategy
@@ -68,7 +68,7 @@ class Live(Agent):
             strategy_kwargs=strategy_kwargs,
             test=False,
             channel=state.name,
-            **trader_kwargs,
+            **kwargs_for(trader.Config, trader_kwargs),
         )
         if not state.result:
             state.result = trader.State()

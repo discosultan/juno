@@ -5,7 +5,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, TypeVar
 
 from juno import Interval, Timestamp
 from juno.components import Chandler, Events, Prices
-from juno.config import get_type_name_and_kwargs
+from juno.config import get_type_name_and_kwargs, kwargs_for
 from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
@@ -79,7 +79,7 @@ class Backtest(Agent):
             strategy=strategy_name,
             strategy_kwargs=strategy_kwargs,
             channel=state.name,
-            **trader_kwargs,
+            **kwargs_for(trader.Config, trader_kwargs),
         )
         if not state.result:
             state.result = trader.State()

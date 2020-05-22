@@ -77,6 +77,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         short: bool = False  # Take short positions.
         track: List[str] = []
         track_count: int = 4
+        track_required_start: Optional[Timestamp] = None
         position_count: int = 2
 
         @property
@@ -137,9 +138,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
 
-        symbols = self._find_top_symbols(
-            config.exchange, config.track, config.track_count, config.short
-        )
+        symbols = await self._find_top_symbols(config)
 
         # Resolve and assert available quote.
         if (quote := config.quote) is None:
@@ -210,19 +209,28 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         return state.summary
 
-    def _find_top_symbols(
-        self, exchange: str, track: List[str], track_count: int, short: bool
-    ) -> List[str]:
-        count = track_count - len(track)
+    async def _find_top_symbols(self, config: Config) -> List[str]:
+        count = config.track_count - len(config.track)
         tickers = self._informant.list_tickers(
-            exchange, symbol_pattern=SYMBOL_PATTERN, short=short
+            config.exchange, symbol_pattern=SYMBOL_PATTERN, short=config.short
         )
-        if len(tickers) < track_count:
+        if config.track_required_start is not None:
+            first_candles = await asyncio.gather(
+                *(
+                    self._chandler.find_first_candle(config.exchange, t.symbol, config.interval)
+                    for t in tickers
+                )
+            )
+            tickers = [
+                t for t, c in zip(tickers, first_candles) if c.time <= config.track_required_start
+            ]
+        if len(tickers) < config.track_count:
             raise ValueError(
                 f'Exchange only support {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
-                f'while {track_count} requested'
+                f'while {config.track_count} requested; required start: '
+                f'{strftimestamp(config.track_required_start)}'
             )
-        return track + [t.symbol for t in tickers[0:count] if t not in track]
+        return config.track + [t.symbol for t in tickers[0:count] if t not in config.track]
 
     async def _manage_positions(
         self, config: Config, state: State, candles_updated: SlotBarrier,

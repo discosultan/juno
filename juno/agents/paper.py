@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
 from juno import Interval, Timestamp
 from juno.components import Events, Informant
-from juno.config import get_type_name_and_kwargs
+from juno.config import get_type_name_and_kwargs, kwargs_for
 from juno.math import floor_multiple
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
@@ -66,7 +66,7 @@ class Paper(Agent):
             strategy_kwargs=strategy_kwargs,
             test=True,
             channel=state.name,
-            **trader_kwargs,
+            **kwargs_for(trader.Config, trader_kwargs),
         )
         if not state.result:
             state.result = trader.State()
