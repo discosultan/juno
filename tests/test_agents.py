@@ -145,7 +145,7 @@ async def test_backtest_scenarios(
         trader={
             'type': 'basic',
             'symbol': 'eth-btc',
-            'missed_candle_policy': MissedCandlePolicy.IGNORE,
+            'missed_candle_policy': 'ignore',
         },
     )
     agent = container.resolve(Backtest)

@@ -355,7 +355,7 @@ async def test_multi_historical() -> None:
         Ticker(symbol='ltc-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
     ])
     trader = traders.Multi(chandler=chandler, informant=informant)
-    config = traders.Multi.Config(
+    config = trader.Config(
         exchange='dummy',
         interval=1,
         start=0,
@@ -398,7 +398,7 @@ async def test_multi_trailing_stop() -> None:
         Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
     ])
     trader = traders.Multi(chandler=chandler, informant=informant)
-    config = traders.Multi.Config(
+    config = trader.Config(
         exchange='dummy',
         interval=1,
         start=0,

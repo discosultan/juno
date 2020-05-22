@@ -273,51 +273,44 @@ class TradingSummary:
         return len(self._long_positions) + len(self._short_positions)
 
     @property
-    def num_long_positions(self) -> int:
-        return len(self._long_positions)
-
-    @property
-    def num_short_positions(self) -> int:
-        return len(self._short_positions)
-
-    @staticmethod
-    def _num_positions_in_profit(positions: Iterable[Position.Closed]) -> int:
-        return sum(1 for p in positions if p.profit >= 0)
-
-    @property
     def num_positions_in_profit(self) -> int:
         return TradingSummary._num_positions_in_profit(self.get_positions())
-
-    @property
-    def num_long_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self._long_positions)
-
-    @property
-    def num_short_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self._short_positions)
-
-    @staticmethod
-    def _num_positions_in_loss(positions: Iterable[Position.Closed]) -> int:
-        return sum(1 for p in positions if p.profit < 0)
 
     @property
     def num_positions_in_loss(self) -> int:
         return TradingSummary._num_positions_in_loss(self.get_positions())
 
     @property
+    def num_long_positions(self) -> int:
+        return len(self._long_positions)
+
+    @property
+    def num_long_positions_in_profit(self) -> int:
+        return TradingSummary._num_positions_in_profit(self._long_positions)
+
+    @property
     def num_long_positions_in_loss(self) -> int:
         return TradingSummary._num_positions_in_loss(self._long_positions)
+
+    @property
+    def num_short_positions(self) -> int:
+        return len(self._short_positions)
+
+    @property
+    def num_short_positions_in_profit(self) -> int:
+        return TradingSummary._num_positions_in_profit(self._short_positions)
 
     @property
     def num_short_positions_in_loss(self) -> int:
         return TradingSummary._num_positions_in_loss(self._short_positions)
 
     @staticmethod
-    def _mean_position_profit(positions: Iterable[Position.Closed]) -> Decimal:
-        profits = [x.profit for x in positions]
-        if len(profits) == 0:
-            return Decimal('0.0')
-        return statistics.mean(profits)
+    def _num_positions_in_profit(positions: Iterable[Position.Closed]) -> int:
+        return sum(1 for p in positions if p.profit >= 0)
+
+    @staticmethod
+    def _num_positions_in_loss(positions: Iterable[Position.Closed]) -> int:
+        return sum(1 for p in positions if p.profit < 0)
 
     @property
     def mean_position_profit(self) -> Decimal:
@@ -332,11 +325,11 @@ class TradingSummary:
         return TradingSummary._mean_position_profit(self._short_positions)
 
     @staticmethod
-    def _mean_position_duration(positions: Iterable[Position.Closed]) -> Interval:
-        durations = [x.duration for x in positions]
-        if len(durations) == 0:
-            return 0
-        return int(statistics.mean(durations))
+    def _mean_position_profit(positions: Iterable[Position.Closed]) -> Decimal:
+        profits = [x.profit for x in positions]
+        if len(profits) == 0:
+            return Decimal('0.0')
+        return statistics.mean(profits)
 
     @property
     def mean_position_duration(self) -> Interval:
@@ -349,6 +342,13 @@ class TradingSummary:
     @property
     def mean_short_position_duration(self) -> Interval:
         return TradingSummary._mean_position_duration(self._short_positions)
+
+    @staticmethod
+    def _mean_position_duration(positions: Iterable[Position.Closed]) -> Interval:
+        durations = [x.duration for x in positions]
+        if len(durations) == 0:
+            return 0
+        return int(statistics.mean(durations))
 
     # @property
     # def drawdowns(self) -> List[Decimal]:
