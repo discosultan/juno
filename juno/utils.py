@@ -9,7 +9,7 @@ from copy import deepcopy
 from dataclasses import asdict, is_dataclass
 from os import path
 from pathlib import Path
-from typing import Any, Dict, Iterator, NamedTuple, Optional, Tuple, TypeVar, get_type_hints
+from typing import Any, Dict, Iterator, NamedTuple, Optional, Tuple, Type, TypeVar, get_type_hints
 
 import aiolimiter
 
@@ -32,12 +32,12 @@ def _asdict(a: Any) -> dict:
     return a.__dict__
 
 
-def construct(type_: type, *args, **kwargs) -> Any:
+def construct(type_: Type[T], *args, **kwargs) -> T:
     type_hints = get_type_hints(type_)
     final_kwargs = {}
     for d in itertools.chain(map(_asdict, args), [kwargs]):
         final_kwargs.update({k: v for k, v in d.items() if k in type_hints.keys()})
-    return type_(**final_kwargs)
+    return type_(**final_kwargs)  # type: ignore
 
 
 def key(*items: Any) -> str:
