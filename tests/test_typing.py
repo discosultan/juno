@@ -70,6 +70,7 @@ def test_get_name(input_, expected_output) -> None:
     (list, False),
     (List[int], False),
     (Bar, True),
+    (Bar(value1=1), True),
 ])
 def test_isnamedtuple(input_, expected_output) -> None:
     assert typing.isnamedtuple(input_) == expected_output

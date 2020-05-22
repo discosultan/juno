@@ -138,7 +138,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         assert len(config.track) <= config.track_count
 
         symbols = self._find_top_symbols(
-            config.exchange, config.track, config.track_count
+            config.exchange, config.track, config.track_count, config.short
         )
 
         # Resolve and assert available quote.
@@ -210,9 +210,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         return state.summary
 
-    def _find_top_symbols(self, exchange: str, track: List[str], track_count: int) -> List[str]:
+    def _find_top_symbols(
+        self, exchange: str, track: List[str], track_count: int, short: bool
+    ) -> List[str]:
         count = track_count - len(track)
-        tickers = self._informant.list_tickers(exchange, symbol_pattern=SYMBOL_PATTERN)
+        tickers = self._informant.list_tickers(
+            exchange, symbol_pattern=SYMBOL_PATTERN, short=short
+        )
         if len(tickers) < track_count:
             raise ValueError(
                 f'Exchange only support {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '

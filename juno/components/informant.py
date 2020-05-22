@@ -136,13 +136,20 @@ class Informant:
 
         return list(result.keys())
 
-    def list_tickers(self, exchange: str, symbol_pattern: Optional[str] = None) -> List[Ticker]:
+    def list_tickers(
+        self, exchange: str, symbol_pattern: Optional[str] = None, short: bool = False
+    ) -> List[Ticker]:
         tickers = self._synced_data[exchange][_Timestamped[List[Ticker]]].item
         # Filtering.
         if symbol_pattern is not None:
             ticker_symbols = (t.symbol for t in tickers)
             matched_symbols = set(fnmatch.filter(ticker_symbols, symbol_pattern))
             tickers = (t for t in tickers if t.symbol in matched_symbols)
+        if short:
+            tickers = (
+                t for t in tickers
+                if self.get_fees_filters(exchange, t.symbol)[1].is_margin_trading_allowed
+            )
         # Ordering.
         # Sorted by quote volume desc. Watch out when queried with different quote assets.
         return sorted(tickers, key=lambda t: t.quote_volume, reverse=True)
