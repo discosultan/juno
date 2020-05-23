@@ -20,7 +20,7 @@ from juno.statistics import Statistics, analyse_benchmark, analyse_portfolio
 from juno.time import strfinterval, strfspan, time_ms
 from juno.traders import Basic
 from juno.trading import TradingSummary
-from juno.typing import map_input_args
+from juno.typing import TypeConstructor, get_fully_qualified_name, map_input_args
 
 from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from .solver import Solver, SolverResult
@@ -274,8 +274,10 @@ class Optimizer:
             long=best_args[4],
             short=best_args[5],
             adjust_start=False,
-            strategy=strategy,
-            strategy_kwargs=map_input_args(strategy_type.__init__, best_args[6:]),
+            strategy=TypeConstructor(
+                name=get_fully_qualified_name(strategy_type),
+                kwargs=map_input_args(strategy_type.__init__, best_args[6:]),
+            ),
         )
 
         state = Basic.State()

@@ -1,21 +1,20 @@
 from __future__ import annotations
 
 import asyncio
-import importlib
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Coroutine, Dict, List, NamedTuple, Optional, Tuple
+from typing import Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
-from juno import Advice, Candle, Fill, Interval, Timestamp, math, strategies
+from juno import Advice, Candle, Fill, Interval, Timestamp, math
 from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
-from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp
 from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
+from juno.typing import TypeConstructor
 from juno.utils import tonamedtuple
 
 _log = logging.getLogger(__name__)
@@ -64,14 +63,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         exchange: str
         interval: Interval
         end: Timestamp
-        strategy: str
-        strategy_module: str = strategies.__name__
+        strategy: TypeConstructor[Strategy]
         start: Optional[Timestamp] = None  # None means max earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
-        strategy_args: List[Any] = []
-        strategy_kwargs: Dict[str, Any] = {}
         channel: str = 'default'
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
@@ -87,11 +83,6 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         @property
         def downside_trailing_factor(self) -> Decimal:
             return 1 + self.trailing_stop
-
-        def new_strategy(self) -> Strategy:
-            return get_module_type(importlib.import_module(self.strategy_module), self.strategy)(
-                *self.strategy_args, **self.strategy_kwargs
-            )
 
     @dataclass
     class State:
@@ -178,7 +169,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             for s in symbols:
                 state.symbol_states[s] = _SymbolState(
                     symbol=s,
-                    strategy=config.new_strategy(),
+                    strategy=config.strategy.construct(),
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=start,

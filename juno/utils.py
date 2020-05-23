@@ -91,7 +91,8 @@ def format_as_config(obj: Any):
         # Extracts only public fields and properties.
         obj = tonamedtuple(obj)
         type_ = type(obj)
-    return json.dumps(type_to_config(obj, type_), indent=4)
+    cfg = type_to_config(obj, type_)
+    return json.dumps(cfg, indent=4)
 
 
 def unpack_symbol(symbol: str) -> Tuple[str, str]:

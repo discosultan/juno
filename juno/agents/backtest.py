@@ -1,15 +1,14 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional, TypeVar
+from typing import Any, Dict, List, NamedTuple, Optional
 
-from juno import Interval, Timestamp
+from juno import Interval, Timestamp, strategies
 from juno.components import Chandler, Events, Prices
-from juno.config import get_type_name_and_kwargs, kwargs_for
+from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
-from juno.strategies import Strategy
 from juno.time import time_ms
 from juno.traders import Trader
 from juno.utils import construct, format_as_config
@@ -17,8 +16,6 @@ from juno.utils import construct, format_as_config
 from .agent import Agent, AgentStatus
 
 _log = logging.getLogger(__name__)
-
-TStrategy = TypeVar('TStrategy', bound=Strategy)
 
 
 class Backtest(Agent):
@@ -69,15 +66,13 @@ class Backtest(Agent):
         assert config.quote > 0
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
-        strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
         trader = self._traders[trader_name]
         trader_config = construct(
             trader.Config,
             config,
             start=start,
             end=end,
-            strategy=strategy_name,
-            strategy_kwargs=strategy_kwargs,
+            strategy=get_module_type_constructor(strategies, config.strategy),
             channel=state.name,
             **kwargs_for(trader.Config, trader_kwargs),
         )

@@ -1,14 +1,13 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar
+from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
-from juno import Interval, Timestamp
+from juno import Interval, Timestamp, strategies
 from juno.components import Events, Informant
-from juno.config import get_type_name_and_kwargs, kwargs_for
+from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 from juno.math import floor_multiple
 from juno.storages import Storage
-from juno.strategies import Strategy
 from juno.time import MAX_TIME_MS, time_ms
 from juno.traders import Trader
 from juno.utils import construct, format_as_config
@@ -16,8 +15,6 @@ from juno.utils import construct, format_as_config
 from .agent import Agent, AgentStatus
 
 _log = logging.getLogger(__name__)
-
-TStrategy = TypeVar('TStrategy', bound=Strategy)
 
 
 class Live(Agent):
@@ -57,15 +54,13 @@ class Live(Agent):
         assert end > current
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
-        strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
         trader = self._traders[trader_name]
         trader_config = construct(
             trader.Config,
             config,
             start=current,
             end=end,
-            strategy=strategy_name,
-            strategy_kwargs=strategy_kwargs,
+            strategy=get_module_type_constructor(strategies, config.strategy),
             test=False,
             channel=state.name,
             **kwargs_for(trader.Config, trader_kwargs),

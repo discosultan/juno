@@ -4,6 +4,7 @@ from typing import cast
 
 from juno import BorrowInfo, Candle, Filters, MissedCandlePolicy, Ticker, strategies, traders
 from juno.asyncio import cancel
+from juno.config import get_module_type_constructor
 
 from . import fakes
 
@@ -27,11 +28,14 @@ async def test_basic_upside_trailing_stop() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy='fixed',
-        strategy_kwargs={
-            'advices': ['long', 'long', 'long', 'liquidate'],
-            'ignore_mid_trend': False,
-        },
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['long', 'long', 'long', 'liquidate'],
+                'ignore_mid_trend': False,
+            },
+        ),
         trailing_stop=Decimal('0.1'),
         long=True,
         short=False,
@@ -65,11 +69,14 @@ async def test_basic_downside_trailing_stop() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy='fixed',
-        strategy_kwargs={
-            'advices': ['short', 'short', 'short', 'liquidate'],
-            'ignore_mid_trend': False,
-        },
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['short', 'short', 'short', 'liquidate'],
+                'ignore_mid_trend': False,
+            },
+        ),
         trailing_stop=Decimal('0.1'),
         long=False,
         short=True,
@@ -100,11 +107,16 @@ async def test_basic_restart_on_missed_candle() -> None:
         start=0,
         end=6,
         quote=Decimal('10.0'),
-        strategy='fixed',
-        strategy_kwargs={'advices': ['none'] * 3},
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['none'] * 3,
+            },
+        ),
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
-    initial_strategy = cast(strategies.Fixed, config.new_strategy())
+    initial_strategy = cast(strategies.Fixed, config.strategy.construct())
     state = traders.Basic.State(strategy=initial_strategy)
     await trader.run(config, state)
 
@@ -140,8 +152,13 @@ async def test_basic_assume_same_as_last_on_missed_candle() -> None:
         start=0,
         end=5,
         quote=Decimal('10.0'),
-        strategy='fixed',
-        strategy_kwargs={'advices': ['none'] * 5},
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['none'] * 5,
+            },
+        ),
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
     state = traders.Basic.State()
@@ -176,13 +193,16 @@ async def test_basic_adjust_start_ignore_mid_trend() -> None:
         start=2,
         end=4,
         quote=Decimal('1.0'),
-        strategy='fixed',
-        strategy_kwargs={
-            'advices': ['none', 'long', 'long', 'none'],
-            'maturity': 1,
-            'ignore_mid_trend': True,
-            'persistence': 1,
-        },
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['none', 'long', 'long', 'none'],
+                'maturity': 1,
+                'ignore_mid_trend': True,
+                'persistence': 1,
+            },
+        ),
         adjust_start=True,
     )
 
@@ -209,13 +229,16 @@ async def test_basic_adjust_start_persistence() -> None:
         start=3,
         end=4,
         quote=Decimal('1.0'),
-        strategy='fixed',
-        strategy_kwargs={
-            'advices': ['none', 'long', 'long', 'long'],
-            'maturity': 1,
-            'ignore_mid_trend': False,
-            'persistence': 2,
-        },
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['none', 'long', 'long', 'long'],
+                'maturity': 1,
+                'ignore_mid_trend': False,
+                'persistence': 2,
+            },
+        ),
         adjust_start=True,
     )
 
@@ -252,8 +275,14 @@ async def test_basic_persist_and_resume(storage: fakes.Storage) -> None:
         start=2,
         end=6,
         quote=Decimal('1.0'),
-        strategy='fixed',
-        strategy_kwargs={'advices': ['none'] * 100, 'maturity': 2},
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['none'] * 100,
+                'maturity': 2,
+            },
+        ),
         adjust_start=True,
     )
     state = traders.Basic.State()
@@ -297,8 +326,13 @@ async def test_multi() -> None:
         start=0,
         end=4,
         quote=Decimal('2.0'),
-        strategy='fixed',
-        strategy_kwargs={'advices': ['long', 'liquidate', 'short', 'short']},
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['long', 'liquidate', 'short', 'short'],
+            },
+        ),
         long=True,
         short=True,
         track_count=3,
@@ -361,8 +395,13 @@ async def test_multi_historical() -> None:
         start=0,
         end=10,
         quote=Decimal('2.0'),
-        strategy='fixed',
-        strategy_kwargs={'advices': ['long'] * 10},
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['long'] * 10,
+            },
+        ),
         long=True,
         short=True,
         track_count=2,
@@ -405,8 +444,13 @@ async def test_multi_trailing_stop() -> None:
         end=6,
         quote=Decimal('3.0'),
         trailing_stop=Decimal('0.5'),
-        strategy='fixed',
-        strategy_kwargs={'advices': ['long', 'long', 'long', 'liquidate', 'long', 'long']},
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['long', 'long', 'long', 'liquidate', 'long', 'long'],
+            },
+        ),
         long=True,
         short=True,
         track_count=1,

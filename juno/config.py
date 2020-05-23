@@ -1,6 +1,7 @@
 import inspect
 import os
 import sys
+from dataclasses import is_dataclass
 from enum import Enum
 from types import ModuleType
 from typing import (
@@ -12,7 +13,9 @@ from juno import Interval, Timestamp, json
 from juno.itertools import recursive_iter
 from juno.modules import get_module_type, map_module_types
 from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
-from juno.typing import get_input_type_hints, isenum, isnamedtuple
+from juno.typing import (
+    TypeConstructor, get_fully_qualified_name, get_input_type_hints, isenum, isnamedtuple
+)
 
 T = TypeVar('T')
 
@@ -116,6 +119,16 @@ def init_module_instance(module: ModuleType, config: Dict[str, Any]) -> Any:
     return init_instance(type_, config)
 
 
+def get_module_type_constructor(
+    module: ModuleType, config: Dict[str, Any]
+) -> TypeConstructor[Any]:
+    type_, kwargs = get_module_type_and_kwargs(module, config)
+    return TypeConstructor(
+        name=get_fully_qualified_name(type_),
+        kwargs=kwargs,
+    )
+
+
 def get_type_name_and_kwargs(config: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
     type_name = config.get('type')
     if not type_name:
@@ -216,7 +229,7 @@ def type_to_config(value: Any, type_: Any) -> Any:
 
     if inspect.isclass(type_) and issubclass(type_, Enum):
         return value.name.lower()
-    if isnamedtuple(type_):
+    if isnamedtuple(type_) or is_dataclass(type_):
         type_hints = get_type_hints(type_)
         return {sn: type_to_config(getattr(value, sn), st) for sn, st in type_hints.items()}
 

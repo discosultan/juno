@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
-from juno import Interval, Timestamp
+from juno import Interval, Timestamp, strategies
 from juno.components import Events, Informant
-from juno.config import get_type_name_and_kwargs, kwargs_for
+from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 from juno.math import floor_multiple
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
@@ -62,8 +62,7 @@ class Paper(Agent):
             config,
             start=current,
             end=end,
-            strategy=strategy_name,
-            strategy_kwargs=strategy_kwargs,
+            strategy=get_module_type_constructor(strategies, config.strategy),
             test=True,
             channel=state.name,
             **kwargs_for(trader.Config, trader_kwargs),
