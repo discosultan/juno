@@ -1,12 +1,15 @@
+from __future__ import annotations
+
 import importlib
 import inspect
 from collections import deque
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Dict, Iterable, List, Optional, Type, TypeVar, Union, get_args, get_origin,
-    get_type_hints
+    Any, Dict, Generic, Iterable, List, Optional, Sequence, Type, TypeVar, Union, get_args,
+    get_origin, get_type_hints
 )
 
 from typing_inspect import get_parameters, is_generic_type, is_optional_type, is_typevar
@@ -17,6 +20,8 @@ Traceback = Optional[TracebackType]
 
 JSONValue = Union[str, int, float, bool, None, Dict[str, Any], List[Any]]
 JSONType = Union[Dict[str, JSONValue], List[JSONValue]]
+
+T = TypeVar('T')
 
 
 def get_input_type_hints(obj: Any) -> Dict[str, type]:
@@ -232,3 +237,17 @@ def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
         type_ = getattr(type_ if type_ else module, sub_name)
     assert type_
     return type_
+
+
+@dataclass(frozen=True)
+class TypeConstructor(Generic[T]):
+    name: str  # Fully qualified name.
+    args: Sequence[Any] = ()
+    kwargs: Dict[str, Any] = field(default_factory=dict)
+
+    def construct(self) -> T:
+        return self.type_(*self.args, **self.kwargs)  # type: ignore
+
+    @property
+    def type_(self) -> Type[T]:
+        return get_type_by_fully_qualified_name(self.name)

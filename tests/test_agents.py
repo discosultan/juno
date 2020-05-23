@@ -6,9 +6,7 @@ from typing import Any, Callable, Dict, List
 
 import pytest
 
-from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, MissedCandlePolicy, OrderResult, OrderStatus
-)
+from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel
 from juno.brokers import Broker, Market

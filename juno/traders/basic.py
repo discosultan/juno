@@ -1,17 +1,16 @@
-import importlib
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional
 
-from juno import Advice, Candle, Fill, Interval, MissedCandlePolicy, Timestamp, strategies
+from juno import Advice, Candle, Fill, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
-from juno.modules import get_module_type
 from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp
 from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
+from juno.typing import TypeConstructor
 from juno.utils import tonamedtuple, unpack_symbol
 
 from .trader import Trader
@@ -25,14 +24,11 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         symbol: str
         interval: Interval
         end: Timestamp
-        strategy: str
-        strategy_module: str = strategies.__name__
+        strategy: TypeConstructor[Strategy]
         start: Optional[Timestamp] = None  # None means earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
-        strategy_args: List[Any] = []
-        strategy_kwargs: Dict[str, Any] = {}
         channel: str = 'default'
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
         adjust_start: bool = False
@@ -54,11 +50,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         @property
         def downside_trailing_factor(self) -> Decimal:
             return 1 + self.trailing_stop
-
-        def new_strategy(self) -> Strategy:
-            return get_module_type(importlib.import_module(self.strategy_module), self.strategy)(
-                *self.strategy_args, **self.strategy_kwargs
-            )
 
     @dataclass
     class State:
@@ -145,7 +136,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
             )
 
         if not state.strategy:
-            state.strategy = config.new_strategy()
+            state.strategy = config.strategy.construct()
 
         if not state.current:
             state.current = start
@@ -180,7 +171,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                         if config.missed_candle_policy is MissedCandlePolicy.RESTART:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
-                            state.strategy = config.new_strategy()
+                            state.strategy = config.strategy.construct()
                             state.current = candle.time + config.interval
                         elif config.missed_candle_policy is MissedCandlePolicy.LAST:
                             num_missed = time_diff // config.interval - 1

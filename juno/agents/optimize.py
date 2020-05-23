@@ -1,14 +1,14 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, NamedTuple, Optional
+from typing import List, NamedTuple, Optional, get_type_hints
 
-from juno import Interval, MissedCandlePolicy, Timestamp, strategies
+from juno import Interval, MissedCandlePolicy, Timestamp
 from juno.components import Events
-from juno.modules import get_module_type
 from juno.optimization import OptimizationSummary, Optimizer
 from juno.storages import Memory, Storage
-from juno.typing import get_input_type_hints
+from juno.traders import Basic
+from juno.typing import TypeConstructor, get_input_type_hints
 from juno.utils import format_as_config
 
 from .agent import Agent, AgentStatus
@@ -80,21 +80,29 @@ class Optimize(Agent):
             # Create a new typed named tuple for correctly formatting strategy kwargs for the
             # particular strategy type.
 
-            trading_config = ind.trading_config
-            strategy = trading_config.strategy
-            strategy_kwargs = trading_config.strategy_kwargs
-            strategy_type = get_module_type(strategies, strategy)
+            cfg = ind.trading_config
 
-            strategy_kwargs_typings = get_input_type_hints(strategy_type.__init__)  # type: ignore
+            strategy_kwargs_typings = get_input_type_hints(cfg.strategy.type_.__init__)
             strategy_kwargs_type = NamedTuple('_', strategy_kwargs_typings.items())  # type: ignore
-            strategy_kwargs_instance = strategy_kwargs_type(*strategy_kwargs.values())
+            strategy_kwargs_instance = strategy_kwargs_type(*cfg.strategy.kwargs.values())
 
-            trading_config_typings = get_input_type_hints(trading_config)
-            trading_config_typings['strategy_kwargs'] = strategy_kwargs_type
+            type_constructor_typings = get_type_hints(TypeConstructor)
+            type_constructor_typings['kwargs'] = strategy_kwargs_type
+            type_constructor_type = NamedTuple(  # type: ignore
+                '_', type_constructor_typings.items()
+            )
+            type_constructor_instance = type_constructor_type(  # type: ignore
+                name=cfg.strategy.name,
+                args=cfg.strategy.args,
+                kwargs=strategy_kwargs_instance,
+            )
+
+            trading_config_typings = get_type_hints(Basic.Config)
+            trading_config_typings['strategy'] = type_constructor_type
             trading_config_type = NamedTuple('_', trading_config_typings.items())  # type: ignore
-            x = ind.trading_config._asdict()
-            x['strategy_kwargs'] = strategy_kwargs_instance
-            trading_config_instance = trading_config_type(*x.values())
+            cfg_dict = cfg._asdict()
+            cfg_dict['strategy'] = type_constructor_instance
+            trading_config_instance = trading_config_type(**cfg_dict)  # type: ignore
 
             _log.info(f'trading config: {format_as_config(trading_config_instance)}')
             _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
