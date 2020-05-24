@@ -99,6 +99,19 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
             return value
         return raw_to_type(value, sub_type)
 
+    # if is_optional_type(origin):
+    #     if value is None:
+    #         return value
+    #     sub_type, _ = get_args(type_)
+    #     return raw_to_type(value, sub_type)
+
+    # if origin is Union:
+    #     sub_types = get_args(type_)
+    #     for sub_type in sub_types:
+    #         if isinstance(value, sub_type):
+    #             return raw_to_type(value, sub_type)
+    #     raise TypeError()
+
     if isenum(origin):
         return origin(value)
 

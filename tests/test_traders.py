@@ -333,6 +333,15 @@ async def test_multi() -> None:
                 'advices': ['long', 'liquidate', 'short', 'short'],
             },
         ),
+        symbol_strategies={
+            'xmr-btc': get_module_type_constructor(
+                strategies,
+                {
+                    'type': 'fixed',
+                    'advices': ['liquidate', 'long', 'long', 'long'],
+                },
+            ),
+        },
         long=True,
         short=True,
         track_count=3,
@@ -356,24 +365,115 @@ async def test_multi() -> None:
 
     #     L - S S
     # ETH L - S S
-    # LTC L - S S
-    # XMR - - - -
+    # LTC L - - -
+
+    #     - L L L
+    # XMR - L L L
+    long_positions = list(summary.get_long_positions())
+    short_positions = list(summary.get_short_positions())
+    assert len(long_positions) == 3
+    assert len(short_positions) == 1
+    pos = long_positions[0]
+    assert pos.open_time == 0
+    assert pos.close_time == 1
+    assert pos.symbol == 'eth-btc'
+    pos = long_positions[1]
+    assert pos.open_time == 0
+    assert pos.close_time == 1
+    assert pos.symbol == 'ltc-btc'
+    pos = long_positions[2]
+    assert pos.open_time == 1
+    assert pos.close_time == 3
+    assert pos.symbol == 'xmr-btc'
+    pos = short_positions[0]
+    assert pos.open_time == 2
+    assert pos.close_time == 3
+    assert pos.symbol == 'eth-btc'
+
+
+async def test_multi_persist_and_resume(storage: fakes.Storage) -> None:
+    symbols = ['eth-btc', 'ltc-btc']
+    chandler = fakes.Chandler()
+    informant = fakes.Informant(tickers=[
+        Ticker(symbol='eth-btc', volume=Decimal('2.0'), quote_volume=Decimal('2.0')),
+        Ticker(symbol='ltc-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
+    ])
+    trader = traders.Multi(chandler=chandler, informant=informant)
+    config = traders.Multi.Config(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=4,
+        quote=Decimal('2.0'),
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['long', 'liquidate', 'short', 'short'],
+            },
+        ),
+        symbol_strategies={
+            'ltc-btc': get_module_type_constructor(
+                strategies,
+                {
+                    'type': 'fixed',
+                    'advices': ['liquidate', 'long', 'liquidate', 'short'],
+                },
+            ),
+        },
+        long=True,
+        short=True,
+        track_count=2,
+        position_count=1,
+    )
+
+    trader_state = traders.Multi.State()
+    for i in range(0, 4):
+        for s in symbols:
+            chandler.future_candle_queues[('dummy', s, 1)].put_nowait(
+                Candle(time=i, close=Decimal('1.0'))
+            )
+
+        trader_task = asyncio.create_task(trader.run(config, trader_state))
+
+        await asyncio.gather(
+            *(chandler.future_candle_queues[('dummy', s, 1)].join() for s in symbols)
+        )
+        # Sleep to give control back to position manager.
+        await asyncio.sleep(0)
+
+        if i < 3:
+            await cancel(trader_task)
+            await storage.set('shard', 'key', trader_state)
+            trader_state = await storage.get('shard', 'key', traders.Multi.State)
+
+    summary = await trader_task
+
+    #     L - S S
+    # ETH L - S -  NB! Losing the short because positions get liquidated on cancel.
+
+    #     - L - S
+    # LTC - L - S
     long_positions = list(summary.get_long_positions())
     short_positions = list(summary.get_short_positions())
     assert len(long_positions) == 2
     assert len(short_positions) == 2
-    assert long_positions[0].open_time == 0
-    assert long_positions[0].close_time == 1
-    assert long_positions[0].symbol == 'eth-btc'
-    assert long_positions[1].open_time == 0
-    assert long_positions[1].close_time == 1
-    assert long_positions[1].symbol == 'ltc-btc'
-    assert short_positions[0].open_time == 2
-    assert short_positions[0].close_time == 3
-    assert short_positions[0].symbol == 'eth-btc'
-    assert short_positions[1].open_time == 2
-    assert short_positions[1].close_time == 3
-    assert short_positions[1].symbol == 'ltc-btc'
+    pos = long_positions[0]
+    assert pos.open_time == 0
+    assert pos.close_time == 1
+    assert pos.symbol == 'eth-btc'
+    pos = long_positions[1]
+    assert pos.open_time == 1
+    assert pos.close_time == 2
+    assert pos.symbol == 'ltc-btc'
+    pos = short_positions[0]
+    assert pos.open_time == 2
+    assert pos.close_time == 3
+    assert pos.symbol == 'eth-btc'
+    pos = short_positions[1]
+    assert pos.open_time == 3
+    assert pos.close_time == 3
+    assert pos.symbol == 'ltc-btc'
 
 
 async def test_multi_historical() -> None:
