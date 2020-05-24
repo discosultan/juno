@@ -198,7 +198,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             last_candle_times = [
                 s.last_candle.time for s in state.symbol_states.values() if s.last_candle
             ]
-            if any(last_candle_times):
+            if len(last_candle_times) > 0:
                 await self._close_all_open_positions(config, state)
                 state.summary.finish(max(last_candle_times) + config.interval)
             else:

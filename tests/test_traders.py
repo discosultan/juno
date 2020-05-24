@@ -459,7 +459,7 @@ async def test_multi_persist_and_resume(storage: fakes.Storage) -> None:
     assert len(short_positions) == 2
     pos = long_positions[0]
     assert pos.open_time == 0
-    assert pos.close_time == 1
+    assert pos.close_time == 0
     assert pos.symbol == 'eth-btc'
     pos = long_positions[1]
     assert pos.open_time == 1

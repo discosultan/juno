@@ -97,7 +97,7 @@ def test_isnamedtuple(input_, expected_output) -> None:
         Corge[int, int, int],
         Corge(value1=1, value2=2, value3=3, value4=Quux(value=4), value5=Quux(value=5), value6=6),
     ),
-    # (1, Optional[Union[int, str]], 1),
+    (1, Optional[Union[int, str]], 1),
 ])
 def test_raw_to_type(obj, type_, expected_output) -> None:
     assert typing.raw_to_type(obj, type_) == expected_output
