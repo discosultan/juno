@@ -92,18 +92,18 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
             value[key] = raw_to_type(sub_value, sub_type)
         return value
 
-    # Option type.
-    if origin is Union:
-        sub_type, _ = get_args(type_)
-        if value is None:
-            return value
-        return raw_to_type(value, sub_type)
-
-    # if is_optional_type(origin):
+    # # Option type.
+    # if origin is Union:
+    #     sub_type, _ = get_args(type_)
     #     if value is None:
     #         return value
-    #     sub_type, _ = get_args(type_)
     #     return raw_to_type(value, sub_type)
+
+    if is_optional_type(type_):
+        if value is None:
+            return value
+        sub_type, _ = get_args(type_)
+        return raw_to_type(value, sub_type)
 
     # if origin is Union:
     #     sub_types = get_args(type_)
@@ -127,6 +127,8 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
         return type_(*args)
 
     # Try constructing a regular dataclass.
+    import logging
+    logging.critical(f'{value=} {type_=}')
     if (spec_type_name := value.get('__type__')) is not None:
         origin = get_type_by_fully_qualified_name(spec_type_name)
 
