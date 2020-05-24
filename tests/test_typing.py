@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import IntEnum
 from typing import (  # type: ignore
-    Any, Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar, _GenericAlias
+    Any, Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
 )
 
 import pytest
@@ -97,6 +97,9 @@ def test_isnamedtuple(input_, expected_output) -> None:
         Corge[int, int, int],
         Corge(value1=1, value2=2, value3=3, value4=Quux(value=4), value5=Quux(value=5), value6=6),
     ),
+    (1, Optional[Union[int, str]], 1),
+    (None, type(None), None),
+    (None, Any, None),
 ])
 def test_raw_to_type(obj, type_, expected_output) -> None:
     assert typing.raw_to_type(obj, type_) == expected_output

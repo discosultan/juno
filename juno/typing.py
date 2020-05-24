@@ -12,7 +12,10 @@ from typing import (
     get_origin, get_type_hints
 )
 
-from typing_inspect import get_parameters, is_generic_type, is_optional_type, is_typevar
+from typing_inspect import (
+    get_last_origin, get_parameters, is_generic_type, is_optional_type, is_tuple_type,
+    is_union_type, is_typevar
+)
 
 ExcType = Optional[Type[BaseException]]
 ExcValue = Optional[BaseException]
@@ -61,10 +64,44 @@ def isenum(obj: Any) -> bool:
 
 
 def raw_to_type(value: Any, type_: Type[Any]) -> Any:
-    origin = get_root_origin(type_) or type_
-
-    if origin is Any and value is None:
+    if type_ is Any and value is None:
         return None
+
+    if type_ is type(None):  # noqa: E721
+        if value is not None:
+            raise TypeError(f'Incorrect {value=} for {type_=}')
+        return None
+
+    # Optional type is a Union type with last arg as None.
+    if is_union_type(type_):
+        value_type = (
+            get_type_by_fully_qualified_name(vt)
+            if isinstance(value, dict) and (vt := value.get('__type__')) else None
+        )
+        for arg in get_args(type_):
+            unwrapped_arg = get_root_origin(arg) or arg
+            if (
+                value_type and issubclass(value_type, unwrapped_arg)
+                or isinstance(value, unwrapped_arg)
+            ):
+                return raw_to_type(value, arg)
+        raise TypeError(f'Incorrect {value=} for {type_=}')
+
+    if isenum(type_):
+        return type_(value)
+
+    if is_tuple_type(type_):
+        annotations = get_type_hints(type_)
+        args = []
+        for i, (_name, sub_type) in enumerate(annotations.items()):
+            if i >= len(value):
+                # Resort to default values.
+                break
+            sub_value = value[i]
+            args.append(raw_to_type(sub_value, sub_type))
+        return type_(*args)
+
+    origin = get_root_origin(type_) or type_
 
     # Needs to be a list because type_ can be non-hashable for lookup in a set.
     if origin in [bool, int, float, str, Decimal]:
@@ -91,27 +128,6 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
         for key, sub_value in value.items():
             value[key] = raw_to_type(sub_value, sub_type)
         return value
-
-    # Option type.
-    if origin is Union:
-        sub_type, _ = get_args(type_)
-        if value is None:
-            return value
-        return raw_to_type(value, sub_type)
-
-    if isenum(origin):
-        return origin(value)
-
-    if isnamedtuple(type_):
-        annotations = get_type_hints(type_)
-        args = []
-        for i, (_name, sub_type) in enumerate(annotations.items()):
-            if i >= len(value):
-                # Resort to default values.
-                break
-            sub_value = value[i]
-            args.append(raw_to_type(sub_value, sub_type))
-        return type_(*args)
 
     # Try constructing a regular dataclass.
     if (spec_type_name := value.get('__type__')) is not None:
