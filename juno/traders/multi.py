@@ -421,15 +421,16 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.open_long_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
+                time=candle.time,
                 quote=symbol_state.allocated_quote,
                 test=config.test,
             ) if self._broker else self.open_simulated_long_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
+                time=candle.time,
+                price=candle.close,
                 quote=symbol_state.allocated_quote,
             )
         )
@@ -451,14 +452,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.close_long_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=symbol_state.open_long_position,
+                time=candle.time,
                 test=config.test,
             ) if self._broker else self.close_simulated_long_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=symbol_state.open_long_position,
+                time=candle.time,
+                price=candle.close,
             )
         )
 
@@ -482,15 +482,17 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.open_short_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
+                time=candle.time,
+                price=candle.close,
                 collateral=symbol_state.allocated_quote,
                 test=False,
             ) if self._broker else self.open_simulated_short_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
+                time=candle.time,
+                price=candle.close,
                 collateral=symbol_state.allocated_quote,
             )
         )
@@ -514,14 +516,14 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.close_short_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=symbol_state.open_short_position,
+                time=candle.time,
+                price=candle.close,
                 test=False,
             ) if self._broker else self.close_simulated_short_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=symbol_state.open_short_position,
+                time=candle.time,
+                price=candle.close,
             )
         )
 

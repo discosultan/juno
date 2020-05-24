@@ -91,6 +91,7 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
     ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees]),
     (
         Position.Long(
+            exchange='exchange',
             symbol='eth-btc',
             open_time=1,
             open_fills=[Fill()],

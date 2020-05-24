@@ -267,15 +267,16 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.open_long_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
-                test=config.test,
+                time=candle.time,
                 quote=state.quote,
+                test=config.test,
             ) if self._broker else self.open_simulated_long_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
+                time=candle.time,
+                price=candle.close,
                 quote=state.quote,
             )
         )
@@ -295,14 +296,13 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.close_long_position(
-                candle=candle,
-                exchange=config.exchange,
+                position=state.open_long_position,
+                time=candle.time,
                 test=config.test,
-                position=state.open_long_position,
             ) if self._broker else self.close_simulated_long_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=state.open_long_position,
+                time=candle.time,
+                price=candle.close,
             )
         )
 
@@ -322,15 +322,17 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.open_short_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
-                test=config.test,
+                time=candle.time,
+                price=candle.close,
                 collateral=state.quote,
+                test=config.test,
             ) if self._broker else self.open_simulated_short_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
+                time=candle.time,
+                price=candle.close,
                 collateral=state.quote,
             )
         )
@@ -350,14 +352,14 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.close_short_position(
-                candle=candle,
-                exchange=config.exchange,
+                position=state.open_short_position,
+                time=candle.time,
+                price=candle.close,
                 test=config.test,
-                position=state.open_short_position,
             ) if self._broker else self.close_simulated_short_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=state.open_short_position,
+                time=candle.time,
+                price=candle.close,
             )
         )
 

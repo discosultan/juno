@@ -8,6 +8,7 @@ from juno.trading import Position, TradingSummary
 
 def test_long_position() -> None:
     open_pos = Position.OpenLong(
+        exchange='exchange',
         symbol='eth-btc',
         time=0,
         fills=[
@@ -40,6 +41,7 @@ def test_long_position() -> None:
 
 def test_long_position_annualized_roi_overflow() -> None:
     open_pos = Position.OpenLong(
+        exchange='exchange',
         symbol='eth-btc',
         time=0,
         fills=[
@@ -94,6 +96,7 @@ def new_closed_long_position(profit: Decimal) -> Position.Long:
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')
     open_pos = Position.OpenLong(
+        exchange='exchange',
         symbol='eth-btc',
         time=0,
         fills=[

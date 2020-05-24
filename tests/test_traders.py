@@ -429,13 +429,12 @@ async def test_multi_persist_and_resume(storage: fakes.Storage) -> None:
 
     trader_state = traders.Multi.State()
     for i in range(0, 4):
+        trader_task = asyncio.create_task(trader.run(config, trader_state))
+
         for s in symbols:
             chandler.future_candle_queues[('dummy', s, 1)].put_nowait(
                 Candle(time=i, close=Decimal('1.0'))
             )
-
-        trader_task = asyncio.create_task(trader.run(config, trader_state))
-
         await asyncio.gather(
             *(chandler.future_candle_queues[('dummy', s, 1)].join() for s in symbols)
         )
@@ -464,11 +463,11 @@ async def test_multi_persist_and_resume(storage: fakes.Storage) -> None:
     assert pos.symbol == 'eth-btc'
     pos = long_positions[1]
     assert pos.open_time == 1
-    assert pos.close_time == 2
+    assert pos.close_time == 1
     assert pos.symbol == 'ltc-btc'
     pos = short_positions[0]
     assert pos.open_time == 2
-    assert pos.close_time == 3
+    assert pos.close_time == 2
     assert pos.symbol == 'eth-btc'
     pos = short_positions[1]
     assert pos.open_time == 3

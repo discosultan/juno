@@ -24,6 +24,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
 
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
         open_pos = Position.OpenLong(
+            exchange='exchange',
             symbol='eth-btc',
             time=candle.time,
             fills=[

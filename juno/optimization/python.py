@@ -143,10 +143,11 @@ class Python(Solver, SimulatedPositionMixin):
 
     def _open_long_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
         position = self.open_simulated_long_position(
-            candle,
-            config.exchange,
-            config.symbol,
-            state.quote,
+            exchange=config.exchange,
+            symbol=config.symbol,
+            time=candle.time,
+            price=candle.close,
+            quote=state.quote,
         )
 
         state.quote -= Fill.total_quote(position.fills)
@@ -155,9 +156,9 @@ class Python(Solver, SimulatedPositionMixin):
     def _close_long_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
         assert state.open_long_position
         position = self.close_simulated_long_position(
-            candle,
-            state.open_long_position,
-            config.exchange,
+            position=state.open_long_position,
+            time=candle.time,
+            price=candle.close,
         )
 
         state.quote += (
@@ -168,10 +169,11 @@ class Python(Solver, SimulatedPositionMixin):
 
     def _open_short_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
         position = self.open_simulated_short_position(
-            candle,
-            config.exchange,
-            config.symbol,
-            state.quote,
+            exchange=config.exchange,
+            symbol=config.symbol,
+            time=candle.time,
+            price=candle.close,
+            collateral=state.quote,
         )
 
         state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
@@ -180,9 +182,9 @@ class Python(Solver, SimulatedPositionMixin):
     def _close_short_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
         assert state.open_short_position
         position = self.close_simulated_short_position(
-            candle,
-            state.open_short_position,
-            config.exchange,
+            position=state.open_short_position,
+            time=candle.time,
+            price=candle.close,
         )
 
         state.quote -= Fill.total_quote(position.close_fills)
