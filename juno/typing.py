@@ -146,7 +146,8 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
         if is_typevar(sub_type):
             sub_type = type_args_map[sub_type]
         if is_optional_type(sub_type):
-            sub_type_arg, _ = get_args(sub_type)
+            sub_type_args = get_args(sub_type)[0:-1]  # Discard None.
+            sub_type_arg = sub_type_args[0]
             if is_typevar(sub_type_arg):
                 sub_type = Optional[type_args_map[sub_type_arg]]
         if is_generic_type(sub_type):
