@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import IntEnum
 from typing import (  # type: ignore
-    Any, Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar, _GenericAlias
+    Any, Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
 )
 
 import pytest
@@ -50,6 +50,9 @@ class Corge(Generic[T1, T2, T3]):
     value4: Quux[T3]
     value5: Quux[int]
     value6: IntAlias  # type: ignore
+    value7: Union[IntAlias, int]  # type: ignore
+    value8: Union[int, Bar]
+    value9: Optional[Union[int, Bar]]
 
 
 def test_get_input_type_hints() -> None:
@@ -93,10 +96,26 @@ def test_isnamedtuple(input_, expected_output) -> None:
             'value4': {'value': 4},
             'value5': {'value': 5},
             'value6': 6,
+            'value7': 7,
+            'value8': [81, 82],
+            'value9': [91, 92],
         },
         Corge[int, int, int],
-        Corge(value1=1, value2=2, value3=3, value4=Quux(value=4), value5=Quux(value=5), value6=6),
+        Corge(
+            value1=1,
+            value2=2,
+            value3=3,
+            value4=Quux(value=4),
+            value5=Quux(value=5),
+            value6=6,
+            value7=7,
+            value8=Bar(value1=81, value2=82),
+            value9=Bar(value1=91, value2=92),
+        ),
     ),
+    (1, Optional[Union[int, str]], 1),
+    (None, type(None), None),
+    (None, Any, None),
 ])
 def test_raw_to_type(obj, type_, expected_output) -> None:
     assert typing.raw_to_type(obj, type_) == expected_output

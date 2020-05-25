@@ -26,6 +26,7 @@ class Position(ModuleType):
     # deserialization.
     @dataclass
     class Long:
+        exchange: str
         symbol: str
         open_time: Timestamp
         open_fills: List[Fill]
@@ -74,12 +75,14 @@ class Position(ModuleType):
 
     @dataclass
     class OpenLong:
+        exchange: str
         symbol: str
         time: Timestamp
         fills: List[Fill]
 
         def close(self, time: Timestamp, fills: List[Fill]) -> Position.Long:
             return Position.Long(
+                exchange=self.exchange,
                 symbol=self.symbol,
                 open_time=self.time,
                 open_fills=self.fills,
@@ -97,6 +100,7 @@ class Position(ModuleType):
 
     @dataclass
     class Short:
+        exchange: str
         symbol: str
         collateral: Decimal  # quote
         borrowed: Decimal  # base
@@ -156,6 +160,7 @@ class Position(ModuleType):
 
     @dataclass
     class OpenShort:
+        exchange: str
         symbol: str
         collateral: Decimal
         borrowed: Decimal
@@ -164,6 +169,7 @@ class Position(ModuleType):
 
         def close(self, interest: Decimal, time: Timestamp, fills: List[Fill]) -> Position.Short:
             return Position.Short(
+                exchange=self.exchange,
                 symbol=self.symbol,
                 collateral=self.collateral,
                 borrowed=self.borrowed,
@@ -415,9 +421,8 @@ class SimulatedPositionMixin(ABC):
         pass
 
     def open_simulated_long_position(
-        self, candle: Candle, exchange: str, symbol: str, quote: Decimal
+        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, quote: Decimal
     ) -> Position.OpenLong:
-        price = candle.close
         base_asset, _ = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
 
@@ -428,36 +433,35 @@ class SimulatedPositionMixin(ABC):
         fee = round_half_up(size * fees.taker, filters.base_precision)
 
         return Position.OpenLong(
+            exchange=exchange,
             symbol=symbol,
-            time=candle.time,
+            time=time,
             fills=[Fill(
                 price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
             )],
         )
 
-    # TODO: Take exchange and symbol from position?
+    # TODO: Take exchange from position?
     def close_simulated_long_position(
-        self, candle: Candle, position: Position.OpenLong, exchange: str
+        self, position: Position.OpenLong, time: Timestamp, price: Decimal
     ) -> Position.Long:
-        price = candle.close
         _, quote_asset = unpack_symbol(position.symbol)
-        fees, filters = self.informant.get_fees_filters(exchange, position.symbol)
+        fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
 
         size = filters.size.round_down(position.base_gain)
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
         return position.close(
-            time=candle.time,
+            time=time,
             fills=[Fill(
                 price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset
             )],
         )
 
     def open_simulated_short_position(
-        self, candle: Candle, exchange: str, symbol: str, collateral: Decimal
+        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal
     ) -> Position.OpenShort:
-        price = candle.close
         _, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
         margin_multiplier = self.informant.get_margin_multiplier(exchange)
@@ -467,28 +471,28 @@ class SimulatedPositionMixin(ABC):
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
         return Position.OpenShort(
+            exchange=exchange,
             symbol=symbol,
             collateral=collateral,
             borrowed=borrowed,
-            time=candle.time,
+            time=time,
             fills=[Fill(
                 price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset
             )],
         )
 
     def close_simulated_short_position(
-        self, candle: Candle, position: Position.OpenShort, exchange: str
+        self, position: Position.OpenShort, time: Timestamp, price: Decimal
     ) -> Position.Short:
-        price = candle.close
         base_asset, _ = unpack_symbol(position.symbol)
-        fees, filters = self.informant.get_fees_filters(exchange, position.symbol)
-        borrow_info = self.informant.get_borrow_info(exchange, base_asset)
+        fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
+        borrow_info = self.informant.get_borrow_info(position.exchange, base_asset)
 
         interest = _calculate_interest(
             borrowed=position.borrowed,
             hourly_rate=borrow_info.hourly_interest_rate,
             start=position.time,
-            end=candle.time,
+            end=time,
         )
         size = position.borrowed + interest
         quote = round_down(price * size, filters.quote_precision)
@@ -496,7 +500,7 @@ class SimulatedPositionMixin(ABC):
         size += fee
 
         return position.close(
-            time=candle.time,
+            time=time,
             interest=interest,
             fills=[Fill(
                 price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
@@ -521,7 +525,7 @@ class PositionMixin(ABC):
         pass
 
     async def open_long_position(
-        self, candle: Candle, exchange: str, symbol: str, quote: Decimal, test: bool
+        self, exchange: str, symbol: str, time: Timestamp, quote: Decimal, test: bool
     ) -> Position.OpenLong:
         res = await self.broker.buy_by_quote(
             exchange=exchange,
@@ -531,30 +535,31 @@ class PositionMixin(ABC):
         )
 
         return Position.OpenLong(
+            exchange=exchange,
             symbol=symbol,
-            time=candle.time,
+            time=time,
             fills=res.fills,
         )
 
     async def close_long_position(
-        self, candle: Candle, position: Position.OpenLong, exchange: str, test: bool
+        self, position: Position.OpenLong, time: Timestamp, test: bool
     ) -> Position.Long:
         res = await self.broker.sell(
-            exchange=exchange,
+            exchange=position.exchange,
             symbol=position.symbol,
             size=position.base_gain,
             test=test,
         )
 
         return position.close(
-            time=candle.time,
+            time=time,
             fills=res.fills,
         )
 
     async def open_short_position(
-        self, candle: Candle, exchange: str, symbol: str, collateral: Decimal, test: bool
+        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
+        test: bool
     ) -> Position.OpenShort:
-        price = candle.close
         base_asset, quote_asset = unpack_symbol(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
         margin_multipler = self.informant.get_margin_multiplier(exchange)
@@ -578,27 +583,28 @@ class PositionMixin(ABC):
         )
 
         return Position.OpenShort(
+            exchange=exchange,
             symbol=symbol,
             collateral=collateral,
             borrowed=borrowed,
-            time=candle.time,
+            time=time,
             fills=res.fills,
         )
 
     async def close_short_position(
-        self, candle: Candle, position: Position.OpenShort, exchange: str, test: bool
+        self, position: Position.OpenShort, time: Timestamp, price: Decimal, test: bool
     ) -> Position.Short:
         base_asset, quote_asset = unpack_symbol(position.symbol)
-        fees, filters = self.informant.get_fees_filters(exchange, position.symbol)
-        borrow_info = self.informant.get_borrow_info(exchange, base_asset)
-        exchange_instance = self.exchanges[exchange]
+        fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
+        borrow_info = self.informant.get_borrow_info(position.exchange, base_asset)
+        exchange_instance = self.exchanges[position.exchange]
 
         interest = (
             _calculate_interest(
                 borrowed=position.borrowed,
                 hourly_rate=borrow_info.hourly_interest_rate,
                 start=position.time,
-                end=candle.time,
+                end=time,
             ) if test
             else (await exchange_instance.map_balances(margin=True))[base_asset].interest
         )
@@ -606,7 +612,7 @@ class PositionMixin(ABC):
         fee = round_half_up(size * fees.taker, filters.base_precision)
         size = filters.size.round_up(size + fee)
         res = await self.broker.buy(
-            exchange=exchange,
+            exchange=position.exchange,
             symbol=position.symbol,
             size=size,
             test=test,
@@ -614,7 +620,7 @@ class PositionMixin(ABC):
         )
         closed_position = position.close(
             interest=interest,
-            time=candle.time,
+            time=time,
             fills=res.fills,
         )
         if not test:

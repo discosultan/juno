@@ -57,8 +57,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         changed: Changed = field(default_factory=lambda: Changed(True))
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
-        open_long_position: Optional[Position.OpenLong] = None
-        open_short_position: Optional[Position.OpenShort] = None
+        open_position: Optional[Position.Open] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
         highest_close_since_position = Decimal('0.0')
@@ -197,10 +196,10 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                     break
         finally:
             if state.last_candle:
-                if state.open_long_position:
+                if isinstance(state.open_position, Position.OpenLong):
                     _log.info('ending trading but long position open; closing')
                     await self._close_long_position(config, state, state.last_candle)
-                if state.open_short_position:
+                elif isinstance(state.open_position, Position.OpenShort):
                     _log.info('ending trading but short position open; closing')
                     await self._close_short_position(config, state, state.last_candle)
 
@@ -222,7 +221,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         if state.current < state.summary.start:
             assert advice is Advice.NONE
 
-        if state.open_long_position:
+        if isinstance(state.open_position, Position.OpenLong):
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
                 await self._close_long_position(config, state, candle)
             elif config.trailing_stop:
@@ -234,7 +233,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                     _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
                     await self._close_long_position(config, state, candle)
                     assert advice is not Advice.LONG
-        elif state.open_short_position:
+        elif isinstance(state.open_position, Position.OpenShort):
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
                 await self._close_short_position(config, state, candle)
             elif config.trailing_stop:
@@ -247,7 +246,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                     await self._close_short_position(config, state, candle)
                     assert advice is not Advice.SHORT
 
-        if not state.open_long_position and not state.open_short_position:
+        if not state.open_position:
             if config.long and advice is Advice.LONG:
                 await self._open_long_position(config, state, candle)
                 state.highest_close_since_position = candle.close
@@ -262,54 +261,53 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         state.current = candle.time + config.interval
 
     async def _open_long_position(self, config: Config, state: State, candle: Candle) -> None:
-        assert not state.open_long_position
-        assert not state.open_short_position
+        assert not state.open_position
 
         position = (
             await self.open_long_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
-                test=config.test,
+                time=candle.time,
                 quote=state.quote,
+                test=config.test,
             ) if self._broker else self.open_simulated_long_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
+                time=candle.time,
+                price=candle.close,
                 quote=state.quote,
             )
         )
 
         state.quote -= Fill.total_quote(position.fills)
-        state.open_long_position = position
+        state.open_position = position
 
         _log.info(f'long position opened: {candle}')
-        _log.debug(tonamedtuple(state.open_long_position))
+        _log.debug(tonamedtuple(state.open_position))
         await self._events.emit(
-            config.channel, 'position_opened', state.open_long_position, state.summary
+            config.channel, 'position_opened', state.open_position, state.summary
         )
 
     async def _close_long_position(self, config: Config, state: State, candle: Candle) -> None:
         assert state.summary
-        assert state.open_long_position
+        assert isinstance(state.open_position, Position.OpenLong)
 
         position = (
             await self.close_long_position(
-                candle=candle,
-                exchange=config.exchange,
+                position=state.open_position,
+                time=candle.time,
                 test=config.test,
-                position=state.open_long_position,
             ) if self._broker else self.close_simulated_long_position(
-                candle=candle,
-                exchange=config.exchange,
-                position=state.open_long_position,
+                position=state.open_position,
+                time=candle.time,
+                price=candle.close,
             )
         )
 
         state.quote += (
             Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
         )
-        state.open_long_position = None
+        state.open_position = None
         state.summary.append_position(position)
 
         _log.info(f'long position closed: {candle}')
@@ -317,52 +315,53 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         await self._events.emit(config.channel, 'position_closed', position, state.summary)
 
     async def _open_short_position(self, config: Config, state: State, candle: Candle) -> None:
-        assert not state.open_long_position
-        assert not state.open_short_position
+        assert not state.open_position
 
         position = (
             await self.open_short_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
-                test=config.test,
+                time=candle.time,
+                price=candle.close,
                 collateral=state.quote,
+                test=config.test,
             ) if self._broker else self.open_simulated_short_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=config.symbol,
+                time=candle.time,
+                price=candle.close,
                 collateral=state.quote,
             )
         )
 
         state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
-        state.open_short_position = position
+        state.open_position = position
 
         _log.info(f'short position opened: {candle}')
-        _log.debug(tonamedtuple(state.open_short_position))
+        _log.debug(tonamedtuple(state.open_position))
         await self._events.emit(
-            config.channel, 'position_opened', state.open_short_position, state.summary
+            config.channel, 'position_opened', state.open_position, state.summary
         )
 
     async def _close_short_position(self, config: Config, state: State, candle: Candle) -> None:
         assert state.summary
-        assert state.open_short_position
+        assert isinstance(state.open_position, Position.OpenShort)
 
         position = (
             await self.close_short_position(
-                candle=candle,
-                exchange=config.exchange,
+                position=state.open_position,
+                time=candle.time,
+                price=candle.close,
                 test=config.test,
-                position=state.open_short_position,
             ) if self._broker else self.close_simulated_short_position(
-                candle=candle,
-                exchange=config.exchange,
-                position=state.open_short_position,
+                position=state.open_position,
+                time=candle.time,
+                price=candle.close,
             )
         )
 
         state.quote -= Fill.total_quote(position.close_fills)
-        state.open_short_position = None
+        state.open_position = None
         state.summary.append_position(position)
 
         _log.info(f'short position closed: {candle}')
