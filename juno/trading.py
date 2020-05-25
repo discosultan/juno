@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import itertools
 import logging
 import statistics
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal, Overflow
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Union
@@ -194,7 +193,7 @@ class Position(ModuleType):
 
 
 # TODO: both positions and candles could theoretically grow infinitely
-@dataclass(init=False)
+@dataclass
 class TradingSummary:
     start: Timestamp
     # TODO: We may want to store a dictionary of quote assets instead to support more pairs.
@@ -202,9 +201,8 @@ class TradingSummary:
     quote: Decimal
     quote_asset: str
 
-    _long_positions: List[Position.Long]
-    _short_positions: List[Position.Short]
-    _drawdowns: List[Decimal]
+    _positions: List[Position.Closed] = field(default_factory=list)
+    _drawdowns: List[Decimal] = field(default_factory=list)
     _max_drawdown: Decimal = Decimal('0.0')
     _mean_drawdown: Decimal = Decimal('0.0')
 
@@ -214,35 +212,18 @@ class TradingSummary:
 
     _drawdowns_dirty: bool = True
 
-    def __init__(self, start: Timestamp, quote: Decimal, quote_asset: str) -> None:
-        self.start = start
-        self.quote = quote
-        self.quote_asset = quote_asset
-
-        self._long_positions = []
-        self._short_positions = []
-        self._drawdowns = []
-
     def append_position(self, pos: Position.Closed) -> None:
-        if isinstance(pos, Position.Long):
-            self._long_positions.append(pos)
-        elif isinstance(pos, Position.Short):
-            self._short_positions.append(pos)
-        else:
-            raise NotImplementedError()
+        self._positions.append(pos)
         self._drawdowns_dirty = True
 
     def get_positions(self) -> Iterable[Position.Closed]:
-        return sorted(
-            itertools.chain(self._long_positions, self._short_positions),
-            key=lambda p: p.open_time,
-        )
+        return self._positions
 
     def get_long_positions(self) -> Iterable[Position.Long]:
-        return self._long_positions
+        return (p for p in self._positions if isinstance(p, Position.Long))
 
     def get_short_positions(self) -> Iterable[Position.Short]:
-        return self._short_positions
+        return (p for p in self._positions if isinstance(p, Position.Short))
 
     def finish(self, end: Timestamp) -> None:
         if self.end is None:
@@ -276,7 +257,7 @@ class TradingSummary:
 
     @property
     def num_positions(self) -> int:
-        return len(self._long_positions) + len(self._short_positions)
+        return len(self._positions)
 
     @property
     def num_positions_in_profit(self) -> int:
@@ -288,27 +269,27 @@ class TradingSummary:
 
     @property
     def num_long_positions(self) -> int:
-        return len(self._long_positions)
+        return len(list(self.get_long_positions()))
 
     @property
     def num_long_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self._long_positions)
+        return TradingSummary._num_positions_in_profit(self.get_long_positions())
 
     @property
     def num_long_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self._long_positions)
+        return TradingSummary._num_positions_in_loss(self.get_long_positions())
 
     @property
     def num_short_positions(self) -> int:
-        return len(self._short_positions)
+        return len(list(self.get_short_positions()))
 
     @property
     def num_short_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self._short_positions)
+        return TradingSummary._num_positions_in_profit(self.get_short_positions())
 
     @property
     def num_short_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self._short_positions)
+        return TradingSummary._num_positions_in_loss(self.get_short_positions())
 
     @staticmethod
     def _num_positions_in_profit(positions: Iterable[Position.Closed]) -> int:
@@ -324,11 +305,11 @@ class TradingSummary:
 
     @property
     def mean_long_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self._long_positions)
+        return TradingSummary._mean_position_profit(self.get_long_positions())
 
     @property
     def mean_short_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self._short_positions)
+        return TradingSummary._mean_position_profit(self.get_short_positions())
 
     @staticmethod
     def _mean_position_profit(positions: Iterable[Position.Closed]) -> Decimal:
@@ -343,11 +324,11 @@ class TradingSummary:
 
     @property
     def mean_long_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self._long_positions)
+        return TradingSummary._mean_position_duration(self.get_long_positions())
 
     @property
     def mean_short_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self._short_positions)
+        return TradingSummary._mean_position_duration(self.get_short_positions())
 
     @staticmethod
     def _mean_position_duration(positions: Iterable[Position.Closed]) -> Interval:

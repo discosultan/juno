@@ -3,9 +3,9 @@ import csv
 from decimal import Decimal
 from typing import Any, Dict, List
 
-from juno import Candle, Filters, MissedCandlePolicy
+from juno import Candle, Filters, MissedCandlePolicy, strategies
 from juno.components import Chandler, Informant, Trades
-from juno.config import from_env, init_instance
+from juno.config import from_env, get_module_type_constructor, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
@@ -38,16 +38,19 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy='mamacx',
-            strategy_kwargs={
-                'short_period': 3,
-                'long_period': 73,
-                'neg_threshold': Decimal('-0.102'),
-                'pos_threshold': Decimal('0.239'),
-                'persistence': 4,
-                'short_ma': 'sma',
-                'long_ma': 'smma',
-            },
+            strategy=get_module_type_constructor(
+                strategies,
+                {
+                    'type': 'mamacx',
+                    'short_period': 3,
+                    'long_period': 73,
+                    'neg_threshold': Decimal('-0.102'),
+                    'pos_threshold': Decimal('0.239'),
+                    'persistence': 4,
+                    'short_ma': 'sma',
+                    'long_ma': 'smma',
+                },
+            ),
             trailing_stop=Decimal('0.0827'),
             missed_candle_policy=MissedCandlePolicy.LAST
         )

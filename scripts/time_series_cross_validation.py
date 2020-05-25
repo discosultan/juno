@@ -11,7 +11,7 @@ from juno.optimization import Optimizer, Rust
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
 from juno.traders import Basic
-from juno.utils import tonamedtuple, unpack_symbol
+from juno.utils import extract_public, unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
@@ -64,7 +64,7 @@ async def main() -> None:
         best = optimization_summary.best[0]
 
         logging.info(
-            f'training trading summary: {tonamedtuple(best.trading_summary)}'
+            f'training trading summary: {extract_public(best.trading_summary)}'
         )
         logging.info(f'training portfolio stats: {best.portfolio_stats}')
 
@@ -80,7 +80,6 @@ async def main() -> None:
             missed_candle_policy=tc.missed_candle_policy,
             trailing_stop=tc.trailing_stop,
             strategy=tc.strategy,
-            strategy_kwargs=tc.strategy_kwargs,
         ))
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
@@ -93,7 +92,7 @@ async def main() -> None:
         benchmark = analyse_benchmark(fiat_daily_prices[quote_asset])
         portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, trading_summary)
 
-        logging.info(f'trading summary: {tonamedtuple(trading_summary)}')
+        logging.info(f'trading summary: {extract_public(trading_summary)}')
         logging.info(f'benchmark stats: {benchmark.stats}')
         logging.info(f'portfolio stats: {portfolio.stats}')
 

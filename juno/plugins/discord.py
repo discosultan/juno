@@ -9,9 +9,9 @@ from juno import Advice
 from juno.asyncio import cancel, create_task_cancel_on_exc
 from juno.components import Events
 from juno.itertools import chunks
-from juno.trading import Position
+from juno.trading import Position, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import exc_traceback, format_as_config
+from juno.utils import exc_traceback, extract_public, format_as_config
 
 from .plugin import Plugin
 
@@ -43,7 +43,7 @@ class Discord(discord.Client, Plugin):
         def format_message(
             title: str,
             content: Any,
-            lang: str = 'json',
+            lang: str = '',
         ) -> str:
             return (
                 f'{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'
@@ -60,39 +60,51 @@ class Discord(discord.Client, Plugin):
             )
 
         @self._events.on(agent_name, 'position_opened')
-        async def on_position_opened(pos: Position, result: Any) -> None:
+        async def on_position_opened(position: Position, summary: TradingSummary) -> None:
             await self._send_message(
                 channel_id,
                 format_message(
-                    f'opened {"long" if isinstance(pos, Position.OpenLong) else "short"} position',
-                    format_as_config(pos),
+                    f'opened {"long" if isinstance(position, Position.OpenLong) else "short"} '
+                    'position',
+                    format_as_config(extract_public(position, exclude=['fills'])),
+                    lang='json',
                 ),
             )
 
         @self._events.on(agent_name, 'position_closed')
-        async def on_position_closed(pos: Position, result: Any) -> None:
+        async def on_position_closed(position: Position, summary: TradingSummary) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await self._send_message(
                 channel_id,
                 format_message(
-                    f'closed {"long" if isinstance(pos, Position.Long) else "short"} position',
-                    format_as_config(pos),
+                    f'closed {"long" if isinstance(position, Position.Long) else "short"} '
+                    'position',
+                    format_as_config(
+                        extract_public(position, exclude=['open_fills', 'close_fills'])
+                    ),
+                    lang='json',
                 ),
             )
             await self._send_message(
-                channel_id, format_message('summary', format_as_config(result))
+                channel_id,
+                format_message('summary', format_as_config(extract_public(summary)), lang='json')
             )
 
         @self._events.on(agent_name, 'finished')
-        async def on_finished(result: Any) -> None:
+        async def on_finished(summary: TradingSummary) -> None:
             await self._send_message(
-                channel_id, format_message('finished with summary', format_as_config(result))
+                channel_id,
+                format_message(
+                    'finished with summary',
+                    format_as_config(extract_public(summary)),
+                    lang='json',
+                ),
             )
 
         @self._events.on(agent_name, 'errored')
         async def on_errored(exc: Exception) -> None:
             await self._send_message(
-                channel_id, format_message('errored', exc_traceback(exc), lang='')
+                channel_id, format_message('errored', exc_traceback(exc))
             )
 
         @self._events.on(agent_name, 'image')
@@ -102,7 +114,7 @@ class Discord(discord.Client, Plugin):
         @self._events.on(agent_name, 'advice')
         async def on_advice(advice: Advice) -> None:
             await self._send_message(
-                channel_id, format_message('received advice', advice.name, lang='')
+                channel_id, format_message('received advice', advice.name)
             )
 
         _log.info(f'activated for {agent_name} ({agent_type})')

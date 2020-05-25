@@ -8,7 +8,7 @@ from juno.storages import SQLite
 from juno.strategies import MAMACX
 from juno.traders import Basic
 from juno.trading import Position, TradingSummary
-from juno.utils import format_as_config
+from juno.utils import extract_public, format_as_config
 
 
 async def main() -> None:
@@ -17,8 +17,9 @@ async def main() -> None:
         quote=Decimal('0.02'),
         quote_asset='btc',
     )
-    trading_summary._long_positions = [
+    trading_summary.append_position(
         Position.Long(
+            exchange='binance',
             symbol='ada-btc',
             open_time=1582683600000,
             open_fills=[
@@ -40,8 +41,11 @@ async def main() -> None:
                     precision=8,
                 ),
             ],
-        ),
+        )
+    )
+    trading_summary.append_position(
         Position.Long(
+            exchange='binance',
             symbol='ada-btc',
             open_time=1582766400000,
             open_fills=[
@@ -63,8 +67,8 @@ async def main() -> None:
                     precision=8,
                 ),
             ],
-        ),
-    ]
+        )
+    )
     trader_state = Basic.State(
         strategy=MAMACX(84, 92, Decimal('-0.172'), Decimal('0.377'), 0, 'sma', 'ema2'),
         quote=Decimal('0.0205325200000000'),
@@ -81,7 +85,7 @@ async def main() -> None:
         f'live_{agent_state.name}_state',
         agent_state,
     )
-    logging.info(format_as_config(trading_summary))
+    logging.info(format_as_config(extract_public(trading_summary)))
     assert trading_summary.profit == Decimal('0.0005325200000000')
 
 

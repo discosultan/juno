@@ -6,10 +6,10 @@ import random
 import traceback
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
-from typing import Any, Dict, Iterator, NamedTuple, Optional, Tuple, Type, TypeVar, get_type_hints
+from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
 
 import aiolimiter
 
@@ -86,12 +86,7 @@ def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
 
 
 def format_as_config(obj: Any):
-    type_ = type(obj)
-    if not isnamedtuple(type_):
-        # Extracts only public fields and properties.
-        obj = tonamedtuple(obj)
-        type_ = type(obj)
-    cfg = type_to_config(obj, type_)
+    cfg = type_to_config(obj, type(obj))
     return json.dumps(cfg, indent=4)
 
 
@@ -115,18 +110,21 @@ def load_json_file(root: str, rel_path: str) -> Any:
         return json.load(f)
 
 
-def tonamedtuple(obj: Any) -> Any:
-    """Turns all public fields and properties of an object into typed named tuple. Non-recursive.
+def extract_public(obj: Any, exclude: Sequence[str] = []) -> Any:
+    """Turns all public fields and properties of an object into typed output. Non-recursive.
     """
 
     type_ = type(obj)
 
-    # TODO: We can cache the named tuple based on input type.
+    # TODO: We can cache the generated type based on input type.
     attrs = []
     vals = []
 
     # Fields.
-    fields = [(n, v) for (n, v) in get_type_hints(type_).items() if not n.startswith('_')]
+    fields = (
+        (n, v) for (n, v) in get_type_hints(type_).items()
+        if not n.startswith('_') and n not in exclude
+    )
     for name, field_type in fields:
         attrs.append((name, field_type))
         vals.append(getattr(obj, name))
@@ -140,11 +138,8 @@ def tonamedtuple(obj: Any) -> Any:
         attrs.append((name, prop_type))
         vals.append(prop.fget(obj))
 
-    # TODO: mypy doesn't like when NamedTuples are created dynamically. It's okay for our use case
-    # because we only use them like this for log output formatting.
-    namedtuple = NamedTuple(type_.__name__, attrs)  # type: ignore
-
-    return namedtuple(*vals)
+    output_type = make_dataclass(type_.__name__, attrs)
+    return output_type(*vals)
 
 
 def _isprop(v: object) -> bool:
