@@ -98,17 +98,6 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
     if isenum(resolved_type):
         return type_(value)
 
-    if isnamedtuple(resolved_type):
-        annotations = get_type_hints(type_)
-        args = []
-        for i, (_name, sub_type) in enumerate(annotations.items()):
-            if i >= len(value):
-                # Resort to default values.
-                break
-            sub_value = value[i]
-            args.append(raw_to_type(sub_value, sub_type))
-        return type_(*args)
-
     # Needs to be a list because type_ can be non-hashable for lookup in a set.
     if resolved_type in [bool, int, float, str, Decimal]:
         return value
@@ -122,6 +111,17 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
     if resolved_type is deque:
         sub_type, = get_args(type_)
         return deque((raw_to_type(sv, sub_type) for sv in value), maxlen=len(value))
+
+    if isnamedtuple(resolved_type):
+        annotations = get_type_hints(type_)
+        args = []
+        for i, (_name, sub_type) in enumerate(annotations.items()):
+            if i >= len(value):
+                # Resort to default values.
+                break
+            sub_value = value[i]
+            args.append(raw_to_type(sub_value, sub_type))
+        return type_(*args)
 
     if resolved_type is tuple:
         sub_types = get_args(type_)
