@@ -13,7 +13,7 @@ from juno.optimization.python import Python
 from juno.storages import SQLite
 from juno.strategies import MAMACX
 from juno.time import strptimestamp
-from juno.utils import tonamedtuple
+from juno.utils import extract_public
 
 
 async def main() -> None:
@@ -60,7 +60,7 @@ async def main() -> None:
                 short=False,
             )
         )
-        logging.info(tonamedtuple(summary))
+        logging.info(extract_public(summary))
 
 
 asyncio.run(main())

@@ -15,7 +15,7 @@ from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp
 from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 from juno.typing import TypeConstructor
-from juno.utils import tonamedtuple
+from juno.utils import extract_public
 
 _log = logging.getLogger(__name__)
 
@@ -440,7 +440,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.open_position = position
 
         _log.info(f'{symbol_state.symbol} long position opened: {candle}')
-        _log.debug(tonamedtuple(position))
+        _log.debug(extract_public(position))
         await self._events.emit(
             config.channel, 'position_opened', position, state.summary
         )
@@ -473,7 +473,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.open_position = None
 
         _log.info(f'{position.symbol} long position closed: {candle}')
-        _log.debug(tonamedtuple(position))
+        _log.debug(extract_public(position))
         await self._events.emit(config.channel, 'position_closed', position, state.summary)
 
     async def _open_short_position(
@@ -504,7 +504,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.open_position = position
 
         _log.info(f'{symbol_state.symbol} short position opened: {candle}')
-        _log.debug(tonamedtuple(position))
+        _log.debug(extract_public(position))
         await self._events.emit(
             config.channel, 'position_opened', position, state.summary
         )
@@ -536,5 +536,5 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.open_position = None
 
         _log.info(f'{position.symbol} short position closed: {candle}')
-        _log.debug(tonamedtuple(position))
+        _log.debug(extract_public(position))
         await self._events.emit(config.channel, 'position_closed', position, state.summary)

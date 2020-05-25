@@ -10,7 +10,7 @@ from juno.math import floor_multiple
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
 from juno.traders import Trader
-from juno.utils import format_as_config
+from juno.utils import extract_public, format_as_config
 
 from .agent import Agent, AgentStatus
 
@@ -76,6 +76,6 @@ class Paper(Agent):
         assert state.result
         _log.info(
             f'{self.get_name(state)}: finished with result '
-            f'{format_as_config(state.result.summary)}'
+            f'{format_as_config(extract_public(state.result.summary))}'
         )
         await self._events.emit(state.name, 'finished', state.result.summary)

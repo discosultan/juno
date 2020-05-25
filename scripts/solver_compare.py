@@ -5,11 +5,11 @@ from decimal import Decimal
 from juno import (
     MissedCandlePolicy, components, exchanges, optimization, storages, strategies, time, utils
 )
-from juno.config import from_env, init_instance
+from juno.config import from_env, get_module_type_constructor, init_instance
 from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.traders import Basic
-from juno.utils import unpack_symbol
+from juno.utils import extract_public, unpack_symbol
 
 # SYMBOL = 'eth-btc'
 # INTERVAL = time.HOUR_MS
@@ -137,16 +137,19 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy='mamacx',
-            strategy_kwargs={
-                'short_period': SHORT_PERIOD,
-                'long_period': LONG_PERIOD,
-                'neg_threshold': NEG_THRESHOLD,
-                'pos_threshold': POS_THRESHOLD,
-                'persistence': PERSISTENCE,
-                'short_ma': SHORT_MA,
-                'long_ma': LONG_MA,
-            },
+            strategy=get_module_type_constructor(
+                strategies,
+                {
+                    'type': 'mamacx',
+                    'short_period': SHORT_PERIOD,
+                    'long_period': LONG_PERIOD,
+                    'neg_threshold': NEG_THRESHOLD,
+                    'pos_threshold': POS_THRESHOLD,
+                    'persistence': PERSISTENCE,
+                    'short_ma': SHORT_MA,
+                    'long_ma': LONG_MA,
+                },
+            ),
             missed_candle_policy=MISSED_CANDLE_POLICY,
             trailing_stop=TRAILING_STOP,
             adjust_start=False,
@@ -171,7 +174,7 @@ async def main() -> None:
         logging.info(f'alpha {portfolio.stats.alpha}')
         logging.info(f'profit {trading_summary.profit}')
         logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
-        logging.info(f'{utils.format_as_config(trading_summary)}')
+        logging.info(f'{utils.format_as_config(extract_public(trading_summary))}')
 
 
 asyncio.run(main())

@@ -10,7 +10,7 @@ from typing import Any, List, Optional
 from juno.components import Events
 from juno.plugins import Plugin
 from juno.storages import Memory, Storage
-from juno.utils import exc_traceback, format_as_config, generate_random_words
+from juno.utils import exc_traceback, extract_public, format_as_config, generate_random_words
 
 _log = logging.getLogger(__name__)
 
@@ -82,7 +82,8 @@ class Agent:
 
     async def on_finally(self, config: Any, state: Any) -> None:
         _log.info(
-            f'{self.get_name(state)}: finished with result {format_as_config(state.result)}'
+            f'{self.get_name(state)}: finished with result '
+            f'{format_as_config(extract_public(state.result))}'
         )
         await self._events.emit(state.name, 'finished', state.result)
 

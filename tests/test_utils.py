@@ -14,19 +14,21 @@ def test_unpack_symbol() -> None:
     assert utils.unpack_symbol('eth-btc') == ('eth', 'btc')
 
 
-def test_tonamedtuple() -> None:
+def test_extract_public() -> None:
     class Foo:
         a: int = 1
-        _b: int = 2
+        b: int = 2
+        _c: int = 3
 
         @property
-        def c(self) -> int:
-            return 3
+        def d(self) -> int:
+            return 4
 
     foo = Foo()
-    x = utils.tonamedtuple(foo)
+    x = utils.extract_public(foo, exclude=['b'])
 
     assert x.a == 1
     assert not getattr(x, 'b', None)
-    assert x.c == 3
-    utils.tonamedtuple(foo)  # Ensure can be called twice.
+    assert not getattr(x, 'c', None)
+    assert x.d == 4
+    utils.extract_public(foo, exclude=['b'])  # Ensure can be called twice.

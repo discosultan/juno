@@ -9,7 +9,7 @@ from juno.optimization import OptimizationSummary, Optimizer
 from juno.storages import Memory, Storage
 from juno.traders import Basic
 from juno.typing import TypeConstructor, get_input_type_hints
-from juno.utils import format_as_config
+from juno.utils import extract_public, format_as_config
 
 from .agent import Agent, AgentStatus
 
@@ -105,5 +105,5 @@ class Optimize(Agent):
             trading_config_instance = trading_config_type(**cfg_dict)  # type: ignore
 
             _log.info(f'trading config: {format_as_config(trading_config_instance)}')
-            _log.info(f'trading summary: {format_as_config(ind.trading_summary)}')
+            _log.info(f'trading summary: {format_as_config(extract_public(ind.trading_summary))}')
             _log.info(f'portfolio stats: {format_as_config(ind.portfolio_stats)}')
