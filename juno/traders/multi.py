@@ -30,8 +30,7 @@ class _SymbolState:
     override_changed: Changed
     current: Timestamp
     start_adjusted: bool = False
-    open_long_position: Optional[Position.OpenLong] = None
-    open_short_position: Optional[Position.OpenShort] = None
+    open_position: Optional[Position.Open] = None
     allocated_quote: Decimal = Decimal('0.0')
     highest_close_since_position = Decimal('0.0')
     lowest_close_since_position = Decimal('Inf')
@@ -41,10 +40,6 @@ class _SymbolState:
     @property
     def ready(self) -> bool:
         return self.first_candle is not None
-
-    @property
-    def position_open(self) -> bool:
-        return self.open_long_position is not None or self.open_short_position is not None
 
     @property
     def advice(self) -> Advice:
@@ -242,11 +237,17 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             to_process.clear()
             for ss in (ss for ss in state.symbol_states.values() if ss.ready):
                 assert ss.last_candle
-                if ss.open_long_position and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]:
+                if (
+                    isinstance(ss.open_position, Position.OpenLong)
+                    and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]
+                ):
                     to_process.append(
                         self._close_long_position(config, state, ss, ss.last_candle)
                     )
-                elif ss.open_short_position and ss.advice in [Advice.LIQUIDATE, Advice.LONG]:
+                elif (
+                    isinstance(ss.open_position, Position.OpenShort)
+                    and ss.advice in [Advice.LIQUIDATE, Advice.LONG]
+                ):
                     to_process.append(
                         self._close_short_position(config, state, ss, ss.last_candle)
                     )
@@ -255,14 +256,14 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
             # Try open new positions.
             to_process.clear()
-            count = sum(1 for ss in state.symbol_states.values() if ss.position_open)
+            count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
             assert count <= config.position_count
             available = config.position_count - count
             for ss in (ss for ss in state.symbol_states.values() if ss.ready):
                 if available == 0:
                     break
 
-                if ss.position_open:
+                if ss.open_position:
                     continue
 
                 assert ss.last_candle
@@ -331,7 +332,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         advice = symbol_state.strategy.update(candle)
         override_advice = Advice.NONE
         if (
-            symbol_state.open_long_position
+            isinstance(symbol_state.open_position, Position.OpenLong)
             and advice not in [Advice.SHORT, Advice.LIQUIDATE]
             and config.trailing_stop
         ):
@@ -349,7 +350,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 )
                 override_advice = Advice.LIQUIDATE
         elif (
-            symbol_state.open_short_position
+            isinstance(symbol_state.open_position, Position.OpenShort)
             and advice not in [Advice.LONG, Advice.LIQUIDATE]
             and config.trailing_stop
         ):
@@ -367,7 +368,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 )
                 override_advice = Advice.LIQUIDATE
 
-        if not symbol_state.position_open:
+        if not symbol_state.open_position:
             if config.long and advice is Advice.LONG:
                 symbol_state.highest_close_since_position = candle.close
             elif config.short and advice is Advice.SHORT:
@@ -403,11 +404,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         to_close = []
         for ss in state.symbol_states.values():
             assert ss.last_candle
-            if ss.open_long_position:
+            if isinstance(ss.open_position, Position.OpenLong):
                 to_close.append(self._close_long_position(
                     config, state, ss, ss.last_candle
                 ))
-            if ss.open_short_position:
+            elif isinstance(ss.open_position, Position.OpenShort):
                 to_close.append(self._close_short_position(
                     config, state, ss, ss.last_candle
                 ))
@@ -436,7 +437,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         )
 
         symbol_state.allocated_quote -= Fill.total_quote(position.fills)
-        symbol_state.open_long_position = position
+        symbol_state.open_position = position
 
         _log.info(f'{symbol_state.symbol} long position opened: {candle}')
         _log.debug(tonamedtuple(position))
@@ -448,15 +449,15 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
     ) -> None:
         assert state.summary
-        assert symbol_state.open_long_position
+        assert isinstance(symbol_state.open_position, Position.OpenLong)
 
         position = (
             await self.close_long_position(
-                position=symbol_state.open_long_position,
+                position=symbol_state.open_position,
                 time=candle.time,
                 test=config.test,
             ) if self._broker else self.close_simulated_long_position(
-                position=symbol_state.open_long_position,
+                position=symbol_state.open_position,
                 time=candle.time,
                 price=candle.close,
             )
@@ -469,7 +470,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.allocated_quote = Decimal('0.0')
 
         state.summary.append_position(position)
-        symbol_state.open_long_position = None
+        symbol_state.open_position = None
 
         _log.info(f'{position.symbol} long position closed: {candle}')
         _log.debug(tonamedtuple(position))
@@ -500,7 +501,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.allocated_quote += (
             Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
         )
-        symbol_state.open_short_position = position
+        symbol_state.open_position = position
 
         _log.info(f'{symbol_state.symbol} short position opened: {candle}')
         _log.debug(tonamedtuple(position))
@@ -512,16 +513,16 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
     ) -> None:
         assert state.summary
-        assert symbol_state.open_short_position
+        assert isinstance(symbol_state.open_position, Position.OpenShort)
 
         position = (
             await self.close_short_position(
-                position=symbol_state.open_short_position,
+                position=symbol_state.open_position,
                 time=candle.time,
                 price=candle.close,
                 test=False,
             ) if self._broker else self.close_simulated_short_position(
-                position=symbol_state.open_short_position,
+                position=symbol_state.open_position,
                 time=candle.time,
                 price=candle.close,
             )
@@ -532,7 +533,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.allocated_quote = Decimal('0.0')
 
         state.summary.append_position(position)
-        symbol_state.open_short_position = None
+        symbol_state.open_position = None
 
         _log.info(f'{position.symbol} short position closed: {candle}')
         _log.debug(tonamedtuple(position))
