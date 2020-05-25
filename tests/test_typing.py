@@ -52,6 +52,7 @@ class Corge(Generic[T1, T2, T3]):
     value6: IntAlias  # type: ignore
     value7: Union[IntAlias, int]  # type: ignore
     value8: Union[int, Bar]
+    value9: Optional[Union[int, Bar]]
 
 
 def test_get_input_type_hints() -> None:
@@ -96,7 +97,8 @@ def test_isnamedtuple(input_, expected_output) -> None:
             'value5': {'value': 5},
             'value6': 6,
             'value7': 7,
-            'value8': [1, 2],
+            'value8': [81, 82],
+            'value9': [91, 92],
         },
         Corge[int, int, int],
         Corge(
@@ -107,7 +109,8 @@ def test_isnamedtuple(input_, expected_output) -> None:
             value5=Quux(value=5),
             value6=6,
             value7=7,
-            value8=Bar(value1=1, value2=2),
+            value8=Bar(value1=81, value2=82),
+            value9=Bar(value1=91, value2=92),
         ),
     ),
     (1, Optional[Union[int, str]], 1),
