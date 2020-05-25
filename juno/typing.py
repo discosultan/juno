@@ -13,8 +13,7 @@ from typing import (
 )
 
 from typing_inspect import (
-    get_last_origin, get_parameters, is_generic_type, is_optional_type, is_tuple_type,
-    is_union_type, is_typevar
+    get_parameters, is_generic_type, is_optional_type, is_typevar, is_union_type
 )
 
 ExcType = Optional[Type[BaseException]]
@@ -64,33 +63,42 @@ def isenum(obj: Any) -> bool:
 
 
 def raw_to_type(value: Any, type_: Type[Any]) -> Any:
-    if type_ is Any and value is None:
-        return None
+    tagged_type = (
+        get_type_by_fully_qualified_name(vt)
+        if isinstance(value, dict) and (vt := value.get('__type__')) else None
+    )
+    origin_type = get_root_origin(type_)
+    resolved_type = tagged_type or origin_type or type_
 
-    if type_ is type(None):  # noqa: E721
+    if resolved_type is Any:
+        return value
+
+    if resolved_type is type(None):  # noqa: E721
         if value is not None:
             raise TypeError(f'Incorrect {value=} for {type_=}')
         return None
 
-    # Optional type is a Union type with last arg as None.
-    if is_union_type(type_):
-        value_type = (
-            get_type_by_fully_qualified_name(vt)
-            if isinstance(value, dict) and (vt := value.get('__type__')) else None
-        )
-        for arg in get_args(type_):
-            unwrapped_arg = get_root_origin(arg) or arg
-            if (
-                value_type and issubclass(value_type, unwrapped_arg)
-                or isinstance(value, unwrapped_arg)
-            ):
-                return raw_to_type(value, arg)
-        raise TypeError(f'Incorrect {value=} for {type_=}')
+    if is_optional_type(resolved_type):
+        if value is None:
+            return None
+        sub_type, _ = get_args(type_)
+        return raw_to_type(value, sub_type)
 
-    if isenum(type_):
+    if is_union_type(resolved_type):
+        resolved = '__missing__'
+        for arg in get_args(type_):
+            try:
+                resolved = raw_to_type(value, arg)
+            except TypeError:
+                pass
+        if resolved == '__missing__':
+            raise TypeError(f'Incorrect {value=} for {type_=}')
+        return resolved
+
+    if isenum(resolved_type):
         return type_(value)
 
-    if is_tuple_type(type_):
+    if isnamedtuple(resolved_type):
         annotations = get_type_hints(type_)
         args = []
         for i, (_name, sub_type) in enumerate(annotations.items()):
@@ -101,41 +109,35 @@ def raw_to_type(value: Any, type_: Type[Any]) -> Any:
             args.append(raw_to_type(sub_value, sub_type))
         return type_(*args)
 
-    origin = get_root_origin(type_) or type_
-
     # Needs to be a list because type_ can be non-hashable for lookup in a set.
-    if origin in [bool, int, float, str, Decimal]:
+    if resolved_type in [bool, int, float, str, Decimal]:
         return value
 
-    if origin is list:
+    if resolved_type is list:
         sub_type, = get_args(type_)
         for i, sub_value in enumerate(value):
             value[i] = raw_to_type(sub_value, sub_type)
         return value
 
-    if origin is deque:
+    if resolved_type is deque:
         sub_type, = get_args(type_)
         return deque((raw_to_type(sv, sub_type) for sv in value), maxlen=len(value))
 
-    if origin is tuple:
+    if resolved_type is tuple:
         sub_types = get_args(type_)
         for i, (sub_value, sub_type) in enumerate(zip(value, sub_types)):
             value[i] = raw_to_type(sub_value, sub_type)
         return value
 
-    if origin is dict:
+    if resolved_type is dict:
         _, sub_type = get_args(type_)
         for key, sub_value in value.items():
             value[key] = raw_to_type(sub_value, sub_type)
         return value
 
-    # Try constructing a regular dataclass.
-    if (spec_type_name := value.get('__type__')) is not None:
-        origin = get_type_by_fully_qualified_name(spec_type_name)
-
-    annotations = get_type_hints(origin)
-    type_args_map = {p: a for p, a in zip(get_parameters(origin), get_args(type_))}
-    instance = origin.__new__(origin)  # type: ignore
+    annotations = get_type_hints(resolved_type)
+    type_args_map = {p: a for p, a in zip(get_parameters(resolved_type), get_args(type_))}
+    instance = resolved_type.__new__(resolved_type)  # type: ignore
     for name, sub_type in ((k, v) for k, v in annotations.items() if k in annotations):
         if name not in value:
             continue
