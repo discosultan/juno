@@ -194,11 +194,13 @@ class Concrete(Abstract):
         return 1
 
 
-class UnionTypeA(NamedTuple):
+@dataclass
+class UnionTypeA:
     value: int = 1
 
 
-class UnionTypeB(NamedTuple):
+@dataclass
+class UnionTypeB:
     value: int = 2
 
 
@@ -226,11 +228,17 @@ async def test_memory_get_set_dynamic_types(storage: storages.Storage) -> None:
     output = await storage.get('shard', 'key', Container)
 
     assert output
+    assert isinstance(output.abstract, Concrete)
     assert output.abstract.value == 1
+    assert isinstance(output.union, UnionTypeB)
     assert output.union.value == 2
     assert output.any_
+    assert isinstance(output.any_, Container)
+    assert isinstance(output.any_.abstract, Concrete)
     assert output.any_.abstract.value == 1
+    assert isinstance(output.any_.union, UnionTypeB)
     assert output.any_.union.value == 2
     assert not output.any_.any_
     assert output.optional
+    assert isinstance(output.optional, Concrete)
     assert output.optional.value == 1

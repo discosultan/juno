@@ -50,6 +50,8 @@ class Corge(Generic[T1, T2, T3]):
     value4: Quux[T3]
     value5: Quux[int]
     value6: IntAlias  # type: ignore
+    value7: Union[IntAlias, int]  # type: ignore
+    value8: Union[int, Bar]
 
 
 def test_get_input_type_hints() -> None:
@@ -93,11 +95,24 @@ def test_isnamedtuple(input_, expected_output) -> None:
             'value4': {'value': 4},
             'value5': {'value': 5},
             'value6': 6,
+            'value7': 7,
+            'value8': [1, 2],
         },
         Corge[int, int, int],
-        Corge(value1=1, value2=2, value3=3, value4=Quux(value=4), value5=Quux(value=5), value6=6),
+        Corge(
+            value1=1,
+            value2=2,
+            value3=3,
+            value4=Quux(value=4),
+            value5=Quux(value=5),
+            value6=6,
+            value7=7,
+            value8=Bar(value1=1, value2=2),
+        ),
     ),
     (1, Optional[Union[int, str]], 1),
+    (None, type(None), None),
+    (None, Any, None),
 ])
 def test_raw_to_type(obj, type_, expected_output) -> None:
     assert typing.raw_to_type(obj, type_) == expected_output
