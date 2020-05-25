@@ -64,6 +64,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         interval: Interval
         end: Timestamp
         strategy: TypeConstructor[Strategy]
+        symbol_strategies: Dict[str, TypeConstructor[Strategy]] = {}  # Overrides default strategy.
         start: Optional[Timestamp] = None  # None means max earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -169,7 +170,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             for s in symbols:
                 state.symbol_states[s] = _SymbolState(
                     symbol=s,
-                    strategy=config.strategy.construct(),
+                    strategy=config.symbol_strategies.get(s, config.strategy).construct(),
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=start,
@@ -192,7 +193,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             last_candle_times = [
                 s.last_candle.time for s in state.symbol_states.values() if s.last_candle
             ]
-            if any(last_candle_times):
+            if len(last_candle_times) > 0:
                 await self._close_all_open_positions(config, state)
                 state.summary.finish(max(last_candle_times) + config.interval)
             else:
@@ -255,7 +256,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
             # Try open new positions.
             to_process.clear()
-            count = sum(1 for ss in state.symbol_states.values() if ss.open_position is not None)
+            count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
             assert count <= config.position_count
             available = config.position_count - count
             for ss in (ss for ss in state.symbol_states.values() if ss.ready):
@@ -421,15 +422,16 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.open_long_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
+                time=candle.time,
                 quote=symbol_state.allocated_quote,
                 test=config.test,
             ) if self._broker else self.open_simulated_long_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
+                time=candle.time,
+                price=candle.close,
                 quote=symbol_state.allocated_quote,
             )
         )
@@ -451,14 +453,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.close_long_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=symbol_state.open_position,
+                time=candle.time,
                 test=config.test,
             ) if self._broker else self.close_simulated_long_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=symbol_state.open_position,
+                time=candle.time,
+                price=candle.close,
             )
         )
 
@@ -482,15 +483,17 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.open_short_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
+                time=candle.time,
+                price=candle.close,
                 collateral=symbol_state.allocated_quote,
                 test=False,
             ) if self._broker else self.open_simulated_short_position(
-                candle=candle,
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
+                time=candle.time,
+                price=candle.close,
                 collateral=symbol_state.allocated_quote,
             )
         )
@@ -514,14 +517,14 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         position = (
             await self.close_short_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=symbol_state.open_position,
+                time=candle.time,
+                price=candle.close,
                 test=False,
             ) if self._broker else self.close_simulated_short_position(
-                candle=candle,
-                exchange=config.exchange,
                 position=symbol_state.open_position,
+                time=candle.time,
+                price=candle.close,
             )
         )
 
