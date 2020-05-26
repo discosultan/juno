@@ -15,7 +15,7 @@ from juno.utils import unpack_symbol
 
 class Solver(ABC):
     class Config(NamedTuple):
-        fiat_daily_prices: Dict[str, List[Decimal]]
+        fiat_prices: Dict[str, List[Decimal]]
         benchmark_g_returns: pd.Series
         candles: List[Candle]
         strategy_type: Type[Strategy]

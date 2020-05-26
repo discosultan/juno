@@ -47,7 +47,7 @@ def analyse_benchmark(prices: List[Decimal]) -> AnalysisSummary:
 
 def analyse_portfolio(
     benchmark_g_returns: pd.Series,
-    fiat_daily_prices: Dict[str, List[Decimal]],
+    fiat_prices: Dict[str, List[Decimal]],
     trading_summary: TradingSummary,
     interval: int = DAY_MS,
 ) -> AnalysisSummary:
@@ -58,7 +58,7 @@ def analyse_portfolio(
 
     # Validate we have enough data.
     num_days = (end_day - start_day) // interval
-    for asset, prices in fiat_daily_prices.items():
+    for asset, prices in fiat_prices.items():
         if len(prices) != num_days:
             raise ValueError(
                 f'Expected {num_days} price points for {asset} but got {len(prices)}'
@@ -66,7 +66,7 @@ def analyse_portfolio(
 
     trades = _get_trades_from_summary(trading_summary, interval)
     asset_performance = _get_asset_performance(
-        trading_summary, start_day, end_day, fiat_daily_prices, trades, interval
+        trading_summary, start_day, end_day, fiat_prices, trades, interval
     )
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance]

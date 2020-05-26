@@ -5,6 +5,7 @@ from juno import Advice, Candle, Fill, MissedCandlePolicy, OrderException
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
+from juno.time import DAY_MS
 from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
 
 from .solver import Solver, SolverResult
@@ -37,7 +38,10 @@ class Python(Solver, SimulatedPositionMixin):
     def solve(self, config: Solver.Config) -> SolverResult:
         summary = self._trade(config)
         portfolio = analyse_portfolio(
-            config.benchmark_g_returns, config.fiat_daily_prices, summary
+            benchmark_g_returns=config.benchmark_g_returns,
+            fiat_prices=config.fiat_prices,
+            trading_summary=summary,
+            interval=max(DAY_MS, config.interval),
         )
         return SolverResult.from_trading_summary(summary, portfolio.stats)
 

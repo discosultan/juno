@@ -43,7 +43,7 @@ async def main() -> None:
         )
         summary = solver._trade(
             Python.Config(
-                fiat_daily_prices={},
+                fiat_prices={},
                 benchmark_g_returns=pd.Series([]),
                 candles=candles,
                 strategy_type=MAMACX,

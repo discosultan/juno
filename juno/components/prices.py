@@ -13,6 +13,25 @@ class Prices:
     def __init__(self, chandler: Chandler) -> None:
         self._chandler = chandler
 
+    async def map_prices_for_multiple_intervals(
+        self,
+        exchange: str,
+        symbols: Iterable[str],
+        start: int,
+        end: int,
+        intervals: Iterable[int] = [DAY_MS],
+        fiat_exchange: Optional[str] = None,
+        fiat_asset: str = 'usdt',
+    ) -> Dict[int, Dict[str, List[Decimal]]]:
+        distinct_intervals = set(intervals)
+        prices = await asyncio.gather(
+            *(
+                self.map_prices(exchange, symbols, start, end, i, fiat_exchange, fiat_asset)
+                for i in distinct_intervals
+            )
+        )
+        return {i: p for i, p in zip(distinct_intervals, prices)}
+
     async def map_prices(
         self,
         exchange: str,

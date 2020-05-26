@@ -9,7 +9,7 @@ from juno.config import get_module_type_constructor, get_type_name_and_kwargs, k
 from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
-from juno.time import time_ms
+from juno.time import DAY_MS, time_ms
 from juno.traders import Trader
 from juno.utils import extract_public, format_as_config
 
@@ -91,17 +91,24 @@ class Backtest(Agent):
             [p.symbol for p in summary.get_positions()]
             + [f'btc-{config.fiat_asset}']  # Use BTC as benchmark.
         )
-        fiat_daily_prices = await self._prices.map_prices(
+        analysis_interval = max(DAY_MS, config.interval)
+        fiat_prices = await self._prices.map_prices(
             exchange=config.exchange,
             symbols=symbols,
             start=summary.start,
             end=summary.end,
+            interval=analysis_interval,
             fiat_asset=config.fiat_asset,
             fiat_exchange=config.fiat_exchange,
         )
 
-        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
-        portfolio = analyse_portfolio(benchmark.g_returns, fiat_daily_prices, summary)
+        benchmark = analyse_benchmark(fiat_prices['btc'])
+        portfolio = analyse_portfolio(
+            benchmark_g_returns=benchmark.g_returns,
+            fiat_prices=fiat_prices,
+            trading_summary=summary,
+            interval=analysis_interval,
+        )
 
         _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
         _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')

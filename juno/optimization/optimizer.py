@@ -17,7 +17,7 @@ from juno.itertools import flatten
 from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
 from juno.modules import get_module_type
 from juno.statistics import Statistics, analyse_benchmark, analyse_portfolio
-from juno.time import strfinterval, strfspan, time_ms
+from juno.time import DAY_MS, strfinterval, strfspan, time_ms
 from juno.traders import Basic
 from juno.trading import TradingSummary
 from juno.typing import TypeConstructor, get_fully_qualified_name, map_input_args
@@ -124,11 +124,12 @@ class Optimizer:
 
         summary = summary or OptimizationSummary()
 
-        fiat_daily_prices = await self._prices.map_prices(
+        fiat_prices = await self._prices.map_prices_for_multiple_intervals(
             exchange=exchange,
             symbols=symbols + [f'btc-{fiat_asset}'],
             start=start,
             end=end,
+            intervals=[DAY_MS] + [i for i in intervals if i > DAY_MS],
             fiat_asset=fiat_asset,
             fiat_exchange=fiat_exchange,
         )
@@ -151,7 +152,7 @@ class Optimizer:
                          f'{strfspan(start, end)}')
 
         # Prepare benchmark stats.
-        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
+        benchmarks = {i: analyse_benchmark(p['btc']) for i, p in fiat_prices.items()}
 
         # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
         # us because we want to be able to use multiple optimizers with different random seeds.
@@ -193,10 +194,11 @@ class Optimizer:
         toolbox.register('select', tools.selNSGA2)
 
         def evaluate(ind: List[Any]) -> SolverResult:
+            analysis_interval = max(DAY_MS, ind[1])
             return self._solver.solve(
                 Solver.Config(
-                    fiat_daily_prices=fiat_daily_prices,
-                    benchmark_g_returns=benchmark.g_returns,
+                    fiat_prices=fiat_prices[analysis_interval],
+                    benchmark_g_returns=benchmarks[analysis_interval].g_returns,
                     candles=candles[(ind[0], ind[1])],
                     strategy_type=strategy_type,
                     exchange=exchange,
@@ -280,6 +282,8 @@ class Optimizer:
             ),
         )
 
+        analysis_interval = max(DAY_MS, best_args[1])
+
         state = Basic.State()
         try:
             await self._trader.run(trading_config, state)
@@ -287,7 +291,7 @@ class Optimizer:
             pass
         assert state.summary
         portfolio_summary = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, state.summary
+            benchmarks[analysis_interval].g_returns, fiat_prices[analysis_interval], state.summary
         )
 
         best_individual = OptimizationRecord(
@@ -305,8 +309,8 @@ class Optimizer:
 
         solver_result = self._solver.solve(
             Solver.Config(
-                fiat_daily_prices=fiat_daily_prices,
-                benchmark_g_returns=benchmark.g_returns,
+                fiat_prices=fiat_prices[analysis_interval],
+                benchmark_g_returns=benchmarks[analysis_interval].g_returns,
                 candles=candles[(best_args[0], best_args[1])],
                 strategy_type=strategy_type,
                 exchange=exchange,

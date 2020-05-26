@@ -102,6 +102,7 @@ class Coinbase(Exchange):
         return ExchangeInfo(
             fees=fees,
             filters=filters,
+            # 1m, 5m, 15m, 1h, 6h, 1d
             candle_intervals=[60000, 300000, 900000, 3600000, 21600000, 86400000]
         )
 
