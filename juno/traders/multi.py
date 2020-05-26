@@ -264,7 +264,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             if len(to_process) > 0:
                 positions = await asyncio.gather(*to_process)
                 await self._events.emit(
-                    config.channel, 'positions_closed', [positions], state.summary
+                    config.channel, 'positions_closed', positions, state.summary
                 )
 
             # Try open new positions.
@@ -290,7 +290,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             if len(to_process) > 0:
                 positions = await asyncio.gather(*to_process)
                 await self._events.emit(
-                    config.channel, 'positions_opened', [positions], state.summary
+                    config.channel, 'positions_opened', positions, state.summary
                 )
 
             # Clear barrier for next update.
@@ -431,7 +431,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         if len(to_close) > 0:
             positions = await asyncio.gather(*to_close)
             await self._events.emit(
-                config.channel, 'positions_closed', [positions], state.summary
+                config.channel, 'positions_closed', positions, state.summary
             )
 
     async def _open_long_position(
