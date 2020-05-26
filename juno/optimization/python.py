@@ -5,7 +5,7 @@ from juno import Advice, Candle, Fill, MissedCandlePolicy, OrderException
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
-from juno.trading import Position, SimulatedPositionMixin, TradingSummary
+from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
 
 from .solver import Solver, SolverResult
 
@@ -95,9 +95,13 @@ class Python(Solver, SimulatedPositionMixin):
 
             if state.last_candle:
                 if state.open_long_position:
-                    self._close_long_position(config, state, state.last_candle)
+                    self._close_long_position(
+                        config, state, state.last_candle, CloseReason.CANCELLED
+                    )
                 if state.open_short_position:
-                    self._close_short_position(config, state, state.last_candle)
+                    self._close_short_position(
+                        config, state, state.last_candle, CloseReason.CANCELLED
+                    )
 
         except OrderException:
             pass
@@ -110,24 +114,24 @@ class Python(Solver, SimulatedPositionMixin):
 
         if state.open_long_position:
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
-                self._close_long_position(config, state, candle)
+                self._close_long_position(config, state, candle, CloseReason.STRATEGY)
             elif config.trailing_stop:
                 state.highest_close_since_position = max(
                     state.highest_close_since_position, candle.close
                 )
                 target = state.highest_close_since_position * config.upside_trailing_factor
                 if candle.close <= target:
-                    self._close_long_position(config, state, candle)
+                    self._close_long_position(config, state, candle, CloseReason.TRAILING_STOP)
         elif state.open_short_position:
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
-                self._close_short_position(config, state, candle)
+                self._close_short_position(config, state, candle, CloseReason.STRATEGY)
             elif config.trailing_stop:
                 state.lowest_close_since_position = min(
                     state.lowest_close_since_position, candle.close
                 )
                 target = state.lowest_close_since_position * config.downside_trailing_factor
                 if candle.close >= target:
-                    self._close_short_position(config, state, candle)
+                    self._close_short_position(config, state, candle, CloseReason.TRAILING_STOP)
 
         if not state.open_long_position and not state.open_short_position:
             if config.long and advice is Advice.LONG:
@@ -153,12 +157,15 @@ class Python(Solver, SimulatedPositionMixin):
         state.quote -= Fill.total_quote(position.fills)
         state.open_long_position = position
 
-    def _close_long_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
+    def _close_long_position(
+        self, config: Solver.Config, state: _State, candle: Candle, reason: CloseReason
+    ) -> None:
         assert state.open_long_position
         position = self.close_simulated_long_position(
             position=state.open_long_position,
             time=candle.time,
             price=candle.close,
+            reason=reason,
         )
 
         state.quote += (
@@ -179,12 +186,15 @@ class Python(Solver, SimulatedPositionMixin):
         state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
         state.open_short_position = position
 
-    def _close_short_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
+    def _close_short_position(
+        self, config: Solver.Config, state: _State, candle: Candle, reason: CloseReason
+    ) -> None:
         assert state.open_short_position
         position = self.close_simulated_short_position(
             position=state.open_short_position,
             time=candle.time,
             price=candle.close,
+            reason=reason,
         )
 
         state.quote -= Fill.total_quote(position.close_fills)

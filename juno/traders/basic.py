@@ -9,7 +9,9 @@ from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp
-from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
+from juno.trading import (
+    CloseReason, Position, PositionMixin, SimulatedPositionMixin, TradingSummary
+)
 from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
 
@@ -198,10 +200,14 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
             if state.last_candle:
                 if isinstance(state.open_position, Position.OpenLong):
                     _log.info('ending trading but long position open; closing')
-                    await self._close_long_position(config, state, state.last_candle)
+                    await self._close_long_position(
+                        config, state, state.last_candle, CloseReason.CANCELLED
+                    )
                 elif isinstance(state.open_position, Position.OpenShort):
                     _log.info('ending trading but short position open; closing')
-                    await self._close_short_position(config, state, state.last_candle)
+                    await self._close_short_position(
+                        config, state, state.last_candle, CloseReason.CANCELLED
+                    )
 
                 state.summary.finish(state.last_candle.time + config.interval)
             else:
@@ -223,7 +229,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         if isinstance(state.open_position, Position.OpenLong):
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
-                await self._close_long_position(config, state, candle)
+                await self._close_long_position(config, state, candle, CloseReason.STRATEGY)
             elif config.trailing_stop:
                 state.highest_close_since_position = max(
                     state.highest_close_since_position, candle.close
@@ -231,11 +237,13 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 target = state.highest_close_since_position * config.upside_trailing_factor
                 if candle.close <= target:
                     _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
-                    await self._close_long_position(config, state, candle)
+                    await self._close_long_position(
+                        config, state, candle, CloseReason.TRAILING_STOP
+                    )
                     assert advice is not Advice.LONG
         elif isinstance(state.open_position, Position.OpenShort):
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
-                await self._close_short_position(config, state, candle)
+                await self._close_short_position(config, state, candle, CloseReason.STRATEGY)
             elif config.trailing_stop:
                 state.lowest_close_since_position = min(
                     state.lowest_close_since_position, candle.close
@@ -243,7 +251,9 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 target = state.lowest_close_since_position * config.downside_trailing_factor
                 if candle.close >= target:
                     _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
-                    await self._close_short_position(config, state, candle)
+                    await self._close_short_position(
+                        config, state, candle, CloseReason.TRAILING_STOP
+                    )
                     assert advice is not Advice.SHORT
 
         if not state.open_position:
@@ -288,7 +298,9 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
             config.channel, 'position_opened', state.open_position, state.summary
         )
 
-    async def _close_long_position(self, config: Config, state: State, candle: Candle) -> None:
+    async def _close_long_position(
+        self, config: Config, state: State, candle: Candle, reason: CloseReason
+    ) -> None:
         assert state.summary
         assert isinstance(state.open_position, Position.OpenLong)
 
@@ -297,10 +309,12 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 position=state.open_position,
                 time=candle.time,
                 test=config.test,
+                reason=reason,
             ) if self._broker else self.close_simulated_long_position(
                 position=state.open_position,
                 time=candle.time,
                 price=candle.close,
+                reason=reason,
             )
         )
 
@@ -343,7 +357,9 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
             config.channel, 'position_opened', state.open_position, state.summary
         )
 
-    async def _close_short_position(self, config: Config, state: State, candle: Candle) -> None:
+    async def _close_short_position(
+        self, config: Config, state: State, candle: Candle, reason: CloseReason
+    ) -> None:
         assert state.summary
         assert isinstance(state.open_position, Position.OpenShort)
 
@@ -353,10 +369,12 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 time=candle.time,
                 price=candle.close,
                 test=config.test,
+                reason=reason,
             ) if self._broker else self.close_simulated_short_position(
                 position=state.open_position,
                 time=candle.time,
                 price=candle.close,
+                reason=reason,
             )
         )
 

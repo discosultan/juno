@@ -150,6 +150,21 @@ class Binance(Exchange):
         return ExchangeInfo(
             fees=fees,
             filters=filters,
+            # 1m
+            # 3m
+            # 5m
+            # 15m
+            # 30m
+            # 1h
+            # 2h
+            # 4h
+            # 6h
+            # 8h
+            # 12h
+            # 1d
+            # 3d
+            # 1w
+            # 1M
             candle_intervals=[
                 60000, 180000, 300000, 900000, 1800000, 3600000, 7200000, 14400000, 21600000,
                 28800000, 43200000, 86400000, 259200000, 604800000, 2629746000

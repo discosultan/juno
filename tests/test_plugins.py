@@ -6,7 +6,7 @@ import pytest
 from juno import Advice, Candle, Fill
 from juno.components import Events
 from juno.time import DAY_MS
-from juno.trading import Position, TradingSummary
+from juno.trading import CloseReason, Position, TradingSummary
 from juno.utils import full_path
 
 
@@ -44,6 +44,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
                     fee=Decimal('0.0'), fee_asset='eth'
                 )
             ],
+            reason=CloseReason.STRATEGY,
         )
         trading_summary.append_position(pos)
         trading_summary.finish(pos.close_time + DAY_MS)
