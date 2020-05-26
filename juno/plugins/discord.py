@@ -57,7 +57,8 @@ class Discord(discord.Client, Plugin):
         @self._events.on(agent_name, 'starting')
         async def on_starting(config: Any) -> None:
             await self._send_message(
-                channel_id, format_message('starting with config', format_as_config(config))
+                channel_id,
+                format_message('starting with config', format_as_config(config), lang='json')
             )
 
         @self._events.on(agent_name, 'positions_opened')
