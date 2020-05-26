@@ -501,7 +501,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 time=candle.time,
                 price=candle.close,
                 collateral=symbol_state.allocated_quote,
-                test=False,
+                test=config.test,
             ) if self._broker else self.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
@@ -534,7 +534,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 position=symbol_state.open_position,
                 time=candle.time,
                 price=candle.close,
-                test=False,
+                test=config.test,
                 reason=reason,
             ) if self._broker else self.close_simulated_short_position(
                 position=symbol_state.open_position,
