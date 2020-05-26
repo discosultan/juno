@@ -74,7 +74,7 @@ async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -
         storage=storage,
         exchanges=[exchange],
         get_time_ms=time.get_time,
-        storage_batch_size=STORAGE_BATCH_SIZE
+        storage_batch_size=STORAGE_BATCH_SIZE,
     )
 
     output_trades = await list_async(trades.stream_trades(EXCHANGE, SYMBOL, start, end))

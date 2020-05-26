@@ -157,8 +157,12 @@ class Chandler:
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):
             with attempt:
+                # We use a swap batch in order to swap the batch right before storing. With a
+                # single batch, it may happen that our program gets cancelled at an `await`
+                # point before we're able to clear the batch. This can cause same data to be
+                # stored twice, raising an integrity error.
                 batch = []
-                batch_start = start
+                swap_batch: List[Candle] = []
                 current = floor_multiple(self._get_time_ms(), interval)
 
                 try:
@@ -173,20 +177,24 @@ class Chandler:
                         if candle.closed:
                             batch.append(candle)
                             if len(batch) == self._storage_batch_size:
+                                del swap_batch[:]
+                                batch_start = start
                                 batch_end = batch[-1].time + interval
+                                start = batch_end
+                                swap_batch, batch = batch, swap_batch
                                 await self._storage.store_time_series_and_span(
                                     shard=shard,
                                     key=CANDLE_KEY,
-                                    items=batch,
+                                    items=swap_batch,
                                     start=batch_start,
                                     end=batch_end,
                                 )
-                                batch_start = batch_end
-                                del batch[:]
                         yield candle
                 except (asyncio.CancelledError, ExchangeException):
                     if len(batch) > 0:
+                        batch_start = start
                         batch_end = batch[-1].time + interval
+                        start = batch_end
                         await self._storage.store_time_series_and_span(
                             shard=shard,
                             key=CANDLE_KEY,
@@ -194,17 +202,15 @@ class Chandler:
                             start=batch_start,
                             end=batch_end,
                         )
-                        start = batch_end
                     raise
                 else:
                     current = floor_multiple(self._get_time_ms(), interval)
-                    batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
                         shard=shard,
                         key=CANDLE_KEY,
                         items=batch,
-                        start=batch_start,
-                        end=batch_end,
+                        start=start,
+                        end=min(current, end),
                     )
 
     async def _stream_exchange_candles(

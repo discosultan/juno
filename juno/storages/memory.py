@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import sqlite3
 from collections import defaultdict
 from contextlib import contextmanager
@@ -22,11 +21,9 @@ class Memory(SQLite):
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        def inner():
-            for ctx in self._conns.values():
-                assert ctx.connection
-                ctx.connection.close()
-        await asyncio.get_running_loop().run_in_executor(None, inner)
+        for ctx in self._conns.values():
+            assert ctx.connection
+            ctx.connection.close()
 
     @contextmanager
     def _connect(self, shard: str) -> Iterator[sqlite3.Connection]:
@@ -36,7 +33,7 @@ class Memory(SQLite):
                 conn = sqlite3.connect(
                     ':memory:',
                     detect_types=sqlite3.PARSE_DECLTYPES,
-                    check_same_thread=False
+                    check_same_thread=False,
                 )
                 ctx.connection = conn
             yield ctx.connection

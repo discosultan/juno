@@ -88,9 +88,14 @@ class Trades:
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):
             with attempt:
+                # We use a swap batch in order to swap the batch right before storing. With a
+                # single batch, it may happen that our program gets cancelled at an `await`
+                # point before we're able to clear the batch. This can cause same data to be
+                # stored twice, raising an integrity error.
+                # We also use swap to store trades from previous batch in case we get multiple
+                # trades with a same time at the edge of the batch.
                 batch = []
                 swap_batch: List[Trade] = []
-                batch_start = start
                 current = self._get_time_ms()
 
                 try:
@@ -102,8 +107,9 @@ class Trades:
                         # batch because multiple trades can happen at the same time. We need our
                         # time span to be correct.
                         if len(batch) == self._storage_batch_size + 1:
-                            last = batch[-1]
+                            del swap_batch[:]
 
+                            last = batch[-1]
                             for i in range(len(batch) - 1, -1, -1):
                                 if batch[i].time != last.time:
                                     break
@@ -111,8 +117,10 @@ class Trades:
                                 swap_batch.insert(0, batch[i])
                                 del batch[i]
 
+                            batch_start = start
                             batch_end = batch[-1].time + 1
-                            batch, swap_batch = swap_batch, batch
+                            swap_batch, batch = batch, swap_batch
+                            start = batch_end
                             await self._storage.store_time_series_and_span(
                                 shard=shard,
                                 key=TRADE_KEY,
@@ -120,31 +128,28 @@ class Trades:
                                 start=batch_start,
                                 end=batch_end,
                             )
-
-                            batch_start = batch_end
-                            del swap_batch[:]
                         yield trade
                 except (asyncio.CancelledError, ExchangeException):
                     if len(batch) > 0:
+                        batch_start = start
                         batch_end = batch[-1].time + 1
+                        start = batch_end
                         await self._storage.store_time_series_and_span(
                             shard=shard,
                             key=TRADE_KEY,
                             items=batch,
                             start=batch_start,
-                            end=batch[-1].time + 1,
+                            end=batch_end,
                         )
-                        start = batch_end
                     raise
                 else:
                     current = self._get_time_ms()
-                    batch_end = min(current, end)
                     await self._storage.store_time_series_and_span(
                         shard=shard,
                         key=TRADE_KEY,
                         items=batch,
-                        start=batch_start,
-                        end=batch_end,
+                        start=start,
+                        end=min(current, end),
                     )
 
     async def _stream_exchange_trades(
