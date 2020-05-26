@@ -34,7 +34,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
                 )
             ],
         )
-        await events.emit('agent', 'position_opened', open_pos, trading_summary)
+        await events.emit('agent', 'positions_opened', [open_pos], trading_summary)
         candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
         pos = open_pos.close(
             time=candle.time,
@@ -48,7 +48,7 @@ async def test_discord(request, config: Dict[str, Any]) -> None:
         )
         trading_summary.append_position(pos)
         trading_summary.finish(pos.close_time + DAY_MS)
-        await events.emit('agent', 'position_closed', pos, trading_summary)
+        await events.emit('agent', 'positions_closed', [pos], trading_summary)
         await events.emit('agent', 'finished', trading_summary)
         await events.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
         await events.emit('agent', 'advice', Advice.LIQUIDATE)

@@ -296,7 +296,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         _log.info(f'long position opened: {candle}')
         _log.debug(extract_public(state.open_position))
         await self._events.emit(
-            config.channel, 'position_opened', state.open_position, state.summary
+            config.channel, 'positions_opened', [state.open_position], state.summary
         )
 
     async def _close_long_position(
@@ -327,7 +327,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'long position closed: {candle}')
         _log.debug(extract_public(position))
-        await self._events.emit(config.channel, 'position_closed', position, state.summary)
+        await self._events.emit(config.channel, 'positions_closed', [position], state.summary)
 
     async def _open_short_position(self, config: Config, state: State, candle: Candle) -> None:
         assert not state.open_position
@@ -355,7 +355,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         _log.info(f'short position opened: {candle}')
         _log.debug(extract_public(state.open_position))
         await self._events.emit(
-            config.channel, 'position_opened', state.open_position, state.summary
+            config.channel, 'positions_opened', [state.open_position], state.summary
         )
 
     async def _close_short_position(
@@ -385,4 +385,4 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'short position closed: {candle}')
         _log.debug(extract_public(position))
-        await self._events.emit(config.channel, 'position_closed', position, state.summary)
+        await self._events.emit(config.channel, 'positions_closed', [position], state.summary)
