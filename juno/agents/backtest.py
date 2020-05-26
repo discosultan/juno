@@ -94,10 +94,10 @@ class Backtest(Agent):
         fiat_daily_prices = await self._prices.map_prices(
             exchange=config.exchange,
             symbols=symbols,
-            fiat_asset=config.fiat_asset,
-            fiat_exchange=config.fiat_exchange,
             start=summary.start,
             end=summary.end,
+            fiat_asset=config.fiat_asset,
+            fiat_exchange=config.fiat_exchange,
         )
 
         benchmark = analyse_benchmark(fiat_daily_prices['btc'])

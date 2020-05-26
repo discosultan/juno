@@ -49,17 +49,24 @@ def analyse_portfolio(
     benchmark_g_returns: pd.Series,
     fiat_daily_prices: Dict[str, List[Decimal]],
     trading_summary: TradingSummary,
+    interval: int = DAY_MS,
 ) -> AnalysisSummary:
-    start_day = floor_multiple(trading_summary.start, DAY_MS)
     assert trading_summary.end is not None
-    end_day = floor_multiple(trading_summary.end, DAY_MS)
-    num_days = (end_day - start_day) // DAY_MS
 
-    assert all(len(prices) == num_days for prices in fiat_daily_prices.values())
+    start_day = floor_multiple(trading_summary.start, interval)
+    end_day = floor_multiple(trading_summary.end, interval)
 
-    trades = _get_trades_from_summary(trading_summary)
+    # Validate we have enough data.
+    num_days = (end_day - start_day) // interval
+    for asset, prices in fiat_daily_prices.items():
+        if len(prices) != num_days:
+            raise ValueError(
+                f'Expected {num_days} price points for {asset} but got {len(prices)}'
+            )
+
+    trades = _get_trades_from_summary(trading_summary, interval)
     asset_performance = _get_asset_performance(
-        trading_summary, start_day, end_day, fiat_daily_prices, trades
+        trading_summary, start_day, end_day, fiat_daily_prices, trades, interval
     )
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance]
@@ -70,18 +77,18 @@ def analyse_portfolio(
 
 
 def _get_trades_from_summary(
-    summary: TradingSummary,
+    summary: TradingSummary, interval: int
 ) -> Dict[int, List[Tuple[str, Decimal]]]:
     trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
     for pos in summary.get_positions():
         base_asset, quote_asset = unpack_symbol(pos.symbol)
         # Open.
-        time = floor_multiple(pos.open_time, DAY_MS)
+        time = floor_multiple(pos.open_time, interval)
         day_trades = trades[time]
         day_trades.append((quote_asset, -pos.cost))
         day_trades.append((base_asset, +pos.base_gain))
         # Close.
-        time = floor_multiple(pos.close_time, DAY_MS)
+        time = floor_multiple(pos.close_time, interval)
         day_trades = trades[time]
         day_trades.append((base_asset, -pos.base_cost))
         day_trades.append((quote_asset, +pos.gain))
@@ -94,6 +101,7 @@ def _get_asset_performance(
     end_day: int,
     market_data: Dict[str, List[Decimal]],
     trades: Dict[int, List[Tuple[str, Decimal]]],
+    interval: int,
 ) -> List[Dict[str, Decimal]]:
     asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
     asset_holdings[summary.quote_asset] = summary.quote
@@ -101,7 +109,7 @@ def _get_asset_performance(
     asset_performance: List[Dict[str, Decimal]] = []
 
     i = 0
-    for time_day in range(start_day, end_day, DAY_MS):
+    for time_day in range(start_day, end_day, interval):
         # Update holdings.
         day_trades = trades.get(time_day)
         if day_trades:

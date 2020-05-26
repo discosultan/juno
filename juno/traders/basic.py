@@ -213,6 +213,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
             else:
                 state.summary.finish(start)
 
+        _log.info('finished')
         return state.summary
 
     async def _tick(self, config: Config, state: State, candle: Candle) -> None:

@@ -208,6 +208,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             else:
                 state.summary.finish(start)
 
+        _log.info('finished')
         return state.summary
 
     async def _find_top_symbols(self, config: Config) -> List[str]:

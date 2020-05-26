@@ -19,29 +19,30 @@ class Prices:
         symbols: Iterable[str],
         start: int,
         end: int,
+        interval: int = DAY_MS,
         fiat_exchange: Optional[str] = None,
         fiat_asset: str = 'usdt',
-        interval: int = DAY_MS,
     ) -> Dict[str, List[Decimal]]:
         """Maps all assets found in symbols to their fiat prices."""
-
         start = floor_multiple(start, interval)
         end = floor_multiple(end, interval)
 
         fiat_exchange = fiat_exchange or exchange
 
-        # Validate we have enough price data.
+        result: Dict[str, List[Decimal]] = {}
+
+        # Quote -> fiat.
         quote_fiat_symbols = {
             f'{q}-{fiat_asset}' if q != fiat_asset else f'{b}-{q}'
             for b, q in map(unpack_symbol, symbols)
         }
+
+        # Validate we have enough data.
         await asyncio.gather(
             *(self._validate_start(fiat_exchange, s, interval, start) for s in quote_fiat_symbols),
         )
 
-        result: Dict[str, List[Decimal]] = {}
-
-        # Gather quote fiat prices.
+        # Gather prices.
         async def assign(symbol: str) -> None:
             assert fiat_exchange
             q, _ = unpack_symbol(symbol)
@@ -51,7 +52,15 @@ class Prices:
             )]
         await asyncio.gather(*(assign(s) for s in quote_fiat_symbols))
 
-        # Gather base -> quote fiat prices.
+        # Base -> fiat.
+        base_quote_symbols = [s for s in set(symbols) if unpack_symbol(s)[0] not in result]
+
+        # Validate we have enough data.
+        await asyncio.gather(
+            *(self._validate_start(exchange, s, interval, start) for s in base_quote_symbols),
+        )
+
+        # Gather prices.
         async def assign_with_prices(symbol: str) -> None:
             b, q = unpack_symbol(symbol)
             assert b not in result
@@ -62,13 +71,19 @@ class Prices:
                 resolved_stream(*(result[q]))
                 if q != fiat_asset else repeat_async(Decimal('1.0')),
             )]
-        await asyncio.gather(
-            *(assign_with_prices(s) for s in set(symbols) if unpack_symbol(s)[0] not in result)
-        )
+        await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))
 
         # Add fiat currency itself to prices if it's specified as a quote of any symbol.
         if fiat_asset in (q for _, q in map(unpack_symbol, symbols)):
             result[fiat_asset] = [Decimal('1.0')] * ((end - start) // interval)
+
+        # # Validate we have enough data points.
+        # num_points = (end - start) // interval
+        # for asset, prices in result.items():
+        #     if len(prices) != num_points:
+        #         raise ValueError(
+        #             f'Expected {num_points} price points for {asset} but got {len(prices)}'
+        #         )
 
         return result
 
