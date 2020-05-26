@@ -76,8 +76,13 @@ class Rust(Solver):
         # Build Rust and copy to dist folder if current version missing.
         if not dst_path.is_file():
             _log.info('compiling rust module')
-            proc = await asyncio.create_subprocess_shell('cargo build --release', cwd=src_dir)
-            await proc.communicate()
+            proc = await asyncio.create_subprocess_shell(
+                'cargo build --release',
+                cwd=src_dir,
+                # stdout=asyncio.subprocess.PIPE,
+                # stderr=asyncio.subprocess.PIPE,
+            )
+            await proc.wait()
             if proc.returncode != 0:
                 raise Exception(f'rust module compilation failed ({proc.returncode})')
             await asyncio.get_running_loop().run_in_executor(
@@ -133,24 +138,25 @@ class Rust(Solver):
             setattr(c_strategy_info, n, value)
 
         # Analysis.
-        num_days = len(config.fiat_daily_prices['btc'])
-        c_quote_fiat_daily = self._get_or_create_c_prices(
-            ('btc-eur', DAY_MS, config.start, config.end), config.fiat_daily_prices['btc']
+        num_days = len(config.fiat_prices['btc'])
+        analysis_interval = max(DAY_MS, config.interval)
+        c_quote_fiat_prices = self._get_or_create_c_prices(
+            ('btc-eur', analysis_interval, config.start, config.end), config.fiat_prices['btc']
         )
-        c_base_fiat_daily = self._get_or_create_c_prices(
-            (f'{config.base_asset}-eur', DAY_MS, config.start, config.end),
-            config.fiat_daily_prices[config.base_asset],
+        c_base_fiat_prices = self._get_or_create_c_prices(
+            (f'{config.base_asset}-eur', analysis_interval, config.start, config.end),
+            config.fiat_prices[config.base_asset],
         )
 
         c_benchmark_g_returns = self._get_or_create_c_series(
-            ('btc-eur', DAY_MS, config.start, config.end), config.benchmark_g_returns
+            ('btc-eur', analysis_interval, config.start, config.end), config.benchmark_g_returns
         )
 
         c_analysis_info = self._ffi.new('AnalysisInfo *')
-        c_analysis_info.quote_fiat_daily = c_quote_fiat_daily
-        c_analysis_info.quote_fiat_daily_length = num_days
-        c_analysis_info.base_fiat_daily = c_base_fiat_daily
-        c_analysis_info.base_fiat_daily_length = num_days
+        c_analysis_info.quote_fiat_prices = c_quote_fiat_prices
+        c_analysis_info.quote_fiat_prices_length = num_days
+        c_analysis_info.base_fiat_prices = c_base_fiat_prices
+        c_analysis_info.base_fiat_prices_length = num_days
         c_analysis_info.benchmark_g_returns = c_benchmark_g_returns
         c_analysis_info.benchmark_g_returns_length = config.benchmark_g_returns.size
 
@@ -240,8 +246,8 @@ def _build_cdef() -> str:
         _cdef_builder.struct(SolverResult),
         _cdef_builder.struct_from_fields(
             'AnalysisInfo',
-            ('quote_fiat_daily', List[Decimal]),
-            ('base_fiat_daily', List[Decimal]),
+            ('quote_fiat_prices', List[Decimal]),
+            ('base_fiat_prices', List[Decimal]),
             ('benchmark_g_returns', List[Decimal])
         ),
         _cdef_builder.struct_from_fields(

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import discord
 
@@ -56,34 +57,39 @@ class Discord(discord.Client, Plugin):
         @self._events.on(agent_name, 'starting')
         async def on_starting(config: Any) -> None:
             await self._send_message(
-                channel_id, format_message('starting with config', format_as_config(config))
+                channel_id,
+                format_message('starting with config', format_as_config(config), lang='json')
             )
 
-        @self._events.on(agent_name, 'position_opened')
-        async def on_position_opened(position: Position, summary: TradingSummary) -> None:
-            await self._send_message(
-                channel_id,
-                format_message(
-                    f'opened {"long" if isinstance(position, Position.OpenLong) else "short"} '
-                    'position',
-                    format_as_config(extract_public(position, exclude=['fills'])),
-                    lang='json',
-                ),
-            )
-
-        @self._events.on(agent_name, 'position_closed')
-        async def on_position_closed(position: Position, summary: TradingSummary) -> None:
-            # We send separate messages to avoid exhausting max message length limit.
-            await self._send_message(
-                channel_id,
-                format_message(
-                    f'closed {"long" if isinstance(position, Position.Long) else "short"} '
-                    'position',
-                    format_as_config(
-                        extract_public(position, exclude=['open_fills', 'close_fills'])
+        @self._events.on(agent_name, 'positions_opened')
+        async def on_positions_opened(positions: List[Position], summary: TradingSummary) -> None:
+            await asyncio.gather(
+                *(self._send_message(
+                    channel_id,
+                    format_message(
+                        f'opened {"long" if isinstance(p, Position.OpenLong) else "short"} '
+                        'position',
+                        format_as_config(extract_public(p, exclude=['fills'])),
+                        lang='json',
                     ),
-                    lang='json',
-                ),
+                ) for p in positions)
+            )
+
+        @self._events.on(agent_name, 'positions_closed')
+        async def on_positions_closed(positions: List[Position], summary: TradingSummary) -> None:
+            # We send separate messages to avoid exhausting max message length limit.
+            await asyncio.gather(
+                *(self._send_message(
+                    channel_id,
+                    format_message(
+                        f'closed {"long" if isinstance(p, Position.Long) else "short"} '
+                        'position',
+                        format_as_config(
+                            extract_public(p, exclude=['open_fills', 'close_fills'])
+                        ),
+                        lang='json',
+                    ),
+                ) for p in positions)
             )
             await self._send_message(
                 channel_id,

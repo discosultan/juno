@@ -13,7 +13,9 @@ from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp
-from juno.trading import Position, PositionMixin, SimulatedPositionMixin, TradingSummary
+from juno.trading import (
+    CloseReason, Position, PositionMixin, SimulatedPositionMixin, TradingSummary
+)
 from juno.typing import TypeConstructor
 from juno.utils import extract_public
 
@@ -44,17 +46,24 @@ class _SymbolState:
     @property
     def advice(self) -> Advice:
         return (
-            self.override_changed.prevailing_advice
-            if self.override_changed.prevailing_advice is not Advice.NONE
-            else self.changed.prevailing_advice
+            self.changed.prevailing_advice
+            if self.override_changed.prevailing_advice is Advice.NONE
+            else self.override_changed.prevailing_advice
         )
 
     @property
     def advice_age(self) -> int:
         return (
-            self.override_changed.prevailing_advice_age
-            if self.override_changed.prevailing_advice is not Advice.NONE
-            else self.changed.prevailing_advice_age
+            self.changed.prevailing_advice_age
+            if self.override_changed.prevailing_advice is Advice.NONE
+            else self.override_changed.prevailing_advice_age
+        )
+
+    @property
+    def reason(self) -> CloseReason:
+        return (
+            CloseReason.STRATEGY if self.override_changed.prevailing_advice is Advice.NONE
+            else CloseReason.TRAILING_STOP
         )
 
 
@@ -199,6 +208,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             else:
                 state.summary.finish(start)
 
+        _log.info('finished')
         return state.summary
 
     async def _find_top_symbols(self, config: Config) -> List[str]:
@@ -228,7 +238,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         self, config: Config, state: State, candles_updated: SlotBarrier,
         trackers_ready: Dict[str, Event]
     ) -> None:
-        to_process: List[Coroutine[None, None, None]] = []
+        to_process: List[Coroutine[None, None, Position.Any]] = []
         while True:
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()
@@ -242,17 +252,20 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                     and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]
                 ):
                     to_process.append(
-                        self._close_long_position(config, state, ss, ss.last_candle)
+                        self._close_long_position(config, state, ss, ss.last_candle, ss.reason)
                     )
                 elif (
                     isinstance(ss.open_position, Position.OpenShort)
                     and ss.advice in [Advice.LIQUIDATE, Advice.LONG]
                 ):
                     to_process.append(
-                        self._close_short_position(config, state, ss, ss.last_candle)
+                        self._close_short_position(config, state, ss, ss.last_candle, ss.reason)
                     )
             if len(to_process) > 0:
-                await asyncio.gather(*to_process)
+                positions = await asyncio.gather(*to_process)
+                await self._events.emit(
+                    config.channel, 'positions_closed', [positions], state.summary
+                )
 
             # Try open new positions.
             to_process.clear()
@@ -275,7 +288,10 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                     to_process.append(self._open_short_position(config, state, ss, ss.last_candle))
                     available -= 1
             if len(to_process) > 0:
-                await asyncio.gather(*to_process)
+                positions = await asyncio.gather(*to_process)
+                await self._events.emit(
+                    config.channel, 'positions_opened', [positions], state.summary
+                )
 
             # Clear barrier for next update.
             candles_updated.clear()
@@ -401,23 +417,26 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         await ready.wait()
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
-        to_close = []
+        to_close: List[Coroutine[None, None, Position.Closed]] = []
         for ss in state.symbol_states.values():
             assert ss.last_candle
             if isinstance(ss.open_position, Position.OpenLong):
                 to_close.append(self._close_long_position(
-                    config, state, ss, ss.last_candle
+                    config, state, ss, ss.last_candle, CloseReason.CANCELLED
                 ))
             elif isinstance(ss.open_position, Position.OpenShort):
                 to_close.append(self._close_short_position(
-                    config, state, ss, ss.last_candle
+                    config, state, ss, ss.last_candle, CloseReason.CANCELLED
                 ))
         if len(to_close) > 0:
-            await asyncio.gather(*to_close)
+            positions = await asyncio.gather(*to_close)
+            await self._events.emit(
+                config.channel, 'positions_closed', [positions], state.summary
+            )
 
     async def _open_long_position(
         self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
-    ) -> None:
+    ) -> Position.OpenLong:
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
@@ -441,13 +460,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'{symbol_state.symbol} long position opened: {candle}')
         _log.debug(extract_public(position))
-        await self._events.emit(
-            config.channel, 'position_opened', position, state.summary
-        )
+        return position
 
     async def _close_long_position(
-        self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
-    ) -> None:
+        self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle,
+        reason: CloseReason
+    ) -> Position.Long:
         assert state.summary
         assert isinstance(symbol_state.open_position, Position.OpenLong)
 
@@ -456,10 +474,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 position=symbol_state.open_position,
                 time=candle.time,
                 test=config.test,
+                reason=reason,
             ) if self._broker else self.close_simulated_long_position(
                 position=symbol_state.open_position,
                 time=candle.time,
                 price=candle.close,
+                reason=reason,
             )
         )
 
@@ -474,11 +494,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'{position.symbol} long position closed: {candle}')
         _log.debug(extract_public(position))
-        await self._events.emit(config.channel, 'position_closed', position, state.summary)
+        return position
 
     async def _open_short_position(
         self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
-    ) -> None:
+    ) -> Position.OpenShort:
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
@@ -488,7 +508,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 time=candle.time,
                 price=candle.close,
                 collateral=symbol_state.allocated_quote,
-                test=False,
+                test=config.test,
             ) if self._broker else self.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
@@ -505,13 +525,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'{symbol_state.symbol} short position opened: {candle}')
         _log.debug(extract_public(position))
-        await self._events.emit(
-            config.channel, 'position_opened', position, state.summary
-        )
+        return position
 
     async def _close_short_position(
-        self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
-    ) -> None:
+        self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle,
+        reason: CloseReason
+    ) -> Position.Short:
         assert state.summary
         assert isinstance(symbol_state.open_position, Position.OpenShort)
 
@@ -520,11 +539,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                 position=symbol_state.open_position,
                 time=candle.time,
                 price=candle.close,
-                test=False,
+                test=config.test,
+                reason=reason,
             ) if self._broker else self.close_simulated_short_position(
                 position=symbol_state.open_position,
                 time=candle.time,
                 price=candle.close,
+                reason=reason,
             )
         )
 
@@ -537,4 +558,4 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         _log.info(f'{position.symbol} short position closed: {candle}')
         _log.debug(extract_public(position))
-        await self._events.emit(config.channel, 'position_closed', position, state.summary)
+        return position

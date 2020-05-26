@@ -92,18 +92,18 @@ async def main() -> None:
     python_solver = optimization.Python(informant=informant)
     async with binance, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        fiat_daily_prices = await prices.map_prices(
+        fiat_prices = await prices.map_prices(
             exchange='binance',
             symbols=[SYMBOL],
             start=start,
             end=end,
         )
-        benchmark = analyse_benchmark(fiat_daily_prices['btc'])
+        benchmark = analyse_benchmark(fiat_prices['btc'])
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
         solver_config = optimization.Solver.Config(
-            fiat_daily_prices=fiat_daily_prices,
+            fiat_prices=fiat_prices,
             benchmark_g_returns=benchmark.g_returns,
             strategy_type=strategies.MAMACX,
             start=start,
@@ -156,9 +156,7 @@ async def main() -> None:
             long=LONG,
             short=SHORT,
         ))
-        portfolio = analyse_portfolio(
-            benchmark.g_returns, fiat_daily_prices, trading_summary
-        )
+        portfolio = analyse_portfolio(benchmark.g_returns, fiat_prices, trading_summary)
 
         logging.info('=== rust solver ===')
         logging.info(f'alpha {rust_result.alpha}')

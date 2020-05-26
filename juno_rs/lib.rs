@@ -121,13 +121,13 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
 
     // Analysis.
     let analysis_info = &*analysis_info;
-    let quote_fiat_daily = slice::from_raw_parts(
-        analysis_info.quote_fiat_daily,
-        analysis_info.quote_fiat_daily_length as usize,
+    let quote_fiat_prices = slice::from_raw_parts(
+        analysis_info.quote_fiat_prices,
+        analysis_info.quote_fiat_prices_length as usize,
     );
-    let base_fiat_daily = slice::from_raw_parts(
-        analysis_info.base_fiat_daily,
-        analysis_info.base_fiat_daily_length as usize,
+    let base_fiat_prices = slice::from_raw_parts(
+        analysis_info.base_fiat_prices,
+        analysis_info.base_fiat_prices_length as usize,
     );
     let benchmark_g_returns = slice::from_raw_parts(
         analysis_info.benchmark_g_returns,
@@ -135,8 +135,8 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     );
 
     let analysis_result = analyse(
-        quote_fiat_daily,
-        base_fiat_daily,
+        quote_fiat_prices,
+        base_fiat_prices,
         benchmark_g_returns,
         &trading_result,
     );
@@ -159,10 +159,10 @@ pub struct Result(f64); // (f64, f64, f64, f64, f64, u64, u32, u32);
 
 #[repr(C)]
 pub struct AnalysisInfo {
-    quote_fiat_daily: *const f64,
-    quote_fiat_daily_length: u32,
-    base_fiat_daily: *const f64,
-    base_fiat_daily_length: u32,
+    quote_fiat_prices: *const f64,
+    quote_fiat_prices_length: u32,
+    base_fiat_prices: *const f64,
+    base_fiat_prices_length: u32,
     benchmark_g_returns: *const f64,
     benchmark_g_returns_length: u32,
 }

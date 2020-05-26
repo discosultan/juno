@@ -3,7 +3,7 @@ from decimal import Decimal
 import pytest
 
 from juno import Fill
-from juno.trading import Position, TradingSummary
+from juno.trading import CloseReason, Position, TradingSummary
 
 
 def test_long_position() -> None:
@@ -26,6 +26,7 @@ def test_long_position() -> None:
                 fee=Decimal('1.0'), fee_asset='btc'
             )
         ],
+        reason=CloseReason.STRATEGY,
     )
 
     assert pos.cost == 12  # 6 * 2
@@ -59,6 +60,7 @@ def test_long_position_annualized_roi_overflow() -> None:
                 fee=Decimal('0.0'), fee_asset='btc'
             )
         ],
+        reason=CloseReason.STRATEGY,
     )
 
     assert pos.annualized_roi == Decimal('Inf')
@@ -107,5 +109,6 @@ def new_closed_long_position(profit: Decimal) -> Position.Long:
         time=1,
         fills=[
             Fill(price=price, size=size, quote=Decimal(price * size), fee_asset='btc'),
-        ]
+        ],
+        reason=CloseReason.STRATEGY,
     )

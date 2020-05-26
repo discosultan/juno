@@ -95,17 +95,17 @@ async def test_rust_solver_works_with_default_fees_filters() -> None:
         load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
         List[Candle]
     )
-    fiat_daily_candles = {
+    fiat_prices = {
         'btc': [c.close for c in statistics_fiat_candles],
         'eth': [c1.close * c2.close for c1, c2 in zip(statistics_candles, statistics_fiat_candles)]
     }
-    benchmark_stats = analyse_benchmark(fiat_daily_candles['btc'])
+    benchmark_stats = analyse_benchmark(fiat_prices['btc'])
     strategy_args = (11, 21, Decimal('-0.229'), Decimal('0.1'), 4, 'ema', 'ema')
 
     async with Rust(informant=fakes.Informant()) as rust_solver:
         result = rust_solver.solve(
             Rust.Config(
-                fiat_daily_prices=fiat_daily_candles,
+                fiat_prices=fiat_prices,
                 benchmark_g_returns=benchmark_stats.g_returns,
                 strategy_type=MAMACX,
                 start=portfolio_candles[0].time,

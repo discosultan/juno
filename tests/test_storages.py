@@ -9,7 +9,7 @@ import pytest
 
 from juno import Candle, ExchangeInfo, Fees, Fill, Filters, Ticker, Trade, storages
 from juno.asyncio import list_async
-from juno.trading import Position, TradingSummary
+from juno.trading import CloseReason, Position, TradingSummary
 from juno.typing import types_match
 
 DECIMAL_TOO_PRECISE_FOR_FLOAT = Decimal('0.1234567890123456789012345678901234567890123456789')
@@ -97,6 +97,7 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
             open_fills=[Fill()],
             close_time=2,
             close_fills=[Fill()],
+            close_reason=CloseReason.STRATEGY,
         ),
         Position.Long,
     ),

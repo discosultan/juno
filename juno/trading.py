@@ -5,6 +5,7 @@ import statistics
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal, Overflow
+from enum import IntEnum
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Union
 
@@ -19,6 +20,12 @@ from juno.utils import unpack_symbol
 _log = logging.getLogger(__name__)
 
 
+class CloseReason(IntEnum):
+    STRATEGY = 0
+    TRAILING_STOP = 1
+    CANCELLED = 2
+
+
 class Position(ModuleType):
     # TODO: Add support for external token fees (i.e BNB)
     # Note that we cannot set the dataclass as frozen because that would break JSON
@@ -31,6 +38,7 @@ class Position(ModuleType):
         open_fills: List[Fill]
         close_time: Timestamp
         close_fills: List[Fill]
+        close_reason: CloseReason
 
         @property
         def cost(self) -> Decimal:
@@ -79,7 +87,9 @@ class Position(ModuleType):
         time: Timestamp
         fills: List[Fill]
 
-        def close(self, time: Timestamp, fills: List[Fill]) -> Position.Long:
+        def close(
+            self, time: Timestamp, fills: List[Fill], reason: CloseReason
+        ) -> Position.Long:
             return Position.Long(
                 exchange=self.exchange,
                 symbol=self.symbol,
@@ -87,6 +97,7 @@ class Position(ModuleType):
                 open_fills=self.fills,
                 close_time=time,
                 close_fills=fills,
+                close_reason=reason,
             )
 
         @property
@@ -107,6 +118,7 @@ class Position(ModuleType):
         open_fills: List[Fill]
         close_time: Timestamp
         close_fills: List[Fill]
+        close_reason: CloseReason
         interest: Decimal  # base
 
         @property
@@ -166,7 +178,10 @@ class Position(ModuleType):
         time: Timestamp
         fills: List[Fill]
 
-        def close(self, interest: Decimal, time: Timestamp, fills: List[Fill]) -> Position.Short:
+        def close(
+            self, interest: Decimal, time: Timestamp, fills: List[Fill],
+            reason: CloseReason
+        ) -> Position.Short:
             return Position.Short(
                 exchange=self.exchange,
                 symbol=self.symbol,
@@ -176,6 +191,7 @@ class Position(ModuleType):
                 open_fills=self.fills,
                 close_time=time,
                 close_fills=fills,
+                close_reason=reason,
                 interest=interest,
             )
 
@@ -298,6 +314,10 @@ class TradingSummary:
     @staticmethod
     def _num_positions_in_loss(positions: Iterable[Position.Closed]) -> int:
         return sum(1 for p in positions if p.profit < 0)
+
+    @property
+    def num_trailing_stops(self) -> int:
+        return sum(1 for p in self._positions if p.close_reason is CloseReason.TRAILING_STOP)
 
     @property
     def mean_position_profit(self) -> Decimal:
@@ -424,7 +444,8 @@ class SimulatedPositionMixin(ABC):
 
     # TODO: Take exchange from position?
     def close_simulated_long_position(
-        self, position: Position.OpenLong, time: Timestamp, price: Decimal
+        self, position: Position.OpenLong, time: Timestamp, price: Decimal,
+        reason: CloseReason
     ) -> Position.Long:
         _, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -438,6 +459,7 @@ class SimulatedPositionMixin(ABC):
             fills=[Fill(
                 price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset
             )],
+            reason=reason,
         )
 
     def open_simulated_short_position(
@@ -463,7 +485,8 @@ class SimulatedPositionMixin(ABC):
         )
 
     def close_simulated_short_position(
-        self, position: Position.OpenShort, time: Timestamp, price: Decimal
+        self, position: Position.OpenShort, time: Timestamp, price: Decimal,
+        reason: CloseReason
     ) -> Position.Short:
         base_asset, _ = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -486,6 +509,7 @@ class SimulatedPositionMixin(ABC):
             fills=[Fill(
                 price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
             )],
+            reason=reason,
         )
 
 
@@ -523,7 +547,7 @@ class PositionMixin(ABC):
         )
 
     async def close_long_position(
-        self, position: Position.OpenLong, time: Timestamp, test: bool
+        self, position: Position.OpenLong, time: Timestamp, test: bool, reason: CloseReason
     ) -> Position.Long:
         res = await self.broker.sell(
             exchange=position.exchange,
@@ -535,6 +559,7 @@ class PositionMixin(ABC):
         return position.close(
             time=time,
             fills=res.fills,
+            reason=reason,
         )
 
     async def open_short_position(
@@ -573,7 +598,8 @@ class PositionMixin(ABC):
         )
 
     async def close_short_position(
-        self, position: Position.OpenShort, time: Timestamp, price: Decimal, test: bool
+        self, position: Position.OpenShort, time: Timestamp, price: Decimal, test: bool,
+        reason: CloseReason
     ) -> Position.Short:
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -603,6 +629,7 @@ class PositionMixin(ABC):
             interest=interest,
             time=time,
             fills=res.fills,
+            reason=reason,
         )
         if not test:
             _log.info(

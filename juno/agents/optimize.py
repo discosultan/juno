@@ -36,6 +36,8 @@ class Optimize(Agent):
         mutation_probability: Decimal = Decimal('0.2')
         seed: Optional[int] = None
         verbose: bool = False
+        fiat_exchange: Optional[str] = None
+        fiat_asset: str = 'usdt'
 
     @dataclass
     class State:
@@ -71,6 +73,8 @@ class Optimize(Agent):
             mutation_probability=config.mutation_probability,
             seed=config.seed,
             verbose=config.verbose,
+            fiat_exchange=config.fiat_exchange,
+            fiat_asset=config.fiat_asset,
             summary=state.result,
         )
 

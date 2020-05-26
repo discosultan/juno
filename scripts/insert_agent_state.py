@@ -7,7 +7,7 @@ from juno.agents import Agent, AgentStatus
 from juno.storages import SQLite
 from juno.strategies import MAMACX
 from juno.traders import Basic
-from juno.trading import Position, TradingSummary
+from juno.trading import CloseReason, Position, TradingSummary
 from juno.utils import extract_public, format_as_config
 
 
@@ -41,6 +41,7 @@ async def main() -> None:
                     precision=8,
                 ),
             ],
+            close_reason=CloseReason.STRATEGY,
         )
     )
     trading_summary.append_position(
@@ -67,6 +68,7 @@ async def main() -> None:
                     precision=8,
                 ),
             ],
+            close_reason=CloseReason.STRATEGY,
         )
     )
     trader_state = Basic.State(
