@@ -175,7 +175,15 @@ class Trades:
                         break
 
                     # Skip if trade was already retrieved from historical.
-                    if skipping_existing and trade.id > 0 and trade.id in last_trade_ids:
+                    # If we start the websocket connection during a trade, we can also receive
+                    # the same trade from here that we already got from historical.
+                    if (
+                        skipping_existing
+                        and (
+                            trade.id > 0 and trade.id in last_trade_ids
+                            or trade.time < current
+                        )
+                    ):
                         continue
                     else:
                         skipping_existing = False

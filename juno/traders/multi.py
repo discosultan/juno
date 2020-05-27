@@ -154,7 +154,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         # Resolve start.
         if (start := config.start) is None:
             first_candles = await asyncio.gather(
-                *(self._chandler.find_first_candle(
+                *(self._chandler.get_first_candle(
                     config.exchange, s, config.interval
                 ) for s in symbols)
             )
@@ -219,7 +219,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         if config.track_required_start is not None:
             first_candles = await asyncio.gather(
                 *(
-                    self._chandler.find_first_candle(config.exchange, t.symbol, config.interval)
+                    self._chandler.get_first_candle(config.exchange, t.symbol, config.interval)
                     for t in tickers
                 )
             )
