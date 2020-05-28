@@ -87,3 +87,20 @@ async def test_stream_trades(storage: Storage, start, end, efrom, eto, espans) -
     assert output_trades == expected_trades
     assert stored_trades == output_trades
     assert stored_spans == espans
+
+
+async def test_stream_trades_no_duplicates_if_same_trade_from_rest_and_websocket(
+    storage
+) -> None:
+    time = fakes.Time(1)
+    exchange = fakes.Exchange(
+        historical_trades=[Trade(time=0)],
+        future_trades=[Trade(time=0), Trade(time=1), Trade(time=2)],
+    )
+    trades = Trades(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
+
+    count = 0
+    async for trade in trades.stream_trades('exchange', 'eth-btc', 0, 2):
+        time.time = trade.time + 1
+        count += 1
+    assert count == 2

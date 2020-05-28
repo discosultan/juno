@@ -119,7 +119,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         # Resolve start.
         if (start := config.start) is None:
-            start = (await self._chandler.find_first_candle(
+            start = (await self._chandler.get_first_candle(
                 config.exchange, config.symbol, config.interval
             )).time
             _log.info(f'start not specified; start set to {strftimestamp(start)}')

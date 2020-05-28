@@ -241,7 +241,10 @@ class Chandler:
                         yield candle
             if stream:  # Future.
                 async for candle in stream:
-                    if candle.time < start:
+                    # If we start the websocket connection while candle is closing, we can also
+                    # receive the same candle from here that we already got from historical.
+                    # Ignore such candles.
+                    if candle.time < current:
                         continue
 
                     if candle.time >= end:
@@ -363,7 +366,7 @@ class Chandler:
                 low = trade.price
                 close = trade.price
 
-    async def find_first_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
+    async def get_first_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
         shard = key(exchange, symbol, interval)
         candle = await self._storage.get(
             shard=shard,
@@ -415,3 +418,11 @@ class Chandler:
                 break
 
         raise ValueError('First candle not found')
+
+    async def get_last_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
+        now = self._get_time_ms()
+        end = floor_multiple(now, interval)
+        start = end - interval
+        return await first_async(self._exchanges[exchange].stream_historical_candles(
+            symbol=symbol, interval=interval, start=start, end=end
+        ))

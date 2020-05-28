@@ -154,7 +154,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         # Resolve start.
         if (start := config.start) is None:
             first_candles = await asyncio.gather(
-                *(self._chandler.find_first_candle(
+                *(self._chandler.get_first_candle(
                     config.exchange, s, config.interval
                 ) for s in symbols)
             )
@@ -219,7 +219,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         if config.track_required_start is not None:
             first_candles = await asyncio.gather(
                 *(
-                    self._chandler.find_first_candle(config.exchange, t.symbol, config.interval)
+                    self._chandler.get_first_candle(config.exchange, t.symbol, config.interval)
                     for t in tickers
                 )
             )
@@ -264,7 +264,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             if len(to_process) > 0:
                 positions = await asyncio.gather(*to_process)
                 await self._events.emit(
-                    config.channel, 'positions_closed', [positions], state.summary
+                    config.channel, 'positions_closed', positions, state.summary
                 )
 
             # Try open new positions.
@@ -290,7 +290,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             if len(to_process) > 0:
                 positions = await asyncio.gather(*to_process)
                 await self._events.emit(
-                    config.channel, 'positions_opened', [positions], state.summary
+                    config.channel, 'positions_opened', positions, state.summary
                 )
 
             # Clear barrier for next update.
@@ -431,7 +431,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         if len(to_close) > 0:
             positions = await asyncio.gather(*to_close)
             await self._events.emit(
-                config.channel, 'positions_closed', [positions], state.summary
+                config.channel, 'positions_closed', positions, state.summary
             )
 
     async def _open_long_position(

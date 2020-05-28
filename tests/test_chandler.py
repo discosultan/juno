@@ -280,11 +280,28 @@ async def test_stream_candles_construct_from_trades_if_interval_not_supported(
     ]
 
 
+async def test_stream_candles_no_duplicates_if_same_candle_from_rest_and_websocket(
+    storage
+) -> None:
+    time = fakes.Time(1)
+    exchange = fakes.Exchange(
+        historical_candles=[Candle(time=0)],
+        future_candles=[Candle(time=0), Candle(time=1)],
+    )
+    chandler = Chandler(storage=storage, exchanges=[exchange], get_time_ms=time.get_time)
+
+    count = 0
+    async for candle in chandler.stream_candles('exchange', 'eth-btc', 1, 0, 2):
+        time.time = candle.time + 1
+        count += 1
+    assert count == 2
+
+
 @pytest.mark.parametrize('earliest_exchange_start,time', [
     (10, 20),  # Simple happy flow.
     (0, 16),  # `final_end` and start not being over-adjusted.
 ])
-async def test_find_first_candle(storage, earliest_exchange_start, time) -> None:
+async def test_get_first_candle_by_search(storage, earliest_exchange_start, time) -> None:
     candles = [
         Candle(time=12),
         Candle(time=14),
@@ -300,7 +317,7 @@ async def test_find_first_candle(storage, earliest_exchange_start, time) -> None
         earliest_exchange_start=earliest_exchange_start,
     )
 
-    first_candle = await chandler.find_first_candle('exchange', 'eth-btc', 2)
+    first_candle = await chandler.get_first_candle('exchange', 'eth-btc', 2)
 
     assert first_candle.time == 12
 
@@ -309,7 +326,9 @@ async def test_find_first_candle(storage, earliest_exchange_start, time) -> None
     (1, 2),  # No candles
     (0, 1),  # Single last candle.
 ])
-async def test_find_first_candle_not_found(storage, earliest_exchange_start, time) -> None:
+async def test_get_first_candle_by_search_not_found(
+    storage, earliest_exchange_start, time
+) -> None:
     exchange = fakes.Exchange(historical_candles=[Candle(time=0)])
     exchange.can_stream_historical_earliest_candle = False
     chandler = Chandler(
@@ -320,10 +339,10 @@ async def test_find_first_candle_not_found(storage, earliest_exchange_start, tim
     )
 
     with pytest.raises(ValueError):
-        await chandler.find_first_candle('exchange', 'eth-btc', 1)
+        await chandler.get_first_candle('exchange', 'eth-btc', 1)
 
 
-async def test_first_candle_caching_to_storage(storage) -> None:
+async def test_get_first_candle_caching_to_storage(storage) -> None:
     exchange = fakes.Exchange(historical_candles=[Candle()])
     chandler = Chandler(
         storage=storage,
@@ -331,12 +350,25 @@ async def test_first_candle_caching_to_storage(storage) -> None:
         earliest_exchange_start=0,
     )
 
-    await chandler.find_first_candle('exchange', 'eth-btc', 1)
+    await chandler.get_first_candle('exchange', 'eth-btc', 1)
 
     assert len(storage.get_calls) == 1
     assert len(storage.set_calls) == 1
 
-    await chandler.find_first_candle('exchange', 'eth-btc', 1)
+    await chandler.get_first_candle('exchange', 'eth-btc', 1)
 
     assert len(storage.get_calls) == 2
     assert len(storage.set_calls) == 1
+
+
+async def test_get_last_candle(storage) -> None:
+    exchange = fakes.Exchange(historical_candles=[Candle(time=0), Candle(time=2)])
+    chandler = Chandler(
+        storage=storage,
+        exchanges=[exchange],
+        get_time_ms=fakes.Time(4).get_time,
+    )
+
+    candle = await chandler.get_last_candle('exchange', 'eth-btc', 2)
+
+    assert candle.time == 2

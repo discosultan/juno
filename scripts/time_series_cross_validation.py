@@ -40,7 +40,7 @@ async def main() -> None:
         trader=trader,
     )
     async with binance, coinbase, informant, rust_solver:
-        first_candle = await chandler.find_first_candle(exchange_name, SYMBOL, INTERVAL)
+        first_candle = await chandler.get_first_candle(exchange_name, SYMBOL, INTERVAL)
         training_start = floor_multiple(first_candle.time, INTERVAL)
         validation_end = floor_multiple(time.time_ms(), INTERVAL)
         validation_start = floor_multiple(

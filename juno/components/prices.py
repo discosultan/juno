@@ -107,7 +107,7 @@ class Prices:
         return result
 
     async def _validate_start(self, exchange: str, symbol: str, interval: int, start: int) -> None:
-        first = await self._chandler.find_first_candle(exchange, symbol, interval)
+        first = await self._chandler.get_first_candle(exchange, symbol, interval)
         if first.time > start:
             raise ValueError(
                 f'Unable to map prices; first candle for {symbol} at {strftimestamp(first.time)} '

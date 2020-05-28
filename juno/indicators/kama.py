@@ -13,8 +13,8 @@ class Kama:
     _long_alpha: Decimal
 
     # _prev_price: Decimal
-    _prices: Deque
-    _diffs: Deque
+    _prices: Deque[Decimal]
+    _diffs: Deque[Decimal]
 
     _t: int = -1
     _t1: int

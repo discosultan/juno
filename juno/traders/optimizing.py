@@ -93,7 +93,7 @@ class Optimizing(Trader):
         symbols = []
         skipped_symbols = []
         for ticker in tickers:
-            first_candle = await self._chandler.find_first_candle(exchange, ticker.symbol, DAY_MS)
+            first_candle = await self._chandler.get_first_candle(exchange, ticker.symbol, DAY_MS)
             if first_candle.time > required_start:
                 skipped_symbols.append(ticker.symbol)
                 continue
@@ -124,7 +124,7 @@ class Optimizing(Trader):
         summary: TradingSummary,
     ) -> None:
         optimization_start = (
-            await self._chandler.find_first_candle(config.exchange, symbol, DAY_MS)
+            await self._chandler.get_first_candle(config.exchange, symbol, DAY_MS)
         ).time
 
         if optimization_start > trading_start:

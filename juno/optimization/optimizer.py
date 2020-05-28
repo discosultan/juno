@@ -104,7 +104,7 @@ class Optimizer:
             # period would be same in all cases.
             first_candles = await asyncio.gather(
                 *(
-                    self._chandler.find_first_candle(exchange, s, i)
+                    self._chandler.get_first_candle(exchange, s, i)
                     for s, i in product(symbols, intervals)
                 )
             )
