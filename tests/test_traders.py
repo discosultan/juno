@@ -319,6 +319,43 @@ async def test_basic_persist_and_resume(storage: fakes.Storage) -> None:
     assert candle_times[5] == 5
 
 
+async def test_basic_summary_end_on_cancel(storage: fakes.Storage) -> None:
+    chandler = fakes.Chandler(future_candles={('dummy', 'eth-btc', 1): [Candle(time=1)]})
+    time = fakes.Time(0)
+    trader = traders.Basic(
+        chandler=chandler, informant=fakes.Informant(), get_time_ms=time.get_time
+    )
+
+    config = traders.Basic.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=10,
+        quote=Decimal('1.0'),
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['none'] * 100,
+            },
+        ),
+    )
+    state = traders.Basic.State()
+
+    trader_run_task = asyncio.create_task(trader.run(config, state))
+
+    future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
+    await future_candle_queue.join()
+
+    time.time = 5
+    await cancel(trader_run_task)
+
+    assert state.summary
+    assert state.summary.start == 0
+    assert state.summary.end == 5
+
+
 async def test_multi() -> None:
     symbols = ['eth-btc', 'ltc-btc', 'xmr-btc']
     chandler = fakes.Chandler(
@@ -384,23 +421,23 @@ async def test_multi() -> None:
     assert len(long_positions) == 3
     assert len(short_positions) == 1
     pos = long_positions[0]
-    assert pos.open_time == 0
-    assert pos.close_time == 1
+    assert pos.open_time == 1
+    assert pos.close_time == 2
     assert pos.symbol == 'eth-btc'
     assert pos.close_reason is CloseReason.STRATEGY
     pos = long_positions[1]
-    assert pos.open_time == 0
-    assert pos.close_time == 1
+    assert pos.open_time == 1
+    assert pos.close_time == 2
     assert pos.symbol == 'ltc-btc'
     assert pos.close_reason is CloseReason.STRATEGY
     pos = long_positions[2]
-    assert pos.open_time == 1
-    assert pos.close_time == 3
+    assert pos.open_time == 2
+    assert pos.close_time == 4
     assert pos.symbol == 'xmr-btc'
     assert pos.close_reason is CloseReason.CANCELLED
     pos = short_positions[0]
-    assert pos.open_time == 2
-    assert pos.close_time == 3
+    assert pos.open_time == 3
+    assert pos.close_time == 4
     assert pos.symbol == 'eth-btc'
     assert pos.close_reason is CloseReason.CANCELLED
 
@@ -472,23 +509,23 @@ async def test_multi_persist_and_resume(storage: fakes.Storage) -> None:
     assert len(long_positions) == 2
     assert len(short_positions) == 2
     pos = long_positions[0]
-    assert pos.open_time == 0
-    assert pos.close_time == 0
+    assert pos.open_time == 1
+    assert pos.close_time == 1
     assert pos.symbol == 'eth-btc'
     assert pos.close_reason is CloseReason.CANCELLED
     pos = long_positions[1]
-    assert pos.open_time == 1
-    assert pos.close_time == 1
+    assert pos.open_time == 2
+    assert pos.close_time == 2
     assert pos.symbol == 'ltc-btc'
     assert pos.close_reason is CloseReason.CANCELLED
     pos = short_positions[0]
-    assert pos.open_time == 2
-    assert pos.close_time == 2
+    assert pos.open_time == 3
+    assert pos.close_time == 3
     assert pos.symbol == 'eth-btc'
     assert pos.close_reason is CloseReason.CANCELLED
     pos = short_positions[1]
-    assert pos.open_time == 3
-    assert pos.close_time == 3
+    assert pos.open_time == 4
+    assert pos.close_time == 4
     assert pos.symbol == 'ltc-btc'
     assert pos.close_reason is CloseReason.CANCELLED
 
@@ -531,13 +568,13 @@ async def test_multi_historical() -> None:
     assert len(long_positions) == 2
     pos = long_positions[0]
     assert pos.symbol == 'eth-btc'
-    assert pos.open_time == 0
-    assert pos.close_time == 9
+    assert pos.open_time == 1
+    assert pos.close_time == 10
     assert pos.close_reason is CloseReason.CANCELLED
     pos = long_positions[1]
     assert pos.symbol == 'ltc-btc'
-    assert pos.open_time == 5
-    assert pos.close_time == 9
+    assert pos.open_time == 6
+    assert pos.close_time == 10
     assert pos.close_reason is CloseReason.CANCELLED
 
 
@@ -583,10 +620,10 @@ async def test_multi_trailing_stop() -> None:
     long_positions = list(summary.get_long_positions())
     assert len(long_positions) == 2
     pos = long_positions[0]
-    assert pos.open_time == 0
-    assert pos.close_time == 1
+    assert pos.open_time == 1
+    assert pos.close_time == 2
     assert pos.close_reason is CloseReason.TRAILING_STOP
     pos = long_positions[1]
-    assert pos.open_time == 4
-    assert pos.close_time == 5
+    assert pos.open_time == 5
+    assert pos.close_time == 6
     assert pos.close_reason is CloseReason.CANCELLED

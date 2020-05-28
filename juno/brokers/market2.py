@@ -91,6 +91,7 @@ class Market2(Broker):
             )
 
             fills = []  # Fills from aggregated trades.
+            time = -1
             async for order in stream:
                 if order.client_id != client_id:
                     _log.debug(f'skipping order tracking; {order.client_id=} != {client_id=}')
@@ -101,9 +102,10 @@ class Market2(Broker):
                 elif isinstance(order, Order.Match):
                     fills.append(order.fill)
                 elif isinstance(order, Order.Done):
+                    time = order.time
                     _log.info(f'existing order {client_id} filled')
                     break
                 else:
                     raise NotImplementedError(order)
 
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return OrderResult(time=time, status=OrderStatus.FILLED, fills=fills)

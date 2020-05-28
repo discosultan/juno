@@ -43,7 +43,7 @@ async def test_market_insufficient_balance() -> None:
 
 async def test_market_buy() -> None:
     snapshot = Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
-    order_result = OrderResult(status=OrderStatus.FILLED, fills=[
+    order_result = OrderResult(time=0, status=OrderStatus.FILLED, fills=[
         Fill.with_computed_quote(
             price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
         ),
@@ -94,10 +94,12 @@ async def test_market2_buy() -> None:
             ),
         ))
         exchange.orders_queue.put_nowait(Order.Done(
+            time=1,
             client_id=order_client_id,
         ))
         res = await task
     assert res == OrderResult(
+        time=1,
         status=OrderStatus.FILLED,
         fills=[Fill.with_computed_quote(
             price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
@@ -115,7 +117,7 @@ async def test_limit_fill() -> None:
     exchange = fakes.Exchange(
         depth=snapshot,
         exchange_info=exchange_info,
-        place_order_result=OrderResult(status=OrderStatus.NEW, fills=[]),
+        place_order_result=OrderResult(time=0, status=OrderStatus.NEW),
         future_orders=[
             Order.New(
                 client_id=order_client_id,
@@ -141,6 +143,7 @@ async def test_limit_fill() -> None:
                 ),
             ),
             Order.Done(
+                time=0,
                 client_id=order_client_id,
             )
         ]
@@ -233,6 +236,7 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         )
         await exchange.orders_queue.put(
             Order.Done(
+                time=0,
                 client_id=order_client_id,
             )
         )

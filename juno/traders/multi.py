@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Coroutine, Dict, List, NamedTuple, Optional, Tuple
+from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
 from juno import Advice, Candle, Fill, Interval, Timestamp, math
 from juno.asyncio import Event, SlotBarrier
@@ -12,7 +12,7 @@ from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
-from juno.time import strftimestamp
+from juno.time import strftimestamp, time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 )
@@ -111,6 +111,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
         broker: Optional[Broker] = None,
         events: Events = Events(),
         exchanges: List[Exchange] = [],
+        get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
@@ -118,6 +119,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
         self._broker = broker
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_time_ms = get_time_ms
 
     @property
     def informant(self) -> Informant:
@@ -199,14 +201,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
                   for s, ss in state.symbol_states.items())
             )
         finally:
-            last_candle_times = [
-                s.last_candle.time for s in state.symbol_states.values() if s.last_candle
-            ]
-            if len(last_candle_times) > 0:
-                await self._close_all_open_positions(config, state)
-                state.summary.finish(max(last_candle_times) + config.interval)
-            else:
-                state.summary.finish(start)
+            await self._close_all_open_positions(config, state)
+            state.summary.finish(min(self._get_time_ms(), config.end))
 
         _log.info('finished')
         return state.summary
@@ -422,12 +418,13 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
         to_close: List[Coroutine[None, None, Position.Closed]] = []
         for ss in state.symbol_states.values():
-            assert ss.last_candle
             if isinstance(ss.open_position, Position.OpenLong):
+                assert ss.last_candle
                 to_close.append(self._close_long_position(
                     config, state, ss, ss.last_candle, CloseReason.CANCELLED
                 ))
             elif isinstance(ss.open_position, Position.OpenShort):
+                assert ss.last_candle
                 to_close.append(self._close_short_position(
                     config, state, ss, ss.last_candle, CloseReason.CANCELLED
                 ))
@@ -446,13 +443,12 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
             await self.open_long_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                time=candle.time,
                 quote=symbol_state.allocated_quote,
                 test=config.test,
             ) if self._broker else self.open_simulated_long_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 quote=symbol_state.allocated_quote,
             )
@@ -475,12 +471,11 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
         position = (
             await self.close_long_position(
                 position=symbol_state.open_position,
-                time=candle.time,
                 test=config.test,
                 reason=reason,
             ) if self._broker else self.close_simulated_long_position(
                 position=symbol_state.open_position,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )
@@ -508,14 +503,13 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
             await self.open_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                time=candle.time,
                 price=candle.close,
                 collateral=symbol_state.allocated_quote,
                 test=config.test,
             ) if self._broker else self.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 collateral=symbol_state.allocated_quote,
             )
@@ -540,13 +534,12 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
         position = (
             await self.close_short_position(
                 position=symbol_state.open_position,
-                time=candle.time,
                 price=candle.close,
                 test=config.test,
                 reason=reason,
             ) if self._broker else self.close_simulated_short_position(
                 position=symbol_state.open_position,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )

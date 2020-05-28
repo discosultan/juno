@@ -14,7 +14,7 @@ from juno.brokers import Broker
 from juno.components import Informant
 from juno.exchanges import Exchange
 from juno.math import ceil_multiple, round_down, round_half_up
-from juno.time import HOUR_MS, YEAR_MS
+from juno.time import HOUR_MS, YEAR_MS, time_ms
 from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
@@ -222,8 +222,6 @@ class TradingSummary:
     _max_drawdown: Decimal = Decimal('0.0')
     _mean_drawdown: Decimal = Decimal('0.0')
 
-    # TODO: Should we add +interval like we do for summary? Or rather change summary to exclude
-    # +interval. Also needs to be adjusted in Rust code.
     end: Optional[Timestamp] = None
 
     _drawdowns_dirty: bool = True
@@ -530,7 +528,7 @@ class PositionMixin(ABC):
         pass
 
     async def open_long_position(
-        self, exchange: str, symbol: str, time: Timestamp, quote: Decimal, test: bool
+        self, exchange: str, symbol: str, quote: Decimal, test: bool
     ) -> Position.OpenLong:
         res = await self.broker.buy_by_quote(
             exchange=exchange,
@@ -542,12 +540,12 @@ class PositionMixin(ABC):
         return Position.OpenLong(
             exchange=exchange,
             symbol=symbol,
-            time=time,
+            time=res.time,
             fills=res.fills,
         )
 
     async def close_long_position(
-        self, position: Position.OpenLong, time: Timestamp, test: bool, reason: CloseReason
+        self, position: Position.OpenLong, test: bool, reason: CloseReason
     ) -> Position.Long:
         res = await self.broker.sell(
             exchange=position.exchange,
@@ -557,13 +555,13 @@ class PositionMixin(ABC):
         )
 
         return position.close(
-            time=time,
+            time=res.time,
             fills=res.fills,
             reason=reason,
         )
 
     async def open_short_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
+        self, exchange: str, symbol: str, price: Decimal, collateral: Decimal,
         test: bool
     ) -> Position.OpenShort:
         base_asset, quote_asset = unpack_symbol(symbol)
@@ -593,12 +591,12 @@ class PositionMixin(ABC):
             symbol=symbol,
             collateral=collateral,
             borrowed=borrowed,
-            time=time,
+            time=res.time,
             fills=res.fills,
         )
 
     async def close_short_position(
-        self, position: Position.OpenShort, time: Timestamp, price: Decimal, test: bool,
+        self, position: Position.OpenShort, price: Decimal, test: bool,
         reason: CloseReason
     ) -> Position.Short:
         base_asset, quote_asset = unpack_symbol(position.symbol)
@@ -611,7 +609,7 @@ class PositionMixin(ABC):
                 borrowed=position.borrowed,
                 hourly_rate=borrow_info.hourly_interest_rate,
                 start=position.time,
-                end=time,
+                end=time_ms(),
             ) if test
             else (await exchange_instance.map_balances(margin=True))[base_asset].interest
         )
@@ -627,7 +625,7 @@ class PositionMixin(ABC):
         )
         closed_position = position.close(
             interest=interest,
-            time=time,
+            time=res.time,
             fills=res.fills,
             reason=reason,
         )

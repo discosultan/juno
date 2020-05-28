@@ -139,10 +139,11 @@ class Limit(Broker):
             await cancel(keep_limit_order_best_task, track_fills_task)
             raise
         except _Filled as exc:
+            time = exc.time
             fills = exc.fills
             await cancel(keep_limit_order_best_task)
 
-        return OrderResult(status=OrderStatus.FILLED, fills=fills)
+        return OrderResult(time=time, status=OrderStatus.FILLED, fills=fills)
 
     async def _keep_limit_order_best(
         self, exchange: str, symbol: str, side: Side, margin: bool, ctx: _Context
@@ -232,6 +233,7 @@ class Limit(Broker):
         self, symbol: str, stream: AsyncIterable[Order.Any], side: Side, ctx: _Context
     ) -> None:
         fills = []  # Fills from aggregated trades.
+        time = -1
         async for order in stream:
             if order.client_id != ctx.client_id:
                 _log.debug(f'skipping order tracking; {order.client_id=} != {ctx.client_id=}')
@@ -248,13 +250,16 @@ class Limit(Broker):
                 ctx.cancelled_event.set(fills)
             elif isinstance(order, Order.Done):
                 _log.info(f'existing order {ctx.client_id} filled')
+                time = order.time
                 break
             else:
                 raise NotImplementedError(order)
 
-        raise _Filled(fills)
+        raise _Filled(time=time, fills=fills)
 
 
 class _Filled(Exception):
-    def __init__(self, fills: List[Fill]) -> None:
+    def __init__(self, time: int, fills: List[Fill]) -> None:
+        assert time >= 0
+        self.time = time
         self.fills = fills

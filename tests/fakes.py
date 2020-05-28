@@ -29,7 +29,7 @@ class Exchange(exchanges.Exchange):
         depth=Depth.Snapshot(),
         future_depths=[],
         future_orders=[],
-        place_order_result=OrderResult(status=OrderStatus.NEW),
+        place_order_result=OrderResult(time=0, status=OrderStatus.NEW),
         historical_trades=[],
         future_trades=[],
     ):
