@@ -66,6 +66,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         lowest_close_since_position = Decimal('Inf')
         current: Timestamp = 0
         start_adjusted: bool = False
+        real_start: Timestamp = -1
 
     def __init__(
         self,
@@ -129,6 +130,9 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         )
 
         state = state or Basic.State()
+
+        if state.real_start == -1:
+            state.real_start = self._get_time_ms()
 
         if state.quote == -1:
             state.quote = quote
@@ -202,7 +206,14 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                     break
         finally:
             await self._close_open_position(config, state)
-            state.summary.finish(min(self._get_time_ms(), config.end))
+            if config.end is not None and config.end <= state.real_start:  # Backtest.
+                end = (
+                    state.last_candle.time + config.interval if state.last_candle
+                    else state.summary.start + config.interval
+                )
+            else:  # Paper or live.
+                end = min(self._get_time_ms(), config.end)
+            state.summary.finish(end)
 
         _log.info('finished')
         return state.summary

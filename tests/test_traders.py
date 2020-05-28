@@ -319,8 +319,8 @@ async def test_basic_persist_and_resume(storage: fakes.Storage) -> None:
     assert candle_times[5] == 5
 
 
-async def test_basic_summary_end_on_cancel(storage: fakes.Storage) -> None:
-    chandler = fakes.Chandler(future_candles={('dummy', 'eth-btc', 1): [Candle(time=1)]})
+async def test_basic_summary_end_on_cancel() -> None:
+    chandler = fakes.Chandler(future_candles={('dummy', 'eth-btc', 1): [Candle(time=0)]})
     time = fakes.Time(0)
     trader = traders.Basic(
         chandler=chandler, informant=fakes.Informant(), get_time_ms=time.get_time
@@ -354,6 +354,44 @@ async def test_basic_summary_end_on_cancel(storage: fakes.Storage) -> None:
     assert state.summary
     assert state.summary.start == 0
     assert state.summary.end == 5
+
+
+async def test_basic_summary_end_on_historical_cancel() -> None:
+    # Even though we simulate historical trading, we can use `future_candles` to perform
+    # synchronization for testing.
+    chandler = fakes.Chandler(future_candles={('dummy', 'eth-btc', 1): [Candle(time=0)]})
+    time = fakes.Time(100)
+    trader = traders.Basic(
+        chandler=chandler, informant=fakes.Informant(), get_time_ms=time.get_time
+    )
+
+    config = traders.Basic.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=2,
+        quote=Decimal('1.0'),
+        strategy=get_module_type_constructor(
+            strategies,
+            {
+                'type': 'fixed',
+                'advices': ['none'] * 100,
+            },
+        ),
+    )
+    state = traders.Basic.State()
+
+    trader_run_task = asyncio.create_task(trader.run(config, state))
+
+    future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
+    await future_candle_queue.join()
+
+    await cancel(trader_run_task)
+
+    assert state.summary
+    assert state.summary.start == 0
+    assert state.summary.end == 1
 
 
 async def test_multi() -> None:

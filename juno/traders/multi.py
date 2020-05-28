@@ -98,10 +98,11 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
 
     @dataclass
     class State:
-        start: int = -1
+        start: Timestamp = -1
         symbol_states: Dict[str, _SymbolState] = field(default_factory=dict)
         quotes: List[Decimal] = field(default_factory=list)
         summary: Optional[TradingSummary] = None
+        real_start: Timestamp = -1
 
     def __init__(
         self,
@@ -166,6 +167,9 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
 
         state = state or Multi.State()
 
+        if state.real_start == -1:
+            state.real_start = self._get_time_ms()
+
         if state.start == -1:
             state.start = start
 
@@ -202,7 +206,17 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
             )
         finally:
             await self._close_all_open_positions(config, state)
-            state.summary.finish(min(self._get_time_ms(), config.end))
+            if config.end is not None and config.end <= state.real_start:  # Backtest.
+                end = (
+                    max(
+                        s.last_candle.time for s in state.symbol_states.values() if s.last_candle
+                    ) + config.interval
+                    if any(s.last_candle for s in state.symbol_states.values())
+                    else state.summary.start + config.interval
+                )
+            else:  # Paper or live.
+                end = min(self._get_time_ms(), config.end)
+            state.summary.finish(end)
 
         _log.info('finished')
         return state.summary
