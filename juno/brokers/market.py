@@ -41,7 +41,7 @@ class Market(Broker):
                 exchange=exchange, symbol=symbol, size=size, fee_rate=fees.taker, filters=filters
             )
             self._validate_fills(exchange, symbol, fills)
-            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
+            res = OrderResult(time=res.time, status=OrderStatus.FILLED, fills=fills)
         return res
 
     async def buy_by_quote(
@@ -68,7 +68,7 @@ class Market(Broker):
                 test=test, margin=margin
             )
         if test:
-            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
+            res = OrderResult(time=res.time, status=OrderStatus.FILLED, fills=fills)
         return res
 
     async def sell(
@@ -86,7 +86,7 @@ class Market(Broker):
                 exchange=exchange, symbol=symbol, size=size, fee_rate=fees.taker, filters=filters
             )
             self._validate_fills(exchange, symbol, fills)
-            res = OrderResult(status=OrderStatus.FILLED, fills=fills)
+            res = OrderResult(time=res.time, status=OrderStatus.FILLED, fills=fills)
         return res
 
     def _validate_fills(self, exchange: str, symbol: str, fills: List[Fill]) -> None:

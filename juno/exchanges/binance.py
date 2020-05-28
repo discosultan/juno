@@ -343,6 +343,7 @@ class Binance(Exchange):
                         ),
                     )
                     yield Order.Done(
+                        time=data['T'],  # Transaction time.
                         client_id=data['c'],
                     )
                 elif status is OrderStatus.CANCELED:
@@ -395,7 +396,7 @@ class Binance(Exchange):
             url += '/test'
         res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
         if test:
-            return OrderResult.not_placed()
+            return OrderResult(time=time_ms(), status=OrderStatus.NEW)
         total_size = Decimal(res.data['executedQty'])
         total_quote = Decimal(res.data['cummulativeQuoteQty'])
         fill_quotes = split_by_ratios(
@@ -403,6 +404,7 @@ class Binance(Exchange):
             ratios(total_size, [Decimal(f['qty']) for f in res.data['fills']]),
         )
         return OrderResult(
+            time=res.data['transactTime'],
             status=_from_order_status(res.data['status']),
             fills=[
                 Fill(

@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Coroutine, Dict, List, NamedTuple, Optional, Tuple
+from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
 from juno import Advice, Candle, Fill, Interval, Timestamp, math
 from juno.asyncio import Event, SlotBarrier
@@ -12,12 +12,14 @@ from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
-from juno.time import strftimestamp
+from juno.time import strftimestamp, time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import extract_public
+
+from .trader import Trader
 
 _log = logging.getLogger(__name__)
 
@@ -67,7 +69,7 @@ class _SymbolState:
         )
 
 
-class Multi(PositionMixin, SimulatedPositionMixin):
+class Multi(Trader, PositionMixin, SimulatedPositionMixin):
     class Config(NamedTuple):
         exchange: str
         interval: Interval
@@ -96,10 +98,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
     @dataclass
     class State:
-        start: int = -1
+        start: Timestamp = -1
         symbol_states: Dict[str, _SymbolState] = field(default_factory=dict)
         quotes: List[Decimal] = field(default_factory=list)
         summary: Optional[TradingSummary] = None
+        real_start: Timestamp = -1
 
     def __init__(
         self,
@@ -109,6 +112,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         broker: Optional[Broker] = None,
         events: Events = Events(),
         exchanges: List[Exchange] = [],
+        get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
@@ -116,6 +120,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         self._broker = broker
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_time_ms = get_time_ms
 
     @property
     def informant(self) -> Informant:
@@ -127,8 +132,17 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         return self._broker
 
     @property
+    def chandler(self) -> Chandler:
+        return self._chandler
+
+    @property
     def exchanges(self) -> Dict[str, Exchange]:
         return self._exchanges
+
+    @property
+    def wallet(self) -> Wallet:
+        assert self._wallet
+        return self._wallet
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start is None or config.start >= 0
@@ -141,28 +155,20 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         symbols = await self._find_top_symbols(config)
 
-        # Resolve and assert available quote.
-        if (quote := config.quote) is None:
-            assert self._wallet
-            quote = self._wallet.get_balance(config.exchange, 'btc').available
-            _log.info(f'quote not specified; using available {quote} btc')
+        # Request and assert available quote.
+        quote = self.request_quote(config.quote, config.exchange, 'btc', config.test)
         position_quote = quote / config.position_count
         for symbol in symbols:
             fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
             assert position_quote > filters.price.min
 
-        # Resolve start.
-        if (start := config.start) is None:
-            first_candles = await asyncio.gather(
-                *(self._chandler.get_first_candle(
-                    config.exchange, s, config.interval
-                ) for s in symbols)
-            )
-            latest_first_time = max(first_candles, key=lambda c: c.time).time
-            start = latest_first_time
-            _log.info(f'start not specified; start set to {strftimestamp(start)}')
+        # Request start.
+        start = await self.request_start(config.start, config.exchange, symbols, config.interval)
 
         state = state or Multi.State()
+
+        if state.real_start == -1:
+            state.real_start = self._get_time_ms()
 
         if state.start == -1:
             state.start = start
@@ -199,14 +205,18 @@ class Multi(PositionMixin, SimulatedPositionMixin):
                   for s, ss in state.symbol_states.items())
             )
         finally:
-            last_candle_times = [
-                s.last_candle.time for s in state.symbol_states.values() if s.last_candle
-            ]
-            if len(last_candle_times) > 0:
-                await self._close_all_open_positions(config, state)
-                state.summary.finish(max(last_candle_times) + config.interval)
-            else:
-                state.summary.finish(start)
+            await self._close_all_open_positions(config, state)
+            if config.end is not None and config.end <= state.real_start:  # Backtest.
+                end = (
+                    max(
+                        s.last_candle.time for s in state.symbol_states.values() if s.last_candle
+                    ) + config.interval
+                    if any(s.last_candle for s in state.symbol_states.values())
+                    else state.summary.start + config.interval
+                )
+            else:  # Paper or live.
+                end = min(self._get_time_ms(), config.end)
+            state.summary.finish(end)
 
         _log.info('finished')
         return state.summary
@@ -242,6 +252,9 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         while True:
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()
+
+            # TODO: Rebalance quotes.
+            # TODO: Repick top symbols.
 
             # Try close existing positions.
             to_process.clear()
@@ -419,12 +432,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
         to_close: List[Coroutine[None, None, Position.Closed]] = []
         for ss in state.symbol_states.values():
-            assert ss.last_candle
             if isinstance(ss.open_position, Position.OpenLong):
+                assert ss.last_candle
                 to_close.append(self._close_long_position(
                     config, state, ss, ss.last_candle, CloseReason.CANCELLED
                 ))
             elif isinstance(ss.open_position, Position.OpenShort):
+                assert ss.last_candle
                 to_close.append(self._close_short_position(
                     config, state, ss, ss.last_candle, CloseReason.CANCELLED
                 ))
@@ -443,13 +457,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             await self.open_long_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                time=candle.time,
                 quote=symbol_state.allocated_quote,
                 test=config.test,
             ) if self._broker else self.open_simulated_long_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 quote=symbol_state.allocated_quote,
             )
@@ -472,12 +485,11 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         position = (
             await self.close_long_position(
                 position=symbol_state.open_position,
-                time=candle.time,
                 test=config.test,
                 reason=reason,
             ) if self._broker else self.close_simulated_long_position(
                 position=symbol_state.open_position,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )
@@ -486,7 +498,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.allocated_quote += (
             Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
         )
-        state.quotes.append(symbol_state.allocated_quote)  # TODO: Rebalance quotes list?
+        state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal('0.0')
 
         state.summary.append_position(position)
@@ -505,14 +517,13 @@ class Multi(PositionMixin, SimulatedPositionMixin):
             await self.open_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                time=candle.time,
                 price=candle.close,
                 collateral=symbol_state.allocated_quote,
                 test=config.test,
             ) if self._broker else self.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 collateral=symbol_state.allocated_quote,
             )
@@ -537,13 +548,12 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         position = (
             await self.close_short_position(
                 position=symbol_state.open_position,
-                time=candle.time,
                 price=candle.close,
                 test=config.test,
                 reason=reason,
             ) if self._broker else self.close_simulated_short_position(
                 position=symbol_state.open_position,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )

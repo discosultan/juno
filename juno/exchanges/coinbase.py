@@ -229,6 +229,7 @@ class Coinbase(Exchange):
                         )
                     if reason == 'filled':
                         yield Order.Done(
+                            time=_from_datetime(data['time']),
                             client_id=client_id,
                         )
                     elif reason == 'canceled':
@@ -284,9 +285,9 @@ class Coinbase(Exchange):
             data['client_oid'] = client_id
 
         base_asset, quote_asset = unpack_symbol(symbol)
-        await self._private_request('POST', '/orders', data=data)
+        res = await self._private_request('POST', '/orders', data=data)
         # Does not support returning fills straight away. Need to listen through WS.
-        return OrderResult(status=OrderStatus.NEW)
+        return OrderResult(status=OrderStatus.NEW, time=_from_datetime(res['created_at']))
 
     async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         await self._private_request('DELETE', f'/orders/client:{client_id}', {

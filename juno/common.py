@@ -174,16 +174,12 @@ class MissedCandlePolicy(IntEnum):
 
 
 class OrderResult(NamedTuple):
+    time: Timestamp
     status: OrderStatus
     fills: List[Fill] = []
 
-    @staticmethod
-    def not_placed() -> OrderResult:
-        return OrderResult(status=OrderStatus.NOT_PLACED, fills=[])
-
 
 class OrderStatus(IntEnum):
-    NOT_PLACED = 0
     NEW = 1
     FILLED = 2
     PARTIALLY_FILLED = 3
@@ -212,6 +208,7 @@ class Order(ModuleType):
         client_id: str
 
     class Done(NamedTuple):
+        time: Timestamp
         client_id: str
 
     Any = Union[New, Match, Canceled, Done]

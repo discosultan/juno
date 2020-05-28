@@ -1,8 +1,16 @@
+import asyncio
+import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from decimal import Decimal
+from typing import Any, Iterable, Optional
 
+from juno import Timestamp
 from juno.brokers import Broker
+from juno.components import Chandler, Wallet
+from juno.time import strftimestamp
 from juno.trading import TradingSummary
+
+_log = logging.getLogger(__name__)
 
 
 class Trader(ABC):
@@ -14,6 +22,52 @@ class Trader(ABC):
     def broker(self) -> Broker:
         pass
 
+    @property
+    @abstractmethod
+    def chandler(self) -> Chandler:
+        pass
+
+    @property
+    @abstractmethod
+    def wallet(self) -> Wallet:
+        pass
+
     @abstractmethod
     async def run(self, config: Any, state: Optional[Any] = None) -> TradingSummary:
         pass
+
+    def request_quote(
+        self, quote: Optional[Decimal], exchange: str, asset: str, test: bool
+    ) -> Decimal:
+        if test:
+            if quote is None:
+                raise ValueError('Quote must be specified when backtesting or paper trading')
+            return quote
+
+        available_quote = self.wallet.get_balance(exchange, asset).available
+
+        if quote is None:
+            _log.info(f'quote not specified; using available {available_quote} {asset}')
+            return available_quote
+
+        if available_quote < quote:
+            raise ValueError(
+                f'Requesting trading with {quote} {asset} but only {available_quote} available'
+            )
+
+        return quote
+
+    async def request_start(
+        self, start: Optional[Timestamp], exchange: str, symbols: Iterable[str], interval: int
+    ):
+        if start is not None:
+            if start < 0:
+                raise ValueError('Start cannot be negative')
+            return start
+
+        first_candles = await asyncio.gather(
+            *(self.chandler.get_first_candle(exchange, s, interval) for s in symbols)
+        )
+        latest_first_time = max(first_candles, key=lambda c: c.time).time
+        _log.info(f'start not specified; start set to {strftimestamp(latest_first_time)}')
+        return latest_first_time

@@ -176,6 +176,7 @@ async def test_paper(exchange: fakes.Exchange, container: Container) -> None:
     ))
     exchange.exchange_info = ExchangeInfo(candle_intervals=[1])
     exchange.place_order_result = OrderResult(
+        time=2,
         status=OrderStatus.FILLED,
         fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
     )
@@ -201,14 +202,19 @@ async def test_paper(exchange: fakes.Exchange, container: Container) -> None:
     async with container:
         task = asyncio.create_task(agent.run(config))
         await exchange.candle_queue.join()
+        exchange.place_order_result = OrderResult(
+            time=4,
+            status=OrderStatus.FILLED,
+            fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
+        )
         await cancel(task)
 
     summary = task.result().summary
     assert summary
     assert summary.num_long_positions == 1
     pos = next(iter(summary.get_long_positions()))
-    assert pos.open_time == 1
-    assert pos.close_time == 3
+    assert pos.open_time == 2
+    assert pos.close_time == 4
 
 
 async def test_live(exchange: fakes.Exchange, container: Container) -> None:
@@ -236,6 +242,7 @@ async def test_live(exchange: fakes.Exchange, container: Container) -> None:
     exchange.exchange_info = ExchangeInfo(candle_intervals=[1])
     exchange.balances = {'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0'))}
     exchange.place_order_result = OrderResult(
+        time=2,
         status=OrderStatus.FILLED,
         fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
     )
@@ -260,14 +267,19 @@ async def test_live(exchange: fakes.Exchange, container: Container) -> None:
     async with container:
         task = asyncio.create_task(agent.run(config))
         await exchange.candle_queue.join()
+        exchange.place_order_result = OrderResult(
+            time=4,
+            status=OrderStatus.FILLED,
+            fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
+        )
         await cancel(task)
 
     summary = task.result().summary
     assert summary
     assert summary.num_long_positions == 1
     pos = next(iter(summary.get_long_positions()))
-    assert pos.open_time == 1
-    assert pos.close_time == 3
+    assert pos.open_time == 2
+    assert pos.close_time == 4
 
 
 @pytest.mark.parametrize('strategy', ['fixed', 'fourweekrule'])

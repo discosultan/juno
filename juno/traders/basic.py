@@ -1,14 +1,14 @@
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Dict, List, NamedTuple, Optional
+from typing import Callable, Dict, List, NamedTuple, Optional
 
 from juno import Advice, Candle, Fill, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
-from juno.time import strftimestamp
+from juno.time import time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 )
@@ -66,6 +66,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         lowest_close_since_position = Decimal('Inf')
         current: Timestamp = 0
         start_adjusted: bool = False
+        real_start: Timestamp = -1
 
     def __init__(
         self,
@@ -75,6 +76,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         broker: Optional[Broker] = None,
         events: Events = Events(),
         exchanges: List[Exchange] = [],
+        get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
         self._informant = informant
@@ -82,6 +84,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         self._broker = broker
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._get_time_ms = get_time_ms
 
     @property
     def informant(self) -> Informant:
@@ -93,8 +96,17 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         return self._broker
 
     @property
+    def chandler(self) -> Chandler:
+        return self._chandler
+
+    @property
     def exchanges(self) -> Dict[str, Exchange]:
         return self._exchanges
+
+    @property
+    def wallet(self) -> Wallet:
+        assert self._wallet
+        return self._wallet
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start is None or config.start >= 0
@@ -107,24 +119,20 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 config.exchange, config.symbol
             )[1].is_margin_trading_allowed
 
-        # Resolve and assert available quote.
-        if (quote := config.quote) is None:
-            assert self._wallet
-            quote = self._wallet.get_balance(
-                config.exchange, config.quote_asset
-            ).available
-            _log.info(f'quote not specified; using available {quote} {config.quote_asset}')
+        # Request and assert available quote.
+        quote = self.request_quote(config.quote, config.exchange, config.quote_asset, config.test)
         fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         assert quote > filters.price.min
 
-        # Resolve start.
-        if (start := config.start) is None:
-            start = (await self._chandler.get_first_candle(
-                config.exchange, config.symbol, config.interval
-            )).time
-            _log.info(f'start not specified; start set to {strftimestamp(start)}')
+        # Request start.
+        start = await self.request_start(
+            config.start, config.exchange, [config.symbol], config.interval
+        )
 
         state = state or Basic.State()
+
+        if state.real_start == -1:
+            state.real_start = self._get_time_ms()
 
         if state.quote == -1:
             state.quote = quote
@@ -197,21 +205,15 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 if not restart:
                     break
         finally:
-            if state.last_candle:
-                if isinstance(state.open_position, Position.OpenLong):
-                    _log.info('ending trading but long position open; closing')
-                    await self._close_long_position(
-                        config, state, state.last_candle, CloseReason.CANCELLED
-                    )
-                elif isinstance(state.open_position, Position.OpenShort):
-                    _log.info('ending trading but short position open; closing')
-                    await self._close_short_position(
-                        config, state, state.last_candle, CloseReason.CANCELLED
-                    )
-
-                state.summary.finish(state.last_candle.time + config.interval)
-            else:
-                state.summary.finish(start)
+            await self._close_open_position(config, state)
+            if config.end is not None and config.end <= state.real_start:  # Backtest.
+                end = (
+                    state.last_candle.time + config.interval if state.last_candle
+                    else state.summary.start + config.interval
+                )
+            else:  # Paper or live.
+                end = min(self._get_time_ms(), config.end)
+            state.summary.finish(end)
 
         _log.info('finished')
         return state.summary
@@ -271,6 +273,20 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         state.last_candle = candle
         state.current = candle.time + config.interval
 
+    async def _close_open_position(self, config: Config, state: State) -> None:
+        if isinstance(state.open_position, Position.OpenLong):
+            assert state.last_candle
+            _log.info('ending trading but long position open; closing')
+            await self._close_long_position(
+                config, state, state.last_candle, CloseReason.CANCELLED
+            )
+        elif isinstance(state.open_position, Position.OpenShort):
+            assert state.last_candle
+            _log.info('ending trading but short position open; closing')
+            await self._close_short_position(
+                config, state, state.last_candle, CloseReason.CANCELLED
+            )
+
     async def _open_long_position(self, config: Config, state: State, candle: Candle) -> None:
         assert not state.open_position
 
@@ -278,13 +294,12 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
             await self.open_long_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                time=candle.time,
                 quote=state.quote,
                 test=config.test,
             ) if self._broker else self.open_simulated_long_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 quote=state.quote,
             )
@@ -308,12 +323,11 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         position = (
             await self.close_long_position(
                 position=state.open_position,
-                time=candle.time,
                 test=config.test,
                 reason=reason,
             ) if self._broker else self.close_simulated_long_position(
                 position=state.open_position,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )
@@ -336,14 +350,13 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
             await self.open_short_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                time=candle.time,
                 price=candle.close,
                 collateral=state.quote,
                 test=config.test,
             ) if self._broker else self.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 collateral=state.quote,
             )
@@ -367,13 +380,12 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         position = (
             await self.close_short_position(
                 position=state.open_position,
-                time=candle.time,
                 price=candle.close,
                 test=config.test,
                 reason=reason,
             ) if self._broker else self.close_simulated_short_position(
                 position=state.open_position,
-                time=candle.time,
+                time=candle.time + config.interval,
                 price=candle.close,
                 reason=reason,
             )
