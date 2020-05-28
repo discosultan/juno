@@ -8,7 +8,6 @@ from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
-from juno.time import strftimestamp
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, TradingSummary
 )
@@ -93,8 +92,17 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
         return self._broker
 
     @property
+    def chandler(self) -> Chandler:
+        return self._chandler
+
+    @property
     def exchanges(self) -> Dict[str, Exchange]:
         return self._exchanges
+
+    @property
+    def wallet(self) -> Wallet:
+        assert self._wallet
+        return self._wallet
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start is None or config.start >= 0
@@ -107,22 +115,15 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
                 config.exchange, config.symbol
             )[1].is_margin_trading_allowed
 
-        # Resolve and assert available quote.
-        if (quote := config.quote) is None:
-            assert self._wallet
-            quote = self._wallet.get_balance(
-                config.exchange, config.quote_asset
-            ).available
-            _log.info(f'quote not specified; using available {quote} {config.quote_asset}')
+        # Request and assert available quote.
+        quote = self.request_quote(config.quote, config.exchange, config.quote_asset, config.test)
         fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         assert quote > filters.price.min
 
-        # Resolve start.
-        if (start := config.start) is None:
-            start = (await self._chandler.get_first_candle(
-                config.exchange, config.symbol, config.interval
-            )).time
-            _log.info(f'start not specified; start set to {strftimestamp(start)}')
+        # Request start.
+        start = await self.request_start(
+            config.start, config.exchange, [config.symbol], config.interval
+        )
 
         state = state or Basic.State()
 

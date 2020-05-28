@@ -19,6 +19,8 @@ from juno.trading import (
 from juno.typing import TypeConstructor
 from juno.utils import extract_public
 
+from .trader import Trader
+
 _log = logging.getLogger(__name__)
 
 SYMBOL_PATTERN = '*-btc'
@@ -67,7 +69,7 @@ class _SymbolState:
         )
 
 
-class Multi(PositionMixin, SimulatedPositionMixin):
+class Multi(Trader, PositionMixin, SimulatedPositionMixin):
     class Config(NamedTuple):
         exchange: str
         interval: Interval
@@ -127,8 +129,17 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         return self._broker
 
     @property
+    def chandler(self) -> Chandler:
+        return self._chandler
+
+    @property
     def exchanges(self) -> Dict[str, Exchange]:
         return self._exchanges
+
+    @property
+    def wallet(self) -> Wallet:
+        assert self._wallet
+        return self._wallet
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.start is None or config.start >= 0
@@ -141,26 +152,15 @@ class Multi(PositionMixin, SimulatedPositionMixin):
 
         symbols = await self._find_top_symbols(config)
 
-        # Resolve and assert available quote.
-        if (quote := config.quote) is None:
-            assert self._wallet
-            quote = self._wallet.get_balance(config.exchange, 'btc').available
-            _log.info(f'quote not specified; using available {quote} btc')
+        # Request and assert available quote.
+        quote = self.request_quote(config.quote, config.exchange, 'btc', config.test)
         position_quote = quote / config.position_count
         for symbol in symbols:
             fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
             assert position_quote > filters.price.min
 
-        # Resolve start.
-        if (start := config.start) is None:
-            first_candles = await asyncio.gather(
-                *(self._chandler.get_first_candle(
-                    config.exchange, s, config.interval
-                ) for s in symbols)
-            )
-            latest_first_time = max(first_candles, key=lambda c: c.time).time
-            start = latest_first_time
-            _log.info(f'start not specified; start set to {strftimestamp(start)}')
+        # Request start.
+        start = await self.request_start(config.start, config.exchange, symbols, config.interval)
 
         state = state or Multi.State()
 
@@ -242,6 +242,9 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         while True:
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()
+
+            # TODO: Rebalance quotes.
+            # TODO: Repick top symbols.
 
             # Try close existing positions.
             to_process.clear()
@@ -486,7 +489,7 @@ class Multi(PositionMixin, SimulatedPositionMixin):
         symbol_state.allocated_quote += (
             Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
         )
-        state.quotes.append(symbol_state.allocated_quote)  # TODO: Rebalance quotes list?
+        state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal('0.0')
 
         state.summary.append_position(position)

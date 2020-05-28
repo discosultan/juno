@@ -62,6 +62,8 @@ class Chandler:
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
+        start = floor_multiple(start, interval)
+        end = floor_multiple(end, interval)
         shard = key(exchange, symbol, interval)
         candle_msg = f'{exchange} {symbol} {strfinterval(interval)} candle(s)'
 

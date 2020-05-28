@@ -6,7 +6,6 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional
 from juno import Interval, Timestamp, strategies
 from juno.components import Events, Informant
 from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
-from juno.math import floor_multiple
 from juno.storages import Storage
 from juno.time import MAX_TIME_MS, time_ms
 from juno.traders import Trader
@@ -26,7 +25,7 @@ class Live(Agent):
         name: Optional[str] = None
         persist: bool = False
         quote: Optional[Decimal] = None
-        end: Timestamp = MAX_TIME_MS
+        end: Optional[Timestamp] = None
 
     @dataclass
     class State:
@@ -35,8 +34,12 @@ class Live(Agent):
         result: Optional[Any] = None
 
     def __init__(
-        self, informant: Informant, traders: List[Trader], storage: Storage,
-        events: Events = Events(), get_time_ms: Callable[[], int] = time_ms
+        self,
+        informant: Informant,
+        traders: List[Trader],
+        storage: Storage,
+        events: Events = Events(),
+        get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._informant = informant
         self._traders = {type(t).__name__.lower(): t for t in traders}
@@ -49,16 +52,19 @@ class Live(Agent):
     async def on_running(self, config: Config, state: State) -> None:
         await Agent.on_running(self, config, state)
 
-        current = floor_multiple(self._get_time_ms(), config.interval)
-        end = floor_multiple(config.end, config.interval)
-        assert end > current
+        now = self._get_time_ms()
+
+        assert config.end is None or config.end > now
+
+        start = now
+        end = MAX_TIME_MS if config.end is None else config.end
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         trader = self._traders[trader_name]
         trader_config = trader.Config(
             exchange=config.exchange,
             interval=config.interval,
-            start=current,
+            start=start,
             end=end,
             quote=config.quote,
             strategy=get_module_type_constructor(strategies, config.strategy),

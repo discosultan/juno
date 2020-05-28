@@ -1,12 +1,11 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Chandler, Events, Prices
 from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
-from juno.math import floor_multiple
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, time_ms
@@ -45,25 +44,26 @@ class Backtest(Agent):
         prices: Optional[Prices] = None,
         events: Events = Events(),
         storage: Storage = Memory(),
+        get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._traders = {type(t).__name__.lower(): t for t in traders}
         self._chandler = chandler
         self._prices = prices
         self._events = events
         self._storage = storage
+        self._get_time_ms = get_time_ms
 
     async def on_running(self, config: Config, state: State) -> None:
         await super().on_running(config, state)
 
-        now = time_ms()
+        now = self._get_time_ms()
 
-        start = None if config.start is None else floor_multiple(config.start, config.interval)
+        assert config.start is None or config.start < now
+        assert config.end is None or config.end <= now
+        assert config.start is None or config.end is None or config.start < config.end
+
+        start = config.start
         end = now if config.end is None else config.end
-        end = floor_multiple(end, config.interval)
-
-        assert end <= now
-        assert start is None or end > start
-        assert config.quote > 0
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         trader = self._traders[trader_name]
@@ -75,10 +75,12 @@ class Backtest(Agent):
             quote=config.quote,
             strategy=get_module_type_constructor(strategies, config.strategy),
             channel=state.name,
+            test=True,
             **kwargs_for(trader.Config, trader_kwargs),
         )
         if not state.result:
             state.result = trader.State()
+
         await trader.run(trader_config, state.result)
         assert (summary := state.result.summary)
 
