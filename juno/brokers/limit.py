@@ -11,6 +11,7 @@ from juno import (
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
+from juno.utils import unpack_symbol
 
 from .broker import Broker
 
@@ -43,14 +44,18 @@ class Limit(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {size} base asset with limit orders at spread')
+        base_asset, _ = unpack_symbol(symbol)
+        _log.info(f'buying {size} {base_asset} with limit orders at spread')
         return await self._buy(exchange, symbol, margin, size=size)
 
     async def buy_by_quote(
         self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {quote} quote worth of base asset with limit orders at spread')
+        base_asset, quote_asset = unpack_symbol(symbol)
+        _log.info(
+            f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread'
+        )
         return await self._buy(exchange, symbol, margin, quote=quote)
 
     async def _buy(
@@ -78,7 +83,8 @@ class Limit(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'selling {size} base asset with limit orders at spread')
+        base_asset, _ = unpack_symbol(symbol)
+        _log.info(f'selling {size} {base_asset} with limit orders at spread')
         res = await self._fill(exchange, symbol, Side.SELL, margin, size=size)
 
         # Validate fee and quote expectation.
@@ -104,10 +110,15 @@ class Limit(Broker):
 
         client_id = self._get_client_id()
         if size is not None:
+            if size == 0:
+                raise ValueError('Size specified but 0')
             ctx = _Context(available=size, use_quote=False, client_id=client_id)
-        else:
-            assert quote
+        elif quote is not None:
+            if quote == 0:
+                raise ValueError('Quote specified but 0')
             ctx = _Context(available=quote, use_quote=True, client_id=client_id)
+        else:
+            raise ValueError('Neither size nor quote specified')
 
         async with self._exchanges[exchange].connect_stream_orders(
             symbol=symbol, margin=margin
