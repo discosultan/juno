@@ -24,7 +24,7 @@ from . import fakes
     # (False, False),
 ])
 async def test_optimizer_same_result_with_predefined_seed(
-    request, long: bool, short: bool
+    request, loop, long: bool, short: bool
 ) -> None:
     portfolio_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
@@ -82,7 +82,7 @@ async def test_optimizer_same_result_with_predefined_seed(
     assert results[0].alpha == results[1].alpha
 
 
-async def test_rust_solver_works_with_default_fees_filters() -> None:
+async def test_rust_solver_works_with_default_fees_filters(loop) -> None:
     portfolio_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
         List[Candle]

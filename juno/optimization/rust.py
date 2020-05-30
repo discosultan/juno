@@ -57,6 +57,7 @@ class Rust(Solver):
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.
         src_dir = Path(os.path.dirname(os.path.realpath(__file__))) / '..' / '..'
+        src_dir = src_dir.resolve()  # Simplify path.
         src_files = src_dir.glob('./juno_rs/**/*.rs')
         # Seconds-level precision.
         src_latest_mtime = max(int(f.stat().st_mtime) for f in src_files)
@@ -75,13 +76,14 @@ class Rust(Solver):
 
         # Build Rust and copy to dist folder if current version missing.
         if not dst_path.is_file():
-            _log.info('compiling rust module')
+            _log.info(f'compiling rust module with working directory {src_dir}')
             proc = await asyncio.create_subprocess_shell(
                 'cargo build --release',
                 cwd=src_dir,
                 # stdout=asyncio.subprocess.PIPE,
                 # stderr=asyncio.subprocess.PIPE,
             )
+            _log.info('waiting for subprocess to complete')
             await proc.wait()
             if proc.returncode != 0:
                 raise Exception(f'rust module compilation failed ({proc.returncode})')
