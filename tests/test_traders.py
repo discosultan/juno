@@ -410,7 +410,7 @@ async def test_multi() -> None:
         interval=1,
         start=0,
         end=4,
-        quote=Decimal('2.0'),
+        quote=Decimal('1'),  # Deliberately 1 and not 1.0. Shouldn't screw up splitting.
         strategy=get_module_type_constructor(
             strategies,
             {
@@ -530,10 +530,16 @@ async def test_multi_persist_and_resume(storage: fakes.Storage) -> None:
         # Sleep to give control back to position manager.
         await asyncio.sleep(0)
 
-        if i < 3:
+        if i < 3:  # If not last iteration, cancel, store and retrieve from storage.
             await cancel(trader_task)
             await storage.set('shard', 'key', trader_state)
             trader_state = await storage.get('shard', 'key', traders.Multi.State)
+
+            # Change tickers for informant. This shouldn't crash the trader.
+            informant.tickers.insert(
+                0,
+                Ticker(symbol='xmr-btc', volume=Decimal('3.0'), quote_volume=Decimal('3.0')),
+            )
 
     summary = await trader_task
 

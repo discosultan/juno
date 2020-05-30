@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
-from juno import Advice, Candle, Fill, Interval, Timestamp, math
+from juno import Advice, Candle, Fill, Interval, Timestamp
 from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
@@ -179,7 +179,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
                 quote=quote,
                 quote_asset='btc',  # TODO: support others
             )
-            state.quotes = math.split(quote, config.position_count)
+            state.quotes = [quote / config.position_count] * config.position_count
+            _log.info(f'quote split as: {state.quotes}')
 
         if len(state.symbol_states) == 0:
             for s in symbols:
@@ -193,12 +194,14 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
 
         _log.info(
             f'managing up to {config.position_count} positions by tracking top '
-            f'{config.track_count} symbols: {symbols}'
+            f'{config.track_count} symbols: {list(state.symbol_states.keys())}'
         )
 
         try:
-            candles_updated = SlotBarrier(symbols)
-            trackers_ready: Dict[str, Event] = {s: Event(autoclear=True) for s in symbols}
+            candles_updated = SlotBarrier(state.symbol_states.keys())
+            trackers_ready: Dict[str, Event] = {
+                s: Event(autoclear=True) for s in state.symbol_states.keys()
+            }
             await asyncio.gather(
                 self._manage_positions(config, state, candles_updated, trackers_ready),
                 *(self._track_advice(config, state, ss, candles_updated, trackers_ready[s])
