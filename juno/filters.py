@@ -8,20 +8,27 @@ from .errors import OrderException
 
 
 class Price(NamedTuple):
-    min: Decimal = Decimal('0.0')  # 0 means disabled.
+    min: Decimal = Decimal('0.0')
     max: Decimal = Decimal('0.0')  # 0 means disabled.
     step: Decimal = Decimal('0.0')  # 0 means disabled.
 
     def round_down(self, price: Decimal) -> Decimal:
         if price < self.min:
             return Decimal('0.0')
-        if self.max:
+
+        if self.max > 0:
             price = min(price, self.max)
-        return price.quantize(self.step.normalize(), rounding=ROUND_DOWN)
+        if self.step > 0:
+            price = price.quantize(self.step.normalize(), rounding=ROUND_DOWN)
+
+        return price
 
     def valid(self, price: Decimal) -> bool:
-        return ((not self.min or price >= self.min) and (not self.max or price <= self.max)
-                and (not self.step or (price - self.min) % self.step == 0))
+        return (
+            price >= self.min
+            and (not self.max or price <= self.max)
+            and (not self.step or (price - self.min) % self.step == 0)
+        )
 
 
 class PercentPrice(NamedTuple):
@@ -38,8 +45,8 @@ class PercentPrice(NamedTuple):
 
 class Size(NamedTuple):
     min: Decimal = Decimal('0.0')
-    max: Decimal = Decimal('Inf')
-    step: Decimal = Decimal('0.0')
+    max: Decimal = Decimal('0.0')  # 0 means disabled.
+    step: Decimal = Decimal('0.0')  # 0 means disabled.
 
     def round_down(self, size: Decimal) -> Decimal:
         return self._round(size, ROUND_DOWN)
@@ -50,13 +57,18 @@ class Size(NamedTuple):
     def _round(self, size: Decimal, rounding: str) -> Decimal:
         if size < self.min:
             return Decimal('0.0')
-        size = min(size, self.max)
-        return size.quantize(self.step.normalize(), rounding=rounding)
+
+        if self.max > 0:
+            size = min(size, self.max)
+        if self.step > 0:
+            size = size.quantize(self.step.normalize(), rounding=rounding)
+
+        return size
 
     def valid(self, size: Decimal) -> bool:
         return (
             size >= self.min
-            and size <= self.max
+            and (not self.max or size <= self.max)
             and (not self.step or (size - self.min) % self.step == 0)
         )
 

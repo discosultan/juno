@@ -44,9 +44,9 @@ sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
 
 class SQLite(Storage):
     def __init__(self, version: Optional[str] = None) -> None:
-        self._version = version if version is not None else _VERSION
+        self._version = _VERSION if version is None else version
         self._tables: Dict[Any, Set[str]] = defaultdict(set)
-        _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {version}')
+        _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {self._version}')
 
     async def stream_time_series_spans(
         self, shard: str, key: str, start: int = 0, end: int = MAX_TIME_MS

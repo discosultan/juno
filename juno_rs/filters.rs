@@ -7,8 +7,7 @@ pub struct Price {
 }
 
 impl Price {
-    pub fn round_down(&self, price: f64) -> f64 {
-        let mut price = price;
+    pub fn round_down(&self, mut price: f64) -> f64 {
         if price < self.min {
             return 0.0;
         }
@@ -16,10 +15,10 @@ impl Price {
             price = f64::min(price, self.max);
         }
         if self.step > 0.0 {
-            (price / self.step).floor() * self.step
-        } else {
-            price
+            price = (price / self.step).floor() * self.step;
         }
+
+        price
     }
 
     pub fn valid(&self, price: f64) -> bool {
@@ -38,17 +37,19 @@ pub struct Size {
 }
 
 impl Size {
-    pub fn round_down(&self, size: f64) -> f64 {
-        let mut size = size;
+    pub fn round_down(&self, mut size: f64) -> f64 {
         if size < self.min {
             return 0.0;
         }
-        size = f64::min(size, self.max);
-        if self.step > 0.0 {
-            (size / self.step).floor() * self.step
-        } else {
-            size
+
+        if self.max > 0.0 {
+            size = f64::min(size, self.max);
         }
+        if self.step > 0.0 {
+            size = (size / self.step).floor() * self.step;
+        }
+
+        size
     }
 
     pub fn round_up(&self, size: f64) -> f64 {
