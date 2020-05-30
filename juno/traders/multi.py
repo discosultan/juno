@@ -180,6 +180,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
                 quote_asset='btc',  # TODO: support others
             )
             state.quotes = math.split(quote, config.position_count)
+            _log.info(f'quote split as: {state.quotes}')
 
         if len(state.symbol_states) == 0:
             for s in symbols:
