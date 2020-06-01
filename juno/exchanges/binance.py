@@ -195,7 +195,7 @@ class Binance(Exchange):
         if len(symbols) > 1:
             raise NotImplementedError()
 
-        data = {'symbol': _http_symbol(symbols[0])} if symbols else None
+        data = {'symbol': _to_http_symbol(symbols[0])} if symbols else None
         weight = 1 if symbols else 40
         res = await self._api_request('GET', '/api/v3/ticker/24hr', data=data, weight=weight)
         response_data = [res.data] if symbols else res.data
@@ -261,7 +261,7 @@ class Binance(Exchange):
             weight=LIMIT_TO_WEIGHT[LIMIT],
             data={
                 'limit': LIMIT,
-                'symbol': _http_symbol(symbol)
+                'symbol': _to_http_symbol(symbol)
             }
         )
         return Depth.Snapshot(
@@ -284,7 +284,7 @@ class Binance(Exchange):
                 )
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
-        url = f'/ws/{_ws_symbol(symbol)}@depth'
+        url = f'/ws/{_to_ws_symbol(symbol)}@depth'
         if self._high_precision:  # Low precision is every 1000ms.
             url += '@100ms'
         async with self._connect_refreshing_stream(
@@ -300,7 +300,7 @@ class Binance(Exchange):
         res = await self._api_request(
             'GET',
             url,
-            data={'symbol': _http_symbol(symbol)},
+            data={'symbol': _to_http_symbol(symbol)},
             security=_SEC_USER_DATA,
             weight=weight,
         )
@@ -377,18 +377,18 @@ class Binance(Exchange):
             raise ValueError('Binance does not support placing test orders on margin account')
 
         data = {
-            'symbol': _http_symbol(symbol),
-            'side': _side(side),
-            'type': type_.name,
+            'symbol': _to_http_symbol(symbol),
+            'side': _to_side(side),
+            'type': _to_order_type(type_),
         }
         if size is not None:
-            data['quantity'] = str(size)
+            data['quantity'] = _to_decimal(size)
         if quote is not None:
-            data['quoteOrderQty'] = str(quote)
+            data['quoteOrderQty'] = _to_decimal(quote)
         if price is not None:
-            data['price'] = str(price)
+            data['price'] = _to_decimal(price)
         if time_in_force is not None:
-            data['timeInForce'] = time_in_force.name
+            data['timeInForce'] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data['newClientOrderId'] = client_id
         url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
@@ -419,7 +419,7 @@ class Binance(Exchange):
 
     async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
-        data = {'symbol': _http_symbol(symbol), 'origClientOrderId': client_id}
+        data = {'symbol': _to_http_symbol(symbol), 'origClientOrderId': client_id}
         await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
 
     async def stream_historical_candles(
@@ -435,7 +435,7 @@ class Binance(Exchange):
                 'GET',
                 '/api/v3/klines',
                 data={
-                    'symbol': _http_symbol(symbol),
+                    'symbol': _to_http_symbol(symbol),
                     'interval': strfinterval(interval),
                     'startTime': page_start,
                     'endTime': page_end - 1,
@@ -466,7 +466,7 @@ class Binance(Exchange):
                 )
 
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
+            url=f'/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
             interval=12 * HOUR_SEC,
             name='candles',
             raise_on_disconnect=True
@@ -480,7 +480,7 @@ class Binance(Exchange):
         # the same order will be aggregated by summing their size.
         batch_start = start
         payload: Dict[str, Any] = {
-            'symbol': _http_symbol(symbol),
+            'symbol': _to_http_symbol(symbol),
         }
         while True:
             batch_end = batch_start + HOUR_MS
@@ -516,7 +516,7 @@ class Binance(Exchange):
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
         async with self._connect_refreshing_stream(
-            url=f'/ws/{_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade',
+            url=f'/ws/{_to_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade',
             raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
@@ -526,8 +526,8 @@ class Binance(Exchange):
             'POST',
             '/sapi/v1/margin/transfer',
             data={
-                'asset': asset.upper(),
-                'amount': str(size),
+                'asset': _to_asset(asset),
+                'amount': _to_decimal(size),
                 'type': 1 if margin else 2,
             },
             security=_SEC_MARGIN,
@@ -538,8 +538,8 @@ class Binance(Exchange):
             'POST',
             '/sapi/v1/margin/loan',
             data={
-                'asset': asset.upper(),
-                'amount': str(size),
+                'asset': _to_asset(asset),
+                'amount': _to_decimal(size),
             },
             security=_SEC_MARGIN,
         )
@@ -549,8 +549,8 @@ class Binance(Exchange):
             'POST',
             '/sapi/v1/margin/repay',
             data={
-                'asset': asset.upper(),
-                'amount': str(size),
+                'asset': _to_asset(asset),
+                'amount': _to_decimal(size),
             },
             security=_SEC_MARGIN,
         )
@@ -558,7 +558,7 @@ class Binance(Exchange):
     async def get_max_borrowable(self, asset: str) -> Decimal:
         res = await self._api_request(
             'GET',
-            '/sapi/v1/margin/maxBorrowable', data={'asset': asset.upper()},
+            '/sapi/v1/margin/maxBorrowable', data={'asset': _to_asset(asset)},
             security=_SEC_USER_DATA,
         )
         return Decimal(res.data['amount'])
@@ -899,11 +899,15 @@ class UserDataStream:
         )
 
 
-def _http_symbol(symbol: str) -> str:
+def _to_asset(asset: str) -> str:
+    return asset.upper()
+
+
+def _to_http_symbol(symbol: str) -> str:
     return symbol.replace('-', '').upper()
 
 
-def _ws_symbol(symbol: str) -> str:
+def _to_ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '')
 
 
@@ -928,11 +932,32 @@ def _from_symbol(symbol: str) -> str:
     return f'{quote.lower()}-{base.lower()}'
 
 
-def _side(side: Side) -> str:
+def _to_side(side: Side) -> str:
     return {
         Side.BUY: 'BUY',
         Side.SELL: 'SELL',
     }[side]
+
+
+def _to_order_type(type_: OrderType) -> str:
+    return {
+        OrderType.MARKET: 'MARKET',
+        OrderType.LIMIT: 'LIMIT',
+        OrderType.STOP_LOSS: 'STOP_LOSS',
+        OrderType.STOP_LOSS_LIMIT: 'STOP_LOSS_LIMIT',
+        OrderType.TAKE_PROFIT: 'TAKE_PROFIT',
+        OrderType.TAKE_PROFIT_LIMIT: 'TAKE_PROFIT_LIMIT',
+        OrderType.LIMIT_MAKER: 'LIMIT_MAKER',
+    }[type_]
+
+
+def _to_time_in_force(time_in_force: TimeInForce) -> str:
+    return {
+        TimeInForce.GTC: 'GTC',
+        TimeInForce.IOC: 'IOC',
+        TimeInForce.FOK: 'FOK',
+        TimeInForce.GTT: 'GTT',
+    }[time_in_force]
 
 
 def _from_order_status(status: str) -> OrderStatus:
@@ -946,3 +971,9 @@ def _from_order_status(status: str) -> OrderStatus:
     if not mapped_status:
         raise NotImplementedError(f'Handling of status {status} not implemented')
     return mapped_status
+
+
+def _to_decimal(value: Decimal) -> str:
+    # Converts from scientific notation.
+    # 6.4E-7 -> 0.0000_0064
+    return f'{value:f}'

@@ -139,13 +139,13 @@ class Coinbase(Exchange):
         self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         MAX_CANDLES_PER_REQUEST = 300
-        url = f'/products/{_product(symbol)}/candles'
+        url = f'/products/{_to_product(symbol)}/candles'
         for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
             res = await self._public_request(
                 'GET', url, {
-                    'start': _datetime(page_start),
-                    'end': _datetime(page_end - 1),
-                    'granularity': _granularity(interval)
+                    'start': _to_datetime(page_start),
+                    'end': _to_datetime(page_end - 1),
+                    'granularity': _to_granularity(interval)
                 }
             )
             for c in reversed(res):
@@ -271,16 +271,16 @@ class Coinbase(Exchange):
         data = {
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
             'side': 'buy' if side is Side.BUY else 'sell',
-            'product_id': _product(symbol),
+            'product_id': _to_product(symbol),
         }
         if size is not None:
-            data['size'] = str(size)
+            data['size'] = _to_decimal(size)
         if quote is not None:
-            data['funds'] = str(quote)
+            data['funds'] = _to_decimal(quote)
         if price is not None:
-            data['price'] = str(price)
+            data['price'] = _to_decimal(price)
         if time_in_force is not None:
-            data['time_in_force'] = _time_in_force(time_in_force)
+            data['time_in_force'] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data['client_oid'] = client_id
 
@@ -291,7 +291,7 @@ class Coinbase(Exchange):
 
     async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
         await self._private_request('DELETE', f'/orders/client:{client_id}', {
-            'product_id': _product(symbol),
+            'product_id': _to_product(symbol),
         })
 
     async def stream_historical_trades(
@@ -299,7 +299,7 @@ class Coinbase(Exchange):
     ) -> AsyncIterable[Trade]:
         trades_desc = []
         async for batch in self._paginated_public_request(
-            'GET', f'/products/{_product(symbol)}/trades'
+            'GET', f'/products/{_to_product(symbol)}/trades'
         ):
             done = False
             for val in batch:
@@ -420,7 +420,7 @@ class CoinbaseFeed:
         signature = _auth_signature(self._secret_key_bytes, timestamp, 'GET', '/users/self/verify')
         msg = {
             'type': 'subscribe',
-            'product_ids': [_product(s) for s in symbols],
+            'product_ids': [_to_product(s) for s in symbols],
             'channels': [channel],
             # To authenticate, we need to add additional fields.
             'signature': signature,
@@ -481,7 +481,7 @@ def _is_subscribed(
     return True
 
 
-def _product(symbol: str) -> str:
+def _to_product(symbol: str) -> str:
     return symbol.upper()
 
 
@@ -489,11 +489,11 @@ def _from_product(product: str) -> str:
     return product.lower()
 
 
-def _granularity(interval: int) -> int:
+def _to_granularity(interval: int) -> int:
     return interval // 1000
 
 
-def _datetime(timestamp: int) -> str:
+def _to_datetime(timestamp: int) -> str:
     return datetime.utcfromtimestamp(timestamp / 1000.0).isoformat()
 
 
@@ -507,7 +507,7 @@ def _from_datetime(dt: str) -> int:
     )
 
 
-def _time_in_force(time_in_force: TimeInForce) -> str:
+def _to_time_in_force(time_in_force: TimeInForce) -> str:
     if time_in_force is TimeInForce.GTC:
         return 'GTC'
     elif time_in_force is TimeInForce.GTT:
@@ -525,6 +525,10 @@ def _from_order_status(status: str) -> OrderStatus:
     elif status == 'done':
         return OrderStatus.FILLED
     raise NotImplementedError()
+
+
+def _to_decimal(value: Decimal) -> str:
+    return f'{value:f}'
 
 
 def _auth_timestamp() -> str:
