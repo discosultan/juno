@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import fnmatch
+import itertools
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.time import DAY_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
+from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
 
@@ -93,6 +95,29 @@ class Informant:
     def get_margin_multiplier(self, exchange) -> int:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         return exchange_info.margin_multiplier
+
+    def list_assets(
+        self, exchange: str, patterns: Optional[List[str]] = None, borrow: bool = False
+    ) -> List[str]:
+        symbols = self.list_symbols(exchange)
+        all_assets = itertools.chain(*(map(unpack_symbol, symbols)))
+
+        result: Dict[str, None] = {}
+
+        if patterns is None:
+            result.update((a, None) for a in all_assets)
+        else:
+            for pattern in patterns:
+                found_assets = fnmatch.filter(all_assets, pattern)
+                if len(found_assets) == 0:
+                    raise ValueError(f'Exchange {exchange} does not support any asset matching '
+                                     f'{pattern}')
+                result.update((s, None) for s in found_assets)
+
+        if borrow:
+            exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+            return [a for a in result.keys() if a in exchange_info.borrow_info.keys()]
+        return list(result.keys())
 
     def list_symbols(self, exchange: str, patterns: Optional[List[str]] = None) -> List[str]:
         all_symbols = list(

@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import ExchangeInfo, Fees, Filters
+from juno import BorrowInfo, ExchangeInfo, Fees, Filters
 from juno.components import Informant
 from juno.filters import Price, Size
 
@@ -25,6 +25,32 @@ async def test_get_fees_filters(storage, exchange_key) -> None:
 
         assert out_fees == fees
         assert out_filters == filters
+
+
+@pytest.mark.parametrize('patterns,borrow,expected_output', [
+    (None, False, ['eth', 'btc', 'ltc']),
+    (None, True, ['eth', 'btc']),
+    (['*'], False, ['eth', 'btc', 'ltc']),
+    (['btc'], False, ['btc']),
+])
+async def test_list_assets(storage, patterns, borrow, expected_output) -> None:
+    exchange = fakes.Exchange(
+        exchange_info=ExchangeInfo(
+            borrow_info={
+                'btc': BorrowInfo(),
+                'eth': BorrowInfo(),
+            },
+            filters={
+                'eth-btc': Filters(),
+                'ltc-btc': Filters(),
+            }
+        )
+    )
+
+    async with Informant(storage=storage, exchanges=[exchange]) as informant:
+        assert informant.list_assets(
+            'exchange', patterns=patterns, borrow=borrow
+        ) == expected_output
 
 
 @pytest.mark.parametrize('symbols,patterns,expected_output', [
