@@ -64,36 +64,33 @@ async def transact_symbol(
     logging.info(
         f'available base: {available_base} {base_asset}; available quote: {available_quote} '
         f'{quote_asset}')
-    if value >= filters.size.min:
-        if args.side is Side.BUY:
-            market_fills = orderbook.find_order_asks_by_quote(
-                exchange='binance', symbol=symbol, quote=value, fee_rate=fees.maker,
-                filters=filters
-            )
-            res = await limit.buy_by_quote(
-                exchange='binance', symbol=symbol, quote=value, test=False,
-                margin=args.margin
-            )
-        else:
-            market_fills = orderbook.find_order_bids(
-                exchange='binance', symbol=symbol, size=value, fee_rate=fees.maker,
-                filters=filters
-            )
-            res = await limit.sell(
-                exchange='binance', symbol=symbol, size=value, test=False,
-                margin=args.margin
-            )
-
-        logging.info(res)
-        logging.info(f'{"margin" if args.margin else "spot"} {args.side.name} {symbol}')
-        logging.info(f'total size: {Fill.total_size(res.fills)}')
-        logging.info(f'total quote: {Fill.total_quote(res.fills)}')
-        logging.info(f'total fee: {Fill.total_fee(res.fills)}')
-        logging.info(f'in case of market order total size: {Fill.total_size(market_fills)}')
-        logging.info(f'in case of market order total quote: {Fill.total_quote(market_fills)}')
-        logging.info(f'in case of market order total fee: {Fill.total_fee(market_fills)}')
+    if args.side is Side.BUY:
+        market_fills = orderbook.find_order_asks_by_quote(
+            exchange='binance', symbol=symbol, quote=value, fee_rate=fees.maker,
+            filters=filters
+        )
+        res = await limit.buy_by_quote(
+            exchange='binance', symbol=symbol, quote=value, test=False,
+            margin=args.margin
+        )
     else:
-        logging.info(f'{symbol} balance too low')
+        market_fills = orderbook.find_order_bids(
+            exchange='binance', symbol=symbol, size=value, fee_rate=fees.maker,
+            filters=filters
+        )
+        res = await limit.sell(
+            exchange='binance', symbol=symbol, size=value, test=False,
+            margin=args.margin
+        )
+
+    logging.info(res)
+    logging.info(f'{"margin" if args.margin else "spot"} {args.side.name} {symbol}')
+    logging.info(f'total size: {Fill.total_size(res.fills)}')
+    logging.info(f'total quote: {Fill.total_quote(res.fills)}')
+    logging.info(f'total fee: {Fill.total_fee(res.fills)}')
+    logging.info(f'in case of market order total size: {Fill.total_size(market_fills)}')
+    logging.info(f'in case of market order total quote: {Fill.total_quote(market_fills)}')
+    logging.info(f'in case of market order total fee: {Fill.total_fee(market_fills)}')
 
 
 asyncio.run(main())
