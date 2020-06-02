@@ -574,7 +574,7 @@ class PositionMixin(ABC):
         else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
             await exchange_instance.transfer(quote_asset, collateral, margin=True)
-            borrowed = await exchange_instance.get_max_borrowable(quote_asset)
+            borrowed = await exchange_instance.get_max_borrowable(base_asset)
             _log.info(f'borrowing {borrowed} {base_asset} from exchange')
             await exchange_instance.borrow(asset=base_asset, size=borrowed)
 
@@ -636,10 +636,10 @@ class PositionMixin(ABC):
             await exchange_instance.repay(base_asset, position.borrowed + interest)
             # Validate!
             # TODO: Remove if known to work or pay extra if needed.
+            # Careful with this check! We may have another position still open.
             new_balance = (await exchange_instance.map_balances(margin=True))[base_asset]
             if new_balance.repay != 0:
-                _log.error(f'did not repay enough; balance {new_balance}')
-                assert new_balance.repay == 0
+                raise RuntimeError(f'Did not repay enough {base_asset}; balance {new_balance}')
 
             transfer = closed_position.collateral + closed_position.profit
             _log.info(f'transferring {transfer} {quote_asset} to spot account')

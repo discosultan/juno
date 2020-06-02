@@ -96,7 +96,7 @@ class Kraken(Exchange):
         if not symbols:
             raise ValueError('Empty symbols list not supported')
 
-        data = {'pair': ','.join((_symbol(s) for s in symbols))}
+        data = {'pair': ','.join((_to_http_symbol(s) for s in symbols))}
 
         res = await self._request_public('GET', '/0/public/Ticker', data=data)
         return [
@@ -146,7 +146,7 @@ class Kraken(Exchange):
         async with self._public_ws.subscribe({
             'name': 'ohlc',
             'interval': interval // MIN_MS
-        }, [_ws_symbol(symbol)]) as ws:
+        }, [_to_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -173,7 +173,7 @@ class Kraken(Exchange):
         async with self._public_ws.subscribe({
             'name': 'book',
             'depth': 10,
-        }, [_ws_symbol(symbol)]) as ws:
+        }, [_to_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -211,13 +211,13 @@ class Kraken(Exchange):
         self, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
         # https://www.kraken.com/en-us/features/api#get-recent-trades
-        since = _time(start) - 1  # Exclusive.
+        since = _to_time(start) - 1  # Exclusive.
         while True:
             res = await self._request_public(
                 'GET',
                 '/0/public/Trades',
                 {
-                    'pair': _symbol(symbol),
+                    'pair': _to_http_symbol(symbol),
                     'since': since
                 },
                 cost=2,
@@ -251,7 +251,7 @@ class Kraken(Exchange):
                         size=Decimal(trade[1]),
                     )
 
-        async with self._public_ws.subscribe({'name': 'trade'}, [_ws_symbol(symbol)]) as ws:
+        async with self._public_ws.subscribe({'name': 'trade'}, [_to_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     async def _get_websockets_token(self) -> str:
@@ -454,12 +454,12 @@ def _from_ws_time(time: str) -> int:
     return int(Decimal(time) * 1000)
 
 
-def _time(time: int) -> int:
+def _to_time(time: int) -> int:
     # Convert milliseconds to nanoseconds.
     return time * 1_000_000
 
 
-def _ws_symbol(symbol: str) -> str:
+def _to_ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '/').upper()
 
 
@@ -470,7 +470,7 @@ ASSET_ALIAS_MAP = {
 REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in ASSET_ALIAS_MAP.items()}
 
 
-def _symbol(symbol: str) -> str:
+def _to_http_symbol(symbol: str) -> str:
     base, quote = unpack_symbol(symbol)
     return f'{ASSET_ALIAS_MAP.get(base, base)}{ASSET_ALIAS_MAP.get(quote, quote)}'
 
