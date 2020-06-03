@@ -8,8 +8,8 @@ from juno.asyncio import enumerate_async
 from juno.components import Chandler, Trades
 from juno.config import from_env, init_instance
 from juno.math import floor_multiple
-from juno.modules import get_module_type
 from juno.time import MIN_MS, strftimestamp, strpinterval, strptimestamp, time_ms
+from juno.utils import get_module_type
 
 INTERVAL = MIN_MS
 CURRENT = floor_multiple(time_ms(), INTERVAL)

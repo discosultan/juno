@@ -1,49 +1,31 @@
 import operator
 from decimal import Decimal
-from typing import Generic, TypeVar
 
-from juno import Advice, Candle, indicators, math
-from juno.modules import get_module_type
+from juno import Advice, Candle, indicators
+from juno.constraints import Int, Pair, Uniform
+from juno.indicators import MA, Ema
+from juno.utils import get_module_type
 
-from .strategy import Meta, Strategy
-
-_ma_choices = math.Choice([i.__name__.lower() for i in [
-    indicators.Ema,
-    indicators.Ema2,
-    indicators.Sma,
-    indicators.Smma,
-    indicators.Dema,
-    indicators.Kama,
-]])
-
-
-TShort = TypeVar('TShort', bound=indicators.MovingAverage)
-TLong = TypeVar('TLong', bound=indicators.MovingAverage)
+from .strategy import Meta, Strategy, ma_choices
 
 
 # Moving average moving average crossover.
-class MAMACX(Generic[TShort, TLong], Strategy):
+class MAMACX(Strategy):
     @staticmethod
     def meta() -> Meta:
         return Meta(
             constraints={
-                ('short_period', 'long_period'):
-                    math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
-                'neg_threshold':
-                    math.Uniform(Decimal('-1.000'), Decimal('-0.100')),
-                'pos_threshold':
-                    math.Uniform(Decimal('+0.100'), Decimal('+1.000')),
-                'persistence':
-                    math.Int(0, 10),
-                'short_ma':
-                    _ma_choices,
-                'long_ma':
-                    _ma_choices,
+                ('short_period', 'long_period'): Pair(Int(1, 100), operator.lt, Int(2, 101)),
+                'neg_threshold': Uniform(Decimal('-1.000'), Decimal('-0.100')),
+                'pos_threshold': Uniform(Decimal('+0.100'), Decimal('+1.000')),
+                'persistence': Int(0, 10),
+                'short_ma': ma_choices,
+                'long_ma': ma_choices,
             }
         )
 
-    _short_ma: TShort
-    _long_ma: TLong
+    _short_ma: MA
+    _long_ma: MA
     _neg_threshold: Decimal
     _pos_threshold: Decimal
 
@@ -54,8 +36,8 @@ class MAMACX(Generic[TShort, TLong], Strategy):
         neg_threshold: Decimal,
         pos_threshold: Decimal,
         persistence: int = 0,
-        short_ma: str = indicators.Ema.__name__.lower(),
-        long_ma: str = indicators.Ema.__name__.lower(),
+        short_ma: str = Ema.__name__.lower(),
+        long_ma: str = Ema.__name__.lower(),
     ) -> None:
         self._short_ma = get_module_type(indicators, short_ma)(short_period)
         self._long_ma = get_module_type(indicators, long_ma)(long_period)

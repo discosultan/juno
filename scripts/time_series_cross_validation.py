@@ -7,7 +7,8 @@ from juno.components import Chandler, Informant, Prices, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
-from juno.optimization import Optimizer, Rust
+from juno.optimizer import Optimizer
+from juno.solvers import Rust
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
 from juno.traders import Basic

@@ -1,6 +1,7 @@
 import operator
 
-from juno import Advice, Candle, indicators, math
+from juno import Advice, Candle, indicators
+from juno.constraints import Int, Pair
 
 from .strategy import Meta, Strategy
 
@@ -12,10 +13,9 @@ class Macd(Strategy):
     def meta() -> Meta:
         return Meta(
             constraints={
-                ('short_period', 'long_period'):
-                    math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
-                'signal_period': math.Int(1, 101),
-                'persistence': math.Int(0, 10),
+                ('short_period', 'long_period'): Pair(Int(1, 100), operator.lt, Int(2, 101)),
+                'signal_period': Int(1, 101),
+                'persistence': Int(0, 10),
             }
         )
 

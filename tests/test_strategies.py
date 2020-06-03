@@ -2,7 +2,8 @@ import operator
 
 import pytest
 
-from juno import Advice, Candle, math, strategies
+from juno import Advice, Candle, strategies
+from juno.constraints import Int, Pair
 
 
 def test_strategy_meta():
@@ -20,7 +21,7 @@ class DummyStrategy(strategies.Strategy):
     def meta() -> strategies.Meta:
         return strategies.Meta(
             constraints={
-                ('foo', 'bar'): math.Pair(math.Int(0, 15), operator.lt, math.Int(10, 20)),
+                ('foo', 'bar'): Pair(Int(0, 15), operator.lt, Int(10, 20)),
             }
         )
 

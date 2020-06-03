@@ -2,11 +2,10 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import (
-    MissedCandlePolicy, components, exchanges, optimization, storages, strategies, time, utils
-)
-from juno.config import from_env, get_module_type_constructor, init_instance
+from juno import MissedCandlePolicy, components, exchanges, storages, strategies, time
+from juno.config import format_as_config, from_env, get_module_type_constructor, init_instance
 from juno.math import floor_multiple
+from juno.solvers import Python, Rust, Solver
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.traders import Basic
 from juno.utils import extract_public, unpack_symbol
@@ -88,8 +87,8 @@ async def main() -> None:
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
     prices = components.Prices(chandler=chandler)
     trader = Basic(chandler=chandler, informant=informant, exchanges=exchange_list)
-    rust_solver = optimization.Rust(informant=informant)
-    python_solver = optimization.Python(informant=informant)
+    rust_solver = Rust(informant=informant)
+    python_solver = Python(informant=informant)
     async with binance, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
         fiat_prices = await prices.map_prices(
@@ -102,7 +101,7 @@ async def main() -> None:
 
         logging.info('running backtest in rust solver, python solver, python trader ...')
 
-        solver_config = optimization.Solver.Config(
+        solver_config = Solver.Config(
             fiat_prices=fiat_prices,
             benchmark_g_returns=benchmark.g_returns,
             strategy_type=strategies.MAMACX,
@@ -172,7 +171,7 @@ async def main() -> None:
         logging.info(f'alpha {portfolio.stats.alpha}')
         logging.info(f'profit {trading_summary.profit}')
         logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
-        logging.info(f'{utils.format_as_config(extract_public(trading_summary))}')
+        logging.info(f'{format_as_config(extract_public(trading_summary))}')
 
 
 asyncio.run(main())

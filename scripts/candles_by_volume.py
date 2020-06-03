@@ -9,7 +9,7 @@ from juno.asyncio import list_async
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
-from juno.optimization.python import Python
+from juno.solvers import Python
 from juno.storages import SQLite
 from juno.strategies import MAMACX
 from juno.time import strptimestamp

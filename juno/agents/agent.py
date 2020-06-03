@@ -8,9 +8,10 @@ from enum import IntEnum
 from typing import Any, List, Optional
 
 from juno.components import Events
+from juno.config import format_as_config
 from juno.plugins import Plugin
 from juno.storages import Memory, Storage
-from juno.utils import exc_traceback, extract_public, format_as_config, generate_random_words
+from juno.utils import exc_traceback, extract_public, generate_random_words
 
 _log = logging.getLogger(__name__)
 

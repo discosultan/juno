@@ -6,7 +6,7 @@ from juno import exchanges
 from juno.asyncio import resolved_future
 from juno.components import Wallet
 from juno.config import from_env, init_instance
-from juno.modules import get_module_type
+from juno.utils import get_module_type
 
 KEEP_STREAMING = False
 
