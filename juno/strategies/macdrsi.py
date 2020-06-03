@@ -1,7 +1,8 @@
 import operator
 from decimal import Decimal
 
-from juno import Advice, Candle, math
+from juno import Advice, Candle
+from juno.constraints import Int, Pair, Uniform
 
 from .macd import Macd
 from .rsi import Rsi
@@ -14,12 +15,12 @@ class MacdRsi(Strategy):
         return Meta(
             constraints={
                 ('macd_short_period', 'macd_long_period'):
-                    math.Pair(math.Int(1, 100), operator.lt, math.Int(2, 101)),
-                'macd_signal_period': math.Int(1, 101),
-                'rsi_period': math.Int(1, 101),
-                'rsi_up_threshold': math.Uniform(Decimal('50.0'), Decimal('100.0')),
-                'rsi_down_threshold': math.Uniform(Decimal('0.0'), Decimal('50.0')),
-                'persistence': math.Int(0, 10),
+                    Pair(Int(1, 100), operator.lt, Int(2, 101)),
+                'macd_signal_period': Int(1, 101),
+                'rsi_period': Int(1, 101),
+                'rsi_up_threshold': Uniform(Decimal('50.0'), Decimal('100.0')),
+                'rsi_down_threshold': Uniform(Decimal('0.0'), Decimal('50.0')),
+                'persistence': Int(0, 10),
             }
         )
 

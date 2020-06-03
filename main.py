@@ -14,12 +14,12 @@ from juno.brokers import Broker
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.logging import create_handlers
-from juno.modules import map_module_types
-from juno.optimization import Optimizer, Solver
+from juno.optimizer import Optimizer
 from juno.plugins import Plugin, map_plugin_types
+from juno.solvers import Solver
 from juno.storages import Storage
 from juno.traders import Basic, Multi, Trader
-from juno.utils import full_path
+from juno.utils import full_path, map_module_types
 
 _log = logging.getLogger(__name__)
 

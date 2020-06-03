@@ -11,11 +11,11 @@ from typing import (
 
 from juno import Interval, Timestamp, json
 from juno.itertools import recursive_iter
-from juno.modules import get_module_type, map_module_types
 from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
 from juno.typing import (
     TypeConstructor, get_fully_qualified_name, get_input_type_hints, isenum, isnamedtuple
 )
+from juno.utils import get_module_type, map_module_types
 
 T = TypeVar('T')
 
@@ -257,3 +257,8 @@ def _map_type_parent_module_types(type_: Type[Any]) -> Dict[str, Type[Any]]:
     module_name = type_.__module__
     parent_module_name = module_name[0:module_name.rfind('.')]
     return map_module_types(sys.modules[parent_module_name])
+
+
+def format_as_config(obj: Any):
+    cfg = type_to_config(obj, type(obj))
+    return json.dumps(cfg, indent=4)

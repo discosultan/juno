@@ -3,8 +3,7 @@
 # - https://github.com/voice32/stock_market_indicators
 # - https://school.stockcharts.com/doku.php
 
-from abc import ABC, abstractmethod
-from decimal import Decimal
+from typing import Union
 
 from .adx import Adx
 from .adxr import Adxr
@@ -26,19 +25,7 @@ from .stoch import Stoch
 from .stochrsi import StochRsi
 from .tsi import Tsi
 
-
-class MovingAverage(ABC):
-    value: Decimal
-
-    @property
-    @abstractmethod
-    def maturity(self) -> int:
-        ...
-
-    @abstractmethod
-    def update(self, price: Decimal) -> Decimal:
-        ...
-
+MA = Union[Dema, Ema, Ema2, Kama, Sma, Smma]
 
 __all__ = [
     'Adx',
@@ -54,7 +41,7 @@ __all__ = [
     'Kama',
     'Kvo',
     'Macd',
-    'MovingAverage',
+    'MA',
     'Obv',
     'Obv2',
     'Rsi',

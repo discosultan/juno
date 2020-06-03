@@ -1,6 +1,7 @@
 from decimal import Decimal
 
-from juno import Advice, Candle, indicators, math
+from juno import Advice, Candle, indicators
+from juno.constraints import Int, Uniform
 
 from .strategy import Meta, Strategy
 
@@ -12,10 +13,10 @@ class Rsi(Strategy):
     def meta() -> Meta:
         return Meta(
             constraints={
-                'period': math.Int(1, 101),
-                'up_threshold': math.Uniform(Decimal('50.0'), Decimal('100.0')),
-                'down_threshold': math.Uniform(Decimal('0.0'), Decimal('50.0')),
-                'persistence': math.Int(0, 10),
+                'period': Int(1, 101),
+                'up_threshold': Uniform(Decimal('50.0'), Decimal('100.0')),
+                'down_threshold': Uniform(Decimal('0.0'), Decimal('50.0')),
+                'persistence': Int(0, 10),
             }
         )
 

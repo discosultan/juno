@@ -5,11 +5,12 @@ from typing import List, NamedTuple, Optional, get_type_hints
 
 from juno import Interval, MissedCandlePolicy, Timestamp
 from juno.components import Events
-from juno.optimization import OptimizationSummary, Optimizer
+from juno.config import format_as_config
+from juno.optimizer import OptimizationSummary, Optimizer
 from juno.storages import Memory, Storage
 from juno.traders import Basic
 from juno.typing import TypeConstructor, get_input_type_hints
-from juno.utils import extract_public, format_as_config
+from juno.utils import extract_public
 
 from .agent import Agent, AgentStatus
 

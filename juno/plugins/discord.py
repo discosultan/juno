@@ -9,10 +9,11 @@ import discord
 from juno import Advice
 from juno.asyncio import cancel, create_task_cancel_on_exc
 from juno.components import Events
+from juno.config import format_as_config
 from juno.itertools import chunks
 from juno.trading import Position, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import exc_traceback, extract_public, format_as_config
+from juno.utils import exc_traceback, extract_public
 
 from .plugin import Plugin
 

@@ -4,11 +4,12 @@ from decimal import Decimal
 
 from juno import Fill
 from juno.agents import Agent, AgentStatus
+from juno.config import format_as_config
 from juno.storages import SQLite
 from juno.strategies import MAMACX
 from juno.traders import Basic
 from juno.trading import CloseReason, Position, TradingSummary
-from juno.utils import extract_public, format_as_config
+from juno.utils import extract_public
 
 
 async def main() -> None:

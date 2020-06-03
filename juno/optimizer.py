@@ -13,17 +13,17 @@ from deap import base, creator, tools
 
 from juno import Candle, Interval, MissedCandlePolicy, OrderException, Timestamp, strategies
 from juno.components import Chandler, Informant, Prices
+from juno.constraints import Choice, Constant, Constraint, ConstraintChoice, Uniform
+from juno.deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from juno.itertools import flatten
-from juno.math import Choice, Constant, Constraint, ConstraintChoice, Uniform, floor_multiple
-from juno.modules import get_module_type
+from juno.math import floor_multiple
+from juno.solvers import Solver, SolverResult
 from juno.statistics import Statistics, analyse_benchmark, analyse_portfolio
 from juno.time import DAY_MS, strfinterval, strfspan, time_ms
 from juno.traders import Basic
 from juno.trading import TradingSummary
 from juno.typing import TypeConstructor, get_fully_qualified_name, map_input_args
-
-from .deap import cx_uniform, ea_mu_plus_lambda, mut_individual
-from .solver import Solver, SolverResult
+from juno.utils import get_module_type
 
 _log = logging.getLogger(__name__)
 

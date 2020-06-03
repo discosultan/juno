@@ -1,6 +1,4 @@
-import operator
 from decimal import Decimal
-from random import Random
 from typing import List, Tuple
 
 import pytest
@@ -80,40 +78,3 @@ def test_spans_overlap(
 ) -> None:
     output = math.spans_overlap(span1, span2)
     assert output == expected_output
-
-
-def test_constant_constraint() -> None:
-    assert_constraint_chaos(math.Constant('foo'))
-
-
-def test_choice_constraint() -> None:
-    assert_constraint_chaos(math.Choice(['foo', 'bar']))
-
-
-def test_constraint_choice_constraint() -> None:
-    assert_constraint_chaos(math.ConstraintChoice([
-        math.Constant(Decimal('0.0')),
-        math.Uniform(Decimal('0.0001'), Decimal('0.9999')),
-    ]))
-
-
-def test_uniform_constraint() -> None:
-    assert_constraint_chaos(math.Uniform(Decimal('-0.10'), Decimal('2.00')))
-
-
-def test_int_constraint() -> None:
-    assert_constraint_chaos(math.Int(-10, 10))
-
-
-def test_int_pair_constraint() -> None:
-    assert_constraint_chaos(math.Pair(math.Int(-10, 10), operator.lt, math.Int(5, 20)))
-
-
-def assert_constraint_chaos(randomizer):
-    random = Random()
-    for _ in range(0, 1000):
-        value = randomizer.random(random)
-    if isinstance(value, tuple):
-        assert randomizer.validate(*value)
-    else:
-        assert randomizer.validate(value)
