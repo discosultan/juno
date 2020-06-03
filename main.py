@@ -1,5 +1,4 @@
 import asyncio
-import inspect
 import logging
 import sys
 from typing import Any, Dict, List, Tuple, Type
@@ -18,7 +17,7 @@ from juno.optimizer import Optimizer
 from juno.plugins import Plugin, map_plugin_types
 from juno.solvers import Solver
 from juno.storages import Storage
-from juno.traders import Basic, Multi, Trader
+from juno.traders import Trader
 from juno.utils import full_path, map_concrete_module_types
 
 _log = logging.getLogger(__name__)
