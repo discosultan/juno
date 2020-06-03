@@ -68,7 +68,6 @@ async def main() -> None:
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
     container.add_singleton_type(Optimizer)
     trader_types = map_concrete_module_types(traders).values()
-    _log.critical(trader_types)
     container.add_singleton_types(trader_types)
     container.add_singleton_instance(List[Trader], lambda: map(container.resolve, trader_types))
     container.add_singleton_types(map_concrete_module_types(components).values())
