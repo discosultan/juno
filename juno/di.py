@@ -5,7 +5,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar, get_args
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar, get_args
 
 from typing_inspect import is_optional_type
 
@@ -42,6 +42,10 @@ class Container:
 
     def add_singleton_instance(self, type_: Type[Any], factory: Callable[[], Any]) -> None:
         self._singleton_instances[type_] = factory
+
+    def add_singleton_types(self, types: Iterable[Type[Any]]) -> None:
+        for type_ in types:
+            self.add_singleton_type(type_)
 
     def add_singleton_type(
         self,

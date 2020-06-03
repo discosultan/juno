@@ -2,14 +2,16 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional
+from typing import List, NamedTuple, Optional
 
 from juno import Interval, Timestamp
 from juno.brokers import Broker
-from juno.components import Chandler, Informant
+from juno.components import Chandler, Informant, Wallet
 from juno.optimizer import Optimizer
+from juno.strategies import Strategy
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import TradingSummary
+from juno.typing import TypeConstructor
 from juno.utils import construct
 
 from .basic import Basic
@@ -24,8 +26,7 @@ class Optimizing(Trader):
         interval: Interval
         end: Timestamp
         quote: Decimal
-        strategy: str
-        strategy_kwargs: Dict[str, Any]
+        strategy: TypeConstructor[Strategy]
         start: Optional[Timestamp] = None
         channel: str = 'default'
         long: bool = True
@@ -48,6 +49,14 @@ class Optimizing(Trader):
     @property
     def broker(self) -> Broker:
         return self._basic.broker
+
+    @property
+    def chandler(self) -> Chandler:
+        return self._chandler
+
+    @property
+    def wallet(self) -> Wallet:
+        return self._basic.wallet
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         required_start = strptimestamp('2019-01-01')

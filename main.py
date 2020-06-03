@@ -67,13 +67,11 @@ async def main() -> None:
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
     container.add_singleton_type(Optimizer)
-    for type_ in map_concrete_module_types(traders).values():
-        container.add_singleton_type(type_)
-    container.add_singleton_instance(
-        List[Trader], lambda: map(container.resolve, [Basic, Multi])
-    )
-    for _name, type_ in inspect.getmembers(components, inspect.isclass):
-        container.add_singleton_type(type_)
+    trader_types = map_concrete_module_types(traders).values()
+    _log.critical(trader_types)
+    container.add_singleton_types(trader_types)
+    container.add_singleton_instance(List[Trader], lambda: map(container.resolve, trader_types))
+    container.add_singleton_types(map_concrete_module_types(components).values())
 
     # Load agents and plugins.
     agent_types: Dict[str, Type[Agent]] = map_concrete_module_types(agents)
