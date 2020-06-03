@@ -7,7 +7,7 @@ from typing import Any, Dict, List, NamedTuple, Optional
 from juno import Interval, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
-from juno.optimization import Optimizer
+from juno.optimizer import Optimizer
 from juno.time import DAY_MS, strftimestamp, strpinterval, strptimestamp
 from juno.trading import TradingSummary
 from juno.utils import construct
