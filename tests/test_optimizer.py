@@ -6,7 +6,8 @@ import pytest
 
 from juno import Candle, Fees, Filters, MissedCandlePolicy
 from juno.components import Prices
-from juno.optimization import Optimizer, Rust
+from juno.optimizer import Optimizer
+from juno.solvers import Rust
 from juno.statistics import analyse_benchmark
 from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS

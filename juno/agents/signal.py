@@ -5,10 +5,10 @@ from juno import Advice, Interval, strategies
 from juno.components import Chandler, Events
 from juno.config import get_type_name_and_kwargs
 from juno.math import floor_multiple
-from juno.modules import get_module_type
 from juno.storages import Memory, Storage
 from juno.strategies import Changed
 from juno.time import time_ms
+from juno.utils import get_module_type
 
 from .agent import Agent
 

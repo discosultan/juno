@@ -1,7 +1,10 @@
 from typing import Any, Dict, Optional, Tuple, Union
 
 from juno import Advice, Candle
-from juno.math import Constraint
+from juno.constraints import Choice, Constraint
+from juno.indicators import Dema, Ema, Ema2, Kama, Sma, Smma
+
+ma_choices = Choice([i.__name__.lower() for i in [Dema, Ema, Ema2, Kama, Sma, Smma]])
 
 # class Maturity:
 #     """Ignore advice if strategy not mature."""

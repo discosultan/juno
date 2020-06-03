@@ -5,12 +5,14 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
 from juno import Interval, Timestamp, strategies
 from juno.components import Chandler, Events, Prices
-from juno.config import get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
+from juno.config import (
+    format_as_config, get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
+)
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, time_ms
 from juno.traders import Trader
-from juno.utils import construct, extract_public, format_as_config
+from juno.utils import construct, extract_public
 
 from .agent import Agent, AgentStatus
 

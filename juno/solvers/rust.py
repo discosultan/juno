@@ -20,11 +20,10 @@ from juno import (
 from juno.cffi import CDefBuilder
 from juno.components import Informant
 from juno.filters import Price, Size
-from juno.modules import list_concretes_from_module
 from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path
+from juno.utils import home_path, list_concretes_from_module
 
 from .solver import Solver, SolverResult
 

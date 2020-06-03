@@ -9,12 +9,14 @@ from copy import deepcopy
 from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
-from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
+from types import ModuleType
+from typing import (
+    Any, Dict, Iterator, List, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
+)
 
 import aiolimiter
 
 from juno import json
-from juno.config import type_to_config
 from juno.typing import isnamedtuple
 
 T = TypeVar('T')
@@ -85,11 +87,6 @@ def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
     return filter(lambda w: len(w) == length, _words) if length else _words
 
 
-def format_as_config(obj: Any):
-    cfg = type_to_config(obj, type(obj))
-    return json.dumps(cfg, indent=4)
-
-
 def unpack_symbol(symbol: str) -> Tuple[str, str]:
     index_of_separator = symbol.find('-')
     return symbol[:index_of_separator], symbol[index_of_separator + 1:]
@@ -148,6 +145,33 @@ def _isprop(v: object) -> bool:
 
 def exc_traceback(exc: Exception) -> str:
     return ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+
+
+def map_module_types(module: ModuleType) -> Dict[str, Type[Any]]:
+    return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
+
+
+# Cannot use typevar T in place of Any here. Triggers: "Only concrete class can be given where type
+# is expected".
+# Ref: https://github.com/python/mypy/issues/5374
+def list_concretes_from_module(module: ModuleType, abstract: Type[Any]) -> List[Type[Any]]:
+    return [t for _n, t in inspect.getmembers(
+        module,
+        lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract)
+    )]
+
+
+def get_module_type(module: ModuleType, name: str) -> Type[Any]:
+    name_lower = name.lower()
+    found_members = inspect.getmembers(
+        module,
+        lambda obj: inspect.isclass(obj) and obj.__name__.lower() == name_lower
+    )
+    if len(found_members) == 0:
+        raise ValueError(f'Type named "{name}" not found in module "{module.__name__}".')
+    if len(found_members) > 1:
+        raise ValueError(f'Found more than one type named "{name}" in module "{module.__name__}".')
+    return found_members[0][1]
 
 
 class AsyncLimiter(aiolimiter.AsyncLimiter):
