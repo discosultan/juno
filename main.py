@@ -8,7 +8,7 @@ import pkg_resources
 from mergedeep import merge
 
 import juno
-from juno import agents, components, config
+from juno import agents, components, config, traders
 from juno.agents import Agent
 from juno.brokers import Broker
 from juno.di import Container
@@ -19,7 +19,7 @@ from juno.plugins import Plugin, map_plugin_types
 from juno.solvers import Solver
 from juno.storages import Storage
 from juno.traders import Basic, Multi, Trader
-from juno.utils import full_path, map_module_types
+from juno.utils import full_path, map_concrete_module_types
 
 _log = logging.getLogger(__name__)
 
@@ -64,19 +64,16 @@ async def main() -> None:
     # container.add_singleton_instance(
     #     List[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
     # )
-    container.add_singleton_instance(
-        List[Trader], lambda: map(container.resolve, [Basic, Multi])
-    )
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
-    container.add_singleton_type(Basic)
-    container.add_singleton_type(Multi)
     container.add_singleton_type(Optimizer)
-    for _name, type_ in inspect.getmembers(components, inspect.isclass):
-        container.add_singleton_type(type_)
+    trader_types = map_concrete_module_types(traders).values()
+    container.add_singleton_types(trader_types)
+    container.add_singleton_instance(List[Trader], lambda: map(container.resolve, trader_types))
+    container.add_singleton_types(map_concrete_module_types(components).values())
 
     # Load agents and plugins.
-    agent_types: Dict[str, Type[Agent]] = map_module_types(agents)
+    agent_types: Dict[str, Type[Agent]] = map_concrete_module_types(agents)
     plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
     agent_ctxs: List[Tuple[Agent, Any, List[Plugin]]] = [(
         container.resolve(agent_types[c['type']]),

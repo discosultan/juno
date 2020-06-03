@@ -12,7 +12,7 @@ from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, time_ms
 from juno.traders import Trader
-from juno.utils import extract_public
+from juno.utils import construct, extract_public
 
 from .agent import Agent, AgentStatus
 
@@ -69,12 +69,11 @@ class Backtest(Agent):
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         trader = self._traders[trader_name]
-        trader_config = trader.Config(
-            exchange=config.exchange,
-            interval=config.interval,
+        trader_config = construct(
+            trader.Config,
+            config,
             start=start,
             end=end,
-            quote=config.quote,
             strategy=get_module_type_constructor(strategies, config.strategy),
             channel=state.name,
             test=True,

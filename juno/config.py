@@ -15,7 +15,7 @@ from juno.time import strfinterval, strftimestamp, strpinterval, strptimestamp
 from juno.typing import (
     TypeConstructor, get_fully_qualified_name, get_input_type_hints, isenum, isnamedtuple
 )
-from juno.utils import get_module_type, map_module_types
+from juno.utils import get_module_type, map_concrete_module_types
 
 T = TypeVar('T')
 
@@ -256,7 +256,7 @@ def resolve_concrete(type_: Type[Any], config: Dict[str, Any]) -> Type[Any]:
 def _map_type_parent_module_types(type_: Type[Any]) -> Dict[str, Type[Any]]:
     module_name = type_.__module__
     parent_module_name = module_name[0:module_name.rfind('.')]
-    return map_module_types(sys.modules[parent_module_name])
+    return map_concrete_module_types(sys.modules[parent_module_name])
 
 
 def format_as_config(obj: Any):

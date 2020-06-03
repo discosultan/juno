@@ -6,7 +6,7 @@ import random
 import traceback
 from collections.abc import MutableMapping, MutableSequence
 from copy import deepcopy
-from dataclasses import make_dataclass
+from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
@@ -17,10 +17,29 @@ from typing import (
 import aiolimiter
 
 from juno import json
+from juno.typing import isnamedtuple
 
 T = TypeVar('T')
 
 _log = logging.getLogger(__name__)
+
+
+def _asdict(a: Any) -> dict:
+    if isinstance(a, dict):
+        return a
+    if is_dataclass(a):
+        return asdict(a)
+    if isnamedtuple(a):
+        return a._asdict()
+    return a.__dict__
+
+
+def construct(type_: Type[T], *args, **kwargs) -> T:
+    type_hints = get_type_hints(type_)
+    final_kwargs = {}
+    for d in itertools.chain(map(_asdict, args), [kwargs]):
+        final_kwargs.update({k: v for k, v in d.items() if k in type_hints.keys()})
+    return type_(**final_kwargs)  # type: ignore
 
 
 def key(*items: Any) -> str:
@@ -128,8 +147,11 @@ def exc_traceback(exc: Exception) -> str:
     return ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
 
 
-def map_module_types(module: ModuleType) -> Dict[str, Type[Any]]:
-    return {n.lower(): t for n, t in inspect.getmembers(module, inspect.isclass)}
+def map_concrete_module_types(module: ModuleType) -> Dict[str, Type[Any]]:
+    return {n.lower(): t for n, t in inspect.getmembers(
+        module,
+        lambda c: inspect.isclass(c) and not inspect.isabstract(c)
+    )}
 
 
 # Cannot use typevar T in place of Any here. Triggers: "Only concrete class can be given where type
