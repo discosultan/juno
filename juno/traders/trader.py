@@ -1,13 +1,10 @@
-import asyncio
 import logging
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
-from juno import Timestamp
 from juno.brokers import Broker
-from juno.components import Chandler, Wallet
-from juno.time import strftimestamp
+from juno.components import Wallet
 from juno.trading import TradingSummary
 
 _log = logging.getLogger(__name__)
@@ -20,11 +17,6 @@ class Trader(ABC):
     @property
     @abstractmethod
     def broker(self) -> Broker:
-        pass
-
-    @property
-    @abstractmethod
-    def chandler(self) -> Chandler:
         pass
 
     @property
@@ -56,18 +48,3 @@ class Trader(ABC):
             )
 
         return quote
-
-    async def request_start(
-        self, start: Optional[Timestamp], exchange: str, symbols: Iterable[str], interval: int
-    ):
-        if start is not None:
-            if start < 0:
-                raise ValueError('Start cannot be negative')
-            return start
-
-        first_candles = await asyncio.gather(
-            *(self.chandler.get_first_candle(exchange, s, interval) for s in symbols)
-        )
-        latest_first_time = max(first_candles, key=lambda c: c.time).time
-        _log.info(f'start not specified; start set to {strftimestamp(latest_first_time)}')
-        return latest_first_time

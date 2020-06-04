@@ -5,10 +5,12 @@
     "solver": "rust",
     "agents": [
         {
+            "name": "food",
+            "persist": true,
             "type": "optimize",
             "exchange": "binance",
             "symbols": ["eth-btc"],
-            "start": "2018-01-01",
+            "start": "2019-01-01",
             "end": "2020-01-01",
             "intervals": ["1h"],
             "quote": 1.0,

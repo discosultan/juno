@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import itertools
 import logging
 import statistics
 from abc import ABC, abstractmethod
@@ -11,10 +13,10 @@ from typing import Dict, Iterable, List, Optional, Union
 
 from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
-from juno.components import Informant
+from juno.components import Chandler, Informant
 from juno.exchanges import Exchange
 from juno.math import ceil_multiple, round_down, round_half_up
-from juno.time import HOUR_MS, YEAR_MS, time_ms
+from juno.time import HOUR_MS, YEAR_MS, strftimestamp, time_ms
 from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
@@ -663,3 +665,27 @@ def _calculate_borrowed(
 def _calculate_interest(borrowed: Decimal, hourly_rate: Decimal, start: int, end: int) -> Decimal:
     duration = ceil_multiple(end - start, HOUR_MS) // HOUR_MS
     return borrowed * duration * hourly_rate
+
+
+class StartMixin(ABC):
+    @property
+    @abstractmethod
+    def chandler(self) -> Chandler:
+        pass
+
+    async def request_start(
+        self, start: Optional[Timestamp], exchange: str, symbols: Iterable[str],
+        intervals: Iterable[int]
+    ):
+        if start is not None:
+            if start < 0:
+                raise ValueError('Start cannot be negative')
+            return start
+
+        first_candles = await asyncio.gather(
+            *(self.chandler.get_first_candle(exchange, s, i)
+              for s, i in itertools.product(symbols, intervals))
+        )
+        latest_first_time = max(first_candles, key=lambda c: c.time).time
+        _log.info(f'start not specified; start set to {strftimestamp(latest_first_time)}')
+        return latest_first_time

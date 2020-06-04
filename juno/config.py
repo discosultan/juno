@@ -236,18 +236,24 @@ def type_to_config(value: Any, type_: Any) -> Any:
     return value
 
 
-def resolve_concrete(type_: Type[Any], config: Dict[str, Any]) -> Type[Any]:
+def resolve_concrete(
+    type_: Type[Any], config: Dict[str, Any], default: Any = inspect.Parameter.empty
+) -> Type[Any]:
     if not inspect.isabstract(type_):
         raise ValueError(f'Unable to resolve concrete type for a non-abstract type {type_}')
 
     abstract_name = type_.__name__.lower()
     concrete_name = config.get(abstract_name)
     if not concrete_name:
+        if default is not inspect.Parameter.empty:
+            return default
         raise ValueError(f'Concrete name not found for {abstract_name} in config')
 
     module_type_map = _map_type_parent_module_types(type_)
     concrete_type = module_type_map.get(concrete_name)
     if not concrete_type:
+        if default is not inspect.Parameter.empty:
+            return default
         raise ValueError(f'Concrete type {concrete_name} not found')
 
     return concrete_type

@@ -15,7 +15,7 @@ from juno.exchanges import Exchange
 from juno.logging import create_handlers
 from juno.optimizer import Optimizer
 from juno.plugins import Plugin, map_plugin_types
-from juno.solvers import Solver
+from juno.solvers import Python, Solver
 from juno.storages import Storage
 from juno.traders import Trader
 from juno.utils import full_path, map_concrete_module_types
@@ -64,7 +64,7 @@ async def main() -> None:
     #     List[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
     # )
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
-    container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg))
+    container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg, Python))
     container.add_singleton_type(Optimizer)
     trader_types = map_concrete_module_types(traders).values()
     container.add_singleton_types(trader_types)

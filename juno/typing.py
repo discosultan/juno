@@ -258,7 +258,10 @@ def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
     return type_
 
 
-@dataclass(frozen=True)
+# Do not make this frozen! We cannot construct an instance with it using __new__ if it's frozen.
+# Otherwise will receive the following error:
+# > dataclasses.FrozenInstanceError: cannot assign to field 'name'
+@dataclass
 class TypeConstructor(Generic[T]):
     name: str  # Fully qualified name.
     args: Sequence[Any] = ()

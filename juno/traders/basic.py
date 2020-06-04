@@ -10,7 +10,7 @@ from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
 from juno.time import time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, SimulatedPositionMixin, TradingSummary
+    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
@@ -20,7 +20,7 @@ from .trader import Trader
 _log = logging.getLogger(__name__)
 
 
-class Basic(Trader, PositionMixin, SimulatedPositionMixin):
+class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     class Config(NamedTuple):
         exchange: str
         symbol: str
@@ -126,7 +126,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
 
         # Request start.
         start = await self.request_start(
-            config.start, config.exchange, [config.symbol], config.interval
+            config.start, config.exchange, [config.symbol], [config.interval]
         )
 
         state = state or Basic.State()
