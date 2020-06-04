@@ -458,26 +458,26 @@ async def test_multi() -> None:
     short_positions = list(summary.get_short_positions())
     assert len(long_positions) == 3
     assert len(short_positions) == 1
-    pos = long_positions[0]
-    assert pos.open_time == 1
-    assert pos.close_time == 2
-    assert pos.symbol == 'eth-btc'
-    assert pos.close_reason is CloseReason.STRATEGY
-    pos = long_positions[1]
-    assert pos.open_time == 1
-    assert pos.close_time == 2
-    assert pos.symbol == 'ltc-btc'
-    assert pos.close_reason is CloseReason.STRATEGY
-    pos = long_positions[2]
-    assert pos.open_time == 2
-    assert pos.close_time == 4
-    assert pos.symbol == 'xmr-btc'
-    assert pos.close_reason is CloseReason.CANCELLED
-    pos = short_positions[0]
-    assert pos.open_time == 3
-    assert pos.close_time == 4
-    assert pos.symbol == 'eth-btc'
-    assert pos.close_reason is CloseReason.CANCELLED
+    lpos = long_positions[0]
+    assert lpos.open_time == 1
+    assert lpos.close_time == 2
+    assert lpos.symbol == 'eth-btc'
+    assert lpos.close_reason is CloseReason.STRATEGY
+    lpos = long_positions[1]
+    assert lpos.open_time == 1
+    assert lpos.close_time == 2
+    assert lpos.symbol == 'ltc-btc'
+    assert lpos.close_reason is CloseReason.STRATEGY
+    lpos = long_positions[2]
+    assert lpos.open_time == 2
+    assert lpos.close_time == 4
+    assert lpos.symbol == 'xmr-btc'
+    assert lpos.close_reason is CloseReason.CANCELLED
+    spos = short_positions[0]
+    assert spos.open_time == 3
+    assert spos.close_time == 4
+    assert spos.symbol == 'eth-btc'
+    assert spos.close_reason is CloseReason.CANCELLED
 
 
 async def test_multi_persist_and_resume(storage: fakes.Storage) -> None:
@@ -552,26 +552,26 @@ async def test_multi_persist_and_resume(storage: fakes.Storage) -> None:
     short_positions = list(summary.get_short_positions())
     assert len(long_positions) == 2
     assert len(short_positions) == 2
-    pos = long_positions[0]
-    assert pos.open_time == 1
-    assert pos.close_time == 1
-    assert pos.symbol == 'eth-btc'
-    assert pos.close_reason is CloseReason.CANCELLED
-    pos = long_positions[1]
-    assert pos.open_time == 2
-    assert pos.close_time == 2
-    assert pos.symbol == 'ltc-btc'
-    assert pos.close_reason is CloseReason.CANCELLED
-    pos = short_positions[0]
-    assert pos.open_time == 3
-    assert pos.close_time == 3
-    assert pos.symbol == 'eth-btc'
-    assert pos.close_reason is CloseReason.CANCELLED
-    pos = short_positions[1]
-    assert pos.open_time == 4
-    assert pos.close_time == 4
-    assert pos.symbol == 'ltc-btc'
-    assert pos.close_reason is CloseReason.CANCELLED
+    lpos = long_positions[0]
+    assert lpos.open_time == 1
+    assert lpos.close_time == 1
+    assert lpos.symbol == 'eth-btc'
+    assert lpos.close_reason is CloseReason.CANCELLED
+    lpos = long_positions[1]
+    assert lpos.open_time == 2
+    assert lpos.close_time == 2
+    assert lpos.symbol == 'ltc-btc'
+    assert lpos.close_reason is CloseReason.CANCELLED
+    spos = short_positions[0]
+    assert spos.open_time == 3
+    assert spos.close_time == 3
+    assert spos.symbol == 'eth-btc'
+    assert spos.close_reason is CloseReason.CANCELLED
+    spos = short_positions[1]
+    assert spos.open_time == 4
+    assert spos.close_time == 4
+    assert spos.symbol == 'ltc-btc'
+    assert spos.close_reason is CloseReason.CANCELLED
 
 
 async def test_multi_historical() -> None:

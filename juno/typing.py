@@ -62,7 +62,7 @@ def isenum(obj: Any) -> bool:
     return inspect.isclass(obj) and issubclass(obj, Enum)
 
 
-def raw_to_type(value: Any, type_: Type[Any]) -> Any:
+def raw_to_type(value: Any, type_: Any) -> Any:
     tagged_type = (
         get_type_by_fully_qualified_name(vt)
         if isinstance(value, dict) and (vt := value.get('__type__')) else None

@@ -726,7 +726,7 @@ class Clock:
     async def _periodic_sync(self) -> None:
         while True:
             await self._sync_clock()
-            sleep_task = asyncio.create_task(asyncio.sleep(HOUR_SEC * 12))
+            sleep_task: asyncio.Task[None] = asyncio.create_task(asyncio.sleep(HOUR_SEC * 12))
             try:
                 await asyncio.wait(
                     [sleep_task, self._reset_periodic_sync.wait()],

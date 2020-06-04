@@ -40,23 +40,23 @@ class Container:
                 *(d.__aexit__(exc_type, exc, tb) for d in deps if getattr(d, '__aexit__', None))
             )
 
-    def add_singleton_instance(self, type_: Type[Any], factory: Callable[[], Any]) -> None:
+    def add_singleton_instance(self, type_: Any, factory: Callable[[], Any]) -> None:
         self._singleton_instances[type_] = factory
 
-    def add_singleton_types(self, types: Iterable[Type[Any]]) -> None:
+    def add_singleton_types(self, types: Iterable[Any]) -> None:
         for type_ in types:
             self.add_singleton_type(type_)
 
     def add_singleton_type(
         self,
-        type_: Type[Any],
+        type_: Any,
         factory: Optional[Callable[[], Type[Any]]] = None
     ) -> None:
         self._singleton_types[type_] = factory if factory else lambda: type_
 
     def resolve(
-        self, type_: Type[T], is_root: bool = True, default: T = inspect.Parameter.empty
-    ) -> T:
+        self, type_: Any, is_root: bool = True, default: Any = inspect.Parameter.empty
+    ) -> Any:
         # Resolution priority:
         # 1. singleton
         # 2. instance factory
@@ -82,7 +82,7 @@ class Container:
         if instance is inspect.Parameter.empty:
             # 3. type factory
             type_factory = self._singleton_types.get(type_)
-            instance_type: Optional[Type[T]] = None
+            instance_type = None
             if type_factory:
                 try:
                     instance_type = type_factory()

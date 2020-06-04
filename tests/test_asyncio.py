@@ -193,10 +193,10 @@ async def test_slot_barrier_exceptions() -> None:
 
 
 async def test_cancel() -> None:
-    done_task = asyncio.create_task(asyncio.sleep(0))
+    done_task: asyncio.Task[None] = asyncio.create_task(asyncio.sleep(0))
     await done_task
     none_task = None
-    pending_task = asyncio.create_task(asyncio.sleep(1))
+    pending_task: asyncio.Task[None] = asyncio.create_task(asyncio.sleep(1))
 
     await cancel(done_task, none_task, pending_task)
 
