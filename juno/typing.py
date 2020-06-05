@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Dict, Generic, Iterable, List, Optional, Sequence, Type, TypeVar, Union, get_args,
+    Any, Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union, get_args,
     get_origin, get_type_hints
 )
 
@@ -265,7 +265,7 @@ def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
 @dataclass(frozen=True)
 class TypeConstructor(Generic[T]):
     name: str  # Fully qualified name.
-    args: Sequence[Any] = ()
+    args: Tuple[Any, ...] = ()
     kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def construct(self) -> T:

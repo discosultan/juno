@@ -128,6 +128,7 @@ def test_isnamedtuple(input_, expected_output) -> None:
     (None, Any, None),
     ({'value': 1}, FrozenDataClass, FrozenDataClass(value=1)),
     ({'value': 1}, FieldDataClass, FieldDataClass(value=1)),
+    ([1, 2], Tuple[int, ...], (1, 2)),
 ])
 def test_raw_to_type(obj, type_, expected_output) -> None:
     assert typing.raw_to_type(obj, type_) == expected_output
