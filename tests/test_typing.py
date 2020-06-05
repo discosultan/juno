@@ -92,7 +92,7 @@ def test_isnamedtuple(input_, expected_output) -> None:
 @pytest.mark.parametrize('obj,type_,expected_output', [
     ([1, 2], BasicNamedTuple, BasicNamedTuple(1, 2)),
     ([1], BasicNamedTuple, BasicNamedTuple(1, 2)),
-    ([1, [2, 3]], Tuple[int, BasicNamedTuple], [1, BasicNamedTuple(2, 3)]),
+    ([1, [2, 3]], Tuple[int, BasicNamedTuple], (1, BasicNamedTuple(2, 3))),
     ([1, 2], List[int], [1, 2]),
     ({'value1': 1, 'value2': 2}, BasicDataClass, BasicDataClass(value1=1, value2=2)),
     ([1.0, 2.0], Deque[Decimal], deque([Decimal('1.0'), Decimal('2.0')])),

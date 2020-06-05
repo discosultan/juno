@@ -122,8 +122,13 @@ def raw_to_type(value: Any, type_: Any) -> Any:
 
     if resolved_type is tuple:
         sub_types = get_args(type_)
-        for i, (sub_value, sub_type) in enumerate(zip(value, sub_types)):
-            value[i] = raw_to_type(sub_value, sub_type)
+        # Handle ellipsis. special case. I.e `Tuple[int, ...]`.
+        if len(sub_types) == 2 and sub_types[1] is Ellipsis:
+            sub_type = sub_types[0]
+            return tuple(raw_to_type(sv, sub_type) for sv in value)
+        # Handle regular cases. I.e `Tuple[int, str, float]`.
+        else:
+            return tuple(raw_to_type(sv, st) for sv, st in zip(value, sub_types))
         return value
 
     if resolved_type is dict:
