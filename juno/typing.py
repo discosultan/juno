@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
 from decimal import Decimal
 from enum import Enum
 from types import TracebackType
@@ -78,13 +78,10 @@ def raw_to_type(value: Any, type_: Any) -> Any:
             raise TypeError(f'Incorrect {value=} for {type_=}')
         return None
 
-    if is_optional_type(resolved_type):
-        if value is None:
-            return None
-        sub_type, _ = get_args(type_)
-        return raw_to_type(value, sub_type)
-
     if is_union_type(resolved_type):
+        if is_optional_type(type_) and value is None:
+            return None
+
         resolved = '__missing__'
         for arg in get_args(type_):
             try:
@@ -137,7 +134,7 @@ def raw_to_type(value: Any, type_: Any) -> Any:
 
     annotations = get_type_hints(resolved_type)
     type_args_map = {p: a for p, a in zip(get_parameters(resolved_type), get_args(type_))}
-    instance = resolved_type.__new__(resolved_type)  # type: ignore
+    kwargs = {}
     for name, sub_type in ((k, v) for k, v in annotations.items() if k in annotations):
         if name not in value:
             continue
@@ -155,8 +152,15 @@ def raw_to_type(value: Any, type_: Any) -> Any:
             if len(sub_type_args) == 1 and is_typevar(sub_type_args[0]):
                 sub_type = sub_type[type_args_map[sub_type_args[0]]]
         sub_value = value[name]
-        setattr(instance, name, raw_to_type(sub_value, sub_type))
-    return instance
+        kwargs[name] = raw_to_type(sub_value, sub_type)
+
+    if is_dataclass(resolved_type):
+        return resolved_type(**kwargs)
+    else:
+        instance = resolved_type.__new__(resolved_type)  # type: ignore
+        for k, v in kwargs.items():
+            setattr(instance, k, v)
+        return instance
 
 
 def type_to_raw(value: Any) -> Any:
@@ -258,10 +262,7 @@ def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
     return type_
 
 
-# Do not make this frozen! We cannot construct an instance with it using __new__ if it's frozen.
-# Otherwise will receive the following error:
-# > dataclasses.FrozenInstanceError: cannot assign to field 'name'
-@dataclass
+@dataclass(frozen=True)
 class TypeConstructor(Generic[T]):
     name: str  # Fully qualified name.
     args: Sequence[Any] = ()

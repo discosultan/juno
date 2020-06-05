@@ -5,7 +5,7 @@
     "solver": "rust",
     "agents": [
         {
-            "name": "food",
+            "name": "food3",
             "persist": true,
             "type": "optimize",
             "exchange": "binance",
