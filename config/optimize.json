@@ -6,7 +6,7 @@
     "agents": [
         {
             "name": "food3",
-            "persist": true,
+            "persist": false,
             "type": "optimize",
             "exchange": "binance",
             "symbols": ["eth-btc"],

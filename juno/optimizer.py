@@ -195,8 +195,8 @@ class Optimizer(StartMixin):
         # Operators.
 
         indpb = 1.0 / len(attrs)
-        toolbox.register('mate', cx_uniform(random), indpb=indpb)
-        toolbox.register('mutate', mut_individual(random), attrs=attrs, indpb=indpb)
+        toolbox.register('mate', partial(cx_uniform, random), indpb=indpb)
+        toolbox.register('mutate', partial(mut_individual, random), attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
         def evaluate(ind: List[Any]) -> SolverResult:
@@ -231,6 +231,9 @@ class Optimizer(StartMixin):
         if state.population is None:
             pop = toolbox.population(n=toolbox.population_size)
             state.population = toolbox.select(pop, len(pop))
+            _log.critical('POPULATION')
+            _log.critical(type(state.population))
+            _log.critical(state.population)
 
         hall_of_fame = tools.HallOfFame(1)
 
@@ -246,7 +249,8 @@ class Optimizer(StartMixin):
             # https://gist.github.com/yeraydiazdiaz/b8c059c6dcfaf3255c65806de39175a7
             final_pop, stat = await asyncio.get_running_loop().run_in_executor(
                 None, partial(
-                    ea_mu_plus_lambda(random),
+                    ea_mu_plus_lambda,
+                    random=random,
                     population=state.population,
                     toolbox=toolbox,
                     mu=toolbox.population_size,
