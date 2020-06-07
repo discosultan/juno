@@ -6,6 +6,7 @@ import hmac
 import logging
 import math
 import urllib.parse
+import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
@@ -17,9 +18,9 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
-    Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
-    TimeInForce, Trade, json
+    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Order,
+    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
+    Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -787,7 +788,9 @@ class UserDataStream:
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
         self._old_tasks: List[asyncio.Task[None]] = []
 
-        self._queues: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
+        self._queues: Dict[str, Dict[str, asyncio.Queue]] = (
+            defaultdict(lambda: defaultdict(asyncio.Queue))
+        )
 
     async def __aenter__(self) -> UserDataStream:
         return self
@@ -808,10 +811,12 @@ class UserDataStream:
         # based on timestamps.
         await self._ensure_connection()
         try:
-            yield stream_queue(self._queues[event_type], raise_on_exc=True)
+            event_queues = self._queues[event_type]
+            queue_id = str(uuid.uuid4())
+            yield stream_queue(event_queues[queue_id], raise_on_exc=True)
         finally:
+            del event_queues[queue_id]
             # TODO: unsubscribe if no other consumers?
-            pass
 
     async def _ensure_listen_key(self) -> None:
         async with self._listen_key_lock:
@@ -856,11 +861,14 @@ class UserDataStream:
                 ) as stream:
                     self._stream_connected.set()
                     async for data in stream:
-                        self._queues[data['e']].put_nowait(data)
+                        event_queues = self._queues[data['e']]
+                        for queue in event_queues.values():
+                            queue.put_nowait(data)
                 break
             except ExchangeException as e:
-                for event in self._queues.values():
-                    event.put_nowait(e)
+                for event_queues in self._queues.values():
+                    for queue in event_queues.values():
+                        queue.put_nowait(e)
             await self._ensure_listen_key()
 
     @retry(

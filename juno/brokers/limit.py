@@ -144,15 +144,15 @@ class Limit(Broker):
                 )
             )
 
-        try:
-            await asyncio.gather(keep_limit_order_best_task, track_fills_task)
-        except OrderException:
-            await cancel(keep_limit_order_best_task, track_fills_task)
-            raise
-        except _Filled as exc:
-            time = exc.time
-            fills = exc.fills
-            await cancel(keep_limit_order_best_task)
+            try:
+                await asyncio.gather(keep_limit_order_best_task, track_fills_task)
+            except OrderException:
+                await cancel(keep_limit_order_best_task, track_fills_task)
+                raise
+            except _Filled as exc:
+                time = exc.time
+                fills = exc.fills
+                await cancel(keep_limit_order_best_task)
 
         return OrderResult(time=time, status=OrderStatus.FILLED, fills=fills)
 
@@ -254,8 +254,8 @@ class Limit(Broker):
                 _log.info(f'received new confirmation for order {ctx.client_id}')
                 ctx.new_event.set()
             elif isinstance(order, OrderUpdate.Match):
-                fills.append(order.fill)
                 _log.info(f'existing order {ctx.client_id} match')
+                fills.append(order.fill)
             elif isinstance(order, OrderUpdate.Canceled):
                 _log.info(f'existing order {ctx.client_id} canceled')
                 ctx.cancelled_event.set(fills)
