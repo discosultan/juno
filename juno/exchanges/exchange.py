@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Order, OrderResult, OrderType, Side, Ticker, TimeInForce,
-    Trade
+    Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side, Ticker,
+    TimeInForce, Trade
 )
 
 
@@ -64,7 +64,7 @@ class Exchange(ABC):
     @asynccontextmanager
     async def connect_stream_orders(
         self, symbol: str, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         yield  # type: ignore
 
     @abstractmethod

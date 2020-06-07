@@ -196,7 +196,14 @@ class OrderType(IntEnum):
     LIMIT_MAKER = 6
 
 
-class Order(ModuleType):
+class Order(NamedTuple):
+    client_id: str
+    symbol: str
+    price: Decimal
+    size: Decimal
+
+
+class OrderUpdate(ModuleType):
     class New(NamedTuple):
         client_id: str
 

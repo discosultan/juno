@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 from typing import Callable, List, Optional
 
-from juno import Fill, Order, OrderResult, OrderStatus, OrderType, Side
+from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 
@@ -97,11 +97,11 @@ class Market2(Broker):
                     _log.debug(f'skipping order tracking; {order.client_id=} != {client_id=}')
                     continue
 
-                if isinstance(order, Order.New):
+                if isinstance(order, OrderUpdate.New):
                     _log.info(f'received new confirmation for order {client_id}')
-                elif isinstance(order, Order.Match):
+                elif isinstance(order, OrderUpdate.Match):
                     fills.append(order.fill)
-                elif isinstance(order, Order.Done):
+                elif isinstance(order, OrderUpdate.Done):
                     time = order.time
                     _log.info(f'existing order {client_id} filled')
                     break
