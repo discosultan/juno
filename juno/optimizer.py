@@ -47,6 +47,8 @@ class OptimizationSummary(NamedTuple):
     portfolio_stats: Statistics
 
 
+# TODO: Does not support persist/resume. Population not stored/restored properly. Need to store
+# fitness + convert raw values to their respective types.
 class Optimizer(StartMixin):
     class Config(NamedTuple):
         exchange: str
