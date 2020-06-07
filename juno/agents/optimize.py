@@ -25,7 +25,7 @@ class Optimize(Agent):
         quote: Decimal
         strategy: str
         name: Optional[str] = None
-        persist: bool = False
+        persist: bool = False  # TODO: Not implemented.
         start: Optional[Timestamp] = None
         end: Optional[Timestamp] = None
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE

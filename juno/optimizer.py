@@ -280,10 +280,7 @@ class Optimizer(StartMixin):
         state.summary = await self._build_summary(
             config, state, fiat_prices, benchmarks, candles, strategy_type, best_args
         )
-        self._validate(
-            config, state, fiat_prices, benchmarks, candles, strategy_type, state.summary,
-            best_args
-        )
+        self._validate(config, state, fiat_prices, benchmarks, candles, strategy_type, best_args)
 
         if cancelled_exc:
             raise cancelled_exc
@@ -346,9 +343,10 @@ class Optimizer(StartMixin):
         benchmarks: Dict[int, AnalysisSummary],
         candles: Dict[Tuple[str, int], List[Candle]],
         strategy_type: Type[Strategy],
-        summary: OptimizationSummary,
         best_args: List[Any],
     ) -> None:
+        assert state.summary
+
         # Validate trader backtest result with solver result.
         solver_name = type(self._solver).__name__.lower()
         _log.info(
@@ -379,13 +377,13 @@ class Optimizer(StartMixin):
         )
 
         trader_result = SolverResult.from_trading_summary(
-            summary.trading_summary, summary.portfolio_stats
+            state.summary.trading_summary, state.summary.portfolio_stats
         )
 
         if not _isclose(trader_result, solver_result):
             raise Exception(
                 f'Optimizer results differ between trader and {solver_name} solver.\nTrading '
-                f'config: {summary.trading_config}\nTrader result: {trader_result}\n'
+                f'config: {state.summary.trading_config}\nTrader result: {trader_result}\n'
                 f'Solver result: {solver_result}'
             )
 
