@@ -14,7 +14,7 @@ from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, SimulatedPositionMixin, TradingSummary
+    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import extract_public
@@ -69,7 +69,7 @@ class _SymbolState:
         )
 
 
-class Multi(Trader, PositionMixin, SimulatedPositionMixin):
+class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     class Config(NamedTuple):
         exchange: str
         interval: Interval
@@ -163,7 +163,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin):
             assert position_quote > filters.price.min
 
         # Request start.
-        start = await self.request_start(config.start, config.exchange, symbols, config.interval)
+        start = await self.request_start(config.start, config.exchange, symbols, [config.interval])
 
         state = state or Multi.State()
 

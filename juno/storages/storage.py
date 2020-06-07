@@ -3,10 +3,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, AsyncIterable, List, Optional, Tuple, Type, TypeVar
 
+from juno.utils import AbstractAsyncContextManager
+
 T = TypeVar('T')
 
 
-class Storage(ABC):
+class Storage(AbstractAsyncContextManager, ABC):
     @abstractmethod
     async def stream_time_series_spans(
         self, shard: str, key: str, start: int, end: int

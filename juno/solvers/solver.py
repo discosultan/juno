@@ -10,10 +10,10 @@ from juno import Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.statistics import Statistics
 from juno.strategies import Strategy
 from juno.trading import TradingSummary
-from juno.utils import unpack_symbol
+from juno.utils import AbstractAsyncContextManager, unpack_symbol
 
 
-class Solver(ABC):
+class Solver(AbstractAsyncContextManager, ABC):
     class Config(NamedTuple):
         fiat_prices: Dict[str, List[Decimal]]
         benchmark_g_returns: pd.Series

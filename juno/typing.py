@@ -3,12 +3,12 @@ from __future__ import annotations
 import importlib
 import inspect
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, is_dataclass
 from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Dict, Generic, Iterable, List, Optional, Sequence, Type, TypeVar, Union, get_args,
+    Any, Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union, get_args,
     get_origin, get_type_hints
 )
 
@@ -78,13 +78,10 @@ def raw_to_type(value: Any, type_: Any) -> Any:
             raise TypeError(f'Incorrect {value=} for {type_=}')
         return None
 
-    if is_optional_type(resolved_type):
-        if value is None:
-            return None
-        sub_type, _ = get_args(type_)
-        return raw_to_type(value, sub_type)
-
     if is_union_type(resolved_type):
+        if is_optional_type(type_) and value is None:
+            return None
+
         resolved = '__missing__'
         for arg in get_args(type_):
             try:
@@ -125,8 +122,13 @@ def raw_to_type(value: Any, type_: Any) -> Any:
 
     if resolved_type is tuple:
         sub_types = get_args(type_)
-        for i, (sub_value, sub_type) in enumerate(zip(value, sub_types)):
-            value[i] = raw_to_type(sub_value, sub_type)
+        # Handle ellipsis. special case. I.e `Tuple[int, ...]`.
+        if len(sub_types) == 2 and sub_types[1] is Ellipsis:
+            sub_type = sub_types[0]
+            return tuple(raw_to_type(sv, sub_type) for sv in value)
+        # Handle regular cases. I.e `Tuple[int, str, float]`.
+        else:
+            return tuple(raw_to_type(sv, st) for sv, st in zip(value, sub_types))
         return value
 
     if resolved_type is dict:
@@ -137,7 +139,7 @@ def raw_to_type(value: Any, type_: Any) -> Any:
 
     annotations = get_type_hints(resolved_type)
     type_args_map = {p: a for p, a in zip(get_parameters(resolved_type), get_args(type_))}
-    instance = resolved_type.__new__(resolved_type)  # type: ignore
+    kwargs = {}
     for name, sub_type in ((k, v) for k, v in annotations.items() if k in annotations):
         if name not in value:
             continue
@@ -155,8 +157,15 @@ def raw_to_type(value: Any, type_: Any) -> Any:
             if len(sub_type_args) == 1 and is_typevar(sub_type_args[0]):
                 sub_type = sub_type[type_args_map[sub_type_args[0]]]
         sub_value = value[name]
-        setattr(instance, name, raw_to_type(sub_value, sub_type))
-    return instance
+        kwargs[name] = raw_to_type(sub_value, sub_type)
+
+    if is_dataclass(resolved_type):
+        return resolved_type(**kwargs)
+    else:
+        instance = resolved_type.__new__(resolved_type)  # type: ignore
+        for k, v in kwargs.items():
+            setattr(instance, k, v)
+        return instance
 
 
 def type_to_raw(value: Any) -> Any:
@@ -261,7 +270,7 @@ def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
 @dataclass(frozen=True)
 class TypeConstructor(Generic[T]):
     name: str  # Fully qualified name.
-    args: Sequence[Any] = ()
+    args: Tuple[Any, ...] = ()
     kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def construct(self) -> T:

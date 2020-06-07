@@ -149,24 +149,26 @@ class Optimizing(Trader):
             )
 
         optimization_summary = await self._optimizer.run(
-            exchange=config.exchange,
-            start=optimization_start,
-            end=trading_start,
-            quote=quote,
-            strategy='mamacx',
-            symbols=[symbol],
-            intervals=list(map(strpinterval, ('2h',))),
-            population_size=10,
-            max_generations=100,
-            long=config.long,
-            short=config.short,
-            fiat_asset=config.fiat_asset,
-            fiat_exchange=config.fiat_exchange,
+            Optimizer.Config(
+                exchange=config.exchange,
+                start=optimization_start,
+                end=trading_start,
+                quote=quote,
+                strategy='mamacx',
+                symbols=[symbol],
+                intervals=list(map(strpinterval, ('2h',))),
+                population_size=10,
+                max_generations=100,
+                long=config.long,
+                short=config.short,
+                fiat_asset=config.fiat_asset,
+                fiat_exchange=config.fiat_exchange,
+            )
         )
 
         trader_config = construct(
             Basic.Config,
-            optimization_summary.best[0].trading_config,
+            optimization_summary.trading_config,
             start=trading_start,
             end=end,
             channel=config.channel,

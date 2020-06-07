@@ -1,5 +1,5 @@
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from typing import (  # type: ignore
@@ -19,40 +19,50 @@ def foo(a: int) -> int:
     return a
 
 
-class Bar(NamedTuple):
+class BasicNamedTuple(NamedTuple):
     value1: int
     value2: Optional[int] = 2
 
 
 @dataclass
-class Baz:
+class BasicDataClass:
     value1: int
     value2: Optional[int]
 
 
-class Qux(IntEnum):
+class BasicEnum(IntEnum):
     VALUE = 1
 
 
 @dataclass
-class Quux(Generic[T1]):
+class GenericDataClass(Generic[T1]):
     value: T1
+
+
+@dataclass(frozen=True)
+class FrozenDataClass:
+    value: int
+
+
+@dataclass
+class FieldDataClass:
+    value: int = field(default_factory=int)
 
 
 IntAlias = _GenericAlias(int, (), name='IntAlias')
 
 
 @dataclass
-class Corge(Generic[T1, T2, T3]):
+class CombinedDataClass(Generic[T1, T2, T3]):
     value1: T1
     value2: T1
     value3: Optional[T2]
-    value4: Quux[T3]
-    value5: Quux[int]
+    value4: GenericDataClass[T3]
+    value5: GenericDataClass[int]
     value6: IntAlias  # type: ignore
     value7: Union[IntAlias, int]  # type: ignore
-    value8: Union[int, Bar]
-    value9: Optional[Union[int, Bar]]
+    value8: Union[int, BasicNamedTuple]
+    value9: Optional[Union[int, BasicNamedTuple]]
 
 
 def test_get_input_type_hints() -> None:
@@ -62,7 +72,7 @@ def test_get_input_type_hints() -> None:
 @pytest.mark.parametrize('input_,expected_output', [
     (list, 'list'),
     (List[int], 'typing.List[int]'),
-    (Bar, 'Bar'),
+    (BasicNamedTuple, 'BasicNamedTuple'),
     # (Optional[int], 'typing.Optional[int]'),  # 'typing.Union[int, None]'
 ])
 def test_get_name(input_, expected_output) -> None:
@@ -72,22 +82,22 @@ def test_get_name(input_, expected_output) -> None:
 @pytest.mark.parametrize('input_,expected_output', [
     (list, False),
     (List[int], False),
-    (Bar, True),
-    (Bar(value1=1), True),
+    (BasicNamedTuple, True),
+    (BasicNamedTuple(value1=1), True),
 ])
 def test_isnamedtuple(input_, expected_output) -> None:
     assert typing.isnamedtuple(input_) == expected_output
 
 
 @pytest.mark.parametrize('obj,type_,expected_output', [
-    ([1, 2], Bar, Bar(1, 2)),
-    ([1], Bar, Bar(1, 2)),
-    ([1, [2, 3]], Tuple[int, Bar], [1, Bar(2, 3)]),
+    ([1, 2], BasicNamedTuple, BasicNamedTuple(1, 2)),
+    ([1], BasicNamedTuple, BasicNamedTuple(1, 2)),
+    ([1, [2, 3]], Tuple[int, BasicNamedTuple], (1, BasicNamedTuple(2, 3))),
     ([1, 2], List[int], [1, 2]),
-    ({'value1': 1, 'value2': 2}, Baz, Baz(value1=1, value2=2)),
+    ({'value1': 1, 'value2': 2}, BasicDataClass, BasicDataClass(value1=1, value2=2)),
     ([1.0, 2.0], Deque[Decimal], deque([Decimal('1.0'), Decimal('2.0')])),
-    (1, Qux, Qux.VALUE),
-    ({'value': 1}, Quux[int], Quux(value=1)),
+    (1, BasicEnum, BasicEnum.VALUE),
+    ({'value': 1}, GenericDataClass[int], GenericDataClass(value=1)),
     (
         {
             'value1': 1,
@@ -100,39 +110,42 @@ def test_isnamedtuple(input_, expected_output) -> None:
             'value8': [81, 82],
             'value9': [91, 92],
         },
-        Corge[int, int, int],
-        Corge(
+        CombinedDataClass[int, int, int],
+        CombinedDataClass(
             value1=1,
             value2=2,
             value3=3,
-            value4=Quux(value=4),
-            value5=Quux(value=5),
+            value4=GenericDataClass(value=4),
+            value5=GenericDataClass(value=5),
             value6=6,
             value7=7,
-            value8=Bar(value1=81, value2=82),
-            value9=Bar(value1=91, value2=92),
+            value8=BasicNamedTuple(value1=81, value2=82),
+            value9=BasicNamedTuple(value1=91, value2=92),
         ),
     ),
     (1, Optional[Union[int, str]], 1),
     (None, type(None), None),
     (None, Any, None),
+    ({'value': 1}, FrozenDataClass, FrozenDataClass(value=1)),
+    ({'value': 1}, FieldDataClass, FieldDataClass(value=1)),
+    ([1, 2], Tuple[int, ...], (1, 2)),
 ])
 def test_raw_to_type(obj, type_, expected_output) -> None:
     assert typing.raw_to_type(obj, type_) == expected_output
 
 
 @pytest.mark.parametrize('input_,type_,expected_output', [
-    (Bar(1, 2), Bar, True),
-    ((1, ), Bar, False),
+    (BasicNamedTuple(1, 2), BasicNamedTuple, True),
+    ((1, ), BasicNamedTuple, False),
     (1, int, True),
     ('a', int, False),
-    ({'a': Bar(1, 2)}, Dict[str, Bar], True),
+    ({'a': BasicNamedTuple(1, 2)}, Dict[str, BasicNamedTuple], True),
     ({'a': 1, 'b': 'x'}, Dict[str, int], False),
-    ({'value': 1}, Bar, False),
-    ([Bar(1, 2)], List[Bar], True),
+    ({'value': 1}, BasicNamedTuple, False),
+    ([BasicNamedTuple(1, 2)], List[BasicNamedTuple], True),
     ([1, 'x'], List[int], False),
     ((1, 'x'), Tuple[int, str], True),
-    (Baz(1, 2), Baz, True),
+    (BasicDataClass(1, 2), BasicDataClass, True),
     (1, Optional[int], True),
     (deque([Decimal('1.0')]), Deque[Decimal], True),
     (deque([1]), Deque[str], False),

@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import inspect
 import itertools
 import logging
@@ -17,7 +18,7 @@ from typing import (
 import aiolimiter
 
 from juno import json
-from juno.typing import isnamedtuple
+from juno.typing import ExcType, ExcValue, Traceback, isnamedtuple
 
 T = TypeVar('T')
 
@@ -203,3 +204,8 @@ class AsyncLimiter(aiolimiter.AsyncLimiter):
         self._waiters.pop(task, None)
 
         self._level += amount
+
+
+class AbstractAsyncContextManager(contextlib.AbstractAsyncContextManager):
+    async def __aexit__(self, exc_type: ExcType, exc_value: ExcValue, tb: Traceback) -> None:
+        pass
