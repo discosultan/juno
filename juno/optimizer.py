@@ -233,9 +233,6 @@ class Optimizer(StartMixin):
         if state.population is None:
             pop = toolbox.population(n=toolbox.population_size)
             state.population = toolbox.select(pop, len(pop))
-            _log.critical('POPULATION')
-            _log.critical(type(state.population))
-            _log.critical(state.population)
 
         hall_of_fame = tools.HallOfFame(1)
 
