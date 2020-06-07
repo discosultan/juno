@@ -276,13 +276,13 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin):
     async def _close_open_position(self, config: Config, state: State) -> None:
         if isinstance(state.open_position, Position.OpenLong):
             assert state.last_candle
-            _log.info('ending trading but long position open; closing')
+            _log.info('long position open; closing')
             await self._close_long_position(
                 config, state, state.last_candle, CloseReason.CANCELLED
             )
         elif isinstance(state.open_position, Position.OpenShort):
             assert state.last_candle
-            _log.info('ending trading but short position open; closing')
+            _log.info('short position open; closing')
             await self._close_short_position(
                 config, state, state.last_candle, CloseReason.CANCELLED
             )
