@@ -82,11 +82,7 @@ class Exchange(exchanges.Exchange):
 
     @asynccontextmanager
     async def connect_stream_balances(self, margin=False):
-        async def inner():
-            while True:
-                yield await self.balance_queue.get()
-
-        yield inner()
+        yield _stream_queue(self.balance_queue)
 
     async def stream_historical_candles(self, symbol, interval, start, end):
         for c in (c for c in self.historical_candles if c.time >= start and c.time < end):
@@ -94,36 +90,18 @@ class Exchange(exchanges.Exchange):
 
     @asynccontextmanager
     async def connect_stream_candles(self, symbol, interval):
-        async def inner():
-            while True:
-                item = await self.candle_queue.get()
-                self.candle_queue.task_done()
-                if isinstance(item, Exception):
-                    raise item
-                yield item
-
-        yield inner()
+        yield _stream_queue(self.candle_queue)
 
     async def get_depth(self, symbol):
         return self.depth
 
     @asynccontextmanager
     async def connect_stream_depth(self, symbol):
-        async def inner():
-            while True:
-                yield await self.depth_queue.get()
-                self.depth_queue.task_done()
-
-        yield inner()
+        yield _stream_queue(self.depth_queue)
 
     @asynccontextmanager
     async def connect_stream_orders(self, symbol, margin=False):
-        async def inner():
-            while True:
-                yield await self.orders_queue.get()
-                self.orders_queue.task_done()
-
-        yield inner()
+        yield _stream_queue(self.orders_queue)
 
     async def place_order(self, *args, **kwargs):
         await asyncio.sleep(0)
@@ -141,12 +119,16 @@ class Exchange(exchanges.Exchange):
 
     @asynccontextmanager
     async def connect_stream_trades(self, symbol):
-        async def inner():
-            while True:
-                yield await self.trade_queue.get()
-                self.trade_queue.task_done()
+        yield _stream_queue(self.trade_queue)
 
-        yield inner()
+
+async def _stream_queue(queue):
+    while True:
+        item = await queue.get()
+        queue.task_done()
+        if isinstance(item, Exception):
+            raise item
+        yield item
 
 
 class Chandler(components.Chandler):

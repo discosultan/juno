@@ -211,6 +211,9 @@ class SlotBarrier(Generic[T]):
     def locked(self) -> bool:
         return any(s.locked for s in self._slots.values())
 
+    def slot_locked(self, slot: T) -> bool:
+        return self._slots[slot].locked
+
     def clear(self) -> None:
         self._event.clear()
         for slot in self._slots.values():

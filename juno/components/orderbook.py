@@ -164,7 +164,8 @@ class Orderbook:
                         _set_orderbook_side(orderbook.sides[Side.BUY], depth.asks)
                         _set_orderbook_side(orderbook.sides[Side.SELL], depth.bids)
                         orderbook.snapshot_received = True
-                        barrier.release((exchange, symbol))
+                        if barrier.slot_locked((exchange, symbol)):
+                            barrier.release((exchange, symbol))
                     elif isinstance(depth, Depth.Update):
                         # TODO: For example, with depth level 10, Kraken expects us to discard
                         # levels outside level 10. They will not publish messages to delete them.
