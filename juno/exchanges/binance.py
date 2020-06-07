@@ -292,15 +292,22 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def list_orders(self, symbol: str, margin: bool = False) -> List[str]:
+    async def list_orders(self, symbol: Optional[str], margin: bool = False) -> List[str]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#current-open-orders-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/margin-api.md#query-margin-accounts-open-order-user_data
         url = '/sapi/v1/margin/openOrders' if margin else '/api/v3/openOrders'
-        weight = 10 if margin else 1
+        # For margin:
+        # > When all symbols are returned, the number of requests counted against the rate limiter
+        # > is equal to the number of symbols currently trading on the exchange.
+        # TODO: Make the margin no-symbol weight calc dynamic.
+        weight = (10 if symbol else 29) if margin else (1 if symbol else 40)
+        data = {}
+        if symbol is not None:
+            data['symbol'] = _to_http_symbol(symbol)
         res = await self._api_request(
             'GET',
             url,
-            data={'symbol': _to_http_symbol(symbol)},
+            data=data,
             security=_SEC_USER_DATA,
             weight=weight,
         )

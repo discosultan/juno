@@ -6,7 +6,7 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
 parser = argparse.ArgumentParser()
-parser.add_argument('symbol', nargs='?', default='eth-btc')
+parser.add_argument('symbol', nargs='?', default=None)
 parser.add_argument(
     '-m', '--margin',
     action='store_true',
