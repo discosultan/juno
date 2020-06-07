@@ -17,8 +17,8 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, Order, OrderException, OrderResult,
-    OrderStatus, OrderType, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, OrderException, OrderResult,
+    OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -187,15 +187,15 @@ class Coinbase(Exchange):
     @asynccontextmanager
     async def connect_stream_orders(
         self, symbol: str, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Order.Any]:
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             base_asset, quote_asset = unpack_symbol(symbol)
             async for data in ws:
                 type_ = data['type']
                 if type_ == 'received':
                     client_id = data['client_oid']
                     self._order_id_to_client_id[data['order_id']] = client_id
-                    yield Order.New(
+                    yield OrderUpdate.New(
                         client_id=client_id,
                     )
                 elif type_ == 'done':
@@ -217,7 +217,7 @@ class Coinbase(Exchange):
                         size = Decimal(fill['size'])
                         fee_quote = round_half_up(Decimal(fill['fee']), quote_precision)
                         fee_size = round_half_up(Decimal(fill['fee']) / price, base_precision)
-                        yield Order.Match(
+                        yield OrderUpdate.Match(
                             client_id=client_id,
                             fill=Fill.with_computed_quote(
                                 price=price,
@@ -228,12 +228,12 @@ class Coinbase(Exchange):
                             ),
                         )
                     if reason == 'filled':
-                        yield Order.Done(
+                        yield OrderUpdate.Done(
                             time=_from_datetime(data['time']),
                             client_id=client_id,
                         )
                     elif reason == 'canceled':
-                        yield Order.Canceled(
+                        yield OrderUpdate.Canceled(
                             client_id=client_id,
                         )
                     else:

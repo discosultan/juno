@@ -6,7 +6,9 @@ from uuid import uuid4
 
 import pytest
 
-from juno import Depth, ExchangeInfo, Fees, Fill, Order, OrderException, OrderResult, OrderStatus
+from juno import (
+    Depth, ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus, OrderUpdate
+)
 from juno.brokers import Limit, Market, Market2
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
@@ -80,10 +82,10 @@ async def test_market2_buy() -> None:
             size=Decimal('0.25'),
             test=False,
         ))
-        exchange.orders_queue.put_nowait(Order.New(
+        exchange.orders_queue.put_nowait(OrderUpdate.New(
             client_id=order_client_id,
         ))
-        exchange.orders_queue.put_nowait(Order.Match(
+        exchange.orders_queue.put_nowait(OrderUpdate.Match(
             client_id=order_client_id,
             fill=Fill(
                 price=Decimal('1.0'),
@@ -93,7 +95,7 @@ async def test_market2_buy() -> None:
                 fee_asset='eth',
             ),
         ))
-        exchange.orders_queue.put_nowait(Order.Done(
+        exchange.orders_queue.put_nowait(OrderUpdate.Done(
             time=1,
             client_id=order_client_id,
         ))
@@ -119,20 +121,10 @@ async def test_limit_fill() -> None:
         exchange_info=exchange_info,
         place_order_result=OrderResult(time=0, status=OrderStatus.NEW),
         future_orders=[
-            Order.New(
+            OrderUpdate.New(
                 client_id=order_client_id,
             ),
-            Order.Match(
-                client_id=order_client_id,
-                fill=Fill(
-                    price=Decimal('1.0'),
-                    size=Decimal('0.5'),
-                    quote=Decimal('0.5'),
-                    fee=Decimal('0.05'),
-                    fee_asset='eth',
-                ),
-            ),
-            Order.Match(
+            OrderUpdate.Match(
                 client_id=order_client_id,
                 fill=Fill(
                     price=Decimal('1.0'),
@@ -142,7 +134,17 @@ async def test_limit_fill() -> None:
                     fee_asset='eth',
                 ),
             ),
-            Order.Done(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('1.0'),
+                    size=Decimal('0.5'),
+                    quote=Decimal('0.5'),
+                    fee=Decimal('0.05'),
+                    fee_asset='eth',
+                ),
+            ),
+            OrderUpdate.Done(
                 time=0,
                 client_id=order_client_id,
             )
@@ -182,10 +184,10 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         depth=snapshot,
         exchange_info=exchange_info,
         future_orders=[
-            Order.New(
+            OrderUpdate.New(
                 client_id=order_client_id,
             ),
-            Order.Match(
+            OrderUpdate.Match(
                 client_id=order_client_id,
                 fill=Fill(
                     price=Decimal('1.0'),
@@ -211,19 +213,19 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         )
         await yield_control()
         await exchange.orders_queue.put(
-            Order.Canceled(
+            OrderUpdate.Canceled(
                 client_id=order_client_id,
             )
         )
         await yield_control()
         await exchange.orders_queue.put(
-            Order.New(
+            OrderUpdate.New(
                 client_id=order_client_id,
             )
         )
         await yield_control()
         await exchange.orders_queue.put(
-            Order.Match(
+            OrderUpdate.Match(
                 client_id=order_client_id,
                 fill=Fill(
                     price=Decimal('2.0'),
@@ -235,7 +237,7 @@ async def test_limit_partial_fill_adjust_fill() -> None:
             )
         )
         await exchange.orders_queue.put(
-            Order.Done(
+            OrderUpdate.Done(
                 time=0,
                 client_id=order_client_id,
             )

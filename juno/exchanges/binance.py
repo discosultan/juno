@@ -17,8 +17,9 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Order,
-    OrderException, OrderResult, OrderStatus, OrderType, Side, Ticker, TimeInForce, Trade, json
+    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
+    Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
+    TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -292,7 +293,7 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def list_orders(self, symbol: Optional[str], margin: bool = False) -> List[str]:
+    async def list_orders(self, symbol: Optional[str], margin: bool = False) -> List[Order]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#current-open-orders-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/margin-api.md#query-margin-accounts-open-order-user_data
         url = '/sapi/v1/margin/openOrders' if margin else '/api/v3/openOrders'
@@ -311,24 +312,31 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
             weight=weight,
         )
-        return [o['clientOrderId'] for o in res.data]
+        return [
+            Order(
+                client_id=o['clientOrderId'],
+                symbol=_from_symbol(o['symbol']),
+                price=Decimal(o['price']),
+                size=Decimal(o['origQty']),
+            ) for o in res.data
+        ]
 
     @asynccontextmanager
     async def connect_stream_orders(
         self, symbol: str, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
-        async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[Order.Any]:
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
                 res_symbol = _from_symbol(data['s'])
                 if res_symbol != symbol:
                     continue
                 status = _from_order_status(data['X'])
                 if status is OrderStatus.NEW:
-                    yield Order.New(
+                    yield OrderUpdate.New(
                         client_id=data['c'],
                     )
                 elif status is OrderStatus.PARTIALLY_FILLED:
-                    yield Order.Match(
+                    yield OrderUpdate.Match(
                         client_id=data['c'],
                         fill=Fill(
                             price=Decimal(data['L']),
@@ -339,7 +347,7 @@ class Binance(Exchange):
                         ),
                     )
                 elif status is OrderStatus.FILLED:
-                    yield Order.Match(
+                    yield OrderUpdate.Match(
                         client_id=data['c'],
                         fill=Fill(
                             price=Decimal(data['L']),
@@ -349,14 +357,14 @@ class Binance(Exchange):
                             fee_asset=data['N'].lower(),
                         ),
                     )
-                    yield Order.Done(
+                    yield OrderUpdate.Done(
                         time=data['T'],  # Transaction time.
                         client_id=data['c'],
                     )
                 elif status is OrderStatus.CANCELED:
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
-                    yield Order.Canceled(
+                    yield OrderUpdate.Canceled(
                         client_id=data['C'],
                     )
                 else:

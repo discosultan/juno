@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, Order, OrderResult, OrderType, Side,
+    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType, OrderUpdate, Side,
     Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
@@ -179,8 +179,8 @@ class Kraken(Exchange):
     @asynccontextmanager
     async def connect_stream_orders(
         self, symbol: str, margin: bool = False
-    ) -> AsyncIterator[AsyncIterable[Order.Any]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Order.Any]:
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             async for o in ws:
                 # TODO: map
                 yield o

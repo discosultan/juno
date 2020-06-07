@@ -6,7 +6,7 @@ from decimal import Decimal
 from typing import AsyncIterable, Callable, List, Optional
 
 from juno import (
-    Fill, Order, OrderException, OrderResult, OrderStatus, OrderType, Side, TimeInForce
+    Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
@@ -241,7 +241,7 @@ class Limit(Broker):
             last_order_size = size
 
     async def _track_fills(
-        self, symbol: str, stream: AsyncIterable[Order.Any], side: Side, ctx: _Context
+        self, symbol: str, stream: AsyncIterable[OrderUpdate.Any], side: Side, ctx: _Context
     ) -> None:
         fills = []  # Fills from aggregated trades.
         time = -1
@@ -250,16 +250,16 @@ class Limit(Broker):
                 _log.debug(f'skipping order tracking; {order.client_id=} != {ctx.client_id=}')
                 continue
 
-            if isinstance(order, Order.New):
+            if isinstance(order, OrderUpdate.New):
                 _log.info(f'received new confirmation for order {ctx.client_id}')
                 ctx.new_event.set()
-            elif isinstance(order, Order.Match):
+            elif isinstance(order, OrderUpdate.Match):
                 fills.append(order.fill)
                 _log.info(f'existing order {ctx.client_id} match')
-            elif isinstance(order, Order.Canceled):
+            elif isinstance(order, OrderUpdate.Canceled):
                 _log.info(f'existing order {ctx.client_id} canceled')
                 ctx.cancelled_event.set(fills)
-            elif isinstance(order, Order.Done):
+            elif isinstance(order, OrderUpdate.Done):
                 _log.info(f'existing order {ctx.client_id} filled')
                 time = order.time
                 break
