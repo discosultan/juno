@@ -1,8 +1,9 @@
+import asyncio
 from decimal import Decimal
 
 import pytest
 
-from juno import Depth, Filters
+from juno import Depth, ExchangeException, Filters
 from juno.components import Orderbook
 from juno.filters import Price, Size
 
@@ -204,6 +205,20 @@ async def test_sync_on_demand() -> None:
         # Second call shouldn't do anything.
         await orderbook.ensure_sync(['exchange'], ['eth-btc'])
         assert orderbook.list_asks('exchange', 'eth-btc') == [(Decimal('1.0'), Decimal('1.0'))]
+
+
+async def test_sync_on_exchange_exception() -> None:
+    exchange = fakes.Exchange(
+        depth=Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))]),
+        future_depths=[
+            ExchangeException(),
+            Depth.Update(asks=[(Decimal('1.0'), Decimal('1.0'))]),
+        ],
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with Orderbook(exchanges=[exchange]) as orderbook:
+        await orderbook.ensure_sync(['exchange'], ['eth-btc'])
+        await exchange.depth_queue.join()
 
 
 def assert_fills(output, expected_output) -> None:
