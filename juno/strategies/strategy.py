@@ -144,7 +144,6 @@ class Strategy:
     # _maturity_filter: Maturity
     _mid_trend_filter: MidTrend
     _persistence_filter: Persistence
-    _changed_filter: Changed
 
     _last_candle_time: int = -1
 
