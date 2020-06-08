@@ -11,6 +11,7 @@ from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange
+from juno.math import floor_multiple
 from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
@@ -79,6 +80,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         start: Optional[Timestamp] = None  # None means max earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
+        adjust_start: bool = True
         test: bool = True  # No effect if broker is None.
         channel: str = 'default'
         long: bool = True  # Take long positions.
@@ -251,6 +253,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         self, config: Config, state: State, candles_updated: SlotBarrier,
         trackers_ready: Dict[str, Event]
     ) -> None:
+        final_candle_time = floor_multiple(config.end, config.interval) - config.interval
         to_process: List[Coroutine[None, None, Position.Any]] = []
         while True:
             # Wait until we've received candle updates for all symbols.
@@ -317,7 +320,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             # Exit if last candle.
             if (
                 (last_candle := next(iter(state.symbol_states.values())).last_candle)
-                and last_candle.time == config.end - config.interval
+                and last_candle.time >= final_candle_time
             ):
                 break
 
@@ -325,7 +328,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         self, config: Config, state: State, symbol_state: _SymbolState,
         candles_updated: SlotBarrier, ready: Event
     ) -> None:
-        if not symbol_state.start_adjusted:
+        if config.adjust_start and not symbol_state.start_adjusted:
             _log.info(
                 f'fetching {symbol_state.strategy.adjust_hint} {symbol_state.symbol} candle(s) '
                 'before start time to warm-up strategy'

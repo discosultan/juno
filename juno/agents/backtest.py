@@ -10,7 +10,7 @@ from juno.config import (
 )
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
-from juno.time import DAY_MS, time_ms
+from juno.time import DAY_MS, strftimestamp, time_ms
 from juno.traders import Trader
 from juno.utils import construct, extract_public
 
@@ -65,7 +65,11 @@ class Backtest(Agent):
         assert config.start is None or config.end is None or config.start < config.end
 
         start = config.start
-        end = now if config.end is None else config.end
+        if config.end is None:
+            end = now
+            _log.info(f'end not specified; end set to {strftimestamp(now)}')
+        else:
+            end = config.end
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         trader = self._traders[trader_name]

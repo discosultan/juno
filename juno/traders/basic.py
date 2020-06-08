@@ -33,7 +33,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         test: bool = True  # No effect if broker is None.
         channel: str = 'default'
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
-        adjust_start: bool = False
+        adjust_start: bool = True
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
 
