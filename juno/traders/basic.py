@@ -303,7 +303,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        state.quote -= Fill.total_quote(position.fills)
+        state.quote += position.quote_delta()
         state.open_position = position
 
         _log.info(f'long position opened: {candle}')
@@ -331,9 +331,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        state.quote += (
-            Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
-        )
+        state.quote += position.quote_delta()
         state.open_position = None
         state.summary.append_position(position)
 
@@ -360,7 +358,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
+        state.quote += position.quote_delta()
         state.open_position = position
 
         _log.info(f'short position opened: {candle}')
@@ -389,7 +387,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        state.quote -= Fill.total_quote(position.close_fills)
+        state.quote += position.quote_delta()
         state.open_position = None
         state.summary.append_position(position)
 

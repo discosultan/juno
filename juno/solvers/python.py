@@ -158,7 +158,7 @@ class Python(Solver, SimulatedPositionMixin):
             quote=state.quote,
         )
 
-        state.quote -= Fill.total_quote(position.fills)
+        state.quote += position.quote_delta()
         state.open_position = position
 
     def _close_long_position(
@@ -172,9 +172,7 @@ class Python(Solver, SimulatedPositionMixin):
             reason=reason,
         )
 
-        state.quote += (
-            Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
-        )
+        state.quote += position.quote_delta()
         state.open_position = None
         state.summary.append_position(position)
 
@@ -187,7 +185,7 @@ class Python(Solver, SimulatedPositionMixin):
             collateral=state.quote,
         )
 
-        state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
+        state.quote += position.quote_delta()
         state.open_position = position
 
     def _close_short_position(
@@ -201,6 +199,6 @@ class Python(Solver, SimulatedPositionMixin):
             reason=reason,
         )
 
-        state.quote -= Fill.total_quote(position.close_fills)
+        state.quote += position.quote_delta()
         state.open_position = None
         state.summary.append_position(position)

@@ -471,7 +471,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        symbol_state.allocated_quote -= Fill.total_quote(position.fills)
+        symbol_state.allocated_quote += position.quote_delta()
         symbol_state.open_position = position
 
         _log.info(f'{symbol_state.symbol} long position opened: {candle}')
@@ -498,9 +498,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        symbol_state.allocated_quote += (
-            Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
-        )
+        symbol_state.allocated_quote += position.quote_delta()
         state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal('0.0')
 
@@ -532,9 +530,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        symbol_state.allocated_quote += (
-            Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
-        )
+        symbol_state.allocated_quote += position.quote_delta()
         symbol_state.open_position = position
 
         _log.info(f'{symbol_state.symbol} short position opened: {candle}')
@@ -562,7 +558,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        symbol_state.allocated_quote -= Fill.total_quote(position.close_fills)
+        symbol_state.allocated_quote += position.quote_delta()
         state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal('0.0')
 

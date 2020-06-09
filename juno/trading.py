@@ -110,6 +110,9 @@ class Position(ModuleType):
         close_fills: List[Fill]
         close_reason: CloseReason
 
+        def quote_delta(self) -> Decimal:
+            return self.gain
+
         @property
         def cost(self) -> Decimal:
             return Fill.total_quote(self.open_fills)
@@ -170,6 +173,9 @@ class Position(ModuleType):
                 close_reason=reason,
             )
 
+        def quote_delta(self) -> Decimal:
+            return -self.cost
+
         @property
         def cost(self) -> Decimal:
             return Fill.total_quote(self.fills)
@@ -190,6 +196,9 @@ class Position(ModuleType):
         close_fills: List[Fill]
         close_reason: CloseReason
         interest: Decimal  # base
+
+        def quote_delta(self) -> Decimal:
+            return -Fill.total_quote(self.close_fills)
 
         @property
         def cost(self) -> Decimal:
@@ -264,6 +273,9 @@ class Position(ModuleType):
                 close_reason=reason,
                 interest=interest,
             )
+
+        def quote_delta(self) -> Decimal:
+            return Fill.total_quote(self.fills) - Fill.total_fee(self.fills)
 
         @property
         def cost(self) -> Decimal:
