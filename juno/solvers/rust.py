@@ -129,6 +129,7 @@ class Rust(Solver):
         c_trading_info.quote = config.quote
         c_trading_info.missed_candle_policy = config.missed_candle_policy
         c_trading_info.trailing_stop = config.trailing_stop
+        c_trading_info.take_profit = config.take_profit
         c_trading_info.long_ = config.long
         c_trading_info.short_ = config.short
 
@@ -262,6 +263,7 @@ def _build_cdef() -> str:
             ('quote', Decimal),
             ('missed_candle_policy', MissedCandlePolicy),
             ('trailing_stop', Decimal),
+            ('take_profit', Decimal),
             ('long_', bool),
             ('short_', bool),
             refs=['fees', 'filters', 'borrow_info']

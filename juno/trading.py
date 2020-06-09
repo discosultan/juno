@@ -26,6 +26,70 @@ class CloseReason(IntEnum):
     STRATEGY = 0
     TRAILING_STOP = 1
     CANCELLED = 2
+    TAKE_PROFIT = 3
+
+
+@dataclass
+class StopLoss:
+    threshold: Decimal = Decimal('0.0')  # 0 means disabled.
+    trail: bool = True  # TODO: impl False
+    _highest_close_since_position = Decimal('0.0')
+    _lowest_close_since_position = Decimal('Inf')
+    _close: Decimal = Decimal('0.0')
+
+    @staticmethod
+    def is_valid(threshold: Decimal) -> bool:
+        return 0 <= threshold < 1
+
+    @property
+    def upside_hit(self) -> bool:
+        if self.threshold == 0:
+            return False
+        return self._close <= self._highest_close_since_position * (1 - self.threshold)
+
+    @property
+    def downside_hit(self) -> bool:
+        if self.threshold == 0:
+            return False
+        return self._close >= self._lowest_close_since_position * (1 + self.threshold)
+
+    def clear(self, candle: Candle) -> None:
+        self._highest_close_since_position = candle.close
+        self._lowest_close_since_position = candle.close
+
+    def update(self, candle: Candle) -> None:
+        self._close = candle.close
+        self._highest_close_since_position = max(self._highest_close_since_position, candle.close)
+        self._lowest_close_since_position = min(self._lowest_close_since_position, candle.close)
+
+
+@dataclass
+class TakeProfit:
+    threshold: Decimal = Decimal('0.0')  # 0 means disabled.
+    _close_at_position: Decimal = Decimal('0.0')
+    _close: Decimal = Decimal('0.0')
+
+    @staticmethod
+    def is_valid(threshold: Decimal) -> bool:
+        return 0 <= threshold
+
+    @property
+    def upside_hit(self) -> bool:
+        if self.threshold == 0:
+            return False
+        return self._close >= self._close_at_position * (1 + self.threshold)
+
+    @property
+    def downside_hit(self) -> bool:
+        if self.threshold == 0:
+            return False
+        return self._close <= self._close_at_position * (1 - self.threshold)
+
+    def clear(self, candle: Candle) -> None:
+        self._close_at_position = candle.close
+
+    def update(self, candle: Candle) -> None:
+        self._close = candle.close
 
 
 class Position(ModuleType):
@@ -314,6 +378,10 @@ class TradingSummary:
     @staticmethod
     def _num_positions_in_loss(positions: Iterable[Position.Closed]) -> int:
         return sum(1 for p in positions if p.profit < 0)
+
+    @property
+    def num_take_profits(self) -> int:
+        return sum(1 for p in self._positions if p.close_reason is CloseReason.TAKE_PROFIT)
 
     @property
     def num_trailing_stops(self) -> int:

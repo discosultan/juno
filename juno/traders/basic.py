@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -10,7 +12,8 @@ from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
 from juno.time import time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingSummary
+    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
+    TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
@@ -30,6 +33,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         start: Optional[Timestamp] = None  # None means earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
+        take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
         channel: str = 'default'
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
@@ -53,6 +57,14 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         def downside_trailing_factor(self) -> Decimal:
             return 1 + self.trailing_stop
 
+        @property
+        def upside_take_profit_factor(self) -> Decimal:
+            return 1 + self.take_profit
+
+        @property
+        def downside_take_profit_factor(self) -> Decimal:
+            return 1 - self.take_profit
+
     @dataclass
     class State:
         strategy: Optional[Strategy] = None
@@ -62,11 +74,11 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         open_position: Optional[Position.Open] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
-        highest_close_since_position = Decimal('0.0')
-        lowest_close_since_position = Decimal('Inf')
         current: Timestamp = 0
         start_adjusted: bool = False
         real_start: Timestamp = -1
+        stop_loss: StopLoss = field(default_factory=StopLoss)
+        take_profit: TakeProfit = field(default_factory=TakeProfit)
 
     def __init__(
         self,
@@ -112,7 +124,8 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.start is None or config.end > config.start
-        assert 0 <= config.trailing_stop < 1
+        assert StopLoss.is_valid(config.trailing_stop)
+        assert TakeProfit.is_valid(config.take_profit)
         if config.short:
             assert self._informant.get_borrow_info(config.exchange, config.quote_asset)
             assert self._informant.get_fees_filters(
@@ -160,6 +173,10 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
             state.current -= state.strategy.adjust_hint * config.interval
             state.start_adjusted = True
+
+        state.stop_loss.threshold = config.trailing_stop
+        state.stop_loss.trail = True
+        state.take_profit.threshold = config.take_profit
 
         try:
             while True:
@@ -224,6 +241,10 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert state.strategy
         assert state.changed
         assert state.summary
+        assert state.stop_loss
+        assert state.take_profit
+        state.stop_loss.update(candle)
+        state.take_profit.update(candle)
         advice = state.changed.update(state.strategy.update(candle))
         _log.debug(f'received advice: {advice.name}')
         # Make sure strategy doesn't give advice during "adjusted start" period.
@@ -233,39 +254,40 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         if isinstance(state.open_position, Position.OpenLong):
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
                 await self._close_long_position(config, state, candle, CloseReason.STRATEGY)
-            elif config.trailing_stop:
-                state.highest_close_since_position = max(
-                    state.highest_close_since_position, candle.close
+
+            if state.open_position and state.stop_loss.upside_hit:
+                _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
+                await self._close_long_position(config, state, candle, CloseReason.TRAILING_STOP)
+                assert advice is not Advice.LONG
+
+            if state.open_position and state.take_profit.upside_hit:
+                _log.info(f'upside take profit hit at {config.take_profit}; selling')
+                await self._close_long_position(
+                    config, state, candle, CloseReason.TAKE_PROFIT
                 )
-                target = state.highest_close_since_position * config.upside_trailing_factor
-                if candle.close <= target:
-                    _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
-                    await self._close_long_position(
-                        config, state, candle, CloseReason.TRAILING_STOP
-                    )
-                    assert advice is not Advice.LONG
+                assert advice is not Advice.LONG
+
         elif isinstance(state.open_position, Position.OpenShort):
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
                 await self._close_short_position(config, state, candle, CloseReason.STRATEGY)
-            elif config.trailing_stop:
-                state.lowest_close_since_position = min(
-                    state.lowest_close_since_position, candle.close
-                )
-                target = state.lowest_close_since_position * config.downside_trailing_factor
-                if candle.close >= target:
-                    _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
-                    await self._close_short_position(
-                        config, state, candle, CloseReason.TRAILING_STOP
-                    )
-                    assert advice is not Advice.SHORT
+
+            if state.open_position and state.stop_loss.downside_hit:
+                _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
+                await self._close_short_position(config, state, candle, CloseReason.TRAILING_STOP)
+                assert advice is not Advice.SHORT
+
+            if state.open_position and state.take_profit.downside_hit:
+                _log.info(f'downside take profit hit at {config.take_profit}; selling')
+                await self._close_short_position(config, state, candle, CloseReason.TAKE_PROFIT)
+                assert advice is not Advice.SHORT
 
         if not state.open_position:
             if config.long and advice is Advice.LONG:
                 await self._open_long_position(config, state, candle)
-                state.highest_close_since_position = candle.close
             elif config.short and advice is Advice.SHORT:
                 await self._open_short_position(config, state, candle)
-                state.lowest_close_since_position = candle.close
+            state.stop_loss.clear(candle)
+            state.take_profit.clear(candle)
 
         if not state.first_candle:
             _log.info(f'first candle {candle}')
