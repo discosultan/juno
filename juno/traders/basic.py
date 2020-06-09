@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -241,8 +239,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert state.strategy
         assert state.changed
         assert state.summary
-        assert state.stop_loss
-        assert state.take_profit
         state.stop_loss.update(candle)
         state.take_profit.update(candle)
         advice = state.changed.update(state.strategy.update(candle))
