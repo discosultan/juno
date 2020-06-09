@@ -368,9 +368,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         if (
             isinstance(symbol_state.open_position, Position.OpenLong)
             and advice not in [Advice.SHORT, Advice.LIQUIDATE]
-            and config.trailing_stop
         ):
-            assert candle
             if symbol_state.stop_loss.upside_hit:
                 _log.info(
                     f'{symbol_state.symbol} upside trailing stop hit at {config.trailing_stop}; '
@@ -386,9 +384,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         elif (
             isinstance(symbol_state.open_position, Position.OpenShort)
             and advice not in [Advice.LONG, Advice.LIQUIDATE]
-            and config.trailing_stop
         ):
-            assert candle
             if symbol_state.stop_loss.downside_hit:
                 _log.info(
                     f'{symbol_state.symbol} downside trailing stop hit at {config.trailing_stop}; '

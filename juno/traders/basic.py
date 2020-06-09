@@ -250,13 +250,11 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         if isinstance(state.open_position, Position.OpenLong):
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
                 await self._close_long_position(config, state, candle, CloseReason.STRATEGY)
-
-            if state.open_position and state.stop_loss.upside_hit:
+            elif state.open_position and state.stop_loss.upside_hit:
                 _log.info(f'upside trailing stop hit at {config.trailing_stop}; selling')
                 await self._close_long_position(config, state, candle, CloseReason.TRAILING_STOP)
                 assert advice is not Advice.LONG
-
-            if state.open_position and state.take_profit.upside_hit:
+            elif state.open_position and state.take_profit.upside_hit:
                 _log.info(f'upside take profit hit at {config.take_profit}; selling')
                 await self._close_long_position(
                     config, state, candle, CloseReason.TAKE_PROFIT
@@ -266,13 +264,11 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         elif isinstance(state.open_position, Position.OpenShort):
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
                 await self._close_short_position(config, state, candle, CloseReason.STRATEGY)
-
-            if state.open_position and state.stop_loss.downside_hit:
+            elif state.stop_loss.downside_hit:
                 _log.info(f'downside trailing stop hit at {config.trailing_stop}; selling')
                 await self._close_short_position(config, state, candle, CloseReason.TRAILING_STOP)
                 assert advice is not Advice.SHORT
-
-            if state.open_position and state.take_profit.downside_hit:
+            elif state.take_profit.downside_hit:
                 _log.info(f'downside take profit hit at {config.take_profit}; selling')
                 await self._close_short_position(config, state, candle, CloseReason.TAKE_PROFIT)
                 assert advice is not Advice.SHORT
