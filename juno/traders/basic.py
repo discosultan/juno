@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Dict, List, NamedTuple, Optional
 
-from juno import Advice, Candle, Fill, Interval, MissedCandlePolicy, Timestamp
+from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
 from juno.exchanges import Exchange

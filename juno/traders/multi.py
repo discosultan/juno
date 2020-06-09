@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
-from juno import Advice, Candle, Fill, Interval, Timestamp
+from juno import Advice, Candle, Interval, Timestamp
 from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet

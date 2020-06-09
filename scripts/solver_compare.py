@@ -33,7 +33,7 @@ END = time.strptimestamp('2019-06-23')
 MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
 TRAILING_STOP = Decimal('0.044')
 TAKE_PROFIT = Decimal('0.0')
-LONG = True
+LONG = False
 SHORT = True
 
 SHORT_PERIOD = 4
@@ -158,7 +158,11 @@ async def main() -> None:
             long=LONG,
             short=SHORT,
         ))
-        portfolio = analyse_portfolio(benchmark.g_returns, fiat_prices, trading_summary)
+        portfolio = analyse_portfolio(
+            benchmark_g_returns=benchmark.g_returns,
+            fiat_prices=fiat_prices,
+            trading_summary=trading_summary,
+        )
 
         logging.info('=== rust solver ===')
         logging.info(f'alpha {rust_result.alpha}')

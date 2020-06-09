@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Optional
 
-from juno import Advice, Candle, Fill, MissedCandlePolicy, OrderException
+from juno import Advice, Candle, MissedCandlePolicy, OrderException
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
