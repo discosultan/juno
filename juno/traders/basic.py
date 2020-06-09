@@ -47,22 +47,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         def quote_asset(self) -> str:
             return unpack_symbol(self.symbol)[1]
 
-        @property
-        def upside_trailing_factor(self) -> Decimal:
-            return 1 - self.trailing_stop
-
-        @property
-        def downside_trailing_factor(self) -> Decimal:
-            return 1 + self.trailing_stop
-
-        @property
-        def upside_take_profit_factor(self) -> Decimal:
-            return 1 + self.take_profit
-
-        @property
-        def downside_take_profit_factor(self) -> Decimal:
-            return 1 - self.take_profit
-
     @dataclass
     class State:
         strategy: Optional[Strategy] = None
