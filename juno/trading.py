@@ -43,15 +43,17 @@ class StopLoss:
 
     @property
     def upside_hit(self) -> bool:
-        if self.threshold == 0:
-            return False
-        return self._close <= self._highest_close_since_position * (1 - self.threshold)
+        return (
+            self.threshold > 0
+            and self._close <= self._highest_close_since_position * (1 - self.threshold)
+        )
 
     @property
     def downside_hit(self) -> bool:
-        if self.threshold == 0:
-            return False
-        return self._close >= self._lowest_close_since_position * (1 + self.threshold)
+        return (
+            self.threshold > 0
+            and self._close >= self._lowest_close_since_position * (1 + self.threshold)
+        )
 
     def clear(self, candle: Candle) -> None:
         self._highest_close_since_position = candle.close
@@ -75,15 +77,17 @@ class TakeProfit:
 
     @property
     def upside_hit(self) -> bool:
-        if self.threshold == 0:
-            return False
-        return self._close >= self._close_at_position * (1 + self.threshold)
+        return (
+            self.threshold > 0
+            and self._close >= self._close_at_position * (1 + self.threshold)
+        )
 
     @property
     def downside_hit(self) -> bool:
-        if self.threshold == 0:
-            return False
-        return self._close <= self._close_at_position * (1 - self.threshold)
+        return (
+            self.threshold > 0
+            and self._close <= self._close_at_position * (1 - self.threshold)
+        )
 
     def clear(self, candle: Candle) -> None:
         self._close_at_position = candle.close

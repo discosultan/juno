@@ -23,13 +23,13 @@ impl StopLoss {
     }
 
     pub fn upside_hit(&self) -> bool {
-        self.threshold == 0.0
-        || self.close >= self.highest_close_since_position * (1.0 - self.threshold)
+        self.threshold > 0.0
+        && self.close >= self.highest_close_since_position * (1.0 - self.threshold)
     }
 
     pub fn downside_hit(&self) -> bool {
-        self.threshold == 0.0
-        || self.close <= self.lowest_close_since_position * (1.0 + self.threshold)
+        self.threshold > 0.0
+        && self.close <= self.lowest_close_since_position * (1.0 + self.threshold)
     }
 
     pub fn clear(&mut self, candle: &Candle) {
