@@ -10,8 +10,7 @@
             "quote": 1.0,
             "strategy": {
                 "type": "fourweekrule",
-                "ma": "kama",
-                "period": 20
+                "ma": "kama"
             },
             "trader": {
                 "type": "basic",
