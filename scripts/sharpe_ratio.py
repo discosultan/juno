@@ -61,7 +61,7 @@ async def main() -> None:
                         'long_ma': 'smma',
                     },
                 ),
-                trailing_stop=Decimal('0.0827'),
+                stop_loss=Decimal('0.0827'),
                 missed_candle_policy=MissedCandlePolicy.LAST,
             ),
         )

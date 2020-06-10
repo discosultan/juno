@@ -12,7 +12,7 @@ from juno.solvers import Rust
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
 from juno.traders import Basic
-from juno.utils import extract_public, unpack_symbol
+from juno.utils import construct, extract_public, unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
@@ -49,7 +49,7 @@ async def main() -> None:
             INTERVAL
         )
 
-        optimization_summary = await optimizer.run(
+        optimization_summary = await optimizer.run(Optimizer.Config(
             exchange=exchange_name,
             start=training_start,
             end=validation_start,
@@ -61,31 +61,23 @@ async def main() -> None:
             max_generations=100,
             mutation_probability=Decimal('0.2'),
             verbose=True,
-        )
-        best = optimization_summary.best[0]
+        ))
 
         logging.info(
-            f'training trading summary: {extract_public(best.trading_summary)}'
+            f'training trading summary: {extract_public(optimization_summary.trading_summary)}'
         )
-        logging.info(f'training portfolio stats: {best.portfolio_stats}')
+        logging.info(f'training portfolio stats: {optimization_summary.portfolio_stats}')
 
-        tc = best.trading_config
-
-        trading_summary = await trader.run(Basic.Config(
+        trading_summary = await trader.run(construct(
+            Basic.Config,
+            optimization_summary.trading_config,
             start=validation_start,
             end=validation_end,
-            exchange=tc.exchange,
-            symbol=tc.symbol,
-            interval=tc.interval,
-            quote=tc.quote,
-            missed_candle_policy=tc.missed_candle_policy,
-            trailing_stop=tc.trailing_stop,
-            strategy=tc.strategy,
         ))
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         fiat_prices = await prices.map_prices(
-            exchange=tc.exchange,
+            exchange=optimization_summary.trading_config.exchange,
             symbols=[SYMBOL],
             start=validation_start,
             end=validation_end,

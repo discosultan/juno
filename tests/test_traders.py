@@ -10,7 +10,7 @@ from juno.trading import CloseReason
 from . import fakes
 
 
-async def test_basic_upside_trailing_stop() -> None:
+async def test_basic_upside_stop_loss() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -37,7 +37,7 @@ async def test_basic_upside_trailing_stop() -> None:
                 'ignore_mid_trend': False,
             },
         ),
-        trailing_stop=Decimal('0.1'),
+        stop_loss=Decimal('0.1'),
         long=True,
         short=False,
     )
@@ -47,10 +47,10 @@ async def test_basic_upside_trailing_stop() -> None:
 
     long_positions = list(summary.get_long_positions())
     assert len(long_positions) == 1
-    assert long_positions[0].close_reason is CloseReason.TRAILING_STOP
+    assert long_positions[0].close_reason is CloseReason.STOP_LOSS
 
 
-async def test_basic_downside_trailing_stop() -> None:
+async def test_basic_downside_stop_loss() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1):
         [
@@ -82,7 +82,7 @@ async def test_basic_downside_trailing_stop() -> None:
                 'ignore_mid_trend': False,
             },
         ),
-        trailing_stop=Decimal('0.1'),
+        stop_loss=Decimal('0.1'),
         long=False,
         short=True,
     )
@@ -92,7 +92,7 @@ async def test_basic_downside_trailing_stop() -> None:
 
     short_positions = list(summary.get_short_positions())
     assert len(short_positions) == 1
-    assert short_positions[0].close_reason is CloseReason.TRAILING_STOP
+    assert short_positions[0].close_reason is CloseReason.STOP_LOSS
 
 
 async def test_basic_restart_on_missed_candle() -> None:
@@ -622,7 +622,7 @@ async def test_multi_historical() -> None:
     assert pos.close_reason is CloseReason.CANCELLED
 
 
-async def test_multi_trailing_stop() -> None:
+async def test_multi_stop_loss() -> None:
     chandler = fakes.Chandler(
         candles={
             ('dummy', 'eth-btc', 1): [
@@ -645,7 +645,7 @@ async def test_multi_trailing_stop() -> None:
         start=0,
         end=6,
         quote=Decimal('3.0'),
-        trailing_stop=Decimal('0.5'),
+        stop_loss=Decimal('0.5'),
         strategy=get_module_type_constructor(
             strategies,
             {
@@ -666,7 +666,7 @@ async def test_multi_trailing_stop() -> None:
     pos = long_positions[0]
     assert pos.open_time == 1
     assert pos.close_time == 2
-    assert pos.close_reason is CloseReason.TRAILING_STOP
+    assert pos.close_reason is CloseReason.STOP_LOSS
     pos = long_positions[1]
     assert pos.open_time == 5
     assert pos.close_time == 6

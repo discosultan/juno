@@ -56,7 +56,7 @@ class Python(Solver, SimulatedPositionMixin):
             ),
             strategy=config.new_strategy(),
             quote=config.quote,
-            stop_loss=StopLoss(config.trailing_stop, trail=True),
+            stop_loss=StopLoss(config.stop_loss, trail=True),
             take_profit=TakeProfit(config.take_profit),
         )
         try:
@@ -126,14 +126,14 @@ class Python(Solver, SimulatedPositionMixin):
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
                 self._close_long_position(config, state, candle, CloseReason.STRATEGY)
             elif state.stop_loss.upside_hit:
-                self._close_long_position(config, state, candle, CloseReason.TRAILING_STOP)
+                self._close_long_position(config, state, candle, CloseReason.STOP_LOSS)
             elif state.take_profit.upside_hit:
                 self._close_long_position(config, state, candle, CloseReason.TAKE_PROFIT)
         elif isinstance(state.open_position, Position.OpenShort):
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
                 self._close_short_position(config, state, candle, CloseReason.STRATEGY)
             elif state.stop_loss.downside_hit:
-                self._close_short_position(config, state, candle, CloseReason.TRAILING_STOP)
+                self._close_short_position(config, state, candle, CloseReason.STOP_LOSS)
             elif state.take_profit.downside_hit:
                 self._close_short_position(config, state, candle, CloseReason.TAKE_PROFIT)
 

@@ -34,7 +34,7 @@ _missed_candle_policy_constraint = Choice([
     MissedCandlePolicy.RESTART,
     MissedCandlePolicy.LAST,
 ])
-_trailing_stop_constraint = ConstraintChoice([
+_stop_loss_constraint = ConstraintChoice([
     Constant(Decimal('0.0')),
     Uniform(Decimal('0.0001'), Decimal('0.9999')),
 ])
@@ -63,7 +63,7 @@ class Optimizer(StartMixin):
         start: Optional[Timestamp] = None
         end: Optional[Timestamp] = None
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
-        trailing_stop: Optional[Decimal] = Decimal('0.0')
+        stop_loss: Optional[Decimal] = Decimal('0.0')
         take_profit: Optional[Decimal] = Decimal('0.0')
         long: Optional[bool] = True
         short: Optional[bool] = False
@@ -188,7 +188,7 @@ class Optimizer(StartMixin):
             _build_attr(symbols, Choice(symbols), random),
             _build_attr(intervals, Choice(intervals), random),
             _build_attr(config.missed_candle_policy, _missed_candle_policy_constraint, random),
-            _build_attr(config.trailing_stop, _trailing_stop_constraint, random),
+            _build_attr(config.stop_loss, _stop_loss_constraint, random),
             _build_attr(config.take_profit, _take_profit_constraint, random),
             _build_attr(config.long, _boolean_constraint, random),
             _build_attr(config.short, _boolean_constraint, random),
@@ -223,7 +223,7 @@ class Optimizer(StartMixin):
                     symbol=ind[0],
                     interval=ind[1],
                     missed_candle_policy=ind[2],
-                    trailing_stop=ind[3],
+                    stop_loss=ind[3],
                     take_profit=ind[4],
                     long=ind[5],
                     short=ind[6],
@@ -310,7 +310,7 @@ class Optimizer(StartMixin):
             end=end,
             quote=config.quote,
             missed_candle_policy=best_args[2],
-            trailing_stop=best_args[3],
+            stop_loss=best_args[3],
             take_profit=best_args[4],
             long=best_args[5],
             short=best_args[6],
@@ -374,7 +374,7 @@ class Optimizer(StartMixin):
                 symbol=best_args[0],
                 interval=best_args[1],
                 missed_candle_policy=best_args[2],
-                trailing_stop=best_args[3],
+                stop_loss=best_args[3],
                 take_profit=best_args[4],
                 long=best_args[5],
                 short=best_args[6],

@@ -29,7 +29,7 @@ class Optimize(Agent):
         start: Optional[Timestamp] = None
         end: Optional[Timestamp] = None
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
-        trailing_stop: Optional[Decimal] = Decimal('0.0')
+        stop_loss: Optional[Decimal] = Decimal('0.0')
         take_profit: Optional[Decimal] = Decimal('0.0')
         long: Optional[bool] = True
         short: Optional[bool] = False

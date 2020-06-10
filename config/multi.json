@@ -14,7 +14,7 @@
             },
             "trader": {
                 "type": "multi",
-                "trailing_stop": 0.10,
+                "stop_loss": 0.10,
                 "position_count": 4,
                 "track_count": 5,
                 "track": ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc", "ada-btc"],

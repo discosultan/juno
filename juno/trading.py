@@ -24,7 +24,7 @@ _log = logging.getLogger(__name__)
 
 class CloseReason(IntEnum):
     STRATEGY = 0
-    TRAILING_STOP = 1
+    STOP_LOSS = 1
     CANCELLED = 2
     TAKE_PROFIT = 3
 
@@ -400,8 +400,8 @@ class TradingSummary:
         return sum(1 for p in self._positions if p.close_reason is CloseReason.TAKE_PROFIT)
 
     @property
-    def num_trailing_stops(self) -> int:
-        return sum(1 for p in self._positions if p.close_reason is CloseReason.TRAILING_STOP)
+    def num_stop_losses(self) -> int:
+        return sum(1 for p in self._positions if p.close_reason is CloseReason.STOP_LOSS)
 
     @property
     def mean_position_profit(self) -> Decimal:

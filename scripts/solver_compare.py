@@ -15,7 +15,7 @@ from juno.utils import extract_public, unpack_symbol
 # START = time.strptimestamp('2018-09-15')
 # END = time.strptimestamp('2020-04-01')
 # MISSED_CANDLE_POLICY = MissedCandlePolicy.RESTART
-# TRAILING_STOP = Decimal('0.3772')
+# STOP_LOSS = Decimal('0.3772')
 
 # SHORT_PERIOD = 15
 # LONG_PERIOD = 22
@@ -31,7 +31,7 @@ INTERVAL = time.HOUR_MS
 START = time.strptimestamp('2019-06-19')
 END = time.strptimestamp('2019-06-23')
 MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
-TRAILING_STOP = Decimal('0.044')
+STOP_LOSS = Decimal('0.044')
 TAKE_PROFIT = Decimal('0.0')
 LONG = False
 SHORT = True
@@ -49,7 +49,7 @@ LONG_MA = 'sma'
 # START = time.strptimestamp('2017-07-14')
 # END = time.strptimestamp('2019-12-07')
 # MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
-# TRAILING_STOP = Decimal('0.8486')
+# STOP_LOSS = Decimal('0.8486')
 
 # SHORT_PERIOD = 7
 # LONG_PERIOD = 49
@@ -64,7 +64,7 @@ LONG_MA = 'sma'
 # START = time.strptimestamp('2019-01-01')
 # END = time.strptimestamp('2019-12-22')
 # MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
-# TRAILING_STOP = Decimal('0.0')
+# STOP_LOSS = Decimal('0.0')
 
 # SHORT_PERIOD = 1
 # LONG_PERIOD = 8
@@ -114,7 +114,7 @@ async def main() -> None:
             symbol=SYMBOL,
             interval=INTERVAL,
             missed_candle_policy=MISSED_CANDLE_POLICY,
-            trailing_stop=TRAILING_STOP,
+            stop_loss=STOP_LOSS,
             take_profit=TAKE_PROFIT,
             long=LONG,
             short=SHORT,
@@ -152,7 +152,7 @@ async def main() -> None:
                 },
             ),
             missed_candle_policy=MISSED_CANDLE_POLICY,
-            trailing_stop=TRAILING_STOP,
+            stop_loss=STOP_LOSS,
             take_profit=TAKE_PROFIT,
             adjust_start=False,
             long=LONG,

@@ -13,7 +13,7 @@
             "intervals": ["1h"],
             "quote": 1.0,
             "missed_candle_policy": null,
-            "trailing_stop": null,
+            "stop_loss": null,
             "strategy": "fourweekrule",
             "population_size": 10,
             "max_generations": 100,

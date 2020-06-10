@@ -67,7 +67,7 @@ class _SymbolState:
     def reason(self) -> CloseReason:
         return (
             CloseReason.STRATEGY if self.override_changed.prevailing_advice is Advice.NONE
-            else CloseReason.TRAILING_STOP
+            else CloseReason.STOP_LOSS
         )
 
 
@@ -80,7 +80,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbol_strategies: Dict[str, TypeConstructor[Strategy]] = {}  # Overrides default strategy.
         start: Optional[Timestamp] = None  # None means max earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
-        trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
+        stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
         take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
         adjust_start: bool = True
         test: bool = True  # No effect if broker is None.
@@ -144,7 +144,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.start is None or config.end > config.start
-        assert StopLoss.is_valid(config.trailing_stop)
+        assert StopLoss.is_valid(config.stop_loss)
         assert TakeProfit.is_valid(config.take_profit)
         assert config.position_count > 0
         assert config.position_count <= config.track_count
@@ -187,7 +187,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=start,
-                    stop_loss=StopLoss(config.trailing_stop, trail=True),
+                    stop_loss=StopLoss(config.stop_loss, trail=True),
                     take_profit=TakeProfit(config.take_profit),
                 )
 
@@ -371,13 +371,13 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         ):
             if symbol_state.stop_loss.upside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} upside trailing stop hit at {config.trailing_stop}; '
+                    f'{symbol_state.symbol} upside trailing stop hit at {config.stop_loss}; '
                     'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
             elif symbol_state.take_profit.upside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} upside take profit hit at {config.trailing_stop}; '
+                    f'{symbol_state.symbol} upside take profit hit at {config.stop_loss}; '
                     'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
@@ -387,13 +387,13 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         ):
             if symbol_state.stop_loss.downside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} downside trailing stop hit at {config.trailing_stop}; '
+                    f'{symbol_state.symbol} downside trailing stop hit at {config.stop_loss}; '
                     'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
             elif symbol_state.take_profit.downside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} downside take profit hit at {config.trailing_stop}; '
+                    f'{symbol_state.symbol} downside take profit hit at {config.stop_loss}; '
                     'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
