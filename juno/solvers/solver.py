@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Type, get_type_hints
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Type, get_type_hints
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ class Solver(AbstractAsyncContextManager, ABC):
         benchmark_g_returns: pd.Series
         candles: List[Candle]
         strategy_type: Type[Strategy]
-        strategy_args: Sequence[Any]
+        strategy_args: Tuple[Any, ...]
         exchange: str
         symbol: str
         interval: Interval
@@ -27,6 +27,7 @@ class Solver(AbstractAsyncContextManager, ABC):
         end: Timestamp
         quote: Decimal
         trailing_stop: Decimal
+        take_profit: Decimal
         missed_candle_policy: MissedCandlePolicy
         long: bool
         short: bool
@@ -38,14 +39,6 @@ class Solver(AbstractAsyncContextManager, ABC):
         @property
         def quote_asset(self) -> str:
             return unpack_symbol(self.symbol)[1]
-
-        @property
-        def upside_trailing_factor(self) -> Decimal:
-            return 1 - self.trailing_stop
-
-        @property
-        def downside_trailing_factor(self) -> Decimal:
-            return 1 + self.trailing_stop
 
         def new_strategy(self) -> Strategy:
             return self.strategy_type(*self.strategy_args)

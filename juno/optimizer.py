@@ -38,6 +38,10 @@ _trailing_stop_constraint = ConstraintChoice([
     Constant(Decimal('0.0')),
     Uniform(Decimal('0.0001'), Decimal('0.9999')),
 ])
+_take_profit_constraint = ConstraintChoice([
+    Constant(Decimal('0.0')),
+    Uniform(Decimal('0.0001'), Decimal('9.9999')),
+])
 _boolean_constraint = Choice([True, False])
 
 
@@ -60,6 +64,7 @@ class Optimizer(StartMixin):
         end: Optional[Timestamp] = None
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
         trailing_stop: Optional[Decimal] = Decimal('0.0')
+        take_profit: Optional[Decimal] = Decimal('0.0')
         long: Optional[bool] = True
         short: Optional[bool] = False
         population_size: int = 50
@@ -184,6 +189,7 @@ class Optimizer(StartMixin):
             _build_attr(intervals, Choice(intervals), random),
             _build_attr(config.missed_candle_policy, _missed_candle_policy_constraint, random),
             _build_attr(config.trailing_stop, _trailing_stop_constraint, random),
+            _build_attr(config.take_profit, _take_profit_constraint, random),
             _build_attr(config.long, _boolean_constraint, random),
             _build_attr(config.short, _boolean_constraint, random),
             *(partial(c.random, random) for c in strategy_type.meta().constraints.values())
@@ -218,9 +224,10 @@ class Optimizer(StartMixin):
                     interval=ind[1],
                     missed_candle_policy=ind[2],
                     trailing_stop=ind[3],
-                    long=ind[4],
-                    short=ind[5],
-                    strategy_args=list(flatten(ind[6:])),
+                    take_profit=ind[4],
+                    long=ind[5],
+                    short=ind[6],
+                    strategy_args=tuple(flatten(ind[7:])),
                 )
             )
 
@@ -304,12 +311,13 @@ class Optimizer(StartMixin):
             quote=config.quote,
             missed_candle_policy=best_args[2],
             trailing_stop=best_args[3],
-            long=best_args[4],
-            short=best_args[5],
+            take_profit=best_args[4],
+            long=best_args[5],
+            short=best_args[6],
             adjust_start=False,
             strategy=TypeConstructor(
                 name=get_fully_qualified_name(strategy_type),
-                kwargs=map_input_args(strategy_type.__init__, best_args[6:]),
+                kwargs=map_input_args(strategy_type.__init__, best_args[7:]),
             ),
         )
 
@@ -367,9 +375,10 @@ class Optimizer(StartMixin):
                 interval=best_args[1],
                 missed_candle_policy=best_args[2],
                 trailing_stop=best_args[3],
-                long=best_args[4],
-                short=best_args[5],
-                strategy_args=best_args[6:],
+                take_profit=best_args[4],
+                long=best_args[5],
+                short=best_args[6],
+                strategy_args=tuple(best_args[7:]),
             )
         )
 
@@ -402,9 +411,9 @@ def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
     isclose = True
     for aval, bval in zip(a, b):
         if isinstance(aval, Decimal):
-            isclose = isclose and math.isclose(aval, bval, rel_tol=Decimal('1e-6'))
+            isclose = isclose and math.isclose(aval, bval, abs_tol=Decimal('1e-6'))
         elif isinstance(aval, float):
-            isclose = isclose and math.isclose(aval, bval, rel_tol=1e-6)
+            isclose = isclose and math.isclose(aval, bval, abs_tol=1e-6)
         else:
             isclose = isclose and aval == bval
     return isclose

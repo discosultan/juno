@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
-from juno import Advice, Candle, Fill, Interval, Timestamp
+from juno import Advice, Candle, Interval, Timestamp
 from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, Wallet
@@ -15,7 +15,8 @@ from juno.math import floor_multiple
 from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingSummary
+    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
+    TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import extract_public
@@ -34,11 +35,11 @@ class _SymbolState:
     changed: Changed
     override_changed: Changed
     current: Timestamp
+    stop_loss: StopLoss
+    take_profit: TakeProfit
     start_adjusted: bool = False
     open_position: Optional[Position.Open] = None
     allocated_quote: Decimal = Decimal('0.0')
-    highest_close_since_position = Decimal('0.0')
-    lowest_close_since_position = Decimal('Inf')
     first_candle: Optional[Candle] = None
     last_candle: Optional[Candle] = None
 
@@ -80,6 +81,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         start: Optional[Timestamp] = None  # None means max earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         trailing_stop: Decimal = Decimal('0.0')  # 0 means disabled.
+        take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
         adjust_start: bool = True
         test: bool = True  # No effect if broker is None.
         channel: str = 'default'
@@ -89,14 +91,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
         position_count: int = 2
-
-        @property
-        def upside_trailing_factor(self) -> Decimal:
-            return 1 - self.trailing_stop
-
-        @property
-        def downside_trailing_factor(self) -> Decimal:
-            return 1 + self.trailing_stop
 
     @dataclass
     class State:
@@ -150,7 +144,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.start is None or config.end > config.start
-        assert 0 <= config.trailing_stop < 1
+        assert StopLoss.is_valid(config.trailing_stop)
+        assert TakeProfit.is_valid(config.take_profit)
         assert config.position_count > 0
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
@@ -192,6 +187,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=start,
+                    stop_loss=StopLoss(config.trailing_stop, trail=True),
+                    take_profit=TakeProfit(config.take_profit),
                 )
 
         _log.info(
@@ -364,50 +361,47 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     def _process_candle(
         self, config: Config, symbol_state: _SymbolState, candle: Candle
     ) -> Tuple[Advice, Advice]:
+        symbol_state.stop_loss.update(candle)
+        symbol_state.take_profit.update(candle)
         advice = symbol_state.strategy.update(candle)
         override_advice = Advice.NONE
         if (
             isinstance(symbol_state.open_position, Position.OpenLong)
             and advice not in [Advice.SHORT, Advice.LIQUIDATE]
-            and config.trailing_stop
         ):
-            assert candle
-            symbol_state.highest_close_since_position = max(
-                symbol_state.highest_close_since_position, candle.close
-            )
-            target = (
-                symbol_state.highest_close_since_position * config.upside_trailing_factor
-            )
-            if candle.close <= target:
+            if symbol_state.stop_loss.upside_hit:
                 _log.info(
                     f'{symbol_state.symbol} upside trailing stop hit at {config.trailing_stop}; '
-                    'selling'
+                    'liquidating'
+                )
+                override_advice = Advice.LIQUIDATE
+            elif symbol_state.take_profit.upside_hit:
+                _log.info(
+                    f'{symbol_state.symbol} upside take profit hit at {config.trailing_stop}; '
+                    'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
         elif (
             isinstance(symbol_state.open_position, Position.OpenShort)
             and advice not in [Advice.LONG, Advice.LIQUIDATE]
-            and config.trailing_stop
         ):
-            assert candle
-            symbol_state.lowest_close_since_position = min(
-                symbol_state.lowest_close_since_position, candle.close
-            )
-            target = (
-                symbol_state.lowest_close_since_position * config.downside_trailing_factor
-            )
-            if candle.close >= target:
+            if symbol_state.stop_loss.downside_hit:
                 _log.info(
                     f'{symbol_state.symbol} downside trailing stop hit at {config.trailing_stop}; '
-                    'selling'
+                    'liquidating'
+                )
+                override_advice = Advice.LIQUIDATE
+            elif symbol_state.take_profit.downside_hit:
+                _log.info(
+                    f'{symbol_state.symbol} downside take profit hit at {config.trailing_stop}; '
+                    'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
 
         if not symbol_state.open_position:
-            if config.long and advice is Advice.LONG:
-                symbol_state.highest_close_since_position = candle.close
-            elif config.short and advice is Advice.SHORT:
-                symbol_state.lowest_close_since_position = candle.close
+            if (config.long and advice is Advice.LONG or config.short and advice is Advice.SHORT):
+                symbol_state.stop_loss.clear(candle)
+                symbol_state.take_profit.clear(candle)
 
         if not symbol_state.first_candle:
             _log.info(f'{symbol_state.symbol} first candle {candle}')
@@ -477,7 +471,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        symbol_state.allocated_quote -= Fill.total_quote(position.fills)
+        symbol_state.allocated_quote += position.quote_delta()
         symbol_state.open_position = position
 
         _log.info(f'{symbol_state.symbol} long position opened: {candle}')
@@ -504,9 +498,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        symbol_state.allocated_quote += (
-            Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
-        )
+        symbol_state.allocated_quote += position.quote_delta()
         state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal('0.0')
 
@@ -538,9 +530,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        symbol_state.allocated_quote += (
-            Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
-        )
+        symbol_state.allocated_quote += position.quote_delta()
         symbol_state.open_position = position
 
         _log.info(f'{symbol_state.symbol} short position opened: {candle}')
@@ -568,7 +558,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         )
 
-        symbol_state.allocated_quote -= Fill.total_quote(position.close_fills)
+        symbol_state.allocated_quote += position.quote_delta()
         state.quotes.append(symbol_state.allocated_quote)
         symbol_state.allocated_quote = Decimal('0.0')
 

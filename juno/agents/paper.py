@@ -69,12 +69,12 @@ class Paper(Agent):
         trader_config = construct(
             trader.Config,
             config,
+            **kwargs_for(trader.Config, trader_kwargs),
             start=start,
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
             test=True,
             channel=state.name,
-            **kwargs_for(trader.Config, trader_kwargs),
         )
         if not state.result:
             state.result = trader.State()

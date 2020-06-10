@@ -1,28 +1,30 @@
+from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Optional
 
-from juno import Advice, Candle, Fill, MissedCandlePolicy, OrderException
+from juno import Advice, Candle, MissedCandlePolicy, OrderException
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
 from juno.time import DAY_MS
-from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
+from juno.trading import (
+    CloseReason, Position, SimulatedPositionMixin, StopLoss, TakeProfit, TradingSummary
+)
 
 from .solver import Solver, SolverResult
 
 
+@dataclass
 class _State:
-    def __init__(self, summary: TradingSummary, strategy: Strategy, quote: Decimal) -> None:
-        self.summary = summary
-        self.strategy = strategy
-        self.changed = Changed(True)
-        self.quote = quote
-        self.open_long_position: Optional[Position.OpenLong] = None
-        self.open_short_position: Optional[Position.OpenShort] = None
-        self.first_candle: Optional[Candle] = None
-        self.last_candle: Optional[Candle] = None
-        self.highest_close_since_position = Decimal('0.0')
-        self.lowest_close_since_position = Decimal('Inf')
+    summary: TradingSummary
+    strategy: Strategy
+    quote: Decimal
+    stop_loss: StopLoss
+    take_profit: TakeProfit
+    changed: Changed = field(default_factory=lambda: Changed(True))
+    open_position: Optional[Position.Open] = None
+    first_candle: Optional[Candle] = None
+    last_candle: Optional[Candle] = None
 
 
 # We could rename the class to PythonSolver but it's more user-friendly to allow people to just
@@ -47,13 +49,15 @@ class Python(Solver, SimulatedPositionMixin):
 
     def _trade(self, config: Solver.Config) -> TradingSummary:
         state = _State(
-            TradingSummary(
+            summary=TradingSummary(
                 start=config.candles[0].time,
                 quote=config.quote,
                 quote_asset=config.quote_asset,
             ),
-            config.new_strategy(),
-            config.quote,
+            strategy=config.new_strategy(),
+            quote=config.quote,
+            stop_loss=StopLoss(config.trailing_stop, trail=True),
+            take_profit=TakeProfit(config.take_profit),
         )
         try:
             i = 0
@@ -98,11 +102,11 @@ class Python(Solver, SimulatedPositionMixin):
                     break
 
             if state.last_candle:
-                if state.open_long_position:
+                if isinstance(state.open_position, Position.OpenLong):
                     self._close_long_position(
                         config, state, state.last_candle, CloseReason.CANCELLED
                     )
-                if state.open_short_position:
+                elif isinstance(state.open_position, Position.OpenShort):
                     self._close_short_position(
                         config, state, state.last_candle, CloseReason.CANCELLED
                     )
@@ -114,36 +118,32 @@ class Python(Solver, SimulatedPositionMixin):
         return state.summary
 
     def _tick(self, config: Solver.Config, state: _State, candle: Candle) -> None:
+        state.stop_loss.update(candle)
+        state.take_profit.update(candle)
         advice = state.changed.update(state.strategy.update(candle))
 
-        if state.open_long_position:
+        if isinstance(state.open_position, Position.OpenLong):
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
                 self._close_long_position(config, state, candle, CloseReason.STRATEGY)
-            elif config.trailing_stop:
-                state.highest_close_since_position = max(
-                    state.highest_close_since_position, candle.close
-                )
-                target = state.highest_close_since_position * config.upside_trailing_factor
-                if candle.close <= target:
-                    self._close_long_position(config, state, candle, CloseReason.TRAILING_STOP)
-        elif state.open_short_position:
+            elif state.stop_loss.upside_hit:
+                self._close_long_position(config, state, candle, CloseReason.TRAILING_STOP)
+            elif state.take_profit.upside_hit:
+                self._close_long_position(config, state, candle, CloseReason.TAKE_PROFIT)
+        elif isinstance(state.open_position, Position.OpenShort):
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
                 self._close_short_position(config, state, candle, CloseReason.STRATEGY)
-            elif config.trailing_stop:
-                state.lowest_close_since_position = min(
-                    state.lowest_close_since_position, candle.close
-                )
-                target = state.lowest_close_since_position * config.downside_trailing_factor
-                if candle.close >= target:
-                    self._close_short_position(config, state, candle, CloseReason.TRAILING_STOP)
+            elif state.stop_loss.downside_hit:
+                self._close_short_position(config, state, candle, CloseReason.TRAILING_STOP)
+            elif state.take_profit.downside_hit:
+                self._close_short_position(config, state, candle, CloseReason.TAKE_PROFIT)
 
-        if not state.open_long_position and not state.open_short_position:
+        if not state.open_position:
             if config.long and advice is Advice.LONG:
                 self._open_long_position(config, state, candle)
-                state.highest_close_since_position = candle.close
             elif config.short and advice is Advice.SHORT:
                 self._open_short_position(config, state, candle)
-                state.lowest_close_since_position = candle.close
+            state.stop_loss.clear(candle)
+            state.take_profit.clear(candle)
 
         if not state.first_candle:
             state.first_candle = candle
@@ -153,54 +153,52 @@ class Python(Solver, SimulatedPositionMixin):
         position = self.open_simulated_long_position(
             exchange=config.exchange,
             symbol=config.symbol,
-            time=candle.time,
+            time=candle.time + config.interval,
             price=candle.close,
             quote=state.quote,
         )
 
-        state.quote -= Fill.total_quote(position.fills)
-        state.open_long_position = position
+        state.quote += position.quote_delta()
+        state.open_position = position
 
     def _close_long_position(
         self, config: Solver.Config, state: _State, candle: Candle, reason: CloseReason
     ) -> None:
-        assert state.open_long_position
+        assert isinstance(state.open_position, Position.OpenLong)
         position = self.close_simulated_long_position(
-            position=state.open_long_position,
-            time=candle.time,
+            position=state.open_position,
+            time=candle.time + config.interval,
             price=candle.close,
             reason=reason,
         )
 
-        state.quote += (
-            Fill.total_quote(position.close_fills) - Fill.total_fee(position.close_fills)
-        )
-        state.open_long_position = None
+        state.quote += position.quote_delta()
+        state.open_position = None
         state.summary.append_position(position)
 
     def _open_short_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
         position = self.open_simulated_short_position(
             exchange=config.exchange,
             symbol=config.symbol,
-            time=candle.time,
+            time=candle.time + config.interval,
             price=candle.close,
             collateral=state.quote,
         )
 
-        state.quote += Fill.total_quote(position.fills) - Fill.total_fee(position.fills)
-        state.open_short_position = position
+        state.quote += position.quote_delta()
+        state.open_position = position
 
     def _close_short_position(
         self, config: Solver.Config, state: _State, candle: Candle, reason: CloseReason
     ) -> None:
-        assert state.open_short_position
+        assert isinstance(state.open_position, Position.OpenShort)
         position = self.close_simulated_short_position(
-            position=state.open_short_position,
-            time=candle.time,
+            position=state.open_position,
+            time=candle.time + config.interval,
             price=candle.close,
             reason=reason,
         )
 
-        state.quote -= Fill.total_quote(position.close_fills)
-        state.open_short_position = None
+        state.quote += position.quote_delta()
+        state.open_position = None
         state.summary.append_position(position)

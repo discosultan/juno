@@ -1,6 +1,7 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
     strategies::{Changed, Strategy},
+    trading::{StopLoss, TakeProfit},
     Advice, BorrowInfo, Candle, Fees, Filters, LongPosition, ShortPosition, TradingSummary,
 };
 
@@ -13,12 +14,12 @@ struct State<T: Strategy> {
     pub open_long_position: Option<LongPosition>,
     pub open_short_position: Option<ShortPosition>,
     pub last_candle: Option<Candle>,
-    pub highest_close_since_position: f64,
-    pub lowest_close_since_position: f64,
+    pub stop_loss: StopLoss,
+    pub take_profit: TakeProfit,
 }
 
 impl<T: Strategy> State<T> {
-    pub fn new(strategy: T, quote: f64) -> Self {
+    pub fn new(strategy: T, quote: f64, trailing_stop: f64, take_profit: f64) -> Self {
         Self {
             strategy,
             changed: Changed::new(true),
@@ -26,8 +27,8 @@ impl<T: Strategy> State<T> {
             open_long_position: None,
             open_short_position: None,
             last_candle: None,
-            highest_close_since_position: 0.0,
-            lowest_close_since_position: f64::MAX,
+            stop_loss: StopLoss::new(trailing_stop, true),
+            take_profit: TakeProfit::new(take_profit),
         }
     }
 }
@@ -43,6 +44,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     quote: f64,
     missed_candle_policy: u32,
     trailing_stop: f64,
+    take_profit: f64,
     long: bool,
     short: bool,
 ) -> TradingSummary {
@@ -56,7 +58,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     };
 
     let mut summary = TradingSummary::new(interval, start, end, quote);
-    let mut state = State::new(strategy_factory(), quote);
+    let mut state = State::new(strategy_factory(), quote, trailing_stop, take_profit);
     let mut i = 0;
     loop {
         let mut restart = false;
@@ -89,7 +91,6 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
                             &borrow_info,
                             margin_multiplier,
                             interval,
-                            trailing_stop,
                             long,
                             short,
                             &missed_candle,
@@ -113,7 +114,6 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
                 &borrow_info,
                 margin_multiplier,
                 interval,
-                trailing_stop,
                 long,
                 short,
                 candle,
@@ -168,11 +168,12 @@ fn tick<T: Strategy>(
     borrow_info: &BorrowInfo,
     margin_multiplier: u32,
     interval: u64,
-    trailing_stop: f64,
     long: bool,
     short: bool,
     candle: &Candle,
 ) -> bool {
+    state.stop_loss.update(candle);
+    state.take_profit.update(candle);
     let advice = state.changed.update(state.strategy.update(&candle));
 
     if state.open_long_position.is_some() {
@@ -185,21 +186,15 @@ fn tick<T: Strategy>(
                 candle.time + interval,
                 candle.close,
             );
-        } else if trailing_stop > 0.0 {
-            state.highest_close_since_position =
-                f64::max(state.highest_close_since_position, candle.close);
-            let upside_trailing_factor = 1.0 - trailing_stop;
-            let target = state.highest_close_since_position * upside_trailing_factor;
-            if candle.close <= target {
-                close_long_position(
-                    &mut state,
-                    &mut summary,
-                    fees,
-                    filters,
-                    candle.time + interval,
-                    candle.close,
-                );
-            }
+        } else if state.stop_loss.upside_hit() || state.take_profit.upside_hit() {
+            close_long_position(
+                &mut state,
+                &mut summary,
+                fees,
+                filters,
+                candle.time + interval,
+                candle.close,
+            );
         }
     } else if state.open_short_position.is_some() {
         if advice == Advice::Long || advice == Advice::Liquidate {
@@ -212,22 +207,16 @@ fn tick<T: Strategy>(
                 candle.time + interval,
                 candle.close,
             );
-        } else if trailing_stop > 0.0 {
-            state.lowest_close_since_position =
-                f64::min(state.lowest_close_since_position, candle.close);
-            let downside_trailing_factor = 1.0 + trailing_stop;
-            let target = state.lowest_close_since_position * downside_trailing_factor;
-            if candle.close >= target {
-                close_short_position(
-                    &mut state,
-                    &mut summary,
-                    fees,
-                    filters,
-                    borrow_info,
-                    candle.time + interval,
-                    candle.close,
-                );
-            }
+        } else if state.stop_loss.downside_hit() || state.take_profit.downside_hit() {
+            close_short_position(
+                &mut state,
+                &mut summary,
+                fees,
+                filters,
+                borrow_info,
+                candle.time + interval,
+                candle.close,
+            );
         }
     }
 
@@ -242,7 +231,6 @@ fn tick<T: Strategy>(
             ) {
                 return false;
             }
-            state.highest_close_since_position = candle.close;
         } else if short && advice == Advice::Short {
             if !try_open_short_position(
                 &mut state,
@@ -254,8 +242,9 @@ fn tick<T: Strategy>(
             ) {
                 return false;
             }
-            state.lowest_close_since_position = candle.close;
         }
+        state.stop_loss.clear(candle);
+        state.take_profit.clear(candle);
     }
 
     state.last_candle = Some(*candle);
