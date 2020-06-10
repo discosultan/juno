@@ -227,7 +227,7 @@ class Optimizer(StartMixin):
                     take_profit=ind[4],
                     long=ind[5],
                     short=ind[6],
-                    strategy_args=list(flatten(ind[7:])),
+                    strategy_args=tuple(flatten(ind[7:])),
                 )
             )
 
@@ -378,7 +378,7 @@ class Optimizer(StartMixin):
                 take_profit=best_args[4],
                 long=best_args[5],
                 short=best_args[6],
-                strategy_args=best_args[7:],
+                strategy_args=tuple(best_args[7:]),
             )
         )
 

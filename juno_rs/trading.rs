@@ -65,11 +65,11 @@ impl TakeProfit {
     }
 
     pub fn upside_hit(&self) -> bool {
-        self.threshold == 0.0 || self.close >= self.close_at_position * (1.0 + self.threshold)
+        self.threshold > 0.0 && self.close >= self.close_at_position * (1.0 + self.threshold)
     }
 
     pub fn downside_hit(&self) -> bool {
-        self.threshold == 0.0 || self.close <= self.close_at_position * (1.0 - self.threshold)
+        self.threshold > 0.0 && self.close <= self.close_at_position * (1.0 - self.threshold)
     }
 
     pub fn clear(&mut self, candle: &Candle) {

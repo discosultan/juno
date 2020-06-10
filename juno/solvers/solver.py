@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Type, get_type_hints
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Type, get_type_hints
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ class Solver(AbstractAsyncContextManager, ABC):
         benchmark_g_returns: pd.Series
         candles: List[Candle]
         strategy_type: Type[Strategy]
-        strategy_args: List[Any]
+        strategy_args: Tuple[Any, ...]
         exchange: str
         symbol: str
         interval: Interval
