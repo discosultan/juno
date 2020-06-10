@@ -153,7 +153,7 @@ class Python(Solver, SimulatedPositionMixin):
         position = self.open_simulated_long_position(
             exchange=config.exchange,
             symbol=config.symbol,
-            time=candle.time,
+            time=candle.time + config.interval,
             price=candle.close,
             quote=state.quote,
         )
@@ -167,7 +167,7 @@ class Python(Solver, SimulatedPositionMixin):
         assert isinstance(state.open_position, Position.OpenLong)
         position = self.close_simulated_long_position(
             position=state.open_position,
-            time=candle.time,
+            time=candle.time + config.interval,
             price=candle.close,
             reason=reason,
         )
@@ -180,7 +180,7 @@ class Python(Solver, SimulatedPositionMixin):
         position = self.open_simulated_short_position(
             exchange=config.exchange,
             symbol=config.symbol,
-            time=candle.time,
+            time=candle.time + config.interval,
             price=candle.close,
             collateral=state.quote,
         )
@@ -194,7 +194,7 @@ class Python(Solver, SimulatedPositionMixin):
         assert isinstance(state.open_position, Position.OpenShort)
         position = self.close_simulated_short_position(
             position=state.open_position,
-            time=candle.time,
+            time=candle.time + config.interval,
             price=candle.close,
             reason=reason,
         )
