@@ -19,7 +19,13 @@ struct State<T: Strategy> {
 }
 
 impl<T: Strategy> State<T> {
-    pub fn new(strategy: T, quote: f64, stop_loss: f64, take_profit: f64) -> Self {
+    pub fn new(
+        strategy: T,
+        quote: f64,
+        stop_loss: f64,
+        trail_stop_loss: bool,
+        take_profit: f64,
+    ) -> Self {
         Self {
             strategy,
             changed: Changed::new(true),
@@ -27,7 +33,7 @@ impl<T: Strategy> State<T> {
             open_long_position: None,
             open_short_position: None,
             last_candle: None,
-            stop_loss: StopLoss::new(stop_loss, true),
+            stop_loss: StopLoss::new(stop_loss, trail_stop_loss),
             take_profit: TakeProfit::new(take_profit),
         }
     }
@@ -44,6 +50,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     quote: f64,
     missed_candle_policy: u32,
     stop_loss: f64,
+    trail_stop_loss: bool,
     take_profit: f64,
     long: bool,
     short: bool,
@@ -58,7 +65,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     };
 
     let mut summary = TradingSummary::new(interval, start, end, quote);
-    let mut state = State::new(strategy_factory(), quote, stop_loss, take_profit);
+    let mut state = State::new(strategy_factory(), quote, stop_loss, trail_stop_loss, take_profit);
     let mut i = 0;
     loop {
         let mut restart = false;

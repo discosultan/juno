@@ -64,6 +64,7 @@ class Optimizer(StartMixin):
         end: Optional[Timestamp] = None
         missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
         stop_loss: Optional[Decimal] = Decimal('0.0')
+        trail_stop_loss: Optional[bool] = True
         take_profit: Optional[Decimal] = Decimal('0.0')
         long: Optional[bool] = True
         short: Optional[bool] = False
@@ -189,6 +190,7 @@ class Optimizer(StartMixin):
             _build_attr(intervals, Choice(intervals), random),
             _build_attr(config.missed_candle_policy, _missed_candle_policy_constraint, random),
             _build_attr(config.stop_loss, _stop_loss_constraint, random),
+            _build_attr(config.trail_stop_loss, _boolean_constraint, random),
             _build_attr(config.take_profit, _take_profit_constraint, random),
             _build_attr(config.long, _boolean_constraint, random),
             _build_attr(config.short, _boolean_constraint, random),
@@ -224,10 +226,11 @@ class Optimizer(StartMixin):
                     interval=ind[1],
                     missed_candle_policy=ind[2],
                     stop_loss=ind[3],
-                    take_profit=ind[4],
-                    long=ind[5],
-                    short=ind[6],
-                    strategy_args=tuple(flatten(ind[7:])),
+                    trail_stop_loss=ind[4],
+                    take_profit=ind[5],
+                    long=ind[6],
+                    short=ind[7],
+                    strategy_args=tuple(flatten(ind[8:])),
                 )
             )
 
@@ -311,13 +314,14 @@ class Optimizer(StartMixin):
             quote=config.quote,
             missed_candle_policy=best_args[2],
             stop_loss=best_args[3],
-            take_profit=best_args[4],
-            long=best_args[5],
-            short=best_args[6],
+            trail_stop_loss=best_args[4],
+            take_profit=best_args[5],
+            long=best_args[6],
+            short=best_args[7],
             adjust_start=False,
             strategy=TypeConstructor(
                 name=get_fully_qualified_name(strategy_type),
-                kwargs=map_input_args(strategy_type.__init__, best_args[7:]),
+                kwargs=map_input_args(strategy_type.__init__, best_args[8:]),
             ),
         )
 
@@ -375,10 +379,11 @@ class Optimizer(StartMixin):
                 interval=best_args[1],
                 missed_candle_policy=best_args[2],
                 stop_loss=best_args[3],
-                take_profit=best_args[4],
-                long=best_args[5],
-                short=best_args[6],
-                strategy_args=tuple(best_args[7:]),
+                trail_stop_loss=best_args[4],
+                take_profit=best_args[5],
+                long=best_args[6],
+                short=best_args[7],
+                strategy_args=tuple(best_args[8:]),
             )
         )
 

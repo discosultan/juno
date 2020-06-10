@@ -51,6 +51,7 @@ async def test_solver_works_with_default_fees_filters(loop, solver_type) -> None
                 interval=HOUR_MS,
                 missed_candle_policy=MissedCandlePolicy.IGNORE,
                 stop_loss=Decimal('0.0'),
+                trail_stop_loss=True,
                 take_profit=Decimal('0.0'),
                 long=True,
                 short=False,

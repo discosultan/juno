@@ -56,7 +56,7 @@ class Python(Solver, SimulatedPositionMixin):
             ),
             strategy=config.new_strategy(),
             quote=config.quote,
-            stop_loss=StopLoss(config.stop_loss, trail=True),
+            stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
             take_profit=TakeProfit(config.take_profit),
         )
         try:

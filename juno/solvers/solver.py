@@ -27,6 +27,7 @@ class Solver(AbstractAsyncContextManager, ABC):
         end: Timestamp
         quote: Decimal
         stop_loss: Decimal
+        trail_stop_loss: bool
         take_profit: Decimal
         missed_candle_policy: MissedCandlePolicy
         long: bool

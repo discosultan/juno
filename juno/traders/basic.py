@@ -31,6 +31,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         start: Optional[Timestamp] = None  # None means earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
+        trail_stop_loss: bool = True
         take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
         test: bool = True  # No effect if broker is None.
         channel: str = 'default'
@@ -157,7 +158,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             state.start_adjusted = True
 
         state.stop_loss.threshold = config.stop_loss
-        state.stop_loss.trail = True
+        state.stop_loss.trail = config.trail_stop_loss
         state.take_profit.threshold = config.take_profit
 
         try:

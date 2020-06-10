@@ -32,6 +32,7 @@ START = time.strptimestamp('2019-06-19')
 END = time.strptimestamp('2019-06-23')
 MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
 STOP_LOSS = Decimal('0.044')
+TRAIL_STOP_LOSS = True
 TAKE_PROFIT = Decimal('0.0')
 LONG = False
 SHORT = True
@@ -115,6 +116,7 @@ async def main() -> None:
             interval=INTERVAL,
             missed_candle_policy=MISSED_CANDLE_POLICY,
             stop_loss=STOP_LOSS,
+            trail_stop_loss=TRAIL_STOP_LOSS,
             take_profit=TAKE_PROFIT,
             long=LONG,
             short=SHORT,

@@ -81,6 +81,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         start: Optional[Timestamp] = None  # None means max earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
+        trail_stop_loss: bool = True
         take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
         adjust_start: bool = True
         test: bool = True  # No effect if broker is None.
@@ -187,7 +188,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=start,
-                    stop_loss=StopLoss(config.stop_loss, trail=True),
+                    stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
                     take_profit=TakeProfit(config.take_profit),
                 )
 
