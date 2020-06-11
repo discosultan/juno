@@ -16,11 +16,11 @@ pub struct FourWeekRule {
 }
 
 impl FourWeekRule {
-    pub fn new(period: u32, ma: u32, mid_trend_policy: u32) -> Self {
+    pub fn new(period: u32, ma: u32, ma_period: u32, mid_trend_policy: u32) -> Self {
         Self {
             mid_trend: MidTrend::new(mid_trend_policy),
             prices: VecDeque::with_capacity(period as usize),
-            ma: indicators::ma_from_adler32(ma, period / 2),
+            ma: indicators::ma_from_adler32(ma, ma_period),
             advice: Advice::None,
             t: 0,
             t1: period,

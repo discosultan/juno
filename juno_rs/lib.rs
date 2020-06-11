@@ -32,6 +32,7 @@ pub unsafe extern "C" fn fourweekrule(
         strategies::FourWeekRule::new(
             strategy_info.period,
             strategy_info.ma,
+            strategy_info.ma_period,
             strategy_info.mid_trend_policy,
         )
     };
@@ -197,6 +198,7 @@ pub struct TradingInfo {
 pub struct FourWeekRuleInfo {
     period: u32,
     ma: u32,
+    ma_period: u32,
     mid_trend_policy: u32,
 }
 
