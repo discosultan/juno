@@ -8,7 +8,7 @@ from juno.indicators import MA, Sma
 from juno.math import minmax
 from juno.utils import get_module_type
 
-from .strategy import Meta, Strategy, ma_choices
+from .strategy import Meta, MidTrendPolicy, Strategy, ma_choices, mid_trend_policy_choices
 
 
 # Signals a long position when a candle close price goes above a highest four week close price.
@@ -22,6 +22,7 @@ class FourWeekRule(Strategy):
             constraints={
                 'period': Int(2, 100),
                 'ma': ma_choices,
+                'mid_trend_policy': mid_trend_policy_choices,
             }
         )
 
@@ -29,8 +30,13 @@ class FourWeekRule(Strategy):
     _ma: MA
     _advice: Advice = Advice.NONE
 
-    def __init__(self, period: int = 28, ma: str = Sma.__name__.lower()) -> None:
-        super().__init__(maturity=period, persistence=0, ignore_mid_trend=False)
+    def __init__(
+        self,
+        period: int = 28,
+        ma: str = Sma.__name__.lower(),
+        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
+    ) -> None:
+        super().__init__(maturity=period, mid_trend_policy=mid_trend_policy, persistence=0)
         self._prices = deque(maxlen=period)
         self._ma = get_module_type(indicators, ma)(period // 2)
 

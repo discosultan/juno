@@ -5,7 +5,7 @@ from .macdrsi import MacdRsi
 from .mamacx import MAMACX
 from .rsi import Rsi
 from .single_ma import SingleMA
-from .strategy import Changed, Meta, MidTrend, Persistence, Strategy
+from .strategy import Changed, Meta, MidTrend, MidTrendPolicy, Persistence, Strategy
 
 __all__ = [
     'Changed',
@@ -16,6 +16,7 @@ __all__ = [
     'MAMACX',
     'Meta',
     'MidTrend',
+    'MidTrendPolicy',
     'Persistence',
     'Rsi',
     'SingleMA',

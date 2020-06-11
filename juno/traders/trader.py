@@ -5,7 +5,7 @@ from typing import Any, Optional
 
 from juno.brokers import Broker
 from juno.components import Wallet
-from juno.trading import TradingSummary
+from juno.trading import TradingMode, TradingSummary
 
 _log = logging.getLogger(__name__)
 
@@ -29,9 +29,9 @@ class Trader(ABC):
         pass
 
     def request_quote(
-        self, quote: Optional[Decimal], exchange: str, asset: str, test: bool
+        self, quote: Optional[Decimal], exchange: str, asset: str, mode: TradingMode
     ) -> Decimal:
-        if test:
+        if mode in [TradingMode.BACKTEST, TradingMode.PAPER]:
             if quote is None:
                 raise ValueError('Quote must be specified when backtesting or paper trading')
             return quote

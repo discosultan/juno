@@ -34,7 +34,7 @@ async def test_upside_stop_loss() -> None:
             {
                 'type': 'fixed',
                 'advices': ['long', 'long', 'long', 'long', 'liquidate'],
-                'ignore_mid_trend': False,
+                'mid_trend_policy': 'current',
             },
         ),
         stop_loss=Decimal('0.1'),
@@ -75,7 +75,7 @@ async def test_upside_trailing_stop_loss() -> None:
             {
                 'type': 'fixed',
                 'advices': ['long', 'long', 'long', 'liquidate'],
-                'ignore_mid_trend': False,
+                'mid_trend_policy': 'current',
             },
         ),
         stop_loss=Decimal('0.1'),
@@ -121,7 +121,7 @@ async def test_downside_trailing_stop_loss() -> None:
             {
                 'type': 'fixed',
                 'advices': ['short', 'short', 'short', 'liquidate'],
-                'ignore_mid_trend': False,
+                'mid_trend_policy': 'current',
             },
         ),
         stop_loss=Decimal('0.1'),
@@ -162,7 +162,7 @@ async def test_upside_take_profit() -> None:
             {
                 'type': 'fixed',
                 'advices': ['long', 'long', 'long', 'liquidate'],
-                'ignore_mid_trend': False,
+                'mid_trend_policy': 'current',
             },
         ),
         take_profit=Decimal('0.5'),
@@ -207,7 +207,7 @@ async def test_downside_take_profit() -> None:
             {
                 'type': 'fixed',
                 'advices': ['short', 'short', 'short', 'liquidate'],
-                'ignore_mid_trend': False,
+                'mid_trend_policy': 'current',
             },
         ),
         take_profit=Decimal('0.5'),
@@ -336,7 +336,7 @@ async def test_adjust_start_ignore_mid_trend() -> None:
                 'type': 'fixed',
                 'advices': ['none', 'long', 'long', 'none'],
                 'maturity': 1,
-                'ignore_mid_trend': True,
+                'mid_trend_policy': 'ignore',
                 'persistence': 1,
             },
         ),
@@ -372,7 +372,7 @@ async def test_adjust_start_persistence() -> None:
                 'type': 'fixed',
                 'advices': ['none', 'long', 'long', 'long'],
                 'maturity': 1,
-                'ignore_mid_trend': False,
+                'mid_trend_policy': 'current',
                 'persistence': 2,
             },
         ),

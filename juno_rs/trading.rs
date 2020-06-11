@@ -2,7 +2,6 @@ use crate::Candle;
 
 const YEAR_MS: f64 = 31_556_952_000.0;
 
-
 pub struct StopLoss {
     pub threshold: f64,
     trail: bool,
@@ -24,12 +23,12 @@ impl StopLoss {
 
     pub fn upside_hit(&self) -> bool {
         self.threshold > 0.0
-        && self.close >= self.highest_close_since_position * (1.0 - self.threshold)
+            && self.close >= self.highest_close_since_position * (1.0 - self.threshold)
     }
 
     pub fn downside_hit(&self) -> bool {
         self.threshold > 0.0
-        && self.close <= self.lowest_close_since_position * (1.0 + self.threshold)
+            && self.close <= self.lowest_close_since_position * (1.0 + self.threshold)
     }
 
     pub fn clear(&mut self, candle: &Candle) {
@@ -39,15 +38,11 @@ impl StopLoss {
 
     pub fn update(&mut self, candle: &Candle) {
         self.close = candle.close;
-        self.highest_close_since_position = f64::max(
-            self.highest_close_since_position, candle.close
-        );
-        self.lowest_close_since_position = f64::min(
-            self.lowest_close_since_position, candle.close
-        );
+        self.highest_close_since_position =
+            f64::max(self.highest_close_since_position, candle.close);
+        self.lowest_close_since_position = f64::min(self.lowest_close_since_position, candle.close);
     }
 }
-
 
 pub struct TakeProfit {
     pub threshold: f64,
@@ -80,7 +75,6 @@ impl TakeProfit {
         self.close = candle.close;
     }
 }
-
 
 #[derive(Debug)]
 pub struct LongPosition {

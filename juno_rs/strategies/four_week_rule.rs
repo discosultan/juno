@@ -1,8 +1,13 @@
 use std::{cmp::min, collections::VecDeque};
 
-use crate::{indicators, math, strategies::Strategy, Advice, Candle};
+use crate::{
+    indicators, math,
+    strategies::{MidTrend, Strategy},
+    Advice, Candle,
+};
 
 pub struct FourWeekRule {
+    mid_trend: MidTrend,
     prices: VecDeque<f64>,
     ma: Box<dyn indicators::MA>,
     advice: Advice,
@@ -11,8 +16,9 @@ pub struct FourWeekRule {
 }
 
 impl FourWeekRule {
-    pub fn new(period: u32, ma: u32) -> Self {
+    pub fn new(period: u32, ma: u32, mid_trend_policy: u32) -> Self {
         Self {
+            mid_trend: MidTrend::new(mid_trend_policy),
             prices: VecDeque::with_capacity(period as usize),
             ma: indicators::ma_from_adler32(ma, period / 2),
             advice: Advice::None,
@@ -44,6 +50,6 @@ impl Strategy for FourWeekRule {
 
         self.prices.push_back(candle.close);
         self.t = min(self.t + 1, self.t1);
-        self.advice
+        self.mid_trend.update(self.advice)
     }
 }

@@ -18,26 +18,30 @@ pub trait Strategy {
 }
 
 struct MidTrend {
-    ignore: bool,
+    policy: u32,
     previous: Option<Advice>,
-    maturity: u32,
+    enabled: bool,
 }
 
 impl MidTrend {
-    pub fn new(ignore: bool) -> Self {
+    pub fn new(policy: u32) -> Self {
         Self {
-            ignore,
+            policy,
             previous: None,
-            maturity: if ignore { 1 } else { 0 },
+            enabled: true,
         }
     }
 
     pub fn maturity(&self) -> u32 {
-        self.maturity
+        if self.policy == 0 {
+            0
+        } else {
+            1
+        }
     }
 
     pub fn update(&mut self, value: Advice) -> Advice {
-        if !self.ignore {
+        if !self.enabled || self.policy != 2 {
             return value;
         }
 
@@ -45,7 +49,7 @@ impl MidTrend {
         if self.previous.is_none() {
             self.previous = Some(value)
         } else if Some(value) != self.previous {
-            self.ignore = false;
+            self.enabled = false;
             result = value;
         }
         result

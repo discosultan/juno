@@ -11,6 +11,7 @@ from juno.config import (
 from juno.storages import Storage
 from juno.time import MAX_TIME_MS, time_ms
 from juno.traders import Trader
+from juno.trading import TradingMode
 from juno.utils import construct, extract_public
 
 from .agent import Agent, AgentStatus
@@ -70,7 +71,7 @@ class Live(Agent):
             start=start,
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
-            test=False,
+            mode=TradingMode.LIVE,
             channel=state.name,
         )
         if not state.result:

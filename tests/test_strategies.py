@@ -4,6 +4,7 @@ import pytest
 
 from juno import Advice, Candle, strategies
 from juno.constraints import Int, Pair
+from juno.strategies import Meta, MidTrendPolicy
 
 
 def test_strategy_meta():
@@ -18,8 +19,8 @@ def test_strategy_meta():
 
 class DummyStrategy(strategies.Strategy):
     @staticmethod
-    def meta() -> strategies.Meta:
-        return strategies.Meta(
+    def meta() -> Meta:
+        return Meta(
             constraints={
                 ('foo', 'bar'): Pair(Int(0, 15), operator.lt, Int(10, 20)),
             }
@@ -39,32 +40,41 @@ def test_mature(maturity: int) -> None:
         assert strategy.mature == (i == maturity)
 
 
-def test_mid_trend_ignore_false() -> None:
-    target = strategies.MidTrend(ignore=False)
+def test_mid_trend_current() -> None:
+    target = strategies.MidTrend(MidTrendPolicy.CURRENT)
     assert target.maturity == 0
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
 
 
-def test_mid_trend_ignore_true() -> None:
-    target = strategies.MidTrend(ignore=True)
+def test_mid_trend_previous() -> None:
+    target = strategies.MidTrend(MidTrendPolicy.PREVIOUS)
+    assert target.maturity == 1
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.LONG) is Advice.LONG
+    assert target.update(Advice.SHORT) is Advice.SHORT
+
+
+def test_mid_trend_ignore() -> None:
+    target = strategies.MidTrend(MidTrendPolicy.IGNORE)
     assert target.maturity == 1
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.SHORT) is Advice.SHORT
+    assert target.update(Advice.LONG) is Advice.LONG
 
 
 def test_mid_trend_ignore_starting_with_none_does_not_ignore_first(
 ) -> None:
-    target = strategies.MidTrend(ignore=True)
+    target = strategies.MidTrend(MidTrendPolicy.IGNORE)
     assert target.update(Advice.NONE) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.LONG
 
 
 # def test_ignore_not_mature(
 # ) -> None:
-#     target = strategies.IgnoreNotMatureAndMidTrend(maturity=1, ignore_mid_trend=False)
+#     target = strategies.Maturity(maturity=1)
 #     assert target.update(Advice.LONG) is Advice.NONE
 #     assert target.update(Advice.LONG) is Advice.LONG
 #     assert target.update(Advice.LONG) is Advice.LONG
@@ -127,7 +137,7 @@ def test_changed_enabled() -> None:
 
 
 def test_mid_trend_persistence_combination() -> None:
-    target1 = strategies.MidTrend(ignore=True)
+    target1 = strategies.MidTrend(MidTrendPolicy.IGNORE)
     target2 = strategies.Persistence(level=1)
 
     assert Advice.combine(

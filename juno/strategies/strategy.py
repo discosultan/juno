@@ -1,10 +1,23 @@
+from enum import IntEnum
 from typing import Any, Dict, Optional, Tuple, Union
 
 from juno import Advice, Candle
 from juno.constraints import Choice, Constraint
 from juno.indicators import Dema, Ema, Ema2, Kama, Sma, Smma
 
+
+class MidTrendPolicy(IntEnum):
+    CURRENT = 0
+    PREVIOUS = 1
+    IGNORE = 2
+
+
 ma_choices = Choice([i.__name__.lower() for i in [Dema, Ema, Ema2, Kama, Sma, Smma]])
+mid_trend_policy_choices = Choice([
+    MidTrendPolicy.CURRENT,
+    MidTrendPolicy.PREVIOUS,
+    MidTrendPolicy.IGNORE,
+])
 
 # class Maturity:
 #     """Ignore advice if strategy not mature."""
@@ -29,27 +42,27 @@ ma_choices = Choice([i.__name__.lower() for i in [Dema, Ema, Ema2, Kama, Sma, Sm
 
 class MidTrend:
     """Ignore first advice if middle of trend."""
-    _ignore: bool
-    _previous: Optional[Advice] = None
+    _policy: MidTrendPolicy
     _maturity: int
+    _previous: Optional[Advice] = None
+    _enabled: bool = True
 
-    def __init__(self, ignore: bool) -> None:
-        self._ignore = ignore
-        self._maturity = 1 if ignore else 0
+    def __init__(self, policy: MidTrendPolicy) -> None:
+        self._policy = policy
 
     @property
     def maturity(self) -> int:
-        return self._maturity
+        return 0 if self._policy is MidTrendPolicy.CURRENT else 1
 
     def update(self, value: Advice) -> Advice:
-        if not self._ignore:
+        if not self._enabled or self._policy is not MidTrendPolicy.IGNORE:
             return value
 
         result = Advice.NONE
         if self._previous is None:
             self._previous = value
         elif value != self._previous:
-            self._ignore = False
+            self._enabled = False
             result = value
         return result
 
@@ -161,13 +174,13 @@ class Strategy:
     def __init__(
         self,
         maturity: int = 0,
-        ignore_mid_trend: bool = False,
+        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,
     ) -> None:
         self.maturity = maturity
 
         # self._maturity_filter = Maturity(maturity=maturity)
-        self._mid_trend_filter = MidTrend(ignore=ignore_mid_trend)
+        self._mid_trend_filter = MidTrend(policy=mid_trend_policy)
         self._persistence_filter = Persistence(level=persistence)
 
     @property

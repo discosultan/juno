@@ -4,7 +4,7 @@ from typing import List
 
 from juno import Advice, Candle
 
-from .strategy import Strategy
+from .strategy import MidTrendPolicy, Strategy
 
 _log = logging.getLogger(__name__)
 
@@ -18,14 +18,14 @@ class Fixed(Strategy):
         self,
         advices: List[str] = [],
         maturity: int = 0,
-        ignore_mid_trend: bool = False,
+        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,
         cancel: bool = False,
     ) -> None:
         super().__init__(
             maturity=maturity,
             persistence=persistence,
-            ignore_mid_trend=ignore_mid_trend,
+            mid_trend_policy=mid_trend_policy,
         )
         self.advices = [Advice[a.upper()] for a in advices]
         self.updates = []

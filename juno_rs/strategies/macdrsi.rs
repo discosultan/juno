@@ -23,7 +23,7 @@ impl MacdRsi {
         Self {
             macd: Macd::new(macd_short_period, macd_long_period, macd_signal_period, 0),
             rsi: Rsi::new(rsi_period, rsi_up_threshold, rsi_down_threshol, 0),
-            mid_trend: MidTrend::new(true),
+            mid_trend: MidTrend::new(2),
             persistence: Persistence::new(persistence, false),
         }
     }

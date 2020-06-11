@@ -16,7 +16,7 @@ from juno.strategies import Changed, Strategy
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
-    TradingSummary
+    TradingMode, TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import extract_public
@@ -84,7 +84,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         trail_stop_loss: bool = True
         take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
         adjust_start: bool = True
-        test: bool = True  # No effect if broker is None.
+        mode: TradingMode = TradingMode.BACKTEST
         channel: str = 'default'
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
@@ -142,6 +142,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         return self._wallet
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
+        assert config.mode is TradingMode.BACKTEST or self.broker
         assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.start is None or config.end > config.start
@@ -154,7 +155,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbols = await self._find_top_symbols(config)
 
         # Request and assert available quote.
-        quote = self.request_quote(config.quote, config.exchange, 'btc', config.test)
+        quote = self.request_quote(config.quote, config.exchange, 'btc', config.mode)
         position_quote = quote / config.position_count
         for symbol in symbols:
             fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
@@ -240,10 +241,13 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 t for t, c in zip(tickers, first_candles) if c.time <= config.track_required_start
             ]
         if len(tickers) < config.track_count:
+            required_start_msg = (
+                '' if config.track_required_start is None
+                else f' with required start at {strftimestamp(config.track_required_start)}'
+            )
             raise ValueError(
-                f'Exchange only support {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
-                f'while {config.track_count} requested; required start: '
-                f'{strftimestamp(config.track_required_start)}'
+                f'Exchange only supports {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
+                f'while {config.track_count} requested{required_start_msg}'
             )
         return config.track + [t.symbol for t in tickers[0:count] if t not in config.track]
 
@@ -458,17 +462,19 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
-            await self.open_long_position(
-                exchange=config.exchange,
-                symbol=symbol_state.symbol,
-                quote=symbol_state.allocated_quote,
-                test=config.test,
-            ) if self._broker else self.open_simulated_long_position(
+            self.open_simulated_long_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 time=candle.time + config.interval,
                 price=candle.close,
                 quote=symbol_state.allocated_quote,
+            )
+            if config.mode is TradingMode.BACKTEST else
+            await self.open_long_position(
+                exchange=config.exchange,
+                symbol=symbol_state.symbol,
+                quote=symbol_state.allocated_quote,
+                mode=config.mode,
             )
         )
 
@@ -487,14 +493,16 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert isinstance(symbol_state.open_position, Position.OpenLong)
 
         position = (
-            await self.close_long_position(
-                position=symbol_state.open_position,
-                test=config.test,
-                reason=reason,
-            ) if self._broker else self.close_simulated_long_position(
+            self.close_simulated_long_position(
                 position=symbol_state.open_position,
                 time=candle.time + config.interval,
                 price=candle.close,
+                reason=reason,
+            )
+            if config.mode is TradingMode.BACKTEST else
+            await self.close_long_position(
+                position=symbol_state.open_position,
+                mode=config.mode,
                 reason=reason,
             )
         )
@@ -516,18 +524,20 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
-            await self.open_short_position(
-                exchange=config.exchange,
-                symbol=symbol_state.symbol,
-                price=candle.close,
-                collateral=symbol_state.allocated_quote,
-                test=config.test,
-            ) if self._broker else self.open_simulated_short_position(
+            self.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
                 time=candle.time + config.interval,
                 price=candle.close,
                 collateral=symbol_state.allocated_quote,
+            )
+            if config.mode is TradingMode.BACKTEST else
+            await self.open_short_position(
+                exchange=config.exchange,
+                symbol=symbol_state.symbol,
+                price=candle.close,
+                collateral=symbol_state.allocated_quote,
+                mode=config.mode,
             )
         )
 
@@ -546,15 +556,17 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert isinstance(symbol_state.open_position, Position.OpenShort)
 
         position = (
-            await self.close_short_position(
-                position=symbol_state.open_position,
-                price=candle.close,
-                test=config.test,
-                reason=reason,
-            ) if self._broker else self.close_simulated_short_position(
+            self.close_simulated_short_position(
                 position=symbol_state.open_position,
                 time=candle.time + config.interval,
                 price=candle.close,
+                reason=reason,
+            )
+            if config.mode is TradingMode.BACKTEST else
+            await self.close_short_position(
+                position=symbol_state.open_position,
+                price=candle.close,
+                mode=config.mode,
                 reason=reason,
             )
         )

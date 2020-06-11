@@ -18,7 +18,7 @@ impl Macd {
     pub fn new(short_period: u32, long_period: u32, signal_period: u32, persistence: u32) -> Self {
         Self {
             macd: indicators::Macd::new(short_period, long_period, signal_period),
-            mid_trend: MidTrend::new(true),
+            mid_trend: MidTrend::new(2),
             persistence: Persistence::new(persistence, false),
             t: 0,
             t1: max(long_period, signal_period) - 1,

@@ -5,7 +5,7 @@ from juno.constraints import Int
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import Meta, Strategy, ma_choices
+from .strategy import Meta, MidTrendPolicy, Strategy, ma_choices
 
 
 # Signals a long position when a candle close price goes above moving average and moving average is
@@ -35,7 +35,9 @@ class SingleMA(Strategy):
     ) -> None:
         self._ma = get_module_type(indicators, ma)(period)
         super().__init__(
-            maturity=self._ma.maturity, persistence=persistence, ignore_mid_trend=True
+            maturity=self._ma.maturity,
+            persistence=persistence,
+            mid_trend_policy=MidTrendPolicy.IGNORE
         )
 
     def tick(self, candle: Candle) -> Advice:

@@ -11,7 +11,7 @@ from juno.strategies import Changed, Strategy
 from juno.time import time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
-    TradingSummary
+    TradingMode, TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
@@ -33,7 +33,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
         trail_stop_loss: bool = True
         take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
-        test: bool = True  # No effect if broker is None.
+        mode: TradingMode = TradingMode.BACKTEST
         channel: str = 'default'
         missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
         adjust_start: bool = True
@@ -68,7 +68,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         chandler: Chandler,
         informant: Informant,
         wallet: Optional[Wallet] = None,
-        broker: Optional[Broker] = None,
+        broker: Optional[Broker] = None,  # Only required if not backtesting.
         events: Events = Events(),
         exchanges: List[Exchange] = [],
         get_time_ms: Callable[[], int] = time_ms,
@@ -104,6 +104,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         return self._wallet
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
+        assert config.mode is TradingMode.BACKTEST or self.broker
         assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.start is None or config.end > config.start
@@ -116,7 +117,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )[1].is_margin_trading_allowed
 
         # Request and assert available quote.
-        quote = self.request_quote(config.quote, config.exchange, config.quote_asset, config.test)
+        quote = self.request_quote(config.quote, config.exchange, config.quote_asset, config.mode)
         fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         assert quote > filters.price.min
 
@@ -290,17 +291,19 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert not state.open_position
 
         position = (
-            await self.open_long_position(
-                exchange=config.exchange,
-                symbol=config.symbol,
-                quote=state.quote,
-                test=config.test,
-            ) if self._broker else self.open_simulated_long_position(
+            self.open_simulated_long_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 time=candle.time + config.interval,
                 price=candle.close,
                 quote=state.quote,
+            )
+            if config.mode is TradingMode.BACKTEST else
+            await self.open_long_position(
+                exchange=config.exchange,
+                symbol=config.symbol,
+                quote=state.quote,
+                mode=config.mode,
             )
         )
 
@@ -320,14 +323,16 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert isinstance(state.open_position, Position.OpenLong)
 
         position = (
-            await self.close_long_position(
-                position=state.open_position,
-                test=config.test,
-                reason=reason,
-            ) if self._broker else self.close_simulated_long_position(
+            self.close_simulated_long_position(
                 position=state.open_position,
                 time=candle.time + config.interval,
                 price=candle.close,
+                reason=reason,
+            )
+            if config.mode is TradingMode.BACKTEST else
+            await self.close_long_position(
+                position=state.open_position,
+                mode=config.mode,
                 reason=reason,
             )
         )
@@ -344,18 +349,20 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert not state.open_position
 
         position = (
-            await self.open_short_position(
-                exchange=config.exchange,
-                symbol=config.symbol,
-                price=candle.close,
-                collateral=state.quote,
-                test=config.test,
-            ) if self._broker else self.open_simulated_short_position(
+            self.open_simulated_short_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
                 time=candle.time + config.interval,
                 price=candle.close,
                 collateral=state.quote,
+            )
+            if config.mode is TradingMode.BACKTEST else
+            await self.open_short_position(
+                exchange=config.exchange,
+                symbol=config.symbol,
+                price=candle.close,
+                collateral=state.quote,
+                mode=config.mode,
             )
         )
 
@@ -375,15 +382,17 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert isinstance(state.open_position, Position.OpenShort)
 
         position = (
-            await self.close_short_position(
-                position=state.open_position,
-                price=candle.close,
-                test=config.test,
-                reason=reason,
-            ) if self._broker else self.close_simulated_short_position(
+            self.close_simulated_short_position(
                 position=state.open_position,
                 time=candle.time + config.interval,
                 price=candle.close,
+                reason=reason,
+            )
+            if config.mode is TradingMode.BACKTEST else
+            await self.close_short_position(
+                position=state.open_position,
+                price=candle.close,
+                mode=config.mode,
                 reason=reason,
             )
         )

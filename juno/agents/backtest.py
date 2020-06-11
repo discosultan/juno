@@ -12,6 +12,7 @@ from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
 from juno.time import DAY_MS, strftimestamp, time_ms
 from juno.traders import Trader
+from juno.trading import TradingMode
 from juno.utils import construct, extract_public
 
 from .agent import Agent, AgentStatus
@@ -81,7 +82,7 @@ class Backtest(Agent):
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
             channel=state.name,
-            test=True,
+            mode=TradingMode.BACKTEST,
         )
         if not state.result:
             state.result = trader.State()

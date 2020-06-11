@@ -29,6 +29,12 @@ class CloseReason(IntEnum):
     TAKE_PROFIT = 3
 
 
+class TradingMode(IntEnum):
+    BACKTEST = 0
+    PAPER = 1
+    LIVE = 2
+
+
 @dataclass
 class StopLoss:
     threshold: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -536,10 +542,8 @@ class SimulatedPositionMixin(ABC):
             )],
         )
 
-    # TODO: Take exchange from position?
     def close_simulated_long_position(
-        self, position: Position.OpenLong, time: Timestamp, price: Decimal,
-        reason: CloseReason
+        self, position: Position.OpenLong, time: Timestamp, price: Decimal, reason: CloseReason
     ) -> Position.Long:
         _, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -624,13 +628,15 @@ class PositionMixin(ABC):
         pass
 
     async def open_long_position(
-        self, exchange: str, symbol: str, quote: Decimal, test: bool
+        self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
     ) -> Position.OpenLong:
+        assert mode is not TradingMode.BACKTEST
+
         res = await self.broker.buy_by_quote(
             exchange=exchange,
             symbol=symbol,
             quote=quote,
-            test=test,
+            test=mode is TradingMode.PAPER,
         )
 
         return Position.OpenLong(
@@ -641,13 +647,15 @@ class PositionMixin(ABC):
         )
 
     async def close_long_position(
-        self, position: Position.OpenLong, test: bool, reason: CloseReason
+        self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
     ) -> Position.Long:
+        assert mode is not TradingMode.BACKTEST
+
         res = await self.broker.sell(
             exchange=position.exchange,
             symbol=position.symbol,
             size=position.base_gain,
-            test=test,
+            test=mode is TradingMode.PAPER,
         )
 
         return position.close(
@@ -658,14 +666,16 @@ class PositionMixin(ABC):
 
     async def open_short_position(
         self, exchange: str, symbol: str, price: Decimal, collateral: Decimal,
-        test: bool
+        mode: TradingMode
     ) -> Position.OpenShort:
+        assert mode is not TradingMode.BACKTEST
+
         base_asset, quote_asset = unpack_symbol(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
         margin_multipler = self.informant.get_margin_multiplier(exchange)
         exchange_instance = self.exchanges[exchange]
 
-        if test:
+        if mode is TradingMode.PAPER:
             borrowed = _calculate_borrowed(filters, margin_multipler, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
@@ -678,8 +688,8 @@ class PositionMixin(ABC):
             exchange=exchange,
             symbol=symbol,
             size=borrowed,
-            test=test,
-            margin=not test,
+            test=mode is TradingMode.PAPER,
+            margin=mode is TradingMode.LIVE,
         )
 
         return Position.OpenShort(
@@ -692,9 +702,11 @@ class PositionMixin(ABC):
         )
 
     async def close_short_position(
-        self, position: Position.OpenShort, price: Decimal, test: bool,
+        self, position: Position.OpenShort, price: Decimal, mode: TradingMode,
         reason: CloseReason
     ) -> Position.Short:
+        assert mode is not TradingMode.BACKTEST
+
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
         borrow_info = self.informant.get_borrow_info(position.exchange, base_asset)
@@ -706,7 +718,7 @@ class PositionMixin(ABC):
                 hourly_rate=borrow_info.hourly_interest_rate,
                 start=position.time,
                 end=time_ms(),
-            ) if test
+            ) if mode is TradingMode.PAPER
             else (await exchange_instance.map_balances(margin=True))[base_asset].interest
         )
         size = position.borrowed + interest
@@ -716,8 +728,8 @@ class PositionMixin(ABC):
             exchange=position.exchange,
             symbol=position.symbol,
             size=size,
-            test=test,
-            margin=not test,
+            test=mode is TradingMode.PAPER,
+            margin=mode is TradingMode.LIVE,
         )
         closed_position = position.close(
             interest=interest,
@@ -725,7 +737,7 @@ class PositionMixin(ABC):
             fills=res.fills,
             reason=reason,
         )
-        if not test:
+        if mode is TradingMode.LIVE:
             _log.info(
                 f'repaying {position.borrowed} + {interest} {base_asset} to exchange'
             )

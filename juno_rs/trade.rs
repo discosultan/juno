@@ -65,7 +65,13 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
     };
 
     let mut summary = TradingSummary::new(interval, start, end, quote);
-    let mut state = State::new(strategy_factory(), quote, stop_loss, trail_stop_loss, take_profit);
+    let mut state = State::new(
+        strategy_factory(),
+        quote,
+        stop_loss,
+        trail_stop_loss,
+        take_profit,
+    );
     let mut i = 0;
     loop {
         let mut restart = false;

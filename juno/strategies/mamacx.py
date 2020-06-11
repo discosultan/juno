@@ -6,7 +6,7 @@ from juno.constraints import Int, Pair, Uniform
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import Meta, Strategy, ma_choices
+from .strategy import Meta, MidTrendPolicy, Strategy, ma_choices
 
 
 # Moving average moving average crossover.
@@ -45,7 +45,7 @@ class MAMACX(Strategy):
         super().__init__(
             maturity=max(self._long_ma.maturity, self._short_ma.maturity),
             persistence=persistence,
-            ignore_mid_trend=True,
+            mid_trend_policy=MidTrendPolicy.IGNORE,
         )
         self.validate(
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma

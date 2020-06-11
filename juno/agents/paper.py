@@ -11,6 +11,7 @@ from juno.config import (
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
 from juno.traders import Trader
+from juno.trading import TradingMode
 from juno.utils import construct, extract_public
 
 from .agent import Agent, AgentStatus
@@ -73,7 +74,7 @@ class Paper(Agent):
             start=start,
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
-            test=True,
+            mode=TradingMode.PAPER,
             channel=state.name,
         )
         if not state.result:
