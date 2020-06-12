@@ -5,6 +5,7 @@ const YEAR_MS: f64 = 31_556_952_000.0;
 pub struct StopLoss {
     pub threshold: f64,
     trail: bool,
+    close_at_position: f64,
     highest_close_since_position: f64,
     lowest_close_since_position: f64,
     close: f64,
@@ -15,6 +16,7 @@ impl StopLoss {
         Self {
             threshold,
             trail,
+            close_at_position: 0.0,
             highest_close_since_position: 0.0,
             lowest_close_since_position: f64::MAX,
             close: 0.0,
@@ -23,15 +25,26 @@ impl StopLoss {
 
     pub fn upside_hit(&self) -> bool {
         self.threshold > 0.0
-            && self.close >= self.highest_close_since_position * (1.0 - self.threshold)
+            && self.close
+                <= if self.trail {
+                    self.highest_close_since_position
+                } else {
+                    self.close_at_position
+                } * (1.0 - self.threshold)
     }
 
     pub fn downside_hit(&self) -> bool {
         self.threshold > 0.0
-            && self.close <= self.lowest_close_since_position * (1.0 + self.threshold)
+            && self.close
+                >= if self.trail {
+                    self.lowest_close_since_position
+                } else {
+                    self.close_at_position
+                } * (1.0 + self.threshold)
     }
 
     pub fn clear(&mut self, candle: &Candle) {
+        self.close_at_position = candle.close;
         self.highest_close_since_position = candle.close;
         self.lowest_close_since_position = candle.close;
     }

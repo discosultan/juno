@@ -50,7 +50,8 @@ class Solver(AbstractAsyncContextManager, ABC):
 
 
 class SolverResult(NamedTuple):
-    alpha: float = 0.0
+    # alpha: float = 0.0
+    sharpe_ratio: float = 0.0
     # profit: float = 0.0
     # mean_drawdown: float = 0.0
     # max_drawdown: float = 0.0
@@ -68,6 +69,7 @@ class SolverResult(NamedTuple):
         # weight.
         META = {
             'alpha': +1.0,
+            'sharpe_ratio': +1.0,
             'profit': +1.0,
             'mean_drawdown': -1.0,
             'max_drawdown': -1.0,

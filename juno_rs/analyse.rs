@@ -1,5 +1,5 @@
 use crate::{
-    math::{floor_multiple, mean},
+    math::{floor_multiple, mean, std_deviation},
     trading::TradingSummary,
 };
 use ndarray::prelude::*;
@@ -26,7 +26,7 @@ struct Statistics {
     annualized_return: f64,
     // annualized_volatility: f64,
     // annualized_downside_risk: f64,
-    // sharpe_ratio: f64,
+    sharpe_ratio: f64,
     // sortino_ratio: f64,
     // cagr: f64,
 }
@@ -51,8 +51,9 @@ pub fn analyse(
         .map(|d| d.values().sum())
         .collect::<Vec<f64>>();
     let portfolio_stats = calculate_statistics(&portfolio_performance);
-    let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
-    (alpha,)
+    // let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
+    // (alpha,)
+    (portfolio_stats.sharpe_ratio,)
 }
 
 fn get_trades_from_summary(
@@ -147,25 +148,26 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         a_returns.push(performance[i + 1] / performance[i] - 1.0);
     }
 
-    let mut g_returns = Vec::with_capacity(returns_len);
-    for val in a_returns {
-        g_returns.push((val + 1.0).ln());
-    }
+    let g_returns = a_returns
+        .iter()
+        .map(|v| (v + 1.0).ln())
+        .collect::<Vec<f64>>();
+    // let neg_g_returns = g_returns
+    //     .into_iter()
+    //     .filter(|&v| v < 0.0)
+    //     .collect::<Vec<f64>>();
 
-    // let mut neg_g_returns = Vec::new();
-    // for g_return in g_returns.into_iter() {
-    //     if g_return < 0.0 {
-    //         neg_g_returns.push(g_return);
-    //     }
-    // }
-
-    let annualized_return = 365.0 * mean(&g_returns);
+    let annualized_return = 365.0_f64 * mean(&g_returns).expect("g_returns to not be empty");
+    let annualized_volatility =
+        365.0_f64.sqrt() * std_deviation(&g_returns).expect("g_returns to not be empty");
+    let sharpe_ratio = annualized_return / annualized_volatility;
 
     Statistics {
         // a_returns,
         g_returns,
         // neg_g_returns,
         annualized_return,
+        sharpe_ratio,
     }
 }
 
@@ -183,7 +185,8 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     let covariance_matrix = matrix.cov(1.0).expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
+    let alpha = portfolio_stats.annualized_return
+        - (beta * 365.0 * mean(&benchmark_g_returns).expect("benchmark_g_returns to not be empty"));
 
     (alpha, beta)
 }
