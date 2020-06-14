@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-pub mod analyse;
+pub mod statistics;
 pub mod common;
 pub mod filters;
 pub mod indicators;
@@ -10,7 +10,7 @@ pub mod trade;
 pub mod trading;
 
 use crate::{
-    analyse::analyse,
+    statistics::analyse,
     strategies::{Macd, MacdRsi, Strategy, MAMACX},
     trade::trade,
 };
@@ -143,7 +143,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
         analysis_info.benchmark_g_returns_length as usize,
     );
 
-    let analysis_result = analyse(
+    let stats = analyse(
         quote_fiat_prices,
         base_fiat_prices,
         benchmark_g_returns,
@@ -152,7 +152,8 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
 
     // Combine.
     Result(
-        analysis_result.0,
+        stats.sharpe_ratio,
+        // stats.sortino_ratio,
         // trading_result.profit,
         // trading_result.mean_drawdown,
         // trading_result.max_drawdown,
