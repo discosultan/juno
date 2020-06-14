@@ -13,6 +13,7 @@ from juno.utils import unpack_symbol
 from .trading import TradingSummary
 
 Operator = Callable[[Decimal, Decimal], Decimal]
+_SQRT_365 = np.sqrt(365)
 
 _log = logging.getLogger(__name__)
 
@@ -137,8 +138,8 @@ def _calculate_statistics(
     # Compute statistics.
     total_return = performance.iloc[-1] / performance.iloc[0] - 1
     annualized_return = 365 * g_returns.mean()
-    annualized_volatility = np.sqrt(365) * g_returns.std()
-    annualized_downside_risk = np.sqrt(365) * neg_g_returns.std()
+    annualized_volatility = _SQRT_365 * g_returns.std(ddof=0)
+    annualized_downside_risk = _SQRT_365 * neg_g_returns.std(ddof=0)
     sharpe_ratio = annualized_return / annualized_volatility
     sortino_ratio = annualized_return / annualized_downside_risk
     cagr = (

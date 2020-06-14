@@ -167,17 +167,20 @@ async def main() -> None:
         )
 
         logging.info('=== rust solver ===')
-        logging.info(f'alpha {rust_result.alpha}')
+        # logging.info(f'alpha {rust_result.alpha}')
+        logging.info(f'sharpe ratio {rust_result.sharpe_ratio}')
         # logging.info(f'profit {rust_result.profit}')
         # logging.info(f'mean pos dur {rust_result.mean_position_duration}')
 
         logging.info('=== python solver ===')
-        logging.info(f'alpha {python_result.alpha}')
+        # logging.info(f'alpha {python_result.alpha}')
+        logging.info(f'sharpe ratio {python_result.sharpe_ratio}')
         # logging.info(f'profit {python_result.profit}')
         # logging.info(f'mean pos dur {python_result.mean_position_duration}')
 
         logging.info('=== python trader ===')
-        logging.info(f'alpha {portfolio.stats.alpha}')
+        # logging.info(f'alpha {portfolio.stats.alpha}')
+        logging.info(f'sharpe ratio {portfolio.stats.sharpe_ratio}')
         logging.info(f'profit {trading_summary.profit}')
         logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
         logging.info(f'{format_as_config(extract_public(trading_summary))}')

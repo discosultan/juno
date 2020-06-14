@@ -56,6 +56,7 @@ async def main() -> None:
                 quote=Decimal('1.0'),
                 missed_candle_policy=MissedCandlePolicy.IGNORE,
                 stop_loss=Decimal('0.1255'),
+                trail_stop_loss=True,
                 take_profit=Decimal('0.0'),
                 long=True,
                 short=False,

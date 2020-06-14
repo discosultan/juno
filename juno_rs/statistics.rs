@@ -1,5 +1,5 @@
 use crate::{
-    math::{floor_multiple, mean},
+    math::{floor_multiple, mean, std_deviation},
     trading::TradingSummary,
 };
 use ndarray::prelude::*;
@@ -16,7 +16,7 @@ enum Asset {
     Quote,
 }
 
-struct Statistics {
+pub struct Statistics {
     // performance: Vec<f64>,
     // a_returns: Vec<f64>,
     g_returns: Vec<f64>,
@@ -26,17 +26,17 @@ struct Statistics {
     annualized_return: f64,
     // annualized_volatility: f64,
     // annualized_downside_risk: f64,
-    // sharpe_ratio: f64,
-    // sortino_ratio: f64,
+    pub sharpe_ratio: f64,
+    pub sortino_ratio: f64,
     // cagr: f64,
 }
 
 pub fn analyse(
     quote_fiat_prices: &[f64],
     base_fiat_prices: &[f64],
-    benchmark_g_returns: &[f64],
+    _benchmark_g_returns: &[f64],
     summary: &TradingSummary,
-) -> AnalysisResult {
+) -> Statistics {
     let interval = max(DAY_MS, summary.interval);
     let trades = get_trades_from_summary(summary, interval);
     let asset_performance = get_asset_performance(
@@ -51,8 +51,9 @@ pub fn analyse(
         .map(|d| d.values().sum())
         .collect::<Vec<f64>>();
     let portfolio_stats = calculate_statistics(&portfolio_performance);
-    let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
-    (alpha,)
+    // let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
+    // (alpha,)
+    portfolio_stats
 }
 
 fn get_trades_from_summary(
@@ -140,32 +141,41 @@ fn get_asset_performance(
 }
 
 fn calculate_statistics(performance: &[f64]) -> Statistics {
-    let returns_len = performance.len() - 1;
-
-    let mut a_returns = Vec::with_capacity(returns_len);
-    for i in 0..returns_len {
+    let mut a_returns = Vec::with_capacity(performance.len() - 1);
+    for i in 0..a_returns.capacity() {
         a_returns.push(performance[i + 1] / performance[i] - 1.0);
     }
 
-    let mut g_returns = Vec::with_capacity(returns_len);
-    for val in a_returns {
-        g_returns.push((val + 1.0).ln());
-    }
+    let g_returns = a_returns
+        .iter()
+        .map(|v| (v + 1.0).ln())
+        .collect::<Vec<f64>>();
+    let annualized_return = 365.0_f64 * mean(&g_returns).expect("g_returns to not be empty");
+    // TODO: Set is as a const. However, `sqrt()` is not supported as a const fn as of now.
+    let sqrt_365 = 365.0_f64.sqrt();
 
-    // let mut neg_g_returns = Vec::new();
-    // for g_return in g_returns.into_iter() {
-    //     if g_return < 0.0 {
-    //         neg_g_returns.push(g_return);
-    //     }
-    // }
+    // Sharpe ratio.
+    let annualized_volatility =
+        sqrt_365 * std_deviation(&g_returns).expect("g_returns to not be empty");
+    let sharpe_ratio = annualized_return / annualized_volatility;
 
-    let annualized_return = 365.0 * mean(&g_returns);
+    // Sortino ratio.
+    let neg_g_returns = g_returns
+        .iter()
+        .cloned()
+        .filter(|&v| v < 0.0)
+        .collect::<Vec<f64>>();
+    let annualized_downside_risk =
+        sqrt_365 * std_deviation(&neg_g_returns).expect("neg_g_returns to not be empty");
+    let sortino_ratio = annualized_return / annualized_downside_risk;
 
     Statistics {
         // a_returns,
         g_returns,
         // neg_g_returns,
         annualized_return,
+        sharpe_ratio,
+        sortino_ratio,
     }
 }
 
@@ -183,7 +193,8 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     let covariance_matrix = matrix.cov(1.0).expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
+    let alpha = portfolio_stats.annualized_return
+        - (beta * 365.0 * mean(&benchmark_g_returns).expect("benchmark_g_returns to not be empty"));
 
     (alpha, beta)
 }

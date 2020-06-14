@@ -59,4 +59,5 @@ async def test_solver_works_with_default_fees_filters(loop, solver_type) -> None
             )
         )
 
-    assert not math.isnan(result.alpha)
+    # assert not math.isnan(result.alpha)
+    assert not math.isnan(result.sharpe_ratio)
