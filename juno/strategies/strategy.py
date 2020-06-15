@@ -43,7 +43,6 @@ mid_trend_policy_choices = Choice([
 class MidTrend:
     """Ignore first advice if middle of trend."""
     _policy: MidTrendPolicy
-    _maturity: int
     _previous: Optional[Advice] = None
     _enabled: bool = True
 
