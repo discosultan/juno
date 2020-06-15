@@ -8,11 +8,11 @@ from decimal import Decimal
 from functools import partial
 from itertools import product
 from random import Random, randrange
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, Type
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from deap import base, creator, tools
 
-from juno import Candle, Interval, MissedCandlePolicy, OrderException, Timestamp, strategies
+from juno import Candle, Interval, MissedCandlePolicy, OrderException, Timestamp
 from juno.components import Chandler, Informant, Prices
 from juno.constraints import Choice, Constant, Constraint, ConstraintChoice, Uniform
 from juno.deap import cx_uniform, ea_mu_plus_lambda, mut_individual
@@ -25,7 +25,6 @@ from juno.time import DAY_MS, strfinterval, strfspan, time_ms
 from juno.traders import Basic
 from juno.trading import StartMixin, TradingSummary
 from juno.typing import TypeConstructor, get_fully_qualified_name, map_input_args
-from juno.utils import get_module_type
 
 _log = logging.getLogger(__name__)
 
@@ -57,7 +56,7 @@ class Optimizer(StartMixin):
     class Config(NamedTuple):
         exchange: str
         quote: Decimal
-        strategy: str
+        strategy: TypeConstructor[Strategy]
         symbols: Optional[List[str]] = None
         intervals: Optional[List[Interval]] = None
         start: Optional[Timestamp] = None
@@ -128,8 +127,6 @@ class Optimizer(StartMixin):
             state.end = now if config.end is None else config.end
         # We normalize `start` and `end` later to take all potential intervals into account.
 
-        strategy_type = get_module_type(strategies, config.strategy)
-
         if state.seed == -1:
             state.seed = randrange(sys.maxsize) if config.seed is None else config.seed
 
@@ -194,8 +191,20 @@ class Optimizer(StartMixin):
             _build_attr(config.take_profit, _take_profit_constraint, random),
             _build_attr(config.long, _boolean_constraint, random),
             _build_attr(config.short, _boolean_constraint, random),
-            *(partial(c.random, random) for c in strategy_type.meta().constraints.values())
         ]
+        for key, constraint in config.strategy.type_.meta().constraints.items():
+            if isinstance(key, str):
+                attrs.append(_build_attr(config.strategy.kwargs.get(key), constraint, random))
+            else:
+                vals = [config.strategy.kwargs.get(sk) for sk in key]
+                if all(vals):
+                    for val in vals:
+                        attrs.append(Constant(val).get)
+                elif not any(vals):
+                    attrs.append(partial(constraint.random, random))
+                else:
+                    raise ValueError(f'Either all or none of the attributes must be set: {key}')
+
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
             'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
@@ -217,7 +226,7 @@ class Optimizer(StartMixin):
                     fiat_prices=fiat_prices[analysis_interval],
                     benchmark_g_returns=benchmarks[analysis_interval].g_returns,
                     candles=candles[(ind[0], ind[1])],
-                    strategy_type=strategy_type,
+                    strategy_type=config.strategy.type_,
                     exchange=config.exchange,
                     start=state.start,
                     end=state.end,
@@ -285,9 +294,9 @@ class Optimizer(StartMixin):
 
         best_args = list(flatten(hall_of_fame[0]))
         state.summary = await self._build_summary(
-            config, state, fiat_prices, benchmarks, candles, strategy_type, best_args
+            config, state, fiat_prices, benchmarks, candles, best_args
         )
-        self._validate(config, state, fiat_prices, benchmarks, candles, strategy_type, best_args)
+        self._validate(config, state, fiat_prices, benchmarks, candles, best_args)
 
         if cancelled_exc:
             raise cancelled_exc
@@ -300,7 +309,6 @@ class Optimizer(StartMixin):
         fiat_prices: Dict[int, Dict[str, List[Decimal]]],
         benchmarks: Dict[int, AnalysisSummary],
         candles: Dict[Tuple[str, int], List[Candle]],
-        strategy_type: Type[Strategy],
         best_args: List[Any],
     ) -> OptimizationSummary:
         start = floor_multiple(state.start, best_args[1])
@@ -320,8 +328,8 @@ class Optimizer(StartMixin):
             short=best_args[7],
             adjust_start=False,
             strategy=TypeConstructor(
-                name=get_fully_qualified_name(strategy_type),
-                kwargs=map_input_args(strategy_type.__init__, best_args[8:]),
+                name=get_fully_qualified_name(config.strategy.type_),
+                kwargs=map_input_args(config.strategy.type_.__init__, best_args[8:]),
             ),
         )
 
@@ -351,7 +359,6 @@ class Optimizer(StartMixin):
         fiat_prices: Dict[int, Dict[str, List[Decimal]]],
         benchmarks: Dict[int, AnalysisSummary],
         candles: Dict[Tuple[str, int], List[Candle]],
-        strategy_type: Type[Strategy],
         best_args: List[Any],
     ) -> None:
         assert state.summary
@@ -370,7 +377,7 @@ class Optimizer(StartMixin):
                 fiat_prices=fiat_prices[analysis_interval],
                 benchmark_g_returns=benchmarks[analysis_interval].g_returns,
                 candles=candles[(best_args[0], best_args[1])],
-                strategy_type=strategy_type,
+                strategy_type=config.strategy.type_,
                 exchange=config.exchange,
                 start=start,
                 end=end,
@@ -399,17 +406,12 @@ class Optimizer(StartMixin):
             )
 
 
-def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Any:
+def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> Callable[[], Any]:
     if target is None or isinstance(target, list) and len(target) > 1:
-        def get_random() -> Any:
-            return constraint.random(random)  # type: ignore
-        return get_random
+        return partial(constraint.random, random)
     else:
         value = target[0] if isinstance(target, list) else target
-
-        def get_constant() -> Any:
-            return value
-        return get_constant
+        return Constant(value).get
 
 
 def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:

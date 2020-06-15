@@ -7,9 +7,10 @@ from juno import Candle, Fees, Filters
 from juno.components import Prices
 from juno.optimizer import Optimizer
 from juno.solvers import Rust
+from juno.strategies import MAMACX
 from juno.time import DAY_MS, HOUR_MS
 from juno.traders import Basic
-from juno.typing import raw_to_type
+from juno.typing import TypeConstructor, get_fully_qualified_name, raw_to_type
 from juno.utils import load_json_file
 
 from . import fakes
@@ -68,7 +69,7 @@ async def test_optimizer_same_result_with_predefined_seed(
                     exchange='binance',
                     start=portfolio_candles[0].time,
                     end=portfolio_candles[-1].time + HOUR_MS,
-                    strategy='mamacx',
+                    strategy=TypeConstructor(name=get_fully_qualified_name(MAMACX)),
                     quote=Decimal('1.0'),
                     population_size=5,
                     max_generations=10,

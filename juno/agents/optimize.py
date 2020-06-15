@@ -1,11 +1,11 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import List, NamedTuple, Optional, get_type_hints
+from typing import Any, Dict, List, NamedTuple, Optional, get_type_hints
 
-from juno import Interval, MissedCandlePolicy, Timestamp
+from juno import Interval, MissedCandlePolicy, Timestamp, strategies
 from juno.components import Events
-from juno.config import format_as_config
+from juno.config import format_as_config, get_module_type_constructor
 from juno.optimizer import Optimizer
 from juno.storages import Memory, Storage
 from juno.traders import Basic
@@ -23,7 +23,7 @@ class Optimize(Agent):
         symbols: Optional[List[str]]
         intervals: Optional[List[Interval]]
         quote: Decimal
-        strategy: str
+        strategy: Dict[str, Any]
         name: Optional[str] = None
         persist: bool = False  # TODO: Not implemented.
         start: Optional[Timestamp] = None
@@ -59,7 +59,14 @@ class Optimize(Agent):
         await super().on_running(config, state)
         if not state.result:
             state.result = Optimizer.State()
-        await self._optimizer.run(construct(Optimizer.Config, config), state.result)
+        await self._optimizer.run(
+            construct(
+                Optimizer.Config,
+                config,
+                strategy=get_module_type_constructor(strategies, config.strategy),
+            ),
+            state.result
+        )
 
     async def on_finally(self, config: Config, state: State) -> None:
         assert state

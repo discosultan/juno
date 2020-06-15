@@ -10,11 +10,15 @@
             "symbols": ["eth-btc"],
             "start": "2018-01-01",
             "end": "2020-01-01",
-            "intervals": ["1h"],
+            "intervals": ["1d"],
             "quote": 1.0,
             "missed_candle_policy": null,
             "stop_loss": null,
-            "strategy": "fourweekrule",
+            "strategy": {
+                "type": "fourweekrule"
+            },
+            "long": true,
+            "short": true,
             "population_size": 10,
             "max_generations": 100,
             "seed": null,
