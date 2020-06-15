@@ -279,3 +279,13 @@ class TypeConstructor(Generic[T]):
     @property
     def type_(self) -> Type[T]:
         return get_type_by_fully_qualified_name(self.name)
+
+    @staticmethod
+    def from_type(
+        type_: Type[T], args: Tuple[Any, ...] = (), kwargs: Dict[str, Any] = {}
+    ) -> TypeConstructor:
+        return TypeConstructor(
+            name=get_fully_qualified_name(type_),
+            args=args,
+            kwargs=kwargs,
+        )

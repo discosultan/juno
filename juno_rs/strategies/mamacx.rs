@@ -33,7 +33,7 @@ impl MAMACX {
         Self {
             short_ma,
             long_ma,
-            mid_trend: MidTrend::new(2),
+            mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
             persistence: Persistence::new(persistence, false),
             neg_threshold,
             pos_threshold,

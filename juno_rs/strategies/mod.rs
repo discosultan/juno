@@ -24,6 +24,10 @@ struct MidTrend {
 }
 
 impl MidTrend {
+    const POLICY_CURRENT: u32 = 0;
+    const POLICY_PREVIOUS: u32 = 1;
+    const POLICY_IGNORE: u32 = 2;
+
     pub fn new(policy: u32) -> Self {
         Self {
             policy,
@@ -33,7 +37,7 @@ impl MidTrend {
     }
 
     pub fn maturity(&self) -> u32 {
-        if self.policy == 0 {
+        if self.policy == Self::POLICY_CURRENT {
             0
         } else {
             1
@@ -41,7 +45,7 @@ impl MidTrend {
     }
 
     pub fn update(&mut self, value: Advice) -> Advice {
-        if !self.enabled || self.policy != 2 {
+        if !self.enabled || self.policy != MidTrend::POLICY_IGNORE {
             return value;
         }
 

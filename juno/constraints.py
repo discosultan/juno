@@ -23,6 +23,9 @@ class Constant(Constraint):
     def random(self, random: Random) -> Any:
         return self._value
 
+    def get(self) -> Any:
+        return self._value
+
 
 class Choice(Constraint):
     def __init__(self, choices: List[Any]) -> None:
