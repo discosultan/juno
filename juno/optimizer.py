@@ -24,7 +24,7 @@ from juno.strategies import Strategy
 from juno.time import DAY_MS, strfinterval, strfspan, time_ms
 from juno.traders import Basic
 from juno.trading import StartMixin, TradingSummary
-from juno.typing import TypeConstructor, get_fully_qualified_name, map_input_args
+from juno.typing import TypeConstructor, map_input_args
 
 _log = logging.getLogger(__name__)
 
@@ -327,8 +327,8 @@ class Optimizer(StartMixin):
             long=best_args[6],
             short=best_args[7],
             adjust_start=False,
-            strategy=TypeConstructor(
-                name=get_fully_qualified_name(config.strategy.type_),
+            strategy=TypeConstructor.from_type(
+                config.strategy.type_,
                 kwargs=map_input_args(config.strategy.type_.__init__, best_args[8:]),
             ),
         )

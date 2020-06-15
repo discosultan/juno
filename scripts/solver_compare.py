@@ -9,7 +9,7 @@ from juno.solvers import Python, Rust, Solver
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.strategies import MidTrendPolicy
 from juno.traders import Basic
-from juno.typing import TypeConstructor, get_fully_qualified_name
+from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -97,10 +97,7 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy=TypeConstructor(
-                name=get_fully_qualified_name(STRATEGY_TYPE),
-                kwargs=STRATEGY_KWARGS,
-            ),
+            strategy=TypeConstructor.from_type(STRATEGY_TYPE, kwargs=STRATEGY_KWARGS),
             missed_candle_policy=MISSED_CANDLE_POLICY,
             stop_loss=STOP_LOSS,
             take_profit=TAKE_PROFIT,
