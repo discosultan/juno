@@ -45,9 +45,7 @@ impl MidTrend {
     }
 
     pub fn update(&mut self, value: Advice) -> Advice {
-        println!("rec {:?}", value);
         if !self.enabled || self.policy != MidTrend::POLICY_IGNORE {
-            println!("res {:?}", value);
             return value;
         }
 
@@ -58,7 +56,6 @@ impl MidTrend {
             self.enabled = false;
             result = value;
         }
-        println!("res {:?}", result);
         result
     }
 }
