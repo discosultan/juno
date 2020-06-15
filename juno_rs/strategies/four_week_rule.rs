@@ -32,6 +32,7 @@ impl Strategy for FourWeekRule {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.ma.update(candle.close);
 
+        let mut advice = Advice::None;
         if self.t >= self.t1 {
             let (lowest, highest) = math::minmax(self.prices.iter());
 
@@ -44,12 +45,13 @@ impl Strategy for FourWeekRule {
             {
                 self.advice = Advice::Liquidate;
             }
+            advice = self.mid_trend.update(self.advice);
 
             self.prices.pop_front();
         }
 
         self.prices.push_back(candle.close);
         self.t = min(self.t + 1, self.t1);
-        self.mid_trend.update(self.advice)
+        advice
     }
 }

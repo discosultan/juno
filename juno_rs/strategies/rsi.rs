@@ -22,7 +22,7 @@ impl Rsi {
             rsi: indicators::Rsi::new(period),
             up_threshold,
             down_threshold,
-            mid_trend: MidTrend::new(2),
+            mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
             persistence: Persistence::new(persistence, false),
             t: 0,
             t1: period - 1,

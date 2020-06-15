@@ -23,7 +23,7 @@ class FourWeekRule(Strategy):
                 'period': Int(2, 100),
                 'ma': ma_choices,
                 'ma_period': Int(2, 100),
-                'mid_trend_policy': Constant(MidTrendPolicy.CURRENT),
+                'mid_trend_policy': Constant(MidTrendPolicy.IGNORE),
             }
         )
 
@@ -36,7 +36,7 @@ class FourWeekRule(Strategy):
         period: int = 28,
         ma: str = Sma.__name__.lower(),
         ma_period: int = 14,  # Normally half the period.
-        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
+        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.IGNORE,
     ) -> None:
         super().__init__(maturity=period, mid_trend_policy=mid_trend_policy, persistence=0)
         self._prices = deque(maxlen=period)
