@@ -146,8 +146,9 @@ class Binance(Exchange):
                     avg_price_period=percent_price['avgPriceMins'] * MIN_MS
                 ),
                 base_precision=symbol['baseAssetPrecision'],
-                quote_precision=symbol['quotePrecision'],
-                is_margin_trading_allowed=symbol['isMarginTradingAllowed'],
+                quote_precision=symbol['quoteAssetPrecision'],
+                is_spot_trading_allowed='SPOT' in symbol['permissions'],
+                is_margin_trading_allowed='MARGIN' in symbol['permissions'],
             )
         return ExchangeInfo(
             fees=fees,
