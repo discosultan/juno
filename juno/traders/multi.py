@@ -565,7 +565,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             if config.mode is TradingMode.BACKTEST else
             await self.close_short_position(
                 position=symbol_state.open_position,
-                price=candle.close,
                 mode=config.mode,
                 reason=reason,
             )

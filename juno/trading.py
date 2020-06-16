@@ -664,6 +664,8 @@ class PositionMixin(ABC):
             reason=reason,
         )
 
+    # TODO: Price param is a bit of a code smell. It's only used to calculate the amount that
+    # can be borrowed when paper trading.
     async def open_short_position(
         self, exchange: str, symbol: str, price: Decimal, collateral: Decimal,
         mode: TradingMode
@@ -702,8 +704,7 @@ class PositionMixin(ABC):
         )
 
     async def close_short_position(
-        self, position: Position.OpenShort, price: Decimal, mode: TradingMode,
-        reason: CloseReason
+        self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Short:
         assert mode is not TradingMode.BACKTEST
 
