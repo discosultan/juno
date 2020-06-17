@@ -535,7 +535,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             await self.open_short_position(
                 exchange=config.exchange,
                 symbol=symbol_state.symbol,
-                price=candle.close,
                 collateral=symbol_state.allocated_quote,
                 mode=config.mode,
             )

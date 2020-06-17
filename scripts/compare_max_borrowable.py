@@ -54,11 +54,15 @@ async def max_exchange(client: Binance, symbol: str) -> Decimal:
 
 
 async def max_manual(informant: Informant, chandler: Chandler, symbol: str) -> Decimal:
+    borrow_safety_factor = Decimal('0.95')
+
     candle = await chandler.get_last_candle('binance', symbol, time.MIN_MS)
     margin_multiplier = informant.get_margin_multiplier('binance')
     _, filters = informant.get_fees_filters('binance', symbol)
 
-    collateral_size = filters.size.round_down(args.collateral / candle.close)
+    collateral_size = filters.size.round_down(
+        args.collateral / candle.close * borrow_safety_factor
+    )
     return collateral_size * (margin_multiplier - 1)
 
 

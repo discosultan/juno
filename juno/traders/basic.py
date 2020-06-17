@@ -360,7 +360,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             await self.open_short_position(
                 exchange=config.exchange,
                 symbol=config.symbol,
-                price=candle.close,
                 collateral=state.quote,
                 mode=config.mode,
             )

@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Dict
 
 from juno.brokers import Broker, Limit
-from juno.components import Informant, Orderbook
+from juno.components import Chandler, Informant, Orderbook
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Exchange
 from juno.storages import SQLite
@@ -26,7 +26,9 @@ class PositionHandler(PositionMixin):
     async def __aenter__(self) -> PositionHandler:
         exchange = init_instance(Binance, from_env())
         self._exchanges = {'binance': exchange}
-        self._informant = Informant(SQLite(), [exchange])
+        storage = SQLite()
+        self._informant = Informant(storage, [exchange])
+        self._chandler = Chandler(storage, [exchange], informant=self._informant)
         self._orderbook = Orderbook([exchange])
         self._broker = Limit(self._informant, self._orderbook, [exchange])
         await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
@@ -48,6 +50,10 @@ class PositionHandler(PositionMixin):
         return self._informant
 
     @property
+    def chandler(self) -> Chandler:
+        return self._chandler
+
+    @property
     def broker(self) -> Broker:
         return self._broker
 
@@ -61,7 +67,7 @@ async def main() -> None:
         _log.info(f'opening short positions for {args.symbols}')
         positions = await asyncio.gather(
             *(handler.open_short_position(
-                'binance', s, Decimal('0.0'), args.quote, TradingMode.LIVE
+                'binance', s, args.quote, TradingMode.LIVE
             ) for s in args.symbols)
         )
 

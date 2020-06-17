@@ -16,7 +16,7 @@ from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.exchanges import Exchange
 from juno.math import ceil_multiple, round_down, round_half_up
-from juno.time import HOUR_MS, YEAR_MS, strftimestamp, time_ms
+from juno.time import HOUR_MS, MIN_MS, YEAR_MS, strftimestamp, time_ms
 from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
@@ -619,6 +619,11 @@ class PositionMixin(ABC):
 
     @property
     @abstractmethod
+    def chandler(self) -> Chandler:
+        pass
+
+    @property
+    @abstractmethod
     def broker(self) -> Broker:
         pass
 
@@ -664,25 +669,29 @@ class PositionMixin(ABC):
             reason=reason,
         )
 
-    # TODO: Price param is a bit of a code smell. It's only used to calculate the amount that
-    # can be borrowed when paper trading.
     async def open_short_position(
-        self, exchange: str, symbol: str, price: Decimal, collateral: Decimal,
-        mode: TradingMode
+        self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
     ) -> Position.OpenShort:
         assert mode is not TradingMode.BACKTEST
 
         base_asset, quote_asset = unpack_symbol(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
-        margin_multipler = self.informant.get_margin_multiplier(exchange)
+        margin_multiplier = self.informant.get_margin_multiplier(exchange)
         exchange_instance = self.exchanges[exchange]
 
+        price = (await self.chandler.get_last_candle(exchange, symbol, MIN_MS)).close
+
         if mode is TradingMode.PAPER:
-            borrowed = _calculate_borrowed(filters, margin_multipler, collateral, price)
+            borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
             await exchange_instance.transfer(quote_asset, collateral, margin=True)
-            borrowed = await exchange_instance.get_max_borrowable(base_asset)
+            # Because Binance doesn't support Isolated Margin through API, getting
+            # max borrowable may give incorrect result in case multiple short positions are being
+            # opened concurrently. Hence we calculate it ourselves.
+            # TODO: Revert once Isolated Margin is available.
+            borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
+            # borrowed = await exchange_instance.get_max_borrowable(base_asset)
             _log.info(f'borrowing {borrowed} {base_asset} from exchange')
             await exchange_instance.borrow(asset=base_asset, size=borrowed)
 
@@ -760,7 +769,11 @@ class PositionMixin(ABC):
 def _calculate_borrowed(
     filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal
 ) -> Decimal:
-    collateral_size = filters.size.round_down(collateral / price)
+    # It's hard to estimate the exact price at which max borrowable is calculated. In order not to
+    # go over the limit, we use a small safety buffer to ensure the amount can be borrowed.
+    # TODO: Revert once Isolated Margin is available.
+    borrow_safety_factor = Decimal('0.95')
+    collateral_size = filters.size.round_down(collateral / price * borrow_safety_factor)
     if collateral_size == 0:
         raise OrderException('Collateral base size 0')
     borrowed = collateral_size * (margin_multiplier - 1)
