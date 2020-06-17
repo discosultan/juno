@@ -198,6 +198,15 @@ class Trades:
             async for trade in inner(None):
                 yield trade
 
+    async def get_last_trade(self, exchange: str, symbol: str) -> Trade:
+        raise NotImplementedError()
+        # now = self._get_time_ms()
+        # end = floor_multiple(now, interval)
+        # start = end - interval
+        # return await first_async(self._exchanges[exchange].stream_historical_candles(
+        #     symbol=symbol, interval=interval, start=start, end=now
+        # ))
+
 
 def _get_span_end(batch: List[Trade]) -> int:
     return batch[-1].time + 1

@@ -74,7 +74,7 @@ class Binance(Exchange):
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
 
         # Rate limiters.
-        x = 2  # We use this factor to be on the safe side and not use up the entire bucket.
+        x = 1.5  # We use this factor to be on the safe side and not use up the entire bucket.
         self._reqs_per_min_limiter = AsyncLimiter(1200, 60 * x)
         self._raw_reqs_limiter = AsyncLimiter(5000, 300 * x)
         self._orders_per_sec_limiter = AsyncLimiter(10, 1 * x)

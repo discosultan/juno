@@ -119,25 +119,25 @@ class Informant:
             return [a for a in result.keys() if a in exchange_info.borrow_info.keys()]
         return list(result.keys())
 
-    def list_symbols(self, exchange: str, patterns: Optional[List[str]] = None) -> List[str]:
-        all_symbols = list(
-            self._synced_data[exchange][_Timestamped[ExchangeInfo]].item.filters.keys()
-        )
+    def list_symbols(
+        self,
+        exchange: str,
+        patterns: Optional[List[str]] = None,
+        short: bool = False,
+    ) -> List[str]:
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        all_symbols = list(exchange_info.filters.keys())
 
-        if patterns is None:
-            return all_symbols
+        result = (s for s in all_symbols)
 
-        # Do not use a set because we want the result ordering to be deterministic!
-        # Dict is ordered.
-        result: Dict[str, None] = {}
-        for pattern in patterns:
-            found_symbols = fnmatch.filter(all_symbols, pattern)
-            if len(found_symbols) == 0:
-                raise ValueError(f'Exchange {exchange} does not support any symbol matching '
-                                 f'{pattern}')
-            result.update({s: None for s in found_symbols})
+        if patterns is not None:
+            matching_symbols = {s for p in patterns for s in fnmatch.filter(all_symbols, p)}
+            result = (s for s in result if s in matching_symbols)
 
-        return list(result.keys())
+        if short:
+            result = (s for s in result if exchange_info.filters[s].is_margin_trading_allowed)
+
+        return list(result)
 
     def list_candle_intervals(
         self, exchange: str, patterns: Optional[List[int]] = None
