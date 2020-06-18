@@ -2,7 +2,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import time
+from juno import strategies, time
 from juno.components import Chandler, Informant, Prices, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
@@ -12,7 +12,8 @@ from juno.solvers import Rust
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
 from juno.traders import Basic
-from juno.utils import construct, extract_public, unpack_symbol
+from juno.typing import TypeConstructor
+from juno.utils import construct, extract_public, get_module_type, unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
@@ -54,7 +55,7 @@ async def main() -> None:
             start=training_start,
             end=validation_start,
             quote=QUOTE,
-            strategy=STRATEGY_TYPE,
+            strategy=TypeConstructor.from_type(get_module_type(strategies, STRATEGY_TYPE)),
             symbols=[SYMBOL],
             intervals=[INTERVAL],
             population_size=50,

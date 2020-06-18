@@ -99,92 +99,79 @@ class Informant:
     def list_assets(
         self, exchange: str, patterns: Optional[List[str]] = None, borrow: bool = False
     ) -> List[str]:
-        symbols = self.list_symbols(exchange)
-        all_assets = itertools.chain(*(map(unpack_symbol, symbols)))
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        all_assets = {a: None for a in itertools.chain(
+            *(map(unpack_symbol, exchange_info.filters.keys()))
+        )}
 
-        result: Dict[str, None] = {}
+        result = (a for a in all_assets.keys())
 
-        if patterns is None:
-            result.update((a, None) for a in all_assets)
-        else:
-            for pattern in patterns:
-                found_assets = fnmatch.filter(all_assets, pattern)
-                if len(found_assets) == 0:
-                    raise ValueError(f'Exchange {exchange} does not support any asset matching '
-                                     f'{pattern}')
-                result.update((s, None) for s in found_assets)
-
+        if patterns is not None:
+            matching_assets = {a for p in patterns for a in fnmatch.filter(all_assets.keys(), p)}
+            result = (a for a in result if a in matching_assets)
         if borrow:
-            exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-            return [a for a in result.keys() if a in exchange_info.borrow_info.keys()]
-        return list(result.keys())
+            borrowable_assets = set(exchange_info.borrow_info.keys())
+            result = (a for a in result if a in borrowable_assets)
 
-    def list_symbols(self, exchange: str, patterns: Optional[List[str]] = None) -> List[str]:
-        all_symbols = list(
-            self._synced_data[exchange][_Timestamped[ExchangeInfo]].item.filters.keys()
-        )
+        return list(result)
 
-        if patterns is None:
-            return all_symbols
+    def list_symbols(
+        self,
+        exchange: str,
+        patterns: Optional[List[str]] = None,
+        short: bool = False,
+    ) -> List[str]:
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        all_symbols = exchange_info.filters.keys()
 
-        # Do not use a set because we want the result ordering to be deterministic!
-        # Dict is ordered.
-        result: Dict[str, None] = {}
-        for pattern in patterns:
-            found_symbols = fnmatch.filter(all_symbols, pattern)
-            if len(found_symbols) == 0:
-                raise ValueError(f'Exchange {exchange} does not support any symbol matching '
-                                 f'{pattern}')
-            result.update({s: None for s in found_symbols})
+        result = (s for s in all_symbols)
 
-        return list(result.keys())
+        if patterns is not None:
+            matching_symbols = {s for p in patterns for s in fnmatch.filter(all_symbols, p)}
+            result = (s for s in result if s in matching_symbols)
+        if short:
+            result = (s for s in result if exchange_info.filters[s].is_margin_trading_allowed)
+
+        return list(result)
 
     def list_candle_intervals(
         self, exchange: str, patterns: Optional[List[int]] = None
     ) -> List[int]:
-        all_intervals = (
-            self._synced_data[exchange][_Timestamped[ExchangeInfo]].item.candle_intervals
-        )
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        all_intervals = exchange_info.candle_intervals
 
-        if patterns is None:
-            return all_intervals
+        result = (i for i in all_intervals)
 
-        result: Dict[int, None] = {}
-        for pattern in patterns:
-            if pattern in all_intervals:
-                result[pattern] = None
-            else:
-                raise ValueError(
-                    f'Exchange {exchange} does not support candle interval {pattern} '
-                    f'({strfinterval(pattern)})'
-                )
+        if patterns is not None:
+            result = (i for i in result if i in patterns)
 
-        return list(result.keys())
+        return list(result)
 
     def list_tickers(
         self, exchange: str, symbol_pattern: Optional[str] = None, short: bool = False
     ) -> List[Ticker]:
-        tickers = self._synced_data[exchange][_Timestamped[List[Ticker]]].item
-        # Filtering.
+        all_tickers = self._synced_data[exchange][_Timestamped[List[Ticker]]].item
+
+        result = (t for t in all_tickers)
+
         if symbol_pattern is not None:
-            ticker_symbols = (t.symbol for t in tickers)
-            matched_symbols = set(fnmatch.filter(ticker_symbols, symbol_pattern))
-            tickers = (t for t in tickers if t.symbol in matched_symbols)
+            result = (t for t in result if fnmatch.fnmatch(t.symbol, symbol_pattern))
         if short:
-            tickers = (
-                t for t in tickers
+            result = (
+                t for t in result
                 if self.get_fees_filters(exchange, t.symbol)[1].is_margin_trading_allowed
             )
-        # Ordering.
+
         # Sorted by quote volume desc. Watch out when queried with different quote assets.
-        return sorted(tickers, key=lambda t: t.quote_volume, reverse=True)
+        return sorted(result, key=lambda t: t.quote_volume, reverse=True)
 
     def list_exchanges(self, symbol: Optional[str] = None) -> List[str]:
-        exchanges = (e for e in self._exchanges.keys())
-        # Filtering.
+        result = (e for e in self._exchanges.keys())
+
         if symbol is not None:
-            exchanges = (e for e in exchanges if symbol in self.list_symbols(e))
-        return list(exchanges)
+            result = (e for e in result if symbol in self.list_symbols(e))
+
+        return list(result)
 
     async def _periodic_sync_for_exchanges(
         self, key: str, type_: Type[_Timestamped[T]], initial_sync_event: asyncio.Event,
