@@ -579,6 +579,16 @@ class Binance(Exchange):
             'GET',
             '/sapi/v1/margin/maxBorrowable', data={'asset': _to_asset(asset)},
             security=_SEC_USER_DATA,
+            weight=5,
+        )
+        return Decimal(res.data['amount'])
+
+    async def get_max_transferable(self, asset: str) -> Decimal:
+        res = await self._api_request(
+            'GET',
+            '/sapi/v1/margin/maxTransferable ', data={'asset': _to_asset(asset)},
+            security=_SEC_USER_DATA,
+            weight=5,
         )
         return Decimal(res.data['amount'])
 

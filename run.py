@@ -6,7 +6,7 @@ from juno.logging import create_handlers
 
 logging.basicConfig(
     handlers=create_handlers('color', ['stdout']),
-    level=logging.getLevelName(os.getenv('JUNO__LOG_LEVEL', 'INFO').upper()),
+    level=logging.getLevelName(os.getenv('JUNO__LOG_LEVEL', 'DEBUG').upper()),
 )
 
 script_path = sys.argv[1]
