@@ -47,6 +47,7 @@ _ERR_NEW_ORDER_REJECTED = -2010
 _ERR_CANCEL_REJECTED = -2011
 _ERR_INVALID_TIMESTAMP = -1021
 _ERR_INVALID_LISTEN_KEY = -1125
+_ERR_TOO_MANY_REQUESTS = -1003
 
 _log = logging.getLogger(__name__)
 
@@ -73,11 +74,12 @@ class Binance(Exchange):
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
 
         # Rate limiters.
-        x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
-        self._reqs_per_min_limiter = AsyncLimiter(1200 * x, 60)
-        self._raw_reqs_limiter = AsyncLimiter(5000 * x, 300)
-        self._orders_per_sec_limiter = AsyncLimiter(10 * x, 1)
-        self._orders_per_day_limiter = AsyncLimiter(100_000 * x, DAY_SEC)
+        x = 1.5  # We use this factor to be on the safe side and not use up the entire bucket.
+        self._reqs_per_min_limiter = AsyncLimiter(1200, 60 * x)
+        self._raw_reqs_limiter = AsyncLimiter(5000, 300 * x)
+        self._orders_per_sec_limiter = AsyncLimiter(10, 1 * x)
+        self._orders_per_day_limiter = AsyncLimiter(100_000, DAY_SEC * x)
+        self._margin_limiter = AsyncLimiter(1, 2 * x)
 
         self._clock = Clock(self)
         self._user_data_stream = UserDataStream(self, '/api/v3')
@@ -577,6 +579,16 @@ class Binance(Exchange):
             'GET',
             '/sapi/v1/margin/maxBorrowable', data={'asset': _to_asset(asset)},
             security=_SEC_USER_DATA,
+            weight=5,
+        )
+        return Decimal(res.data['amount'])
+
+    async def get_max_transferable(self, asset: str) -> Decimal:
+        res = await self._api_request(
+            'GET',
+            '/sapi/v1/margin/maxTransferable ', data={'asset': _to_asset(asset)},
+            security=_SEC_USER_DATA,
+            weight=5,
         )
         return Decimal(res.data['amount'])
 
@@ -642,6 +654,11 @@ class Binance(Exchange):
                     raise OrderException(error_msg)
                 elif error_code == -1013:  # TODO: Not documented but also a filter error O_o
                     raise OrderException(error_msg)
+                elif error_code == _ERR_TOO_MANY_REQUESTS:
+                    if (retry_after := res.headers.get('Retry-After')):
+                        _log.info(f'server provided retry-after {retry_after}; sleeping')
+                        await asyncio.sleep(float(retry_after))
+                    raise ExchangeException(error_msg)
                 else:
                     raise NotImplementedError(f'No handling for binance error: {res.data}')
         res.raise_for_status()
@@ -659,11 +676,14 @@ class Binance(Exchange):
             self._raw_reqs_limiter.acquire(),
             self._reqs_per_min_limiter.acquire(weight),
         ]
-        if method == '/api/v3/order':
+        if url in ['/api/v3/order', '/sapi/v1/margin/order']:
             limiters.extend((
                 self._orders_per_day_limiter.acquire(),
                 self._orders_per_sec_limiter.acquire(),
             ))
+        elif url in ['/sapi/v1/margin/transfer', '/sapi/v1/margin/loan', '/sapi/v1/margin/repay']:
+            limiters.append(self._margin_limiter.acquire())
+
         await asyncio.gather(*limiters)
 
         kwargs: Dict[str, Any] = {}
@@ -688,11 +708,6 @@ class Binance(Exchange):
         async with self._session.request_json(
             method=method, url=_BASE_REST_URL + url, **kwargs
         ) as res:
-            if res.status in [418, 429]:
-                retry_after = res.headers['Retry-After']
-                _log.warning(f'received status {res.status}; sleeping {retry_after}s before exc')
-                await asyncio.sleep(float(retry_after))
-                raise ExchangeException('Retry after')
             return res
 
     @asynccontextmanager
