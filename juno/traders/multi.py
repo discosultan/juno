@@ -92,6 +92,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
         position_count: int = 2
+        borrow_safety_factor: Decimal = Decimal('1.0')
 
     @dataclass
     class State:
@@ -151,6 +152,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.position_count > 0
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
+        if config.borrow_safety_factor < 1:
+            _log.warning(f'starting with {config.borrow_safety_factor=}')
 
         symbols = await self._find_top_symbols(config)
 
@@ -537,6 +540,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
                 mode=config.mode,
+                borrow_safety_factor=config.borrow_safety_factor,
             )
         )
 

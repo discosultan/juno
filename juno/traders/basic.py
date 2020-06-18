@@ -39,6 +39,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         adjust_start: bool = True
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
+        borrow_safety_factor: Decimal = Decimal('1.0')
 
         @property
         def base_asset(self) -> str:
@@ -115,6 +116,8 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             assert self._informant.get_fees_filters(
                 config.exchange, config.symbol
             )[1].is_margin_trading_allowed
+        if config.borrow_safety_factor < 1:
+            _log.warning(f'starting with {config.borrow_safety_factor=}')
 
         # Request and assert available quote.
         quote = self.request_quote(config.quote, config.exchange, config.quote_asset, config.mode)
@@ -362,6 +365,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 symbol=config.symbol,
                 collateral=state.quote,
                 mode=config.mode,
+                borrow_safety_factor=config.borrow_safety_factor,
             )
         )
 

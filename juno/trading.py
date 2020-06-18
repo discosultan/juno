@@ -670,7 +670,8 @@ class PositionMixin(ABC):
         )
 
     async def open_short_position(
-        self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
+        self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode,
+        borrow_safety_factor: Decimal = Decimal('0.95')
     ) -> Position.OpenShort:
         assert mode is not TradingMode.BACKTEST
 
@@ -682,15 +683,22 @@ class PositionMixin(ABC):
         price = (await self.chandler.get_last_candle(exchange, symbol, MIN_MS)).close
 
         if mode is TradingMode.PAPER:
-            borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
+            borrowed = _calculate_borrowed(
+                filters, margin_multiplier, collateral, price, borrow_safety_factor
+            )
         else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
             await exchange_instance.transfer(quote_asset, collateral, margin=True)
             # Because Binance doesn't support Isolated Margin through API, getting
             # max borrowable may give incorrect result in case multiple short positions are being
             # opened concurrently. Hence we calculate it ourselves.
+            # It's hard to estimate the exact price at which max borrowable is calculated. In order
+            # not to go over the limit, we use a small safety buffer to ensure the amount can be
+            # borrowed.
             # TODO: Revert once Isolated Margin is available.
-            borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
+            borrowed = _calculate_borrowed(
+                filters, margin_multiplier, collateral, price, borrow_safety_factor
+            )
             # borrowed = await exchange_instance.get_max_borrowable(base_asset)
             _log.info(f'borrowing {borrowed} {base_asset} from exchange')
             await exchange_instance.borrow(asset=base_asset, size=borrowed)
@@ -767,12 +775,9 @@ class PositionMixin(ABC):
 
 
 def _calculate_borrowed(
-    filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal
+    filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal,
+    borrow_safety_factor: Decimal = Decimal('1.0')
 ) -> Decimal:
-    # It's hard to estimate the exact price at which max borrowable is calculated. In order not to
-    # go over the limit, we use a small safety buffer to ensure the amount can be borrowed.
-    # TODO: Revert once Isolated Margin is available.
-    borrow_safety_factor = Decimal('0.95')
     collateral_size = filters.size.round_down(collateral / price * borrow_safety_factor)
     if collateral_size == 0:
         raise OrderException('Collateral base size 0')

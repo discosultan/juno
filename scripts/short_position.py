@@ -67,7 +67,7 @@ async def main() -> None:
         _log.info(f'opening short positions for {args.symbols}')
         positions = await asyncio.gather(
             *(handler.open_short_position(
-                'binance', s, args.quote, TradingMode.LIVE
+                'binance', s, args.quote, TradingMode.LIVE, Decimal('0.95')
             ) for s in args.symbols)
         )
 
