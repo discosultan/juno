@@ -757,6 +757,7 @@ class PositionMixin(ABC):
             transfer = closed_position.collateral + closed_position.profit
             _log.info(f'transferring {transfer} {quote_asset} to spot account')
             await exchange_instance.transfer(quote_asset, transfer, margin=False)
+            # TODO: Also transfer base asset dust back?
 
         return closed_position
 
