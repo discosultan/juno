@@ -1,3 +1,4 @@
+from .double_ma import DoubleMA
 from .fixed import Fixed
 from .four_week_rule import FourWeekRule
 from .macd import Macd
@@ -9,6 +10,7 @@ from .strategy import Changed, Meta, MidTrend, MidTrendPolicy, Persistence, Stra
 
 __all__ = [
     'Changed',
+    'DoubleMA',
     'Fixed',
     'FourWeekRule',
     'Macd',

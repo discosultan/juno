@@ -11,6 +11,7 @@ from .strategy import Meta, MidTrendPolicy, Strategy, ma_choices
 # Signals long when a candle close price goes above moving average and moving average is ascending.
 # Signals short when a candle close price goes below moving average and moving average is
 # descending.
+# J. Murphy 201
 class SingleMA(Strategy):
     @staticmethod
     def meta() -> Meta:
@@ -36,7 +37,7 @@ class SingleMA(Strategy):
         super().__init__(
             maturity=self._ma.maturity,
             persistence=persistence,
-            mid_trend_policy=MidTrendPolicy.IGNORE
+            mid_trend_policy=MidTrendPolicy.IGNORE,
         )
 
     def tick(self, candle: Candle) -> Advice:
