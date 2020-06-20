@@ -92,7 +92,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
         position_count: int = 2
-        borrow_safety_factor: Decimal = Decimal('1.0')
 
     @dataclass
     class State:
@@ -152,8 +151,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.position_count > 0
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
-        if config.borrow_safety_factor < 1:
-            _log.warning(f'starting with {config.borrow_safety_factor=}')
 
         symbols = await self._find_top_symbols(config)
 
@@ -292,6 +289,13 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 )
 
             # Try open new positions.
+            # TODO: Remove once Binance supports Isolated Margin. In order to simplify our
+            # lives, we currently allow only a single short position to be open at a time.
+            num_short_positions_open = sum(
+                1 for ss in state.symbol_states.values()
+                if isinstance(ss.open_position, Position.OpenShort)
+            )
+
             to_process.clear()
             count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
             assert count <= config.position_count
@@ -309,8 +313,18 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                     to_process.append(self._open_long_position(config, state, ss, ss.last_candle))
                     available -= 1
                 elif ss.advice is Advice.SHORT and ss.advice_age == 1:
-                    to_process.append(self._open_short_position(config, state, ss, ss.last_candle))
-                    available -= 1
+                    if num_short_positions_open == 0:
+                        num_short_positions_open += 1
+                        to_process.append(
+                            self._open_short_position(config, state, ss, ss.last_candle)
+                        )
+                        available -= 1
+                    else:
+                        _log.warning(
+                            f'wanted to open short position {ss.symbol} but '
+                            f'{num_short_positions_open} already open'
+                        )
+
             if len(to_process) > 0:
                 positions = await asyncio.gather(*to_process)
                 await self._events.emit(
@@ -540,7 +554,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
                 mode=config.mode,
-                borrow_safety_factor=config.borrow_safety_factor,
             )
         )
 
