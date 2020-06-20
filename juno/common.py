@@ -70,6 +70,14 @@ class Candle(NamedTuple):
     volume: Decimal = Decimal('0.0')  # Within interval.
     closed: bool = True
 
+    @property
+    def midpoint(self) -> Decimal:
+        return (self.open + self.close) / 2
+
+    @property
+    def mean_hlc(self) -> Decimal:
+        return (self.high + self.low + self.close) / 3
+
     def __repr__(self) -> str:
         return (
             f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
