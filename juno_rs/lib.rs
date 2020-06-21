@@ -1,25 +1,113 @@
 #![allow(dead_code)]
 
-pub mod statistics;
 pub mod common;
 pub mod filters;
 pub mod indicators;
 pub mod math;
+pub mod statistics;
 pub mod strategies;
 pub mod trade;
 pub mod trading;
 
-use crate::{
-    statistics::analyse,
-    strategies::{Macd, MacdRsi, Strategy, MAMACX},
-    trade::trade,
-};
 pub use crate::{
     common::{Advice, BorrowInfo, Candle, Fees},
     filters::Filters,
     trading::{LongPosition, ShortPosition, TradingSummary},
 };
+use crate::{
+    statistics::analyse,
+    strategies::{Macd, MacdRsi, Strategy, MAMACX},
+    trade::trade,
+};
 use std::slice;
+
+#[repr(C)]
+pub struct SingleMAInfo {
+    ma: u32,
+    period: u32,
+    persistence: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn singlema(
+    trading_info: *const TradingInfo,
+    strategy_info: *const SingleMAInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let strategy_info = &*strategy_info;
+    let strategy_factory = || {
+        strategies::SingleMA::new(
+            strategy_info.ma,
+            strategy_info.period,
+            strategy_info.persistence,
+        )
+    };
+    run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[repr(C)]
+pub struct DoubleMAInfo {
+    short_ma: u32,
+    long_ma: u32,
+    short_period: u32,
+    long_period: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn doublema(
+    trading_info: *const TradingInfo,
+    strategy_info: *const DoubleMAInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let strategy_info = &*strategy_info;
+    let strategy_factory = || {
+        strategies::DoubleMA::new(
+            strategy_info.short_ma,
+            strategy_info.long_ma,
+            strategy_info.short_period,
+            strategy_info.long_period,
+        )
+    };
+    run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[repr(C)]
+pub struct TripleMAInfo {
+    short_ma: u32,
+    medium_ma: u32,
+    long_ma: u32,
+    short_period: u32,
+    medium_period: u32,
+    long_period: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn triplema(
+    trading_info: *const TradingInfo,
+    strategy_info: *const TripleMAInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let strategy_info = &*strategy_info;
+    let strategy_factory = || {
+        strategies::TripleMA::new(
+            strategy_info.short_ma,
+            strategy_info.medium_ma,
+            strategy_info.long_ma,
+            strategy_info.short_period,
+            strategy_info.medium_period,
+            strategy_info.long_period,
+        )
+    };
+    run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[repr(C)]
+pub struct FourWeekRuleInfo {
+    period: u32,
+    ma: u32,
+    ma_period: u32,
+    mid_trend_policy: u32,
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn fourweekrule(
@@ -39,6 +127,14 @@ pub unsafe extern "C" fn fourweekrule(
     run_test(trading_info, strategy_factory, analysis_info)
 }
 
+#[repr(C)]
+pub struct MacdInfo {
+    short_period: u32,
+    long_period: u32,
+    signal_period: u32,
+    persistence: u32,
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn macd(
     trading_info: *const TradingInfo,
@@ -55,6 +151,17 @@ pub unsafe extern "C" fn macd(
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[repr(C)]
+pub struct MacdRsiInfo {
+    macd_short_period: u32,
+    macd_long_period: u32,
+    macd_signal_period: u32,
+    rsi_period: u32,
+    rsi_up_threshold: f64,
+    rsi_down_threshold: f64,
+    persistence: u32,
 }
 
 #[no_mangle]
@@ -76,6 +183,17 @@ pub unsafe extern "C" fn macdrsi(
         )
     };
     run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[repr(C)]
+pub struct MAMACXInfo {
+    short_period: u32,
+    long_period: u32,
+    neg_threshold: f64,
+    pos_threshold: f64,
+    persistence: u32,
+    short_ma: u32,
+    long_ma: u32,
 }
 
 #[no_mangle]
@@ -193,42 +311,4 @@ pub struct TradingInfo {
     take_profit: f64,
     long: bool,
     short: bool,
-}
-
-#[repr(C)]
-pub struct FourWeekRuleInfo {
-    period: u32,
-    ma: u32,
-    ma_period: u32,
-    mid_trend_policy: u32,
-}
-
-#[repr(C)]
-pub struct MacdInfo {
-    short_period: u32,
-    long_period: u32,
-    signal_period: u32,
-    persistence: u32,
-}
-
-#[repr(C)]
-pub struct MacdRsiInfo {
-    macd_short_period: u32,
-    macd_long_period: u32,
-    macd_signal_period: u32,
-    rsi_period: u32,
-    rsi_up_threshold: f64,
-    rsi_down_threshold: f64,
-    persistence: u32,
-}
-
-#[repr(C)]
-pub struct MAMACXInfo {
-    short_period: u32,
-    long_period: u32,
-    neg_threshold: f64,
-    pos_threshold: f64,
-    persistence: u32,
-    short_ma: u32,
-    long_ma: u32,
 }
