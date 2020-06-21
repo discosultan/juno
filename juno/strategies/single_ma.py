@@ -35,7 +35,7 @@ class SingleMA(Strategy):
     ) -> None:
         self._ma = get_module_type(indicators, ma)(period)
         super().__init__(
-            maturity=self._ma.maturity,
+            maturity=period - 1,
             persistence=persistence,
             mid_trend_policy=MidTrendPolicy.IGNORE,
         )

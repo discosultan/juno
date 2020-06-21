@@ -30,14 +30,14 @@ class DoubleMA(Strategy):
         self,
         short_ma: str = Ema.__name__.lower(),
         long_ma: str = Ema.__name__.lower(),
-        short_period: int = 5,  # Daily. Common 5 or 10.
+        short_period: int = 5,  # Common 5 or 10. Daily.
         long_period: int = 20,  # Common 20 or 50.
     ) -> None:
         assert short_period < long_period
         self._short_ma = get_module_type(indicators, short_ma)(short_period)
         self._long_ma = get_module_type(indicators, long_ma)(long_period)
         super().__init__(
-            maturity=long_period,
+            maturity=long_period - 1,
             persistence=0,
             mid_trend_policy=MidTrendPolicy.IGNORE,
         )

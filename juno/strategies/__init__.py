@@ -7,6 +7,7 @@ from .mamacx import MAMACX
 from .rsi import Rsi
 from .single_ma import SingleMA
 from .strategy import Changed, Meta, MidTrend, MidTrendPolicy, Persistence, Strategy
+from .triple_ma import TripleMA
 
 __all__ = [
     'Changed',
@@ -23,4 +24,5 @@ __all__ = [
     'Rsi',
     'SingleMA',
     'Strategy',
+    'TripleMA',
 ]

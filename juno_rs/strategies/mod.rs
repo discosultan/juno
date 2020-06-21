@@ -3,12 +3,14 @@ mod macd;
 mod macdrsi;
 mod mamacx;
 mod rsi;
+mod single_ma;
 
 pub use four_week_rule::FourWeekRule;
 pub use macd::Macd;
 pub use macdrsi::MacdRsi;
 pub use mamacx::MAMACX;
 pub use rsi::Rsi;
+pub use single_ma::SingleMA;
 use std::cmp::min;
 
 use crate::{Advice, Candle};
