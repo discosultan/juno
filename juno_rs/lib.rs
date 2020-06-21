@@ -46,6 +46,62 @@ pub unsafe extern "C" fn singlema(
 }
 
 #[repr(C)]
+pub struct DoubleMAInfo {
+    short_ma: u32,
+    long_ma: u32,
+    short_period: u32,
+    long_period: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn doublema(
+    trading_info: *const TradingInfo,
+    strategy_info: *const DoubleMAInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let strategy_info = &*strategy_info;
+    let strategy_factory = || {
+        strategies::DoubleMA::new(
+            strategy_info.short_ma,
+            strategy_info.long_ma,
+            strategy_info.short_period,
+            strategy_info.long_period,
+        )
+    };
+    run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[repr(C)]
+pub struct TripleMAInfo {
+    short_ma: u32,
+    medium_ma: u32,
+    long_ma: u32,
+    short_period: u32,
+    medium_period: u32,
+    long_period: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn triplema(
+    trading_info: *const TradingInfo,
+    strategy_info: *const TripleMAInfo,
+    analysis_info: *const AnalysisInfo,
+) -> Result {
+    let strategy_info = &*strategy_info;
+    let strategy_factory = || {
+        strategies::TripleMA::new(
+            strategy_info.short_ma,
+            strategy_info.medium_ma,
+            strategy_info.long_ma,
+            strategy_info.short_period,
+            strategy_info.medium_period,
+            strategy_info.long_period,
+        )
+    };
+    run_test(trading_info, strategy_factory, analysis_info)
+}
+
+#[repr(C)]
 pub struct FourWeekRuleInfo {
     period: u32,
     ma: u32,

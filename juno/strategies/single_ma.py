@@ -48,8 +48,6 @@ class SingleMA(Strategy):
                 self._advice = Advice.LONG
             elif candle.close < self._ma.value and self._ma.value < self._previous_ma_value:
                 self._advice = Advice.SHORT
-            else:
-                self._advice = Advice.NONE
 
         self._previous_ma_value = self._ma.value
         return self._advice
