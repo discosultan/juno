@@ -38,7 +38,7 @@ from . import fakes
         },
     ),
 ])
-async def test_map_prices(symbols, chandler_symbols, expected_output) -> None:
+async def test_map_asset_prices(symbols, chandler_symbols, expected_output) -> None:
     candles = [
         Candle(time=0, close=Decimal('1.0')),
         Candle(time=1, close=Decimal('2.0')),
@@ -47,7 +47,7 @@ async def test_map_prices(symbols, chandler_symbols, expected_output) -> None:
     prices = Prices(
         chandler=fakes.Chandler(candles={('exchange', s, 1): candles for s in chandler_symbols}),
     )
-    output = await prices.map_prices(
+    output = await prices.map_asset_prices(
         exchange='exchange',
         symbols=symbols,
         interval=1,
@@ -82,7 +82,7 @@ async def test_map_prices(symbols, chandler_symbols, expected_output) -> None:
         },
     ),
 ])
-async def test_map_prices_with_different_fiat_exchange(symbols, expected_output) -> None:
+async def test_map_asset_prices_with_different_fiat_exchange(symbols, expected_output) -> None:
     exchange1_candles = [
         Candle(time=0, close=Decimal('1.0')),
         Candle(time=1, close=Decimal('2.0')),
@@ -99,7 +99,7 @@ async def test_map_prices_with_different_fiat_exchange(symbols, expected_output)
             ('exchange2', 'btc-usdt', 1): exchange2_candles,
         }),
     )
-    output = await prices.map_prices(
+    output = await prices.map_asset_prices(
         exchange='exchange1',
         symbols=symbols,
         interval=1,

@@ -77,7 +77,7 @@ async def main() -> None:
         ))
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
-        fiat_prices = await prices.map_prices(
+        fiat_prices = await prices.map_asset_prices(
             exchange=optimization_summary.trading_config.exchange,
             symbols=[SYMBOL],
             start=validation_start,

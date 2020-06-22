@@ -372,3 +372,23 @@ async def test_get_last_candle(storage) -> None:
     candle = await chandler.get_last_candle('exchange', 'eth-btc', 2)
 
     assert candle.time == 2
+
+
+async def test_list_candles(storage) -> None:
+    exchange = fakes.Exchange(historical_candles=[Candle(time=0), Candle(time=1)])
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+
+    candles = await chandler.list_candles('exchange', 'eth-btc', 1, 0, 2)
+
+    assert len(candles) == 2
+
+
+async def test_map_symbol_interval_candles(storage) -> None:
+    exchange = fakes.Exchange(historical_candles=[Candle(time=0), Candle(time=1)])
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+
+    candles = await chandler.map_symbol_interval_candles(
+        'exchange', ['eth-btc', 'ltc-btc'], [1, 2], 0, 2
+    )
+
+    assert len(candles) == 4

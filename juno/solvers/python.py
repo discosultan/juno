@@ -6,7 +6,6 @@ from juno import Advice, Candle, MissedCandlePolicy, OrderException
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
-from juno.time import DAY_MS
 from juno.trading import (
     CloseReason, Position, SimulatedPositionMixin, StopLoss, TakeProfit, TradingSummary
 )
@@ -43,7 +42,6 @@ class Python(Solver, SimulatedPositionMixin):
             benchmark_g_returns=config.benchmark_g_returns,
             fiat_prices=config.fiat_prices,
             trading_summary=summary,
-            interval=max(DAY_MS, config.interval),
         )
         return SolverResult.from_trading_summary(summary, portfolio.stats)
 

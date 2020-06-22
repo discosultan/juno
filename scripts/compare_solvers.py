@@ -58,7 +58,7 @@ async def main() -> None:
     python_solver = Python(informant=informant)
     async with binance, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        fiat_prices = await prices.map_prices(
+        fiat_prices = await prices.map_asset_prices(
             exchange='binance',
             symbols=[SYMBOL],
             start=start,

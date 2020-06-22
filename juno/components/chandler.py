@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import sys
 from decimal import Decimal
-from typing import AsyncIterable, Callable, List, Optional
+from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -428,3 +429,14 @@ class Chandler:
         return await first_async(self._exchanges[exchange].stream_historical_candles(
             symbol=symbol, interval=interval, start=start, end=end
         ))
+
+    async def map_symbol_interval_candles(
+        self, exchange: str, symbols: Iterable[str], intervals: Iterable[int], start: int, end: int
+    ) -> Dict[Tuple[str, int], List[Candle]]:
+        symbols = set(symbols)
+        intervals = set(intervals)
+        candles = await asyncio.gather(
+            *(self.list_candles(exchange, s, i, start, end)
+              for s, i in itertools.product(symbols, intervals))
+        )
+        return {(s, i): c for (s, i), c in zip(itertools.product(symbols, intervals), candles)}
