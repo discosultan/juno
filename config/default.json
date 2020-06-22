@@ -8,9 +8,9 @@
             "exchange": "binance",
             "interval": "1d",
             "quote": 1.0,
+            "start": "2018-01-01",
             "strategy": {
-                "type": "fourweekrule",
-                "ma": "kama"
+                "type": "singlema"
             },
             "trader": {
                 "type": "basic",
@@ -21,7 +21,8 @@
                 "trail_stop_loss": true
             },
             "fiat_asset": "eur",
-            "fiat_exchange": "coinbase"
+            "fiat_exchange": "coinbase",
+            "plugins": ["plot"]
         }
     ]
 }
