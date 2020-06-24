@@ -7,9 +7,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import partial
 from random import Random, randrange
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
-from deap import base, creator, tools
+from deap import base, tools
 
 from juno import Candle, Interval, MissedCandlePolicy, OrderException, Timestamp
 from juno.components import Chandler, Informant, Prices
@@ -47,6 +47,18 @@ class OptimizationSummary(NamedTuple):
     trading_config: Basic.Config
     trading_summary: TradingSummary
     portfolio_stats: Statistics
+
+
+class FitnessMulti(base.Fitness):
+    weights = list(SolverResult.meta().values())
+
+
+class Individual(list):
+    fitness: FitnessMulti
+
+    def __init__(self, iterable: Iterable[Any]) -> None:
+        super().__init__(iterable)
+        self.fitness = FitnessMulti()
 
 
 # TODO: Does not support persist/resume. Population not stored/restored properly. Need to store
@@ -161,13 +173,7 @@ class Optimizer(StartMixin):
             random.setstate(state.random_state)
 
         # Objectives.
-        objectives = SolverResult.meta()
-        _log.info(f'objectives: {objectives}')
-
-        # Creator generated instances are global!
-        if not getattr(creator, 'FitnessMulti', None):
-            creator.create('FitnessMulti', base.Fitness, weights=list(objectives.values()))
-            creator.create('Individual', list, fitness=creator.FitnessMulti)
+        _log.info(f'objectives: {SolverResult.meta()}')
 
         toolbox = base.Toolbox()
 
@@ -197,7 +203,7 @@ class Optimizer(StartMixin):
 
         toolbox.register('strategy_args', lambda: (a() for a in attrs))
         toolbox.register(
-            'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
+            'individual', tools.initIterate, Individual, toolbox.strategy_args
         )
         toolbox.register('population', tools.initRepeat, list, toolbox.individual)
 
