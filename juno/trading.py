@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal, Overflow
 from enum import IntEnum
 from types import ModuleType
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
@@ -328,14 +328,24 @@ class TradingSummary:
         self._positions.append(pos)
         self._drawdowns_dirty = True
 
-    def get_positions(self) -> Iterable[Position.Closed]:
-        return self._positions
+    def get_positions(
+        self,
+        type_: Optional[Type[Position.Closed]] = None,
+        reason: Optional[CloseReason] = None,
+    ) -> Iterable[Position.Closed]:
+        result = (p for p in self._positions)
+        if type_ is not None:
+            result = (p for p in result if isinstance(p, type_))
+        if reason is not None:
+            result = (p for p in result if p.close_reason is reason)
+        return result
 
-    def get_long_positions(self) -> Iterable[Position.Long]:
-        return (p for p in self._positions if isinstance(p, Position.Long))
-
-    def get_short_positions(self) -> Iterable[Position.Short]:
-        return (p for p in self._positions if isinstance(p, Position.Short))
+    def list_positions(
+        self,
+        type_: Optional[Type[Position.Closed]] = None,
+        reason: Optional[CloseReason] = None,
+    ) -> List[Position.Closed]:
+        return list(self.get_positions(type_, reason))
 
     def finish(self, end: Timestamp) -> None:
         if self.end is None:
@@ -381,27 +391,27 @@ class TradingSummary:
 
     @property
     def num_long_positions(self) -> int:
-        return len(list(self.get_long_positions()))
+        return len(self.list_positions(type_=Position.Long))
 
     @property
     def num_long_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self.get_long_positions())
+        return TradingSummary._num_positions_in_profit(self.get_positions(type_=Position.Long))
 
     @property
     def num_long_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self.get_long_positions())
+        return TradingSummary._num_positions_in_loss(self.get_positions(type_=Position.Long))
 
     @property
     def num_short_positions(self) -> int:
-        return len(list(self.get_short_positions()))
+        return len(self.list_positions(type_=Position.Short))
 
     @property
     def num_short_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self.get_short_positions())
+        return TradingSummary._num_positions_in_profit(self.get_positions(type_=Position.Short))
 
     @property
     def num_short_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self.get_short_positions())
+        return TradingSummary._num_positions_in_loss(self.get_positions(type_=Position.Short))
 
     @staticmethod
     def _num_positions_in_profit(positions: Iterable[Position.Closed]) -> int:
@@ -425,11 +435,11 @@ class TradingSummary:
 
     @property
     def mean_long_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self.get_long_positions())
+        return TradingSummary._mean_position_profit(self.get_positions(type_=Position.Long))
 
     @property
     def mean_short_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self.get_short_positions())
+        return TradingSummary._mean_position_profit(self.get_positions(type_=Position.Short))
 
     @staticmethod
     def _mean_position_profit(positions: Iterable[Position.Closed]) -> Decimal:
@@ -444,11 +454,11 @@ class TradingSummary:
 
     @property
     def mean_long_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self.get_long_positions())
+        return TradingSummary._mean_position_duration(self.get_positions(type_=Position.Long))
 
     @property
     def mean_short_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self.get_short_positions())
+        return TradingSummary._mean_position_duration(self.get_positions(type_=Position.Short))
 
     @staticmethod
     def _mean_position_duration(positions: Iterable[Position.Closed]) -> Interval:

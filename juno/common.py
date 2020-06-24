@@ -137,6 +137,11 @@ class Fill(NamedTuple):
         )
 
     @staticmethod
+    def mean_price(fills: List[Fill]) -> Decimal:
+        total_size = Fill.total_size(fills)
+        return sum((f.price * f.size / total_size for f in fills), Decimal('0.0'))
+
+    @staticmethod
     def total_size(fills: List[Fill]) -> Decimal:
         return sum((f.size for f in fills), Decimal('0.0'))
 

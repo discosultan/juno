@@ -211,8 +211,9 @@ async def test_paper(exchange: fakes.Exchange, container: Container) -> None:
 
     summary = task.result().summary
     assert summary
+    assert summary.num_positions == 1
     assert summary.num_long_positions == 1
-    pos = next(iter(summary.get_long_positions()))
+    pos = summary.list_positions()[0]
     assert pos.open_time == 2
     assert pos.close_time == 4
 
@@ -276,8 +277,9 @@ async def test_live(exchange: fakes.Exchange, container: Container) -> None:
 
     summary = task.result().summary
     assert summary
+    assert summary.num_positions == 1
     assert summary.num_long_positions == 1
-    pos = next(iter(summary.get_long_positions()))
+    pos = summary.list_positions()[0]
     assert pos.open_time == 2
     assert pos.close_time == 4
 
