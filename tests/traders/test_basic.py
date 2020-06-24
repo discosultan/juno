@@ -5,7 +5,7 @@ from typing import cast
 from juno import BorrowInfo, Candle, Filters, MissedCandlePolicy, strategies, traders
 from juno.asyncio import cancel
 from juno.config import get_module_type_constructor
-from juno.trading import CloseReason
+from juno.trading import CloseReason, Position
 from tests import fakes
 
 
@@ -46,9 +46,9 @@ async def test_upside_stop_loss() -> None:
 
     assert summary.profit == -2
 
-    long_positions = list(summary.get_long_positions())
+    long_positions = summary.list_positions(type_=Position.Long)
     assert len(long_positions) == 1
-    assert long_positions[0].close_reason is CloseReason.STOP_LOSS
+    assert summary.list_positions()[0].close_reason is CloseReason.STOP_LOSS
 
 
 async def test_upside_trailing_stop_loss() -> None:
@@ -87,7 +87,7 @@ async def test_upside_trailing_stop_loss() -> None:
 
     assert summary.profit == 8
 
-    long_positions = list(summary.get_long_positions())
+    long_positions = summary.list_positions(type_=Position.Long)
     assert len(long_positions) == 1
     assert long_positions[0].close_reason is CloseReason.STOP_LOSS
 
@@ -133,7 +133,7 @@ async def test_downside_trailing_stop_loss() -> None:
 
     assert summary.profit == 4
 
-    short_positions = list(summary.get_short_positions())
+    short_positions = summary.list_positions(type_=Position.Short)
     assert len(short_positions) == 1
     assert short_positions[0].close_reason is CloseReason.STOP_LOSS
 
@@ -173,7 +173,7 @@ async def test_upside_take_profit() -> None:
 
     assert summary.profit == 10
 
-    long_positions = list(summary.get_long_positions())
+    long_positions = summary.list_positions(type_=Position.Long)
     assert len(long_positions) == 1
     assert long_positions[0].close_reason is CloseReason.TAKE_PROFIT
 
@@ -218,7 +218,7 @@ async def test_downside_take_profit() -> None:
 
     assert summary.profit == 6
 
-    short_positions = list(summary.get_short_positions())
+    short_positions = summary.list_positions(type_=Position.Short)
     assert len(short_positions) == 1
     assert short_positions[0].close_reason is CloseReason.TAKE_PROFIT
 
@@ -345,7 +345,7 @@ async def test_adjust_start_ignore_mid_trend() -> None:
 
     summary = await trader.run(config)
 
-    assert summary.num_positions == 0
+    assert len(summary.list_positions()) == 0
 
 
 async def test_adjust_start_persistence() -> None:
@@ -381,9 +381,9 @@ async def test_adjust_start_persistence() -> None:
 
     summary = await trader.run(config)
 
-    assert summary.num_positions == 1
-    assert summary.num_long_positions == 1
-    assert list(summary.get_long_positions())[0].close_reason is CloseReason.CANCELLED
+    long_positions = summary.list_positions(type_=Position.Long)
+    assert len(long_positions) == 1
+    assert long_positions[0].close_reason is CloseReason.CANCELLED
 
 
 async def test_persist_and_resume(storage: fakes.Storage) -> None:

@@ -4,7 +4,7 @@ from decimal import Decimal
 from juno import Candle, Ticker, strategies, traders
 from juno.asyncio import cancel
 from juno.config import get_module_type_constructor
-from juno.trading import CloseReason
+from juno.trading import CloseReason, Position
 from tests import fakes
 
 
@@ -68,8 +68,8 @@ async def test_simple() -> None:
 
     #     - L L L
     # XMR - L L L
-    long_positions = list(summary.get_long_positions())
-    short_positions = list(summary.get_short_positions())
+    long_positions = summary.list_positions(type_=Position.Long)
+    short_positions = summary.list_positions(type_=Position.Short)
     assert len(long_positions) == 3
     assert len(short_positions) == 1
     lpos = long_positions[0]
@@ -162,8 +162,8 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
 
     #     - L - S
     # LTC - L - S
-    long_positions = list(summary.get_long_positions())
-    short_positions = list(summary.get_short_positions())
+    long_positions = summary.list_positions(type_=Position.Long)
+    short_positions = summary.list_positions(type_=Position.Short)
     assert len(long_positions) == 2
     assert len(short_positions) == 2
     lpos = long_positions[0]
@@ -222,7 +222,7 @@ async def test_historical() -> None:
 
     summary = await trader.run(config)
 
-    long_positions = list(summary.get_long_positions())
+    long_positions = summary.list_positions(type_=Position.Long)
     assert len(long_positions) == 2
     pos = long_positions[0]
     assert pos.symbol == 'eth-btc'
@@ -275,7 +275,7 @@ async def test_trailing_stop_loss() -> None:
 
     summary = await trader.run(config)
 
-    long_positions = list(summary.get_long_positions())
+    long_positions = summary.list_positions(type_=Position.Long)
     assert len(long_positions) == 2
     pos = long_positions[0]
     assert pos.open_time == 1
@@ -322,5 +322,5 @@ async def test_only_single_short_position() -> None:
 
     summary = await trader.run(config)
 
-    short_positions = list(summary.get_short_positions())
+    short_positions = summary.list_positions(type_=Position.Short)
     assert len(short_positions) == 1
