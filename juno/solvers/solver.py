@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Type, get_type_hints
@@ -49,6 +50,33 @@ class Solver(AbstractAsyncContextManager, ABC):
         pass
 
 
+_META = {
+    'alpha': +1.0,
+    'sharpe_ratio': +1.0,
+    'sortino_ratio': +1.0,
+    'profit': +1.0,
+    'mean_drawdown': -1.0,
+    'max_drawdown': -1.0,
+    'mean_position_profit': +1.0,
+    'mean_position_duration': -1.0,
+    'num_positions': +1.0,
+    'num_positions_in_profit': +1.0,
+    'num_positions_in_loss': -1.0,
+}
+
+
+def _map_nan(key: str, value: Any) -> Any:
+    if isinstance(value, float) and math.isnan(value):
+        weight = _META[key]
+        if weight == 0:
+            return 0.0
+        if weight < 0:
+            return float('inf')
+        if weight > 0:
+            return float('-inf')
+    return value
+
+
 class SolverResult(NamedTuple):
     # alpha: float = 0.0
     sharpe_ratio: float = 0.0
@@ -68,29 +96,24 @@ class SolverResult(NamedTuple):
         # https://stackoverflow.com/q/44929118/1466456
         # We try to maximize properties with positive weight, minimize properties with negative
         # weight.
-        META = {
-            'alpha': +1.0,
-            'sharpe_ratio': +1.0,
-            'sortino_ratio': +1.0,
-            'profit': +1.0,
-            'mean_drawdown': -1.0,
-            'max_drawdown': -1.0,
-            'mean_position_profit': +1.0,
-            'mean_position_duration': -1.0,
-            'num_positions': +1.0,
-            'num_positions_in_profit': +1.0,
-            'num_positions_in_loss': -1.0,
-        }
-        return {k: META.get(k, 0.00000001) for k in _SOLVER_RESULT_KEYS}
+        return {k: _META[k] for k in _SOLVER_RESULT_KEYS}
         # if include_disabled:
         #     return META
         # return {k: v for k, v in META.items() if k in _SOLVER_RESULT_KEYS}
 
     @staticmethod
+    def _new(*iterable: Any) -> SolverResult:
+        # We map nan to infinity values because otherwise they will mess up fitness comparisons.
+        # See: https://github.com/DEAP/deap/issues/440
+        return SolverResult(
+            *(_map_nan(k, v) for k, v in zip(_SOLVER_RESULT_KEYS, iterable))
+        )
+
+    @staticmethod
     def from_trading_summary(
         summary: TradingSummary, stats: Statistics
     ) -> SolverResult:
-        return SolverResult(*map(
+        return SolverResult._new(*map(
             _decimal_to_float,
             (_coalesce(
                 getattr(summary, k, None),
@@ -100,7 +123,7 @@ class SolverResult(NamedTuple):
 
     @staticmethod
     def from_object(obj: Any) -> SolverResult:
-        return SolverResult(*(getattr(obj, k) for k in _SOLVER_RESULT_KEYS))
+        return SolverResult._new(*(getattr(obj, k) for k in _SOLVER_RESULT_KEYS))
 
 
 _SOLVER_RESULT_KEYS = list(get_type_hints(SolverResult).keys())
