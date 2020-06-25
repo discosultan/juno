@@ -110,7 +110,7 @@ class Agent:
 
                 _log.info(
                     f'existing live session {existing_state.name} found; continuing from '
-                    f'{existing_state.status} status'
+                    f'{existing_state.status.name} status'
                 )
                 return existing_state
             else:

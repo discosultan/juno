@@ -1,4 +1,3 @@
-import logging
 from collections import defaultdict
 from decimal import Decimal
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
