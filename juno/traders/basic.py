@@ -39,6 +39,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         adjust_start: bool = True
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
+        close_on_exit: bool = True  # Whether to close open position on exit.
 
         @property
         def base_asset(self) -> str:
@@ -57,8 +58,9 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         open_position: Optional[Position.Open] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
-        current: Timestamp = 0
+        current: Timestamp = 0  # Candle time.
         start_adjusted: bool = False
+        start: Timestamp = -1  # Candle time.
         real_start: Timestamp = -1
         stop_loss: StopLoss = field(default_factory=StopLoss)
         take_profit: TakeProfit = field(default_factory=TakeProfit)
@@ -116,28 +118,27 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 config.exchange, config.symbol
             )[1].is_margin_trading_allowed
 
-        # Request and assert available quote.
-        quote = self.request_quote(config.quote, config.exchange, config.quote_asset, config.mode)
-        fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
-        assert quote > filters.price.min
-
-        # Request start.
-        start = await self.request_start(
-            config.start, config.exchange, [config.symbol], [config.interval]
-        )
-
         state = state or Basic.State()
+
+        if state.start == -1:
+            state.start = await self.request_start(
+                config.start, config.exchange, [config.symbol], [config.interval]
+            )
 
         if state.real_start == -1:
             state.real_start = self._get_time_ms()
 
         if state.quote == -1:
-            state.quote = quote
+            state.quote = self.request_quote(
+                config.quote, config.exchange, config.quote_asset, config.mode
+            )
+            _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+            assert state.quote > filters.price.min
 
         if not state.summary:
             state.summary = TradingSummary(
-                start=start,
-                quote=quote,
+                start=state.start,
+                quote=state.quote,
                 quote_asset=config.quote_asset,
             )
 
@@ -145,7 +146,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             state.strategy = config.strategy.construct()
 
         if not state.current:
-            state.current = start
+            state.current = state.start
 
         if config.adjust_start and not state.start_adjusted:
             # Adjust start to accommodate for the required history before a strategy
@@ -206,7 +207,8 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 if not restart:
                     break
         finally:
-            await self._close_open_position(config, state)
+            if config.close_on_exit:
+                await self._close_open_position(config, state)
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
                     state.last_candle.time + config.interval if state.last_candle

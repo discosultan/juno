@@ -87,6 +87,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         channel: str = 'default'
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
+        close_on_exit: bool = True  # Whether to close open positions on exit.
         track: List[str] = []
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
@@ -99,6 +100,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         quotes: List[Decimal] = field(default_factory=list)
         summary: Optional[TradingSummary] = None
         real_start: Timestamp = -1
+        symbols: List[str] = field(default_factory=list)
 
     def __init__(
         self,
@@ -151,43 +153,43 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
 
-        symbols = await self._find_top_symbols(config)
-
-        # Request and assert available quote.
-        quote = self.request_quote(config.quote, config.exchange, 'btc', config.mode)
-        position_quote = quote / config.position_count
-        for symbol in symbols:
-            fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
-            assert position_quote > filters.price.min
-
-        # Request start.
-        start = await self.request_start(config.start, config.exchange, symbols, [config.interval])
-
         state = state or Multi.State()
+
+        if len(state.symbols) == 0:
+            state.symbols = await self._find_top_symbols(config)
 
         if state.real_start == -1:
             state.real_start = self._get_time_ms()
 
         if state.start == -1:
-            state.start = start
-
-        if not state.summary:
-            state.summary = TradingSummary(
-                start=start,
-                quote=quote,
-                quote_asset='btc',  # TODO: support others
+            state.start = await self.request_start(
+                config.start, config.exchange, state.symbols, [config.interval]
             )
+
+        if not state.quotes:
+            quote = self.request_quote(config.quote, config.exchange, 'btc', config.mode)
+            position_quote = quote / config.position_count
+            for symbol in state.symbols:
+                fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
+                assert position_quote > filters.price.min
             state.quotes = [quote / config.position_count] * config.position_count
             _log.info(f'quote split as: {state.quotes}')
 
+        if not state.summary:
+            state.summary = TradingSummary(
+                start=state.start,
+                quote=quote,
+                quote_asset='btc',  # TODO: support others
+            )
+
         if len(state.symbol_states) == 0:
-            for s in symbols:
+            for s in state.symbols:
                 state.symbol_states[s] = _SymbolState(
                     symbol=s,
                     strategy=config.symbol_strategies.get(s, config.strategy).construct(),
                     changed=Changed(True),
                     override_changed=Changed(True),
-                    current=start,
+                    current=state.start,
                     stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
                     take_profit=TakeProfit(config.take_profit),
                 )
@@ -208,7 +210,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                   for s, ss in state.symbol_states.items())
             )
         finally:
-            await self._close_all_open_positions(config, state)
+            if config.close_on_exit:
+                await self._close_all_open_positions(config, state)
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
                     max(
