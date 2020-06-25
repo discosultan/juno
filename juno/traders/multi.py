@@ -19,7 +19,6 @@ from juno.trading import (
     TradingMode, TradingSummary
 )
 from juno.typing import TypeConstructor
-from juno.utils import extract_public
 
 from .trader import Trader
 
@@ -341,6 +340,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 (last_candle := next(iter(state.symbol_states.values())).last_candle)
                 and last_candle.time >= final_candle_time
             ):
+                for ss in state.symbol_states.values():
+                    _log.info(f'{ss.symbol} last candle: {last_candle}')
                 break
 
     async def _track_advice(
@@ -426,7 +427,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 symbol_state.take_profit.clear(candle)
 
         if not symbol_state.first_candle:
-            _log.info(f'{symbol_state.symbol} first candle {candle}')
+            _log.info(f'{symbol_state.symbol} first candle: {candle}')
             symbol_state.first_candle = candle
         symbol_state.last_candle = candle
         symbol_state.current = candle.time + config.interval
@@ -498,8 +499,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbol_state.allocated_quote += position.quote_delta()
         symbol_state.open_position = position
 
-        _log.info(f'{symbol_state.symbol} long position opened: {candle}')
-        _log.debug(extract_public(position))
         return position
 
     async def _close_long_position(
@@ -531,8 +530,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         state.summary.append_position(position)
         symbol_state.open_position = None
 
-        _log.info(f'{position.symbol} long position closed: {candle}')
-        _log.debug(extract_public(position))
         return position
 
     async def _open_short_position(
@@ -560,8 +557,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbol_state.allocated_quote += position.quote_delta()
         symbol_state.open_position = position
 
-        _log.info(f'{symbol_state.symbol} short position opened: {candle}')
-        _log.debug(extract_public(position))
         return position
 
     async def _close_short_position(
@@ -593,6 +588,4 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         state.summary.append_position(position)
         symbol_state.open_position = None
 
-        _log.info(f'{position.symbol} short position closed: {candle}')
-        _log.debug(extract_public(position))
         return position

@@ -154,6 +154,7 @@ class Python(Solver, SimulatedPositionMixin):
             time=candle.time + config.interval,
             price=candle.close,
             quote=state.quote,
+            log=False,
         )
 
         state.quote += position.quote_delta()
@@ -168,6 +169,7 @@ class Python(Solver, SimulatedPositionMixin):
             time=candle.time + config.interval,
             price=candle.close,
             reason=reason,
+            log=False,
         )
 
         state.quote += position.quote_delta()
@@ -181,6 +183,7 @@ class Python(Solver, SimulatedPositionMixin):
             time=candle.time + config.interval,
             price=candle.close,
             collateral=state.quote,
+            log=False,
         )
 
         state.quote += position.quote_delta()
@@ -195,6 +198,7 @@ class Python(Solver, SimulatedPositionMixin):
             time=candle.time + config.interval,
             price=candle.close,
             reason=reason,
+            log=False,
         )
 
         state.quote += position.quote_delta()

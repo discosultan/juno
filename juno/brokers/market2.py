@@ -97,17 +97,18 @@ class Market2(Broker):
             async for order in stream:
                 if order.client_id != client_id:
                     _log.debug(
-                        f'skipping {symbol} order tracking; {order.client_id=} != {client_id=}'
+                        f'skipping {symbol} {side.name} order tracking; {order.client_id=} != '
+                        f'{client_id=}'
                     )
                     continue
 
                 if isinstance(order, OrderUpdate.New):
-                    _log.info(f'received new confirmation for {symbol} order {client_id}')
+                    _log.info(f'new {symbol} {side.name} order {client_id} confirmed')
                 elif isinstance(order, OrderUpdate.Match):
-                    _log.info(f'existing {symbol} order {client_id} match')
+                    _log.info(f'existing {symbol} {side.name} order {client_id} matched')
                     fills.append(order.fill)
                 elif isinstance(order, OrderUpdate.Done):
-                    _log.info(f'existing {symbol} order {client_id} filled')
+                    _log.info(f'existing {symbol} {side.name} order {client_id} filled')
                     time = order.time
                     break
                 else:

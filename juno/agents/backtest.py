@@ -108,6 +108,7 @@ class Backtest(Agent):
             fiat_exchange=config.fiat_exchange,
         )
 
+        _log.info('calculating benchmark and portfolio statistics')
         benchmark = analyse_benchmark(fiat_prices['btc'])
         portfolio = analyse_portfolio(
             benchmark_g_returns=benchmark.g_returns,

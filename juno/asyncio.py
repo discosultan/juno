@@ -98,7 +98,7 @@ async def cancel(*tasks: Optional[asyncio.Task]) -> None:
     # for task in pending_tasks:
     #     task.cancel()
     #     qualname = task.get_coro().__qualname__
-    #     _log.info(f'{qualname} task cancelled')
+    #     _log.debug(f'{qualname} task cancelled')
     #     cancellation_tasks.append(task)
 
     # results = await asyncio.gather(*pending_tasks, return_exceptions=True)
@@ -121,7 +121,7 @@ async def _cancel(task: asyncio.Task) -> None:
         await task
     except asyncio.CancelledError:
         qualname = task.get_coro().__qualname__
-        _log.info(f'{qualname} task cancelled')
+        _log.debug(f'{qualname} task cancelled')
 
 
 def create_task_cancel_on_exc(coro):
@@ -133,7 +133,7 @@ def create_task_cancel_on_exc(coro):
     def callback(task):
         task_name = task.get_coro().__qualname__
         if task.cancelled():
-            _log.info(f'{task_name} task cancelled')
+            _log.debug(f'{task_name} task cancelled')
         else:
             if exc := task.exception():
                 msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))

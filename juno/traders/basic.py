@@ -14,7 +14,7 @@ from juno.trading import (
     TradingMode, TradingSummary
 )
 from juno.typing import TypeConstructor
-from juno.utils import extract_public, unpack_symbol
+from juno.utils import unpack_symbol
 
 from .trader import Trader
 
@@ -215,6 +215,8 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             else:  # Paper or live.
                 end = min(self._get_time_ms(), config.end)
             state.summary.finish(end)
+            if state.last_candle:
+                _log.info(f'last candle: {state.last_candle}')
 
         _log.info('finished')
         return state.summary
@@ -268,7 +270,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             state.take_profit.clear(candle)
 
         if not state.first_candle:
-            _log.info(f'first candle {candle}')
+            _log.info(f'first candle: {candle}')
             state.first_candle = candle
         state.last_candle = candle
         state.current = candle.time + config.interval
@@ -276,13 +278,13 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     async def _close_open_position(self, config: Config, state: State) -> None:
         if isinstance(state.open_position, Position.OpenLong):
             assert state.last_candle
-            _log.info('long position open; closing')
+            _log.info(f'{state.open_position.symbol} long position open; closing')
             await self._close_long_position(
                 config, state, state.last_candle, CloseReason.CANCELLED
             )
         elif isinstance(state.open_position, Position.OpenShort):
             assert state.last_candle
-            _log.info('short position open; closing')
+            _log.info(f'{state.open_position.symbol} short position open; closing')
             await self._close_short_position(
                 config, state, state.last_candle, CloseReason.CANCELLED
             )
@@ -310,8 +312,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         state.quote += position.quote_delta()
         state.open_position = position
 
-        _log.info(f'long position opened: {candle}')
-        _log.debug(extract_public(state.open_position))
         await self._events.emit(
             config.channel, 'positions_opened', [state.open_position], state.summary
         )
@@ -341,8 +341,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         state.open_position = None
         state.summary.append_position(position)
 
-        _log.info(f'long position closed: {candle}')
-        _log.debug(extract_public(position))
         await self._events.emit(config.channel, 'positions_closed', [position], state.summary)
 
     async def _open_short_position(self, config: Config, state: State, candle: Candle) -> None:
@@ -368,8 +366,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         state.quote += position.quote_delta()
         state.open_position = position
 
-        _log.info(f'short position opened: {candle}')
-        _log.debug(extract_public(state.open_position))
         await self._events.emit(
             config.channel, 'positions_opened', [state.open_position], state.summary
         )
@@ -399,6 +395,4 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         state.open_position = None
         state.summary.append_position(position)
 
-        _log.info(f'short position closed: {candle}')
-        _log.debug(extract_public(position))
         await self._events.emit(config.channel, 'positions_closed', [position], state.summary)

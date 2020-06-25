@@ -15,8 +15,6 @@ from .trading import TradingSummary
 Operator = Callable[[Decimal, Decimal], Decimal]
 _SQRT_365 = np.sqrt(365)
 
-_log = logging.getLogger(__name__)
-
 
 class Statistics(NamedTuple):
     total_return: float
@@ -42,7 +40,6 @@ class AnalysisSummary(NamedTuple):
 
 def analyse_benchmark(prices: List[Decimal]) -> AnalysisSummary:
     performance = pd.Series([float(p) for p in prices])
-    _log.info('calculating benchmark statistics')
     return _calculate_statistics(performance)
 
 
@@ -74,7 +71,6 @@ def analyse_portfolio(
         [float(sum(v for v in apd.values())) for apd in asset_performance]
     )
 
-    _log.info('calculating portfolio statistics')
     return _calculate_statistics(portfolio_performance, benchmark_g_returns)
 
 

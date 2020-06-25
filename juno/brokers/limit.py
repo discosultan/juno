@@ -194,7 +194,7 @@ class Limit(Broker):
             if last_order_price not in [0, Decimal('Inf')]:
                 # Cancel prev Order.
                 _log.info(
-                    f'cancelling previous {symbol} limit order {ctx.client_id} at price '
+                    f'cancelling previous {symbol} {side.name} order {ctx.client_id} at price '
                     f'{last_order_price}'
                 )
                 try:
@@ -203,11 +203,13 @@ class Limit(Broker):
                     )
                 except OrderException as exc:
                     _log.warning(
-                        f'failed to cancel {symbol} limit order {ctx.client_id}; probably got '
-                        f'filled; {exc}'
+                        f'failed to cancel {symbol} {side.name} order {ctx.client_id}; probably '
+                        f'got filled; {exc}'
                     )
                     break
-                _log.info(f'waiting for {symbol} limit order {ctx.client_id} to be cancelled')
+                _log.info(
+                    f'waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled'
+                )
                 fills = await ctx.cancelled_event.wait()
                 cumulative_filled_size = Fill.total_size(fills)
                 add_back_size = last_order_size - cumulative_filled_size
@@ -220,11 +222,11 @@ class Limit(Broker):
             size = ctx.available / price if ctx.use_quote else ctx.available
             size = filters.size.round_down(size)
 
-            _log.info(f'validating {symbol} limit order price and size')
+            _log.info(f'validating {symbol} {side.name} order price and size')
             filters.size.validate(size)
             filters.min_notional.validate_limit(price=price, size=size)
 
-            _log.info(f'placing {symbol} limit order at price {price} for size {size}')
+            _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
             await self._exchanges[exchange].place_order(
                 symbol=symbol,
                 side=side,
@@ -251,21 +253,22 @@ class Limit(Broker):
         async for order in stream:
             if order.client_id != ctx.client_id:
                 _log.debug(
-                    f'skipping {symbol} order tracking; {order.client_id=} != {ctx.client_id=}'
+                    f'skipping {symbol} {side.name} order tracking; {order.client_id=} != '
+                    f'{ctx.client_id=}'
                 )
                 continue
 
             if isinstance(order, OrderUpdate.New):
-                _log.info(f'received new confirmation for {symbol} order {ctx.client_id}')
+                _log.info(f'new {symbol} {side.name} order {ctx.client_id} confirmed')
                 ctx.new_event.set()
             elif isinstance(order, OrderUpdate.Match):
-                _log.info(f'existing {symbol} order {ctx.client_id} match')
+                _log.info(f'existing {symbol} {side.name} order {ctx.client_id} matched')
                 fills.append(order.fill)
             elif isinstance(order, OrderUpdate.Canceled):
-                _log.info(f'existing {symbol} order {ctx.client_id} canceled')
+                _log.info(f'existing {symbol} {side.name} order {ctx.client_id} cancelled')
                 ctx.cancelled_event.set(fills)
             elif isinstance(order, OrderUpdate.Done):
-                _log.info(f'existing {symbol} order {ctx.client_id} filled')
+                _log.info(f'existing {symbol} {side.name} order {ctx.client_id} filled')
                 time = order.time
                 break
             else:

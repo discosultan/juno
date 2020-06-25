@@ -17,7 +17,7 @@ from juno.components import Chandler, Informant
 from juno.exchanges import Exchange
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, YEAR_MS, strftimestamp, time_ms
-from juno.utils import unpack_symbol
+from juno.utils import extract_public, unpack_symbol
 
 _log = logging.getLogger(__name__)
 
@@ -532,7 +532,8 @@ class SimulatedPositionMixin(ABC):
         pass
 
     def open_simulated_long_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, quote: Decimal
+        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, quote: Decimal,
+        log: bool = True
     ) -> Position.OpenLong:
         base_asset, _ = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -543,7 +544,7 @@ class SimulatedPositionMixin(ABC):
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(size * fees.taker, filters.base_precision)
 
-        return Position.OpenLong(
+        open_position = Position.OpenLong(
             exchange=exchange,
             symbol=symbol,
             time=time,
@@ -551,9 +552,13 @@ class SimulatedPositionMixin(ABC):
                 price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
             )],
         )
+        if log:
+            _log.info(f'{symbol} simulated long position opened at {strftimestamp(time)}')
+        return open_position
 
     def close_simulated_long_position(
-        self, position: Position.OpenLong, time: Timestamp, price: Decimal, reason: CloseReason
+        self, position: Position.OpenLong, time: Timestamp, price: Decimal, reason: CloseReason,
+        log: bool = True
     ) -> Position.Long:
         _, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -562,16 +567,23 @@ class SimulatedPositionMixin(ABC):
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-        return position.close(
+        closed_position = position.close(
             time=time,
             fills=[Fill(
                 price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset
             )],
             reason=reason,
         )
+        if log:
+            _log.info(
+                f'{closed_position.symbol} simulated long position closed at '
+                f'{strftimestamp(time)} due to {reason.name}'
+            )
+        return closed_position
 
     def open_simulated_short_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal
+        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
+        log: bool = True
     ) -> Position.OpenShort:
         _, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -581,7 +593,7 @@ class SimulatedPositionMixin(ABC):
         quote = round_down(price * borrowed, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-        return Position.OpenShort(
+        open_position = Position.OpenShort(
             exchange=exchange,
             symbol=symbol,
             collateral=collateral,
@@ -591,10 +603,13 @@ class SimulatedPositionMixin(ABC):
                 price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset
             )],
         )
+        if log:
+            _log.info(f'{symbol} simulated short position opened at {strftimestamp(time)}')
+        return open_position
 
     def close_simulated_short_position(
         self, position: Position.OpenShort, time: Timestamp, price: Decimal,
-        reason: CloseReason
+        reason: CloseReason, log: bool = True
     ) -> Position.Short:
         base_asset, _ = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -611,7 +626,7 @@ class SimulatedPositionMixin(ABC):
         fee = round_half_up(size * fees.taker, filters.base_precision)
         size += fee
 
-        return position.close(
+        closed_position = position.close(
             time=time,
             interest=interest,
             fills=[Fill(
@@ -619,6 +634,12 @@ class SimulatedPositionMixin(ABC):
             )],
             reason=reason,
         )
+        if log:
+            _log.info(
+                f'{closed_position.symbol} simulated short position closed at '
+                f'{strftimestamp(time)} due to {reason.name}'
+            )
+        return closed_position
 
 
 class PositionMixin(ABC):
@@ -646,6 +667,7 @@ class PositionMixin(ABC):
         self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
     ) -> Position.OpenLong:
         assert mode is not TradingMode.BACKTEST
+        _log.info(f'opening {symbol} {mode.name} long position with {quote} quote')
 
         res = await self.broker.buy_by_quote(
             exchange=exchange,
@@ -654,17 +676,21 @@ class PositionMixin(ABC):
             test=mode is TradingMode.PAPER,
         )
 
-        return Position.OpenLong(
+        open_position = Position.OpenLong(
             exchange=exchange,
             symbol=symbol,
             time=res.time,
             fills=res.fills,
         )
+        _log.info(f'{open_position.symbol} {mode.name} long position opened')
+        _log.debug(extract_public(open_position))
+        return open_position
 
     async def close_long_position(
         self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
     ) -> Position.Long:
         assert mode is not TradingMode.BACKTEST
+        _log.info(f'closing {position.symbol} {mode.name} long position')
 
         res = await self.broker.sell(
             exchange=position.exchange,
@@ -673,16 +699,20 @@ class PositionMixin(ABC):
             test=mode is TradingMode.PAPER,
         )
 
-        return position.close(
+        closed_position = position.close(
             time=res.time,
             fills=res.fills,
             reason=reason,
         )
+        _log.info(f'{closed_position.symbol} {mode.name} long position closed')
+        _log.debug(extract_public(closed_position))
+        return closed_position
 
     async def open_short_position(
         self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
     ) -> Position.OpenShort:
         assert mode is not TradingMode.BACKTEST
+        _log.info(f'opening {symbol} {mode.name} short position with {collateral} collateral')
 
         base_asset, quote_asset = unpack_symbol(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -708,7 +738,7 @@ class PositionMixin(ABC):
             margin=mode is TradingMode.LIVE,
         )
 
-        return Position.OpenShort(
+        open_position = Position.OpenShort(
             exchange=exchange,
             symbol=symbol,
             collateral=collateral,
@@ -716,11 +746,15 @@ class PositionMixin(ABC):
             time=res.time,
             fills=res.fills,
         )
+        _log.info(f'{open_position.symbol} {mode.name} short position opened')
+        _log.debug(extract_public(open_position))
+        return open_position
 
     async def close_short_position(
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Short:
         assert mode is not TradingMode.BACKTEST
+        _log.info(f'closing {position.symbol} {mode.name} short position')
 
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -769,6 +803,8 @@ class PositionMixin(ABC):
             await exchange_instance.transfer(quote_asset, transfer, margin=False)
             # TODO: Also transfer base asset dust back?
 
+        _log.info(f'{closed_position.symbol} {mode.name} short position closed')
+        _log.debug(extract_public(closed_position))
         return closed_position
 
 

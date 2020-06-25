@@ -61,12 +61,10 @@ class ClientSession:
         **kwargs: Any
     ) -> AsyncIterator[aiohttp.ClientResponse]:
         name = name or next(_random_words)
-        _aiohttp_log.info(f'req {name} {method} {url}')
-        _aiohttp_log.debug(kwargs)
+        _aiohttp_log.debug(f'req {name} {method} {url}: {kwargs}')
         async with self._session.request(method, url, **kwargs) as res:
-            _aiohttp_log.info(f'res {name} {res.status} {res.reason}')
             content = {'headers': res.headers, 'body': await res.text()}
-            _aiohttp_log.debug(content)
+            _aiohttp_log.debug(f'res {name} {res.status} {res.reason}: {content}')
             if raise_for_status or (raise_for_status is None and self._raise_for_status):
                 res.raise_for_status()
             yield res
@@ -82,8 +80,7 @@ class ClientSession:
     async def ws_connect(self, url: str, name: Optional[str] = None,
                          **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
         name = name or next(_random_words)
-        _aiohttp_log.info(f'WS {name} {url}')
-        _aiohttp_log.debug(kwargs)
+        _aiohttp_log.debug(f'WS {name} {url}: {kwargs}')
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield ClientWebSocketResponse(ws, name)
 
@@ -149,7 +146,7 @@ async def connect_refreshing_stream(
                                                     return_when=asyncio.FIRST_COMPLETED)
 
                 if timeout_task in done:
-                    _aiohttp_log.info(f'refreshing ws {ctx.name} connection')
+                    _aiohttp_log.debug(f'refreshing ws {ctx.name} connection')
                     to_close_ctx = ctx
                     ctx = await _WSConnectionContext.connect(session, url, name2, counter)
 
