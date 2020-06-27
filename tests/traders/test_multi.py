@@ -1,6 +1,8 @@
 import asyncio
 from decimal import Decimal
 
+import pytest
+
 from juno import Advice, Candle, Ticker, traders
 from juno.asyncio import cancel
 from juno.strategies import Fixed
@@ -310,90 +312,92 @@ async def test_only_single_short_position() -> None:
     assert len(short_positions) == 1
 
 
-# async def test_exit_on_close(storage: fakes.Storage) -> None:
-#     symbols = ['eth-btc', 'ltc-btc']
-#     chandler = fakes.Chandler()
-#     informant = fakes.Informant(tickers=[
-#         Ticker(symbol='eth-btc', volume=Decimal('2.0'), quote_volume=Decimal('2.0')),
-#         Ticker(symbol='ltc-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
-#     ])
-#     trader = traders.Multi(chandler=chandler, informant=informant)
-#     config = traders.Multi.Config(
-#         exchange='dummy',
-#         interval=1,
-#         start=0,
-#         end=4,
-#         quote=Decimal('2.0'),
-#         strategy=TypeConstructor.from_type(Fixed),
-#         symbol_strategies={
-#             'eth-btc': TypeConstructor.from_type(
-#                 Fixed,
-#                 advices=[Advice.LIQUIDATE, Advice.LONG, Advice.LIQUIDATE, Advice.SHORT],
-#             ),
-#             'ltc-btc': TypeConstructor.from_type(
-#                 Fixed,
-#                 advices=[Advice.LIQUIDATE, Advice.LONG, Advice.LIQUIDATE, Advice.SHORT],
-#             ),
-#         },
-#         long=True,
-#         short=True,
-#         track_count=2,
-#         position_count=1,
-#     )
+@pytest.mark.parametrize(
+    'close_on_exit,expected_close_time,expected_close_reason,expected_profit',
+    [
+        (False, 3, CloseReason.STRATEGY, Decimal('2.0')),
+        (True, 2, CloseReason.CANCELLED, Decimal('1.0')),
+    ],
+)
+async def test_exit_on_close(
+    storage: fakes.Storage,
+    close_on_exit: bool,
+    expected_close_time: int,
+    expected_close_reason: CloseReason,
+    expected_profit: Decimal,
+) -> None:
+    symbols = ['eth-btc', 'ltc-btc']
+    chandler = fakes.Chandler(
+        future_candles={
+            ('dummy', 'eth-btc', 1): [
+                Candle(time=0, close=Decimal('10.0')),
+                Candle(time=1, close=Decimal('20.0')),
+            ],
+            ('dummy', 'ltc-btc', 1): [
+                Candle(time=0, close=Decimal('1.0')),
+                Candle(time=1, close=Decimal('2.0')),
+            ],
+        },
+    )
+    informant = fakes.Informant(tickers=[
+        Ticker(symbol='eth-btc', volume=Decimal('2.0'), quote_volume=Decimal('2.0')),
+        Ticker(symbol='ltc-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
+    ])
+    trader = traders.Multi(chandler=chandler, informant=informant)
+    config = traders.Multi.Config(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=3,
+        quote=Decimal('2.0'),
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
+        ),
+        long=True,
+        short=True,
+        track_count=2,
+        position_count=1,
+        close_on_exit=False,
+    )
 
-#     trader_state = traders.Multi.State()
-#     for i in range(0, 4):
-#         trader_task = asyncio.create_task(trader.run(config, trader_state))
+    state = traders.Multi.State()
+    trader_task = asyncio.create_task(trader.run(config, state))
 
-#         for s in symbols:
-#             chandler.future_candle_queues[('dummy', s, 1)].put_nowait(
-#                 Candle(time=i, close=Decimal('1.0'))
-#             )
-#         await asyncio.gather(
-#             *(chandler.future_candle_queues[('dummy', s, 1)].join() for s in symbols)
-#         )
-#         # Sleep to give control back to position manager.
-#         await asyncio.sleep(0)
+    await asyncio.gather(
+        *(chandler.future_candle_queues[('dummy', s, 1)].join() for s in symbols)
+    )
+    # Sleep to give control back to position manager.
+    await asyncio.sleep(0)
 
-#         if i < 3:  # If not last iteration, cancel, store and retrieve from storage.
-#             await cancel(trader_task)
-#             await storage.set('shard', 'key', trader_state)
-#             trader_state = await storage.get('shard', 'key', traders.Multi.State)
+    await cancel(trader_task)
+    await storage.set('shard', 'key', state)
+    state = await storage.get('shard', 'key', traders.Multi.State)
+    chandler.future_candle_queues[('dummy', 'eth-btc', 1)].put_nowait(
+        Candle(time=2, close=Decimal('30.0'))
+    )
+    chandler.future_candle_queues[('dummy', 'ltc-btc', 1)].put_nowait(
+        Candle(time=2, close=Decimal('3.0'))
+    )
+    summary = await trader.run(config, state)
 
-#             # Change tickers for informant. This shouldn't crash the trader.
-#             informant.tickers.insert(
-#                 0,
-#                 Ticker(symbol='xmr-btc', volume=Decimal('3.0'), quote_volume=Decimal('3.0')),
-#             )
+    # exit_on_close = True
+    #     L L -
+    # ETH L L -
+    # LTC - - -
 
-#     summary = await trader_task
+    # exit_on_close = False
+    #     L L -
+    # ETH L L L
+    # LTC - - -
 
-#     #     L - S S
-#     # ETH L - S -  NB! Losing the short because positions get liquidated on cancel.
+    positions = summary.list_positions()
+    assert len(positions) == 1
 
-#     #     - L - S
-#     # LTC - L - S
-#     long_positions = summary.list_positions(type_=Position.Long)
-#     short_positions = summary.list_positions(type_=Position.Short)
-#     assert len(long_positions) == 2
-#     assert len(short_positions) == 2
-#     lpos = long_positions[0]
-#     assert lpos.open_time == 1
-#     assert lpos.close_time == 1
-#     assert lpos.symbol == 'eth-btc'
-#     assert lpos.close_reason is CloseReason.CANCELLED
-#     lpos = long_positions[1]
-#     assert lpos.open_time == 2
-#     assert lpos.close_time == 2
-#     assert lpos.symbol == 'ltc-btc'
-#     assert lpos.close_reason is CloseReason.CANCELLED
-#     spos = short_positions[0]
-#     assert spos.open_time == 3
-#     assert spos.close_time == 3
-#     assert spos.symbol == 'eth-btc'
-#     assert spos.close_reason is CloseReason.CANCELLED
-#     spos = short_positions[1]
-#     assert spos.open_time == 4
-#     assert spos.close_time == 4
-#     assert spos.symbol == 'ltc-btc'
-#     assert spos.close_reason is CloseReason.CANCELLED
+    position = positions[0]
+    assert isinstance(position, Position.Long)
+    assert position.symbol == 'eth-btc'
+    assert position.open_time == 1
+    assert position.close_time == expected_close_time
+    assert position.close_reason is expected_close_reason
+    assert position.profit == expected_profit

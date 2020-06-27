@@ -472,12 +472,19 @@ async def test_summary_end_on_historical_cancel() -> None:
     assert state.summary.end == 1
 
 
-@pytest.mark.parametrize('close_on_exit,expected_close_time,expected_profit', [
-    (False, 3, Decimal('2.0')),
-    (True, 2, Decimal('1.0')),
-])
+@pytest.mark.parametrize(
+    'close_on_exit,expected_close_time,expected_close_reason,expected_profit',
+    [
+        (False, 3, CloseReason.STRATEGY, Decimal('2.0')),
+        (True, 2, CloseReason.CANCELLED, Decimal('1.0')),
+    ],
+)
 async def test_exit_on_close(
-    storage: fakes.Storage, close_on_exit: bool, expected_close_time: int, expected_profit: Decimal
+    storage: fakes.Storage,
+    close_on_exit: bool,
+    expected_close_time: int,
+    expected_close_reason: CloseReason,
+    expected_profit: Decimal,
 ) -> None:
     chandler = fakes.Chandler(
         future_candles={
@@ -528,4 +535,5 @@ async def test_exit_on_close(
     assert isinstance(position, Position.Long)
     assert position.open_time == 1
     assert position.close_time == expected_close_time
+    assert position.close_reason is expected_close_reason
     assert position.profit == expected_profit
