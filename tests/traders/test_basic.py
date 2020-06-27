@@ -2,10 +2,13 @@ import asyncio
 from decimal import Decimal
 from typing import cast
 
-from juno import BorrowInfo, Candle, Filters, MissedCandlePolicy, strategies, traders
+import pytest
+
+from juno import Advice, BorrowInfo, Candle, Filters, MissedCandlePolicy, strategies, traders
 from juno.asyncio import cancel
-from juno.config import get_module_type_constructor
+from juno.strategies import Fixed, MidTrendPolicy
 from juno.trading import CloseReason, Position
+from juno.typing import TypeConstructor
 from tests import fakes
 
 
@@ -29,13 +32,10 @@ async def test_upside_stop_loss() -> None:
         start=0,
         end=5,
         quote=Decimal('10.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['long', 'long', 'long', 'long', 'liquidate'],
-                'mid_trend_policy': 'current',
-            },
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
+            mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
         stop_loss=Decimal('0.1'),
         trail_stop_loss=False,
@@ -70,13 +70,10 @@ async def test_upside_trailing_stop_loss() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['long', 'long', 'long', 'liquidate'],
-                'mid_trend_policy': 'current',
-            },
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
+            mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
         stop_loss=Decimal('0.1'),
         trail_stop_loss=True,
@@ -116,13 +113,10 @@ async def test_downside_trailing_stop_loss() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['short', 'short', 'short', 'liquidate'],
-                'mid_trend_policy': 'current',
-            },
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.SHORT, Advice.SHORT, Advice.SHORT, Advice.LIQUIDATE],
+            mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
         stop_loss=Decimal('0.1'),
         trail_stop_loss=True,
@@ -157,13 +151,10 @@ async def test_upside_take_profit() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['long', 'long', 'long', 'liquidate'],
-                'mid_trend_policy': 'current',
-            },
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
+            mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
         take_profit=Decimal('0.5'),
         long=True,
@@ -202,13 +193,10 @@ async def test_downside_take_profit() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['short', 'short', 'short', 'liquidate'],
-                'mid_trend_policy': 'current',
-            },
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.SHORT, Advice.SHORT, Advice.SHORT, Advice.LIQUIDATE],
+            mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
         take_profit=Decimal('0.5'),
         long=False,
@@ -244,13 +232,7 @@ async def test_restart_on_missed_candle() -> None:
         start=0,
         end=6,
         quote=Decimal('10.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['none'] * 3,
-            },
-        ),
+        strategy=TypeConstructor.from_type(Fixed),
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
     initial_strategy = cast(strategies.Fixed, config.strategy.construct())
@@ -289,13 +271,7 @@ async def test_assume_same_as_last_on_missed_candle() -> None:
         start=0,
         end=5,
         quote=Decimal('10.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['none'] * 5,
-            },
-        ),
+        strategy=TypeConstructor.from_type(Fixed),
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
     state = traders.Basic.State()
@@ -330,15 +306,12 @@ async def test_adjust_start_ignore_mid_trend() -> None:
         start=2,
         end=4,
         quote=Decimal('1.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['none', 'long', 'long', 'none'],
-                'maturity': 1,
-                'mid_trend_policy': 'ignore',
-                'persistence': 1,
-            },
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.NONE, Advice.LONG, Advice.LONG, Advice.NONE],
+            maturity=1,
+            mid_trend_policy=MidTrendPolicy.IGNORE,
+            persistence=1,
         ),
         adjust_start=True,
     )
@@ -366,15 +339,12 @@ async def test_adjust_start_persistence() -> None:
         start=3,
         end=4,
         quote=Decimal('1.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['none', 'long', 'long', 'long'],
-                'maturity': 1,
-                'mid_trend_policy': 'current',
-                'persistence': 2,
-            },
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.NONE, Advice.LONG, Advice.LONG, Advice.LONG],
+            maturity=1,
+            mid_trend_policy=MidTrendPolicy.CURRENT,
+            persistence=2,
         ),
         adjust_start=True,
     )
@@ -413,13 +383,9 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         start=2,
         end=6,
         quote=Decimal('1.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['none'] * 100,
-                'maturity': 2,
-            },
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            maturity=2,
         ),
         adjust_start=True,
     )
@@ -439,12 +405,8 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
     assert state.strategy
     candle_times = [c.time for c in state.strategy.updates]  # type: ignore
     assert len(candle_times) == 6
-    assert candle_times[0] == 0
-    assert candle_times[1] == 1
-    assert candle_times[2] == 2
-    assert candle_times[3] == 3
-    assert candle_times[4] == 4
-    assert candle_times[5] == 5
+    for i in range(6):
+        assert candle_times[i] == i
 
 
 async def test_summary_end_on_cancel() -> None:
@@ -461,13 +423,7 @@ async def test_summary_end_on_cancel() -> None:
         start=0,
         end=10,
         quote=Decimal('1.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['none'] * 100,
-            },
-        ),
+        strategy=TypeConstructor.from_type(Fixed),
     )
     state = traders.Basic.State()
 
@@ -500,13 +456,7 @@ async def test_summary_end_on_historical_cancel() -> None:
         start=0,
         end=2,
         quote=Decimal('1.0'),
-        strategy=get_module_type_constructor(
-            strategies,
-            {
-                'type': 'fixed',
-                'advices': ['none'] * 100,
-            },
-        ),
+        strategy=TypeConstructor.from_type(Fixed),
     )
     state = traders.Basic.State()
 
@@ -520,3 +470,62 @@ async def test_summary_end_on_historical_cancel() -> None:
     assert state.summary
     assert state.summary.start == 0
     assert state.summary.end == 1
+
+
+@pytest.mark.parametrize('close_on_exit,expected_close_time,expected_profit', [
+    (False, 3, Decimal('2.0')),
+    (True, 2, Decimal('1.0')),
+])
+async def test_exit_on_close(
+    storage: fakes.Storage, close_on_exit: bool, expected_close_time: int, expected_profit: Decimal
+) -> None:
+    chandler = fakes.Chandler(
+        future_candles={
+            ('dummy', 'eth-btc', 1):
+            [
+                Candle(time=0, close=Decimal('1.0')),  # Long.
+                Candle(time=1, close=Decimal('2.0')),
+            ]
+        }
+    )
+    trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
+
+    config = traders.Basic.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=4,
+        quote=Decimal('1.0'),
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG, Advice.LONG, Advice.SHORT, Advice.SHORT],
+        ),
+        close_on_exit=close_on_exit,
+    )
+    state = traders.Basic.State()
+
+    trader_run_task = asyncio.create_task(trader.run(config, state))
+
+    future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
+    await future_candle_queue.join()
+    await cancel(trader_run_task)
+    # Liquidate if close on exit.
+    await storage.set('shard', 'key', state)
+    future_candle_queue.put_nowait(Candle(time=2, close=Decimal('3.0')))
+    # Liquidate if not close on exit.
+    future_candle_queue.put_nowait(Candle(time=3, close=Decimal('4.0')))
+    state = await storage.get('shard', 'key', traders.Basic.State)
+
+    summary = await trader.run(config, state)
+    assert summary.start == 0
+    assert summary.end == 4
+
+    positions = summary.list_positions()
+    assert len(positions) == 1
+
+    position = positions[0]
+    assert isinstance(position, Position.Long)
+    assert position.open_time == 1
+    assert position.close_time == expected_close_time
+    assert position.profit == expected_profit

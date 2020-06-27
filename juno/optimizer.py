@@ -324,7 +324,7 @@ class Optimizer(StartMixin):
             adjust_start=False,
             strategy=TypeConstructor.from_type(
                 config.strategy.type_,
-                kwargs=map_input_args(config.strategy.type_.__init__, best_args[8:]),
+                **map_input_args(config.strategy.type_.__init__, best_args[8:]),
             ),
         )
 
