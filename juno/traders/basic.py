@@ -58,7 +58,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         open_position: Optional[Position.Open] = None
         first_candle: Optional[Candle] = None
         last_candle: Optional[Candle] = None
-        current: Timestamp = 0  # Candle time.
+        current: Timestamp = -1  # Candle time.
         start_adjusted: bool = False
         start: Timestamp = -1  # Candle time.
         real_start: Timestamp = -1
@@ -145,7 +145,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         if not state.strategy:
             state.strategy = config.strategy.construct()
 
-        if not state.current:
+        if state.current == -1:
             state.current = state.start
 
         if config.adjust_start and not state.start_adjusted:
@@ -156,7 +156,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 f'fetching {state.strategy.adjust_hint} candle(s) before start time to warm-up '
                 'strategy'
             )
-            state.current -= state.strategy.adjust_hint * config.interval
+            state.current = max(state.current - state.strategy.adjust_hint * config.interval, 0)
             state.start_adjusted = True
 
         state.stop_loss.threshold = config.stop_loss

@@ -155,7 +155,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
 
         state = state or Multi.State()
 
-        if len(state.symbols) == 0:
+        if not state.symbols:
             state.symbols = await self._find_top_symbols(config)
 
         if state.real_start == -1:
@@ -182,7 +182,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 quote_asset='btc',  # TODO: support others
             )
 
-        if len(state.symbol_states) == 0:
+        if not state.symbol_states:
             for s in state.symbols:
                 state.symbol_states[s] = _SymbolState(
                     symbol=s,
@@ -356,7 +356,9 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 f'fetching {symbol_state.strategy.adjust_hint} {symbol_state.symbol} candle(s) '
                 'before start time to warm-up strategy'
             )
-            symbol_state.current -= symbol_state.strategy.adjust_hint * config.interval
+            symbol_state.current = (
+                max(symbol_state.current - symbol_state.strategy.adjust_hint * config.interval, 0)
+            )
             symbol_state.start_adjusted = True
 
         async for candle in self._chandler.stream_candles(
