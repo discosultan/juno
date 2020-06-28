@@ -349,7 +349,7 @@ async def test_exit_on_close(
         interval=1,
         start=0,
         end=3,
-        quote=Decimal('2.0'),
+        quote=Decimal('1.0'),
         strategy=TypeConstructor.from_type(
             Fixed,
             advices=[Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
@@ -358,7 +358,7 @@ async def test_exit_on_close(
         short=True,
         track_count=2,
         position_count=1,
-        close_on_exit=False,
+        close_on_exit=close_on_exit,
     )
 
     state = traders.Multi.State()
