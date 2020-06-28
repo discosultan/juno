@@ -97,7 +97,7 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy=TypeConstructor.from_type(STRATEGY_TYPE, kwargs=STRATEGY_KWARGS),
+            strategy=TypeConstructor.from_type(STRATEGY_TYPE, **STRATEGY_KWARGS),
             missed_candle_policy=MISSED_CANDLE_POLICY,
             stop_loss=STOP_LOSS,
             take_profit=TAKE_PROFIT,

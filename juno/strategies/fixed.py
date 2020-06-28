@@ -16,7 +16,7 @@ class Fixed(Strategy):
 
     def __init__(
         self,
-        advices: List[str] = [],
+        advices: List[Advice] = [],
         maturity: int = 0,
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,
@@ -27,7 +27,7 @@ class Fixed(Strategy):
             persistence=persistence,
             mid_trend_policy=mid_trend_policy,
         )
-        self.advices = [Advice[a.upper()] for a in advices]
+        self.advices = list(advices)
         self.updates = []
         self.cancel = cancel
 

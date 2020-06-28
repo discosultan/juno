@@ -121,7 +121,7 @@ def get_module_type_constructor(
     module: ModuleType, config: Dict[str, Any]
 ) -> TypeConstructor[Any]:
     type_, kwargs = get_module_type_and_kwargs(module, config)
-    return TypeConstructor.from_type(type_, kwargs=kwargs)
+    return TypeConstructor.from_type(type_, **kwargs)
 
 
 def get_type_name_and_kwargs(config: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
