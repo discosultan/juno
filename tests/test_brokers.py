@@ -255,6 +255,101 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         assert len(exchange.cancel_order_calls) == 1
 
 
+async def test_limit_multiple_cancels() -> None:
+    snapshot = Depth.Snapshot(
+        asks=[(Decimal('10.0'), Decimal('1.0'))],
+        bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
+    )
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_limit_broker(exchange) as broker:
+        task = asyncio.create_task(broker.buy_by_quote(
+            exchange='exchange',
+            symbol='eth-btc',
+            quote=Decimal('10.0'),
+            test=False,
+        ))
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await exchange.orders_queue.put(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('1.0'),
+                    size=Decimal('5.0'),
+                    quote=Decimal('5.0'),
+                    fee=Decimal('0.5'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        await yield_control()
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('2.0') - filters.price.step, Decimal('1.0'))])
+        )
+        await yield_control()  # Cancel order.
+        await exchange.orders_queue.put(
+            OrderUpdate.Canceled(
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('5.0') - filters.price.step, Decimal('1.0'))])
+        )
+        await yield_control()  # Cancel order.
+        await exchange.orders_queue.put(
+            OrderUpdate.Canceled(
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()
+        await exchange.orders_queue.put(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('5.0'),
+                    size=Decimal('1.0'),
+                    quote=Decimal('5.0'),
+                    fee=Decimal('0.1'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        await exchange.orders_queue.put(
+            OrderUpdate.Done(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        result = await asyncio.wait_for(task, timeout=1)
+        assert result.status is OrderStatus.FILLED
+        assert Fill.total_quote(result.fills) == 10
+        assert Fill.total_size(result.fills) == Decimal('6.0')
+        assert Fill.total_fee(result.fills) == Decimal('0.6')
+        assert len(exchange.place_order_calls) == 3
+        assert len(exchange.cancel_order_calls) == 2
+
+
 @asynccontextmanager
 async def init_market_broker(exchange: Exchange) -> AsyncIterator[Market]:
     memory = Memory()

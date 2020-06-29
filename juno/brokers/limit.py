@@ -210,10 +210,14 @@ class Limit(Broker):
                 _log.info(
                     f'waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled'
                 )
-                fills = await ctx.cancelled_event.wait()
-                cumulative_filled_size = Fill.total_size(fills)
-                add_back_size = last_order_size - cumulative_filled_size
+                fills_since_last_order = await ctx.cancelled_event.wait()
+                filled_size_since_last_order = Fill.total_size(fills_since_last_order)
+                add_back_size = last_order_size - filled_size_since_last_order
                 add_back = add_back_size * last_order_price if ctx.use_quote else add_back_size
+                _log.info(
+                    f'last {symbol} {side.name} order size {last_order_size} but filled '
+                    f'{filled_size_since_last_order}; {add_back_size} still to be filled'
+                )
                 ctx.available += add_back
                 # Use a new client ID for new order.
                 ctx.client_id = self._get_client_id()
@@ -249,6 +253,7 @@ class Limit(Broker):
         self, symbol: str, stream: AsyncIterable[OrderUpdate.Any], side: Side, ctx: _Context
     ) -> None:
         fills = []  # Fills from aggregated trades.
+        fills_since_last_order: List[Fill] = []
         time = -1
         async for order in stream:
             if order.client_id != ctx.client_id:
@@ -261,14 +266,17 @@ class Limit(Broker):
             if isinstance(order, OrderUpdate.New):
                 _log.info(f'new {symbol} {side.name} order {ctx.client_id} confirmed')
                 ctx.new_event.set()
+                fills_since_last_order.clear()
             elif isinstance(order, OrderUpdate.Match):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} matched')
-                fills.append(order.fill)
+                fills_since_last_order.append(order.fill)
             elif isinstance(order, OrderUpdate.Canceled):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} cancelled')
-                ctx.cancelled_event.set(fills)
+                ctx.cancelled_event.set(fills_since_last_order)
+                fills.extend(fills_since_last_order)
             elif isinstance(order, OrderUpdate.Done):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} filled')
+                fills.extend(fills_since_last_order)
                 time = order.time
                 break
             else:
