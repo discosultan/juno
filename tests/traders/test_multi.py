@@ -1,12 +1,15 @@
 import asyncio
 from decimal import Decimal
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from juno import Advice, Candle, Ticker, traders
+from juno import Advice, Balance, Candle, Fill, OrderResult, OrderStatus, Ticker, traders
 from juno.asyncio import cancel
+from juno.brokers import Broker
+from juno.components import Wallet
 from juno.strategies import Fixed
-from juno.trading import CloseReason, Position
+from juno.trading import CloseReason, Position, TradingMode
 from juno.typing import TypeConstructor
 from tests import fakes
 
@@ -401,3 +404,52 @@ async def test_exit_on_close(
     assert position.close_time == expected_close_time
     assert position.close_reason is expected_close_reason
     assert position.profit == expected_profit
+
+
+async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
+    wallet = mocker.patch('juno.components.wallet.Wallet')
+    wallet.get_balance.return_value = Balance(Decimal('1.0'))
+    broker = mocker.patch('juno.brokers.market.Market')
+    broker.buy_by_quote = AsyncMock(return_value=OrderResult(
+        time=0,
+        status=OrderStatus.FILLED,
+        fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
+    ))
+
+    chandler = fakes.Chandler(
+        future_candles={('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]},
+    )
+    informant = fakes.Informant(tickers=[
+        Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
+    ])
+    trader = traders.Multi(chandler=chandler, informant=informant, wallet=wallet, broker=broker)
+    config = traders.Multi.Config(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=2,
+        quote=Decimal('1.0'),
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG, Advice.LONG],
+        ),
+        long=True,
+        track_count=1,
+        position_count=1,
+        close_on_exit=False,
+        mode=TradingMode.LIVE,
+    )
+
+    state = traders.Multi.State()
+    trader_task = asyncio.create_task(trader.run(config, state))
+    await chandler.future_candle_queues[('dummy', 'eth-btc', 1)].join()
+    # Sleep to give control back to position manager.
+    await asyncio.sleep(0)
+    await cancel(trader_task)
+
+    chandler.future_candle_queues[('dummy', 'eth-btc', 1)].put_nowait(
+        Candle(time=1, close=Decimal('2.0'))
+    )
+
+    wallet.get_balance.return_value = Balance(Decimal('0.0'))
+    await trader.run(config, state)

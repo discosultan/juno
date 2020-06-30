@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
@@ -96,11 +96,11 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     @dataclass
     class State:
         start: Timestamp = -1
-        symbol_states: Dict[str, _SymbolState] = field(default_factory=dict)
-        quotes: List[Decimal] = field(default_factory=list)
+        symbol_states: Optional[Dict[str, _SymbolState]] = None
+        quotes: Optional[List[Decimal]] = None
         summary: Optional[TradingSummary] = None
         real_start: Timestamp = -1
-        symbols: List[str] = field(default_factory=list)
+        symbols: Optional[List[str]] = None
 
     def __init__(
         self,
@@ -155,7 +155,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
 
         state = state or Multi.State()
 
-        if not state.symbols:
+        if state.symbols is None:
             state.symbols = await self._find_top_symbols(config)
 
         if state.real_start == -1:
@@ -166,7 +166,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 config.start, config.exchange, state.symbols, [config.interval]
             )
 
-        if not state.quotes:
+        if state.quotes is None:
             quote = self.request_quote(config.quote, config.exchange, 'btc', config.mode)
             position_quote = quote / config.position_count
             for symbol in state.symbols:
@@ -182,9 +182,9 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 quote_asset='btc',  # TODO: support others
             )
 
-        if not state.symbol_states:
-            for s in state.symbols:
-                state.symbol_states[s] = _SymbolState(
+        if state.symbol_states is None:
+            state.symbol_states = {
+                s: _SymbolState(
                     symbol=s,
                     strategy=config.symbol_strategies.get(s, config.strategy).construct(),
                     changed=Changed(True),
@@ -192,7 +192,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                     current=state.start,
                     stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
                     take_profit=TakeProfit(config.take_profit),
-                )
+                ) for s in state.symbols
+            }
 
         _log.info(
             f'managing up to {config.position_count} positions by tracking top '
@@ -257,6 +258,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         self, config: Config, state: State, candles_updated: SlotBarrier,
         trackers_ready: Dict[str, Event]
     ) -> None:
+        assert state.symbol_states
         final_candle_time = floor_multiple(config.end, config.interval) - config.interval
         to_process: List[Coroutine[None, None, Position.Any]] = []
         while True:
@@ -458,6 +460,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         await ready.wait()
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
+        assert state.symbol_states
         to_close: List[Coroutine[None, None, Position.Closed]] = []
         for ss in state.symbol_states.values():
             if isinstance(ss.open_position, Position.OpenLong):
@@ -482,6 +485,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     async def _open_long_position(
         self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
     ) -> Position.OpenLong:
+        assert state.quotes
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
@@ -511,6 +515,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         reason: CloseReason
     ) -> Position.Long:
         assert state.summary
+        assert state.quotes is not None
         assert isinstance(symbol_state.open_position, Position.OpenLong)
 
         position = (
@@ -540,6 +545,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     async def _open_short_position(
         self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
     ) -> Position.OpenShort:
+        assert state.quotes
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
@@ -569,6 +575,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         reason: CloseReason
     ) -> Position.Short:
         assert state.summary
+        assert state.quotes is not None
         assert isinstance(symbol_state.open_position, Position.OpenShort)
 
         position = (
