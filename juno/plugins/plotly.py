@@ -16,7 +16,7 @@ from .plugin import Plugin
 _log = logging.getLogger(__name__)
 
 
-class Discord(Plugin):
+class Plotly(Plugin):
     def __init__(self, events: Events) -> None:
         self._events = events
 

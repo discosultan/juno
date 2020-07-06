@@ -1,13 +1,11 @@
 import asyncio
 from decimal import Decimal
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from juno import Advice, Balance, Candle, Fill, OrderResult, OrderStatus, Ticker, traders
 from juno.asyncio import cancel
-from juno.brokers import Broker
-from juno.components import Wallet
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
 from juno.typing import TypeConstructor
