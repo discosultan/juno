@@ -101,6 +101,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         summary: Optional[TradingSummary] = None
         real_start: Timestamp = -1
         symbols: Optional[List[str]] = None
+        schedule_new_positions: bool = True  # Whether new positions can be opened.
 
     def __init__(
         self,
@@ -304,30 +305,33 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
             assert count <= config.position_count
             available = config.position_count - count
-            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
-                if available == 0:
-                    break
+            if state.schedule_new_positions:
+                for ss in (ss for ss in state.symbol_states.values() if ss.ready):
+                    if available == 0:
+                        break
 
-                if ss.open_position:
-                    continue
+                    if ss.open_position:
+                        continue
 
-                assert ss.last_candle
-                # TODO: Be more flexible?
-                if ss.advice is Advice.LONG and ss.advice_age == 1:
-                    to_process.append(self._open_long_position(config, state, ss, ss.last_candle))
-                    available -= 1
-                elif ss.advice is Advice.SHORT and ss.advice_age == 1:
-                    if num_short_positions_open == 0:
-                        num_short_positions_open += 1
+                    assert ss.last_candle
+                    # TODO: Be more flexible?
+                    if ss.advice is Advice.LONG and ss.advice_age == 1:
                         to_process.append(
-                            self._open_short_position(config, state, ss, ss.last_candle)
+                            self._open_long_position(config, state, ss, ss.last_candle)
                         )
                         available -= 1
-                    else:
-                        _log.warning(
-                            f'wanted to open short position {ss.symbol} but '
-                            f'{num_short_positions_open} already open'
-                        )
+                    elif ss.advice is Advice.SHORT and ss.advice_age == 1:
+                        if num_short_positions_open == 0:
+                            num_short_positions_open += 1
+                            to_process.append(
+                                self._open_short_position(config, state, ss, ss.last_candle)
+                            )
+                            available -= 1
+                        else:
+                            _log.warning(
+                                f'wanted to open short position {ss.symbol} but '
+                                f'{num_short_positions_open} already open'
+                            )
 
             if len(to_process) > 0:
                 positions = await asyncio.gather(*to_process)

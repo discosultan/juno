@@ -537,3 +537,28 @@ async def test_exit_on_close(
     assert position.close_time == expected_close_time
     assert position.close_reason is expected_close_reason
     assert position.profit == expected_profit
+
+
+async def test_does_not_open_position_when_scheduling_disabled():
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]
+    })
+    trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
+
+    config = traders.Basic.Config(
+        exchange='dummy',
+        symbol='eth-btc',
+        interval=1,
+        start=0,
+        end=1,
+        quote=Decimal('1.0'),
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG],
+        ),
+        long=True,
+    )
+    state = traders.Basic.State(schedule_new_positions=False)
+    summary = await trader.run(config, state)
+
+    assert len(summary.list_positions()) == 0

@@ -451,3 +451,32 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
 
     wallet.get_balance.return_value = Balance(Decimal('0.0'))
     await trader.run(config, state)
+
+
+async def test_does_not_open_position_when_scheduling_disabled():
+    informant = fakes.Informant(tickers=[
+        Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
+    ])
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]
+    })
+    trader = traders.Multi(chandler=chandler, informant=informant)
+
+    config = traders.Multi.Config(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=1,
+        quote=Decimal('1.0'),
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG],
+        ),
+        long=True,
+        track_count=1,
+        position_count=1,
+    )
+    state = traders.Multi.State(schedule_new_positions=False)
+    summary = await trader.run(config, state)
+
+    assert len(summary.list_positions()) == 0
