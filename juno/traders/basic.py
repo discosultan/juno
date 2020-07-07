@@ -64,7 +64,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         real_start: Timestamp = -1
         stop_loss: StopLoss = field(default_factory=StopLoss)
         take_profit: TakeProfit = field(default_factory=TakeProfit)
-        schedule_new_positions: bool = True  # Whether new positions can be opened.
+        open_new_positions: bool = True  # Whether new positions can be opened.
 
     def __init__(
         self,
@@ -264,7 +264,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 await self._close_short_position(config, state, candle, CloseReason.TAKE_PROFIT)
                 assert advice is not Advice.SHORT
 
-        if not state.open_position and state.schedule_new_positions:
+        if not state.open_position and state.open_new_positions:
             if config.long and advice is Advice.LONG:
                 await self._open_long_position(config, state, candle)
             elif config.short and advice is Advice.SHORT:

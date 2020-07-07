@@ -453,7 +453,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
     await trader.run(config, state)
 
 
-async def test_does_not_open_position_when_scheduling_disabled():
+async def test_open_new_positions():
     informant = fakes.Informant(tickers=[
         Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
     ])
@@ -476,7 +476,7 @@ async def test_does_not_open_position_when_scheduling_disabled():
         track_count=1,
         position_count=1,
     )
-    state = traders.Multi.State(schedule_new_positions=False)
+    state = traders.Multi.State(open_new_positions=False)
     summary = await trader.run(config, state)
 
     assert len(summary.list_positions()) == 0

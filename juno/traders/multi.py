@@ -101,7 +101,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         summary: Optional[TradingSummary] = None
         real_start: Timestamp = -1
         symbols: Optional[List[str]] = None
-        schedule_new_positions: bool = True  # Whether new positions can be opened.
+        open_new_positions: bool = True  # Whether new positions can be opened.
 
     def __init__(
         self,
@@ -305,7 +305,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
             assert count <= config.position_count
             available = config.position_count - count
-            if state.schedule_new_positions:
+            if state.open_new_positions:
                 for ss in (ss for ss in state.symbol_states.values() if ss.ready):
                     if available == 0:
                         break

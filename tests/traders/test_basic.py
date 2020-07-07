@@ -539,7 +539,7 @@ async def test_exit_on_close(
     assert position.profit == expected_profit
 
 
-async def test_does_not_open_position_when_scheduling_disabled():
+async def test_open_new_positions():
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]
     })
@@ -558,7 +558,7 @@ async def test_does_not_open_position_when_scheduling_disabled():
         ),
         long=True,
     )
-    state = traders.Basic.State(schedule_new_positions=False)
+    state = traders.Basic.State(open_new_positions=False)
     summary = await trader.run(config, state)
 
     assert len(summary.list_positions()) == 0
