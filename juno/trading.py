@@ -326,6 +326,7 @@ class TradingSummary:
 
     def append_position(self, pos: Position.Closed) -> None:
         self._positions.append(pos)
+        self.finish(pos.close_time)
         self._drawdowns_dirty = True
 
     def get_positions(
