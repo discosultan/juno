@@ -479,7 +479,7 @@ async def test_summary_end_on_historical_cancel() -> None:
         (True, 2, CloseReason.CANCELLED, Decimal('1.0')),
     ],
 )
-async def test_exit_on_close(
+async def test_close_on_exit(
     storage: fakes.Storage,
     close_on_exit: bool,
     expected_close_time: int,

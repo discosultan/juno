@@ -320,7 +320,7 @@ async def test_only_single_short_position() -> None:
         (True, 2, CloseReason.CANCELLED, Decimal('1.0')),
     ],
 )
-async def test_exit_on_close(
+async def test_close_on_exit(
     storage: fakes.Storage,
     close_on_exit: bool,
     expected_close_time: int,
@@ -382,12 +382,12 @@ async def test_exit_on_close(
     )
     summary = await trader.run(config, state)
 
-    # exit_on_close = True
+    # close_on_exit = True
     #     L L -
     # ETH L L -
     # LTC - - -
 
-    # exit_on_close = False
+    # close_on_exit = False
     #     L L -
     # ETH L L L
     # LTC - - -
