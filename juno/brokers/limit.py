@@ -45,7 +45,10 @@ class Limit(Broker):
     ) -> OrderResult:
         assert not test
         base_asset, _ = unpack_symbol(symbol)
-        _log.info(f'buying {size} {base_asset} with limit orders at spread')
+        _log.info(
+            f'buying {size} {base_asset} with limit orders at spread '
+            f'({"margin" if margin else "spot"} account)'
+        )
         return await self._buy(exchange, symbol, margin, size=size)
 
     async def buy_by_quote(
@@ -54,7 +57,8 @@ class Limit(Broker):
         assert not test
         base_asset, quote_asset = unpack_symbol(symbol)
         _log.info(
-            f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread'
+            f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread '
+            f'({"margin" if margin else "spot"} account)'
         )
         return await self._buy(exchange, symbol, margin, quote=quote)
 
@@ -84,7 +88,10 @@ class Limit(Broker):
     ) -> OrderResult:
         assert not test
         base_asset, _ = unpack_symbol(symbol)
-        _log.info(f'selling {size} {base_asset} with limit orders at spread')
+        _log.info(
+            f'selling {size} {base_asset} with limit orders at spread'
+            f'({"margin" if margin else "spot"} account)'
+        )
         res = await self._fill(exchange, symbol, Side.SELL, margin, size=size)
 
         # Validate fee and quote expectation.

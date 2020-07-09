@@ -33,7 +33,9 @@ class Market2(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'buying {size} {symbol} with market order')
+        _log.info(
+            f'buying {size} {symbol} with market order ({"margin" if margin else "spot"} account)'
+        )
         return await self._fill(exchange, symbol, Side.BUY, margin, size=size)
 
     async def buy_by_quote(
@@ -41,7 +43,10 @@ class Market2(Broker):
     ) -> OrderResult:
         assert not test
         base_asset, quote_asset = unpack_symbol(symbol)
-        _log.info(f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order')
+        _log.info(
+            f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
+            f'({"margin" if margin else "spot"} account)'
+        )
         exchange_instance = self._exchanges[exchange]
         if not exchange_instance.can_place_order_market_quote:
             await self._orderbook.ensure_sync([exchange], [symbol])
@@ -58,7 +63,9 @@ class Market2(Broker):
         self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
-        _log.info(f'selling {size} {symbol} with market order')
+        _log.info(
+            f'selling {size} {symbol} with market order ({"margin" if margin else "spot"} account)'
+        )
         return await self._fill(exchange, symbol, Side.SELL, margin, size=size)
 
     async def _fill(
