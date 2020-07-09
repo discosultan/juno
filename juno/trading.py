@@ -667,7 +667,7 @@ class PositionMixin(ABC):
     async def open_long_position(
         self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
     ) -> Position.OpenLong:
-        assert mode is not TradingMode.BACKTEST
+        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f'opening {symbol} {mode.name} long position with {quote} quote')
 
         res = await self.broker.buy_by_quote(
@@ -690,7 +690,7 @@ class PositionMixin(ABC):
     async def close_long_position(
         self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
     ) -> Position.Long:
-        assert mode is not TradingMode.BACKTEST
+        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f'closing {position.symbol} {mode.name} long position')
 
         res = await self.broker.sell(
@@ -712,7 +712,7 @@ class PositionMixin(ABC):
     async def open_short_position(
         self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
     ) -> Position.OpenShort:
-        assert mode is not TradingMode.BACKTEST
+        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f'opening {symbol} {mode.name} short position with {collateral} collateral')
 
         base_asset, quote_asset = unpack_symbol(symbol)
@@ -728,7 +728,7 @@ class PositionMixin(ABC):
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
             await exchange_instance.transfer(quote_asset, collateral, margin=True)
             borrowed = await exchange_instance.get_max_borrowable(base_asset)
-            _log.info(f'borrowing {borrowed} {base_asset} from exchange')
+            _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
             await exchange_instance.borrow(asset=base_asset, size=borrowed)
 
         res = await self.broker.sell(
@@ -754,7 +754,7 @@ class PositionMixin(ABC):
     async def close_short_position(
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Short:
-        assert mode is not TradingMode.BACKTEST
+        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f'closing {position.symbol} {mode.name} short position')
 
         base_asset, quote_asset = unpack_symbol(position.symbol)
@@ -762,6 +762,7 @@ class PositionMixin(ABC):
         borrow_info = self.informant.get_borrow_info(position.exchange, base_asset)
         exchange_instance = self.exchanges[position.exchange]
 
+        # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
         interest = (
             _calculate_interest(
                 borrowed=position.borrowed,
@@ -789,15 +790,31 @@ class PositionMixin(ABC):
         )
         if mode is TradingMode.LIVE:
             _log.info(
-                f'repaying {position.borrowed} + {interest} {base_asset} to exchange'
+                f'repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}'
             )
             await exchange_instance.repay(base_asset, position.borrowed + interest)
-            # Validate!
-            # TODO: Remove if known to work or pay extra if needed.
+
+            # It can be that there was an interest tick right before repaying. This means there may
+            # still be borrowed funds on the account. Double check and repay more if that is the
+            # case.
             # Careful with this check! We may have another position still open.
             new_balance = (await exchange_instance.map_balances(margin=True))[base_asset]
-            if new_balance.repay != 0:
-                raise RuntimeError(f'Did not repay enough {base_asset}; balance {new_balance}')
+            if new_balance.repay > 0:
+                _log.warning(
+                    f'did not repay enough; still {new_balance.repay} {base_asset} to be repaid'
+                )
+                if new_balance.available >= new_balance.repay:
+                    _log.info(
+                        f'can repay {new_balance.repay} {base_asset} without requiring more funds'
+                    )
+                else:
+                    _log.error(
+                        f'need to buy more {base_asset} to repay {new_balance.repay} but not '
+                        'implemented'
+                    )
+                    raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
+                await exchange_instance.repay(base_asset, new_balance.repay)
+                assert (await exchange_instance.map_balances(margin=True))[base_asset].repay == 0
 
             transfer = closed_position.collateral + closed_position.profit
             _log.info(f'transferring {transfer} {quote_asset} to spot account')
