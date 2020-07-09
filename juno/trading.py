@@ -808,6 +808,7 @@ class PositionMixin(ABC):
                         f'can repay {new_balance.repay} {base_asset} without requiring more funds'
                     )
                 else:
+                    # TODO: Implement
                     _log.error(
                         f'need to buy more {base_asset} to repay {new_balance.repay} but not '
                         'implemented'
