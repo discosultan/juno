@@ -39,8 +39,9 @@ impl<T: Strategy> State<T> {
     }
 }
 
-pub fn trade<TF: Fn() -> TS, TS: Strategy>(
+pub fn trade<TF: Fn(&TSI) -> TS, TS: Strategy, TSI>(
     strategy_factory: TF,
+    strategy_info: &TSI,
     candles: &[Candle],
     fees: &Fees,
     filters: &Filters,
@@ -66,7 +67,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
 
     let mut summary = TradingSummary::new(interval, start, end, quote);
     let mut state = State::new(
-        strategy_factory(),
+        strategy_factory(strategy_info),
         quote,
         stop_loss,
         trail_stop_loss,
@@ -84,7 +85,7 @@ pub fn trade<TF: Fn() -> TS, TS: Strategy>(
                 let diff = candle.time - last_candle.time;
                 if missed_candle_policy == 1 && diff >= two_interval {
                     restart = true;
-                    state.strategy = strategy_factory();
+                    state.strategy = strategy_factory(strategy_info);
                 } else if missed_candle_policy == 2 && diff >= two_interval {
                     let num_missed = diff / interval - 1;
                     for i in 1..=num_missed {

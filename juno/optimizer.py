@@ -202,23 +202,18 @@ class Optimizer(StartMixin):
         toolbox.register('mutate', partial(mut_individual, random), attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
-        def evaluate(pop: List[Individual]) -> SolverResult:
-            assert state
-            return self._solver.solve(
-                Solver.Config(
-                    fiat_prices=fiat_prices,
-                    benchmark_g_returns=benchmark.g_returns,
-                    candles=candles,
-                    strategy_type=config.strategy.type_,
-                    exchange=config.exchange,
-                    start=state.start,
-                    end=state.end,
-                    quote=config.quote,
-                    population=pop,
-                )
-            )
+        solver_config = Solver.Config(
+            fiat_prices=fiat_prices,
+            benchmark_g_returns=benchmark.g_returns,
+            candles=candles,
+            strategy_type=config.strategy.type_,
+            exchange=config.exchange,
+            start=state.start,
+            end=state.end,
+            quote=config.quote,
+        )
 
-        toolbox.register('evaluate', evaluate)
+        toolbox.register('evaluate', partial(self._solver.solve, solver_config))
 
         toolbox.population_size = config.population_size
         toolbox.max_generations = config.max_generations

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Optional
+from typing import List, Optional
 
 from juno import Advice, Candle, MissedCandlePolicy, OrderException
 from juno.components import Informant
@@ -10,7 +10,7 @@ from juno.trading import (
     CloseReason, Position, SimulatedPositionMixin, StopLoss, TakeProfit, TradingSummary
 )
 
-from .solver import Solver, SolverResult
+from .solver import Individual, Solver, SolverResult
 
 
 @dataclass
@@ -36,50 +36,54 @@ class Python(Solver, SimulatedPositionMixin):
     def informant(self) -> Informant:
         return self._informant
 
-    def solve(self, config: Solver.Config) -> SolverResult:
-        summary = self._trade(config)
-        portfolio = analyse_portfolio(
-            benchmark_g_returns=config.benchmark_g_returns,
-            fiat_prices=config.fiat_prices,
-            trading_summary=summary,
-        )
-        return SolverResult.from_trading_summary(summary, portfolio.stats)
+    def solve(self, config: Solver.Config, population: List[Individual]) -> List[SolverResult]:
+        result = []
+        for individual in population:
+            summary = self._trade(config, individual)
+            portfolio = analyse_portfolio(
+                benchmark_g_returns=config.benchmark_g_returns,
+                fiat_prices=config.fiat_prices,
+                trading_summary=summary,
+            )
+            result.append(SolverResult.from_trading_summary(summary, portfolio.stats))
+        return result
 
-    def _trade(self, config: Solver.Config) -> TradingSummary:
+    def _trade(self, config: Solver.Config, ind: Individual) -> TradingSummary:
+        candles = config.candles[(ind.symbol, ind.interval)]
         state = _State(
             summary=TradingSummary(
-                start=config.candles[0].time,
+                start=candles[0].time,
                 quote=config.quote,
-                quote_asset=config.quote_asset,
+                quote_asset=ind.quote_asset,
             ),
-            strategy=config.new_strategy(),
+            strategy=config.strategy_type(*ind.strategy_args),
             quote=config.quote,
-            stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
-            take_profit=TakeProfit(config.take_profit),
+            stop_loss=StopLoss(ind.stop_loss, trail=ind.trail_stop_loss),
+            take_profit=TakeProfit(ind.take_profit),
         )
         try:
             i = 0
             while True:
                 restart = False
 
-                for candle in config.candles[i:]:
+                for candle in candles[i:]:
                     i += 1
                     if not candle.closed:
                         continue
 
                     if (
-                        config.missed_candle_policy is not MissedCandlePolicy.IGNORE
+                        ind.missed_candle_policy is not MissedCandlePolicy.IGNORE
                         and (last_candle := state.last_candle)
                         and (time_diff := (candle.time - last_candle.time)) >= config.interval * 2
                     ):
-                        if config.missed_candle_policy is MissedCandlePolicy.RESTART:
+                        if ind.missed_candle_policy is MissedCandlePolicy.RESTART:
                             restart = True
-                            state.strategy = config.new_strategy()
-                        elif config.missed_candle_policy is MissedCandlePolicy.LAST:
-                            num_missed = time_diff // config.interval - 1
+                            state.strategy = ind.new_strategy()
+                        elif ind.missed_candle_policy is MissedCandlePolicy.LAST:
+                            num_missed = time_diff // ind.interval - 1
                             for i in range(1, num_missed + 1):
                                 missed_candle = Candle(
-                                    time=last_candle.time + i * config.interval,
+                                    time=last_candle.time + i * ind.interval,
                                     open=last_candle.open,
                                     high=last_candle.high,
                                     low=last_candle.low,
@@ -112,7 +116,7 @@ class Python(Solver, SimulatedPositionMixin):
         except OrderException:
             pass
 
-        state.summary.finish(config.candles[-1].time + config.interval)
+        state.summary.finish(candles[-1].time + ind.interval)
         return state.summary
 
     def _tick(self, config: Solver.Config, state: _State, candle: Candle) -> None:
@@ -147,11 +151,13 @@ class Python(Solver, SimulatedPositionMixin):
             state.first_candle = candle
         state.last_candle = candle
 
-    def _open_long_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
+    def _open_long_position(
+        self, config: Solver.Config, ind: Individual, state: _State, candle: Candle
+    ) -> None:
         position = self.open_simulated_long_position(
             exchange=config.exchange,
-            symbol=config.symbol,
-            time=candle.time + config.interval,
+            symbol=ind.symbol,
+            time=candle.time + ind.interval,
             price=candle.close,
             quote=state.quote,
             log=False,
@@ -161,12 +167,13 @@ class Python(Solver, SimulatedPositionMixin):
         state.open_position = position
 
     def _close_long_position(
-        self, config: Solver.Config, state: _State, candle: Candle, reason: CloseReason
+        self, config: Solver.Config, ind: Individual, state: _State, candle: Candle,
+        reason: CloseReason
     ) -> None:
         assert isinstance(state.open_position, Position.OpenLong)
         position = self.close_simulated_long_position(
             position=state.open_position,
-            time=candle.time + config.interval,
+            time=candle.time + ind.interval,
             price=candle.close,
             reason=reason,
             log=False,
@@ -176,11 +183,13 @@ class Python(Solver, SimulatedPositionMixin):
         state.open_position = None
         state.summary.append_position(position)
 
-    def _open_short_position(self, config: Solver.Config, state: _State, candle: Candle) -> None:
+    def _open_short_position(
+        self, config: Solver.Config, ind: Individual, state: _State, candle: Candle
+    ) -> None:
         position = self.open_simulated_short_position(
             exchange=config.exchange,
-            symbol=config.symbol,
-            time=candle.time + config.interval,
+            symbol=ind.symbol,
+            time=candle.time + ind.interval,
             price=candle.close,
             collateral=state.quote,
             log=False,
@@ -190,12 +199,13 @@ class Python(Solver, SimulatedPositionMixin):
         state.open_position = position
 
     def _close_short_position(
-        self, config: Solver.Config, state: _State, candle: Candle, reason: CloseReason
+        self, config: Solver.Config, ind: Individual, state: _State, candle: Candle,
+        reason: CloseReason
     ) -> None:
         assert isinstance(state.open_position, Position.OpenShort)
         position = self.close_simulated_short_position(
             position=state.open_position,
-            time=candle.time + config.interval,
+            time=candle.time + ind.interval,
             price=candle.close,
             reason=reason,
             log=False,

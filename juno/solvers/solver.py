@@ -136,13 +136,9 @@ class Solver(AbstractAsyncContextManager, ABC):
         start: Timestamp
         end: Timestamp
         quote: Decimal
-        population: List[Individual]
-
-        # def new_strategy(self) -> Strategy:
-        #     return self.strategy_type(*self.strategy_args)
 
     @abstractmethod
-    def solve(self, config: Config) -> SolverResult:
+    def solve(self, config: Config, population: List[Individual]) -> List[SolverResult]:
         pass
 
 

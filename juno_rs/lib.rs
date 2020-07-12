@@ -30,19 +30,18 @@ pub struct SingleMAInfo {
 
 #[no_mangle]
 pub unsafe extern "C" fn singlema(
-    trading_info: *const TradingInfo,
-    strategy_info: *const SingleMAInfo,
-    analysis_info: *const AnalysisInfo,
-) -> Result {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
+    population: *const Individual<SingleMAInfo>,
+    fitness: *mut Result,
+    length: u32,
+) {
+    let strategy_factory = |strategy_info: &SingleMAInfo| {
         strategies::SingleMA::new(
             strategy_info.ma,
             strategy_info.period,
             strategy_info.persistence,
         )
     };
-    run_test(trading_info, strategy_factory, analysis_info)
+    process_population(population, fitness, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -55,12 +54,11 @@ pub struct DoubleMAInfo {
 
 #[no_mangle]
 pub unsafe extern "C" fn doublema(
-    trading_info: *const TradingInfo,
-    strategy_info: *const DoubleMAInfo,
-    analysis_info: *const AnalysisInfo,
-) -> Result {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
+    population: *const Individual<DoubleMAInfo>,
+    fitness: *mut Result,
+    length: u32,
+) {
+    let strategy_factory = |strategy_info: &DoubleMAInfo| {
         strategies::DoubleMA::new(
             strategy_info.short_ma,
             strategy_info.long_ma,
@@ -68,7 +66,7 @@ pub unsafe extern "C" fn doublema(
             strategy_info.long_period,
         )
     };
-    run_test(trading_info, strategy_factory, analysis_info)
+    process_population(population, fitness, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -83,12 +81,11 @@ pub struct TripleMAInfo {
 
 #[no_mangle]
 pub unsafe extern "C" fn triplema(
-    trading_info: *const TradingInfo,
-    strategy_info: *const TripleMAInfo,
-    analysis_info: *const AnalysisInfo,
-) -> Result {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
+    population: *const Individual<TripleMAInfo>,
+    fitness: *mut Result,
+    length: u32,
+) {
+    let strategy_factory = |strategy_info: &TripleMAInfo| {
         strategies::TripleMA::new(
             strategy_info.short_ma,
             strategy_info.medium_ma,
@@ -98,7 +95,7 @@ pub unsafe extern "C" fn triplema(
             strategy_info.long_period,
         )
     };
-    run_test(trading_info, strategy_factory, analysis_info)
+    process_population(population, fitness, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -111,12 +108,11 @@ pub struct FourWeekRuleInfo {
 
 #[no_mangle]
 pub unsafe extern "C" fn fourweekrule(
-    trading_info: *const TradingInfo,
-    strategy_info: *const FourWeekRuleInfo,
-    analysis_info: *const AnalysisInfo,
-) -> Result {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
+    population: *const Individual<FourWeekRuleInfo>,
+    fitness: *mut Result,
+    length: u32,
+) {
+    let strategy_factory = |strategy_info: &FourWeekRuleInfo| {
         strategies::FourWeekRule::new(
             strategy_info.period,
             strategy_info.ma,
@@ -124,7 +120,7 @@ pub unsafe extern "C" fn fourweekrule(
             strategy_info.mid_trend_policy,
         )
     };
-    run_test(trading_info, strategy_factory, analysis_info)
+    process_population(population, fitness, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -137,12 +133,11 @@ pub struct MacdInfo {
 
 #[no_mangle]
 pub unsafe extern "C" fn macd(
-    trading_info: *const TradingInfo,
-    strategy_info: *const MacdInfo,
-    analysis_info: *const AnalysisInfo,
-) -> Result {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
+    population: *const Individual<MacdInfo>,
+    fitness: *mut Result,
+    length: u32,
+) {
+    let strategy_factory = |strategy_info: &MacdInfo| {
         Macd::new(
             strategy_info.short_period,
             strategy_info.long_period,
@@ -150,7 +145,7 @@ pub unsafe extern "C" fn macd(
             strategy_info.persistence,
         )
     };
-    run_test(trading_info, strategy_factory, analysis_info)
+    process_population(population, fitness, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -166,12 +161,11 @@ pub struct MacdRsiInfo {
 
 #[no_mangle]
 pub unsafe extern "C" fn macdrsi(
-    trading_info: *const TradingInfo,
-    strategy_info: *const MacdRsiInfo,
-    analysis_info: *const AnalysisInfo,
-) -> Result {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
+    population: *const Individual<MacdRsiInfo>,
+    fitness: *mut Result,
+    length: u32,
+) {
+    let strategy_factory = |strategy_info: &MacdRsiInfo| {
         MacdRsi::new(
             strategy_info.macd_short_period,
             strategy_info.macd_long_period,
@@ -182,7 +176,7 @@ pub unsafe extern "C" fn macdrsi(
             strategy_info.persistence,
         )
     };
-    run_test(trading_info, strategy_factory, analysis_info)
+    process_population(population, fitness, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -198,12 +192,11 @@ pub struct MAMACXInfo {
 
 #[no_mangle]
 pub unsafe extern "C" fn mamacx(
-    trading_info: *const TradingInfo,
-    strategy_info: *const MAMACXInfo,
-    analysis_info: *const AnalysisInfo,
-) -> Result {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
+    population: *const Individual<MAMACXInfo>,
+    fitness: *mut Result,
+    length: u32,
+) {
+    let strategy_factory = |strategy_info: &MAMACXInfo| {
         MAMACX::new(
             strategy_info.short_period,
             strategy_info.long_period,
@@ -214,23 +207,38 @@ pub unsafe extern "C" fn mamacx(
             strategy_info.long_ma,
         )
     };
-    run_test(trading_info, strategy_factory, analysis_info)
+    process_population(population, fitness, length, strategy_factory);
 }
 
-unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
-    trading_info: *const TradingInfo,
+unsafe fn process_population<TF: Fn(&TSI) -> TS, TS: Strategy, TSI>(
+    population: *const Individual<TSI>,
+    fitness: *mut Result,
+    length: u32,
     strategy_factory: TF,
-    analysis_info: *const AnalysisInfo,
+) {
+    let population = slice::from_raw_parts(population, length as usize);
+    let fitness = slice::from_raw_parts_mut(fitness, length as usize);
+    // TODO: parallelize
+    for (i, individual) in population.iter().enumerate() {
+        fitness[i] = process_individual(individual, &strategy_factory);
+    }
+}
+
+
+unsafe fn process_individual<TF: Fn(&TSI) -> TS, TS: Strategy, TSI>(
+    individual: &Individual<TSI>,
+    strategy_factory: &TF,
 ) -> Result {
     // Trading.
     // Turn unsafe ptrs to safe references.
-    let trading_info = &*trading_info;
+    let trading_info = &*individual.trading_info;
     let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
     let fees = &*trading_info.fees;
     let filters = &*trading_info.filters;
     let borrow_info = &*trading_info.borrow_info;
     let trading_result = trade(
         strategy_factory,
+        &*individual.strategy_info,
         candles,
         fees,
         filters,
@@ -247,7 +255,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     );
 
     // Analysis.
-    let analysis_info = &*analysis_info;
+    let analysis_info = &*individual.analysis_info;
     let quote_fiat_prices = slice::from_raw_parts(
         analysis_info.quote_fiat_prices,
         analysis_info.quote_fiat_prices_length as usize,
@@ -311,4 +319,11 @@ pub struct TradingInfo {
     take_profit: f64,
     long: bool,
     short: bool,
+}
+
+#[repr(C)]
+pub struct Individual<T> {
+    trading_info: *const TradingInfo,
+    strategy_info: *const T,
+    analysis_info: *const AnalysisInfo,
 }

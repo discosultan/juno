@@ -25,7 +25,7 @@ from juno.time import DAY_MS
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path, list_concretes_from_module
 
-from .solver import Solver, SolverResult
+from .solver import Individual, Solver, SolverResult
 
 _log = logging.getLogger(__name__)
 
@@ -102,7 +102,9 @@ class Rust(Solver):
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
-    def solve(self, config: Solver.Config) -> SolverResult:
+    def solve(self, config: Solver.Config, population: List[Individual]) -> List[SolverResult]:
+
+    def prepare_input
         # Trading.
         c_candles = self._get_or_create_c_candles(
             (config.symbol, config.interval, config.start, config.end),
