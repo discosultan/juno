@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import partial
 from random import Random, randrange
-from typing import Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from deap import base, tools
 
@@ -17,7 +17,7 @@ from juno.constraints import Choice, Constant, Constraint, ConstraintChoice, Uni
 from juno.deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from juno.itertools import flatten
 from juno.math import floor_multiple
-from juno.solvers import Solver, SolverResult
+from juno.solvers import Individual, Solver, SolverResult
 from juno.statistics import AnalysisSummary, Statistics, analyse_benchmark, analyse_portfolio
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms
@@ -47,18 +47,6 @@ class OptimizationSummary(NamedTuple):
     trading_config: Basic.Config
     trading_summary: TradingSummary
     portfolio_stats: Statistics
-
-
-class FitnessMulti(base.Fitness):
-    weights = list(SolverResult.meta().values())
-
-
-class Individual(list):
-    fitness: FitnessMulti
-
-    def __init__(self, iterable: Iterable[Any]) -> None:
-        super().__init__(iterable)
-        self.fitness = FitnessMulti()
 
 
 # TODO: Does not support persist/resume. Population not stored/restored properly. Need to store
@@ -214,27 +202,19 @@ class Optimizer(StartMixin):
         toolbox.register('mutate', partial(mut_individual, random), attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
-        def evaluate(ind: List[Any]) -> SolverResult:
+        def evaluate(pop: List[Individual]) -> SolverResult:
             assert state
             return self._solver.solve(
                 Solver.Config(
                     fiat_prices=fiat_prices,
                     benchmark_g_returns=benchmark.g_returns,
-                    candles=candles[(ind[0], ind[1])],
+                    candles=candles,
                     strategy_type=config.strategy.type_,
                     exchange=config.exchange,
                     start=state.start,
                     end=state.end,
                     quote=config.quote,
-                    symbol=ind[0],
-                    interval=ind[1],
-                    missed_candle_policy=ind[2],
-                    stop_loss=ind[3],
-                    trail_stop_loss=ind[4],
-                    take_profit=ind[5],
-                    long=ind[6],
-                    short=ind[7],
-                    strategy_args=tuple(flatten(ind[8:])),
+                    population=pop,
                 )
             )
 
