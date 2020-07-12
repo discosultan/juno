@@ -179,7 +179,7 @@ class Optimizer(StartMixin):
 
         # Initialization.
         attrs = [
-            _build_attr(symbols, Choice(symbols), random),
+            # _build_attr(symbols, Choice(symbols), random),
             _build_attr(intervals, Choice(intervals), random),
             _build_attr(config.missed_candle_policy, _missed_candle_policy_constraint, random),
             _build_attr(config.stop_loss, _stop_loss_constraint, random),
@@ -214,29 +214,32 @@ class Optimizer(StartMixin):
         toolbox.register('mutate', partial(mut_individual, random), attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
-        def evaluate(ind: List[Any]) -> SolverResult:
+        def evaluate(ind: List[Any]) -> Tuple[Any, ...]:
             assert state
-            return self._solver.solve(
-                Solver.Config(
-                    fiat_prices=fiat_prices,
-                    benchmark_g_returns=benchmark.g_returns,
-                    candles=candles[(ind[0], ind[1])],
-                    strategy_type=config.strategy.type_,
-                    exchange=config.exchange,
-                    start=state.start,
-                    end=state.end,
-                    quote=config.quote,
-                    symbol=ind[0],
-                    interval=ind[1],
-                    missed_candle_policy=ind[2],
-                    stop_loss=ind[3],
-                    trail_stop_loss=ind[4],
-                    take_profit=ind[5],
-                    long=ind[6],
-                    short=ind[7],
-                    strategy_args=tuple(flatten(ind[8:])),
-                )
-            )
+            results = []
+            for symbol in symbols:
+                results.append(self._solver.solve(
+                    Solver.Config(
+                        fiat_prices=fiat_prices,
+                        benchmark_g_returns=benchmark.g_returns,
+                        candles=candles[(symbol, ind[0])],
+                        strategy_type=config.strategy.type_,
+                        exchange=config.exchange,
+                        start=state.start,
+                        end=state.end,
+                        quote=config.quote,
+                        symbol=symbol,
+                        interval=ind[0],
+                        missed_candle_policy=ind[1],
+                        stop_loss=ind[2],
+                        trail_stop_loss=ind[3],
+                        take_profit=ind[4],
+                        long=ind[5],
+                        short=ind[6],
+                        strategy_args=tuple(flatten(ind[7:])),
+                    )
+                ))
+            return tuple(sum(x) for x in zip(*results))
 
         toolbox.register('evaluate', evaluate)
 
@@ -288,10 +291,13 @@ class Optimizer(StartMixin):
             state.random_state = random.getstate()  # type: ignore
 
         best_args = list(flatten(hall_of_fame[0]))
+        validation_symbol = symbols[0]
         state.summary = await self._build_summary(
-            config, state, fiat_prices, benchmark, candles, best_args
+            config, state, fiat_prices, benchmark, candles, best_args, validation_symbol
         )
-        self._validate(config, state, fiat_prices, benchmark, candles, best_args)
+        self._validate(
+            config, state, fiat_prices, benchmark, candles, best_args, validation_symbol
+        )
 
         if cancelled_exc:
             raise cancelled_exc
@@ -305,26 +311,27 @@ class Optimizer(StartMixin):
         benchmark: AnalysisSummary,
         candles: Dict[Tuple[str, int], List[Candle]],
         best_args: List[Any],
+        symbol: str,
     ) -> OptimizationSummary:
-        start = floor_multiple(state.start, best_args[1])
-        end = floor_multiple(state.end, best_args[1])
+        start = floor_multiple(state.start, best_args[0])
+        end = floor_multiple(state.end, best_args[0])
         trading_config = Basic.Config(
             exchange=config.exchange,
-            symbol=best_args[0],
-            interval=best_args[1],
+            symbol=symbol,
+            interval=best_args[0],
             start=start,
             end=end,
             quote=config.quote,
-            missed_candle_policy=best_args[2],
-            stop_loss=best_args[3],
-            trail_stop_loss=best_args[4],
-            take_profit=best_args[5],
-            long=best_args[6],
-            short=best_args[7],
+            missed_candle_policy=best_args[1],
+            stop_loss=best_args[2],
+            trail_stop_loss=best_args[3],
+            take_profit=best_args[4],
+            long=best_args[5],
+            short=best_args[6],
             adjust_start=False,
             strategy=TypeConstructor.from_type(
                 config.strategy.type_,
-                **map_input_args(config.strategy.type_.__init__, best_args[8:]),
+                **map_input_args(config.strategy.type_.__init__, best_args[7:]),
             ),
         )
 
@@ -352,6 +359,7 @@ class Optimizer(StartMixin):
         benchmark: AnalysisSummary,
         candles: Dict[Tuple[str, int], List[Candle]],
         best_args: List[Any],
+        symbol: str,
     ) -> None:
         assert state.summary
 
@@ -361,27 +369,27 @@ class Optimizer(StartMixin):
             f'validating {solver_name} solver result with best args against actual trader'
         )
 
-        start = floor_multiple(state.start, best_args[1])
-        end = floor_multiple(state.end, best_args[1])
+        start = floor_multiple(state.start, best_args[0])
+        end = floor_multiple(state.end, best_args[0])
         solver_result = self._solver.solve(
             Solver.Config(
                 fiat_prices=fiat_prices,
                 benchmark_g_returns=benchmark.g_returns,
-                candles=candles[(best_args[0], best_args[1])],
+                candles=candles[(symbol, best_args[0])],
                 strategy_type=config.strategy.type_,
                 exchange=config.exchange,
                 start=start,
                 end=end,
                 quote=config.quote,
-                symbol=best_args[0],
-                interval=best_args[1],
-                missed_candle_policy=best_args[2],
-                stop_loss=best_args[3],
-                trail_stop_loss=best_args[4],
-                take_profit=best_args[5],
-                long=best_args[6],
-                short=best_args[7],
-                strategy_args=tuple(best_args[8:]),
+                symbol=symbol,
+                interval=best_args[0],
+                missed_candle_policy=best_args[1],
+                stop_loss=best_args[2],
+                trail_stop_loss=best_args[3],
+                take_profit=best_args[4],
+                long=best_args[5],
+                short=best_args[6],
+                strategy_args=tuple(best_args[7:]),
             )
         )
 
