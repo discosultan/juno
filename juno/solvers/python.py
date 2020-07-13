@@ -9,8 +9,9 @@ from juno.strategies import Changed, Strategy
 from juno.trading import (
     CloseReason, Position, SimulatedPositionMixin, StopLoss, TakeProfit, TradingSummary
 )
+from juno.utils import unpack_symbol
 
-from .solver import Individual, Solver, SolverResult
+from .solver import Individual, Solver, FitnessValues
 
 
 @dataclass
@@ -36,7 +37,7 @@ class Python(Solver, SimulatedPositionMixin):
     def informant(self) -> Informant:
         return self._informant
 
-    def solve(self, config: Solver.Config, population: List[Individual]) -> List[SolverResult]:
+    def solve(self, config: Solver.Config, population: List[Individual]) -> List[FitnessValues]:
         result = []
         for individual in population:
             summary = self._trade(config, individual)
@@ -45,16 +46,17 @@ class Python(Solver, SimulatedPositionMixin):
                 fiat_prices=config.fiat_prices,
                 trading_summary=summary,
             )
-            result.append(SolverResult.from_trading_summary(summary, portfolio.stats))
+            result.append(FitnessValues.from_trading_summary(summary, portfolio.stats))
         return result
 
     def _trade(self, config: Solver.Config, ind: Individual) -> TradingSummary:
+        _, quote_asset = unpack_symbol(ind.symbol)
         candles = config.candles[(ind.symbol, ind.interval)]
         state = _State(
             summary=TradingSummary(
                 start=candles[0].time,
                 quote=config.quote,
-                quote_asset=ind.quote_asset,
+                quote_asset=quote_asset,
             ),
             strategy=config.strategy_type(*ind.strategy_args),
             quote=config.quote,
@@ -74,11 +76,11 @@ class Python(Solver, SimulatedPositionMixin):
                     if (
                         ind.missed_candle_policy is not MissedCandlePolicy.IGNORE
                         and (last_candle := state.last_candle)
-                        and (time_diff := (candle.time - last_candle.time)) >= config.interval * 2
+                        and (time_diff := (candle.time - last_candle.time)) >= ind.interval * 2
                     ):
                         if ind.missed_candle_policy is MissedCandlePolicy.RESTART:
                             restart = True
-                            state.strategy = ind.new_strategy()
+                            state.strategy = config.strategy_type(*ind.strategy_args)
                         elif ind.missed_candle_policy is MissedCandlePolicy.LAST:
                             num_missed = time_diff // ind.interval - 1
                             for i in range(1, num_missed + 1):
@@ -91,11 +93,11 @@ class Python(Solver, SimulatedPositionMixin):
                                     volume=last_candle.volume,
                                     closed=last_candle.closed
                                 )
-                                self._tick(config, state, missed_candle)
+                                self._tick(config, ind, state, missed_candle)
                         else:
                             raise NotImplementedError()
 
-                    self._tick(config, state, candle)
+                    self._tick(config, ind, state, candle)
 
                     if restart:
                         break
@@ -106,11 +108,11 @@ class Python(Solver, SimulatedPositionMixin):
             if state.last_candle:
                 if isinstance(state.open_position, Position.OpenLong):
                     self._close_long_position(
-                        config, state, state.last_candle, CloseReason.CANCELLED
+                        config, ind, state, state.last_candle, CloseReason.CANCELLED
                     )
                 elif isinstance(state.open_position, Position.OpenShort):
                     self._close_short_position(
-                        config, state, state.last_candle, CloseReason.CANCELLED
+                        config, ind, state, state.last_candle, CloseReason.CANCELLED
                     )
 
         except OrderException:
@@ -119,31 +121,31 @@ class Python(Solver, SimulatedPositionMixin):
         state.summary.finish(candles[-1].time + ind.interval)
         return state.summary
 
-    def _tick(self, config: Solver.Config, state: _State, candle: Candle) -> None:
+    def _tick(self, config: Solver.Config, ind: Individual, state: _State, candle: Candle) -> None:
         state.stop_loss.update(candle)
         state.take_profit.update(candle)
         advice = state.changed.update(state.strategy.update(candle))
 
         if isinstance(state.open_position, Position.OpenLong):
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
-                self._close_long_position(config, state, candle, CloseReason.STRATEGY)
+                self._close_long_position(config, ind, state, candle, CloseReason.STRATEGY)
             elif state.stop_loss.upside_hit:
-                self._close_long_position(config, state, candle, CloseReason.STOP_LOSS)
+                self._close_long_position(config, ind, state, candle, CloseReason.STOP_LOSS)
             elif state.take_profit.upside_hit:
-                self._close_long_position(config, state, candle, CloseReason.TAKE_PROFIT)
+                self._close_long_position(config, ind, state, candle, CloseReason.TAKE_PROFIT)
         elif isinstance(state.open_position, Position.OpenShort):
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
-                self._close_short_position(config, state, candle, CloseReason.STRATEGY)
+                self._close_short_position(config, ind, state, candle, CloseReason.STRATEGY)
             elif state.stop_loss.downside_hit:
-                self._close_short_position(config, state, candle, CloseReason.STOP_LOSS)
+                self._close_short_position(config, ind, state, candle, CloseReason.STOP_LOSS)
             elif state.take_profit.downside_hit:
-                self._close_short_position(config, state, candle, CloseReason.TAKE_PROFIT)
+                self._close_short_position(config, ind, state, candle, CloseReason.TAKE_PROFIT)
 
         if not state.open_position:
-            if config.long and advice is Advice.LONG:
-                self._open_long_position(config, state, candle)
-            elif config.short and advice is Advice.SHORT:
-                self._open_short_position(config, state, candle)
+            if ind.long and advice is Advice.LONG:
+                self._open_long_position(config, ind, state, candle)
+            elif ind.short and advice is Advice.SHORT:
+                self._open_short_position(config, ind, state, candle)
             state.stop_loss.clear(candle)
             state.take_profit.clear(candle)
 

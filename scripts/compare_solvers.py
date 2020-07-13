@@ -5,9 +5,9 @@ from decimal import Decimal
 from juno import MissedCandlePolicy, components, exchanges, storages, strategies, time
 from juno.config import format_as_config, from_env, init_instance
 from juno.math import floor_multiple
-from juno.solvers import Python, Rust, Solver
+from juno.solvers import Individual, Python, Rust, Solver
 from juno.statistics import analyse_benchmark, analyse_portfolio
-from juno.strategies import MidTrendPolicy
+# from juno.strategies import MidTrendPolicy
 from juno.traders import Basic
 from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
@@ -22,23 +22,23 @@ TRAIL_STOP_LOSS = True
 TAKE_PROFIT = Decimal('0.0')
 LONG = False
 SHORT = True
-STRATEGY_TYPE = strategies.FourWeekRule
-STRATEGY_KWARGS = {
-    'period': 28,
-    'ma': 'smma',
-    'ma_period': 14,
-    'mid_trend_policy': MidTrendPolicy.IGNORE,
-}
-# STRATEGY_TYPE = strategies.MAMACX
+# STRATEGY_TYPE = strategies.FourWeekRule
 # STRATEGY_KWARGS = {
-#     'short_period': 4,
-#     'long_period': 60,
-#     'neg_threshold': Decimal('-0.435'),
-#     'pos_threshold': Decimal('0.211'),
-#     'persistence': 5,
-#     'short_ma': 'kama',
-#     'long_ma': 'sma',
+#     'period': 28,
+#     'ma': 'smma',
+#     'ma_period': 14,
+#     'mid_trend_policy': MidTrendPolicy.IGNORE,
 # }
+STRATEGY_TYPE = strategies.MAMACX
+STRATEGY_KWARGS = {
+    'short_period': 4,
+    'long_period': 60,
+    'neg_threshold': Decimal('-0.435'),
+    'pos_threshold': Decimal('0.211'),
+    'persistence': 5,
+    'short_ma': 'kama',
+    'long_ma': 'sma',
+}
 
 
 async def main() -> None:
@@ -72,23 +72,25 @@ async def main() -> None:
             fiat_prices=fiat_prices,
             benchmark_g_returns=benchmark.g_returns,
             strategy_type=STRATEGY_TYPE,
-            strategy_args=tuple(STRATEGY_KWARGS.values()),
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            candles=candles,
+            candles={(SYMBOL, INTERVAL): candles},
             exchange='binance',
-            symbol=SYMBOL,
-            interval=INTERVAL,
-            missed_candle_policy=MISSED_CANDLE_POLICY,
-            stop_loss=STOP_LOSS,
-            trail_stop_loss=TRAIL_STOP_LOSS,
-            take_profit=TAKE_PROFIT,
-            long=LONG,
-            short=SHORT,
         )
-        rust_result = rust_solver.solve(solver_config)
-        python_result = python_solver.solve(solver_config)
+        individual = Individual((
+            SYMBOL,  # symbol
+            INTERVAL,  # interval
+            MISSED_CANDLE_POLICY,  # missed_candle_policy
+            STOP_LOSS,  # stop_loss
+            TRAIL_STOP_LOSS,  # trail_stop_loss
+            TAKE_PROFIT,  # take_profit
+            LONG,  # long
+            SHORT,  # short
+            *STRATEGY_KWARGS.values(),  # strategy_args
+        ))
+        [rust_fitness] = rust_solver.solve(solver_config, [individual])
+        [python_fitness] = python_solver.solve(solver_config, [individual])
 
         trading_summary = await trader.run(Basic.Config(
             exchange='binance',
@@ -112,16 +114,16 @@ async def main() -> None:
         )
 
         logging.info('=== rust solver ===')
-        # logging.info(f'alpha {rust_result.alpha}')
-        logging.info(f'sharpe ratio {rust_result.sharpe_ratio}')
-        # logging.info(f'profit {rust_result.profit}')
-        # logging.info(f'mean pos dur {rust_result.mean_position_duration}')
+        # logging.info(f'alpha {rust_fitness.alpha}')
+        logging.info(f'sharpe ratio {rust_fitness.sharpe_ratio}')
+        # logging.info(f'profit {rust_fitness.profit}')
+        # logging.info(f'mean pos dur {rust_fitness.mean_position_duration}')
 
         logging.info('=== python solver ===')
-        # logging.info(f'alpha {python_result.alpha}')
-        logging.info(f'sharpe ratio {python_result.sharpe_ratio}')
-        # logging.info(f'profit {python_result.profit}')
-        # logging.info(f'mean pos dur {python_result.mean_position_duration}')
+        # logging.info(f'alpha {python_fitness.alpha}')
+        logging.info(f'sharpe ratio {python_fitness.sharpe_ratio}')
+        # logging.info(f'profit {python_fitness.profit}')
+        # logging.info(f'mean pos dur {python_fitness.mean_position_duration}')
 
         logging.info('=== python trader ===')
         # logging.info(f'alpha {portfolio.stats.alpha}')

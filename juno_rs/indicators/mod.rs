@@ -39,6 +39,8 @@ pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     const DEMA: u32 = 66_978_200;
     const KAMA: u32 = 68_026_779;
 
+    println!("{} {}", code, period);
+
     match code {
         EMA => Box::new(Ema::new(period)),
         EMA2 => Box::new(Ema2::new(period)),

@@ -20,6 +20,71 @@ use crate::{
     trade::trade,
 };
 use std::slice;
+use std::mem;
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct MAMACXInfo {
+    short_period: u32,
+    long_period: u32,
+    neg_threshold: f64,
+    pos_threshold: f64,
+    persistence: u32,
+    short_ma: u32,
+    long_ma: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn mamacx(
+    population: *const Individual<MAMACXInfo>,
+    fitnesses: *mut FitnessValues,
+    length: u32,
+) {
+    let bar = slice::from_raw_parts(population, length as usize);
+    let foo = slice::from_raw_parts_mut(fitnesses, length as usize);
+    println!("TUSSUUUUUUUUU {}", length);
+    println!("{:?}", &*bar[0].strategy_info);
+    println!("sizeof {}", mem::size_of::<MAMACXInfo>());
+    let strategy_factory = |strategy_info: &MAMACXInfo| {
+        println!("{:?}", strategy_info);
+        MAMACX::new(
+            strategy_info.short_period,
+            strategy_info.long_period,
+            strategy_info.neg_threshold,
+            strategy_info.pos_threshold,
+            strategy_info.persistence,
+            strategy_info.short_ma,
+            strategy_info.long_ma,
+        )
+    };
+    process_population(population, fitnesses, length, strategy_factory);
+}
+
+#[repr(C)]
+pub struct FourWeekRuleInfo {
+    period: u32,
+    ma: u32,
+    ma_period: u32,
+    mid_trend_policy: u32,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn fourweekrule(
+    population: *const Individual<FourWeekRuleInfo>,
+    fitnesses: *mut FitnessValues,
+    length: u32,
+) {
+    println!("TUSSUUUUUUUUUMAHL");
+    let strategy_factory = |strategy_info: &FourWeekRuleInfo| {
+        strategies::FourWeekRule::new(
+            strategy_info.period,
+            strategy_info.ma,
+            strategy_info.ma_period,
+            strategy_info.mid_trend_policy,
+        )
+    };
+    process_population(population, fitnesses, length, strategy_factory);
+}
 
 #[repr(C)]
 pub struct SingleMAInfo {
@@ -31,7 +96,7 @@ pub struct SingleMAInfo {
 #[no_mangle]
 pub unsafe extern "C" fn singlema(
     population: *const Individual<SingleMAInfo>,
-    fitness: *mut Result,
+    fitnesses: *mut FitnessValues,
     length: u32,
 ) {
     let strategy_factory = |strategy_info: &SingleMAInfo| {
@@ -41,7 +106,7 @@ pub unsafe extern "C" fn singlema(
             strategy_info.persistence,
         )
     };
-    process_population(population, fitness, length, strategy_factory);
+    process_population(population, fitnesses, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -55,7 +120,7 @@ pub struct DoubleMAInfo {
 #[no_mangle]
 pub unsafe extern "C" fn doublema(
     population: *const Individual<DoubleMAInfo>,
-    fitness: *mut Result,
+    fitnesses: *mut FitnessValues,
     length: u32,
 ) {
     let strategy_factory = |strategy_info: &DoubleMAInfo| {
@@ -66,7 +131,7 @@ pub unsafe extern "C" fn doublema(
             strategy_info.long_period,
         )
     };
-    process_population(population, fitness, length, strategy_factory);
+    process_population(population, fitnesses, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -82,7 +147,7 @@ pub struct TripleMAInfo {
 #[no_mangle]
 pub unsafe extern "C" fn triplema(
     population: *const Individual<TripleMAInfo>,
-    fitness: *mut Result,
+    fitnesses: *mut FitnessValues,
     length: u32,
 ) {
     let strategy_factory = |strategy_info: &TripleMAInfo| {
@@ -95,32 +160,7 @@ pub unsafe extern "C" fn triplema(
             strategy_info.long_period,
         )
     };
-    process_population(population, fitness, length, strategy_factory);
-}
-
-#[repr(C)]
-pub struct FourWeekRuleInfo {
-    period: u32,
-    ma: u32,
-    ma_period: u32,
-    mid_trend_policy: u32,
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn fourweekrule(
-    population: *const Individual<FourWeekRuleInfo>,
-    fitness: *mut Result,
-    length: u32,
-) {
-    let strategy_factory = |strategy_info: &FourWeekRuleInfo| {
-        strategies::FourWeekRule::new(
-            strategy_info.period,
-            strategy_info.ma,
-            strategy_info.ma_period,
-            strategy_info.mid_trend_policy,
-        )
-    };
-    process_population(population, fitness, length, strategy_factory);
+    process_population(population, fitnesses, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -134,7 +174,7 @@ pub struct MacdInfo {
 #[no_mangle]
 pub unsafe extern "C" fn macd(
     population: *const Individual<MacdInfo>,
-    fitness: *mut Result,
+    fitnesses: *mut FitnessValues,
     length: u32,
 ) {
     let strategy_factory = |strategy_info: &MacdInfo| {
@@ -145,7 +185,7 @@ pub unsafe extern "C" fn macd(
             strategy_info.persistence,
         )
     };
-    process_population(population, fitness, length, strategy_factory);
+    process_population(population, fitnesses, length, strategy_factory);
 }
 
 #[repr(C)]
@@ -162,7 +202,7 @@ pub struct MacdRsiInfo {
 #[no_mangle]
 pub unsafe extern "C" fn macdrsi(
     population: *const Individual<MacdRsiInfo>,
-    fitness: *mut Result,
+    fitnesses: *mut FitnessValues,
     length: u32,
 ) {
     let strategy_factory = |strategy_info: &MacdRsiInfo| {
@@ -176,66 +216,33 @@ pub unsafe extern "C" fn macdrsi(
             strategy_info.persistence,
         )
     };
-    process_population(population, fitness, length, strategy_factory);
-}
-
-#[repr(C)]
-pub struct MAMACXInfo {
-    short_period: u32,
-    long_period: u32,
-    neg_threshold: f64,
-    pos_threshold: f64,
-    persistence: u32,
-    short_ma: u32,
-    long_ma: u32,
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn mamacx(
-    population: *const Individual<MAMACXInfo>,
-    fitness: *mut Result,
-    length: u32,
-) {
-    let strategy_factory = |strategy_info: &MAMACXInfo| {
-        MAMACX::new(
-            strategy_info.short_period,
-            strategy_info.long_period,
-            strategy_info.neg_threshold,
-            strategy_info.pos_threshold,
-            strategy_info.persistence,
-            strategy_info.short_ma,
-            strategy_info.long_ma,
-        )
-    };
-    process_population(population, fitness, length, strategy_factory);
+    process_population(population, fitnesses, length, strategy_factory);
 }
 
 unsafe fn process_population<TF: Fn(&TSI) -> TS, TS: Strategy, TSI>(
     population: *const Individual<TSI>,
-    fitness: *mut Result,
+    fitnesses: *mut FitnessValues,
     length: u32,
     strategy_factory: TF,
 ) {
     let population = slice::from_raw_parts(population, length as usize);
-    let fitness = slice::from_raw_parts_mut(fitness, length as usize);
+    let fitnesses = slice::from_raw_parts_mut(fitnesses, length as usize);
     // TODO: parallelize
     for (i, individual) in population.iter().enumerate() {
-        fitness[i] = process_individual(individual, &strategy_factory);
+        fitnesses[i] = process_individual(individual, &strategy_factory);
     }
 }
-
 
 unsafe fn process_individual<TF: Fn(&TSI) -> TS, TS: Strategy, TSI>(
     individual: &Individual<TSI>,
     strategy_factory: &TF,
-) -> Result {
+) -> FitnessValues {
     // Trading.
     // Turn unsafe ptrs to safe references.
-    let trading_info = &*individual.trading_info;
-    let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
-    let fees = &*trading_info.fees;
-    let filters = &*trading_info.filters;
-    let borrow_info = &*trading_info.borrow_info;
+    let candles = slice::from_raw_parts(individual.candles, individual.candles_length as usize);
+    let fees = &*individual.fees;
+    let filters = &*individual.filters;
+    let borrow_info = &*individual.borrow_info;
     let trading_result = trade(
         strategy_factory,
         &*individual.strategy_info,
@@ -243,32 +250,30 @@ unsafe fn process_individual<TF: Fn(&TSI) -> TS, TS: Strategy, TSI>(
         fees,
         filters,
         borrow_info,
-        trading_info.margin_multiplier,
-        trading_info.interval,
-        trading_info.quote,
-        trading_info.missed_candle_policy,
-        trading_info.stop_loss,
-        trading_info.trail_stop_loss,
-        trading_info.take_profit,
-        trading_info.long,
-        trading_info.short,
+        individual.margin_multiplier,
+        individual.interval,
+        individual.quote,
+        individual.missed_candle_policy,
+        individual.stop_loss,
+        individual.trail_stop_loss,
+        individual.take_profit,
+        individual.long,
+        individual.short,
     );
 
     // Analysis.
-    let analysis_info = &*individual.analysis_info;
     let quote_fiat_prices = slice::from_raw_parts(
-        analysis_info.quote_fiat_prices,
-        analysis_info.quote_fiat_prices_length as usize,
+        individual.quote_fiat_prices,
+        individual.quote_fiat_prices_length as usize,
     );
     let base_fiat_prices = slice::from_raw_parts(
-        analysis_info.base_fiat_prices,
-        analysis_info.base_fiat_prices_length as usize,
+        individual.base_fiat_prices,
+        individual.base_fiat_prices_length as usize,
     );
     let benchmark_g_returns = slice::from_raw_parts(
-        analysis_info.benchmark_g_returns,
-        analysis_info.benchmark_g_returns_length as usize,
+        individual.benchmark_g_returns,
+        individual.benchmark_g_returns_length as usize,
     );
-
     let stats = analyse(
         quote_fiat_prices,
         base_fiat_prices,
@@ -277,7 +282,7 @@ unsafe fn process_individual<TF: Fn(&TSI) -> TS, TS: Strategy, TSI>(
     );
 
     // Combine.
-    Result(
+    FitnessValues(
         stats.sharpe_ratio,
         // stats.sortino_ratio,
         // trading_result.profit,
@@ -291,20 +296,20 @@ unsafe fn process_individual<TF: Fn(&TSI) -> TS, TS: Strategy, TSI>(
 }
 
 #[repr(C)]
-pub struct Result(f64); // (f64, f64, f64, f64, f64, u64, u32, u32);
+#[derive(Debug)]
+pub struct FitnessValues(f64); // (f64, f64, f64, f64, f64, u64, u32, u32);
 
 #[repr(C)]
-pub struct AnalysisInfo {
+#[derive(Debug)]
+pub struct Individual<T> {
+    // Analysis.
     quote_fiat_prices: *const f64,
     quote_fiat_prices_length: u32,
     base_fiat_prices: *const f64,
     base_fiat_prices_length: u32,
     benchmark_g_returns: *const f64,
     benchmark_g_returns_length: u32,
-}
-
-#[repr(C)]
-pub struct TradingInfo {
+    // Trading.
     candles: *const Candle,
     candles_length: u32,
     fees: *const Fees,
@@ -319,11 +324,29 @@ pub struct TradingInfo {
     take_profit: f64,
     long: bool,
     short: bool,
+    // Strategy.
+    strategy_info: *const T,
 }
 
-#[repr(C)]
-pub struct Individual<T> {
-    trading_info: *const TradingInfo,
-    strategy_info: *const T,
-    analysis_info: *const AnalysisInfo,
-}
+// const double* quote_fiat_prices;
+// uint32_t quote_fiat_prices_length;
+// const double* base_fiat_prices;
+// uint32_t base_fiat_prices_length;
+// const double* benchmark_g_returns;
+// uint32_t benchmark_g_returns_length;
+// const Candle* candles;
+// uint32_t candles_length;
+// const Fees* fees;
+// const Filters* filters;
+// const BorrowInfo* borrow_info;
+// uint32_t margin_multiplier;
+// uint64_t interval;
+// double quote;
+// uint32_t missed_candle_policy;
+// double stop_loss;
+// bool trail_stop_loss;
+// double take_profit;
+// bool long_;
+// bool short_;
+// const void* strategy_info;
+

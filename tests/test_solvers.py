@@ -5,7 +5,7 @@ from typing import List
 import pytest
 
 from juno import Candle, MissedCandlePolicy
-from juno.solvers import Python, Rust
+from juno.solvers import Individual, Python, Rust
 from juno.statistics import analyse_benchmark
 from juno.strategies import MAMACX
 from juno.time import HOUR_MS
@@ -37,7 +37,7 @@ async def test_solver_works_with_default_fees_filters(loop, solver_type) -> None
     strategy_args = (11, 21, Decimal('-0.229'), Decimal('0.1'), 4, 'ema', 'ema')
 
     async with solver_type(informant=fakes.Informant()) as solver:
-        result = solver.solve(
+        fitnesses = solver.solve(
             solver_type.Config(
                 fiat_prices=fiat_prices,
                 benchmark_g_returns=benchmark_stats.g_returns,
@@ -45,19 +45,23 @@ async def test_solver_works_with_default_fees_filters(loop, solver_type) -> None
                 start=portfolio_candles[0].time,
                 end=portfolio_candles[-1].time + HOUR_MS,
                 quote=Decimal('1.0'),
-                candles=portfolio_candles,
+                candles={('eth-btc', HOUR_MS): portfolio_candles},
                 exchange='exchange',
-                symbol='eth-btc',
-                interval=HOUR_MS,
-                missed_candle_policy=MissedCandlePolicy.IGNORE,
-                stop_loss=Decimal('0.0'),
-                trail_stop_loss=True,
-                take_profit=Decimal('0.0'),
-                long=True,
-                short=False,
-                strategy_args=strategy_args,
-            )
+            ),
+            [
+                Individual((
+                    'eth-btc',  # symbol
+                    HOUR_MS,  # interval
+                    MissedCandlePolicy.IGNORE,  # missed_candle_policy
+                    Decimal('0.0'),  # stop_loss
+                    True,  # trail_stop_loss
+                    Decimal('0.0'),  # take_profit
+                    True,  # long
+                    False,  # short
+                    *strategy_args,  # strategy_args
+                )),
+            ],
         )
 
-    # assert not math.isnan(result.alpha)
-    assert not math.isnan(result.sharpe_ratio)
+    # assert not math.isnan(fitnesses[0].alpha)
+    assert not math.isnan(fitnesses[0].sharpe_ratio)

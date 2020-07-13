@@ -15,10 +15,24 @@ from juno.itertools import flatten
 from juno.statistics import Statistics
 from juno.strategies import Strategy
 from juno.trading import TradingSummary
-from juno.utils import AbstractAsyncContextManager, unpack_symbol
+from juno.utils import AbstractAsyncContextManager
+
+_META = {
+    'alpha': +1.0,
+    'sharpe_ratio': +1.0,
+    'sortino_ratio': +1.0,
+    'profit': +1.0,
+    'mean_drawdown': -1.0,
+    'max_drawdown': -1.0,
+    'mean_position_profit': +1.0,
+    'mean_position_duration': -1.0,
+    'num_positions': +1.0,
+    'num_positions_in_profit': +1.0,
+    'num_positions_in_loss': -1.0,
+}
 
 
-class SolverResult(NamedTuple):
+class FitnessValues(NamedTuple):
     # alpha: float = 0.0
     sharpe_ratio: float = 0.0
     # sortino_ratio: float = 0.0
@@ -43,18 +57,18 @@ class SolverResult(NamedTuple):
         # return {k: v for k, v in META.items() if k in _SOLVER_RESULT_KEYS}
 
     @staticmethod
-    def _new(*iterable: Any) -> SolverResult:
+    def _new(*iterable: Any) -> FitnessValues:
         # We map nan to infinity values because otherwise they will mess up fitness comparisons.
         # See: https://github.com/DEAP/deap/issues/440
-        return SolverResult(
+        return FitnessValues(
             *(_map_nan(k, v) for k, v in zip(_SOLVER_RESULT_KEYS, iterable))
         )
 
     @staticmethod
     def from_trading_summary(
         summary: TradingSummary, stats: Statistics
-    ) -> SolverResult:
-        return SolverResult._new(*map(
+    ) -> FitnessValues:
+        return FitnessValues._new(*map(
             _decimal_to_float,
             (_coalesce(
                 getattr(summary, k, None),
@@ -63,15 +77,15 @@ class SolverResult(NamedTuple):
         ))
 
     @staticmethod
-    def from_object(obj: Any) -> SolverResult:
-        return SolverResult._new(*(getattr(obj, k) for k in _SOLVER_RESULT_KEYS))
+    def from_object(obj: Any) -> FitnessValues:
+        return FitnessValues._new(*(getattr(obj, k) for k in _SOLVER_RESULT_KEYS))
 
 
-_SOLVER_RESULT_KEYS = list(get_type_hints(SolverResult).keys())
+_SOLVER_RESULT_KEYS = list(get_type_hints(FitnessValues).keys())
 
 
 class FitnessMulti(base.Fitness):
-    weights = list(SolverResult.meta().values())
+    weights = list(FitnessValues.meta().values())
 
 
 class Individual(list):
@@ -114,16 +128,8 @@ class Individual(list):
         return self[7]
 
     @property
-    def strategy_args(self) -> Tuple[Any, ...]:
-        return tuple(flatten(self[8:]))
-
-    @property
-    def base_asset(self) -> str:
-        return unpack_symbol(self.symbol)[0]
-
-    @property
-    def quote_asset(self) -> str:
-        return unpack_symbol(self.symbol)[1]
+    def strategy_args(self) -> Iterable[Any]:
+        return flatten(self[8:])
 
 
 class Solver(AbstractAsyncContextManager, ABC):
@@ -138,23 +144,8 @@ class Solver(AbstractAsyncContextManager, ABC):
         quote: Decimal
 
     @abstractmethod
-    def solve(self, config: Config, population: List[Individual]) -> List[SolverResult]:
+    def solve(self, config: Config, population: List[Individual]) -> List[FitnessValues]:
         pass
-
-
-_META = {
-    'alpha': +1.0,
-    'sharpe_ratio': +1.0,
-    'sortino_ratio': +1.0,
-    'profit': +1.0,
-    'mean_drawdown': -1.0,
-    'max_drawdown': -1.0,
-    'mean_position_profit': +1.0,
-    'mean_position_duration': -1.0,
-    'num_positions': +1.0,
-    'num_positions_in_profit': +1.0,
-    'num_positions_in_loss': -1.0,
-}
 
 
 def _map_nan(key: str, value: Any) -> Any:
