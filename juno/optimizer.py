@@ -16,7 +16,7 @@ from juno.components import Chandler, Informant, Prices
 from juno.constraints import Choice, Constant, Constraint, ConstraintChoice, Uniform
 from juno.deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from juno.math import floor_multiple
-from juno.solvers import Individual, Solver, FitnessValues
+from juno.solvers import FitnessValues, Individual, Solver
 from juno.statistics import AnalysisSummary, Statistics, analyse_benchmark, analyse_portfolio
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms

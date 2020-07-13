@@ -11,7 +11,7 @@ from juno.trading import (
 )
 from juno.utils import unpack_symbol
 
-from .solver import Individual, Solver, FitnessValues
+from .solver import FitnessValues, Individual, Solver
 
 
 @dataclass
