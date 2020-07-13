@@ -9,6 +9,7 @@ from juno.strategies import Changed, Strategy
 from juno.trading import (
     CloseReason, Position, SimulatedPositionMixin, StopLoss, TakeProfit, TradingSummary
 )
+from juno.utils import unpack_symbol
 
 from .solver import Solver, SolverResult
 
@@ -46,11 +47,12 @@ class Python(Solver, SimulatedPositionMixin):
         return SolverResult.from_trading_summary(summary, portfolio.stats)
 
     def _trade(self, config: Solver.Config) -> TradingSummary:
+        _, quote_asset = unpack_symbol(config.symbol)
         state = _State(
             summary=TradingSummary(
                 start=config.candles[0].time,
                 quote=config.quote,
-                quote_asset=config.quote_asset,
+                quote_asset=quote_asset,
             ),
             strategy=config.new_strategy(),
             quote=config.quote,
