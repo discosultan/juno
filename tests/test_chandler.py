@@ -392,3 +392,48 @@ async def test_map_symbol_interval_candles(storage) -> None:
     )
 
     assert len(candles) == 4
+
+
+async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None:
+    async def stream_historical_candles(symbol, interval, start, end):
+        if interval == 1:
+            yield Candle(time=0, close=Decimal('1.0'))
+            await asyncio.sleep(0)
+            yield Candle(time=1, close=Decimal('2.0'))
+            await asyncio.sleep(0)
+            yield Candle(time=2, close=Decimal('3.0'))
+            await asyncio.sleep(0)
+            yield Candle(time=3, close=Decimal('4.0'))
+            await asyncio.sleep(0)
+            yield Candle(time=4, close=Decimal('5.0'))
+            await asyncio.sleep(0)
+            yield Candle(time=5, close=Decimal('6.0'))
+            await asyncio.sleep(0)
+        else:
+            yield Candle(time=0, close=Decimal('2.0'))
+            await asyncio.sleep(0)
+            yield Candle(time=2, close=Decimal('4.0'))
+            await asyncio.sleep(0)
+            yield Candle(time=4, close=Decimal('6.0'))
+            await asyncio.sleep(0)
+
+    exchange = mocker.patch('juno.exchanges.Binance')
+    exchange.stream_historical_candles.side_effect = stream_historical_candles
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+
+    candles = await chandler.list_candles(
+        'magicmock', 'eth-btc', 2, 0, 6, simulate_open_from_interval=1
+    )
+
+    import logging
+    import juno.json as json
+    logging.critical(json.dumps(candles, indent=4))
+
+    assert candles == [
+        Candle(time=0, close=Decimal('1.0'), closed=False),
+        Candle(time=0, close=Decimal('2.0'), closed=True),
+        Candle(time=2, close=Decimal('3.0'), closed=False),
+        Candle(time=2, close=Decimal('4.0'), closed=True),
+        Candle(time=4, close=Decimal('5.0'), closed=False),
+        Candle(time=4, close=Decimal('6.0'), closed=True),
+    ]
