@@ -7,7 +7,7 @@ from typing import List
 import plotly.graph_objs as go
 import plotly.offline as py
 
-from juno import Candle, Fill
+from juno import Candle, Fill, indicators
 from juno.components import Events
 from juno.time import datetime_utcfromtimestamp_ms
 from juno.trading import CloseReason, Position, TradingSummary
@@ -70,8 +70,9 @@ def plot(candles: List[Candle], summary: TradingSummary) -> None:
         trace_position_closings(summary.list_positions(reason=CloseReason.CANCELLED), 'gray'),
     ])
     # Profit.
-    traces.append(trace_balance(summary))
     traces.append(trace_profit_pct_changes(summary))
+    # traces.append(trace_balance(summary))
+    # traces.append(trace_adx(candles))
 
     layout = {
         'yaxis': {
@@ -124,6 +125,17 @@ def trace_position_closings(positions: List[Position.Closed], color: str):
     )
 
 
+def trace_profit_pct_changes(summary: TradingSummary):
+    positions = summary.list_positions()
+    balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
+    profit_pct_changes = [100 * (b - a) / a for a, b in zip(balances[::1], balances[1::1])]
+    return go.Bar(
+        x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
+        y=profit_pct_changes,
+        yaxis='y3',
+    )
+
+
 def trace_balance(summary: TradingSummary):
     positions = summary.list_positions()
     balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
@@ -141,12 +153,12 @@ def trace_balance(summary: TradingSummary):
     )
 
 
-def trace_profit_pct_changes(summary: TradingSummary):
-    positions = summary.list_positions()
-    balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
-    profit_pct_changes = [100 * (b - a) / a for a, b in zip(balances[::1], balances[1::1])]
-    return go.Bar(
-        x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
-        y=profit_pct_changes,
-        yaxis='y3',
+def trace_adx(candles: List[Candle]):
+    adx = indicators.Adx(28)
+    adx_values = [adx.update(c.high, c.low) for c in candles]
+    return go.Scatter(
+        mode='lines',
+        x=[datetime_utcfromtimestamp_ms(c.time) for c in candles],
+        y=adx_values,
+        yaxis='y4',
     )
