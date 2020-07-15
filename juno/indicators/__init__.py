@@ -18,6 +18,7 @@ from .ema import Ema, Ema2
 from .kama import Kama
 from .kvo import Kvo
 from .macd import Macd
+from .mmi import Mmi
 from .obv import Obv, Obv2
 from .rsi import Rsi
 from .sma import Sma
@@ -44,6 +45,7 @@ __all__ = [
     'Kvo',
     'Macd',
     'MA',
+    'Mmi',
     'Obv',
     'Obv2',
     'Rsi',
