@@ -7,6 +7,7 @@ from typing import Union
 
 from .adx import Adx
 from .adxr import Adxr
+from .alma import Alma
 from .cci import Cci
 from .chaikin_oscillator import ChaikinOscillator
 from .dema import Dema
@@ -25,11 +26,12 @@ from .stoch import Stoch
 from .stochrsi import StochRsi
 from .tsi import Tsi
 
-MA = Union[Dema, Ema, Ema2, Kama, Sma, Smma]
+MA = Union[Alma, Dema, Ema, Ema2, Kama, Sma, Smma]
 
 __all__ = [
     'Adx',
     'Adxr',
+    'Alma',
     'Cci',
     'ChaikinOscillator',
     'Dema',

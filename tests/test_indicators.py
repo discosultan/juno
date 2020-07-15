@@ -585,6 +585,22 @@ def test_tsi() -> None:
     _assert(indicators.Tsi(25, 13), inputs, outputs, 1)
 
 
+# Data taken from:
+# https://github.com/QuantConnect/Lean/pull/885/files
+def test_alma() -> None:
+    inputs = [[
+        '151.89', '149.00', '150.02', '151.91', '151.61', '152.11', '152.92', '154.29', '154.50',
+        '154.78', '155.44', '156.03', '155.68', '155.90', '156.73', '155.83', '154.97', '154.61',
+        '155.69', '154.36', '155.6', '154.95', '156.19', '156.19', '156.67'
+    ]]
+    outputs = [[
+        '153.0103125', '153.7129632', '154.3261091', '154.8567064', '155.2769595', '155.5872882',
+        '155.8547348', '156.0149609', '155.9837527', '155.7027110', '155.4071973', '155.1334738',
+        '155.0737871', '155.0664572', '155.2145257', '155.4710268', '155.8262270'
+    ]]
+    _assert(indicators.Alma(9, 6), inputs, outputs, 7)
+
+
 def _assert(indicator, inputs, expected_outputs, precision: int) -> None:
     input_len, output_len = len(inputs[0]), len(expected_outputs[0])
     offset = input_len - output_len
