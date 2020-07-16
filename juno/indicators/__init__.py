@@ -19,6 +19,7 @@ from .kama import Kama
 from .kvo import Kvo
 from .macd import Macd
 from .mmi import Mmi
+from .momersion import Momersion
 from .obv import Obv, Obv2
 from .rsi import Rsi
 from .sma import Sma
@@ -46,6 +47,7 @@ __all__ = [
     'Macd',
     'MA',
     'Mmi',
+    'Momersion',
     'Obv',
     'Obv2',
     'Rsi',

@@ -12,6 +12,7 @@ setup(
         'colorlog',
         'deap',
         'mergedeep',
+        'more-itertools',
         'numpy',
         'pandas',
         'python-dateutil',

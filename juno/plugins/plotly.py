@@ -155,10 +155,10 @@ def trace_balance(summary: TradingSummary):
 
 def trace_adx(candles: List[Candle]):
     adx = indicators.Adx(28)
-    adx_values = [adx.update(c.high, c.low) for c in candles]
+    values = [adx.update(c.high, c.low) for c in candles]
     return go.Scatter(
         mode='lines',
         x=[datetime_utcfromtimestamp_ms(c.time) for c in candles],
-        y=adx_values,
+        y=values,
         yaxis='y4',
     )

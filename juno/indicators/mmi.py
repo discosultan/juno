@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import itertools
 from collections import deque
 from decimal import Decimal
 from statistics import median
 from typing import Deque
 
+from more_itertools import pairwise
+
 
 # Market Meanness Index
-# TODO: Double check
 class Mmi:
     value: Decimal = Decimal('0.0')
 
@@ -17,6 +17,7 @@ class Mmi:
     _t: int = -1
     _t1: int
 
+    # Common periods are between 200 - 500.
     def __init__(self, period: int) -> None:
         if period < 1:
             raise ValueError(f'Invalid period ({period})')
@@ -39,15 +40,13 @@ class Mmi:
 
         if self.mature:
             med = median(self._prices)
-            td = 0
-            th = 0
-            prev_price = self._prices[0]
-            for next_price in itertools.islice(self._prices, 1, len(self._prices)):
-                if prev_price < med and next_price > prev_price:
-                    th += 1
-                if prev_price > med and next_price < prev_price:
-                    td += 1
-                prev_price = next_price
-            self.value = Decimal('100.0') * (th + td) / self._t1
+            nh = 0
+            nl = 0
+            for prev_price, next_price in pairwise(self._prices):
+                if next_price > med and next_price > prev_price:
+                    nl += 1
+                if next_price < med and next_price < prev_price:
+                    nh += 1
+            self.value = Decimal('100.0') * (nl + nh) / self._t1
 
         return self.value
