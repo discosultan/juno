@@ -313,6 +313,8 @@ class Optimizer(StartMixin):
         best_args: List[Any],
         symbol: str,
     ) -> OptimizationSummary:
+        _log.info('building trading summary from best result')
+
         start = floor_multiple(state.start, best_args[0])
         end = floor_multiple(state.end, best_args[0])
         trading_config = Basic.Config(

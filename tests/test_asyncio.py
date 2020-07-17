@@ -4,7 +4,7 @@ import pytest
 
 from juno.asyncio import (
     Barrier, Event, SlotBarrier, cancel, chain_async, enumerate_async, first_async, list_async,
-    merge_async, repeat_async, resolved_stream, zip_async
+    map_async, merge_async, repeat_async, resolved_stream, zip_async
 )
 
 
@@ -103,6 +103,16 @@ async def test_zip_async() -> None:
         assert b == counter + 1
         counter += 2
     assert counter == 4
+
+
+async def test_map_async() -> None:
+    async def gen():
+        yield 1
+        yield 2
+
+    expected_values = [2, 4]
+    async for x in map_async(lambda x: x * 2, gen()):
+        assert x == expected_values.pop(0)
 
 
 async def test_barrier() -> None:

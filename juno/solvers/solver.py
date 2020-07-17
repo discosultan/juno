@@ -11,7 +11,7 @@ from juno import Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.statistics import Statistics
 from juno.strategies import Strategy
 from juno.trading import TradingSummary
-from juno.utils import AbstractAsyncContextManager, unpack_symbol
+from juno.utils import AbstractAsyncContextManager
 
 
 class Solver(AbstractAsyncContextManager, ABC):
@@ -33,14 +33,6 @@ class Solver(AbstractAsyncContextManager, ABC):
         missed_candle_policy: MissedCandlePolicy
         long: bool
         short: bool
-
-        @property
-        def base_asset(self) -> str:
-            return unpack_symbol(self.symbol)[0]
-
-        @property
-        def quote_asset(self) -> str:
-            return unpack_symbol(self.symbol)[1]
 
         def new_strategy(self) -> Strategy:
             return self.strategy_type(*self.strategy_args)

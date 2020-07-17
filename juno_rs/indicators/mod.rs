@@ -1,4 +1,5 @@
 mod adx;
+mod alma;
 mod dema;
 mod di;
 mod dm;
@@ -12,6 +13,7 @@ mod smma;
 mod stoch;
 
 pub use adx::Adx;
+pub use alma::Alma;
 pub use dema::Dema;
 pub use di::DI;
 pub use dm::DM;
@@ -32,6 +34,7 @@ pub trait MA {
 
 pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     // Adler32 of lowercased indicator name.
+    const ALMA: u32 = 67_568_028;
     const EMA: u32 = 40_698_164;
     const EMA2: u32 = 64_160_102;
     const SMA: u32 = 43_450_690;
@@ -40,6 +43,7 @@ pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     const KAMA: u32 = 68_026_779;
 
     match code {
+        ALMA => Box::new(Alma::new(period)),
         EMA => Box::new(Ema::new(period)),
         EMA2 => Box::new(Ema2::new(period)),
         SMA => Box::new(Sma::new(period)),

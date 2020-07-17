@@ -23,7 +23,7 @@ from juno.filters import Price, Size
 from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path, list_concretes_from_module
+from juno.utils import home_path, list_concretes_from_module, unpack_symbol
 
 from .solver import Solver, SolverResult
 
@@ -103,6 +103,8 @@ class Rust(Solver):
         pass
 
     def solve(self, config: Solver.Config) -> SolverResult:
+        base_asset, _ = unpack_symbol(config.symbol)
+
         # Trading.
         c_candles = self._get_or_create_c_candles(
             (config.symbol, config.interval, config.start, config.end),
@@ -111,7 +113,7 @@ class Rust(Solver):
         fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         c_fees, c_filters = self._get_or_create_c_fees_filters(config.symbol, fees, filters)
         borrow_info = (
-            self._informant.get_borrow_info(config.exchange, config.base_asset) if config.short
+            self._informant.get_borrow_info(config.exchange, base_asset) if config.short
             else _DEFAULT_BORROW_INFO
         )
         c_borrow_info = self._get_or_create_c_borrow_info(config.symbol, borrow_info)
@@ -147,8 +149,8 @@ class Rust(Solver):
             ('btc-eur', analysis_interval, config.start, config.end), config.fiat_prices['btc']
         )
         c_base_fiat_prices = self._get_or_create_c_prices(
-            (f'{config.base_asset}-eur', analysis_interval, config.start, config.end),
-            config.fiat_prices[config.base_asset],
+            (f'{base_asset}-eur', analysis_interval, config.start, config.end),
+            config.fiat_prices[base_asset],
         )
 
         c_benchmark_g_returns = self._get_or_create_c_series(
