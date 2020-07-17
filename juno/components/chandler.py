@@ -10,7 +10,7 @@ from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tupl
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, ExchangeException
-from juno.asyncio import first_async, list_async, map_async, merge_async
+from juno.asyncio import first_async, list_async
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.math import ceil_multiple, floor_multiple
@@ -82,29 +82,55 @@ class Chandler:
             ):
                 yield candle
         else:
-            main_stream = map_async(
-                lambda c: (0, c),
-                self._stream_candles(
-                    exchange, symbol, interval, start, end, closed, fill_missing_with_last
-                ),
-            )
-            simulated_open_stream = map_async(
-                lambda c: (1, c),
-                self._stream_candles(
-                    exchange, symbol, simulate_open_from_interval, start, end, True,
-                    fill_missing_with_last
-                ),
-            )
-            last_main_time = 0
-            async for (x, c) in merge_async(main_stream, simulated_open_stream):
-                if x == 0:  # Main
-                    last_main_time = c.time
-                    yield c
-                else:  # Simulated
-                    if c.time <= last_main_time:
-                        continue
-                    # TODO!
-                    yield c.as_open()
+            assert simulate_open_from_interval < interval
+            assert interval % simulate_open_from_interval == 0
+            assert closed
+            assert fill_missing_with_last
+
+            main_stream = self._stream_candles(
+                exchange, symbol, interval, start, end, True, True
+            ).__aiter__()
+            side_stream = self._stream_candles(
+                exchange, symbol, simulate_open_from_interval, start, end, True, True
+            ).__aiter__()
+            side_current = start
+            side_end = start + interval
+            side_open = None
+            side_high = Decimal('0.0')
+            side_low = Decimal('inf')
+            side_volume = Decimal('0.0')
+            while True:
+                while side_current < side_end - simulate_open_from_interval:
+                    try:
+                        sc = await side_stream.__anext__()
+                    except StopAsyncIteration:
+                        break
+                    if side_open is None:
+                        side_open = sc.open
+                    side_high = max(side_high, sc.high)
+                    side_low = min(side_low, sc.low)
+                    side_volume += sc.volume
+                    yield Candle(
+                        time=sc.time,
+                        open=side_open,
+                        high=side_high,
+                        low=side_low,
+                        close=sc.close,
+                        volume=side_volume,
+                        closed=False,
+                    )
+                    side_current = sc.time + simulate_open_from_interval
+                try:
+                    yield await main_stream.__anext__()
+                    # Discard one from side.
+                    await side_stream.__anext__()
+                    side_end += interval
+                    side_open = None
+                    side_high = Decimal('0.0')
+                    side_low = Decimal('inf')
+                    side_volume = Decimal('0.0')
+                except StopAsyncIteration:
+                    break
 
     async def _stream_candles(
         self,

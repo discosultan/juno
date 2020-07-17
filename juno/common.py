@@ -91,17 +91,6 @@ class Candle(NamedTuple):
             'time': 'unique',
         }
 
-    def as_open(self) -> Candle:
-        return Candle(
-            time=self.time,
-            open=self.open,
-            high=self.high,
-            low=self.low,
-            close=self.close,
-            volume=self.volume,
-            closed=False,
-        )
-
 
 class Depth(ModuleType):
     class Snapshot(NamedTuple):
