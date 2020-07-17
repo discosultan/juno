@@ -7,12 +7,12 @@ from typing import Any, Dict, List
 
 from discord import File
 from discord.ext import commands
+from more_itertools import sliced
 
 from juno import Advice
 from juno.asyncio import cancel, create_task_cancel_on_exc
 from juno.components import Events
 from juno.config import format_as_config
-from juno.itertools import chunks
 from juno.trading import Position, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, extract_public
@@ -148,8 +148,8 @@ class Discord(commands.Bot, Plugin):
         # We break the message and send it in chunks in case it exceeds the max allowed limit.
         # Note that this is bad as it will break formatting. Splitting is done by chars and not
         # words.
-        for chunk in chunks(msg, max_length):
-            await channel.send(chunk)
+        for msg_slice in sliced(msg, max_length):
+            await channel.send(msg_slice)
 
     async def _send_file(self, channel_id: int, path: str) -> None:
         await self.wait_until_ready()

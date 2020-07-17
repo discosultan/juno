@@ -48,14 +48,3 @@ def test_recursive_iter() -> None:
     ]
     output = list(itertools.recursive_iter(input_))
     assert output == expected_output
-
-
-@pytest.mark.parametrize(
-    'input_,count,expected_output', [
-        ('ab', 1, ['a', 'b']),
-        ('ab', 2, ['ab']),
-    ]
-)
-def test_chunks(input_, count, expected_output) -> None:
-    output = list(itertools.chunks(input_, count))
-    assert output == expected_output
