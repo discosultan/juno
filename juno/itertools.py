@@ -1,5 +1,5 @@
 import math
-from typing import Any, Iterable, List, Tuple, TypeVar, Union, overload
+from typing import Any, Iterable, List, Tuple, TypeVar, overload
 
 T = TypeVar('T')
 
@@ -55,17 +55,6 @@ def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple
             yield from recursive_iter(item, keys + (idx, ))
     else:
         yield keys, obj
-
-
-# TODO: Use `recursive_iter` instead?
-# Ref: https://stackoverflow.com/a/10632356/1466456
-def flatten(items: Iterable[Union[T, List[T]]]) -> Iterable[T]:
-    for item in items:
-        if isinstance(item, (list, tuple)):
-            for subitem in item:
-                yield subitem
-        else:
-            yield item
 
 
 @overload

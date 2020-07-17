@@ -33,7 +33,7 @@ pub unsafe extern "C" fn singlema(
     trading_info: *const TradingInfo,
     strategy_info: *const SingleMAInfo,
     analysis_info: *const AnalysisInfo,
-) -> Result {
+) -> FitnessValues {
     let strategy_info = &*strategy_info;
     let strategy_factory = || {
         strategies::SingleMA::new(
@@ -58,7 +58,7 @@ pub unsafe extern "C" fn doublema(
     trading_info: *const TradingInfo,
     strategy_info: *const DoubleMAInfo,
     analysis_info: *const AnalysisInfo,
-) -> Result {
+) -> FitnessValues {
     let strategy_info = &*strategy_info;
     let strategy_factory = || {
         strategies::DoubleMA::new(
@@ -86,7 +86,7 @@ pub unsafe extern "C" fn triplema(
     trading_info: *const TradingInfo,
     strategy_info: *const TripleMAInfo,
     analysis_info: *const AnalysisInfo,
-) -> Result {
+) -> FitnessValues {
     let strategy_info = &*strategy_info;
     let strategy_factory = || {
         strategies::TripleMA::new(
@@ -114,7 +114,7 @@ pub unsafe extern "C" fn fourweekrule(
     trading_info: *const TradingInfo,
     strategy_info: *const FourWeekRuleInfo,
     analysis_info: *const AnalysisInfo,
-) -> Result {
+) -> FitnessValues {
     let strategy_info = &*strategy_info;
     let strategy_factory = || {
         strategies::FourWeekRule::new(
@@ -140,7 +140,7 @@ pub unsafe extern "C" fn macd(
     trading_info: *const TradingInfo,
     strategy_info: *const MacdInfo,
     analysis_info: *const AnalysisInfo,
-) -> Result {
+) -> FitnessValues {
     let strategy_info = &*strategy_info;
     let strategy_factory = || {
         Macd::new(
@@ -169,7 +169,7 @@ pub unsafe extern "C" fn macdrsi(
     trading_info: *const TradingInfo,
     strategy_info: *const MacdRsiInfo,
     analysis_info: *const AnalysisInfo,
-) -> Result {
+) -> FitnessValues {
     let strategy_info = &*strategy_info;
     let strategy_factory = || {
         MacdRsi::new(
@@ -201,7 +201,7 @@ pub unsafe extern "C" fn mamacx(
     trading_info: *const TradingInfo,
     strategy_info: *const MAMACXInfo,
     analysis_info: *const AnalysisInfo,
-) -> Result {
+) -> FitnessValues {
     let strategy_info = &*strategy_info;
     let strategy_factory = || {
         MAMACX::new(
@@ -221,7 +221,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     trading_info: *const TradingInfo,
     strategy_factory: TF,
     analysis_info: *const AnalysisInfo,
-) -> Result {
+) -> FitnessValues {
     // Trading.
     // Turn unsafe ptrs to safe references.
     let trading_info = &*trading_info;
@@ -269,7 +269,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
     );
 
     // Combine.
-    Result(
+    FitnessValues(
         stats.sharpe_ratio,
         // stats.sortino_ratio,
         // trading_result.profit,
@@ -283,7 +283,7 @@ unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
 }
 
 #[repr(C)]
-pub struct Result(f64); // (f64, f64, f64, f64, f64, u64, u32, u32);
+pub struct FitnessValues(f64); // (f64, f64, f64, f64, f64, u64, u32, u32);
 
 #[repr(C)]
 pub struct AnalysisInfo {

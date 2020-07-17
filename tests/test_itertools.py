@@ -50,12 +50,6 @@ def test_recursive_iter() -> None:
     assert output == expected_output
 
 
-def test_flatten() -> None:
-    expected_output = [35, 53, 525, 6743, 64, 63, 743, 754, 757]
-    output = list(itertools.flatten([35, 53, [525, 6743], 64, 63, [743, 754, 757]]))
-    assert output == expected_output
-
-
 @pytest.mark.parametrize(
     'input_,count,expected_output', [
         ('ab', 1, ['a', 'b']),

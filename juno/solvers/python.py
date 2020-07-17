@@ -11,7 +11,7 @@ from juno.trading import (
 )
 from juno.utils import unpack_symbol
 
-from .solver import Solver, SolverResult
+from .solver import FitnessValues, Solver
 
 
 @dataclass
@@ -37,14 +37,14 @@ class Python(Solver, SimulatedPositionMixin):
     def informant(self) -> Informant:
         return self._informant
 
-    def solve(self, config: Solver.Config) -> SolverResult:
+    def solve(self, config: Solver.Config) -> FitnessValues:
         summary = self._trade(config)
         portfolio = analyse_portfolio(
             benchmark_g_returns=config.benchmark_g_returns,
             fiat_prices=config.fiat_prices,
             trading_summary=summary,
         )
-        return SolverResult.from_trading_summary(summary, portfolio.stats)
+        return FitnessValues.from_trading_summary(summary, portfolio.stats)
 
     def _trade(self, config: Solver.Config) -> TradingSummary:
         _, quote_asset = unpack_symbol(config.symbol)

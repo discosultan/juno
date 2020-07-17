@@ -25,7 +25,7 @@ from juno.time import DAY_MS
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
 from juno.utils import home_path, list_concretes_from_module, unpack_symbol
 
-from .solver import Solver, SolverResult
+from .solver import FitnessValues, Solver
 
 _log = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ class Rust(Solver):
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
-    def solve(self, config: Solver.Config) -> SolverResult:
+    def solve(self, config: Solver.Config) -> FitnessValues:
         base_asset, _ = unpack_symbol(config.symbol)
 
         # Trading.
@@ -168,7 +168,7 @@ class Rust(Solver):
         # Go!
         fn = getattr(self._libjuno, config.strategy_type.__name__.lower())
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
-        return SolverResult.from_object(result)
+        return FitnessValues.from_object(result)
 
     def _get_or_create_c_fees_filters(self, key: str, fees: Fees, filters: Filters) -> Any:
         c_fees_filters = self._c_fees_filters.get(key)
@@ -248,7 +248,7 @@ def _build_cdef() -> str:
         _cdef_builder.struct(Size),
         _cdef_builder.struct(Filters, exclude=['percent_price', 'min_notional']),
         _cdef_builder.struct(BorrowInfo),
-        _cdef_builder.struct(SolverResult),
+        _cdef_builder.struct(FitnessValues),
         _cdef_builder.struct_from_fields(
             'AnalysisInfo',
             ('quote_fiat_prices', List[Decimal]),
@@ -284,7 +284,7 @@ def _build_cdef() -> str:
         ))
         members.append(_cdef_builder.function_from_params(
             strategy_name_lower,
-            SolverResult,
+            FitnessValues,
             ('trading_info', type('TradingInfo', (), {})),
             (strategy_info_param_name, type(strategy_info_type_name, (), {})),
             ('analysis_info', type('AnalysisInfo', (), {})),
