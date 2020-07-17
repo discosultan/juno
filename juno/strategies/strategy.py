@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, Tuple, Union
 
 from juno import Advice, Candle
 from juno.constraints import Choice, Constraint
-from juno.indicators import Dema, Ema, Ema2, Kama, Sma, Smma
+from juno.indicators import Alma, Dema, Ema, Ema2, Kama, Sma, Smma
 
 
 class MidTrendPolicy(IntEnum):
@@ -12,7 +12,7 @@ class MidTrendPolicy(IntEnum):
     IGNORE = 2
 
 
-ma_choices = Choice([i.__name__.lower() for i in [Dema, Ema, Ema2, Kama, Sma, Smma]])
+ma_choices = Choice([i.__name__.lower() for i in [Alma, Dema, Ema, Ema2, Kama, Sma, Smma]])
 mid_trend_policy_choices = Choice([
     MidTrendPolicy.CURRENT,
     MidTrendPolicy.PREVIOUS,

@@ -306,6 +306,8 @@ class Optimizer(StartMixin):
         candles: Dict[Tuple[str, int], List[Candle]],
         best_args: List[Any],
     ) -> OptimizationSummary:
+        _log.info('building trading summary from best result')
+
         start = floor_multiple(state.start, best_args[1])
         end = floor_multiple(state.end, best_args[1])
         trading_config = Basic.Config(
