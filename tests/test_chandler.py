@@ -392,3 +392,50 @@ async def test_map_symbol_interval_candles(storage) -> None:
     )
 
     assert len(candles) == 4
+
+
+async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None:
+    async def stream_historical_candles(symbol, interval, start, end):
+        if interval == 1:
+            for i in range(6):
+                yield Candle(
+                    time=i,
+                    open=Decimal(f'{i}.0'),
+                    high=Decimal(f'{i + 1}.0'),
+                    low=Decimal(f'{i}.0'),
+                    close=Decimal(f'{i + 1}.0'),
+                    volume=Decimal('1.0'),
+                    closed=True,
+                )
+        else:
+            for i in range(3):
+                yield Candle(
+                    time=i * 2,
+                    open=Decimal(f'{i * 2}.0'),
+                    high=Decimal(f'{(i + 1) * 2}.0'),
+                    low=Decimal(f'{i * 2}.0'),
+                    close=Decimal(f'{(i + 1) * 2}.0'),
+                    volume=Decimal('2.0'),
+                )
+
+    exchange = mocker.patch('juno.exchanges.Binance')
+    exchange.stream_historical_candles.side_effect = stream_historical_candles
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+
+    candles = await chandler.list_candles(
+        'magicmock', 'eth-btc', 2, 0, 6, simulate_open_from_interval=1,
+        closed=True, fill_missing_with_last=True
+    )
+
+    expected_candles = [
+        Candle(
+            time=i - i % 2,
+            open=Decimal(f'{i - i % 2}.0'),
+            high=Decimal(f'{i + 1}.0'),
+            low=Decimal(f'{i - i % 2}.0'),
+            close=Decimal(f'{i + 1}.0'),
+            volume=Decimal(f'{i % 2 + 1}.0'),
+            closed=False if i % 2 == 0 else True,
+        ) for i in range(6)
+    ]
+    assert candles == expected_candles

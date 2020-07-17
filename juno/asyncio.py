@@ -4,8 +4,8 @@ import logging
 import traceback
 from dataclasses import dataclass, field
 from typing import (
-    Any, AsyncIterable, AsyncIterator, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar,
-    cast
+    Any, AsyncIterable, AsyncIterator, Callable, Dict, Generic, Iterable, List, Optional, Tuple,
+    TypeVar, cast
 )
 
 _log = logging.getLogger(__name__)
@@ -89,6 +89,13 @@ async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
                 del iter_next[fut._orig_iter]  # type: ignore
                 continue
             yield ret
+
+
+async def map_async(
+    func: Callable[[T], U], async_iter: AsyncIterable[T]
+) -> AsyncIterable[U]:
+    async for item in async_iter:
+        yield func(item)
 
 
 async def cancel(*tasks: Optional[asyncio.Task]) -> None:

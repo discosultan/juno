@@ -145,8 +145,10 @@ class Chandler(components.Chandler):
         self.last_candle = last_candle
 
     async def stream_candles(
-        self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False
+        self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False,
+        simulate_open_from_interval=None,
     ):
+        # TODO: Get rid of this!
         if candles := self.candles.get((exchange, symbol, interval)):
             last_c = None
             for c in (c for c in candles if c.time >= start and c.time < end):
