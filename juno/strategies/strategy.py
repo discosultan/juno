@@ -1,5 +1,5 @@
 from enum import IntEnum
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, NamedTuple, Optional, Tuple, Union
 
 from juno import Advice, Candle
 from juno.constraints import Choice, Constraint
@@ -139,17 +139,13 @@ class Changed:
         return result
 
 
-class Meta:
-    def __init__(
-        self,
-        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {},
-    ) -> None:
-        self.constraints = constraints
+class Meta(NamedTuple):
+    constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {}
 
 
 class Strategy:
     advice: Advice = Advice.NONE
-    maturity: int
+    _maturity: int
 
     _t: int = -1
 
@@ -166,7 +162,7 @@ class Strategy:
     @property
     def adjust_hint(self) -> int:
         return (
-            self.maturity
+            self._maturity
             + max(self._mid_trend_filter.maturity, self._persistence_filter.maturity)
         )
 
@@ -176,7 +172,7 @@ class Strategy:
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,
     ) -> None:
-        self.maturity = maturity
+        self._maturity = maturity
 
         # self._maturity_filter = Maturity(maturity=maturity)
         self._mid_trend_filter = MidTrend(policy=mid_trend_policy)
@@ -184,12 +180,12 @@ class Strategy:
 
     @property
     def mature(self) -> bool:
-        return self._t >= self.maturity
+        return self._t >= self._maturity
 
     def update(self, candle: Candle) -> Advice:
         assert candle.time > self._last_candle_time
 
-        self._t = min(self._t + 1, self.maturity)
+        self._t = min(self._t + 1, self._maturity)
         advice = self.tick(candle)
 
         if self.mature:
