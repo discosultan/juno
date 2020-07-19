@@ -17,7 +17,7 @@ class Ema:
     _prices: List[Decimal]
     _denominator: Decimal = Decimal('0.0')
 
-    _t: int = 0
+    _t: int = -1
 
     def __init__(self, period: int, adjust: bool = False) -> None:
         if period < 1:
@@ -42,6 +42,8 @@ class Ema:
         self._a_inv = 1 - self._a
 
     def update(self, price: Decimal) -> Decimal:
+        self._t = min(self._t + 1, 1)
+
         if self._adjust:
             self._prices.append(price)
             numerator = sum(
@@ -56,10 +58,10 @@ class Ema:
             self.value = numerator / self._denominator
         else:
             if self._t == 0:
-                self._t = 1
                 self.value = price
             else:
                 self.value += (price - self.value) * self._a
+
         return self.value
 
     @staticmethod
@@ -79,14 +81,23 @@ class Ema:
         return ema
 
 
-class Ema2(Ema):
+class Ema2:
+    value: Decimal = Decimal('0.0')
+
     _sma: Sma
+    _a: Decimal
+    _t: int = -1
     _t1: int
     _t2: int
 
     def __init__(self, period: int) -> None:
-        super().__init__(period)
+        if period < 1:
+            raise ValueError(f'Invalid period ({period})')
+
         self._sma = Sma(period)
+
+        self._a = Decimal('2.0') / (period + 1)
+
         self._t1 = period - 1
         self._t2 = period
 
@@ -95,6 +106,8 @@ class Ema2(Ema):
         return self._t1
 
     def update(self, price: Decimal) -> Decimal:
+        self._t = min(self._t + 1, self._t2)
+
         if self._t <= self._t1:
             self._sma.update(price)
 
@@ -103,5 +116,4 @@ class Ema2(Ema):
         elif self._t == self._t2:
             self.value = (price - self.value) * self._a + self.value
 
-        self._t = min(self._t + 1, self._t2)
         return self.value
