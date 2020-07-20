@@ -34,6 +34,10 @@ class SingleMA:
         self._ma = get_module_type(indicators, ma)(period)
         self._t1 = self._ma.maturity + 1
 
+    @property
+    def maturity(self) -> int:
+        return self._t1
+
     def update(self, candle: Candle) -> Advice:
         self._t = min(self._t + 1, self._t1)
         self._ma.update(candle.close)
