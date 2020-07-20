@@ -2,13 +2,14 @@ from decimal import Decimal
 from typing import Dict
 
 from juno import Candle, indicators
-from juno.constraints import Constraint, Int
+from juno.constraints import Constraint, Int, Uniform
 
 
 class Adx:
     class Meta:
         constraints: Dict[str, Constraint] = {
             'period': Int(1, 365),
+            'threshold': Uniform(Decimal('0.01'), Decimal('99.99')),
         }
 
     _adx: indicators.Adx
@@ -17,7 +18,7 @@ class Adx:
     def __init__(
         self,
         period: int = 28,
-        threshold: Decimal = Decimal('0.2'),
+        threshold: Decimal = Decimal('0.25'),
     ) -> None:
         self._adx = indicators.Adx(period)
         self._threshold = threshold
