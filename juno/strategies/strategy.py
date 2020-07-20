@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import IntEnum
 from typing import Any, Dict, NamedTuple, Optional, Tuple, Union
 
@@ -143,7 +144,21 @@ class Meta(NamedTuple):
     constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {}
 
 
-class Strategy:
+class Strategy(ABC):
+    meta: Any
+    advice: Advice
+
+    @property
+    @abstractmethod
+    def adjust_hint(self) -> int:
+        pass
+
+    @abstractmethod
+    def update(self, candle: Candle) -> Advice:
+        pass
+
+
+class StrategyBase(Strategy):
     advice: Advice = Advice.NONE
     _maturity: int
 

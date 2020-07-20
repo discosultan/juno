@@ -6,10 +6,10 @@ from juno.constraints import Int, Pair, Uniform
 
 from .macd import Macd
 from .rsi import Rsi
-from .strategy import Meta, Strategy
+from .strategy import Meta, StrategyBase
 
 
-class MacdRsi(Strategy):
+class MacdRsi(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(

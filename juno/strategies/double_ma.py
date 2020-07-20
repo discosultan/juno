@@ -5,13 +5,13 @@ from juno.constraints import Int, Pair
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import Meta, MidTrendPolicy, Strategy, ma_choices
+from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
 
 
 # Signals long when shorter average crosses above the longer.
 # Signals short when shorter average crosses below the longer.
 # J. Murphy 203
-class DoubleMA(Strategy):
+class DoubleMA(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(

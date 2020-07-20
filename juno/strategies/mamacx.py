@@ -6,11 +6,11 @@ from juno.constraints import Int, Pair, Uniform
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import Meta, MidTrendPolicy, Strategy, ma_choices
+from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
 
 
 # Moving average moving average crossover.
-class MAMACX(Strategy):
+class MAMACX(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(

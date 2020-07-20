@@ -3,12 +3,12 @@ import operator
 from juno import Advice, Candle, indicators
 from juno.constraints import Int, Pair
 
-from .strategy import Meta, Strategy
+from .strategy import Meta, StrategyBase
 
 
 # Simple MACD based strategy which signals buy when MACD value above the signal line and sell if
 # below.
-class Macd(Strategy):
+class Macd(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(

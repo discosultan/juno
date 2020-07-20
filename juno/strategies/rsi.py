@@ -3,12 +3,12 @@ from decimal import Decimal
 from juno import Advice, Candle, indicators
 from juno.constraints import Int, Uniform
 
-from .strategy import Meta, Strategy
+from .strategy import Meta, StrategyBase
 
 
 # RSI based strategy which signals buy when the indicator is coming out of an oversold area and
 # sell when coming out of an overbought area.
-class Rsi(Strategy):
+class Rsi(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(

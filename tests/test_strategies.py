@@ -17,7 +17,7 @@ def test_strategy_meta():
         strategy.validate(11, 9)
 
 
-class DummyStrategy(strategies.Strategy):
+class DummyStrategy(strategies.StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -26,13 +26,13 @@ class DummyStrategy(strategies.Strategy):
             }
         )
 
-    def tick(self, candle):
+    def update(self, candle):
         pass
 
 
 @pytest.mark.parametrize('maturity', [0, 1, 2])
 def test_mature(maturity: int) -> None:
-    strategy = strategies.Strategy(maturity=maturity)
+    strategy = strategies.StrategyBase(maturity=maturity)
     assert not strategy.mature
 
     for i in range(maturity + 1):

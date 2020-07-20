@@ -8,14 +8,14 @@ from juno.indicators import MA, Sma
 from juno.math import minmax
 from juno.utils import get_module_type
 
-from .strategy import Meta, MidTrendPolicy, Strategy, ma_choices
+from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
 
 
 # Signals a long position when a candle close price goes above a highest four week close price.
 # Signals a short position when a candle close price goes below a lowest four week close price.
 # Signals liquidation when a candle close price crosses a two week moving average.
 # Works with daily candles!
-class FourWeekRule(Strategy):
+class FourWeekRule(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(

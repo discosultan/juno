@@ -5,14 +5,14 @@ from juno.constraints import Int
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import Meta, MidTrendPolicy, Strategy, ma_choices
+from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
 
 
 # Signals long when a candle close price goes above moving average and moving average is ascending.
 # Signals short when a candle close price goes below moving average and moving average is
 # descending.
 # J. Murphy 201
-class SingleMA(Strategy):
+class SingleMA(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(
