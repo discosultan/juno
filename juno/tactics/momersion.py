@@ -8,7 +8,7 @@ from juno.constraints import Constraint, Int, Uniform
 class Momersion:
     class Meta:
         constraints: Dict[str, Constraint] = {
-            'period': Int(1, 365),
+            'period': Int(100, 500),
             'threshold': Uniform(Decimal('0.01'), Decimal('99.99')),
         }
 
@@ -17,7 +17,7 @@ class Momersion:
 
     def __init__(
         self,
-        period: int = 28,
+        period: int = 250,
         threshold: Decimal = Decimal('0.50'),
     ) -> None:
         self._momersion = indicators.Momersion(period)
