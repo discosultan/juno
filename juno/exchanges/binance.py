@@ -775,7 +775,7 @@ class Clock:
                         await cancel(sleep_task)
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
@@ -893,7 +893,7 @@ class UserDataStream:
             await self._ensure_listen_key()
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
@@ -909,7 +909,7 @@ class UserDataStream:
         )
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
@@ -926,7 +926,7 @@ class UserDataStream:
         )
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
