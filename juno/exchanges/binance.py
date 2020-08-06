@@ -957,23 +957,23 @@ def _to_ws_symbol(symbol: str) -> str:
 
 def _from_symbol(symbol: str) -> str:
     # TODO: May be incorrect! We can't systematically know which part is base and which is quote
-    # since there is no separator used. We simply map based on known base currencies.
-    known_base_assets = [
+    # since there is no separator used. We simply map based on known quote assets.
+    known_quote_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
         'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD'
     ]
-    for known_base_asset in known_base_assets:
-        if symbol.endswith(known_base_asset):
-            quote = symbol[:-len(known_base_asset)]
-            base = known_base_asset
+    for asset in known_quote_assets:
+        if symbol.endswith(asset):
+            base = symbol[:-len(asset)]
+            quote = asset
             break
     else:
-        _log.warning(f'unknown base asset found: {symbol}')
-        # We round up because usually quote asset is the longer one (i.e IOTABTC).
+        _log.warning(f'unknown quote asset found in symbol: {symbol}')
+        # We round up because usually base asset is the longer one (i.e IOTABTC).
         split_index = math.ceil(len(symbol) / 2)
-        quote = symbol[:split_index]
-        base = symbol[split_index:]
-    return f'{quote.lower()}-{base.lower()}'
+        base = symbol[:split_index]
+        quote = symbol[split_index:]
+    return f'{base.lower()}-{quote.lower()}'
 
 
 def _to_side(side: Side) -> str:
