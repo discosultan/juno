@@ -261,6 +261,7 @@ class Coinbase(Exchange):
         client_id: Optional[str] = None,
         test: bool = True,
         margin: bool = False,
+        isolated: Optional[bool] = None,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
         if test or margin:
@@ -290,7 +291,13 @@ class Coinbase(Exchange):
         # Does not support returning fills straight away. Need to listen through WS.
         return OrderResult(status=OrderStatus.NEW, time=_from_datetime(res.data['created_at']))
 
-    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
+    async def cancel_order(
+        self,
+        symbol: str,
+        client_id: str,
+        margin: bool = False,
+        isolated: Optional[bool] = None,
+    ) -> None:
         res = await self._private_request('DELETE', f'/orders/client:{client_id}', {
             'product_id': _to_product(symbol),
         })

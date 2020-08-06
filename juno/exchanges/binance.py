@@ -18,9 +18,9 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Order,
-    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
-    Trade, json
+    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
+    IsolatedMarginBalance, Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate,
+    Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -219,7 +219,8 @@ class Binance(Exchange):
 
     async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
         url = '/sapi/v1/margin/account' if margin else '/api/v3/account'
-        res = await self._api_request('GET', url, weight=5, security=_SEC_USER_DATA)
+        weight = 1 if margin else 5
+        res = await self._api_request('GET', url, weight=weight, security=_SEC_USER_DATA)
         return {
             b['asset'].lower(): Balance(
                 available=Decimal(b['free']),
@@ -228,6 +229,27 @@ class Binance(Exchange):
                 interest=Decimal(b['interest'] if margin else Decimal('0.0')),
             )
             for b in res.data['userAssets' if margin else 'balances']
+        }
+
+    async def map_isolated_margin_balances(self) -> Dict[str, IsolatedMarginBalance]:
+        url = '/sapi/v1/margin/isolated/account'
+        res = await self._api_request('GET', url, weight=1, security=_SEC_USER_DATA)
+        return {
+            b['symbol'].lower(): IsolatedMarginBalance(
+                base=Balance(
+                    available=Decimal(b['baseAsset']['free']),
+                    hold=Decimal(b['baseAsset']['locked']),
+                    borrowed=Decimal(b['baseAsset']['borrowed']),
+                    interest=Decimal(b['baseAsset']['interest']),
+                ),
+                quote=Balance(
+                    available=Decimal(b['quoteAsset']['free']),
+                    hold=Decimal(b['quoteAsset']['locked']),
+                    borrowed=Decimal(b['quoteAsset']['borrowed']),
+                    interest=Decimal(b['quoteAsset']['interest']),
+                ),
+            )
+            for b in res.data['assets']
         }
 
     @asynccontextmanager
@@ -396,11 +418,12 @@ class Binance(Exchange):
         client_id: Optional[str] = None,
         test: bool = True,
         margin: bool = False,
+        isolated: Optional[bool] = None,
     ) -> OrderResult:
         if test and margin:
             raise ValueError('Binance does not support placing test orders on margin account')
 
-        data = {
+        data: Dict[str, Any] = {
             'symbol': _to_http_symbol(symbol),
             'side': _to_side(side),
             'type': _to_order_type(type_),
@@ -415,6 +438,8 @@ class Binance(Exchange):
             data['timeInForce'] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data['newClientOrderId'] = client_id
+        if isolated is not None:
+            data['isIsolated'] = isolated
         url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
         if test:
             url += '/test'
@@ -441,7 +466,13 @@ class Binance(Exchange):
             ]
         )
 
-    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
+    async def cancel_order(
+        self,
+        symbol: str,
+        client_id: str,
+        margin: bool = False,
+        isolated: Optional[bool] = None,
+    ) -> None:
         url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
         data = {'symbol': _to_http_symbol(symbol), 'origClientOrderId': client_id}
         await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
@@ -557,6 +588,22 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
+    async def transfer_isolated(
+        self, asset: str, symbol: str, from_margin: bool, to_margin: bool, size: Decimal
+    ) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/margin/isolated/transfer',
+            data={
+                'asset': _to_asset(asset),
+                'symbol': _to_http_symbol(symbol),
+                'transFrom': 'ISOLATED_MARGIN' if from_margin else 'SPOT',
+                'transTo': 'ISOLATED_MARGIN' if to_margin else 'SPOT',
+                'amount': _to_decimal(size),
+            },
+            security=_SEC_MARGIN,
+        )
+
     async def borrow(self, asset: str, size: Decimal) -> None:
         await self._api_request(
             'POST',
@@ -579,19 +626,31 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def get_max_borrowable(self, asset: str) -> Decimal:
+    async def get_max_borrowable(
+        self, asset: str, isolated_symbol: Optional[str] = None
+    ) -> Decimal:
+        data = {'asset': _to_asset(asset)}
+        if isolated_symbol is not None:
+            data['isolatedSymbol'] = isolated_symbol
         res = await self._api_request(
             'GET',
-            '/sapi/v1/margin/maxBorrowable', data={'asset': _to_asset(asset)},
+            '/sapi/v1/margin/maxBorrowable',
+            data=data,
             security=_SEC_USER_DATA,
             weight=5,
         )
         return Decimal(res.data['amount'])
 
-    async def get_max_transferable(self, asset: str) -> Decimal:
+    async def get_max_transferable(
+        self, asset: str, isolated_symbol: Optional[str] = None
+    ) -> Decimal:
+        data = {'asset': _to_asset(asset)}
+        if isolated_symbol is not None:
+            data['isolatedSymbol'] = isolated_symbol
         res = await self._api_request(
             'GET',
-            '/sapi/v1/margin/maxTransferable ', data={'asset': _to_asset(asset)},
+            '/sapi/v1/margin/maxTransferable ',
+            data=data,
             security=_SEC_USER_DATA,
             weight=5,
         )

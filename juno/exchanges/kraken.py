@@ -200,11 +200,18 @@ class Kraken(Exchange):
         client_id: Optional[str] = None,
         test: bool = True,
         margin: bool = False,
+        isolated: Optional[bool] = None,
     ) -> OrderResult:
         # TODO: use order placing limiter instead of default.
         pass
 
-    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
+    async def cancel_order(
+        self,
+        symbol: str,
+        client_id: str,
+        margin: bool = False,
+        isolated: Optional[bool] = None,
+    ) -> None:
         pass
 
     async def stream_historical_trades(
