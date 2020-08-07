@@ -18,7 +18,7 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
+    AccountType, Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
     IsolatedMarginBalance, Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate,
     Side, Ticker, TimeInForce, Trade, json
 )
@@ -82,20 +82,27 @@ class Binance(Exchange):
         self._margin_limiter = AsyncLimiter(1, 2 * x)
 
         self._clock = Clock(self)
-        self._user_data_stream = UserDataStream(self, '/api/v3')
-        self._margin_user_data_stream = UserDataStream(self, '/sapi/v1')
+        self._spot_user_data_stream = UserDataStream(self, '/api/v3/userDataStream')
+        self._cross_margin_user_data_stream = UserDataStream(self, '/sapi/v1/userDataStream')
+        self._isolated_margin_user_data_stream = UserDataStream(
+            self, '/sapi/v1/userDataStream/isolated'
+        )
 
     async def __aenter__(self) -> Binance:
         await self._session.__aenter__()
         await asyncio.gather(
             self._clock.__aenter__(),
-            self._user_data_stream.__aenter__(),
+            self._spot_user_data_stream.__aenter__(),
+            self._cross_margin_user_data_stream.__aenter__(),
+            self._isolated_margin_user_data_stream.__aenter__(),
         )
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await asyncio.gather(
-            self._user_data_stream.__aexit__(exc_type, exc, tb),
+            self._isolated_margin_user_data_stream.__aexit__(exc_type, exc, tb),
+            self._cross_margin_user_data_stream.__aexit__(exc_type, exc, tb),
+            self._spot_user_data_stream.__aexit__(exc_type, exc, tb),
             self._clock.__aexit__(exc_type, exc, tb),
         )
         await self._session.__aexit__(exc_type, exc, tb)
@@ -198,7 +205,9 @@ class Binance(Exchange):
                 'xmr': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('3E+2')),
                 'ada': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('5E+5')),
             },
-            margin_multiplier=3,
+            # TODO: The multiplier differs per symbol and whether we use cross or isolated margin.
+            # margin_multiplier=3,
+            margin_multiplier=2,
         )
 
     async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
@@ -254,7 +263,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, margin: bool = False
+        self, account: AccountType = AccountType.SPOT
     ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner(
             stream: AsyncIterable[Dict[str, Any]]
@@ -267,7 +276,11 @@ class Binance(Exchange):
                     ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
                 yield result
 
-        user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
+        user_data_stream = (
+            self._spot_user_data_stream if account is AccountType.SPOT
+            else self._cross_margin_user_data_stream if account is AccountType.CROSS_MARGIN
+            else self._isolated_margin_user_data_stream
+        )
         # event_type = 'outboundAccountInfo'  # Full list of balances.
         event_type = 'outboundAccountPosition'  # Only changed balances.
         async with user_data_stream.subscribe(event_type) as stream:
@@ -402,7 +415,7 @@ class Binance(Exchange):
                     raise NotImplementedError(data)
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
-        user_data_stream = self._margin_user_data_stream if margin else self._user_data_stream
+        user_data_stream = self._cross_margin_user_data_stream if margin else self._spot_user_data_stream
         async with user_data_stream.subscribe('executionReport') as stream:
             yield inner(stream)
 
@@ -416,12 +429,11 @@ class Binance(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        account: AccountType = AccountType.SPOT,
         test: bool = True,
-        margin: bool = False,
-        isolated: Optional[bool] = None,
     ) -> OrderResult:
-        if test and margin:
-            raise ValueError('Binance does not support placing test orders on margin account')
+        if test and account.is_margin:
+            raise ValueError('Binance does not support placing test orders on margin accounts')
 
         data: Dict[str, Any] = {
             'symbol': _to_http_symbol(symbol),
@@ -438,9 +450,9 @@ class Binance(Exchange):
             data['timeInForce'] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data['newClientOrderId'] = client_id
-        if isolated is not None:
-            data['isIsolated'] = isolated
-        url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
+        if account is AccountType.ISOLATED_MARGIN:
+            data['isIsolated'] = 'TRUE'
+        url = '/sapi/v1/margin/order' if account.is_margin else '/api/v3/order'
         if test:
             url += '/test'
         res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
@@ -470,10 +482,9 @@ class Binance(Exchange):
         self,
         symbol: str,
         client_id: str,
-        margin: bool = False,
-        isolated: Optional[bool] = None,
+        account: AccountType = AccountType.SPOT,
     ) -> None:
-        url = '/sapi/v1/margin/order' if margin else '/api/v3/order'
+        url = '/sapi/v1/margin/order' if account.is_margin else '/api/v3/order'
         data = {'symbol': _to_http_symbol(symbol), 'origClientOrderId': client_id}
         await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
 
@@ -604,25 +615,41 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def borrow(self, asset: str, size: Decimal) -> None:
+    async def borrow(
+        self, asset: str, size: Decimal, isolated: bool = False,
+        isolated_symbol: Optional[str] = None
+    ) -> None:
+        data = {
+            'asset': _to_asset(asset),
+            'amount': _to_decimal(size),
+        }
+        if isolated:
+            data['isIsolated'] = 'TRUE'
+        if isolated_symbol is not None:
+            data['symbol'] = _to_http_symbol(isolated_symbol)
         await self._api_request(
             'POST',
             '/sapi/v1/margin/loan',
-            data={
-                'asset': _to_asset(asset),
-                'amount': _to_decimal(size),
-            },
+            data=data,
             security=_SEC_MARGIN,
         )
 
-    async def repay(self, asset: str, size: Decimal) -> None:
+    async def repay(
+        self, asset: str, size: Decimal, isolated: bool = False,
+        isolated_symbol: Optional[str] = None
+    ) -> None:
+        data = {
+            'asset': _to_asset(asset),
+            'amount': _to_decimal(size),
+        }
+        if isolated:
+            data['isIsolated'] = 'TRUE'
+        if isolated_symbol is not None:
+            data['symbol'] = _to_http_symbol(isolated_symbol)
         await self._api_request(
             'POST',
             '/sapi/v1/margin/repay',
-            data={
-                'asset': _to_asset(asset),
-                'amount': _to_decimal(size),
-            },
+            data=data,
             security=_SEC_MARGIN,
         )
 
@@ -963,7 +990,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
         return await self._binance._api_request(
             'POST',
-            f'{self._base_url}/userDataStream',
+            self._base_url,
             security=_SEC_USER_STREAM
         )
 
@@ -979,7 +1006,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
         return await self._binance._api_request(
             'PUT',
-            f'{self._base_url}/userDataStream',
+            self._base_url,
             data={'listenKey': listen_key},
             security=_SEC_USER_STREAM,
         )
@@ -996,7 +1023,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
         return await self._binance._api_request(
             'DELETE',
-            f'{self._base_url}/userDataStream',
+            self._base_url,
             data={'listenKey': listen_key},
             security=_SEC_USER_STREAM
         )

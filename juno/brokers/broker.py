@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
+from typing import Optional
 
-from juno import OrderResult
+from juno import AccountType, OrderResult
 
 
 class Broker(ABC):
@@ -9,18 +10,31 @@ class Broker(ABC):
     # we want to fail of not enough available on orderbook, for example.
     @abstractmethod
     async def buy(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
-    ) -> OrderResult:
-        pass
-
-    @abstractmethod
-    async def buy_by_quote(
-        self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: AccountType = AccountType.SPOT,
+        test: bool = True,
     ) -> OrderResult:
         pass
 
     @abstractmethod
     async def sell(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: AccountType = AccountType.SPOT,
+        test: bool = True,
     ) -> OrderResult:
         pass
+
+    @staticmethod
+    def validate_funds(size: Optional[Decimal], quote: Optional[Decimal]) -> None:
+        if not size and not quote:
+            raise ValueError('Either size or quote must be specified')
+        if size and quote:
+            raise ValueError('Size and quote cannot be both specified')

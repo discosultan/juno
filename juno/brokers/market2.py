@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 from typing import Callable, List, Optional
 
-from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
+from juno import AccountType, Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.utils import unpack_symbol
@@ -30,22 +30,30 @@ class Market2(Broker):
         self._get_client_id = get_client_id
 
     async def buy(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: AccountType = AccountType.SPOT,
+        test: bool = True,
     ) -> OrderResult:
         assert not test
-        _log.info(
-            f'buying {size} {symbol} with market order ({"margin" if margin else "spot"} account)'
-        )
+        Broker.validate_funds(size, quote)
+
+        base_asset, quote_asset = unpack_symbol(symbol)
+        _log.info(f'buying {size} {symbol} with market order ({account} account)')
         return await self._fill(exchange, symbol, Side.BUY, margin, size=size)
 
     async def buy_by_quote(
         self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
     ) -> OrderResult:
         assert not test
+
         base_asset, quote_asset = unpack_symbol(symbol)
         _log.info(
             f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
-            f'({"margin" if margin else "spot"} account)'
+            f'({account} account)'
         )
         exchange_instance = self._exchanges[exchange]
         if not exchange_instance.can_place_order_market_quote:
@@ -60,12 +68,18 @@ class Market2(Broker):
         return await self._fill(exchange, symbol, Side.BUY, margin, quote=quote)
 
     async def sell(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: AccountType = AccountType.SPOT,
+        test: bool = True,
     ) -> OrderResult:
         assert not test
-        _log.info(
-            f'selling {size} {symbol} with market order ({"margin" if margin else "spot"} account)'
-        )
+        Broker.validate_funds(size, quote)
+
+        _log.info(f'selling {size} {symbol} with market order ({account} account)')
         return await self._fill(exchange, symbol, Side.SELL, margin, size=size)
 
     async def _fill(
@@ -73,7 +87,7 @@ class Market2(Broker):
         exchange: str,
         symbol: str,
         side: Side,
-        margin: bool,
+        account: AccountType,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
     ) -> OrderResult:
@@ -86,7 +100,7 @@ class Market2(Broker):
         exchange_instance = self._exchanges[exchange]
 
         async with exchange_instance.connect_stream_orders(
-            symbol=symbol, margin=margin
+            symbol=symbol, account=account
         ) as stream:
             await exchange_instance.place_order(
                 symbol=symbol,
@@ -95,7 +109,7 @@ class Market2(Broker):
                 size=size,
                 quote=quote,
                 client_id=client_id,
-                margin=margin,
+                account=account,
                 test=False,
             )
 

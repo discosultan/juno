@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, IsolatedMarginBalance, OrderResult, OrderType,
-    OrderUpdate, Side, Ticker, TimeInForce, Trade
+    AccountType, Balance, Candle, Depth, ExchangeInfo, IsolatedMarginBalance, OrderResult,
+    OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade
 )
 
 
@@ -66,7 +66,7 @@ class Exchange(ABC):
     @abstractmethod
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, margin: bool = False
+        self, symbol: str, account: AccountType = AccountType.SPOT
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         yield  # type: ignore
 
@@ -81,9 +81,8 @@ class Exchange(ABC):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        account: AccountType = AccountType.SPOT,
         test: bool = True,
-        margin: bool = False,
-        isolated: Optional[bool] = None,
     ) -> OrderResult:
         pass
 
@@ -92,8 +91,7 @@ class Exchange(ABC):
         self,
         symbol: str,
         client_id: str,
-        margin: bool = False,
-        isolated: Optional[bool] = None,
+        account: AccountType = AccountType.SPOT,
     ) -> None:
         pass
 
@@ -114,10 +112,16 @@ class Exchange(ABC):
     ) -> None:
         pass
 
-    async def borrow(self, asset: str, size: Decimal) -> None:
+    async def borrow(
+        self, asset: str, size: Decimal, isolated: bool = False,
+        isolated_symbol: Optional[str] = None
+    ) -> None:
         pass
 
-    async def repay(self, asset: str, size: Decimal) -> None:
+    async def repay(
+        self, asset: str, size: Decimal, isolated: bool = False,
+        isolated_symbol: Optional[str] = None
+    ) -> None:
         pass
 
     async def get_max_borrowable(

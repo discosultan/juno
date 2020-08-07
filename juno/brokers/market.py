@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import Fill, OrderResult, OrderStatus, OrderType, Side
+from juno import AccountType, Fill, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 
@@ -27,8 +27,16 @@ class Market(Broker):
                 )
 
     async def buy(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: AccountType = AccountType.SPOT,
+        test: bool = True,
     ) -> OrderResult:
+        Broker.validate_funds(size, quote)
+
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         size = filters.size.round_down(size)
 
@@ -72,8 +80,16 @@ class Market(Broker):
         return res
 
     async def sell(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: AccountType = AccountType.SPOT,
+        test: bool = True,
     ) -> OrderResult:
+        Broker.validate_funds(size, quote)
+
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         size = filters.size.round_down(size)
 

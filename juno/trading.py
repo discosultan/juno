@@ -726,10 +726,19 @@ class PositionMixin(ABC):
             borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
-            await exchange_instance.transfer(quote_asset, collateral, margin=True)
-            borrowed = await exchange_instance.get_max_borrowable(base_asset)
+            # await exchange_instance.transfer(quote_asset, collateral, margin=True)
+            await exchange_instance.transfer_isolated(
+                quote_asset, symbol, from_margin=False, to_margin=True, size=collateral
+            )
+            # borrowed = await exchange_instance.get_max_borrowable(base_asset)
+            borrowed = await exchange_instance.get_max_borrowable(
+                base_asset, isolated_symbol=symbol
+            )
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
-            await exchange_instance.borrow(asset=base_asset, size=borrowed)
+            # await exchange_instance.borrow(asset=base_asset, size=borrowed)
+            await exchange_instance.borrow(
+                asset=base_asset, size=borrowed, isolated=True, isolated_symbol=symbol
+            )
 
         res = await self.broker.sell(
             exchange=exchange,

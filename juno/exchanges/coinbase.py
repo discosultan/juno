@@ -17,8 +17,9 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters, OrderException,
-    OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    AccountType, Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters,
+    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
+    Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -259,9 +260,8 @@ class Coinbase(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        account: AccountType = AccountType.SPOT,
         test: bool = True,
-        margin: bool = False,
-        isolated: Optional[bool] = None,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
         if test or margin:
@@ -295,8 +295,7 @@ class Coinbase(Exchange):
         self,
         symbol: str,
         client_id: str,
-        margin: bool = False,
-        isolated: Optional[bool] = None,
+        account: AccountType = AccountType.SPOT,
     ) -> None:
         res = await self._private_request('DELETE', f'/orders/client:{client_id}', {
             'product_id': _to_product(symbol),

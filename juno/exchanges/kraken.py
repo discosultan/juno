@@ -12,8 +12,8 @@ from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType, OrderUpdate, Side,
-    Ticker, TimeInForce, Trade, json
+    AccountType, Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType,
+    OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -198,9 +198,8 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        account: AccountType = AccountType.SPOT,
         test: bool = True,
-        margin: bool = False,
-        isolated: Optional[bool] = None,
     ) -> OrderResult:
         # TODO: use order placing limiter instead of default.
         pass
@@ -209,8 +208,7 @@ class Kraken(Exchange):
         self,
         symbol: str,
         client_id: str,
-        margin: bool = False,
-        isolated: Optional[bool] = None,
+        account: AccountType = AccountType.SPOT,
     ) -> None:
         pass
 

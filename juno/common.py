@@ -11,6 +11,24 @@ from juno.math import round_down, round_half_up
 from juno.time import datetime_utcfromtimestamp_ms
 
 
+class AccountType(IntEnum):
+    SPOT = 0
+    CROSS_MARGIN = 1
+    ISOLATED_MARGIN = 2
+
+    @property
+    def is_margin(self) -> bool:
+        return self in [AccountType.CROSS_MARGIN, AccountType.ISOLATED_MARGIN]
+
+    def __repr__(self) -> str:
+        if self is AccountType.SPOT:
+            return 'spot'
+        if self is AccountType.CROSS_MARGIN:
+            return 'cross margin'
+        if self is AccountType.ISOLATED_MARGIN:
+            return 'isolated margin'
+
+
 class Advice(IntEnum):
     NONE = 0
     LONG = 1
