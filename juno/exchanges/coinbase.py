@@ -188,8 +188,10 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, margin: bool = False
+        self, symbol: str, account: AccountType = AccountType.SPOT
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        assert account is AccountType.SPOT
+
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             base_asset, quote_asset = unpack_symbol(symbol)
             async for data in ws:
@@ -264,7 +266,7 @@ class Coinbase(Exchange):
         test: bool = True,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
-        if test or margin:
+        if test or account.is_margin:
             raise NotImplementedError()
         if type_ not in [OrderType.MARKET, OrderType.LIMIT]:
             # Supports stop orders through params.

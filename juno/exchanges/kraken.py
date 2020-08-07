@@ -178,8 +178,10 @@ class Kraken(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, margin: bool = False
+        self, symbol: str, account: AccountType = AccountType.SPOT
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        assert account is AccountType.SPOT
+
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             async for o in ws:
                 # TODO: map

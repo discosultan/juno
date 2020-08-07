@@ -55,15 +55,17 @@ class Limit(Broker):
 
         base_asset, quote_asset = unpack_symbol(symbol)
 
-        if size:
+        if size is not None:
             _log.info(
                 f'buying {size} {base_asset} with limit orders at spread ({account} account)'
             )
-        elif quote:
+        elif quote is not None:
             _log.info(
                 f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread '
                 f'({account} account)'
             )
+        else:
+            raise NotImplementedError()
 
         res = await self._fill(exchange, symbol, Side.BUY, account, size=size, quote=quote)
 
@@ -92,6 +94,7 @@ class Limit(Broker):
         test: bool = True,
     ) -> OrderResult:
         assert not test
+        assert size  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
         base_asset, _ = unpack_symbol(symbol)

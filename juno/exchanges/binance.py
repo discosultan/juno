@@ -276,14 +276,9 @@ class Binance(Exchange):
                     ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
                 yield result
 
-        user_data_stream = (
-            self._spot_user_data_stream if account is AccountType.SPOT
-            else self._cross_margin_user_data_stream if account is AccountType.CROSS_MARGIN
-            else self._isolated_margin_user_data_stream
-        )
         # event_type = 'outboundAccountInfo'  # Full list of balances.
         event_type = 'outboundAccountPosition'  # Only changed balances.
-        async with user_data_stream.subscribe(event_type) as stream:
+        async with self._get_user_data_stream(account).subscribe(event_type) as stream:
             yield inner(stream)
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
@@ -367,7 +362,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, margin: bool = False
+        self, symbol: str, account: AccountType = AccountType.SPOT
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
@@ -415,8 +410,7 @@ class Binance(Exchange):
                     raise NotImplementedError(data)
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
-        user_data_stream = self._cross_margin_user_data_stream if margin else self._spot_user_data_stream
-        async with user_data_stream.subscribe('executionReport') as stream:
+        async with self._get_user_data_stream(account).subscribe('executionReport') as stream:
             yield inner(stream)
 
     async def place_order(
@@ -819,6 +813,13 @@ class Binance(Exchange):
         except aiohttp.WebSocketError as e:
             _log.warning(f'{name} web socket exc: {e}')
             raise ExchangeException(str(e))
+
+    def _get_user_data_stream(self, account: AccountType) -> UserDataStream:
+        return (
+            self._spot_user_data_stream if account is AccountType.SPOT
+            else self._cross_margin_user_data_stream if account is AccountType.CROSS_MARGIN
+            else self._isolated_margin_user_data_stream
+        )
 
 
 class Clock:
