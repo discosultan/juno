@@ -19,8 +19,8 @@ from tenacity import (
 
 from juno import (
     AccountType, Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
-    IsolatedMarginBalance, Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate,
-    Side, Ticker, TimeInForce, Trade, json
+    Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
+    TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -29,7 +29,7 @@ from juno.itertools import page
 from juno.math import ratios, split_by_ratios
 from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter
+from juno.utils import AsyncLimiter, unpack_symbol
 
 from .exchange import Exchange
 
@@ -240,26 +240,28 @@ class Binance(Exchange):
             for b in res.data['userAssets' if margin else 'balances']
         }
 
-    async def map_isolated_margin_balances(self) -> Dict[str, IsolatedMarginBalance]:
+    async def map_isolated_margin_balances(self) -> Dict[str, Dict[str, Balance]]:
         url = '/sapi/v1/margin/isolated/account'
         res = await self._api_request('GET', url, weight=1, security=_SEC_USER_DATA)
-        return {
-            b['symbol'].lower(): IsolatedMarginBalance(
-                base=Balance(
+        result = {}
+        for b in res.data['assets']:
+            symbol = _from_symbol(b['symbol'])
+            base_asset, quote_asset = unpack_symbol(symbol)
+            result[symbol] = {
+                base_asset: Balance(
                     available=Decimal(b['baseAsset']['free']),
                     hold=Decimal(b['baseAsset']['locked']),
                     borrowed=Decimal(b['baseAsset']['borrowed']),
                     interest=Decimal(b['baseAsset']['interest']),
                 ),
-                quote=Balance(
+                quote_asset: Balance(
                     available=Decimal(b['quoteAsset']['free']),
                     hold=Decimal(b['quoteAsset']['locked']),
                     borrowed=Decimal(b['quoteAsset']['borrowed']),
                     interest=Decimal(b['quoteAsset']['interest']),
                 ),
-            )
-            for b in res.data['assets']
-        }
+            }
+        return result
 
     @asynccontextmanager
     async def connect_stream_balances(

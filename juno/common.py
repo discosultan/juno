@@ -66,15 +66,6 @@ class Balance(NamedTuple):
         )
 
 
-class IsolatedMarginBalance(NamedTuple):
-    base: Balance
-    quote: Balance
-
-    @property
-    def significant(self) -> bool:
-        return self.base.significant or self.quote.significant
-
-
 class BorrowInfo(NamedTuple):
     daily_interest_rate: Decimal = Decimal('0.0')
     limit: Decimal = Decimal('0.0')

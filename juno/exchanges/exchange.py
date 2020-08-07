@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    AccountType, Balance, Candle, Depth, ExchangeInfo, IsolatedMarginBalance, OrderResult,
-    OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade
+    AccountType, Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side,
+    Ticker, TimeInForce, Trade
 )
 
 
@@ -32,7 +32,7 @@ class Exchange(ABC):
     async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
         pass
 
-    async def map_isolated_margin_balances(self) -> Dict[str, IsolatedMarginBalance]:
+    async def map_isolated_margin_balances(self) -> Dict[str, Dict[str, Balance]]:
         pass
 
     @asynccontextmanager
