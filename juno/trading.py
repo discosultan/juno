@@ -11,7 +11,7 @@ from enum import IntEnum
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Type, Union
 
-from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
+from juno import AccountType, Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.exchanges import Exchange
@@ -670,10 +670,11 @@ class PositionMixin(ABC):
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f'opening {symbol} {mode.name} long position with {quote} quote')
 
-        res = await self.broker.buy_by_quote(
+        res = await self.broker.buy(
             exchange=exchange,
             symbol=symbol,
             quote=quote,
+            account=AccountType.SPOT,
             test=mode is TradingMode.PAPER,
         )
 
@@ -697,6 +698,7 @@ class PositionMixin(ABC):
             exchange=position.exchange,
             symbol=position.symbol,
             size=position.base_gain,
+            account=AccountType.SPOT,
             test=mode is TradingMode.PAPER,
         )
 
@@ -744,8 +746,8 @@ class PositionMixin(ABC):
             exchange=exchange,
             symbol=symbol,
             size=borrowed,
+            account=AccountType.ISOLATED_MARGIN if mode is TradingMode.LIVE else AccountType.SPOT,
             test=mode is TradingMode.PAPER,
-            margin=mode is TradingMode.LIVE,
         )
 
         open_position = Position.OpenShort(
@@ -788,8 +790,8 @@ class PositionMixin(ABC):
             exchange=position.exchange,
             symbol=position.symbol,
             size=size,
+            account=AccountType.ISOLATED_MARGIN if mode is TradingMode.LIVE else AccountType.SPOT,
             test=mode is TradingMode.PAPER,
-            margin=mode is TradingMode.LIVE,
         )
         closed_position = position.close(
             interest=interest,

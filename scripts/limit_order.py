@@ -69,7 +69,7 @@ async def transact_symbol(
             exchange='binance', symbol=symbol, quote=value, fee_rate=fees.maker,
             filters=filters
         )
-        res = await limit.buy_by_quote(
+        res = await limit.buy(
             exchange='binance', symbol=symbol, quote=value, test=False,
             margin=args.margin
         )
