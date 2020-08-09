@@ -25,6 +25,12 @@ class _Context:
         self.client_id = client_id
         self.new_event: Event[None] = Event(autoclear=True)
         self.cancelled_event: Event[List[Fill]] = Event(autoclear=True)
+        self.fills: List[Fill] = []  # Fills from aggregated trades.
+        self.time: int = -1
+
+
+class _Filled(Exception):
+    pass
 
 
 class Limit(Broker):
@@ -156,12 +162,11 @@ class Limit(Broker):
             except OrderException:
                 await cancel(keep_limit_order_best_task, track_fills_task)
                 raise
-            except _Filled as exc:
-                time = exc.time
-                fills = exc.fills
-                await cancel(keep_limit_order_best_task)
+            except _Filled:
+                await cancel(keep_limit_order_best_task, track_fills_task)
 
-        return OrderResult(time=time, status=OrderStatus.FILLED, fills=fills)
+        assert ctx.time >= 0
+        return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
 
     async def _keep_limit_order_best(
         self, exchange: str, symbol: str, side: Side, margin: bool, ctx: _Context
@@ -170,7 +175,6 @@ class Limit(Broker):
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
         last_order_size = Decimal('0.0')
-        is_first = True
         while True:
             await orderbook_updated.wait()
 
@@ -199,7 +203,7 @@ class Limit(Broker):
             if op_last_price_cmp(price, last_order_price):
                 continue
 
-            if is_first:
+            if last_order_price not in [0, Decimal('Inf')]:
                 # Cancel prev Order.
                 _log.info(
                     f'cancelling previous {symbol} {side.name} order {ctx.client_id} at price '
@@ -235,21 +239,18 @@ class Limit(Broker):
             size = filters.size.round_down(size)
 
             _log.info(f'validating {symbol} {side.name} order price and size')
-            if is_first:
+            if len(ctx.fills) == 0:
+                # We only want to raise an exception if the filters fail while we haven't had any
+                # fills yet.
                 filters.size.validate(size)
                 filters.min_notional.validate_limit(price=price, size=size)
             else:
-                if not filters.size.valid(size):
-                    _log.info(
-                        f'size {size} no longer valid [{filters.size.min}; {filters.size.max})'
-                    )
-                    break
-                if not filters.min_notional.valid(price, size):
-                    _log.info(
-                        f'price * size ({price * size}) min notional no longer valid; '
-                        f'[{filters.min_notional.min_notional}; inf]'
-                    )
-                    break
+                try:
+                    filters.size.validate(size)
+                    filters.min_notional.validate_limit(price=price, size=size)
+                except OrderException as e:
+                    _log.info(f'{symbol} {side.name} price / size no longer valid: {e}')
+                    raise _Filled()
 
             _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
             await self._exchanges[exchange].place_order(
@@ -269,14 +270,11 @@ class Limit(Broker):
 
             last_order_price = price
             last_order_size = size
-            is_first = False
 
     async def _track_fills(
         self, symbol: str, stream: AsyncIterable[OrderUpdate.Any], side: Side, ctx: _Context
     ) -> None:
-        fills = []  # Fills from aggregated trades.
         fills_since_last_order: List[Fill] = []
-        time = -1
         async for order in stream:
             if order.client_id != ctx.client_id:
                 _log.debug(
@@ -295,20 +293,12 @@ class Limit(Broker):
             elif isinstance(order, OrderUpdate.Canceled):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} cancelled')
                 ctx.cancelled_event.set(fills_since_last_order)
-                fills.extend(fills_since_last_order)
+                ctx.fills.extend(fills_since_last_order)
+                ctx.time = order.time
             elif isinstance(order, OrderUpdate.Done):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} filled')
-                fills.extend(fills_since_last_order)
-                time = order.time
-                break
+                ctx.fills.extend(fills_since_last_order)
+                ctx.time = order.time
+                raise _Filled()
             else:
                 raise NotImplementedError(order)
-
-        raise _Filled(time=time, fills=fills)
-
-
-class _Filled(Exception):
-    def __init__(self, time: int, fills: List[Fill]) -> None:
-        assert time >= 0
-        self.time = time
-        self.fills = fills
