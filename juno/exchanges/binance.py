@@ -84,21 +84,10 @@ class Binance(Exchange):
 
         self._clock = Clock(self)
         self._user_data_streams: Dict[str, UserDataStream] = {}
-        # self._spot_user_data_stream = UserDataStream(self, '/api/v3/userDataStream')
-        # self._cross_margin_user_data_stream = UserDataStream(self, '/sapi/v1/userDataStream')
-        # self._isolated_margin_user_data_stream = UserDataStream(
-        #     self, '/sapi/v1/userDataStream/isolated'
-        # )
 
     async def __aenter__(self) -> Binance:
         await self._session.__aenter__()
         await self._clock.__aenter__()
-        # await asyncio.gather(
-        #     self._clock.__aenter__(),
-        #     self._spot_user_data_stream.__aenter__(),
-        #     self._cross_margin_user_data_stream.__aenter__(),
-        #     self._isolated_margin_user_data_stream.__aenter__(),
-        # )
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
