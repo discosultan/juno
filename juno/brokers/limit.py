@@ -57,12 +57,12 @@ class Limit(Broker):
 
         if size is not None:
             _log.info(
-                f'buying {size} {base_asset} with limit orders at spread ({account} account)'
+                f'buying {size} {base_asset} with limit orders at spread ({account.name} account)'
             )
         elif quote is not None:
             _log.info(
                 f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread '
-                f'({account} account)'
+                f'({account.name} account)'
             )
         else:
             raise NotImplementedError()
@@ -99,7 +99,7 @@ class Limit(Broker):
 
         base_asset, _ = unpack_symbol(symbol)
         _log.info(
-            f'selling {size} {base_asset} with limit orders at spread ({account} account)'
+            f'selling {size} {base_asset} with limit orders at spread ({account.name} account)'
         )
         res = await self._fill(exchange, symbol, Side.SELL, account, size=size)
 

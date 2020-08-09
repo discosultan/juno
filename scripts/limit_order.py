@@ -3,7 +3,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import Fill, Side
+from juno import AccountType, Fill, Side
 from juno.brokers import Limit
 from juno.components import Informant, Orderbook, Wallet
 from juno.config import from_env, init_instance
@@ -18,10 +18,10 @@ parser.add_argument(
     'value', nargs='?', type=Decimal, default=None, help='if buy, quote; otherwise base size'
 )
 parser.add_argument(
-    '-m', '--margin',
-    action='store_true',
-    default=False,
-    help='if set, use margin; otherwise spot account',
+    'account',
+    nargs='?',
+    type=lambda s: AccountType[s.upper()],
+    default=AccountType.SPOT,
 )
 args = parser.parse_args()
 
@@ -53,10 +53,10 @@ async def transact_symbol(
     base_asset, quote_asset = unpack_symbol(symbol)
     fees, filters = informant.get_fees_filters('binance', symbol)
     available_base = wallet.get_balance(
-        'binance', base_asset, margin=args.margin
+        'binance', base_asset, account=args.account, isolated_symbol=symbol
     ).available
     available_quote = wallet.get_balance(
-        'binance', quote_asset, margin=args.margin
+        'binance', quote_asset, account=args.account, isolated_symbol=symbol
     ).available
     value = args.value if args.value is not None else (
         available_quote if args.side is Side.BUY else available_base
@@ -70,8 +70,7 @@ async def transact_symbol(
             filters=filters
         )
         res = await limit.buy(
-            exchange='binance', symbol=symbol, quote=value, test=False,
-            margin=args.margin
+            exchange='binance', symbol=symbol, quote=value, account=args.account, test=False,
         )
     else:
         market_fills = orderbook.find_order_bids(
@@ -79,12 +78,11 @@ async def transact_symbol(
             filters=filters
         )
         res = await limit.sell(
-            exchange='binance', symbol=symbol, size=value, test=False,
-            margin=args.margin
+            exchange='binance', symbol=symbol, size=value, account=args.account, test=False
         )
 
     logging.info(res)
-    logging.info(f'{"margin" if args.margin else "spot"} {args.side.name} {symbol}')
+    logging.info(f'{args.account.name} {args.side.name} {symbol}')
     logging.info(f'total size: {Fill.total_size(res.fills)}')
     logging.info(f'total quote: {Fill.total_quote(res.fills)}')
     logging.info(f'total fee: {Fill.total_fee(res.fills)}')

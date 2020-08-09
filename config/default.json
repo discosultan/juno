@@ -1,6 +1,6 @@
 {
     "log_format": "color",
-    "log_level": "info",
+    "log_level": "debug",
     "storage": "sqlite",
     "agents": [
         {
@@ -14,14 +14,15 @@
             },
             "trader": {
                 "type": "basic",
-                "symbol": "eth-btc",
+                "symbol": "ltc-btc",
                 "long": true,
                 "short": true,
-                "stop_loss": 0.13,
+                "stop_loss": 0.1,
                 "trail_stop_loss": true
             },
             "fiat_asset": "eur",
-            "fiat_exchange": "coinbase"
+            "fiat_exchange": "coinbase",
+            "plugins": ["plotly"]
         }
     ]
 }

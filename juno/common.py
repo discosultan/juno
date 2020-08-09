@@ -20,14 +20,6 @@ class AccountType(IntEnum):
     def is_margin(self) -> bool:
         return self in [AccountType.CROSS_MARGIN, AccountType.ISOLATED_MARGIN]
 
-    def __repr__(self) -> str:
-        if self is AccountType.SPOT:
-            return 'spot'
-        if self is AccountType.CROSS_MARGIN:
-            return 'cross margin'
-        if self is AccountType.ISOLATED_MARGIN:
-            return 'isolated margin'
-
 
 class Advice(IntEnum):
     NONE = 0

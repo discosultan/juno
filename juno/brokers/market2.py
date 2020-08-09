@@ -44,12 +44,12 @@ class Market2(Broker):
         base_asset, quote_asset = unpack_symbol(symbol)
 
         if size is not None:
-            _log.info(f'buying {size} {symbol} with market order ({account} account)')
+            _log.info(f'buying {size} {symbol} with market order ({account.name} account)')
             return await self._fill(exchange, symbol, Side.BUY, account, size=size)
         elif quote is not None:
             _log.info(
                 f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
-                f'({account} account)'
+                f'({account.name} account)'
             )
             exchange_instance = self._exchanges[exchange]
             if not exchange_instance.can_place_order_market_quote:
@@ -78,7 +78,7 @@ class Market2(Broker):
         assert size  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
-        _log.info(f'selling {size} {symbol} with market order ({account} account)')
+        _log.info(f'selling {size} {symbol} with market order ({account.name} account)')
         return await self._fill(exchange, symbol, Side.SELL, account, size=size)
 
     async def _fill(

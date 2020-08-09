@@ -2,13 +2,11 @@ import argparse
 import asyncio
 import logging
 
-from juno import exchanges
+from juno import AccountType, exchanges
 from juno.asyncio import resolved_future
 from juno.components import Wallet
 from juno.config import from_env, init_instance
 from juno.utils import get_module_type
-
-KEEP_STREAMING = False
 
 parser = argparse.ArgumentParser()
 parser.add_argument('exchange', nargs='?', default='binance')
@@ -23,22 +21,27 @@ async def main() -> None:
     wallet = Wallet([client])
     async with client, wallet:
         await asyncio.gather(
-            process_balances(wallet, False),
-            process_balances(wallet, True) if client.can_margin_trade else resolved_future(None),
+            process_balances(wallet, AccountType.SPOT),
+            (
+                process_balances(wallet, AccountType.CROSS_MARGIN)
+                if client.can_margin_trade
+                else resolved_future(None)
+            ),
+            # TODO: Add ISOLATED_MARGIN
         )
 
 
-async def process_balances(wallet: Wallet, margin: bool) -> None:
-    log_balances(wallet, margin)
-    if KEEP_STREAMING:
+async def process_balances(wallet: Wallet, account: AccountType) -> None:
+    log_balances(wallet, account)
+    if args.stream:
         while True:
-            await wallet.get_updated_event(exchange=args.exchange, margin=margin).wait()
-            log_balances(wallet, margin)
+            await wallet.get_updated_event(exchange=args.exchange, account=account).wait()
+            log_balances(wallet, account)
 
 
-def log_balances(wallet: Wallet, margin: bool) -> None:
-    logging.info(f'{args.exchange.upper()} {"MARGIN" if margin else "SPOT"} ACCOUNT')
-    balances = wallet.map_significant_balances(args.exchange, margin=margin)
+def log_balances(wallet: Wallet, account: AccountType) -> None:
+    logging.info(f'{args.exchange.upper()} {account.name} ACCOUNT')
+    balances = wallet.map_significant_balances(args.exchange, account=account)
     for asset, balance in balances.items():
         logging.info(f'{asset} - {balance}')
     if len(balances) == 0:

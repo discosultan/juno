@@ -7,15 +7,17 @@
         {
             "type": "optimize",
             "exchange": "binance",
-            "symbols": ["eth-btc"],
+            "symbols": ["link-btc"],
             "start": "2018-01-01",
-            "end": "2020-01-01",
+            "end": "2020-07-01",
             "intervals": ["1d"],
             "quote": 1.0,
             "missed_candle_policy": null,
             "stop_loss": null,
             "strategy": {
-                "type": "fourweekrule"
+                "type": "fourweekrule",
+                "period": 28,
+                "ma_period": 14
             },
             "long": true,
             "short": true,

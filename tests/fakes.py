@@ -106,12 +106,12 @@ class Exchange(exchanges.Exchange):
     async def place_order(self, *args, **kwargs):
         await asyncio.sleep(0)
         # TODO: We are ignoring *args
-        self.place_order_calls.append({**kwargs})
+        self.place_order_calls.append(kwargs)
         return self.place_order_result
 
     async def cancel_order(self, *args, **kwargs):
         await asyncio.sleep(0)
-        self.cancel_order_calls.append({**kwargs})
+        self.cancel_order_calls.append(kwargs)
 
     async def stream_historical_trades(self, symbol, start, end):
         for t in (t for t in self.historical_trades if t.time >= start and t.time < end):
