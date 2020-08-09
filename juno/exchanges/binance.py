@@ -48,6 +48,7 @@ _ERR_CANCEL_REJECTED = -2011
 _ERR_INVALID_TIMESTAMP = -1021
 _ERR_INVALID_LISTEN_KEY = -1125
 _ERR_TOO_MANY_REQUESTS = -1003
+_ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST = -11001
 
 _log = logging.getLogger(__name__)
 
@@ -685,6 +686,18 @@ class Binance(Exchange):
         )
         return Decimal(res.data['amount'])
 
+    async def create_isolated_margin_account(self, symbol: str) -> None:
+        base_asset, quote_asset = unpack_symbol(symbol)
+        await self._api_request(
+            'POST',
+            '/sapi/v1/margin/isolated/create',
+            data={
+                'base': _to_asset(base_asset),
+                'quote': _to_asset(quote_asset),
+            },
+            security=_SEC_USER_DATA,
+        )
+
     async def _wapi_request(
         self,
         method: str,
@@ -743,6 +756,10 @@ class Binance(Exchange):
                     raise OrderException(error_msg)
                 elif error_code == _ERR_NEW_ORDER_REJECTED:
                     raise OrderException(error_msg)
+                elif error_code == _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST:
+                    # TODO: Ugly!
+                    return res
+                # TODO: Check only specific error codes.
                 elif error_code <= -9000:  # Filter error.
                     raise OrderException(error_msg)
                 elif error_code == -1013:  # TODO: Not documented but also a filter error O_o
@@ -831,7 +848,7 @@ class Binance(Exchange):
             )
         if account is AccountType.CROSS_MARGIN:
             return await self._get_or_create_user_data_stream(
-                '__cross_margin__', lambda: UserDataStream(self, '/api/v3/userDataStream')
+                '__cross_margin__', lambda: UserDataStream(self, '/sapi/v1/userDataStream')
             )
         if account is AccountType.ISOLATED_MARGIN:
             if not isolated_symbol:
@@ -960,7 +977,19 @@ class UserDataStream:
     async def _ensure_listen_key(self) -> None:
         async with self._listen_key_lock:
             if not self._listen_key:
-                self._listen_key = (await self._create_listen_key()).data['listenKey']
+                response = await self._create_listen_key()
+                if (
+                    response.status == 400
+                    and response.data['code'] == _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST
+                ):
+                    _log.warning(
+                        f'isolated margin account does not exist for {self._symbol}; '
+                        'creating and retrying'
+                    )
+                    assert self._symbol
+                    await self._binance.create_isolated_margin_account(self._symbol)
+                    response = await self._create_listen_key()
+                self._listen_key = response.data['listenKey']
 
     async def _ensure_connection(self) -> None:
         await self._ensure_listen_key()
