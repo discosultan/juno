@@ -239,6 +239,7 @@ class Coinbase(Exchange):
                         )
                     elif reason == 'canceled':
                         yield OrderUpdate.Canceled(
+                            time=_from_datetime(data['time']),
                             client_id=client_id,
                         )
                     else:

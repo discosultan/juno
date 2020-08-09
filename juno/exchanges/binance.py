@@ -401,6 +401,7 @@ class Binance(Exchange):
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
                     yield OrderUpdate.Canceled(
+                        time=data['T'],
                         client_id=data['C'],
                     )
                 else:

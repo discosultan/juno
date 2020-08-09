@@ -235,6 +235,7 @@ class OrderUpdate(ModuleType):
         fill: Fill
 
     class Canceled(NamedTuple):
+        time: Timestamp
         client_id: str
 
     class Done(NamedTuple):
