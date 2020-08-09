@@ -1,4 +1,3 @@
-import logging
 from collections import defaultdict
 from decimal import Decimal
 from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
@@ -14,8 +13,6 @@ from .trading import TradingSummary
 
 Operator = Callable[[Decimal, Decimal], Decimal]
 _SQRT_365 = np.sqrt(365)
-
-_log = logging.getLogger(__name__)
 
 
 class Statistics(NamedTuple):
@@ -42,7 +39,6 @@ class AnalysisSummary(NamedTuple):
 
 def analyse_benchmark(prices: List[Decimal]) -> AnalysisSummary:
     performance = pd.Series([float(p) for p in prices])
-    _log.info('calculating benchmark statistics')
     return _calculate_statistics(performance)
 
 
@@ -54,26 +50,26 @@ def analyse_portfolio(
 ) -> AnalysisSummary:
     assert trading_summary.end is not None
 
-    start_day = floor_multiple(trading_summary.start, interval)
-    end_day = floor_multiple(trading_summary.end, interval)
+    start = floor_multiple(trading_summary.start, interval)
+    end = floor_multiple(trading_summary.end, interval)
 
-    # Validate we have enough data.
-    num_days = (end_day - start_day) // interval
+    # Validate we have enough data. It may be that trading ended prematurely and we have more price
+    # points available than needed.
+    num_ticks = (end - start) // interval
     for asset, prices in fiat_prices.items():
-        if len(prices) != num_days:
+        if len(prices) < num_ticks:
             raise ValueError(
-                f'Expected {num_days} price points for {asset} but got {len(prices)}'
+                f'Expected at least {num_ticks} price points for {asset} but got {len(prices)}'
             )
 
     trades = _get_trades_from_summary(trading_summary, interval)
     asset_performance = _get_asset_performance(
-        trading_summary, start_day, end_day, fiat_prices, trades, interval
+        trading_summary, start, end, fiat_prices, trades, interval
     )
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance]
     )
 
-    _log.info('calculating portfolio statistics')
     return _calculate_statistics(portfolio_performance, benchmark_g_returns)
 
 

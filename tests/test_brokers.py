@@ -12,7 +12,7 @@ from juno import (
 from juno.brokers import Limit, Market, Market2
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
-from juno.filters import Filters, Price, Size
+from juno.filters import Filters, MinNotional, Price, Size
 from juno.storages import Memory
 
 from . import fakes
@@ -214,6 +214,7 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.Canceled(
+                time=0,
                 client_id=order_client_id,
             )
         )
@@ -252,6 +253,166 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         assert exchange.place_order_calls[0]['size'] == 2
         assert exchange.place_order_calls[1]['price'] == 2
         assert exchange.place_order_calls[1]['size'] == Decimal('0.5')
+        assert len(exchange.cancel_order_calls) == 1
+
+
+async def test_limit_multiple_cancels() -> None:
+    snapshot = Depth.Snapshot(
+        asks=[(Decimal('10.0'), Decimal('1.0'))],
+        bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
+    )
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_limit_broker(exchange) as broker:
+        task = asyncio.create_task(broker.buy_by_quote(
+            exchange='exchange',
+            symbol='eth-btc',
+            quote=Decimal('10.0'),
+            test=False,
+        ))
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await exchange.orders_queue.put(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('1.0'),
+                    size=Decimal('5.0'),
+                    quote=Decimal('5.0'),
+                    fee=Decimal('0.5'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        await yield_control()
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('2.0') - filters.price.step, Decimal('1.0'))])
+        )
+        await yield_control()  # Cancel order.
+        await exchange.orders_queue.put(
+            OrderUpdate.Canceled(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('5.0') - filters.price.step, Decimal('1.0'))])
+        )
+        await yield_control()  # Cancel order.
+        await exchange.orders_queue.put(
+            OrderUpdate.Canceled(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()
+        await exchange.orders_queue.put(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('5.0'),
+                    size=Decimal('1.0'),
+                    quote=Decimal('5.0'),
+                    fee=Decimal('0.1'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        await exchange.orders_queue.put(
+            OrderUpdate.Done(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        result = await asyncio.wait_for(task, timeout=1)
+        assert result.status is OrderStatus.FILLED
+        assert Fill.total_quote(result.fills) == 10
+        assert Fill.total_size(result.fills) == Decimal('6.0')
+        assert Fill.total_fee(result.fills) == Decimal('0.6')
+        assert len(exchange.place_order_calls) == 3
+        assert len(exchange.cancel_order_calls) == 2
+
+
+async def test_limit_partial_fill_cancel_min_notional() -> None:
+    snapshot = Depth.Snapshot(
+        bids=[(Decimal('99.0'), Decimal('1.0'))],
+    )
+    exchange_info = ExchangeInfo(
+        fees={'__all__': Fees()},
+        filters={'__all__': Filters(
+            min_notional=MinNotional(min_notional=Decimal('10.0')),
+            price=Price(step=Decimal('1.0')),
+            size=Size(step=Decimal('0.01')),
+        )}
+    )
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_limit_broker(exchange) as broker:
+        task = asyncio.create_task(broker.buy_by_quote(
+            exchange='exchange',
+            symbol='eth-btc',
+            quote=Decimal('100.0'),
+            test=False,
+        ))
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await exchange.orders_queue.put(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('100.0'),
+                    size=Decimal('0.9'),
+                    quote=Decimal('90.0'),
+                    fee=Decimal('0.0'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        await yield_control()
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('100.0'), Decimal('1.0'))])
+        )
+        await yield_control()  # Cancel order.
+        await exchange.orders_queue.put(
+            OrderUpdate.Canceled(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        await yield_control()
+        result = await asyncio.wait_for(task, timeout=1)
+
+        assert result.status is OrderStatus.FILLED
+        assert Fill.total_size(result.fills) == Decimal('0.9')
+        assert Fill.total_quote(result.fills) == Decimal('90.0')
+        assert len(exchange.place_order_calls) == 1
         assert len(exchange.cancel_order_calls) == 1
 
 

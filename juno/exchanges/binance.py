@@ -162,36 +162,41 @@ class Binance(Exchange):
             ],
             # The data below is not available through official Binance API but fetched through
             # "binance_fetch_borrow_info.py" script.
+            # Last updated on 2020-07-09.
             borrow_info={
-                'matic': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+5')),
-                'vet': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('6E+6')),
-                'usdt': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('6E+5')),
-                'rvn': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+5')),
-                'dash': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+2')),
-                'atom': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('3.5E+3')),
-                'ont': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('1.6E+4')),
+                'matic': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('1E+5')),
+                'vet': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('6E+6')),
+                'usdt': BorrowInfo(daily_interest_rate=Decimal('0.000325'), limit=Decimal('8E+5')),
+                'rvn': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('5E+4')),
+                'dash': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+2')),
+                'atom': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('3.5E+3')),
+                'ont': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('1.6E+4')),
                 'xrp': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+5')),
                 'xlm': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2.5E+5')),
-                'link': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('1E+4')),
-                'trx': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+6')),
+                'link': BorrowInfo(
+                    daily_interest_rate=Decimal('0.00025'), limit=Decimal('1.5E+4')
+                ),
+                'trx': BorrowInfo(daily_interest_rate=Decimal('0.000225'), limit=Decimal('2E+6')),
                 'qtum': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('4E+3')),
                 'xtz': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('4E+3')),
-                'iost': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+6')),
-                'bch': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+2')),
+                'iost': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('2E+6')),
+                'bch': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+2')),
                 'eos': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('1.5E+4')),
-                'btc': BorrowInfo(daily_interest_rate=Decimal('0.00035'), limit=Decimal('6E+1')),
-                'iota': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+4')),
-                'bat': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('3.5E+4')),
+                'btc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('6E+1')),
+                'iota': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+4')),
+                'bat': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('3.5E+4')),
                 'etc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('4E+3')),
                 'bnb': BorrowInfo(daily_interest_rate=Decimal('0.003'), limit=Decimal('3E+3')),
-                'eth': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('7E+2')),
-                'neo': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('1.8E+3')),
-                'zec': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2.5E+2')),
+                'eth': BorrowInfo(
+                    daily_interest_rate=Decimal('0.000275'), limit=Decimal('1.2E+3')
+                ),
+                'neo': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('1.8E+3')),
+                'zec': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('2.5E+2')),
                 'ltc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('9E+2')),
-                'usdc': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('2E+5')),
-                'busd': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('2E+5')),
+                'usdc': BorrowInfo(daily_interest_rate=Decimal('0.000325'), limit=Decimal('4E+5')),
+                'busd': BorrowInfo(daily_interest_rate=Decimal('0.000325'), limit=Decimal('4E+5')),
                 'xmr': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('3E+2')),
-                'ada': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('5E+5')),
+                'ada': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('5E+5')),
             },
             margin_multiplier=3,
         )
@@ -369,6 +374,7 @@ class Binance(Exchange):
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
                     yield OrderUpdate.Canceled(
+                        time=data['T'],
                         client_id=data['C'],
                     )
                 else:
@@ -770,7 +776,7 @@ class Clock:
                         await cancel(sleep_task)
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
@@ -888,7 +894,7 @@ class UserDataStream:
             await self._ensure_listen_key()
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
@@ -904,7 +910,7 @@ class UserDataStream:
         )
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
@@ -921,7 +927,7 @@ class UserDataStream:
         )
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(10),
         wait=wait_exponential(),
         retry=retry_if_exception_type(
             (aiohttp.ClientConnectionError, aiohttp.ClientResponseError)
@@ -952,23 +958,23 @@ def _to_ws_symbol(symbol: str) -> str:
 
 def _from_symbol(symbol: str) -> str:
     # TODO: May be incorrect! We can't systematically know which part is base and which is quote
-    # since there is no separator used. We simply map based on known base currencies.
-    known_base_assets = [
+    # since there is no separator used. We simply map based on known quote assets.
+    known_quote_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT'
+        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD'
     ]
-    for known_base_asset in known_base_assets:
-        if symbol.endswith(known_base_asset):
-            quote = symbol[:-len(known_base_asset)]
-            base = known_base_asset
+    for asset in known_quote_assets:
+        if symbol.endswith(asset):
+            base = symbol[:-len(asset)]
+            quote = asset
             break
     else:
-        _log.warning(f'unknown base asset found: {symbol}')
-        # We round up because usually quote asset is the longer one (i.e IOTABTC).
+        _log.warning(f'unknown quote asset found in symbol: {symbol}')
+        # We round up because usually base asset is the longer one (i.e IOTABTC).
         split_index = math.ceil(len(symbol) / 2)
-        quote = symbol[:split_index]
-        base = symbol[split_index:]
-    return f'{quote.lower()}-{base.lower()}'
+        base = symbol[:split_index]
+        quote = symbol[split_index:]
+    return f'{base.lower()}-{quote.lower()}'
 
 
 def _to_side(side: Side) -> str:

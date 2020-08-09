@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
@@ -19,7 +19,6 @@ from juno.trading import (
     TradingMode, TradingSummary
 )
 from juno.typing import TypeConstructor
-from juno.utils import extract_public
 
 from .trader import Trader
 
@@ -88,19 +87,21 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         channel: str = 'default'
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
+        close_on_exit: bool = True  # Whether to close open positions on exit.
         track: List[str] = []
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
         position_count: int = 2
-        borrow_safety_factor: Decimal = Decimal('1.0')
 
     @dataclass
     class State:
         start: Timestamp = -1
-        symbol_states: Dict[str, _SymbolState] = field(default_factory=dict)
-        quotes: List[Decimal] = field(default_factory=list)
+        symbol_states: Optional[Dict[str, _SymbolState]] = None
+        quotes: Optional[List[Decimal]] = None
         summary: Optional[TradingSummary] = None
         real_start: Timestamp = -1
+        symbols: Optional[List[str]] = None
+        open_new_positions: bool = True  # Whether new positions can be opened.
 
     def __init__(
         self,
@@ -152,49 +153,48 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.position_count > 0
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
-        if config.borrow_safety_factor < 1:
-            _log.warning(f'starting with {config.borrow_safety_factor=}')
-
-        symbols = await self._find_top_symbols(config)
-
-        # Request and assert available quote.
-        quote = self.request_quote(config.quote, config.exchange, 'btc', config.mode)
-        position_quote = quote / config.position_count
-        for symbol in symbols:
-            fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
-            assert position_quote > filters.price.min
-
-        # Request start.
-        start = await self.request_start(config.start, config.exchange, symbols, [config.interval])
 
         state = state or Multi.State()
+
+        if state.symbols is None:
+            state.symbols = await self._find_top_symbols(config)
 
         if state.real_start == -1:
             state.real_start = self._get_time_ms()
 
         if state.start == -1:
-            state.start = start
-
-        if not state.summary:
-            state.summary = TradingSummary(
-                start=start,
-                quote=quote,
-                quote_asset='btc',  # TODO: support others
+            state.start = await self.request_start(
+                config.start, config.exchange, state.symbols, [config.interval]
             )
+
+        if state.quotes is None:
+            quote = self.request_quote(config.quote, config.exchange, 'btc', config.mode)
+            position_quote = quote / config.position_count
+            for symbol in state.symbols:
+                fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
+                assert position_quote > filters.price.min
             state.quotes = [quote / config.position_count] * config.position_count
             _log.info(f'quote split as: {state.quotes}')
 
-        if len(state.symbol_states) == 0:
-            for s in symbols:
-                state.symbol_states[s] = _SymbolState(
+        if not state.summary:
+            state.summary = TradingSummary(
+                start=state.start,
+                quote=quote,
+                quote_asset='btc',  # TODO: support others
+            )
+
+        if state.symbol_states is None:
+            state.symbol_states = {
+                s: _SymbolState(
                     symbol=s,
                     strategy=config.symbol_strategies.get(s, config.strategy).construct(),
                     changed=Changed(True),
                     override_changed=Changed(True),
-                    current=start,
+                    current=state.start,
                     stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
                     take_profit=TakeProfit(config.take_profit),
-                )
+                ) for s in state.symbols
+            }
 
         _log.info(
             f'managing up to {config.position_count} positions by tracking top '
@@ -212,7 +212,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                   for s, ss in state.symbol_states.items())
             )
         finally:
-            await self._close_all_open_positions(config, state)
+            if config.close_on_exit:
+                await self._close_all_open_positions(config, state)
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
                     max(
@@ -258,6 +259,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         self, config: Config, state: State, candles_updated: SlotBarrier,
         trackers_ready: Dict[str, Event]
     ) -> None:
+        assert state.symbol_states
         final_candle_time = floor_multiple(config.end, config.interval) - config.interval
         to_process: List[Coroutine[None, None, Position.Any]] = []
         while True:
@@ -292,25 +294,45 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 )
 
             # Try open new positions.
+            # TODO: Remove once Binance supports Isolated Margin. In order to simplify our
+            # lives, we currently allow only a single short position to be open at a time.
+            num_short_positions_open = sum(
+                1 for ss in state.symbol_states.values()
+                if isinstance(ss.open_position, Position.OpenShort)
+            )
+
             to_process.clear()
             count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
             assert count <= config.position_count
             available = config.position_count - count
-            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
-                if available == 0:
-                    break
+            if state.open_new_positions:
+                for ss in (ss for ss in state.symbol_states.values() if ss.ready):
+                    if available == 0:
+                        break
 
-                if ss.open_position:
-                    continue
+                    if ss.open_position:
+                        continue
 
-                assert ss.last_candle
-                # TODO: Be more flexible?
-                if ss.advice is Advice.LONG and ss.advice_age == 1:
-                    to_process.append(self._open_long_position(config, state, ss, ss.last_candle))
-                    available -= 1
-                elif ss.advice is Advice.SHORT and ss.advice_age == 1:
-                    to_process.append(self._open_short_position(config, state, ss, ss.last_candle))
-                    available -= 1
+                    assert ss.last_candle
+                    # TODO: Be more flexible?
+                    if ss.advice is Advice.LONG and ss.advice_age == 1:
+                        to_process.append(
+                            self._open_long_position(config, state, ss, ss.last_candle)
+                        )
+                        available -= 1
+                    elif ss.advice is Advice.SHORT and ss.advice_age == 1:
+                        if num_short_positions_open == 0:
+                            num_short_positions_open += 1
+                            to_process.append(
+                                self._open_short_position(config, state, ss, ss.last_candle)
+                            )
+                            available -= 1
+                        else:
+                            _log.warning(
+                                f'wanted to open short position {ss.symbol} but '
+                                f'{num_short_positions_open} already open'
+                            )
+
             if len(to_process) > 0:
                 positions = await asyncio.gather(*to_process)
                 await self._events.emit(
@@ -327,6 +349,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 (last_candle := next(iter(state.symbol_states.values())).last_candle)
                 and last_candle.time >= final_candle_time
             ):
+                for ss in state.symbol_states.values():
+                    _log.info(f'{ss.symbol} last candle: {last_candle}')
                 break
 
     async def _track_advice(
@@ -338,7 +362,9 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 f'fetching {symbol_state.strategy.adjust_hint} {symbol_state.symbol} candle(s) '
                 'before start time to warm-up strategy'
             )
-            symbol_state.current -= symbol_state.strategy.adjust_hint * config.interval
+            symbol_state.current = (
+                max(symbol_state.current - symbol_state.strategy.adjust_hint * config.interval, 0)
+            )
             symbol_state.start_adjusted = True
 
         async for candle in self._chandler.stream_candles(
@@ -412,7 +438,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 symbol_state.take_profit.clear(candle)
 
         if not symbol_state.first_candle:
-            _log.info(f'{symbol_state.symbol} first candle {candle}')
+            _log.info(f'{symbol_state.symbol} first candle: {candle}')
             symbol_state.first_candle = candle
         symbol_state.last_candle = candle
         symbol_state.current = candle.time + config.interval
@@ -438,6 +464,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         await ready.wait()
 
     async def _close_all_open_positions(self, config: Config, state: State) -> None:
+        assert state.symbol_states
         to_close: List[Coroutine[None, None, Position.Closed]] = []
         for ss in state.symbol_states.values():
             if isinstance(ss.open_position, Position.OpenLong):
@@ -462,6 +489,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     async def _open_long_position(
         self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
     ) -> Position.OpenLong:
+        assert state.quotes
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
@@ -484,8 +512,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbol_state.allocated_quote += position.quote_delta()
         symbol_state.open_position = position
 
-        _log.info(f'{symbol_state.symbol} long position opened: {candle}')
-        _log.debug(extract_public(position))
         return position
 
     async def _close_long_position(
@@ -493,6 +519,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         reason: CloseReason
     ) -> Position.Long:
         assert state.summary
+        assert state.quotes is not None
         assert isinstance(symbol_state.open_position, Position.OpenLong)
 
         position = (
@@ -517,13 +544,12 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         state.summary.append_position(position)
         symbol_state.open_position = None
 
-        _log.info(f'{position.symbol} long position closed: {candle}')
-        _log.debug(extract_public(position))
         return position
 
     async def _open_short_position(
         self, config: Config, state: State, symbol_state: _SymbolState, candle: Candle
     ) -> Position.OpenShort:
+        assert state.quotes
         symbol_state.allocated_quote = state.quotes.pop(0)
 
         position = (
@@ -540,15 +566,12 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 symbol=symbol_state.symbol,
                 collateral=symbol_state.allocated_quote,
                 mode=config.mode,
-                borrow_safety_factor=config.borrow_safety_factor,
             )
         )
 
         symbol_state.allocated_quote += position.quote_delta()
         symbol_state.open_position = position
 
-        _log.info(f'{symbol_state.symbol} short position opened: {candle}')
-        _log.debug(extract_public(position))
         return position
 
     async def _close_short_position(
@@ -556,6 +579,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         reason: CloseReason
     ) -> Position.Short:
         assert state.summary
+        assert state.quotes is not None
         assert isinstance(symbol_state.open_position, Position.OpenShort)
 
         position = (
@@ -580,6 +604,4 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         state.summary.append_position(position)
         symbol_state.open_position = None
 
-        _log.info(f'{position.symbol} short position closed: {candle}')
-        _log.debug(extract_public(position))
         return position

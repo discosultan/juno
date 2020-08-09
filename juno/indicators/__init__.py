@@ -7,6 +7,7 @@ from typing import Union
 
 from .adx import Adx
 from .adxr import Adxr
+from .alma import Alma
 from .cci import Cci
 from .chaikin_oscillator import ChaikinOscillator
 from .dema import Dema
@@ -17,6 +18,8 @@ from .ema import Ema, Ema2
 from .kama import Kama
 from .kvo import Kvo
 from .macd import Macd
+from .mmi import Mmi
+from .momersion import Momersion
 from .obv import Obv, Obv2
 from .rsi import Rsi
 from .sma import Sma
@@ -25,11 +28,12 @@ from .stoch import Stoch
 from .stochrsi import StochRsi
 from .tsi import Tsi
 
-MA = Union[Dema, Ema, Ema2, Kama, Sma, Smma]
+MA = Union[Alma, Dema, Ema, Ema2, Kama, Sma, Smma]
 
 __all__ = [
     'Adx',
     'Adxr',
+    'Alma',
     'Cci',
     'ChaikinOscillator',
     'Dema',
@@ -42,6 +46,8 @@ __all__ = [
     'Kvo',
     'Macd',
     'MA',
+    'Mmi',
+    'Momersion',
     'Obv',
     'Obv2',
     'Rsi',

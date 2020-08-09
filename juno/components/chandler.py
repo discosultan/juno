@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 import logging
 import sys
 from decimal import Decimal
-from typing import AsyncIterable, Callable, List, Optional
+from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -49,16 +50,97 @@ class Chandler:
         self._earliest_exchange_start = earliest_exchange_start
 
     async def list_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int = MAX_TIME_MS,
-        closed: bool = True, fill_missing_with_last: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int = MAX_TIME_MS,
+        closed: bool = True,
+        fill_missing_with_last: bool = False,
+        simulate_open_from_interval: Optional[int] = None,
     ) -> List[Candle]:
         return await list_async(self.stream_candles(
-            exchange, symbol, interval, start, end, closed, fill_missing_with_last
+            exchange, symbol, interval, start, end, closed, fill_missing_with_last,
+            simulate_open_from_interval
         ))
 
     async def stream_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int = MAX_TIME_MS,
-        closed: bool = True, fill_missing_with_last: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int = MAX_TIME_MS,
+        closed: bool = True,
+        fill_missing_with_last: bool = False,
+        simulate_open_from_interval: Optional[int] = None,
+    ) -> AsyncIterable[Candle]:
+        if simulate_open_from_interval is None:
+            async for candle in self._stream_candles(
+                exchange, symbol, interval, start, end, closed, fill_missing_with_last
+            ):
+                yield candle
+        else:
+            assert simulate_open_from_interval < interval
+            assert interval % simulate_open_from_interval == 0
+            assert closed
+            assert fill_missing_with_last
+
+            main_stream = self._stream_candles(
+                exchange, symbol, interval, start, end, True, True
+            ).__aiter__()
+            side_stream = self._stream_candles(
+                exchange, symbol, simulate_open_from_interval, start, end, True, True
+            ).__aiter__()
+            side_current = start
+            side_end = start + interval
+            side_open = None
+            side_high = Decimal('0.0')
+            side_low = Decimal('inf')
+            side_volume = Decimal('0.0')
+            while True:
+                while side_current < side_end - simulate_open_from_interval:
+                    try:
+                        sc = await side_stream.__anext__()
+                    except StopAsyncIteration:
+                        break
+                    if side_open is None:
+                        side_open = sc.open
+                    side_high = max(side_high, sc.high)
+                    side_low = min(side_low, sc.low)
+                    side_volume += sc.volume
+                    yield Candle(
+                        time=sc.time,
+                        open=side_open,
+                        high=side_high,
+                        low=side_low,
+                        close=sc.close,
+                        volume=side_volume,
+                        closed=False,
+                    )
+                    side_current = sc.time + simulate_open_from_interval
+                try:
+                    yield await main_stream.__anext__()
+                    # Discard one from side.
+                    await side_stream.__anext__()
+                    side_end += interval
+                    side_open = None
+                    side_high = Decimal('0.0')
+                    side_low = Decimal('inf')
+                    side_volume = Decimal('0.0')
+                except StopAsyncIteration:
+                    break
+
+    async def _stream_candles(
+        self,
+        exchange: str,
+        symbol: str,
+        interval: int,
+        start: int,
+        end: int = MAX_TIME_MS,
+        closed: bool = True,
+        fill_missing_with_last: bool = False,
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
@@ -428,3 +510,14 @@ class Chandler:
         return await first_async(self._exchanges[exchange].stream_historical_candles(
             symbol=symbol, interval=interval, start=start, end=end
         ))
+
+    async def map_symbol_interval_candles(
+        self, exchange: str, symbols: Iterable[str], intervals: Iterable[int], start: int, end: int
+    ) -> Dict[Tuple[str, int], List[Candle]]:
+        symbols = set(symbols)
+        intervals = set(intervals)
+        candles = await asyncio.gather(
+            *(self.list_candles(exchange, s, i, start, end)
+              for s, i in itertools.product(symbols, intervals))
+        )
+        return {(s, i): c for (s, i), c in zip(itertools.product(symbols, intervals), candles)}

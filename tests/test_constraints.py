@@ -34,6 +34,16 @@ def test_int_pair_constraint() -> None:
     )
 
 
+def test_int_triple_constraint() -> None:
+    assert_constraint_chaos(constraints.Triple(
+        constraints.Int(-10, 10),
+        operator.lt,
+        constraints.Int(5, 20),
+        operator.lt,
+        constraints.Int(15, 30),
+    ))
+
+
 def assert_constraint_chaos(constraint: constraints.Constraint) -> None:
     random = Random()
     for _ in range(0, 1000):

@@ -6,22 +6,20 @@ import threading
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import partial
-from itertools import product
 from random import Random, randrange
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
-from deap import base, creator, tools
+from deap import base, tools
 
 from juno import Candle, Interval, MissedCandlePolicy, OrderException, Timestamp
 from juno.components import Chandler, Informant, Prices
 from juno.constraints import Choice, Constant, Constraint, ConstraintChoice, Uniform
 from juno.deap import cx_uniform, ea_mu_plus_lambda, mut_individual
-from juno.itertools import flatten
 from juno.math import floor_multiple
-from juno.solvers import Solver, SolverResult
+from juno.solvers import FitnessValues, Individual, Solver
 from juno.statistics import AnalysisSummary, Statistics, analyse_benchmark, analyse_portfolio
 from juno.strategies import Strategy
-from juno.time import DAY_MS, strfinterval, strfspan, time_ms
+from juno.time import strfinterval, strfspan, time_ms
 from juno.traders import Basic
 from juno.trading import StartMixin, TradingSummary
 from juno.typing import TypeConstructor, map_input_args
@@ -132,28 +130,19 @@ class Optimizer(StartMixin):
 
         _log.info(f'randomizer seed ({state.seed})')
 
-        fiat_prices = await self._prices.map_prices_for_multiple_intervals(
+        fiat_prices = await self._prices.map_asset_prices(
             exchange=config.exchange,
-            symbols=symbols + [f'btc-{config.fiat_asset}'],
+            symbols=symbols + [f'btc-{config.fiat_asset}'],  # We need BTC prices for benchmark.
             start=state.start,
             end=state.end,
-            intervals=[DAY_MS] + [i for i in intervals if i > DAY_MS],
             fiat_asset=config.fiat_asset,
             fiat_exchange=config.fiat_exchange,
         )
 
-        candles: Dict[Tuple[str, int], List[Candle]] = {}
-
-        async def assign(symbol: str, interval: int) -> None:
-            assert state
-            assert state.start is not None and state.end is not None
-            candles[(symbol, interval)] = await self._chandler.list_candles(
-                config.exchange, symbol, interval, floor_multiple(state.start, interval),
-                floor_multiple(state.end, interval)
-            )
-
         # Fetch candles for backtesting.
-        await asyncio.gather(*(assign(s, i) for s, i in product(symbols, intervals)))
+        candles = await self.chandler.map_symbol_interval_candles(
+            config.exchange, symbols, intervals, state.start, state.end
+        )
 
         for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
@@ -161,7 +150,7 @@ class Optimizer(StartMixin):
                          f'{strfspan(state.start, state.end)}')
 
         # Prepare benchmark stats.
-        benchmarks = {i: analyse_benchmark(p['btc']) for i, p in fiat_prices.items()}
+        benchmark = analyse_benchmark(fiat_prices['btc'])
 
         # NB! All the built-in algorithms in DEAP use random module directly. This doesn't work for
         # us because we want to be able to use multiple optimizers with different random seeds.
@@ -171,13 +160,7 @@ class Optimizer(StartMixin):
             random.setstate(state.random_state)
 
         # Objectives.
-        objectives = SolverResult.meta()
-        _log.info(f'objectives: {objectives}')
-
-        # Creator generated instances are global!
-        if not getattr(creator, 'FitnessMulti', None):
-            creator.create('FitnessMulti', base.Fitness, weights=list(objectives.values()))
-            creator.create('Individual', list, fitness=creator.FitnessMulti)
+        _log.info(f'objectives: {FitnessValues.meta()}')
 
         toolbox = base.Toolbox()
 
@@ -205,9 +188,9 @@ class Optimizer(StartMixin):
                 else:
                     raise ValueError(f'Either all or none of the attributes must be set: {key}')
 
-        toolbox.register('strategy_args', lambda: (a() for a in attrs))
+        toolbox.register('attributes', lambda: (a() for a in attrs))
         toolbox.register(
-            'individual', tools.initIterate, creator.Individual, toolbox.strategy_args
+            'individual', tools.initIterate, Individual, toolbox.attributes
         )
         toolbox.register('population', tools.initRepeat, list, toolbox.individual)
 
@@ -218,28 +201,27 @@ class Optimizer(StartMixin):
         toolbox.register('mutate', partial(mut_individual, random), attrs=attrs, indpb=indpb)
         toolbox.register('select', tools.selNSGA2)
 
-        def evaluate(ind: List[Any]) -> SolverResult:
+        def evaluate(ind: Individual) -> FitnessValues:
             assert state
-            analysis_interval = max(DAY_MS, ind[1])
             return self._solver.solve(
                 Solver.Config(
-                    fiat_prices=fiat_prices[analysis_interval],
-                    benchmark_g_returns=benchmarks[analysis_interval].g_returns,
-                    candles=candles[(ind[0], ind[1])],
+                    fiat_prices=fiat_prices,
+                    benchmark_g_returns=benchmark.g_returns,
+                    candles=candles[(ind.symbol, ind.interval)],
                     strategy_type=config.strategy.type_,
                     exchange=config.exchange,
                     start=state.start,
                     end=state.end,
                     quote=config.quote,
-                    symbol=ind[0],
-                    interval=ind[1],
-                    missed_candle_policy=ind[2],
-                    stop_loss=ind[3],
-                    trail_stop_loss=ind[4],
-                    take_profit=ind[5],
-                    long=ind[6],
-                    short=ind[7],
-                    strategy_args=tuple(flatten(ind[8:])),
+                    symbol=ind.symbol,
+                    interval=ind.interval,
+                    missed_candle_policy=ind.missed_candle_policy,
+                    stop_loss=ind.stop_loss,
+                    trail_stop_loss=ind.trail_stop_loss,
+                    take_profit=ind.take_profit,
+                    long=ind.long,
+                    short=ind.short,
+                    strategy_args=ind.strategy_args,
                 )
             )
 
@@ -292,11 +274,9 @@ class Optimizer(StartMixin):
         finally:
             state.random_state = random.getstate()  # type: ignore
 
-        best_args = list(flatten(hall_of_fame[0]))
-        state.summary = await self._build_summary(
-            config, state, fiat_prices, benchmarks, candles, best_args
-        )
-        self._validate(config, state, fiat_prices, benchmarks, candles, best_args)
+        best_ind = hall_of_fame[0]
+        state.summary = await self._build_summary(config, state, fiat_prices, benchmark, best_ind)
+        self._validate(config, state, fiat_prices, benchmark, candles, best_ind)
 
         if cancelled_exc:
             raise cancelled_exc
@@ -306,44 +286,42 @@ class Optimizer(StartMixin):
         self,
         config: Config,
         state: State,
-        fiat_prices: Dict[int, Dict[str, List[Decimal]]],
-        benchmarks: Dict[int, AnalysisSummary],
-        candles: Dict[Tuple[str, int], List[Candle]],
-        best_args: List[Any],
+        fiat_prices: Dict[str, List[Decimal]],
+        benchmark: AnalysisSummary,
+        ind: Individual,
     ) -> OptimizationSummary:
-        start = floor_multiple(state.start, best_args[1])
-        end = floor_multiple(state.end, best_args[1])
+        _log.info('building trading summary from best result')
+
+        start = floor_multiple(state.start, ind.interval)
+        end = floor_multiple(state.end, ind.interval)
         trading_config = Basic.Config(
             exchange=config.exchange,
-            symbol=best_args[0],
-            interval=best_args[1],
+            symbol=ind.symbol,
+            interval=ind.interval,
             start=start,
             end=end,
             quote=config.quote,
-            missed_candle_policy=best_args[2],
-            stop_loss=best_args[3],
-            trail_stop_loss=best_args[4],
-            take_profit=best_args[5],
-            long=best_args[6],
-            short=best_args[7],
+            missed_candle_policy=ind.missed_candle_policy,
+            stop_loss=ind.stop_loss,
+            trail_stop_loss=ind.trail_stop_loss,
+            take_profit=ind.take_profit,
+            long=ind.long,
+            short=ind.short,
             adjust_start=False,
             strategy=TypeConstructor.from_type(
                 config.strategy.type_,
-                kwargs=map_input_args(config.strategy.type_.__init__, best_args[8:]),
+                **map_input_args(config.strategy.type_.__init__, ind.strategy_args),
             ),
         )
-
-        analysis_interval = max(DAY_MS, best_args[1])
 
         trader_state = Basic.State()
         try:
             await self._trader.run(trading_config, trader_state)
-        except OrderException:
-            pass
+        except OrderException as e:
+            _log.warning(f'trader stopped with exception: {e}')
         assert trader_state.summary
         portfolio_summary = analyse_portfolio(
-            benchmarks[analysis_interval].g_returns, fiat_prices[analysis_interval],
-            trader_state.summary
+            benchmark.g_returns, fiat_prices, trader_state.summary
         )
 
         return OptimizationSummary(
@@ -356,53 +334,25 @@ class Optimizer(StartMixin):
         self,
         config: Config,
         state: State,
-        fiat_prices: Dict[int, Dict[str, List[Decimal]]],
-        benchmarks: Dict[int, AnalysisSummary],
+        fiat_prices: Dict[str, List[Decimal]],
+        benchmark: AnalysisSummary,
         candles: Dict[Tuple[str, int], List[Candle]],
-        best_args: List[Any],
+        ind: Individual,
     ) -> None:
         assert state.summary
-
         # Validate trader backtest result with solver result.
         solver_name = type(self._solver).__name__.lower()
-        _log.info(
-            f'validating {solver_name} solver result with best args against actual trader'
-        )
+        _log.info(f'validating {solver_name} fitness values against actual trader')
 
-        start = floor_multiple(state.start, best_args[1])
-        end = floor_multiple(state.end, best_args[1])
-        analysis_interval = max(DAY_MS, best_args[1])
-        solver_result = self._solver.solve(
-            Solver.Config(
-                fiat_prices=fiat_prices[analysis_interval],
-                benchmark_g_returns=benchmarks[analysis_interval].g_returns,
-                candles=candles[(best_args[0], best_args[1])],
-                strategy_type=config.strategy.type_,
-                exchange=config.exchange,
-                start=start,
-                end=end,
-                quote=config.quote,
-                symbol=best_args[0],
-                interval=best_args[1],
-                missed_candle_policy=best_args[2],
-                stop_loss=best_args[3],
-                trail_stop_loss=best_args[4],
-                take_profit=best_args[5],
-                long=best_args[6],
-                short=best_args[7],
-                strategy_args=tuple(best_args[8:]),
-            )
-        )
-
-        trader_result = SolverResult.from_trading_summary(
+        trader_fitness_values = FitnessValues.from_trading_summary(
             state.summary.trading_summary, state.summary.portfolio_stats
         )
 
-        if not _isclose(trader_result, solver_result):
+        if not _isclose(trader_fitness_values, ind.fitness.values):
             raise Exception(
                 f'Optimizer results differ between trader and {solver_name} solver.\nTrading '
-                f'config: {state.summary.trading_config}\nTrader result: {trader_result}\n'
-                f'Solver result: {solver_result}'
+                f'config: {state.summary.trading_config}\nTrader result: {trader_fitness_values}\n'
+                f'Solver result: {ind.fitness.values}'
             )
 
 

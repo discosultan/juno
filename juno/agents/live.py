@@ -53,7 +53,7 @@ class Live(Agent):
         assert all(t.broker for t in self._traders.values())
 
     async def on_running(self, config: Config, state: State) -> None:
-        await Agent.on_running(self, config, state)
+        await super().on_running(config, state)
 
         now = self._get_time_ms()
 
@@ -73,8 +73,6 @@ class Live(Agent):
             strategy=get_module_type_constructor(strategies, config.strategy),
             mode=TradingMode.LIVE,
             channel=state.name,
-            # TODO: Remove once Binance supports Isolated Margin through API.
-            borrow_safety_factor=Decimal('0.95'),
         )
         if not state.result:
             state.result = trader.State()

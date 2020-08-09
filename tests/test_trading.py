@@ -94,6 +94,24 @@ def test_empty_trading_summary() -> None:
     assert summary.max_drawdown == 0
 
 
+def test_trading_summary_end() -> None:
+    summary = TradingSummary(start=0, quote=Decimal('1.0'), quote_asset='btc')
+
+    summary.append_position(Position.Long(
+        exchange='exchange',
+        symbol='eth-btc',
+        open_time=0,
+        open_fills=[],
+        close_time=1,
+        close_fills=[],
+        close_reason=CloseReason.STRATEGY,
+    ))
+    assert summary.end == 1
+
+    summary.finish(2)
+    assert summary.end == 2
+
+
 def new_closed_long_position(profit: Decimal) -> Position.Long:
     size = abs(profit)
     price = Decimal('1.0') if profit >= 0 else Decimal('-1.0')

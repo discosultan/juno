@@ -70,6 +70,14 @@ class Candle(NamedTuple):
     volume: Decimal = Decimal('0.0')  # Within interval.
     closed: bool = True
 
+    @property
+    def midpoint(self) -> Decimal:
+        return (self.open + self.close) / 2
+
+    @property
+    def mean_hlc(self) -> Decimal:
+        return (self.high + self.low + self.close) / 3
+
     def __repr__(self) -> str:
         return (
             f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
@@ -127,6 +135,11 @@ class Fill(NamedTuple):
             fee=fee,
             fee_asset=fee_asset,
         )
+
+    @staticmethod
+    def mean_price(fills: List[Fill]) -> Decimal:
+        total_size = Fill.total_size(fills)
+        return sum((f.price * f.size / total_size for f in fills), Decimal('0.0'))
 
     @staticmethod
     def total_size(fills: List[Fill]) -> Decimal:
@@ -212,6 +225,7 @@ class OrderUpdate(ModuleType):
         fill: Fill
 
     class Canceled(NamedTuple):
+        time: Timestamp
         client_id: str
 
     class Done(NamedTuple):

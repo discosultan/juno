@@ -6,9 +6,9 @@ use crate::{
     Advice, Candle,
 };
 
-pub struct SingleMA {
-    ma: Box<dyn MA>,
-    previous_ma_value: f64,
+pub struct DoubleMA {
+    short_ma: Box<dyn MA>,
+    long_ma: Box<dyn MA>,
     advice: Advice,
     mid_trend: MidTrend,
     persistence: Persistence,
@@ -16,29 +16,30 @@ pub struct SingleMA {
     t1: u32,
 }
 
-impl SingleMA {
-    pub fn new(ma: u32, period: u32, persistence: u32) -> Self {
+impl DoubleMA {
+    pub fn new(short_ma: u32, long_ma: u32, short_period: u32, long_period: u32) -> Self {
         Self {
-            ma: ma_from_adler32(ma, period),
-            previous_ma_value: 0.0,
+            short_ma: ma_from_adler32(short_ma, short_period),
+            long_ma: ma_from_adler32(long_ma, long_period),
             advice: Advice::None,
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(persistence, false),
+            persistence: Persistence::new(0, false),
             t: 0,
-            t1: period - 1,
+            t1: long_period - 1,
         }
     }
 }
 
-impl Strategy for SingleMA {
+impl Strategy for DoubleMA {
     fn update(&mut self, candle: &Candle) -> Advice {
-        self.ma.update(candle.close);
+        self.short_ma.update(candle.close);
+        self.long_ma.update(candle.close);
 
         let mut advice = Advice::None;
         if self.t == self.t1 {
-            if candle.close > self.ma.value() && self.ma.value() > self.previous_ma_value {
+            if self.short_ma.value() > self.long_ma.value() {
                 self.advice = Advice::Long;
-            } else if candle.close < self.ma.value() && self.ma.value() < self.previous_ma_value {
+            } else if self.short_ma.value() < self.long_ma.value() {
                 self.advice = Advice::Short;
             }
 
@@ -48,7 +49,6 @@ impl Strategy for SingleMA {
             );
         }
 
-        self.previous_ma_value = self.ma.value();
         self.t = min(self.t + 1, self.t1);
         advice
     }

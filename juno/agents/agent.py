@@ -71,7 +71,7 @@ class Agent:
 
     async def on_running(self, config: Any, state: Any) -> None:
         _log.info(f'{self.get_name(state)}: running with config {format_as_config(config)}')
-        await self._events.emit(state.name, 'starting', config)
+        await self._events.emit(state.name, 'starting', config, state)
 
     async def on_cancelled(self, config: Any, state: Any) -> None:
         _log.info(f'{self.get_name(state)}: cancelled')
@@ -110,7 +110,7 @@ class Agent:
 
                 _log.info(
                     f'existing live session {existing_state.name} found; continuing from '
-                    f'{existing_state.status} status'
+                    f'{existing_state.status.name} status'
                 )
                 return existing_state
             else:

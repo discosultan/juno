@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal, Overflow
 from enum import IntEnum
 from types import ModuleType
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
@@ -17,7 +17,7 @@ from juno.components import Chandler, Informant
 from juno.exchanges import Exchange
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, YEAR_MS, strftimestamp, time_ms
-from juno.utils import unpack_symbol
+from juno.utils import extract_public, unpack_symbol
 
 _log = logging.getLogger(__name__)
 
@@ -326,16 +326,27 @@ class TradingSummary:
 
     def append_position(self, pos: Position.Closed) -> None:
         self._positions.append(pos)
+        self.finish(pos.close_time)
         self._drawdowns_dirty = True
 
-    def get_positions(self) -> Iterable[Position.Closed]:
-        return self._positions
+    def get_positions(
+        self,
+        type_: Optional[Type[Position.Closed]] = None,
+        reason: Optional[CloseReason] = None,
+    ) -> Iterable[Position.Closed]:
+        result = (p for p in self._positions)
+        if type_ is not None:
+            result = (p for p in result if isinstance(p, type_))
+        if reason is not None:
+            result = (p for p in result if p.close_reason is reason)
+        return result
 
-    def get_long_positions(self) -> Iterable[Position.Long]:
-        return (p for p in self._positions if isinstance(p, Position.Long))
-
-    def get_short_positions(self) -> Iterable[Position.Short]:
-        return (p for p in self._positions if isinstance(p, Position.Short))
+    def list_positions(
+        self,
+        type_: Optional[Type[Position.Closed]] = None,
+        reason: Optional[CloseReason] = None,
+    ) -> List[Position.Closed]:
+        return list(self.get_positions(type_, reason))
 
     def finish(self, end: Timestamp) -> None:
         if self.end is None:
@@ -381,27 +392,27 @@ class TradingSummary:
 
     @property
     def num_long_positions(self) -> int:
-        return len(list(self.get_long_positions()))
+        return len(self.list_positions(type_=Position.Long))
 
     @property
     def num_long_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self.get_long_positions())
+        return TradingSummary._num_positions_in_profit(self.get_positions(type_=Position.Long))
 
     @property
     def num_long_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self.get_long_positions())
+        return TradingSummary._num_positions_in_loss(self.get_positions(type_=Position.Long))
 
     @property
     def num_short_positions(self) -> int:
-        return len(list(self.get_short_positions()))
+        return len(self.list_positions(type_=Position.Short))
 
     @property
     def num_short_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self.get_short_positions())
+        return TradingSummary._num_positions_in_profit(self.get_positions(type_=Position.Short))
 
     @property
     def num_short_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self.get_short_positions())
+        return TradingSummary._num_positions_in_loss(self.get_positions(type_=Position.Short))
 
     @staticmethod
     def _num_positions_in_profit(positions: Iterable[Position.Closed]) -> int:
@@ -425,11 +436,11 @@ class TradingSummary:
 
     @property
     def mean_long_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self.get_long_positions())
+        return TradingSummary._mean_position_profit(self.get_positions(type_=Position.Long))
 
     @property
     def mean_short_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self.get_short_positions())
+        return TradingSummary._mean_position_profit(self.get_positions(type_=Position.Short))
 
     @staticmethod
     def _mean_position_profit(positions: Iterable[Position.Closed]) -> Decimal:
@@ -444,11 +455,11 @@ class TradingSummary:
 
     @property
     def mean_long_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self.get_long_positions())
+        return TradingSummary._mean_position_duration(self.get_positions(type_=Position.Long))
 
     @property
     def mean_short_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self.get_short_positions())
+        return TradingSummary._mean_position_duration(self.get_positions(type_=Position.Short))
 
     @staticmethod
     def _mean_position_duration(positions: Iterable[Position.Closed]) -> Interval:
@@ -522,7 +533,8 @@ class SimulatedPositionMixin(ABC):
         pass
 
     def open_simulated_long_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, quote: Decimal
+        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, quote: Decimal,
+        log: bool = True
     ) -> Position.OpenLong:
         base_asset, _ = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -533,7 +545,7 @@ class SimulatedPositionMixin(ABC):
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(size * fees.taker, filters.base_precision)
 
-        return Position.OpenLong(
+        open_position = Position.OpenLong(
             exchange=exchange,
             symbol=symbol,
             time=time,
@@ -541,9 +553,13 @@ class SimulatedPositionMixin(ABC):
                 price=price, size=size, quote=quote, fee=fee, fee_asset=base_asset
             )],
         )
+        if log:
+            _log.info(f'{symbol} simulated long position opened at {strftimestamp(time)}')
+        return open_position
 
     def close_simulated_long_position(
-        self, position: Position.OpenLong, time: Timestamp, price: Decimal, reason: CloseReason
+        self, position: Position.OpenLong, time: Timestamp, price: Decimal, reason: CloseReason,
+        log: bool = True
     ) -> Position.Long:
         _, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -552,16 +568,23 @@ class SimulatedPositionMixin(ABC):
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-        return position.close(
+        closed_position = position.close(
             time=time,
             fills=[Fill(
                 price=price, size=size, quote=quote, fee=fee, fee_asset=quote_asset
             )],
             reason=reason,
         )
+        if log:
+            _log.info(
+                f'{closed_position.symbol} simulated long position closed at '
+                f'{strftimestamp(time)} due to {reason.name}'
+            )
+        return closed_position
 
     def open_simulated_short_position(
-        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal
+        self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
+        log: bool = True
     ) -> Position.OpenShort:
         _, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -571,7 +594,7 @@ class SimulatedPositionMixin(ABC):
         quote = round_down(price * borrowed, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
-        return Position.OpenShort(
+        open_position = Position.OpenShort(
             exchange=exchange,
             symbol=symbol,
             collateral=collateral,
@@ -581,10 +604,13 @@ class SimulatedPositionMixin(ABC):
                 price=price, size=borrowed, quote=quote, fee=fee, fee_asset=quote_asset
             )],
         )
+        if log:
+            _log.info(f'{symbol} simulated short position opened at {strftimestamp(time)}')
+        return open_position
 
     def close_simulated_short_position(
         self, position: Position.OpenShort, time: Timestamp, price: Decimal,
-        reason: CloseReason
+        reason: CloseReason, log: bool = True
     ) -> Position.Short:
         base_asset, _ = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
@@ -601,7 +627,7 @@ class SimulatedPositionMixin(ABC):
         fee = round_half_up(size * fees.taker, filters.base_precision)
         size += fee
 
-        return position.close(
+        closed_position = position.close(
             time=time,
             interest=interest,
             fills=[Fill(
@@ -609,6 +635,12 @@ class SimulatedPositionMixin(ABC):
             )],
             reason=reason,
         )
+        if log:
+            _log.info(
+                f'{closed_position.symbol} simulated short position closed at '
+                f'{strftimestamp(time)} due to {reason.name}'
+            )
+        return closed_position
 
 
 class PositionMixin(ABC):
@@ -635,7 +667,8 @@ class PositionMixin(ABC):
     async def open_long_position(
         self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
     ) -> Position.OpenLong:
-        assert mode is not TradingMode.BACKTEST
+        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
+        _log.info(f'opening {symbol} {mode.name} long position with {quote} quote')
 
         res = await self.broker.buy_by_quote(
             exchange=exchange,
@@ -644,17 +677,21 @@ class PositionMixin(ABC):
             test=mode is TradingMode.PAPER,
         )
 
-        return Position.OpenLong(
+        open_position = Position.OpenLong(
             exchange=exchange,
             symbol=symbol,
             time=res.time,
             fills=res.fills,
         )
+        _log.info(f'{open_position.symbol} {mode.name} long position opened')
+        _log.debug(extract_public(open_position))
+        return open_position
 
     async def close_long_position(
         self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
     ) -> Position.Long:
-        assert mode is not TradingMode.BACKTEST
+        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
+        _log.info(f'closing {position.symbol} {mode.name} long position')
 
         res = await self.broker.sell(
             exchange=position.exchange,
@@ -663,17 +700,20 @@ class PositionMixin(ABC):
             test=mode is TradingMode.PAPER,
         )
 
-        return position.close(
+        closed_position = position.close(
             time=res.time,
             fills=res.fills,
             reason=reason,
         )
+        _log.info(f'{closed_position.symbol} {mode.name} long position closed')
+        _log.debug(extract_public(closed_position))
+        return closed_position
 
     async def open_short_position(
-        self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode,
-        borrow_safety_factor: Decimal = Decimal('0.95')
+        self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
     ) -> Position.OpenShort:
-        assert mode is not TradingMode.BACKTEST
+        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
+        _log.info(f'opening {symbol} {mode.name} short position with {collateral} collateral')
 
         base_asset, quote_asset = unpack_symbol(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -683,24 +723,12 @@ class PositionMixin(ABC):
         price = (await self.chandler.get_last_candle(exchange, symbol, MIN_MS)).close
 
         if mode is TradingMode.PAPER:
-            borrowed = _calculate_borrowed(
-                filters, margin_multiplier, collateral, price, borrow_safety_factor
-            )
+            borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
             await exchange_instance.transfer(quote_asset, collateral, margin=True)
-            # Because Binance doesn't support Isolated Margin through API, getting
-            # max borrowable may give incorrect result in case multiple short positions are being
-            # opened concurrently. Hence we calculate it ourselves.
-            # It's hard to estimate the exact price at which max borrowable is calculated. In order
-            # not to go over the limit, we use a small safety buffer to ensure the amount can be
-            # borrowed.
-            # TODO: Revert once Isolated Margin is available.
-            borrowed = _calculate_borrowed(
-                filters, margin_multiplier, collateral, price, borrow_safety_factor
-            )
-            # borrowed = await exchange_instance.get_max_borrowable(base_asset)
-            _log.info(f'borrowing {borrowed} {base_asset} from exchange')
+            borrowed = await exchange_instance.get_max_borrowable(base_asset)
+            _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
             await exchange_instance.borrow(asset=base_asset, size=borrowed)
 
         res = await self.broker.sell(
@@ -711,7 +739,7 @@ class PositionMixin(ABC):
             margin=mode is TradingMode.LIVE,
         )
 
-        return Position.OpenShort(
+        open_position = Position.OpenShort(
             exchange=exchange,
             symbol=symbol,
             collateral=collateral,
@@ -719,17 +747,22 @@ class PositionMixin(ABC):
             time=res.time,
             fills=res.fills,
         )
+        _log.info(f'{open_position.symbol} {mode.name} short position opened')
+        _log.debug(extract_public(open_position))
+        return open_position
 
     async def close_short_position(
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Short:
-        assert mode is not TradingMode.BACKTEST
+        assert mode in [TradingMode.PAPER, TradingMode.LIVE]
+        _log.info(f'closing {position.symbol} {mode.name} short position')
 
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
         borrow_info = self.informant.get_borrow_info(position.exchange, base_asset)
         exchange_instance = self.exchanges[position.exchange]
 
+        # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
         interest = (
             _calculate_interest(
                 borrowed=position.borrowed,
@@ -757,28 +790,47 @@ class PositionMixin(ABC):
         )
         if mode is TradingMode.LIVE:
             _log.info(
-                f'repaying {position.borrowed} + {interest} {base_asset} to exchange'
+                f'repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}'
             )
             await exchange_instance.repay(base_asset, position.borrowed + interest)
-            # Validate!
-            # TODO: Remove if known to work or pay extra if needed.
+
+            # It can be that there was an interest tick right before repaying. This means there may
+            # still be borrowed funds on the account. Double check and repay more if that is the
+            # case.
             # Careful with this check! We may have another position still open.
             new_balance = (await exchange_instance.map_balances(margin=True))[base_asset]
-            if new_balance.repay != 0:
-                raise RuntimeError(f'Did not repay enough {base_asset}; balance {new_balance}')
+            if new_balance.repay > 0:
+                _log.warning(
+                    f'did not repay enough; still {new_balance.repay} {base_asset} to be repaid'
+                )
+                if new_balance.available >= new_balance.repay:
+                    _log.info(
+                        f'can repay {new_balance.repay} {base_asset} without requiring more funds'
+                    )
+                else:
+                    # TODO: Implement
+                    _log.error(
+                        f'need to buy more {base_asset} to repay {new_balance.repay} but not '
+                        'implemented'
+                    )
+                    raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
+                await exchange_instance.repay(base_asset, new_balance.repay)
+                assert (await exchange_instance.map_balances(margin=True))[base_asset].repay == 0
 
             transfer = closed_position.collateral + closed_position.profit
             _log.info(f'transferring {transfer} {quote_asset} to spot account')
             await exchange_instance.transfer(quote_asset, transfer, margin=False)
+            # TODO: Also transfer base asset dust back?
 
+        _log.info(f'{closed_position.symbol} {mode.name} short position closed')
+        _log.debug(extract_public(closed_position))
         return closed_position
 
 
 def _calculate_borrowed(
-    filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal,
-    borrow_safety_factor: Decimal = Decimal('1.0')
+    filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal
 ) -> Decimal:
-    collateral_size = filters.size.round_down(collateral / price * borrow_safety_factor)
+    collateral_size = filters.size.round_down(collateral / price)
     if collateral_size == 0:
         raise OrderException('Collateral base size 0')
     borrowed = collateral_size * (margin_multiplier - 1)

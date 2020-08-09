@@ -54,7 +54,7 @@ class Paper(Agent):
         assert all(t.broker for t in self._traders.values())
 
     async def on_running(self, config: Config, state: State) -> None:
-        await Agent.on_running(self, config, state)
+        await super().on_running(config, state)
 
         now = self._get_time_ms()
 

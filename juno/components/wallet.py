@@ -83,10 +83,9 @@ class Wallet:
             async with exchange_instance.connect_stream_balances(margin=margin) as stream:
                 # This is not needed for Binance if it is sending full updates with
                 # 'outboundAccountInfo' event type. They will send initial status through
-                # websocket. In case of 'outboundAccountPosition' it is
-                # required.
-                # However, it may be needed for Coinbase or Kraken. If it is, then we
-                # should add a new capability `can_stream_initial_balances`.
+                # websocket. In case of 'outboundAccountPosition' it is required.
+                # However, it may be needed for Coinbase or Kraken. If it is, then we should add a
+                # new capability `can_stream_initial_balances`.
                 # Get initial status from REST API.
                 yield await exchange_instance.map_balances(margin=margin)
 

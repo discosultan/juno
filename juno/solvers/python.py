@@ -6,12 +6,12 @@ from juno import Advice, Candle, MissedCandlePolicy, OrderException
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
-from juno.time import DAY_MS
 from juno.trading import (
     CloseReason, Position, SimulatedPositionMixin, StopLoss, TakeProfit, TradingSummary
 )
+from juno.utils import unpack_symbol
 
-from .solver import Solver, SolverResult
+from .solver import FitnessValues, Solver
 
 
 @dataclass
@@ -37,22 +37,22 @@ class Python(Solver, SimulatedPositionMixin):
     def informant(self) -> Informant:
         return self._informant
 
-    def solve(self, config: Solver.Config) -> SolverResult:
+    def solve(self, config: Solver.Config) -> FitnessValues:
         summary = self._trade(config)
         portfolio = analyse_portfolio(
             benchmark_g_returns=config.benchmark_g_returns,
             fiat_prices=config.fiat_prices,
             trading_summary=summary,
-            interval=max(DAY_MS, config.interval),
         )
-        return SolverResult.from_trading_summary(summary, portfolio.stats)
+        return FitnessValues.from_trading_summary(summary, portfolio.stats)
 
     def _trade(self, config: Solver.Config) -> TradingSummary:
+        _, quote_asset = unpack_symbol(config.symbol)
         state = _State(
             summary=TradingSummary(
                 start=config.candles[0].time,
                 quote=config.quote,
-                quote_asset=config.quote_asset,
+                quote_asset=quote_asset,
             ),
             strategy=config.new_strategy(),
             quote=config.quote,
@@ -156,6 +156,7 @@ class Python(Solver, SimulatedPositionMixin):
             time=candle.time + config.interval,
             price=candle.close,
             quote=state.quote,
+            log=False,
         )
 
         state.quote += position.quote_delta()
@@ -170,6 +171,7 @@ class Python(Solver, SimulatedPositionMixin):
             time=candle.time + config.interval,
             price=candle.close,
             reason=reason,
+            log=False,
         )
 
         state.quote += position.quote_delta()
@@ -183,6 +185,7 @@ class Python(Solver, SimulatedPositionMixin):
             time=candle.time + config.interval,
             price=candle.close,
             collateral=state.quote,
+            log=False,
         )
 
         state.quote += position.quote_delta()
@@ -197,6 +200,7 @@ class Python(Solver, SimulatedPositionMixin):
             time=candle.time + config.interval,
             price=candle.close,
             reason=reason,
+            log=False,
         )
 
         state.quote += position.quote_delta()

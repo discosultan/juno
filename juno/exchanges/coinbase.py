@@ -17,12 +17,12 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, OrderException, OrderResult,
-    OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters, OrderException,
+    OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
-from juno.http import ClientSession, ClientWebSocketResponse
+from juno.http import ClientJsonResponse, ClientSession, ClientWebSocketResponse
 from juno.itertools import page
 from juno.math import round_half_up
 from juno.time import datetime_timestamp_ms
@@ -59,9 +59,10 @@ class Coinbase(Exchange):
 
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
-        x = 0.5  # We use this factor to be on the safe side and not use up the entire bucket.
-        self._pub_limiter = AsyncLimiter(3 * x, 1)
-        self._priv_limiter = AsyncLimiter(5 * x, 1)
+        # https://help.coinbase.com/en/pro/other-topics/api/faq-on-api
+        # The advertised rates do not work, hence we limit to 1 request per second.
+        self._pub_limiter = AsyncLimiter(1, 1)  # 3 requests per second, up to 6 in bursts.
+        self._priv_limiter = AsyncLimiter(1, 1)  # 5 requests per second, up to 10 in bursts.
 
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
         await self._session.__aenter__()
@@ -81,7 +82,7 @@ class Coinbase(Exchange):
 
         res = await self._public_request('GET', '/products')
         filters = {}
-        for product in res:
+        for product in res.data:
             price_step = Decimal(product['quote_increment'])
             size_step = Decimal(product['base_increment'])
             filters[product['id'].lower()] = Filters(
@@ -129,7 +130,7 @@ class Coinbase(Exchange):
             raise NotImplementedError()
         res = await self._private_request('GET', '/accounts')
         result = {}
-        for balance in res:
+        for balance in res.data:
             result[
                 balance['currency'].lower()
             ] = Balance(available=Decimal(balance['available']), hold=Decimal(balance['hold']))
@@ -148,7 +149,7 @@ class Coinbase(Exchange):
                     'granularity': _to_granularity(interval)
                 }
             )
-            for c in reversed(res):
+            for c in reversed(res.data):
                 # This seems to be an issue on Coinbase side. I didn't find any documentation for
                 # this behavior but occasionally they send null values inside candle rows for
                 # different price fields. Since we want to store all the data and we don't
@@ -203,8 +204,8 @@ class Coinbase(Exchange):
                     order_id = data['order_id']
                     client_id = self._order_id_to_client_id[order_id]
                     # TODO: Should be paginated.
-                    fills = await self._private_request('GET', f'/fills?order_id={order_id}')
-                    for fill in fills:
+                    res = await self._private_request('GET', f'/fills?order_id={order_id}')
+                    for fill in res.data:
                         # TODO: Coinbase fee is always returned in quote asset.
                         # TODO: Coinbase does not return quote, so we need to calculate it;
                         # however, we need to know quote precision and rounding rules for that.
@@ -234,6 +235,7 @@ class Coinbase(Exchange):
                         )
                     elif reason == 'canceled':
                         yield OrderUpdate.Canceled(
+                            time=_from_datetime(data['time']),
                             client_id=client_id,
                         )
                     else:
@@ -287,22 +289,24 @@ class Coinbase(Exchange):
         base_asset, quote_asset = unpack_symbol(symbol)
         res = await self._private_request('POST', '/orders', data=data)
         # Does not support returning fills straight away. Need to listen through WS.
-        return OrderResult(status=OrderStatus.NEW, time=_from_datetime(res['created_at']))
+        return OrderResult(status=OrderStatus.NEW, time=_from_datetime(res.data['created_at']))
 
     async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
-        await self._private_request('DELETE', f'/orders/client:{client_id}', {
+        res = await self._private_request('DELETE', f'/orders/client:{client_id}', {
             'product_id': _to_product(symbol),
         })
+        if res.status == 404:
+            raise OrderException(res.data['message'])
 
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int
     ) -> AsyncIterable[Trade]:
         trades_desc = []
-        async for batch in self._paginated_public_request(
+        async for res in self._paginated_public_request(
             'GET', f'/products/{_to_product(symbol)}/trades'
         ):
             done = False
-            for val in batch:
+            for val in res.data:
                 time = _from_datetime(val['time'])
                 if time >= end:
                     continue
@@ -339,24 +343,28 @@ class Coinbase(Exchange):
 
     async def _paginated_public_request(
         self, method: str, url: str, data: Dict[str, Any] = {}
-    ) -> AsyncIterable[Any]:
-        url = _BASE_REST_URL + url
+    ) -> AsyncIterable[ClientJsonResponse]:
         page_after = None
         while True:
             await self._pub_limiter.acquire()
             if page_after is not None:
                 data['after'] = page_after
-            async with self._session.request_json(method, url, params=data) as res:
-                yield res.data
-                page_after = res.headers.get('CB-AFTER')
-                if page_after is None:
-                    break
+            res = await self._request(method=method, url=url, params=data)
+            yield res
+            page_after = res.headers.get('CB-AFTER')
+            if page_after is None:
+                break
 
-    async def _public_request(self, method: str, url: str, data: Dict[str, Any] = {}) -> Any:
-        async for val in self._paginated_public_request(method, url, data):
-            return val  # Return only first.
+    async def _public_request(
+        self, method: str, url: str, data: Dict[str, Any] = {}
+    ) -> ClientJsonResponse:
+        async for res in self._paginated_public_request(method, url, data):
+            return res  # Return only first.
+        raise Exception('No response from paginated request')
 
-    async def _private_request(self, method: str, url: str, data: Dict[str, Any] = {}) -> Any:
+    async def _private_request(
+        self, method: str, url: str, data: Dict[str, Any] = {}
+    ) -> ClientJsonResponse:
         await self._priv_limiter.acquire()
         timestamp = _auth_timestamp()
         body = json.dumps(data, separators=(',', ':')) if data else ''
@@ -368,11 +376,14 @@ class Coinbase(Exchange):
             'CB-ACCESS-PASSPHRASE': self._passphrase,
             'Content-Type': 'application/json',
         }
+        return await self._request(method, url, headers=headers, data=body)
+
+    async def _request(self, method: str, url: str, **kwargs: Any) -> ClientJsonResponse:
         url = _BASE_REST_URL + url
-        async with self._session.request_json(method, url, headers=headers, data=body) as res:
-            if res.status == 404 and (msg := res.data.get('message')) == 'order not found':
-                raise OrderException(msg)
-            return res.data
+        async with self._session.request_json(method, url, **kwargs) as res:
+            if res.status == 429:
+                raise ExchangeException(res.data['message'])
+            return res
 
 
 class CoinbaseFeed:

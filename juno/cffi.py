@@ -37,7 +37,7 @@ class CDefBuilder:
         return self.struct_from_fields(type_.__name__, *fields)
 
     def struct_from_fields(
-        self, name: str, *fields: Tuple[str, Type[Any]], refs: List[str] = []
+        self, name: str, *fields: Tuple[str, Optional[Type[Any]]], refs: List[str] = []
     ) -> str:
         field_strings = (
             f'    {self._map_type(v, is_ref=k in refs)} {k};\n' for k, v in _transform(fields)
@@ -45,6 +45,10 @@ class CDefBuilder:
         return f'typedef struct {{\n{"".join(field_strings)}}} {name};\n'
 
     def _map_type(self, type_: Optional[Type[Any]], is_ref: bool = False) -> str:
+        type_name = self._resolve_type_name(type_)
+        return f'const {type_name}*' if is_ref else type_name
+
+    def _resolve_type_name(self, type_: Optional[Type[Any]]) -> str:
         for k, v in self._custom_mappings.items():
             if type_ is k:
                 return v
@@ -60,13 +64,12 @@ class CDefBuilder:
                 return v
 
         # raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')
-        if is_ref:
-            return f'const {type_.__name__}*'
-        else:
-            return type_.__name__
+        return type_.__name__
 
 
-def _transform(items: Iterable[Tuple[str, Type[Any]]]) -> Iterable[Tuple[str, Type[Any]]]:
+def _transform(
+    items: Iterable[Tuple[str, Optional[Type[Any]]]]
+) -> Iterable[Tuple[str, Optional[Type[Any]]]]:
     for k, v in items:
         yield k, v
         if get_origin(v) is list:

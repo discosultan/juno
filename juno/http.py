@@ -82,8 +82,7 @@ class ClientSession:
     async def ws_connect(self, url: str, name: Optional[str] = None,
                          **kwargs: Any) -> AsyncIterator[ClientWebSocketResponse]:
         name = name or next(_random_words)
-        _aiohttp_log.info(f'WS {name} {url}')
-        _aiohttp_log.debug(kwargs)
+        _aiohttp_log.info(f'WS {name} {url}: {kwargs}')
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield ClientWebSocketResponse(ws, name)
 

@@ -23,9 +23,9 @@ from juno.filters import Price, Size
 from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path, list_concretes_from_module
+from juno.utils import home_path, list_concretes_from_module, unpack_symbol
 
-from .solver import Solver, SolverResult
+from .solver import FitnessValues, Solver
 
 _log = logging.getLogger(__name__)
 
@@ -102,7 +102,9 @@ class Rust(Solver):
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         pass
 
-    def solve(self, config: Solver.Config) -> SolverResult:
+    def solve(self, config: Solver.Config) -> FitnessValues:
+        base_asset, _ = unpack_symbol(config.symbol)
+
         # Trading.
         c_candles = self._get_or_create_c_candles(
             (config.symbol, config.interval, config.start, config.end),
@@ -111,7 +113,7 @@ class Rust(Solver):
         fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         c_fees, c_filters = self._get_or_create_c_fees_filters(config.symbol, fees, filters)
         borrow_info = (
-            self._informant.get_borrow_info(config.exchange, config.base_asset) if config.short
+            self._informant.get_borrow_info(config.exchange, base_asset) if config.short
             else _DEFAULT_BORROW_INFO
         )
         c_borrow_info = self._get_or_create_c_borrow_info(config.symbol, borrow_info)
@@ -147,8 +149,8 @@ class Rust(Solver):
             ('btc-eur', analysis_interval, config.start, config.end), config.fiat_prices['btc']
         )
         c_base_fiat_prices = self._get_or_create_c_prices(
-            (f'{config.base_asset}-eur', analysis_interval, config.start, config.end),
-            config.fiat_prices[config.base_asset],
+            (f'{base_asset}-eur', analysis_interval, config.start, config.end),
+            config.fiat_prices[base_asset],
         )
 
         c_benchmark_g_returns = self._get_or_create_c_series(
@@ -166,7 +168,7 @@ class Rust(Solver):
         # Go!
         fn = getattr(self._libjuno, config.strategy_type.__name__.lower())
         result = fn(c_trading_info, c_strategy_info, c_analysis_info)
-        return SolverResult.from_object(result)
+        return FitnessValues.from_object(result)
 
     def _get_or_create_c_fees_filters(self, key: str, fees: Fees, filters: Filters) -> Any:
         c_fees_filters = self._c_fees_filters.get(key)
@@ -246,7 +248,7 @@ def _build_cdef() -> str:
         _cdef_builder.struct(Size),
         _cdef_builder.struct(Filters, exclude=['percent_price', 'min_notional']),
         _cdef_builder.struct(BorrowInfo),
-        _cdef_builder.struct(SolverResult),
+        _cdef_builder.struct(FitnessValues),
         _cdef_builder.struct_from_fields(
             'AnalysisInfo',
             ('quote_fiat_prices', List[Decimal]),
@@ -282,7 +284,7 @@ def _build_cdef() -> str:
         ))
         members.append(_cdef_builder.function_from_params(
             strategy_name_lower,
-            SolverResult,
+            FitnessValues,
             ('trading_info', type('TradingInfo', (), {})),
             (strategy_info_param_name, type(strategy_info_type_name, (), {})),
             ('analysis_info', type('AnalysisInfo', (), {})),

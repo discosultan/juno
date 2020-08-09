@@ -99,10 +99,44 @@ class Pair(Constraint):
     def validate(self, a: Any, b: Any) -> bool:
         return self._a.validate(a) and self._b.validate(b) and self._op(a, b)
 
-    def random(self, random: Random) -> Tuple[int, int]:
+    def random(self, random: Random) -> Tuple[Any, Any]:
         while True:
             a = self._a.random(random)
             b = self._b.random(random)
             if self.validate(a, b):
                 break
         return a, b
+
+
+class Triple(Constraint):
+    def __init__(
+        self,
+        a: Constraint,
+        ab_op: Callable[[Any, Any], bool],
+        b: Constraint,
+        bc_op: Callable[[Any, Any], bool],
+        c: Constraint,
+    ) -> None:
+        self._a = a
+        self._ab_op = ab_op
+        self._b = b
+        self._bc_op = bc_op
+        self._c = c
+
+    def validate(self, a: Any, b: Any, c: Any) -> bool:
+        return (
+            self._a.validate(a)
+            and self._b.validate(b)
+            and self._c.validate(c)
+            and self._ab_op(a, b)
+            and self._bc_op(b, c)
+        )
+
+    def random(self, random: Random) -> Tuple[Any, Any, Any]:
+        while True:
+            a = self._a.random(random)
+            b = self._b.random(random)
+            c = self._c.random(random)
+            if self.validate(a, b, c):
+                break
+        return a, b, c

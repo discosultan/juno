@@ -1,7 +1,5 @@
 import math
-from typing import Any, Iterable, List, Tuple, TypeVar, Union, overload
-
-T = TypeVar('T')
+from typing import Any, Iterable, Tuple
 
 
 def merge_adjacent_spans(spans: Iterable[Tuple[int, int]]) -> Iterable[Tuple[int, int]]:
@@ -55,35 +53,3 @@ def recursive_iter(obj: Any, keys: Tuple[Any, ...] = ()) -> Iterable[Tuple[Tuple
             yield from recursive_iter(item, keys + (idx, ))
     else:
         yield keys, obj
-
-
-# TODO: Use `recursive_iter` instead?
-# Ref: https://stackoverflow.com/a/10632356/1466456
-def flatten(items: Iterable[Union[T, List[T]]]) -> Iterable[T]:
-    for item in items:
-        if isinstance(item, (list, tuple)):
-            for subitem in item:
-                yield subitem
-        else:
-            yield item
-
-
-@overload
-def chunks(seq: List[T], n: int) -> Iterable[List[T]]:
-    ...
-
-
-@overload
-def chunks(seq: str, n: int) -> Iterable[str]:
-    ...
-
-
-# Ref: https://stackoverflow.com/a/312464/1466456
-def chunks(seq, n):
-    """Yield successive n-sized chunks from l."""
-    length = len(seq)
-    if length <= n:
-        yield seq
-    else:
-        for i in range(0, length, n):
-            yield seq[i:i + n]

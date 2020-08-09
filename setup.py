@@ -12,6 +12,7 @@ setup(
         'colorlog',
         'deap',
         'mergedeep',
+        'more-itertools',
         'numpy',
         'pandas',
         'python-dateutil',
@@ -27,18 +28,19 @@ setup(
             'flake8-comprehensions',
             'flake8-isort',
             'flake8-quotes',
-            'isort',
+            'isort < 5',
             'mypy',
             'pytest',
             'pytest-aiohttp',
             'pytest-lazy-fixture',
+            'pytest-mock',
             'rope',
             'yapf',
         ],
         'discord': [
             'discord.py',
         ],
-        'plot': [
+        'plotly': [
             'plotly',
         ],
     }

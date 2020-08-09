@@ -58,7 +58,7 @@ async def main() -> None:
     python_solver = Python(informant=informant)
     async with binance, informant, rust_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
-        fiat_prices = await prices.map_prices(
+        fiat_prices = await prices.map_asset_prices(
             exchange='binance',
             symbols=[SYMBOL],
             start=start,
@@ -97,7 +97,7 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy=TypeConstructor.from_type(STRATEGY_TYPE, kwargs=STRATEGY_KWARGS),
+            strategy=TypeConstructor.from_type(STRATEGY_TYPE, **STRATEGY_KWARGS),
             missed_candle_policy=MISSED_CANDLE_POLICY,
             stop_loss=STOP_LOSS,
             take_profit=TAKE_PROFIT,
