@@ -188,7 +188,8 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: AccountType = AccountType.SPOT
+        self, symbol: str, account: AccountType = AccountType.SPOT,
+        isolated_symbol: Optional[str] = None
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         assert account is AccountType.SPOT
 

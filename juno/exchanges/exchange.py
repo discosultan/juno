@@ -37,7 +37,7 @@ class Exchange(ABC):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: AccountType = AccountType.SPOT
+        self, account: AccountType = AccountType.SPOT, isolated_symbol: Optional[str] = None
     ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
 
@@ -66,7 +66,8 @@ class Exchange(ABC):
     @abstractmethod
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: AccountType = AccountType.SPOT
+        self, symbol: str, account: AccountType = AccountType.SPOT,
+        isolated_symbol: Optional[str] = None
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         yield  # type: ignore
 

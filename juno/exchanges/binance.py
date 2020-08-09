@@ -10,7 +10,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterable, AsyncIterator, Callable, Dict, List, Optional
 
 import aiohttp
 from tenacity import (
@@ -82,27 +82,30 @@ class Binance(Exchange):
         self._margin_limiter = AsyncLimiter(1, 2 * x)
 
         self._clock = Clock(self)
-        self._spot_user_data_stream = UserDataStream(self, '/api/v3/userDataStream')
-        self._cross_margin_user_data_stream = UserDataStream(self, '/sapi/v1/userDataStream')
-        self._isolated_margin_user_data_stream = UserDataStream(
-            self, '/sapi/v1/userDataStream/isolated'
-        )
+        self._user_data_streams: Dict[str, UserDataStream] = {}
+        # self._spot_user_data_stream = UserDataStream(self, '/api/v3/userDataStream')
+        # self._cross_margin_user_data_stream = UserDataStream(self, '/sapi/v1/userDataStream')
+        # self._isolated_margin_user_data_stream = UserDataStream(
+        #     self, '/sapi/v1/userDataStream/isolated'
+        # )
 
     async def __aenter__(self) -> Binance:
         await self._session.__aenter__()
-        await asyncio.gather(
-            self._clock.__aenter__(),
-            self._spot_user_data_stream.__aenter__(),
-            self._cross_margin_user_data_stream.__aenter__(),
-            self._isolated_margin_user_data_stream.__aenter__(),
-        )
+        await self._clock.__aenter__()
+        # await asyncio.gather(
+        #     self._clock.__aenter__(),
+        #     self._spot_user_data_stream.__aenter__(),
+        #     self._cross_margin_user_data_stream.__aenter__(),
+        #     self._isolated_margin_user_data_stream.__aenter__(),
+        # )
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await asyncio.gather(
-            self._isolated_margin_user_data_stream.__aexit__(exc_type, exc, tb),
-            self._cross_margin_user_data_stream.__aexit__(exc_type, exc, tb),
-            self._spot_user_data_stream.__aexit__(exc_type, exc, tb),
+            # self._isolated_margin_user_data_stream.__aexit__(exc_type, exc, tb),
+            # self._cross_margin_user_data_stream.__aexit__(exc_type, exc, tb),
+            # self._spot_user_data_stream.__aexit__(exc_type, exc, tb),
+            *(s.__aexit__(exc_type, exc, tb) for s in self._user_data_streams.values()),
             self._clock.__aexit__(exc_type, exc, tb),
         )
         await self._session.__aexit__(exc_type, exc, tb)
@@ -265,7 +268,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: AccountType = AccountType.SPOT
+        self, account: AccountType = AccountType.SPOT, isolated_symbol: Optional[str] = None
     ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner(
             stream: AsyncIterable[Dict[str, Any]]
@@ -278,9 +281,10 @@ class Binance(Exchange):
                     ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
                 yield result
 
-        # event_type = 'outboundAccountInfo'  # Full list of balances.
-        event_type = 'outboundAccountPosition'  # Only changed balances.
-        async with self._get_user_data_stream(account).subscribe(event_type) as stream:
+        # 'outboundAccountInfo' - Full list of balances.
+        # 'outboundAccountPosition' - Only changed balances.
+        user_data_stream = await self._get_user_data_stream(account, isolated_symbol)
+        async with user_data_stream.subscribe('outboundAccountPosition') as stream:
             yield inner(stream)
 
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
@@ -364,7 +368,8 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: AccountType = AccountType.SPOT
+        self, symbol: str, account: AccountType = AccountType.SPOT,
+        isolated_symbol: Optional[str] = None
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
@@ -412,7 +417,8 @@ class Binance(Exchange):
                     raise NotImplementedError(data)
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
-        async with self._get_user_data_stream(account).subscribe('executionReport') as stream:
+        user_data_stream = await self._get_user_data_stream(account, isolated_symbol)
+        async with user_data_stream.subscribe('executionReport') as stream:
             yield inner(stream)
 
     async def place_order(
@@ -816,12 +822,34 @@ class Binance(Exchange):
             _log.warning(f'{name} web socket exc: {e}')
             raise ExchangeException(str(e))
 
-    def _get_user_data_stream(self, account: AccountType) -> UserDataStream:
-        return (
-            self._spot_user_data_stream if account is AccountType.SPOT
-            else self._cross_margin_user_data_stream if account is AccountType.CROSS_MARGIN
-            else self._isolated_margin_user_data_stream
-        )
+    async def _get_user_data_stream(
+        self, account: AccountType, isolated_symbol: Optional[str]
+    ) -> UserDataStream:
+        if account is AccountType.SPOT:
+            return await self._get_or_create_user_data_stream(
+                '__spot__', lambda: UserDataStream(self, '/api/v3/userDataStream')
+            )
+        if account is AccountType.CROSS_MARGIN:
+            return await self._get_or_create_user_data_stream(
+                '__cross_margin__', lambda: UserDataStream(self, '/api/v3/userDataStream')
+            )
+        if account is AccountType.ISOLATED_MARGIN:
+            if not isolated_symbol:
+                raise ValueError('Isolated symbol is required for isolated margin account')
+            return await self._get_or_create_user_data_stream(
+                isolated_symbol,
+                lambda: UserDataStream(self, '/sapi/v1/userDataStream/isolated', isolated_symbol),
+            )
+        raise NotImplementedError()
+
+    async def _get_or_create_user_data_stream(
+        self, key: str, factory: Callable[[], UserDataStream]
+    ) -> UserDataStream:
+        if not (stream := self._user_data_streams.get(key)):
+            stream = factory()
+            self._user_data_streams[key] = stream
+            await stream.__aenter__()
+        return stream
 
 
 class Clock:
@@ -887,9 +915,10 @@ class Clock:
 
 
 class UserDataStream:
-    def __init__(self, binance: Binance, base_url: str) -> None:
+    def __init__(self, binance: Binance, base_url: str, symbol: Optional[str] = None) -> None:
         self._binance = binance
         self._base_url = base_url
+        self._symbol = symbol
         self._listen_key_lock = asyncio.Lock()
         self._stream_connected = asyncio.Event()
         self._listen_key = None
@@ -991,9 +1020,13 @@ class UserDataStream:
     )
     async def _create_listen_key(self) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
+        data = {}
+        if self._symbol is not None:
+            data['symbol'] = _to_http_symbol(self._symbol)
         return await self._binance._api_request(
             'POST',
             self._base_url,
+            data=data,
             security=_SEC_USER_STREAM
         )
 
@@ -1007,6 +1040,9 @@ class UserDataStream:
     )
     async def _update_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
+        data = {}
+        if self._symbol is not None:
+            data['symbol'] = _to_http_symbol(self._symbol)
         return await self._binance._api_request(
             'PUT',
             self._base_url,
@@ -1024,6 +1060,9 @@ class UserDataStream:
     )
     async def _delete_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
+        data = {}
+        if self._symbol is not None:
+            data['symbol'] = _to_http_symbol(self._symbol)
         return await self._binance._api_request(
             'DELETE',
             self._base_url,

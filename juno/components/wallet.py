@@ -89,7 +89,8 @@ class Wallet:
         if account is AccountType.CROSS_MARGIN:
             return exchange_wallet['__cross_margin__']
         if account is AccountType.ISOLATED_MARGIN:
-            assert isolated_symbol
+            if not isolated_symbol:
+                raise ValueError('Isolated symbol is required for isolated margin account')
             return exchange_wallet[isolated_symbol]
         raise NotImplementedError()
 
