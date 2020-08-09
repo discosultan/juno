@@ -170,6 +170,7 @@ class Limit(Broker):
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
         last_order_size = Decimal('0.0')
+        is_first = True
         while True:
             await orderbook_updated.wait()
 
@@ -198,7 +199,7 @@ class Limit(Broker):
             if op_last_price_cmp(price, last_order_price):
                 continue
 
-            if last_order_price not in [0, Decimal('Inf')]:
+            if is_first:
                 # Cancel prev Order.
                 _log.info(
                     f'cancelling previous {symbol} {side.name} order {ctx.client_id} at price '
@@ -234,8 +235,21 @@ class Limit(Broker):
             size = filters.size.round_down(size)
 
             _log.info(f'validating {symbol} {side.name} order price and size')
-            filters.size.validate(size)
-            filters.min_notional.validate_limit(price=price, size=size)
+            if is_first:
+                filters.size.validate(size)
+                filters.min_notional.validate_limit(price=price, size=size)
+            else:
+                if not filters.size.valid(size):
+                    _log.info(
+                        f'size {size} no longer valid [{filters.size.min}; {filters.size.max})'
+                    )
+                    break
+                if not filters.min_notional.valid(price, size):
+                    _log.info(
+                        f'price * size ({price * size}) min notional no longer valid; '
+                        f'[{filters.min_notional.min_notional}; inf]'
+                    )
+                    break
 
             _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
             await self._exchanges[exchange].place_order(
@@ -255,6 +269,7 @@ class Limit(Broker):
 
             last_order_price = price
             last_order_size = size
+            is_first = False
 
     async def _track_fills(
         self, symbol: str, stream: AsyncIterable[OrderUpdate.Any], side: Side, ctx: _Context
