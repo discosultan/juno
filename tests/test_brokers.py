@@ -371,7 +371,7 @@ async def test_limit_partial_fill_cancel_min_notional() -> None:
     )
     exchange.can_stream_depth_snapshot = False
     async with init_limit_broker(exchange) as broker:
-        task = asyncio.create_task(broker.buy_by_quote(
+        task = asyncio.create_task(broker.buy(
             exchange='exchange',
             symbol='eth-btc',
             quote=Decimal('100.0'),

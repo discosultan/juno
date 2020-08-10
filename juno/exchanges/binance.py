@@ -237,21 +237,23 @@ class Binance(Exchange):
         url = '/sapi/v1/margin/isolated/account'
         res = await self._api_request('GET', url, weight=1, security=_SEC_USER_DATA)
         result = {}
-        for b in res.data['assets']:
-            symbol = _from_symbol(b['symbol'])
+        for balances in res.data['assets']:
+            symbol = _from_symbol(balances['symbol'])
             base_asset, quote_asset = unpack_symbol(symbol)
+            base_balance = balances['baseAsset']
+            quote_balance = balances['quoteAsset']
             result[symbol] = {
                 base_asset: Balance(
-                    available=Decimal(b['baseAsset']['free']),
-                    hold=Decimal(b['baseAsset']['locked']),
-                    borrowed=Decimal(b['baseAsset']['borrowed']),
-                    interest=Decimal(b['baseAsset']['interest']),
+                    available=Decimal(base_balance['free']),
+                    hold=Decimal(base_balance['locked']),
+                    borrowed=Decimal(base_balance['borrowed']),
+                    interest=Decimal(base_balance['interest']),
                 ),
                 quote_asset: Balance(
-                    available=Decimal(b['quoteAsset']['free']),
-                    hold=Decimal(b['quoteAsset']['locked']),
-                    borrowed=Decimal(b['quoteAsset']['borrowed']),
-                    interest=Decimal(b['quoteAsset']['interest']),
+                    available=Decimal(quote_balance['free']),
+                    hold=Decimal(quote_balance['locked']),
+                    borrowed=Decimal(quote_balance['borrowed']),
+                    interest=Decimal(quote_balance['interest']),
                 ),
             }
         return result
