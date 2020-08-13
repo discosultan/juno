@@ -2,7 +2,7 @@ import logging
 from decimal import Decimal
 from typing import List, Optional
 
-from juno import AccountType, Fill, OrderResult, OrderStatus, OrderType, Side
+from juno import Fill, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 
@@ -32,7 +32,7 @@ class Market(Broker):
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         Broker.validate_funds(size, quote)
@@ -87,7 +87,7 @@ class Market(Broker):
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert size  # TODO: support by quote
@@ -121,7 +121,7 @@ class Market(Broker):
         exchange: str,
         symbol: str,
         side: Side,
-        account: AccountType,
+        account: str,
         test: bool,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,

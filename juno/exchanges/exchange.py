@@ -4,8 +4,8 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    AccountType, Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side,
-    Ticker, TimeInForce, Trade
+    Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side, Ticker,
+    TimeInForce, Trade
 )
 
 
@@ -37,7 +37,7 @@ class Exchange(ABC):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: AccountType = AccountType.SPOT, isolated_symbol: Optional[str] = None
+        self, account: str = 'spot'
     ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
 
@@ -66,7 +66,7 @@ class Exchange(ABC):
     @abstractmethod
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: AccountType = AccountType.SPOT,
+        self, symbol: str, account: str = 'spot',
         isolated_symbol: Optional[str] = None
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         yield  # type: ignore
@@ -82,7 +82,7 @@ class Exchange(ABC):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         pass
@@ -92,7 +92,7 @@ class Exchange(ABC):
         self,
         symbol: str,
         client_id: str,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
     ) -> None:
         pass
 
@@ -113,19 +113,11 @@ class Exchange(ABC):
     ) -> None:
         pass
 
-    async def borrow(
-        self, asset: str, size: Decimal, isolated: bool = False,
-        isolated_symbol: Optional[str] = None
-    ) -> None:
+    async def borrow(self, asset: str, size: Decimal, account: str = 'margin') -> None:
         pass
 
-    async def repay(
-        self, asset: str, size: Decimal, isolated: bool = False,
-        isolated_symbol: Optional[str] = None
-    ) -> None:
+    async def repay(self, asset: str, size: Decimal, account: str = 'margin') -> None:
         pass
 
-    async def get_max_borrowable(
-        self, asset: str, isolated_symbol: Optional[str] = None
-    ) -> Decimal:
+    async def get_max_borrowable(self, asset: str, account: str = 'margin') -> Decimal:
         pass

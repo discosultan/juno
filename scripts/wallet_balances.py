@@ -2,7 +2,7 @@ import argparse
 import asyncio
 import logging
 
-from juno import AccountType, exchanges
+from juno import exchanges
 from juno.asyncio import resolved_future
 from juno.components import Wallet
 from juno.config import from_env, init_instance
@@ -21,9 +21,9 @@ async def main() -> None:
     wallet = Wallet([client])
     async with client, wallet:
         await asyncio.gather(
-            process_balances(wallet, AccountType.SPOT),
+            process_balances(wallet, 'spot'),
             (
-                process_balances(wallet, AccountType.CROSS_MARGIN)
+                process_balances(wallet, 'margin')
                 if client.can_margin_trade
                 else resolved_future(None)
             ),
@@ -31,7 +31,7 @@ async def main() -> None:
         )
 
 
-async def process_balances(wallet: Wallet, account: AccountType) -> None:
+async def process_balances(wallet: Wallet, account: str) -> None:
     log_balances(wallet, account)
     if args.stream:
         while True:
@@ -39,8 +39,8 @@ async def process_balances(wallet: Wallet, account: AccountType) -> None:
             log_balances(wallet, account)
 
 
-def log_balances(wallet: Wallet, account: AccountType) -> None:
-    logging.info(f'{args.exchange.upper()} {account.name} ACCOUNT')
+def log_balances(wallet: Wallet, account: str) -> None:
+    logging.info(f'{args.exchange} {account} account')
     balances = wallet.map_significant_balances(args.exchange, account=account)
     for asset, balance in balances.items():
         logging.info(f'{asset} - {balance}')

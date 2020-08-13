@@ -12,8 +12,8 @@ from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    AccountType, Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType,
-    OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType, OrderUpdate, Side,
+    Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -178,10 +178,9 @@ class Kraken(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: AccountType = AccountType.SPOT,
-        isolated_symbol: Optional[str] = None
+        self, symbol: str, account: str = 'spot',
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
-        assert account is AccountType.SPOT
+        assert account == 'spot'
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             async for o in ws:
@@ -201,7 +200,7 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         # TODO: use order placing limiter instead of default.
@@ -211,7 +210,7 @@ class Kraken(Exchange):
         self,
         symbol: str,
         client_id: str,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
     ) -> None:
         pass
 

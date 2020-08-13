@@ -3,7 +3,7 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import AccountType, Fill, Side
+from juno import Fill, Side
 from juno.brokers import Limit
 from juno.components import Informant, Orderbook, Wallet
 from juno.config import from_env, init_instance
@@ -17,12 +17,7 @@ parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default='
 parser.add_argument(
     'value', nargs='?', type=Decimal, default=None, help='if buy, quote; otherwise base size'
 )
-parser.add_argument(
-    'account',
-    nargs='?',
-    type=lambda s: AccountType[s.upper()],
-    default=AccountType.SPOT,
-)
+parser.add_argument('account', nargs='?', default='spot')
 args = parser.parse_args()
 
 
@@ -52,12 +47,8 @@ async def transact_symbol(
 ) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
     fees, filters = informant.get_fees_filters('binance', symbol)
-    available_base = wallet.get_balance(
-        'binance', base_asset, account=args.account, isolated_symbol=symbol
-    ).available
-    available_quote = wallet.get_balance(
-        'binance', quote_asset, account=args.account, isolated_symbol=symbol
-    ).available
+    available_base = wallet.get_balance('binance', base_asset, account=args.account).available
+    available_quote = wallet.get_balance('binance', quote_asset, account=args.account).available
     value = args.value if args.value is not None else (
         available_quote if args.side is Side.BUY else available_base
     )
@@ -82,7 +73,7 @@ async def transact_symbol(
         )
 
     logging.info(res)
-    logging.info(f'{args.account.name} {args.side.name} {symbol}')
+    logging.info(f'{args.account} {args.side.name} {symbol}')
     logging.info(f'total size: {Fill.total_size(res.fills)}')
     logging.info(f'total quote: {Fill.total_quote(res.fills)}')
     logging.info(f'total fee: {Fill.total_fee(res.fills)}')

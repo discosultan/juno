@@ -3,11 +3,11 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import AsyncIterable, Dict, List, Optional
+from typing import AsyncIterable, Dict, List
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import AccountType, Balance, ExchangeException
+from juno import Balance, ExchangeException
 from juno.asyncio import Event, SlotBarrier, cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
@@ -27,9 +27,9 @@ class Wallet:
 
     async def __aenter__(self) -> Wallet:
         self._initial_balances_fetched = SlotBarrier(
-            [(e, AccountType.SPOT) for e in self._exchanges.keys()]
+            [(e, 'spot') for e in self._exchanges.keys()]
             + [
-                (e, AccountType.CROSS_MARGIN) for e, i
+                (e, 'margin') for e, i
                 in self._exchanges.items()
                 if i.can_margin_trade
             ]
@@ -46,55 +46,41 @@ class Wallet:
         self,
         exchange: str,
         asset: str,
-        account: AccountType = AccountType.SPOT,
-        isolated_symbol: Optional[str] = None,
+        account: str = 'spot',
     ) -> Balance:
-        return self._get_exchange_wallet(exchange, account, isolated_symbol).balances[asset]
+        return self._get_exchange_wallet(exchange, account).balances[asset]
 
     def get_updated_event(
         self,
         exchange: str,
-        account: AccountType = AccountType.SPOT,
-        isolated_symbol: Optional[str] = None,
+        account: str = 'spot',
     ) -> Event[None]:
-        return self._get_exchange_wallet(exchange, account, isolated_symbol).updated
+        return self._get_exchange_wallet(exchange, account).updated
 
     def map_significant_balances(
         self,
         exchange: str,
-        account: AccountType = AccountType.SPOT,
-        isolated_symbol: Optional[str] = None,
+        account: str = 'spot',
     ) -> Dict[str, Balance]:
         # TODO: Support mapping from all isolated account. We should create a different method
         # because the return type differs: Dict[str, Dict[str, Balance]].
-        exchange_wallet = self._get_exchange_wallet(exchange, account, isolated_symbol)
+        exchange_wallet = self._get_exchange_wallet(exchange, account)
         return {k: v for k, v in exchange_wallet.balances.items() if v.significant}
 
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(
-            *(self._sync_balances(e, AccountType.SPOT) for e in self._exchanges.keys()),
+            *(self._sync_balances(e, 'spot') for e in self._exchanges.keys()),
             *(
-                self._sync_balances(e, AccountType.CROSS_MARGIN) for e, inst
+                self._sync_balances(e, 'margin') for e, inst
                 in self._exchanges.items()
                 if inst.can_margin_trade
             ),
         )
 
-    def _get_exchange_wallet(
-        self, exchange: str, account: AccountType, isolated_symbol: Optional[str] = None
-    ) -> _ExchangeWallet:
-        exchange_wallet = self._exchange_wallets[exchange]
-        if account is AccountType.SPOT:
-            return exchange_wallet['__spot__']
-        if account is AccountType.CROSS_MARGIN:
-            return exchange_wallet['__cross_margin__']
-        if account is AccountType.ISOLATED_MARGIN:
-            if not isolated_symbol:
-                raise ValueError('Isolated symbol is required for isolated margin account')
-            return exchange_wallet[isolated_symbol]
-        raise NotImplementedError()
+    def _get_exchange_wallet(self, exchange: str, account: str) -> _ExchangeWallet:
+        return self._exchange_wallets[exchange][account]
 
-    async def _sync_balances(self, exchange: str, account: AccountType) -> None:
+    async def _sync_balances(self, exchange: str, account: str) -> None:
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
@@ -102,7 +88,7 @@ class Wallet:
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):
             with attempt:
-                if account in [AccountType.SPOT, AccountType.CROSS_MARGIN]:
+                if account in ['spot', 'margin']:
                     exchange_wallet = self._get_exchange_wallet(exchange, account)
                     async for balances in self._stream_balances(exchange, account):
                         _log.info(f'received {account.name} balance update from {exchange}')
@@ -111,14 +97,12 @@ class Wallet:
                             is_first = False
                             self._initial_balances_fetched.release((exchange, account))
                         exchange_wallet.updated.set()
-                elif account is AccountType.ISOLATED_MARGIN:
+                else:
                     # async for balances in self._stream_
                     pass
-                else:
-                    raise NotImplementedError()
 
     async def _stream_balances(
-        self, exchange: str, account: AccountType
+        self, exchange: str, account: str
     ) -> AsyncIterable[Dict[str, Balance]]:
         exchange_instance = self._exchanges[exchange]
 

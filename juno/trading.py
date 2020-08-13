@@ -11,7 +11,7 @@ from enum import IntEnum
 from types import ModuleType
 from typing import Dict, Iterable, List, Optional, Type, Union
 
-from juno import AccountType, Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
+from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant
 from juno.exchanges import Exchange
@@ -674,7 +674,7 @@ class PositionMixin(ABC):
             exchange=exchange,
             symbol=symbol,
             quote=quote,
-            account=AccountType.SPOT,
+            account='spot',
             test=mode is TradingMode.PAPER,
         )
 
@@ -698,7 +698,7 @@ class PositionMixin(ABC):
             exchange=position.exchange,
             symbol=position.symbol,
             size=position.base_gain,
-            account=AccountType.SPOT,
+            account='spot',
             test=mode is TradingMode.PAPER,
         )
 
@@ -734,19 +734,17 @@ class PositionMixin(ABC):
             )
             # borrowed = await exchange_instance.get_max_borrowable(base_asset)
             borrowed = await exchange_instance.get_max_borrowable(
-                base_asset, isolated_symbol=symbol
+                base_asset, account=symbol
             )
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
             # await exchange_instance.borrow(asset=base_asset, size=borrowed)
-            await exchange_instance.borrow(
-                asset=base_asset, size=borrowed, isolated=True, isolated_symbol=symbol
-            )
+            await exchange_instance.borrow(asset=base_asset, size=borrowed, account=symbol)
 
         res = await self.broker.sell(
             exchange=exchange,
             symbol=symbol,
             size=borrowed,
-            account=AccountType.ISOLATED_MARGIN if mode is TradingMode.LIVE else AccountType.SPOT,
+            account=symbol if mode is TradingMode.LIVE else 'spot',
             test=mode is TradingMode.PAPER,
         )
 
@@ -790,7 +788,7 @@ class PositionMixin(ABC):
             exchange=position.exchange,
             symbol=position.symbol,
             size=size,
-            account=AccountType.ISOLATED_MARGIN if mode is TradingMode.LIVE else AccountType.SPOT,
+            account=position.symbol if mode is TradingMode.LIVE else 'spot',
             test=mode is TradingMode.PAPER,
         )
         closed_position = position.close(

@@ -6,8 +6,7 @@ from decimal import Decimal
 from typing import AsyncIterable, Callable, List, Optional
 
 from juno import (
-    AccountType, Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side,
-    TimeInForce
+    Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
@@ -53,7 +52,7 @@ class Limit(Broker):
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert not test
@@ -63,12 +62,12 @@ class Limit(Broker):
 
         if size is not None:
             _log.info(
-                f'buying {size} {base_asset} with limit orders at spread ({account.name} account)'
+                f'buying {size} {base_asset} with limit orders at spread ({account} account)'
             )
         elif quote is not None:
             _log.info(
                 f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread '
-                f'({account.name} account)'
+                f'({account} account)'
             )
         else:
             raise NotImplementedError()
@@ -96,7 +95,7 @@ class Limit(Broker):
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert not test
@@ -105,7 +104,7 @@ class Limit(Broker):
 
         base_asset, _ = unpack_symbol(symbol)
         _log.info(
-            f'selling {size} {base_asset} with limit orders at spread ({account.name} account)'
+            f'selling {size} {base_asset} with limit orders at spread ({account} account)'
         )
         res = await self._fill(exchange, symbol, Side.SELL, account, size=size)
 
@@ -125,7 +124,7 @@ class Limit(Broker):
         return res
 
     async def _fill(
-        self, exchange: str, symbol: str, side: Side, account: AccountType,
+        self, exchange: str, symbol: str, side: Side, account: str,
         size: Optional[Decimal] = None, quote: Optional[Decimal] = None
     ) -> OrderResult:
         await self._orderbook.ensure_sync([exchange], [symbol])
@@ -178,7 +177,7 @@ class Limit(Broker):
         return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
 
     async def _keep_limit_order_best(
-        self, exchange: str, symbol: str, side: Side, account: AccountType, ctx: _Context
+        self, exchange: str, symbol: str, side: Side, account: str, ctx: _Context
     ) -> None:
         orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)

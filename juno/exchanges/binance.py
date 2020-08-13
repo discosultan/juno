@@ -18,9 +18,9 @@ from tenacity import (
 )
 
 from juno import (
-    AccountType, Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
-    Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
-    TimeInForce, Trade, json
+    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Order,
+    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
+    Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -260,7 +260,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: AccountType = AccountType.SPOT, isolated_symbol: Optional[str] = None
+        self, account: str = 'spot'
     ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         async def inner(
             stream: AsyncIterable[Dict[str, Any]]
@@ -275,7 +275,7 @@ class Binance(Exchange):
 
         # 'outboundAccountInfo' - Full list of balances.
         # 'outboundAccountPosition' - Only changed balances.
-        user_data_stream = await self._get_user_data_stream(account, isolated_symbol)
+        user_data_stream = await self._get_user_data_stream(account)
         async with user_data_stream.subscribe('outboundAccountPosition') as stream:
             yield inner(stream)
 
@@ -309,9 +309,7 @@ class Binance(Exchange):
         )
 
     @asynccontextmanager
-    async def connect_stream_depth(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
             async for data in ws:
                 yield Depth.Update(
@@ -360,7 +358,7 @@ class Binance(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: AccountType = AccountType.SPOT,
+        self, symbol: str, account: str = 'spot',
         isolated_symbol: Optional[str] = None
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
@@ -410,7 +408,7 @@ class Binance(Exchange):
                     raise NotImplementedError(data)
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
-        user_data_stream = await self._get_user_data_stream(account, isolated_symbol)
+        user_data_stream = await self._get_user_data_stream(account)
         async with user_data_stream.subscribe('executionReport') as stream:
             yield inner(stream)
 
@@ -424,10 +422,10 @@ class Binance(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
-        if test and account.is_margin:
+        if test and account != 'spot':
             raise ValueError('Binance does not support placing test orders on margin accounts')
 
         data: Dict[str, Any] = {
@@ -445,9 +443,9 @@ class Binance(Exchange):
             data['timeInForce'] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data['newClientOrderId'] = client_id
-        if account is AccountType.ISOLATED_MARGIN:
+        if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
-        url = '/sapi/v1/margin/order' if account.is_margin else '/api/v3/order'
+        url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
         if test:
             url += '/test'
         res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
@@ -477,9 +475,9 @@ class Binance(Exchange):
         self,
         symbol: str,
         client_id: str,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
     ) -> None:
-        url = '/sapi/v1/margin/order' if account.is_margin else '/api/v3/order'
+        url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
         data = {'symbol': _to_http_symbol(symbol), 'origClientOrderId': client_id}
         await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
 
@@ -610,18 +608,15 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def borrow(
-        self, asset: str, size: Decimal, isolated: bool = False,
-        isolated_symbol: Optional[str] = None
-    ) -> None:
+    async def borrow(self, asset: str, size: Decimal, account: str = 'margin') -> None:
+        assert account != 'spot'
         data = {
             'asset': _to_asset(asset),
             'amount': _to_decimal(size),
         }
-        if isolated:
+        if account != 'margin':
             data['isIsolated'] = 'TRUE'
-        if isolated_symbol is not None:
-            data['symbol'] = _to_http_symbol(isolated_symbol)
+            data['symbol'] = _to_http_symbol(account)
         await self._api_request(
             'POST',
             '/sapi/v1/margin/loan',
@@ -629,18 +624,15 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def repay(
-        self, asset: str, size: Decimal, isolated: bool = False,
-        isolated_symbol: Optional[str] = None
-    ) -> None:
+    async def repay(self, asset: str, size: Decimal, account: str = 'margin') -> None:
+        assert account != 'spot'
         data = {
             'asset': _to_asset(asset),
             'amount': _to_decimal(size),
         }
-        if isolated:
+        if account != 'margin':
             data['isIsolated'] = 'TRUE'
-        if isolated_symbol is not None:
-            data['symbol'] = _to_http_symbol(isolated_symbol)
+            data['symbol'] = _to_http_symbol(account)
         await self._api_request(
             'POST',
             '/sapi/v1/margin/repay',
@@ -648,12 +640,11 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def get_max_borrowable(
-        self, asset: str, isolated_symbol: Optional[str] = None
-    ) -> Decimal:
+    async def get_max_borrowable(self, asset: str, account: str = 'margin') -> Decimal:
+        assert account != 'spot'
         data = {'asset': _to_asset(asset)}
-        if isolated_symbol is not None:
-            data['isolatedSymbol'] = isolated_symbol
+        if account != 'margin':
+            data['isolatedSymbol'] = account
         res = await self._api_request(
             'GET',
             '/sapi/v1/margin/maxBorrowable',
@@ -663,12 +654,11 @@ class Binance(Exchange):
         )
         return Decimal(res.data['amount'])
 
-    async def get_max_transferable(
-        self, asset: str, isolated_symbol: Optional[str] = None
-    ) -> Decimal:
+    async def get_max_transferable(self, asset: str, account: str = 'margin') -> Decimal:
+        assert account != 'spot'
         data = {'asset': _to_asset(asset)}
-        if isolated_symbol is not None:
-            data['isolatedSymbol'] = isolated_symbol
+        if account != 'margin':
+            data['isolatedSymbol'] = account
         res = await self._api_request(
             'GET',
             '/sapi/v1/margin/maxTransferable ',
@@ -831,25 +821,10 @@ class Binance(Exchange):
             _log.warning(f'{name} web socket exc: {e}')
             raise ExchangeException(str(e))
 
-    async def _get_user_data_stream(
-        self, account: AccountType, isolated_symbol: Optional[str]
-    ) -> UserDataStream:
-        if account is AccountType.SPOT:
-            return await self._get_or_create_user_data_stream(
-                '__spot__', lambda: UserDataStream(self, '/api/v3/userDataStream')
-            )
-        if account is AccountType.CROSS_MARGIN:
-            return await self._get_or_create_user_data_stream(
-                '__cross_margin__', lambda: UserDataStream(self, '/sapi/v1/userDataStream')
-            )
-        if account is AccountType.ISOLATED_MARGIN:
-            if not isolated_symbol:
-                raise ValueError('Isolated symbol is required for isolated margin account')
-            return await self._get_or_create_user_data_stream(
-                isolated_symbol,
-                lambda: UserDataStream(self, '/sapi/v1/userDataStream/isolated', isolated_symbol),
-            )
-        raise NotImplementedError()
+    async def _get_user_data_stream(self, account: str) -> UserDataStream:
+        return await self._get_or_create_user_data_stream(
+            account, lambda: UserDataStream(self, account)
+        )
 
     async def _get_or_create_user_data_stream(
         self, key: str, factory: Callable[[], UserDataStream]
@@ -924,10 +899,13 @@ class Clock:
 
 
 class UserDataStream:
-    def __init__(self, binance: Binance, base_url: str, symbol: Optional[str] = None) -> None:
+    def __init__(self, binance: Binance, account: str = 'spot') -> None:
         self._binance = binance
-        self._base_url = base_url
-        self._symbol = symbol
+        self._base_url = {
+            'spot': '/api/v3/userDataStream',
+            'margin': '/sapi/v1/userDataStream'
+        }.get(account, '/sapi/v1/userDataStream/isolated')
+        self._account = account
         self._listen_key_lock = asyncio.Lock()
         self._stream_connected = asyncio.Event()
         self._listen_key = None
@@ -975,11 +953,11 @@ class UserDataStream:
                     and response.data['code'] == _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST
                 ):
                     _log.warning(
-                        f'isolated margin account does not exist for {self._symbol}; '
+                        f'isolated margin account does not exist for {self._account}; '
                         'creating and retrying'
                     )
-                    assert self._symbol
-                    await self._binance.create_isolated_margin_account(self._symbol)
+                    assert self._account
+                    await self._binance.create_isolated_margin_account(self._account)
                     response = await self._create_listen_key()
                 self._listen_key = response.data['listenKey']
 
@@ -1042,8 +1020,8 @@ class UserDataStream:
     async def _create_listen_key(self) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#create-a-listenkey
         data = {}
-        if self._symbol is not None:
-            data['symbol'] = _to_http_symbol(self._symbol)
+        if self._account not in ['spot', 'margin']:
+            data['symbol'] = _to_http_symbol(self._account)
         return await self._binance._api_request(
             'POST',
             self._base_url,
@@ -1062,8 +1040,8 @@ class UserDataStream:
     async def _update_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
         data = {}
-        if self._symbol is not None:
-            data['symbol'] = _to_http_symbol(self._symbol)
+        if self._account not in ['spot', 'margin']:
+            data['symbol'] = _to_http_symbol(self._account)
         return await self._binance._api_request(
             'PUT',
             self._base_url,
@@ -1082,8 +1060,8 @@ class UserDataStream:
     async def _delete_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
         data = {}
-        if self._symbol is not None:
-            data['symbol'] = _to_http_symbol(self._symbol)
+        if self._account not in ['spot', 'margin']:
+            data['symbol'] = _to_http_symbol(self._account)
         return await self._binance._api_request(
             'DELETE',
             self._base_url,

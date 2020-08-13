@@ -3,7 +3,7 @@ import uuid
 from decimal import Decimal
 from typing import Callable, List, Optional
 
-from juno import AccountType, Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
+from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.components import Informant, Orderbook
 from juno.exchanges import Exchange
 from juno.utils import unpack_symbol
@@ -35,7 +35,7 @@ class Market2(Broker):
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert not test
@@ -44,12 +44,12 @@ class Market2(Broker):
         base_asset, quote_asset = unpack_symbol(symbol)
 
         if size is not None:
-            _log.info(f'buying {size} {symbol} with market order ({account.name} account)')
+            _log.info(f'buying {size} {symbol} with market order ({account} account)')
             return await self._fill(exchange, symbol, Side.BUY, account, size=size)
         elif quote is not None:
             _log.info(
                 f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
-                f'({account.name} account)'
+                f'({account} account)'
             )
             exchange_instance = self._exchanges[exchange]
             if not exchange_instance.can_place_order_market_quote:
@@ -71,14 +71,14 @@ class Market2(Broker):
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert not test
         assert size  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
-        _log.info(f'selling {size} {symbol} with market order ({account.name} account)')
+        _log.info(f'selling {size} {symbol} with market order ({account} account)')
         return await self._fill(exchange, symbol, Side.SELL, account, size=size)
 
     async def _fill(
@@ -86,7 +86,7 @@ class Market2(Broker):
         exchange: str,
         symbol: str,
         side: Side,
-        account: AccountType,
+        account: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
     ) -> OrderResult:

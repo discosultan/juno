@@ -3,8 +3,8 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 
 from juno import (
-    AccountType, BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
-    components, exchanges, storages
+    BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus, components,
+    exchanges, storages
 )
 
 
@@ -81,7 +81,7 @@ class Exchange(exchanges.Exchange):
         return self.balances
 
     @asynccontextmanager
-    async def connect_stream_balances(self, account=AccountType.SPOT):
+    async def connect_stream_balances(self, account='spot'):
         yield _stream_queue(self.balance_queue)
 
     async def stream_historical_candles(self, symbol, interval, start, end):
@@ -100,7 +100,7 @@ class Exchange(exchanges.Exchange):
         yield _stream_queue(self.depth_queue)
 
     @asynccontextmanager
-    async def connect_stream_orders(self, symbol, account=AccountType.SPOT):
+    async def connect_stream_orders(self, symbol, account='spot'):
         yield _stream_queue(self.orders_queue)
 
     async def place_order(self, *args, **kwargs):

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Optional
 
-from juno import AccountType, OrderResult
+from juno import OrderResult
 
 
 class Broker(ABC):
@@ -15,7 +15,7 @@ class Broker(ABC):
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         pass
@@ -27,7 +27,7 @@ class Broker(ABC):
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         pass

@@ -17,9 +17,8 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    AccountType, Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters,
-    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
-    Trade, json
+    Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters, OrderException,
+    OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -188,10 +187,9 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: AccountType = AccountType.SPOT,
-        isolated_symbol: Optional[str] = None
+        self, symbol: str, account: str = 'spot'
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
-        assert account is AccountType.SPOT
+        assert account == 'spot'
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             base_asset, quote_asset = unpack_symbol(symbol)
@@ -264,11 +262,11 @@ class Coinbase(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
-        if test or account.is_margin:
+        if test or account != 'spot':
             raise NotImplementedError()
         if type_ not in [OrderType.MARKET, OrderType.LIMIT]:
             # Supports stop orders through params.
@@ -299,7 +297,7 @@ class Coinbase(Exchange):
         self,
         symbol: str,
         client_id: str,
-        account: AccountType = AccountType.SPOT,
+        account: str = 'spot',
     ) -> None:
         res = await self._private_request('DELETE', f'/orders/client:{client_id}', {
             'product_id': _to_product(symbol),
