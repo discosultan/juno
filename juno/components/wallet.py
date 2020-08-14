@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import AsyncIterable, Dict, List
+from itertools import product
+from typing import AsyncIterable, Dict, Iterable, List, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -24,23 +25,21 @@ class Wallet:
         self._exchange_accounts: Dict[str, Dict[str, _Account]] = defaultdict(
             lambda: defaultdict(_Account)
         )
+        self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
 
     async def __aenter__(self) -> Wallet:
-        self._initial_balances_fetched = SlotBarrier(
-            [(e, 'spot') for e in self._exchanges.keys()]
-            + [
-                (e, 'margin') for e, i
-                in self._exchanges.items()
-                if i.can_margin_trade
-            ]
+        await asyncio.gather(
+            self.ensure_sync(self._exchanges.keys(), ['spot']),
+            self.ensure_sync(
+                (k for k, v in self._exchanges.items() if v.can_margin_trade),
+                ['margin'],
+            ),
         )
-        self._sync_all_balances_task = create_task_cancel_on_exc(self._sync_all_balances())
-        await self._initial_balances_fetched.wait()
         _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(self._sync_all_balances_task)
+        await cancel(*self._sync_tasks.values())
 
     def get_balance(
         self,
@@ -67,20 +66,26 @@ class Wallet:
             if v.significant
         }
 
-    async def _sync_all_balances(self) -> None:
-        await asyncio.gather(
-            *(self._sync_balances(e, 'spot') for e in self._exchanges.keys()),
-            *(
-                self._sync_balances(e, 'margin') for e, inst
-                in self._exchanges.items()
-                if inst.can_margin_trade
-            ),
-        )
+    async def ensure_sync(self, exchanges: Iterable[str], accounts: Iterable[str]) -> None:
+        # Only pick products which are not being synced yet.
+        products = [
+            p for p in product(exchanges, accounts) if p not in self._sync_tasks.keys()
+        ]
+        if len(products) == 0:
+            return
 
-    def _get_exchange_wallet(self, exchange: str, account: str) -> _Account:
-        return self._exchange_accounts[exchange][account]
+        _log.info(f'syncing {products}')
 
-    async def _sync_balances(self, exchange: str, account: str) -> None:
+        # Barrier to wait for initial data to be fetched.
+        barrier = SlotBarrier(products)
+        for exchange, account in products:
+            self._sync_tasks[(exchange, account)] = create_task_cancel_on_exc(
+                self._sync_balances(exchange, account, barrier)
+            )
+        await barrier.wait()
+
+    async def _sync_balances(self, exchange: str, account: str, barrier: SlotBarrier) -> None:
+        exchange_wallet = self._exchange_accounts[exchange][account]
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
@@ -89,13 +94,12 @@ class Wallet:
         ):
             with attempt:
                 if account in ['spot', 'margin']:
-                    exchange_wallet = self._get_exchange_wallet(exchange, account)
                     async for balances in self._stream_balances(exchange, account):
                         _log.info(f'received {account.name} balance update from {exchange}')
                         exchange_wallet.balances = balances
                         if is_first:
                             is_first = False
-                            self._initial_balances_fetched.release((exchange, account))
+                            barrier.release((exchange, account))
                         exchange_wallet.updated.set()
                 else:
                     # async for balances in self._stream_

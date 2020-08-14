@@ -22,6 +22,7 @@ _log = logging.getLogger(__name__)
 
 
 class Orderbook:
+    # TODO: Remove such usage of config.
     def __init__(self, exchanges: List[Exchange], config: Dict[str, Any] = {}) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._symbols = list_names(config, 'symbol')
