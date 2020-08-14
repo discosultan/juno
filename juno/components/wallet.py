@@ -20,9 +20,9 @@ class Wallet:
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         # Outer key: <exchange>
-        # Inner key: '__spot__' | '__cross_margin__' | <isolated_symbol>
-        self._exchange_wallets: Dict[str, Dict[str, _ExchangeWallet]] = defaultdict(
-            lambda: defaultdict(_ExchangeWallet)
+        # Inner key: <account>
+        self._exchange_accounts: Dict[str, Dict[str, _Account]] = defaultdict(
+            lambda: defaultdict(_Account)
         )
 
     async def __aenter__(self) -> Wallet:
@@ -48,24 +48,24 @@ class Wallet:
         asset: str,
         account: str = 'spot',
     ) -> Balance:
-        return self._get_exchange_wallet(exchange, account).balances[asset]
+        return self._exchange_accounts[exchange][account].balances[asset]
 
     def get_updated_event(
         self,
         exchange: str,
         account: str = 'spot',
     ) -> Event[None]:
-        return self._get_exchange_wallet(exchange, account).updated
+        return self._exchange_accounts[exchange][account].updated
 
     def map_significant_balances(
         self,
         exchange: str,
         account: str = 'spot',
     ) -> Dict[str, Balance]:
-        # TODO: Support mapping from all isolated account. We should create a different method
-        # because the return type differs: Dict[str, Dict[str, Balance]].
-        exchange_wallet = self._get_exchange_wallet(exchange, account)
-        return {k: v for k, v in exchange_wallet.balances.items() if v.significant}
+        return {
+            k: v for k, v in self._exchange_accounts[exchange][account].balances.items()
+            if v.significant
+        }
 
     async def _sync_all_balances(self) -> None:
         await asyncio.gather(
@@ -77,8 +77,8 @@ class Wallet:
             ),
         )
 
-    def _get_exchange_wallet(self, exchange: str, account: str) -> _ExchangeWallet:
-        return self._exchange_wallets[exchange][account]
+    def _get_exchange_wallet(self, exchange: str, account: str) -> _Account:
+        return self._exchange_accounts[exchange][account]
 
     async def _sync_balances(self, exchange: str, account: str) -> None:
         is_first = True
@@ -133,7 +133,7 @@ class Wallet:
     # async def _stream_isolated_margin_balances(self, exchange: str) -> I
 
 
-class _ExchangeWallet:
+class _Account:
     def __init__(self) -> None:
         self.balances: Dict[str, Balance] = {}
         self.updated: Event[None] = Event(autoclear=True)
