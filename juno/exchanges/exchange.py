@@ -29,10 +29,7 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
-        pass
-
-    async def map_isolated_margin_balances(self) -> Dict[str, Dict[str, Balance]]:
+    async def map_balances(self, account: str = 'spot') -> Dict[str, Balance]:
         pass
 
     @asynccontextmanager
@@ -105,11 +102,8 @@ class Exchange(ABC):
     async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
         yield  # type: ignore
 
-    async def transfer(self, asset: str, size: Decimal, margin: bool) -> None:
-        pass
-
-    async def transfer_isolated(
-        self, asset: str, symbol: str, from_margin: bool, to_margin: bool, size: Decimal
+    async def transfer(
+        self, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
         pass
 

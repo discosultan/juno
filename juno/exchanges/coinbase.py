@@ -125,8 +125,8 @@ class Coinbase(Exchange):
                     break
         return list(tickers.values())
 
-    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
-        if margin:
+    async def map_balances(self, account: str = 'spot') -> Dict[str, Balance]:
+        if account != 'spot':
             raise NotImplementedError()
         res = await self._private_request('GET', '/accounts')
         result = {}

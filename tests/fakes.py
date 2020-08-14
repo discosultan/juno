@@ -77,7 +77,7 @@ class Exchange(exchanges.Exchange):
     async def list_tickers(self):
         return self.tickers
 
-    async def map_balances(self, margin=False):
+    async def map_balances(self, account='spot'):
         return self.balances
 
     @asynccontextmanager

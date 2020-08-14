@@ -219,30 +219,30 @@ class Binance(Exchange):
             ) for t in response_data
         ]
 
-    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
-        url = '/sapi/v1/margin/account' if margin else '/api/v3/account'
-        weight = 1 if margin else 5
-        res = await self._api_request('GET', url, weight=weight, security=_SEC_USER_DATA)
-        return {
-            b['asset'].lower(): Balance(
-                available=Decimal(b['free']),
-                hold=Decimal(b['locked']),
-                borrowed=Decimal(b['borrowed'] if margin else Decimal('0.0')),
-                interest=Decimal(b['interest'] if margin else Decimal('0.0')),
-            )
-            for b in res.data['userAssets' if margin else 'balances']
-        }
-
-    async def map_isolated_margin_balances(self) -> Dict[str, Dict[str, Balance]]:
-        url = '/sapi/v1/margin/isolated/account'
-        res = await self._api_request('GET', url, weight=1, security=_SEC_USER_DATA)
-        result = {}
-        for balances in res.data['assets']:
-            symbol = _from_symbol(balances['symbol'])
-            base_asset, quote_asset = unpack_symbol(symbol)
+    async def map_balances(self, account: str = 'spot') -> Dict[str, Balance]:
+        weight = 5 if account == 'spot' else 1
+        if account in ['spot', 'margin']:
+            url = '/api/v3/account' if account == 'spot' else '/sapi/v1/margin/account'
+            res = await self._api_request('GET', url, weight=weight, security=_SEC_USER_DATA)
+            is_margin = account == 'margin'
+            return {
+                b['asset'].lower(): Balance(
+                    available=Decimal(b['free']),
+                    hold=Decimal(b['locked']),
+                    borrowed=Decimal(b['borrowed'] if is_margin else Decimal('0.0')),
+                    interest=Decimal(b['interest'] if is_margin else Decimal('0.0')),
+                )
+                for b in res.data['userAssets' if is_margin else 'balances']
+            }
+        else:
+            url = '/sapi/v1/margin/isolated/account'
+            res = await self._api_request('GET', url, weight=weight, security=_SEC_USER_DATA)
+            # TODO: _from_symbol called twice
+            balances = next(a for a in res.data['assets'] if _from_symbol(a['symbol']) == account)
+            base_asset, quote_asset = unpack_symbol(_from_symbol(balances['symbol']))
             base_balance = balances['baseAsset']
             quote_balance = balances['quoteAsset']
-            result[symbol] = {
+            return {
                 base_asset: Balance(
                     available=Decimal(base_balance['free']),
                     hold=Decimal(base_balance['locked']),
@@ -256,7 +256,6 @@ class Binance(Exchange):
                     interest=Decimal(quote_balance['interest']),
                 ),
             }
-        return result
 
     @asynccontextmanager
     async def connect_stream_balances(
@@ -580,33 +579,37 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def transfer(self, asset: str, size: Decimal, margin: bool) -> None:
-        await self._api_request(
-            'POST',
-            '/sapi/v1/margin/transfer',
-            data={
-                'asset': _to_asset(asset),
-                'amount': _to_decimal(size),
-                'type': 1 if margin else 2,
-            },
-            security=_SEC_MARGIN,
-        )
-
-    async def transfer_isolated(
-        self, asset: str, symbol: str, from_margin: bool, to_margin: bool, size: Decimal
+    async def transfer(
+        self, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
-        await self._api_request(
-            'POST',
-            '/sapi/v1/margin/isolated/transfer',
-            data={
-                'asset': _to_asset(asset),
-                'symbol': _to_http_symbol(symbol),
-                'transFrom': 'ISOLATED_MARGIN' if from_margin else 'SPOT',
-                'transTo': 'ISOLATED_MARGIN' if to_margin else 'SPOT',
-                'amount': _to_decimal(size),
-            },
-            security=_SEC_MARGIN,
-        )
+        if from_account in ['spot', 'margin'] and to_account in ['spot', 'margin']:
+            assert from_account != to_account
+            await self._api_request(
+                'POST',
+                '/sapi/v1/margin/transfer',
+                data={
+                    'asset': _to_asset(asset),
+                    'amount': _to_decimal(size),
+                    'type': 1 if to_account == 'margin' else 2,
+                },
+                security=_SEC_MARGIN,
+            )
+        else:
+            assert from_account != 'margin' and to_account != 'margin'
+            assert from_account == 'spot' or to_account == 'spot'
+            to_spot = to_account == 'spot'
+            await self._api_request(
+                'POST',
+                '/sapi/v1/margin/isolated/transfer',
+                data={
+                    'asset': _to_asset(asset),
+                    'symbol': _to_http_symbol(from_account if to_spot else to_account),
+                    'transFrom': 'ISOLATED_MARGIN' if to_spot else 'SPOT',
+                    'transTo': 'SPOT' if to_spot else 'ISOLATED_MARGIN',
+                    'amount': _to_decimal(size),
+                },
+                security=_SEC_MARGIN,
+            )
 
     async def borrow(self, asset: str, size: Decimal, account: str = 'margin') -> None:
         assert account != 'spot'

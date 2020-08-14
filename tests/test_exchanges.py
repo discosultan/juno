@@ -108,11 +108,23 @@ async def test_map_balances(loop, request, exchange: Exchange) -> None:
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_margin_balances(loop, request, exchange: Exchange) -> None:
+async def test_get_cross_margin_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_margin_trade)
 
-    balances = await exchange.map_balances(margin=True)
+    balances = await exchange.map_balances(account='margin')
+
+    assert types_match(balances, Dict[str, Balance])
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_get_isolated_margin_balances(loop, request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+    skip_no_capability(exchange.can_margin_trade)
+
+    balances = await exchange.map_balances(account='eth-btc')
 
     assert types_match(balances, Dict[str, Balance])
 

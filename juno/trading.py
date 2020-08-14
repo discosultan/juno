@@ -729,8 +729,8 @@ class PositionMixin(ABC):
         else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
             # await exchange_instance.transfer(quote_asset, collateral, margin=True)
-            await exchange_instance.transfer_isolated(
-                quote_asset, symbol, from_margin=False, to_margin=True, size=collateral
+            await exchange_instance.transfer(
+                asset=quote_asset, size=collateral, from_account='spot', to_account=symbol
             )
             # borrowed = await exchange_instance.get_max_borrowable(base_asset)
             borrowed = await exchange_instance.get_max_borrowable(
@@ -779,7 +779,9 @@ class PositionMixin(ABC):
                 start=position.time,
                 end=time_ms(),
             ) if mode is TradingMode.PAPER
-            else (await exchange_instance.map_balances(margin=True))[base_asset].interest
+            else (
+                await exchange_instance.map_balances(account=position.symbol)
+            )[base_asset].interest
         )
         size = position.borrowed + interest
         fee = round_half_up(size * fees.taker, filters.base_precision)
@@ -807,7 +809,9 @@ class PositionMixin(ABC):
             # still be borrowed funds on the account. Double check and repay more if that is the
             # case.
             # Careful with this check! We may have another position still open.
-            new_balance = (await exchange_instance.map_balances(margin=True))[base_asset]
+            new_balance = (
+                await exchange_instance.map_balances(account=position.symbol)
+            )[base_asset]
             if new_balance.repay > 0:
                 _log.warning(
                     f'did not repay enough; still {new_balance.repay} {base_asset} to be repaid'
@@ -824,11 +828,15 @@ class PositionMixin(ABC):
                     )
                     raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
                 await exchange_instance.repay(base_asset, new_balance.repay)
-                assert (await exchange_instance.map_balances(margin=True))[base_asset].repay == 0
+                assert (
+                    await exchange_instance.map_balances(account=position.symbol)
+                )[base_asset].repay == 0
 
             transfer = closed_position.collateral + closed_position.profit
             _log.info(f'transferring {transfer} {quote_asset} to spot account')
-            await exchange_instance.transfer(quote_asset, transfer, margin=False)
+            await exchange_instance.transfer(
+                asset=quote_asset, size=transfer, from_account=position.symbol, to_account='spot'
+            )
             # TODO: Also transfer base asset dust back?
 
         _log.info(f'{closed_position.symbol} {mode.name} short position closed')

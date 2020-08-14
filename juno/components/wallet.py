@@ -93,17 +93,13 @@ class Wallet:
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):
             with attempt:
-                if account in ['spot', 'margin']:
-                    async for balances in self._stream_balances(exchange, account):
-                        _log.info(f'received {account.name} balance update from {exchange}')
-                        exchange_wallet.balances = balances
-                        if is_first:
-                            is_first = False
-                            barrier.release((exchange, account))
-                        exchange_wallet.updated.set()
-                else:
-                    # async for balances in self._stream_
-                    pass
+                async for balances in self._stream_balances(exchange, account):
+                    _log.info(f'received {account} balance update from {exchange}')
+                    exchange_wallet.balances = balances
+                    if is_first:
+                        is_first = False
+                        barrier.release((exchange, account))
+                    exchange_wallet.updated.set()
 
     async def _stream_balances(
         self, exchange: str, account: str
@@ -120,21 +116,17 @@ class Wallet:
                 # However, it may be needed for Coinbase or Kraken. If it is, then we should add a
                 # new capability `can_stream_initial_balances`.
                 # Get initial status from REST API.
-                yield await exchange_instance.map_balances(
-                    margin=account is AccountType.CROSS_MARGIN
-                )
+                yield await exchange_instance.map_balances(account=account)
 
                 # Stream future updates over WS.
                 async for balances in stream:
                     yield balances
         else:
             _log.warning(
-                f'{exchange} does not support streaming {account.name} balances; fething only '
-                'initial balances; further updates not implemented'
+                f'{exchange} does not support streaming {account} balances; fething only initial '
+                'balances; further updates not implemented'
             )
-            yield await exchange_instance.map_balances(margin=account is AccountType.CROSS_MARGIN)
-
-    # async def _stream_isolated_margin_balances(self, exchange: str) -> I
+            yield await exchange_instance.map_balances(account=account)
 
 
 class _Account:
