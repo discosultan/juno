@@ -91,7 +91,7 @@ class Wallet:
 
     async def _try_create_account(self, exchange: str, account: str) -> None:
         try:
-            await self._exchanges[exchange].create_isolated_margin_account(account)
+            await self._exchanges[exchange].create_account(account)
         except ExchangeException:
             _log.info(f'account {account} already created')
 

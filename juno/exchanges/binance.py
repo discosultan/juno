@@ -672,8 +672,9 @@ class Binance(Exchange):
         )
         return Decimal(res.data['amount'])
 
-    async def create_isolated_margin_account(self, symbol: str) -> None:
-        base_asset, quote_asset = unpack_symbol(symbol)
+    async def create_account(self, account: str) -> None:
+        assert account not in ['spot', 'margin']
+        base_asset, quote_asset = unpack_symbol(account)
         await self._api_request(
             'POST',
             '/sapi/v1/margin/isolated/create',
@@ -1081,7 +1082,7 @@ def _from_symbol(symbol: str) -> str:
     # since there is no separator used. We simply map based on known quote assets.
     known_quote_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD'
+        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD', 'DAI'
     ]
     for asset in known_quote_assets:
         if symbol.endswith(asset):

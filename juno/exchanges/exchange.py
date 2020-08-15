@@ -64,7 +64,6 @@ class Exchange(ABC):
     @asynccontextmanager
     async def connect_stream_orders(
         self, symbol: str, account: str = 'spot',
-        isolated_symbol: Optional[str] = None
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         yield  # type: ignore
 
@@ -114,4 +113,7 @@ class Exchange(ABC):
         pass
 
     async def get_max_borrowable(self, asset: str, account: str = 'margin') -> Decimal:
+        pass
+
+    async def create_account(self, account: str) -> None:
         pass

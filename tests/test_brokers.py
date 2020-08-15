@@ -442,7 +442,7 @@ async def init_limit_broker(exchange: Exchange) -> AsyncIterator[Limit]:
     informant = Informant(memory, [exchange])
     orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
     async with memory, informant, orderbook:
-        broker = Limit(informant, orderbook, [exchange], get_client_id=lambda: order_client_id)
+        broker = Limit(informant, orderbook, get_client_id=lambda: order_client_id)
         yield broker
 
 

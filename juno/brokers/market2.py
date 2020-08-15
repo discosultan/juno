@@ -96,12 +96,12 @@ class Market2(Broker):
             filters.size.validate(size)
 
         client_id = self._get_client_id()
-        exchange_instance = self._exchanges[exchange]
 
-        async with exchange_instance.connect_stream_orders(
-            symbol=symbol, account=account
+        async with self._orderbook.connect_stream_orders(
+            exchange=exchange, symbol=symbol, account=account
         ) as stream:
-            await exchange_instance.place_order(
+            await self._orderbook.place_order(
+                exchange=exchange,
                 symbol=symbol,
                 side=side,
                 type_=OrderType.MARKET,

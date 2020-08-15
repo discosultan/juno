@@ -10,7 +10,6 @@ from juno import (
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
-from juno.exchanges import Exchange
 from juno.utils import unpack_symbol
 
 from .broker import Broker
@@ -38,12 +37,10 @@ class Limit(Broker):
         self,
         informant: Informant,
         orderbook: Orderbook,
-        exchanges: List[Exchange],
         get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_client_id = get_client_id
 
     async def buy(
@@ -141,8 +138,8 @@ class Limit(Broker):
         else:
             raise ValueError('Neither size nor quote specified')
 
-        async with self._exchanges[exchange].connect_stream_orders(
-            symbol=symbol, account=account
+        async with self._orderbook.connect_stream_orders(
+            exchange=exchange, symbol=symbol, account=account
         ) as stream:
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
@@ -218,8 +215,8 @@ class Limit(Broker):
                     f'{last_order_price}'
                 )
                 try:
-                    await self._exchanges[exchange].cancel_order(
-                        symbol=symbol, client_id=ctx.client_id, account=account
+                    await self._orderbook.cancel_order(
+                        exchange=exchange, symbol=symbol, client_id=ctx.client_id, account=account
                     )
                 except OrderException as exc:
                     _log.warning(
@@ -261,7 +258,8 @@ class Limit(Broker):
                     raise _Filled()
 
             _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
-            await self._exchanges[exchange].place_order(
+            await self._orderbook.place_order(
+                exchange=exchange,
                 symbol=symbol,
                 side=side,
                 type_=OrderType.LIMIT,

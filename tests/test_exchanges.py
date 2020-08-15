@@ -6,7 +6,9 @@ import aiohttp
 import pytest
 
 import juno
-from juno import Balance, Candle, Depth, ExchangeInfo, OrderType, Side, Ticker, Trade
+from juno import (
+    Balance, Candle, Depth, ExchangeException, ExchangeInfo, OrderType, Side, Ticker, Trade
+)
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
@@ -124,6 +126,10 @@ async def test_get_isolated_margin_balances(loop, request, exchange: Exchange) -
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_margin_trade)
 
+    try:
+        await exchange.create_account('eth-btc')
+    except ExchangeException:
+        pass
     balances = await exchange.map_balances(account='eth-btc')
 
     assert types_match(balances, Dict[str, Balance])
