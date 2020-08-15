@@ -151,6 +151,12 @@ class Orderbook:
             )
         await barrier.wait()
 
+    async def _try_create_account(self, exchange: str, account: str) -> None:
+        try:
+            await self._exchanges[exchange].create_isolated_margin_account(account)
+        except ExchangeException:
+            _log.info(f'account {account} already created')
+
     async def _sync_orderbook(self, exchange: str, symbol: str, barrier: SlotBarrier) -> None:
         orderbook = self._data[exchange][symbol]
         for attempt in Retrying(

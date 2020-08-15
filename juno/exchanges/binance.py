@@ -49,6 +49,7 @@ _ERR_INVALID_TIMESTAMP = -1021
 _ERR_INVALID_LISTEN_KEY = -1125
 _ERR_TOO_MANY_REQUESTS = -1003
 _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST = -11001
+_ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS = -11004
 
 _log = logging.getLogger(__name__)
 
@@ -742,8 +743,9 @@ class Binance(Exchange):
                 elif error_code == _ERR_NEW_ORDER_REJECTED:
                     raise OrderException(error_msg)
                 elif error_code == _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST:
-                    # TODO: Ugly!
-                    return res
+                    raise ExchangeException(error_msg)
+                elif error_code == _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS:
+                    raise ExchangeException(error_msg)
                 # TODO: Check only specific error codes.
                 elif error_code <= -9000:  # Filter error.
                     raise OrderException(error_msg)
@@ -951,17 +953,6 @@ class UserDataStream:
         async with self._listen_key_lock:
             if not self._listen_key:
                 response = await self._create_listen_key()
-                if (
-                    response.status == 400
-                    and response.data['code'] == _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST
-                ):
-                    _log.warning(
-                        f'isolated margin account does not exist for {self._account}; '
-                        'creating and retrying'
-                    )
-                    assert self._account
-                    await self._binance.create_isolated_margin_account(self._account)
-                    response = await self._create_listen_key()
                 self._listen_key = response.data['listenKey']
 
     async def _ensure_connection(self) -> None:

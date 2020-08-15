@@ -76,6 +76,11 @@ class Wallet:
 
         _log.info(f'syncing {products}')
 
+        # Try create isolated margin accounts.
+        await asyncio.gather(
+            *(self._try_create_account(e, a) for e, a in products if a not in ['spot', 'margin'])
+        )
+
         # Barrier to wait for initial data to be fetched.
         barrier = SlotBarrier(products)
         for exchange, account in products:
@@ -83,6 +88,12 @@ class Wallet:
                 self._sync_balances(exchange, account, barrier)
             )
         await barrier.wait()
+
+    async def _try_create_account(self, exchange: str, account: str) -> None:
+        try:
+            await self._exchanges[exchange].create_isolated_margin_account(account)
+        except ExchangeException:
+            _log.info(f'account {account} already created')
 
     async def _sync_balances(self, exchange: str, account: str, barrier: SlotBarrier) -> None:
         exchange_wallet = self._exchange_accounts[exchange][account]
