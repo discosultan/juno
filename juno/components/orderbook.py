@@ -25,6 +25,7 @@ from juno.utils import unpack_symbol
 _log = logging.getLogger(__name__)
 
 
+# TODO: Store the state of opened account locally, so we wouldn't need to do unnecessary requests.
 class Orderbook:
     # TODO: Remove such usage of config.
     def __init__(self, exchanges: List[Exchange], config: Dict[str, Any] = {}) -> None:
@@ -141,7 +142,7 @@ class Orderbook:
     async def connect_stream_orders(
         self, exchange: str, symbol: str, account: str = 'spot',
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
-        await self._try_create_account(exchange, account)
+        await self._ensure_account(exchange, account)
         async with self._exchanges[exchange].connect_stream_orders(symbol, account) as stream:
             yield stream
 
@@ -159,7 +160,7 @@ class Orderbook:
         account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
-        await self._try_create_account(exchange, account)
+        await self._ensure_account(exchange, account)
         return await self._exchanges[exchange].place_order(
             symbol=symbol,
             side=side,
@@ -180,7 +181,7 @@ class Orderbook:
         client_id: str,
         account: str = 'spot',
     ) -> None:
-        await self._try_create_account(exchange, account)
+        await self._ensure_account(exchange, account)
         await self._exchanges[exchange].cancel_order(
             symbol=symbol,
             client_id=client_id,
@@ -205,7 +206,9 @@ class Orderbook:
             )
         await barrier.wait()
 
-    async def _try_create_account(self, exchange: str, account: str) -> None:
+    async def _ensure_account(self, exchange: str, account: str) -> None:
+        if account in ['spot', 'margin']:
+            return
         try:
             await self._exchanges[exchange].create_account(account)
         except ExchangeException:

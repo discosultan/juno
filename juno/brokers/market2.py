@@ -17,6 +17,7 @@ _log = logging.getLogger(__name__)
 # logic into market broker an support differentiating between filling modes by capability or
 # setting.
 class Market2(Broker):
+    # TODO: Get rid of using exchange directly.
     def __init__(
         self,
         informant: Informant,

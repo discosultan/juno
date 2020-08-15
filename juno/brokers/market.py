@@ -12,6 +12,7 @@ _log = logging.getLogger(__name__)
 
 
 class Market(Broker):
+    # TODO: Get rid of using exchange directly.
     def __init__(
         self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
     ) -> None:

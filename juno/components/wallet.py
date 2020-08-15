@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
+from decimal import Decimal
 from itertools import product
 from typing import AsyncIterable, Dict, Iterable, List, Tuple
 
@@ -17,6 +18,7 @@ from juno.typing import ExcType, ExcValue, Traceback
 _log = logging.getLogger(__name__)
 
 
+# TODO: Store the state of opened account locally, so we wouldn't need to do unnecessary requests.
 class Wallet:
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -49,6 +51,16 @@ class Wallet:
     ) -> Balance:
         return self._exchange_accounts[exchange][account].balances[asset]
 
+    # TODO: Find a better solution for keeping local balances up-to-date. Consolidate with
+    # `get_balance`.
+    async def get_balance2(
+        self,
+        exchange: str,
+        asset: str,
+        account: str = 'spot',
+    ) -> Balance:
+        return (await self._exchanges[exchange].map_balances(account=account))[asset]
+
     def get_updated_event(
         self,
         exchange: str,
@@ -66,6 +78,33 @@ class Wallet:
             if v.significant
         }
 
+    async def transfer(
+        self, exchange: str, asset: str, size: Decimal, from_account: str, to_account: str
+    ) -> None:
+        await self._ensure_account(exchange, to_account)
+        await self._exchanges[exchange].transfer(
+            asset=asset, size=size, from_account=from_account, to_account=to_account
+        )
+
+    async def borrow(
+        self, exchange: str, asset: str, size: Decimal, account: str = 'margin'
+    ) -> None:
+        # TODO: Uncomment once we store exchange account state locally.
+        # await self._ensure_account(exchange, account)
+        await self._exchanges[exchange].borrow(asset=asset, size=size, account=account)
+
+    async def repay(
+        self, exchange: str, asset: str, size: Decimal, account: str = 'margin'
+    ) -> None:
+        # await self._ensure_account(exchange, account)
+        await self._exchanges[exchange].repay(asset=asset, size=size, account=account)
+
+    async def get_max_borrowable(
+        self, exchange: str, asset: str, account: str = 'margin'
+    ) -> Decimal:
+        # await self._ensure_account(exchange, account)
+        return await self._exchanges[exchange].get_max_borrowable(asset=asset, account=account)
+
     async def ensure_sync(self, exchanges: Iterable[str], accounts: Iterable[str]) -> None:
         # Only pick products which are not being synced yet.
         products = [
@@ -76,10 +115,8 @@ class Wallet:
 
         _log.info(f'syncing {products}')
 
-        # Try create isolated margin accounts.
-        await asyncio.gather(
-            *(self._try_create_account(e, a) for e, a in products if a not in ['spot', 'margin'])
-        )
+        # Create accounts where necessary.
+        await asyncio.gather(*(self._ensure_account(e, a) for e, a in products))
 
         # Barrier to wait for initial data to be fetched.
         barrier = SlotBarrier(products)
@@ -89,7 +126,9 @@ class Wallet:
             )
         await barrier.wait()
 
-    async def _try_create_account(self, exchange: str, account: str) -> None:
+    async def _ensure_account(self, exchange: str, account: str) -> None:
+        if account in ['spot', 'margin']:
+            return
         try:
             await self._exchanges[exchange].create_account(account)
         except ExchangeException:

@@ -9,12 +9,11 @@ from dataclasses import dataclass, field
 from decimal import Decimal, Overflow
 from enum import IntEnum
 from types import ModuleType
-from typing import Dict, Iterable, List, Optional, Type, Union
+from typing import Iterable, List, Optional, Type, Union
 
 from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
-from juno.components import Chandler, Informant
-from juno.exchanges import Exchange
+from juno.components import Chandler, Informant, Wallet
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, YEAR_MS, strftimestamp, time_ms
 from juno.utils import extract_public, unpack_symbol
@@ -661,7 +660,7 @@ class PositionMixin(ABC):
 
     @property
     @abstractmethod
-    def exchanges(self) -> Dict[str, Exchange]:
+    def wallet(self) -> Wallet:
         pass
 
     async def open_long_position(
@@ -720,7 +719,6 @@ class PositionMixin(ABC):
         base_asset, quote_asset = unpack_symbol(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
         margin_multiplier = self.informant.get_margin_multiplier(exchange)
-        exchange_instance = self.exchanges[exchange]
 
         price = (await self.chandler.get_last_candle(exchange, symbol, MIN_MS)).close
 
@@ -728,17 +726,20 @@ class PositionMixin(ABC):
             borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} to margin account')
-            # await exchange_instance.transfer(quote_asset, collateral, margin=True)
-            await exchange_instance.transfer(
-                asset=quote_asset, size=collateral, from_account='spot', to_account=symbol
+            await self.wallet.transfer(
+                exchange=exchange,
+                asset=quote_asset,
+                size=collateral,
+                from_account='spot',
+                to_account=symbol,
             )
-            # borrowed = await exchange_instance.get_max_borrowable(base_asset)
-            borrowed = await exchange_instance.get_max_borrowable(
-                base_asset, account=symbol
+            borrowed = await self.wallet.get_max_borrowable(
+                exchange=exchange, asset=base_asset, account=symbol
             )
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
-            # await exchange_instance.borrow(asset=base_asset, size=borrowed)
-            await exchange_instance.borrow(asset=base_asset, size=borrowed, account=symbol)
+            await self.wallet.borrow(
+                exchange=exchange, asset=base_asset, size=borrowed, account=symbol
+            )
 
         res = await self.broker.sell(
             exchange=exchange,
@@ -769,7 +770,6 @@ class PositionMixin(ABC):
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
         borrow_info = self.informant.get_borrow_info(position.exchange, base_asset)
-        exchange_instance = self.exchanges[position.exchange]
 
         # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
         interest = (
@@ -780,8 +780,10 @@ class PositionMixin(ABC):
                 end=time_ms(),
             ) if mode is TradingMode.PAPER
             else (
-                await exchange_instance.map_balances(account=position.symbol)
-            )[base_asset].interest
+                (await self.wallet.get_balance2(
+                    exchange=position.exchange, asset=base_asset, account=position.symbol
+                )).interest
+            )
         )
         size = position.borrowed + interest
         fee = round_half_up(size * fees.taker, filters.base_precision)
@@ -803,15 +805,17 @@ class PositionMixin(ABC):
             _log.info(
                 f'repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}'
             )
-            await exchange_instance.repay(base_asset, position.borrowed + interest)
+            await self.wallet.repay(
+                exchange=position.exchange, asset=base_asset, size=position.borrowed + interest
+            )
 
             # It can be that there was an interest tick right before repaying. This means there may
             # still be borrowed funds on the account. Double check and repay more if that is the
             # case.
             # Careful with this check! We may have another position still open.
-            new_balance = (
-                await exchange_instance.map_balances(account=position.symbol)
-            )[base_asset]
+            new_balance = await self.wallet.get_balance2(
+                exchange=position.exchange, asset=base_asset, account=position.symbol
+            )
             if new_balance.repay > 0:
                 _log.warning(
                     f'did not repay enough; still {new_balance.repay} {base_asset} to be repaid'
@@ -827,15 +831,19 @@ class PositionMixin(ABC):
                         'implemented'
                     )
                     raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
-                await exchange_instance.repay(base_asset, new_balance.repay)
-                assert (
-                    await exchange_instance.map_balances(account=position.symbol)
-                )[base_asset].repay == 0
+                await self.wallet.repay(position.exchange, base_asset, new_balance.repay)
+                assert (await self.wallet.get_balance2(
+                    exchange=position.exchange, asset=base_asset, account=position.symbol
+                )).repay == 0
 
             transfer = closed_position.collateral + closed_position.profit
             _log.info(f'transferring {transfer} {quote_asset} to spot account')
-            await exchange_instance.transfer(
-                asset=quote_asset, size=transfer, from_account=position.symbol, to_account='spot'
+            await self.wallet.transfer(
+                exchange=position.exchange,
+                asset=quote_asset,
+                size=transfer,
+                from_account=position.symbol,
+                to_account='spot',
             )
             # TODO: Also transfer base asset dust back?
 
