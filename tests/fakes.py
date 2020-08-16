@@ -77,11 +77,11 @@ class Exchange(exchanges.Exchange):
     async def list_tickers(self):
         return self.tickers
 
-    async def map_balances(self, margin=False):
+    async def map_balances(self, account='spot'):
         return self.balances
 
     @asynccontextmanager
-    async def connect_stream_balances(self, margin=False):
+    async def connect_stream_balances(self, account='spot'):
         yield _stream_queue(self.balance_queue)
 
     async def stream_historical_candles(self, symbol, interval, start, end):
@@ -100,18 +100,18 @@ class Exchange(exchanges.Exchange):
         yield _stream_queue(self.depth_queue)
 
     @asynccontextmanager
-    async def connect_stream_orders(self, symbol, margin=False):
+    async def connect_stream_orders(self, symbol, account='spot'):
         yield _stream_queue(self.orders_queue)
 
     async def place_order(self, *args, **kwargs):
         await asyncio.sleep(0)
         # TODO: We are ignoring *args
-        self.place_order_calls.append({**kwargs})
+        self.place_order_calls.append(kwargs)
         return self.place_order_result
 
     async def cancel_order(self, *args, **kwargs):
         await asyncio.sleep(0)
-        self.cancel_order_calls.append({**kwargs})
+        self.cancel_order_calls.append(kwargs)
 
     async def stream_historical_trades(self, symbol, start, end):
         for t in (t for t in self.historical_trades if t.time >= start and t.time < end):
@@ -229,13 +229,17 @@ class Informant(components.Informant):
     def list_assets(self, exchange, borrow=False):
         return self.assets
 
-    def list_symbols(self, exchange, patterns=None):
+    def list_symbols(
+        self, exchange, patterns=None, spot=True, cross_margin=False, isolated_margin=False
+    ):
         return self.symbols
 
     def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
 
-    def list_tickers(self, exchange, symbol_pattern=None, short=False):
+    def list_tickers(
+        self, exchange, symbol_pattern=None, spot=True, cross_margin=False, isolated_margin=False
+    ):
         return self.tickers
 
     def list_exchanges(self, exchange, symbol=None):

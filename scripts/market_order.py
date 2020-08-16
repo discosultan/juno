@@ -48,7 +48,7 @@ async def main() -> None:
         )
         logging.info(f'base: {base} {base_asset}; quote: {quote} {quote_asset}')
         if args.side is Side.BUY:
-            res = await market.buy_by_quote(
+            res = await market.buy(
                 exchange=exchange_name, symbol=args.symbol, quote=quote, test=TEST
             )
         else:

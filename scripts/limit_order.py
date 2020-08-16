@@ -17,12 +17,7 @@ parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default='
 parser.add_argument(
     'value', nargs='?', type=Decimal, default=None, help='if buy, quote; otherwise base size'
 )
-parser.add_argument(
-    '-m', '--margin',
-    action='store_true',
-    default=False,
-    help='if set, use margin; otherwise spot account',
-)
+parser.add_argument('account', nargs='?', default='spot')
 args = parser.parse_args()
 
 
@@ -33,7 +28,7 @@ async def main() -> None:
     informant = Informant(storage=sqlite, exchanges=[exchange])
     orderbook = Orderbook(exchanges=[exchange])
     wallet = Wallet(exchanges=[exchange])
-    limit = Limit(informant, orderbook, [exchange])
+    limit = Limit(informant, orderbook)
     async with exchange, memory, informant, orderbook, wallet:
         await asyncio.gather(
             *(transact_symbol(
@@ -52,12 +47,8 @@ async def transact_symbol(
 ) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
     fees, filters = informant.get_fees_filters('binance', symbol)
-    available_base = wallet.get_balance(
-        'binance', base_asset, margin=args.margin
-    ).available
-    available_quote = wallet.get_balance(
-        'binance', quote_asset, margin=args.margin
-    ).available
+    available_base = wallet.get_balance('binance', base_asset, account=args.account).available
+    available_quote = wallet.get_balance('binance', quote_asset, account=args.account).available
     value = args.value if args.value is not None else (
         available_quote if args.side is Side.BUY else available_base
     )
@@ -69,9 +60,8 @@ async def transact_symbol(
             exchange='binance', symbol=symbol, quote=value, fee_rate=fees.maker,
             filters=filters
         )
-        res = await limit.buy_by_quote(
-            exchange='binance', symbol=symbol, quote=value, test=False,
-            margin=args.margin
+        res = await limit.buy(
+            exchange='binance', symbol=symbol, quote=value, account=args.account, test=False,
         )
     else:
         market_fills = orderbook.find_order_bids(
@@ -79,12 +69,11 @@ async def transact_symbol(
             filters=filters
         )
         res = await limit.sell(
-            exchange='binance', symbol=symbol, size=value, test=False,
-            margin=args.margin
+            exchange='binance', symbol=symbol, size=value, account=args.account, test=False
         )
 
     logging.info(res)
-    logging.info(f'{"margin" if args.margin else "spot"} {args.side.name} {symbol}')
+    logging.info(f'{args.account} {args.side.name} {symbol}')
     logging.info(f'total size: {Fill.total_size(res.fills)}')
     logging.info(f'total quote: {Fill.total_quote(res.fills)}')
     logging.info(f'total fee: {Fill.total_fee(res.fills)}')

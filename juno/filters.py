@@ -111,5 +111,6 @@ class Filters(NamedTuple):
 
     base_precision: int = 8
     quote_precision: int = 8
-    is_spot_trading_allowed: bool = True
-    is_margin_trading_allowed: bool = False
+    spot: bool = True
+    cross_margin: bool = False
+    isolated_margin: bool = False
