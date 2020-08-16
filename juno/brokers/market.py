@@ -12,6 +12,7 @@ _log = logging.getLogger(__name__)
 
 
 class Market(Broker):
+    # TODO: Get rid of using exchange directly.
     def __init__(
         self, informant: Informant, orderbook: Orderbook, exchanges: List[Exchange]
     ) -> None:
@@ -27,58 +28,77 @@ class Market(Broker):
                 )
 
     async def buy(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: str = 'spot',
+        test: bool = True,
     ) -> OrderResult:
-        fees, filters = self._informant.get_fees_filters(exchange, symbol)
-        size = filters.size.round_down(size)
+        Broker.validate_funds(size, quote)
 
-        res = await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.BUY, size=size, test=test, margin=margin
-        )
-        if test:
-            await self._orderbook.ensure_sync([exchange], [symbol])
-            fills = self._orderbook.find_order_asks(
-                exchange=exchange, symbol=symbol, size=size, fee_rate=fees.taker, filters=filters
-            )
-            self._validate_fills(exchange, symbol, fills)
-            res = OrderResult(time=res.time, status=OrderStatus.FILLED, fills=fills)
-        return res
-
-    async def buy_by_quote(
-        self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
-    ) -> OrderResult:
         exchange_instance = self._exchanges[exchange]
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
-        if test or not exchange_instance.can_place_order_market_quote:
-            await self._orderbook.ensure_sync([exchange], [symbol])
-            fees, filters = self._informant.get_fees_filters(exchange, symbol)
-            fills = self._orderbook.find_order_asks_by_quote(
-                exchange=exchange, symbol=symbol, quote=quote, fee_rate=fees.taker, filters=filters
-            )
-            self._validate_fills(exchange, symbol, fills)
-
-        if exchange_instance.can_place_order_market_quote:
+        if size is not None:
+            size = filters.size.round_down(size)
             res = await self._fill(
-                exchange=exchange, symbol=symbol, side=Side.BUY, quote=quote, test=test,
-                margin=margin
+                exchange=exchange, symbol=symbol, side=Side.BUY, size=size, account=account,
+                test=test
             )
+            if test:
+                await self._orderbook.ensure_sync([exchange], [symbol])
+                fills = self._orderbook.find_order_asks(
+                    exchange=exchange, symbol=symbol, size=size, fee_rate=fees.taker,
+                    filters=filters
+                )
+                self._validate_fills(exchange, symbol, fills)
+                res = OrderResult(time=res.time, status=OrderStatus.FILLED, fills=fills)
+        elif quote is not None:
+            if test or not exchange_instance.can_place_order_market_quote:
+                await self._orderbook.ensure_sync([exchange], [symbol])
+                fees, filters = self._informant.get_fees_filters(exchange, symbol)
+                fills = self._orderbook.find_order_asks_by_quote(
+                    exchange=exchange, symbol=symbol, quote=quote, fee_rate=fees.taker,
+                    filters=filters
+                )
+                self._validate_fills(exchange, symbol, fills)
+
+            if exchange_instance.can_place_order_market_quote:
+                res = await self._fill(
+                    exchange=exchange, symbol=symbol, side=Side.BUY, quote=quote, account=account,
+                    test=test,
+                )
+            else:
+                res = await self._fill(
+                    exchange=exchange, symbol=symbol, side=Side.BUY, size=Fill.total_size(fills),
+                    account=account, test=test
+                )
+            if test:
+                res = OrderResult(time=res.time, status=OrderStatus.FILLED, fills=fills)
         else:
-            res = await self._fill(
-                exchange=exchange, symbol=symbol, side=Side.BUY, size=Fill.total_size(fills),
-                test=test, margin=margin
-            )
-        if test:
-            res = OrderResult(time=res.time, status=OrderStatus.FILLED, fills=fills)
+            raise NotImplementedError()
+
         return res
 
     async def sell(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: str = 'spot',
+        test: bool = True,
     ) -> OrderResult:
+        assert size  # TODO: support by quote
+        Broker.validate_funds(size, quote)
+
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         size = filters.size.round_down(size)
 
         res = await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.SELL, size=size, test=test, margin=margin
+            exchange=exchange, symbol=symbol, side=Side.SELL, size=size, account=account, test=test
         )
         if test:
             await self._orderbook.ensure_sync([exchange], [symbol])
@@ -102,8 +122,8 @@ class Market(Broker):
         exchange: str,
         symbol: str,
         side: Side,
+        account: str,
         test: bool,
-        margin: bool,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
     ) -> OrderResult:
@@ -113,8 +133,8 @@ class Market(Broker):
         fill_log = f'{size} size' if size is not None else f'{quote} quote'
         _log.info(f'placing {symbol} {order_log} to fill {fill_log}')
         res = await self._exchanges[exchange].place_order(
-            symbol=symbol, side=side, type_=OrderType.MARKET, size=size, quote=quote, test=test,
-            margin=margin
+            symbol=symbol, side=side, type_=OrderType.MARKET, size=size, quote=quote,
+            account=account, test=test
         )
         assert test or res.status is OrderStatus.FILLED
         return res

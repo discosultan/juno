@@ -92,10 +92,7 @@ class Informant:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         return exchange_info.borrow_info.get('__all__') or exchange_info.borrow_info[asset]
 
-    def get_margin_multiplier(self, exchange) -> int:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        return exchange_info.margin_multiplier
-
+    # TODO: Do we need this? And the borrow param?
     def list_assets(
         self, exchange: str, patterns: Optional[List[str]] = None, borrow: bool = False
     ) -> List[str]:
@@ -119,7 +116,9 @@ class Informant:
         self,
         exchange: str,
         patterns: Optional[List[str]] = None,
-        short: bool = False,
+        spot: Optional[bool] = None,
+        cross_margin: Optional[bool] = None,
+        isolated_margin: Optional[bool] = None,
     ) -> List[str]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         all_symbols = exchange_info.filters.keys()
@@ -129,8 +128,21 @@ class Informant:
         if patterns is not None:
             matching_symbols = {s for p in patterns for s in fnmatch.filter(all_symbols, p)}
             result = (s for s in result if s in matching_symbols)
-        if short:
-            result = (s for s in result if exchange_info.filters[s].is_margin_trading_allowed)
+        if spot is not None:
+            result = (
+                t for t in result
+                if exchange_info.filters[t.symbol].spot == spot
+            )
+        if cross_margin is not None:
+            result = (
+                t for t in result
+                if exchange_info.filters[t.symbol].cross_margin == cross_margin
+            )
+        if isolated_margin is not None:
+            result = (
+                t for t in result
+                if exchange_info.filters[t.symbol].isolated_margin == isolated_margin
+            )
 
         return list(result)
 
@@ -148,18 +160,34 @@ class Informant:
         return list(result)
 
     def list_tickers(
-        self, exchange: str, symbol_pattern: Optional[str] = None, short: bool = False
+        self,
+        exchange: str,
+        symbol_pattern: Optional[str] = None,
+        spot: Optional[bool] = None,
+        cross_margin: Optional[bool] = None,
+        isolated_margin: Optional[bool] = None,
     ) -> List[Ticker]:
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         all_tickers = self._synced_data[exchange][_Timestamped[List[Ticker]]].item
 
         result = (t for t in all_tickers)
 
         if symbol_pattern is not None:
             result = (t for t in result if fnmatch.fnmatch(t.symbol, symbol_pattern))
-        if short:
+        if spot is not None:
             result = (
                 t for t in result
-                if self.get_fees_filters(exchange, t.symbol)[1].is_margin_trading_allowed
+                if exchange_info.filters[t.symbol].spot == spot
+            )
+        if cross_margin is not None:
+            result = (
+                t for t in result
+                if exchange_info.filters[t.symbol].cross_margin == cross_margin
+            )
+        if isolated_margin is not None:
+            result = (
+                t for t in result
+                if exchange_info.filters[t.symbol].isolated_margin == isolated_margin
             )
 
         # Sorted by quote volume desc. Watch out when queried with different quote assets.

@@ -107,8 +107,8 @@ class Kraken(Exchange):
             ) for pair, val in res['result'].items()
         ]
 
-    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
-        if margin:
+    async def map_balances(self, account: str = 'spot') -> Dict[str, Balance]:
+        if account != 'spot':
             raise NotImplementedError()
         res = await self._request_private('/0/private/Balance')
         result = {}
@@ -178,8 +178,10 @@ class Kraken(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, margin: bool = False
+        self, symbol: str, account: str = 'spot',
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        assert account == 'spot'
+
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             async for o in ws:
                 # TODO: map
@@ -198,13 +200,18 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        account: str = 'spot',
         test: bool = True,
-        margin: bool = False,
     ) -> OrderResult:
         # TODO: use order placing limiter instead of default.
         pass
 
-    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
+    async def cancel_order(
+        self,
+        symbol: str,
+        client_id: str,
+        account: str = 'spot',
+    ) -> None:
         pass
 
     async def stream_historical_trades(

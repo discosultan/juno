@@ -6,7 +6,9 @@ import aiohttp
 import pytest
 
 import juno
-from juno import Balance, Candle, Depth, ExchangeInfo, OrderType, Side, Ticker, Trade
+from juno import (
+    Balance, Candle, Depth, ExchangeException, ExchangeInfo, OrderType, Side, Ticker, Trade
+)
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
@@ -108,11 +110,27 @@ async def test_map_balances(loop, request, exchange: Exchange) -> None:
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_margin_balances(loop, request, exchange: Exchange) -> None:
+async def test_get_cross_margin_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_margin_trade)
 
-    balances = await exchange.map_balances(margin=True)
+    balances = await exchange.map_balances(account='margin')
+
+    assert types_match(balances, Dict[str, Balance])
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_get_isolated_margin_balances(loop, request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+    skip_no_capability(exchange.can_margin_trade)
+
+    try:
+        await exchange.create_account('eth-btc')
+    except ExchangeException:
+        pass
+    balances = await exchange.map_balances(account='eth-btc')
 
     assert types_match(balances, Dict[str, Balance])
 

@@ -9,12 +9,8 @@ from juno.exchanges import Binance
 parser = argparse.ArgumentParser()
 parser.add_argument('assets', nargs='?', type=lambda s: s.split(','), default='btc')
 parser.add_argument('size', nargs='?', type=Decimal, default=None)
-parser.add_argument(
-    '-m', '--margin',
-    action='store_true',
-    default=False,
-    help='if set, transfer from spot to margin; otherwise from margin to spot account',
-)
+parser.add_argument('from_account', nargs='?', default='margin')
+parser.add_argument('to_account', nargs='?', default='spot')
 args = parser.parse_args()
 
 
@@ -26,11 +22,13 @@ async def main() -> None:
 async def transfer_asset(client: Binance, asset: str) -> None:
     size = args.size
     if not size:
-        balances = await client.map_balances(margin=not args.margin)
+        balances = await client.map_balances(account=args.from_account)
         size = balances[asset].available
-    await client.transfer(asset=asset, size=size, margin=args.margin)
+    await client.transfer(
+        asset=asset, size=size, from_account=args.from_account, to_account=args.to_account
+    )
     logging.info(
-        f'transferred {size} {asset} to {"margin" if args.margin else "spot"} account'
+        f'transferred {size} {asset} from {args.from_account} to {args.to_account} account'
     )
 
 

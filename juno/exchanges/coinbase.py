@@ -125,8 +125,8 @@ class Coinbase(Exchange):
                     break
         return list(tickers.values())
 
-    async def map_balances(self, margin: bool = False) -> Dict[str, Balance]:
-        if margin:
+    async def map_balances(self, account: str = 'spot') -> Dict[str, Balance]:
+        if account != 'spot':
             raise NotImplementedError()
         res = await self._private_request('GET', '/accounts')
         result = {}
@@ -187,8 +187,10 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, margin: bool = False
+        self, symbol: str, account: str = 'spot'
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        assert account == 'spot'
+
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             base_asset, quote_asset = unpack_symbol(symbol)
             async for data in ws:
@@ -260,11 +262,11 @@ class Coinbase(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
+        account: str = 'spot',
         test: bool = True,
-        margin: bool = False,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
-        if test or margin:
+        if test or account != 'spot':
             raise NotImplementedError()
         if type_ not in [OrderType.MARKET, OrderType.LIMIT]:
             # Supports stop orders through params.
@@ -291,7 +293,12 @@ class Coinbase(Exchange):
         # Does not support returning fills straight away. Need to listen through WS.
         return OrderResult(status=OrderStatus.NEW, time=_from_datetime(res.data['created_at']))
 
-    async def cancel_order(self, symbol: str, client_id: str, margin: bool = False) -> None:
+    async def cancel_order(
+        self,
+        symbol: str,
+        client_id: str,
+        account: str = 'spot',
+    ) -> None:
         res = await self._private_request('DELETE', f'/orders/client:{client_id}', {
             'product_id': _to_product(symbol),
         })

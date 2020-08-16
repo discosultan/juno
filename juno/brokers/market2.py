@@ -17,6 +17,7 @@ _log = logging.getLogger(__name__)
 # logic into market broker an support differentiating between filling modes by capability or
 # setting.
 class Market2(Broker):
+    # TODO: Get rid of using exchange directly.
     def __init__(
         self,
         informant: Informant,
@@ -30,50 +31,63 @@ class Market2(Broker):
         self._get_client_id = get_client_id
 
     async def buy(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: str = 'spot',
+        test: bool = True,
     ) -> OrderResult:
         assert not test
-        _log.info(
-            f'buying {size} {symbol} with market order ({"margin" if margin else "spot"} account)'
-        )
-        return await self._fill(exchange, symbol, Side.BUY, margin, size=size)
+        Broker.validate_funds(size, quote)
 
-    async def buy_by_quote(
-        self, exchange: str, symbol: str, quote: Decimal, test: bool, margin: bool = False
-    ) -> OrderResult:
-        assert not test
         base_asset, quote_asset = unpack_symbol(symbol)
-        _log.info(
-            f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
-            f'({"margin" if margin else "spot"} account)'
-        )
-        exchange_instance = self._exchanges[exchange]
-        if not exchange_instance.can_place_order_market_quote:
-            await self._orderbook.ensure_sync([exchange], [symbol])
-            fees, filters = self._informant.get_fees_filters(exchange, symbol)
-            fills = self._orderbook.find_order_asks_by_quote(
-                exchange, symbol, quote, fees.taker, filters
+
+        if size is not None:
+            _log.info(f'buying {size} {symbol} with market order ({account} account)')
+            return await self._fill(exchange, symbol, Side.BUY, account, size=size)
+        elif quote is not None:
+            _log.info(
+                f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
+                f'({account} account)'
             )
-            return await self._fill(
-                exchange, symbol, Side.BUY, margin, size=Fill.total_size(fills)
-            )
-        return await self._fill(exchange, symbol, Side.BUY, margin, quote=quote)
+            exchange_instance = self._exchanges[exchange]
+            if not exchange_instance.can_place_order_market_quote:
+                await self._orderbook.ensure_sync([exchange], [symbol])
+                fees, filters = self._informant.get_fees_filters(exchange, symbol)
+                fills = self._orderbook.find_order_asks_by_quote(
+                    exchange, symbol, quote, fees.taker, filters
+                )
+                return await self._fill(
+                    exchange, symbol, Side.BUY, account, size=Fill.total_size(fills)
+                )
+            return await self._fill(exchange, symbol, Side.BUY, account, quote=quote)
+        else:
+            raise NotImplementedError()
 
     async def sell(
-        self, exchange: str, symbol: str, size: Decimal, test: bool, margin: bool = False
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        account: str = 'spot',
+        test: bool = True,
     ) -> OrderResult:
         assert not test
-        _log.info(
-            f'selling {size} {symbol} with market order ({"margin" if margin else "spot"} account)'
-        )
-        return await self._fill(exchange, symbol, Side.SELL, margin, size=size)
+        assert size  # TODO: support by quote
+        Broker.validate_funds(size, quote)
+
+        _log.info(f'selling {size} {symbol} with market order ({account} account)')
+        return await self._fill(exchange, symbol, Side.SELL, account, size=size)
 
     async def _fill(
         self,
         exchange: str,
         symbol: str,
         side: Side,
-        margin: bool,
+        account: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
     ) -> OrderResult:
@@ -83,19 +97,19 @@ class Market2(Broker):
             filters.size.validate(size)
 
         client_id = self._get_client_id()
-        exchange_instance = self._exchanges[exchange]
 
-        async with exchange_instance.connect_stream_orders(
-            symbol=symbol, margin=margin
+        async with self._orderbook.connect_stream_orders(
+            exchange=exchange, symbol=symbol, account=account
         ) as stream:
-            await exchange_instance.place_order(
+            await self._orderbook.place_order(
+                exchange=exchange,
                 symbol=symbol,
                 side=side,
                 type_=OrderType.MARKET,
                 size=size,
                 quote=quote,
                 client_id=client_id,
-                margin=margin,
+                account=account,
                 test=False,
             )
 

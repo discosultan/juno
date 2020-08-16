@@ -408,7 +408,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
     wallet = mocker.patch('juno.components.wallet.Wallet')
     wallet.get_balance.return_value = Balance(Decimal('1.0'))
     broker = mocker.patch('juno.brokers.market.Market')
-    broker.buy_by_quote = AsyncMock(return_value=OrderResult(
+    broker.buy = AsyncMock(return_value=OrderResult(
         time=0,
         status=OrderStatus.FILLED,
         fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],

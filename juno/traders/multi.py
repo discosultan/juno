@@ -232,7 +232,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     async def _find_top_symbols(self, config: Config) -> List[str]:
         count = config.track_count - len(config.track)
         tickers = self._informant.list_tickers(
-            config.exchange, symbol_pattern=SYMBOL_PATTERN, short=config.short
+            config.exchange, symbol_pattern=SYMBOL_PATTERN, spot=True, isolated_margin=True
         )
         if config.track_required_start is not None:
             first_candles = await asyncio.gather(
