@@ -280,39 +280,6 @@ async def test_trailing_stop_loss() -> None:
     assert pos.close_reason is CloseReason.CANCELLED
 
 
-# TODO: Temporary. Remove the limitation and test once Binance supports Isolated Margin.
-async def test_only_single_short_position() -> None:
-    chandler = fakes.Chandler(
-        candles={
-            ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))],
-            ('dummy', 'ltc-btc', 1): [Candle(time=0, close=Decimal('1.0'))],
-        },
-    )
-    informant = fakes.Informant(tickers=[
-        Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
-        Ticker(symbol='ltc-btc', volume=Decimal('1.0'), quote_volume=Decimal('1.0')),
-    ])
-    trader = traders.Multi(chandler=chandler, informant=informant)
-    config = trader.Config(
-        exchange='dummy',
-        interval=1,
-        start=0,
-        end=1,
-        quote=Decimal('2.0'),
-        stop_loss=Decimal('0.5'),
-        strategy=TypeConstructor.from_type(Fixed, advices=[Advice.SHORT]),
-        long=False,
-        short=True,
-        track_count=2,
-        position_count=2,
-    )
-
-    summary = await trader.run(config)
-
-    short_positions = summary.list_positions(type_=Position.Short)
-    assert len(short_positions) == 1
-
-
 @pytest.mark.parametrize(
     'close_on_exit,expected_close_time,expected_close_reason,expected_profit',
     [

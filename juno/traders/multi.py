@@ -294,13 +294,6 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 )
 
             # Try open new positions.
-            # TODO: Remove once Binance supports Isolated Margin. In order to simplify our
-            # lives, we currently allow only a single short position to be open at a time.
-            num_short_positions_open = sum(
-                1 for ss in state.symbol_states.values()
-                if isinstance(ss.open_position, Position.OpenShort)
-            )
-
             to_process.clear()
             count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
             assert count <= config.position_count
@@ -321,17 +314,10 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                         )
                         available -= 1
                     elif ss.advice is Advice.SHORT and ss.advice_age == 1:
-                        if num_short_positions_open == 0:
-                            num_short_positions_open += 1
-                            to_process.append(
-                                self._open_short_position(config, state, ss, ss.last_candle)
-                            )
-                            available -= 1
-                        else:
-                            _log.warning(
-                                f'wanted to open short position {ss.symbol} but '
-                                f'{num_short_positions_open} already open'
-                            )
+                        to_process.append(
+                            self._open_short_position(config, state, ss, ss.last_candle)
+                        )
+                        available -= 1
 
             if len(to_process) > 0:
                 positions = await asyncio.gather(*to_process)
