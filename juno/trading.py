@@ -739,8 +739,11 @@ class PositionMixin(ABC):
                 from_account='spot',
                 to_account=symbol,
             )
-            borrowed = await self.wallet.get_max_borrowable(
-                exchange=exchange, asset=base_asset, account=symbol
+            borrowed = min(
+                _calculate_borrowed(filters, margin_multiplier, collateral, price),
+                await self.wallet.get_max_borrowable(
+                    exchange=exchange, asset=base_asset, account=symbol
+                ),
             )
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
             await self.wallet.borrow(
