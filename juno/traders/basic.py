@@ -113,11 +113,12 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.start is None or config.end > config.start
         assert StopLoss.is_valid(config.stop_loss)
         assert TakeProfit.is_valid(config.take_profit)
+
+        _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
+        assert filters.spot
         if config.short:
             assert self._informant.get_borrow_info(config.exchange, config.quote_asset)
-            assert self._informant.get_fees_filters(
-                config.exchange, config.symbol
-            )[1].is_margin_trading_allowed
+            assert filters.cross_margin
 
         state = state or Basic.State()
 
@@ -133,7 +134,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             state.quote = self.request_quote(
                 config.quote, config.exchange, config.quote_asset, config.mode
             )
-            _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
             assert state.quote > filters.price.min
 
         if not state.summary:

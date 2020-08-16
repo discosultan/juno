@@ -229,13 +229,17 @@ class Informant(components.Informant):
     def list_assets(self, exchange, borrow=False):
         return self.assets
 
-    def list_symbols(self, exchange, patterns=None):
+    def list_symbols(
+        self, exchange, patterns=None, spot=True, cross_margin=False, isolated_margin=False
+    ):
         return self.symbols
 
     def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
 
-    def list_tickers(self, exchange, symbol_pattern=None, short=False):
+    def list_tickers(
+        self, exchange, symbol_pattern=None, spot=True, cross_margin=False, isolated_margin=False
+    ):
         return self.tickers
 
     def list_exchanges(self, exchange, symbol=None):

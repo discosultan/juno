@@ -105,18 +105,20 @@ class Binance(Exchange):
     async def get_exchange_info(self) -> ExchangeInfo:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
-        fees_res, filters_res = await asyncio.gather(
+        fees_res, filters_res, isolated_pairs = await asyncio.gather(
             self._wapi_request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
             self._api_request('GET', '/api/v3/exchangeInfo'),
+            self.list_symbols(isolated=True),
         )
         fees = {
             _from_symbol(fee['symbol']):
             Fees(maker=Decimal(fee['maker']), taker=Decimal(fee['taker']))
             for fee in fees_res.data['tradeFee']
         }
+        isolated_pairs_set = set(isolated_pairs)
         filters = {}
-        for symbol in filters_res.data['symbols']:
-            for f in symbol['filters']:
+        for symbol_info in filters_res.data['symbols']:
+            for f in symbol_info['filters']:
                 t = f['filterType']
                 if t == 'PRICE_FILTER':
                     price = f
@@ -128,7 +130,8 @@ class Binance(Exchange):
                     min_notional = f
             assert all((price, percent_price, lot_size, min_notional))
 
-            filters[f"{symbol['baseAsset'].lower()}-{symbol['quoteAsset'].lower()}"] = Filters(
+            symbol = f"{symbol_info['baseAsset'].lower()}-{symbol_info['quoteAsset'].lower()}"
+            filters[symbol] = Filters(
                 price=Price(
                     min=Decimal(price['minPrice']),
                     max=Decimal(price['maxPrice']),
@@ -149,10 +152,11 @@ class Binance(Exchange):
                     apply_to_market=min_notional['applyToMarket'],
                     avg_price_period=percent_price['avgPriceMins'] * MIN_MS
                 ),
-                base_precision=symbol['baseAssetPrecision'],
-                quote_precision=symbol['quoteAssetPrecision'],
-                is_spot_trading_allowed='SPOT' in symbol['permissions'],
-                is_margin_trading_allowed='MARGIN' in symbol['permissions'],
+                base_precision=symbol_info['baseAssetPrecision'],
+                quote_precision=symbol_info['quoteAssetPrecision'],
+                spot='SPOT' in symbol_info['permissions'],
+                cross_margin='MARGIN' in symbol_info['permissions'],
+                isolated_margin=symbol in isolated_pairs_set,
             )
         return ExchangeInfo(
             fees=fees,
@@ -164,14 +168,14 @@ class Binance(Exchange):
             ],
             # The data below is not available through official Binance API but fetched through
             # "binance_fetch_borrow_info.py" script.
-            # Last updated on 2020-07-09.
+            # Last updated on 2020-08-16.
             borrow_info={
-                'matic': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('1E+5')),
+                'matic': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('1E+4')),
                 'vet': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('6E+6')),
-                'usdt': BorrowInfo(daily_interest_rate=Decimal('0.000325'), limit=Decimal('8E+5')),
-                'rvn': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('5E+4')),
+                'usdt': BorrowInfo(daily_interest_rate=Decimal('0.0008'), limit=Decimal('1.2E+5')),
+                'rvn': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('1E+4')),
                 'dash': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+2')),
-                'atom': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('3.5E+3')),
+                'atom': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('3.5E+3')),
                 'ont': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('1.6E+4')),
                 'xrp': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2E+5')),
                 'xlm': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('2.5E+5')),
@@ -181,28 +185,25 @@ class Binance(Exchange):
                 'trx': BorrowInfo(daily_interest_rate=Decimal('0.000225'), limit=Decimal('2E+6')),
                 'qtum': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('4E+3')),
                 'xtz': BorrowInfo(daily_interest_rate=Decimal('0.0001'), limit=Decimal('4E+3')),
-                'iost': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('2E+6')),
+                'iost': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+6')),
                 'bch': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+2')),
                 'eos': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('1.5E+4')),
-                'btc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('6E+1')),
+                'btc': BorrowInfo(daily_interest_rate=Decimal('0.000275'), limit=Decimal('6E+1')),
                 'iota': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('2E+4')),
-                'bat': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('3.5E+4')),
-                'etc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('4E+3')),
+                'etc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('0')),
+                'bat': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('3.5E+4')),
                 'bnb': BorrowInfo(daily_interest_rate=Decimal('0.003'), limit=Decimal('3E+3')),
                 'eth': BorrowInfo(
                     daily_interest_rate=Decimal('0.000275'), limit=Decimal('1.2E+3')
                 ),
-                'neo': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('1.8E+3')),
                 'zec': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('2.5E+2')),
+                'neo': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('1.8E+3')),
+                'usdc': BorrowInfo(daily_interest_rate=Decimal('0.0008'), limit=Decimal('1E+5')),
                 'ltc': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('9E+2')),
-                'usdc': BorrowInfo(daily_interest_rate=Decimal('0.000325'), limit=Decimal('4E+5')),
-                'busd': BorrowInfo(daily_interest_rate=Decimal('0.000325'), limit=Decimal('4E+5')),
+                'busd': BorrowInfo(daily_interest_rate=Decimal('0.0008'), limit=Decimal('1E+5')),
                 'xmr': BorrowInfo(daily_interest_rate=Decimal('0.0002'), limit=Decimal('3E+2')),
-                'ada': BorrowInfo(daily_interest_rate=Decimal('0.0004'), limit=Decimal('5E+5')),
+                'ada': BorrowInfo(daily_interest_rate=Decimal('0.0003'), limit=Decimal('5E+5')),
             },
-            # TODO: The multiplier differs per symbol and whether we use cross or isolated margin.
-            # margin_multiplier=3,
-            margin_multiplier=2,
         )
 
     async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
@@ -698,6 +699,14 @@ class Binance(Exchange):
             data=MultiDict([('asset', _to_asset(a)) for a in assets]),
             security=_SEC_USER_DATA,
         )
+
+    async def list_symbols(self, isolated: bool = False) -> List[str]:
+        res = await self._api_request(
+            'GET',
+            f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
+            security=_SEC_USER_DATA,
+        )
+        return [_from_symbol(s['symbol']) for s in res.data]
 
     async def _wapi_request(
         self,

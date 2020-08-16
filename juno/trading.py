@@ -587,7 +587,10 @@ class SimulatedPositionMixin(ABC):
     ) -> Position.OpenShort:
         _, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
-        margin_multiplier = self.informant.get_margin_multiplier(exchange)
+        # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
+        # lowers multiplier for now for reduced risk.
+        margin_multiplier = 2
+        # margin_multiplier = self.informant.get_margin_multiplier(exchange)
 
         borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         quote = round_down(price * borrowed, filters.quote_precision)
@@ -718,7 +721,10 @@ class PositionMixin(ABC):
 
         base_asset, quote_asset = unpack_symbol(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
-        margin_multiplier = self.informant.get_margin_multiplier(exchange)
+        # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
+        # lowers multiplier for now for reduced risk.
+        margin_multiplier = 2
+        # margin_multiplier = self.informant.get_margin_multiplier(exchange)
 
         price = (await self.chandler.get_last_candle(exchange, symbol, MIN_MS)).close
 

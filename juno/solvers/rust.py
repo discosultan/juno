@@ -117,7 +117,8 @@ class Rust(Solver):
             else _DEFAULT_BORROW_INFO
         )
         c_borrow_info = self._get_or_create_c_borrow_info(config.symbol, borrow_info)
-        margin_multiplier = self._informant.get_margin_multiplier(config.exchange)
+        # margin_multiplier = self._informant.get_margin_multiplier(config.exchange)
+        margin_multiplier = 2
 
         # TODO: Pool it. No need for allocations per run.
         c_trading_info = self._ffi.new('TradingInfo *')
