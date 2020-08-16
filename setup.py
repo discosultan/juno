@@ -13,6 +13,7 @@ setup(
         'deap',
         'mergedeep',
         'more-itertools',
+        'multidict',
         'numpy',
         'pandas',
         'python-dateutil',

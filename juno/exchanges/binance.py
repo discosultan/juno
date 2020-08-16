@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import Any, AsyncIterable, AsyncIterator, Callable, Dict, List, Optional
 
 import aiohttp
+from multidict import MultiDict
 from tenacity import (
     before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 )
@@ -478,7 +479,12 @@ class Binance(Exchange):
         account: str = 'spot',
     ) -> None:
         url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
-        data = {'symbol': _to_http_symbol(symbol), 'origClientOrderId': client_id}
+        data = {
+            'symbol': _to_http_symbol(symbol),
+            'origClientOrderId': client_id,
+        }
+        if account not in ['spot', 'margin']:
+            data['isIsolated'] = 'TRUE'
         await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
 
     async def stream_historical_candles(
@@ -648,7 +654,7 @@ class Binance(Exchange):
         assert account != 'spot'
         data = {'asset': _to_asset(asset)}
         if account != 'margin':
-            data['isolatedSymbol'] = account
+            data['isolatedSymbol'] = _to_http_symbol(account)
         res = await self._api_request(
             'GET',
             '/sapi/v1/margin/maxBorrowable',
@@ -662,10 +668,10 @@ class Binance(Exchange):
         assert account != 'spot'
         data = {'asset': _to_asset(asset)}
         if account != 'margin':
-            data['isolatedSymbol'] = account
+            data['isolatedSymbol'] = _to_http_symbol(account)
         res = await self._api_request(
             'GET',
-            '/sapi/v1/margin/maxTransferable ',
+            '/sapi/v1/margin/maxTransferable',
             data=data,
             security=_SEC_USER_DATA,
             weight=5,
@@ -682,6 +688,14 @@ class Binance(Exchange):
                 'base': _to_asset(base_asset),
                 'quote': _to_asset(quote_asset),
             },
+            security=_SEC_USER_DATA,
+        )
+
+    async def convert_dust(self, assets: List[str]) -> None:
+        await self._api_request(
+            'POST',
+            '/sapi/v1/asset/dust',
+            data=MultiDict([('asset', _to_asset(a)) for a in assets]),
             security=_SEC_USER_DATA,
         )
 
