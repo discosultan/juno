@@ -51,7 +51,9 @@ async def max_exchange(wallet: Wallet, symbol: str) -> Decimal:
         'binance', quote_asset, args.collateral, from_account='spot', to_account=args.account
     )
     try:
-        max_borrowable = await wallet.get_max_borrowable('binance', base_asset)
+        max_borrowable = await wallet.get_max_borrowable(
+            'binance', asset=base_asset, account=args.account
+        )
     finally:
         await wallet.transfer(
             'binance', quote_asset, args.collateral, from_account=args.account, to_account='spot'
@@ -61,7 +63,8 @@ async def max_exchange(wallet: Wallet, symbol: str) -> Decimal:
 
 async def max_manual(informant: Informant, chandler: Chandler, symbol: str) -> Decimal:
     candle = await chandler.get_last_candle('binance', symbol, time.MIN_MS)
-    margin_multiplier = informant.get_margin_multiplier('binance')
+    # margin_multiplier = informant.get_margin_multiplier('binance')
+    margin_multiplier = 2
     _, filters = informant.get_fees_filters('binance', symbol)
 
     collateral_size = filters.size.round_down(args.collateral / candle.close)

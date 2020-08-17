@@ -142,7 +142,7 @@ async def test_get_max_borrowable(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_margin_trade)
 
-    size = await exchange.get_max_borrowable(asset='btc')
+    size = await exchange.get_max_borrowable(asset='btc', account='margin')
 
     assert types_match(size, Decimal)
 

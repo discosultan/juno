@@ -17,7 +17,7 @@ parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default='
 parser.add_argument(
     'value', nargs='?', type=Decimal, default=None, help='if buy, quote; otherwise base size'
 )
-parser.add_argument('account', nargs='?', default='spot')
+parser.add_argument('-a', '--account', nargs='?', default='spot')
 args = parser.parse_args()
 
 
@@ -30,6 +30,7 @@ async def main() -> None:
     orderbook = Orderbook(exchanges=[exchange], wallet=wallet)
     limit = Limit(informant, orderbook)
     async with exchange, memory, informant, orderbook, wallet:
+        await wallet.ensure_sync(['binance'], [args.account])
         await asyncio.gather(
             *(transact_symbol(
                 informant, orderbook, wallet, exchange, limit, s

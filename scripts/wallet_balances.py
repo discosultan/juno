@@ -1,16 +1,14 @@
 import argparse
 import asyncio
 import logging
-from typing import Awaitable, List
 
 from juno import exchanges
-from juno.asyncio import resolved_future
 from juno.components import Wallet
 from juno.config import from_env, init_instance
 from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
-parser.add_argument('accounts', nargs='?', type=lambda a: a.split(','), default='spot,margin')
+parser.add_argument('accounts', nargs='?', type=lambda a: a.split(','), default=None)
 parser.add_argument('-e', '--exchange', default='binance')
 parser.add_argument(
     '-s', '--stream', default=False, action='store_true', help='keep streaming balance updates'
@@ -22,19 +20,9 @@ async def main() -> None:
     client = init_instance(get_module_type(exchanges, args.exchange), from_env())
     wallet = Wallet([client])
     async with client, wallet:
-        await wallet.ensure_sync(['binance'], args.accounts)
-
-        tasks: List[Awaitable[None]] = []
-        for account in args.accounts:
-            if account == 'spot':
-                tasks.append(process_balances(wallet, 'spot'))
-            else:
-                tasks.append(
-                    process_balances(wallet, account)
-                    if client.can_margin_trade
-                    else resolved_future(None)
-                )
-        await asyncio.gather(*tasks)
+        accounts = args.accounts if args.accounts else await client.list_open_accounts()
+        await wallet.ensure_sync(['binance'], accounts)
+        await asyncio.gather(*(process_balances(wallet, a) for a in accounts))
 
 
 async def process_balances(wallet: Wallet, account: str) -> None:

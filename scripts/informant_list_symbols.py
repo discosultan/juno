@@ -13,8 +13,14 @@ parser.add_argument('exchange', nargs='?', default='binance')
 parser.add_argument(
     '-m', '--margin',
     action='store_true',
-    default=False,
-    help='if set, must support margin trading',
+    default=None,
+    help='if set, must support cross margin trading',
+)
+parser.add_argument(
+    '-i', '--isolated',
+    action='store_true',
+    default=None,
+    help='if set, must support isolated margin trading',
 )
 args = parser.parse_args()
 
@@ -25,7 +31,14 @@ async def main() -> None:
     informant = Informant(storage, [exchange])
     async with exchange, informant:
         logging.info(type(exchange).__name__)
-        logging.info(informant.list_symbols(args.exchange, short=args.margin))
+        logging.info(
+            informant.list_symbols(
+                args.exchange,
+                spot=True,
+                cross_margin=args.margin,
+                isolated_margin=args.isolated_margin,
+            )
+        )
 
 
 asyncio.run(main())

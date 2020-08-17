@@ -619,7 +619,7 @@ class Binance(Exchange):
                 security=_SEC_MARGIN,
             )
 
-    async def borrow(self, asset: str, size: Decimal, account: str = 'margin') -> None:
+    async def borrow(self, asset: str, size: Decimal, account) -> None:
         assert account != 'spot'
         data = {
             'asset': _to_asset(asset),
@@ -635,7 +635,7 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def repay(self, asset: str, size: Decimal, account: str = 'margin') -> None:
+    async def repay(self, asset: str, size: Decimal, account: str) -> None:
         assert account != 'spot'
         data = {
             'asset': _to_asset(asset),
@@ -651,7 +651,7 @@ class Binance(Exchange):
             security=_SEC_MARGIN,
         )
 
-    async def get_max_borrowable(self, asset: str, account: str = 'margin') -> Decimal:
+    async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
         assert account != 'spot'
         data = {'asset': _to_asset(asset)}
         if account != 'margin':
@@ -665,7 +665,7 @@ class Binance(Exchange):
         )
         return Decimal(res.data['amount'])
 
-    async def get_max_transferable(self, asset: str, account: str = 'margin') -> Decimal:
+    async def get_max_transferable(self, asset: str, account: str) -> Decimal:
         assert account != 'spot'
         data = {'asset': _to_asset(asset)}
         if account != 'margin':
@@ -803,12 +803,20 @@ class Binance(Exchange):
             self._raw_reqs_limiter.acquire(),
             self._reqs_per_min_limiter.acquire(weight),
         ]
-        if url in ['/api/v3/order', '/sapi/v1/margin/order']:
+        if url in {'/api/v3/order', '/sapi/v1/margin/order'}:
             limiters.extend((
                 self._orders_per_day_limiter.acquire(),
                 self._orders_per_sec_limiter.acquire(),
             ))
-        elif url in ['/sapi/v1/margin/transfer', '/sapi/v1/margin/loan', '/sapi/v1/margin/repay']:
+        elif url in {
+            # The following are documented to be rate limited.
+            '/sapi/v1/margin/transfer',
+            '/sapi/v1/margin/loan',
+            '/sapi/v1/margin/repay',
+            # The following are NOT documented but seem to be rate limited as well.
+            '/sapi/v1/userDataStream',
+            '/sapi/v1/userDataStream/isolated',
+        }:
             limiters.append(self._margin_limiter.acquire())
 
         await asyncio.gather(*limiters)

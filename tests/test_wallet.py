@@ -12,6 +12,6 @@ async def test_get_balance() -> None:
     exchange.can_margin_trade = False
 
     async with Wallet(exchanges=[exchange]) as wallet:
-        out_balance = wallet.get_balance('exchange', 'btc')
+        out_balance = wallet.get_balance('exchange', 'btc', 'spot')
 
     assert out_balance == balance

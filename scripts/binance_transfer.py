@@ -8,9 +8,9 @@ from juno.exchanges import Binance
 
 parser = argparse.ArgumentParser()
 parser.add_argument('assets', nargs='?', type=lambda s: s.split(','), default='btc')
-parser.add_argument('size', nargs='?', type=Decimal, default=None)
 parser.add_argument('from_account', nargs='?', default='margin')
 parser.add_argument('to_account', nargs='?', default='spot')
+parser.add_argument('-s', '--size', nargs='?', type=Decimal, default=None)
 args = parser.parse_args()
 
 

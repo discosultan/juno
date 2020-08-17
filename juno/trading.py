@@ -747,7 +747,10 @@ class PositionMixin(ABC):
             )
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
             await self.wallet.borrow(
-                exchange=exchange, asset=base_asset, size=borrowed, account=symbol
+                exchange=exchange,
+                asset=base_asset,
+                size=borrowed,
+                account=symbol,
             )
 
         res = await self.broker.sell(
@@ -815,7 +818,10 @@ class PositionMixin(ABC):
                 f'repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}'
             )
             await self.wallet.repay(
-                exchange=position.exchange, asset=base_asset, size=position.borrowed + interest
+                exchange=position.exchange,
+                asset=base_asset,
+                size=position.borrowed + interest,
+                account=position.symbol,
             )
 
             # It can be that there was an interest tick right before repaying. This means there may
@@ -823,7 +829,9 @@ class PositionMixin(ABC):
             # case.
             # Careful with this check! We may have another position still open.
             new_balance = await self.wallet.get_balance2(
-                exchange=position.exchange, asset=base_asset, account=position.symbol
+                exchange=position.exchange,
+                asset=base_asset,
+                account=position.symbol,
             )
             if new_balance.repay > 0:
                 _log.warning(
@@ -840,9 +848,16 @@ class PositionMixin(ABC):
                         'implemented'
                     )
                     raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
-                await self.wallet.repay(position.exchange, base_asset, new_balance.repay)
+                await self.wallet.repay(
+                    exchange=position.exchange,
+                    asset=base_asset,
+                    size=new_balance.repay,
+                    account=position.symbol,
+                )
                 assert (await self.wallet.get_balance2(
-                    exchange=position.exchange, asset=base_asset, account=position.symbol
+                    exchange=position.exchange,
+                    asset=base_asset,
+                    account=position.symbol,
                 )).repay == 0
 
             transfer = closed_position.collateral + closed_position.profit

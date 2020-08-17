@@ -39,6 +39,7 @@ class PositionHandler(PositionMixin):
         self._orderbook = Orderbook([exchange], wallet=self._wallet)
         self._broker = Limit(self._informant, self._orderbook)
         await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
+        await self._wallet.__aenter__()
         await asyncio.gather(
             self._informant.__aenter__(),
             self._orderbook.__aenter__(),
@@ -50,6 +51,7 @@ class PositionHandler(PositionMixin):
             self._informant.__aexit__(exc_type, exc, tb),
             self._orderbook.__aexit__(exc_type, exc, tb),
         )
+        await self._wallet.__aexit__(exc_type, exc, tb)
         await asyncio.gather(*(e.__aexit__(exc_type, exc, tb) for e in self._exchanges.values()))
 
     @property

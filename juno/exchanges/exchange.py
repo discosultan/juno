@@ -106,17 +106,17 @@ class Exchange(ABC):
     ) -> None:
         pass
 
-    async def borrow(self, asset: str, size: Decimal, account: str = 'margin') -> None:
+    async def borrow(self, asset: str, size: Decimal, account: str) -> None:
         pass
 
-    async def repay(self, asset: str, size: Decimal, account: str = 'margin') -> None:
+    async def repay(self, asset: str, size: Decimal, account: str) -> None:
         pass
 
-    async def get_max_borrowable(self, asset: str, account: str = 'margin') -> Decimal:
+    async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
         pass
 
     async def create_account(self, account: str) -> None:
         pass
 
     async def list_open_accounts(self) -> List[str]:
-        return ['spot', 'margin']
+        return ['spot']

@@ -54,7 +54,7 @@ class Wallet:
         self,
         exchange: str,
         asset: str,
-        account: str = 'spot',
+        account: str,
     ) -> Balance:
         return self._exchange_accounts[exchange][account].balances[asset]
 
@@ -64,21 +64,21 @@ class Wallet:
         self,
         exchange: str,
         asset: str,
-        account: str = 'spot',
+        account: str,
     ) -> Balance:
         return (await self._exchanges[exchange].map_balances(account=account))[asset]
 
     def get_updated_event(
         self,
         exchange: str,
-        account: str = 'spot',
+        account: str,
     ) -> Event[None]:
         return self._exchange_accounts[exchange][account].updated
 
     def map_significant_balances(
         self,
         exchange: str,
-        account: str = 'spot',
+        account: str,
     ) -> Dict[str, Balance]:
         return {
             k: v for k, v in self._exchange_accounts[exchange][account].balances.items()
@@ -93,21 +93,15 @@ class Wallet:
             asset=asset, size=size, from_account=from_account, to_account=to_account
         )
 
-    async def borrow(
-        self, exchange: str, asset: str, size: Decimal, account: str = 'margin'
-    ) -> None:
+    async def borrow(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
         await self.ensure_account(exchange, account)
         await self._exchanges[exchange].borrow(asset=asset, size=size, account=account)
 
-    async def repay(
-        self, exchange: str, asset: str, size: Decimal, account: str = 'margin'
-    ) -> None:
+    async def repay(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
         await self.ensure_account(exchange, account)
         await self._exchanges[exchange].repay(asset=asset, size=size, account=account)
 
-    async def get_max_borrowable(
-        self, exchange: str, asset: str, account: str = 'margin'
-    ) -> Decimal:
+    async def get_max_borrowable(self, exchange: str, asset: str, account: str) -> Decimal:
         await self.ensure_account(exchange, account)
         return await self._exchanges[exchange].get_max_borrowable(asset=asset, account=account)
 
