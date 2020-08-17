@@ -108,7 +108,7 @@ class Binance(Exchange):
         fees_res, filters_res, isolated_pairs = await asyncio.gather(
             self._wapi_request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
             self._api_request('GET', '/api/v3/exchangeInfo'),
-            self.list_symbols(isolated=True),
+            self._list_symbols(isolated=True),
         )
         fees = {
             _from_symbol(fee['symbol']):
@@ -700,13 +700,19 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
         )
 
-    async def list_symbols(self, isolated: bool = False) -> List[str]:
+    async def _list_symbols(self, isolated: bool = False) -> List[str]:
         res = await self._api_request(
             'GET',
             f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
             security=_SEC_USER_DATA,
         )
         return [_from_symbol(s['symbol']) for s in res.data]
+
+    async def list_open_accounts(self) -> List[str]:
+        res = await self._api_request(
+            'GET', '/sapi/v1/margin/isolated/account', security=_SEC_USER_DATA
+        )
+        return ['spot', 'margin'] + [_from_symbol(b['symbol']) for b in res.data['assets']]
 
     async def _wapi_request(
         self,

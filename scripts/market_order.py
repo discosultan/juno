@@ -35,8 +35,8 @@ async def main() -> None:
     exchanges = [exchange]
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=exchanges)
-    orderbook = Orderbook(exchanges=exchanges, config={'symbol': args.symbol})
     wallet = Wallet(exchanges=exchanges)
+    orderbook = Orderbook(exchanges=exchanges, wallet=wallet, config={'symbol': args.symbol})
     market = MARKET_BROKER_TYPE(informant, orderbook, exchanges)
     async with exchange, informant, orderbook, wallet:
         base = (

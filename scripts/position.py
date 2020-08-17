@@ -35,9 +35,9 @@ class PositionHandler(PositionMixin):
         storage = SQLite()
         self._informant = Informant(storage, [exchange])
         self._chandler = Chandler(storage, [exchange], informant=self._informant)
-        self._orderbook = Orderbook([exchange])
-        self._broker = Limit(self._informant, self._orderbook)
         self._wallet = Wallet([exchange])
+        self._orderbook = Orderbook([exchange], wallet=self._wallet)
+        self._broker = Limit(self._informant, self._orderbook)
         await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
         await asyncio.gather(
             self._informant.__aenter__(),

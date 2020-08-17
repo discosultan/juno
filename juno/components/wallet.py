@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import AsyncIterable, Dict, Iterable, List, Tuple
+from typing import AsyncIterable, Dict, Iterable, List, Set, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -18,7 +18,6 @@ from juno.typing import ExcType, ExcValue, Traceback
 _log = logging.getLogger(__name__)
 
 
-# TODO: Store the state of opened account locally, so we wouldn't need to do unnecessary requests.
 class Wallet:
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -28,8 +27,12 @@ class Wallet:
             lambda: defaultdict(_Account)
         )
         self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
+        self._open_accounts: Dict[str, Set[str]] = {}
 
     async def __aenter__(self) -> Wallet:
+        await asyncio.gather(
+            *(self._fetch_open_account(e) for e in self._exchanges.keys())
+        )
         await asyncio.gather(
             self.ensure_sync(self._exchanges.keys(), ['spot']),
             self.ensure_sync(
@@ -39,6 +42,10 @@ class Wallet:
         )
         _log.info('ready')
         return self
+
+    async def _fetch_open_account(self, exchange: str) -> None:
+        open_accounts = await self._exchanges[exchange].list_open_accounts()
+        self._open_accounts[exchange] = set(open_accounts)
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(*self._sync_tasks.values())
@@ -81,7 +88,7 @@ class Wallet:
     async def transfer(
         self, exchange: str, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
-        await self._ensure_account(exchange, to_account)
+        await self.ensure_account(exchange, to_account)
         await self._exchanges[exchange].transfer(
             asset=asset, size=size, from_account=from_account, to_account=to_account
         )
@@ -89,20 +96,19 @@ class Wallet:
     async def borrow(
         self, exchange: str, asset: str, size: Decimal, account: str = 'margin'
     ) -> None:
-        # TODO: Uncomment once we store exchange account state locally.
-        # await self._ensure_account(exchange, account)
+        await self.ensure_account(exchange, account)
         await self._exchanges[exchange].borrow(asset=asset, size=size, account=account)
 
     async def repay(
         self, exchange: str, asset: str, size: Decimal, account: str = 'margin'
     ) -> None:
-        # await self._ensure_account(exchange, account)
+        await self.ensure_account(exchange, account)
         await self._exchanges[exchange].repay(asset=asset, size=size, account=account)
 
     async def get_max_borrowable(
         self, exchange: str, asset: str, account: str = 'margin'
     ) -> Decimal:
-        # await self._ensure_account(exchange, account)
+        await self.ensure_account(exchange, account)
         return await self._exchanges[exchange].get_max_borrowable(asset=asset, account=account)
 
     async def ensure_sync(self, exchanges: Iterable[str], accounts: Iterable[str]) -> None:
@@ -116,7 +122,7 @@ class Wallet:
         _log.info(f'syncing {products}')
 
         # Create accounts where necessary.
-        await asyncio.gather(*(self._ensure_account(e, a) for e, a in products))
+        await asyncio.gather(*(self.ensure_account(e, a) for e, a in products))
 
         # Barrier to wait for initial data to be fetched.
         barrier = SlotBarrier(products)
@@ -126,11 +132,12 @@ class Wallet:
             )
         await barrier.wait()
 
-    async def _ensure_account(self, exchange: str, account: str) -> None:
-        if account in ['spot', 'margin']:
+    async def ensure_account(self, exchange: str, account: str) -> None:
+        if account in self._open_accounts[exchange]:
             return
         try:
             await self._exchanges[exchange].create_account(account)
+            self._open_accounts[exchange].add(account)
         except ExchangeException:
             _log.info(f'account {account} already created')
 

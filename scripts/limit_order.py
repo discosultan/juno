@@ -26,8 +26,8 @@ async def main() -> None:
     memory = Memory()
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=[exchange])
-    orderbook = Orderbook(exchanges=[exchange])
     wallet = Wallet(exchanges=[exchange])
+    orderbook = Orderbook(exchanges=[exchange], wallet=wallet)
     limit = Limit(informant, orderbook)
     async with exchange, memory, informant, orderbook, wallet:
         await asyncio.gather(
