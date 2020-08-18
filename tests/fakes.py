@@ -77,11 +77,11 @@ class Exchange(exchanges.Exchange):
     async def list_tickers(self):
         return self.tickers
 
-    async def map_balances(self, account='spot'):
+    async def map_balances(self, account):
         return self.balances
 
     @asynccontextmanager
-    async def connect_stream_balances(self, account='spot'):
+    async def connect_stream_balances(self, account):
         yield _stream_queue(self.balance_queue)
 
     async def stream_historical_candles(self, symbol, interval, start, end):
@@ -100,7 +100,7 @@ class Exchange(exchanges.Exchange):
         yield _stream_queue(self.depth_queue)
 
     @asynccontextmanager
-    async def connect_stream_orders(self, symbol, account='spot'):
+    async def connect_stream_orders(self, symbol, account):
         yield _stream_queue(self.orders_queue)
 
     async def place_order(self, *args, **kwargs):
@@ -217,7 +217,7 @@ class Informant(components.Informant):
         self.margin_multiplier = margin_multiplier
         self.assets = assets
 
-    def get_borrow_info(self, exchange, asset):
+    def get_borrow_info(self, account, exchange, asset):
         return self.borrow_info
 
     def get_margin_multiplier(self, exchange):

@@ -37,8 +37,10 @@ async def test_list_assets(storage, patterns, borrow, expected_output) -> None:
     exchange = fakes.Exchange(
         exchange_info=ExchangeInfo(
             borrow_info={
-                'btc': BorrowInfo(),
-                'eth': BorrowInfo(),
+                '__all__': {
+                    'btc': BorrowInfo(),
+                    'eth': BorrowInfo(),
+                }
             },
             filters={
                 'eth-btc': Filters(),

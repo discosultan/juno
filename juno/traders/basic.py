@@ -117,7 +117,6 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         assert filters.spot
         if config.short:
-            assert self._informant.get_borrow_info(config.exchange, config.quote_asset)
             assert filters.isolated_margin
 
         state = state or Basic.State()

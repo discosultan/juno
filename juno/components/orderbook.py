@@ -150,15 +150,18 @@ class Orderbook:
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, exchange: str, symbol: str, account: str = 'spot',
+        self, exchange: str, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         await self._ensure_account(exchange, account)
-        async with self._exchanges[exchange].connect_stream_orders(symbol, account) as stream:
+        async with self._exchanges[exchange].connect_stream_orders(
+            account=account, symbol=symbol
+        ) as stream:
             yield stream
 
     async def place_order(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         side: Side,
         type_: OrderType,
@@ -167,7 +170,6 @@ class Orderbook:
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         await self._ensure_account(exchange, account)
@@ -187,9 +189,9 @@ class Orderbook:
     async def cancel_order(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         client_id: str,
-        account: str = 'spot',
     ) -> None:
         await self._ensure_account(exchange, account)
         await self._exchanges[exchange].cancel_order(

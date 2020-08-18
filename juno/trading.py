@@ -616,7 +616,9 @@ class SimulatedPositionMixin(ABC):
     ) -> Position.Short:
         base_asset, _ = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
-        borrow_info = self.informant.get_borrow_info(position.exchange, base_asset)
+        borrow_info = self.informant.get_borrow_info(
+            exchange=position.exchange, asset=base_asset, account=position.symbol
+        )
 
         interest = _calculate_interest(
             borrowed=position.borrowed,
@@ -781,22 +783,25 @@ class PositionMixin(ABC):
 
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
-        borrow_info = self.informant.get_borrow_info(position.exchange, base_asset)
 
         # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
-        interest = (
-            _calculate_interest(
+        if mode is TradingMode.PAPER:
+            borrow_info = self.informant.get_borrow_info(
+                exchange=position.exchange, asset=base_asset, account=position.symbol
+            )
+            interest = _calculate_interest(
                 borrowed=position.borrowed,
                 hourly_rate=borrow_info.hourly_interest_rate,
                 start=position.time,
                 end=time_ms(),
-            ) if mode is TradingMode.PAPER
-            else (
-                (await self.wallet.get_balance2(
-                    exchange=position.exchange, asset=base_asset, account=position.symbol
-                )).interest
             )
-        )
+        else:
+            interest = (await self.wallet.get_balance2(
+                exchange=position.exchange,
+                asset=base_asset,
+                account=position.symbol,
+            )).interest
+
         size = position.borrowed + interest
         fee = round_half_up(size * fees.taker, filters.base_precision)
         size = filters.size.round_up(size + fee)

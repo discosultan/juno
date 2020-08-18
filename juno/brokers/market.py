@@ -30,10 +30,10 @@ class Market(Broker):
     async def buy(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         Broker.validate_funds(size, quote)
@@ -67,13 +67,13 @@ class Market(Broker):
 
             if exchange_instance.can_place_order_market_quote:
                 res = await self._fill(
-                    exchange=exchange, symbol=symbol, side=Side.BUY, quote=quote, account=account,
+                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY, quote=quote,
                     test=test,
                 )
             else:
                 res = await self._fill(
-                    exchange=exchange, symbol=symbol, side=Side.BUY, size=Fill.total_size(fills),
-                    account=account, test=test
+                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
+                    size=Fill.total_size(fills), test=test
                 )
             if test:
                 res = OrderResult(time=res.time, status=OrderStatus.FILLED, fills=fills)
@@ -85,10 +85,10 @@ class Market(Broker):
     async def sell(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert size  # TODO: support by quote
@@ -98,7 +98,7 @@ class Market(Broker):
         size = filters.size.round_down(size)
 
         res = await self._fill(
-            exchange=exchange, symbol=symbol, side=Side.SELL, size=size, account=account, test=test
+            exchange=exchange, account=account, symbol=symbol, side=Side.SELL, size=size, test=test
         )
         if test:
             await self._orderbook.ensure_sync([exchange], [symbol])
@@ -120,9 +120,9 @@ class Market(Broker):
     async def _fill(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         side: Side,
-        account: str,
         test: bool,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,

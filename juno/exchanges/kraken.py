@@ -107,7 +107,7 @@ class Kraken(Exchange):
             ) for pair, val in res['result'].items()
         ]
 
-    async def map_balances(self, account: str = 'spot') -> Dict[str, Balance]:
+    async def map_balances(self, account: str) -> Dict[str, Balance]:
         if account != 'spot':
             raise NotImplementedError()
         res = await self._request_private('/0/private/Balance')
@@ -118,13 +118,15 @@ class Kraken(Exchange):
             result[asset.lower()] = Balance(available=Decimal(available), hold=Decimal('0.0'))
         return result
 
-    async def stream_historical_candles(self, symbol: str, interval: int, start: int,
-                                        end: int) -> AsyncIterable[Candle]:
+    async def stream_historical_candles(
+        self, symbol: str, interval: int, start: int, end: int
+    ) -> AsyncIterable[Candle]:
         yield  # type: ignore
 
     @asynccontextmanager
-    async def connect_stream_candles(self, symbol: str,
-                                     interval: int) -> AsyncIterator[AsyncIterable[Candle]]:
+    async def connect_stream_candles(
+        self, symbol: str, interval: int
+    ) -> AsyncIterator[AsyncIterable[Candle]]:
         # https://docs.kraken.com/websockets/#message-ohlc
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
             async for c in ws:
@@ -178,7 +180,7 @@ class Kraken(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: str = 'spot',
+        self, account: str, symbol: str,
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         assert account == 'spot'
 
@@ -192,6 +194,7 @@ class Kraken(Exchange):
 
     async def place_order(
         self,
+        account: str,
         symbol: str,
         side: Side,
         type_: OrderType,
@@ -200,7 +203,6 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         # TODO: use order placing limiter instead of default.
@@ -208,9 +210,9 @@ class Kraken(Exchange):
 
     async def cancel_order(
         self,
+        account: str,
         symbol: str,
         client_id: str,
-        account: str = 'spot',
     ) -> None:
         pass
 
@@ -352,8 +354,9 @@ class KrakenPublicFeed:
         await self.session.__aexit__(exc_type, exc, tb)
 
     @asynccontextmanager
-    async def subscribe(self, subscription: Any,
-                        symbols: Optional[List[str]] = None) -> AsyncIterator[AsyncIterable[Any]]:
+    async def subscribe(
+        self, subscription: Any, symbols: Optional[List[str]] = None
+    ) -> AsyncIterator[AsyncIterable[Any]]:
         await self._ensure_connection()
 
         reqid = self.reqid

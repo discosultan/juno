@@ -102,7 +102,7 @@ async def test_list_one_ticker(loop, request, exchange: Exchange) -> None:
 async def test_map_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    balances = await exchange.map_balances()
+    balances = await exchange.map_balances(account='spot')
 
     assert types_match(balances, Dict[str, Balance])
 
@@ -142,7 +142,7 @@ async def test_get_max_borrowable(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_margin_trade)
 
-    size = await exchange.get_max_borrowable(asset='btc', account='margin')
+    size = await exchange.get_max_borrowable(account='margin', asset='btc')
 
     assert types_match(size, Decimal)
 
@@ -216,7 +216,12 @@ async def test_place_order(loop, request, exchange: Exchange) -> None:
     skip_exchange(exchange, Coinbase, Kraken)
 
     await exchange.place_order(
-        symbol='eth-btc', side=Side.BUY, type_=OrderType.MARKET, size=Decimal('1.0'), test=True
+        account='spot',
+        symbol='eth-btc',
+        side=Side.BUY,
+        type_=OrderType.MARKET,
+        size=Decimal('1.0'),
+        test=True,
     )
 
 

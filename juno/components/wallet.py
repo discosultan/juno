@@ -35,17 +35,13 @@ class Wallet:
         )
         await asyncio.gather(
             self.ensure_sync(self._exchanges.keys(), ['spot']),
-            self.ensure_sync(
-                (k for k, v in self._exchanges.items() if v.can_margin_trade),
-                ['margin'],
-            ),
+            # self.ensure_sync(
+            #     (k for k, v in self._exchanges.items() if v.can_margin_trade),
+            #     ['margin'],
+            # ),
         )
         _log.info('ready')
         return self
-
-    async def _fetch_open_account(self, exchange: str) -> None:
-        open_accounts = await self._exchanges[exchange].list_open_accounts()
-        self._open_accounts[exchange] = set(open_accounts)
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(*self._sync_tasks.values())
@@ -53,8 +49,8 @@ class Wallet:
     def get_balance(
         self,
         exchange: str,
-        asset: str,
         account: str,
+        asset: str,
     ) -> Balance:
         return self._exchange_accounts[exchange][account].balances[asset]
 
@@ -134,6 +130,10 @@ class Wallet:
             self._open_accounts[exchange].add(account)
         except ExchangeException:
             _log.info(f'account {account} already created')
+
+    async def _fetch_open_account(self, exchange: str) -> None:
+        open_accounts = await self._exchanges[exchange].list_open_accounts()
+        self._open_accounts[exchange] = set(open_accounts)
 
     async def _sync_balances(self, exchange: str, account: str, barrier: SlotBarrier) -> None:
         exchange_wallet = self._exchange_accounts[exchange][account]

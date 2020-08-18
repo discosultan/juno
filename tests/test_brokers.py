@@ -37,6 +37,7 @@ async def test_market_insufficient_balance() -> None:
         with pytest.raises(OrderException):
             await broker.buy(
                 exchange='exchange',
+                account='spot',
                 symbol='eth-btc',
                 quote=Decimal('0.1'),
                 test=True,
@@ -59,6 +60,7 @@ async def test_market_buy() -> None:
     async with init_market_broker(exchange) as broker:
         res = await broker.buy(
             exchange='exchange',
+            account='spot',
             symbol='eth-btc',
             size=Decimal('0.25'),
             test=False,
@@ -78,6 +80,7 @@ async def test_market2_buy() -> None:
     async with init_market2_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy(
             exchange='exchange',
+            account='spot',
             symbol='eth-btc',
             size=Decimal('0.25'),
             test=False,
@@ -154,6 +157,7 @@ async def test_limit_fill() -> None:
     async with init_limit_broker(exchange) as broker:
         await broker.buy(
             exchange='exchange',
+            account='spot',
             symbol='eth-btc',
             quote=Decimal('1.0'),
             test=False,
@@ -169,6 +173,7 @@ async def test_limit_insufficient_balance() -> None:
         with pytest.raises(OrderException):
             await broker.buy(
                 exchange='exchange',
+                account='spot',
                 symbol='eth-btc',
                 quote=Decimal('0.1'),
                 test=False,
@@ -203,6 +208,7 @@ async def test_limit_partial_fill_adjust_fill() -> None:
     async with init_limit_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy(
             exchange='exchange',
+            account='spot',
             symbol='eth-btc',
             quote=Decimal('2.0'),
             test=False,
@@ -269,6 +275,7 @@ async def test_limit_multiple_cancels() -> None:
     async with init_limit_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy(
             exchange='exchange',
+            account='spot',
             symbol='eth-btc',
             quote=Decimal('10.0'),
             test=False,
@@ -373,6 +380,7 @@ async def test_limit_partial_fill_cancel_min_notional() -> None:
     async with init_limit_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy(
             exchange='exchange',
+            account='spot',
             symbol='eth-btc',
             quote=Decimal('100.0'),
             test=False,

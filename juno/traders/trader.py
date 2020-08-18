@@ -36,7 +36,9 @@ class Trader(ABC):
                 raise ValueError('Quote must be specified when backtesting or paper trading')
             return quote
 
-        available_quote = self.wallet.get_balance(exchange, asset, 'spot').available
+        available_quote = self.wallet.get_balance(
+            exchange=exchange, account='spot', asset=asset
+        ).available
 
         if quote is None:
             _log.info(f'quote not specified; using available {available_quote} {asset}')
