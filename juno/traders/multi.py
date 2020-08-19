@@ -103,6 +103,12 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbols: Optional[List[str]] = None
         open_new_positions: bool = True  # Whether new positions can be opened.
 
+        @property
+        def open_positions(self) -> List[Position.Open]:
+            if not self.symbol_states:
+                return []
+            return [s.open_position for s in self.symbol_states.values() if s.open_position]
+
     def __init__(
         self,
         chandler: Chandler,

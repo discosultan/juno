@@ -66,6 +66,10 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         take_profit: TakeProfit = field(default_factory=TakeProfit)
         open_new_positions: bool = True  # Whether new positions can be opened.
 
+        @property
+        def open_positions(self) -> List[Position.Open]:
+            return [self.open_position] if self.open_position else []
+
     def __init__(
         self,
         chandler: Chandler,

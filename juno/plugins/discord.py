@@ -141,6 +141,10 @@ class Discord(commands.Bot, Plugin):
 
         _log.info(f'activated for {agent_name} ({agent_type})')
 
+        @self.command(help='Get trading summary if all open positions were closed right now')
+        async def status(ctx: commands.Context) -> None:
+            pass
+
     async def _send_message(self, channel_id: int, msg: str) -> None:
         await self.wait_until_ready()
         channel = self.get_channel(channel_id)
