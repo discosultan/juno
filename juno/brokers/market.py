@@ -59,7 +59,7 @@ class Market(Broker):
             if test or not exchange_instance.can_place_order_market_quote:
                 await self._orderbook.ensure_sync([exchange], [symbol])
                 fees, filters = self._informant.get_fees_filters(exchange, symbol)
-                fills = self._orderbook.find_order_asks_by_quote(
+                fills = self._orderbook.find_order_asks(
                     exchange=exchange, symbol=symbol, quote=quote, fee_rate=fees.taker,
                     filters=filters
                 )
