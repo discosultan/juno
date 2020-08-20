@@ -46,10 +46,10 @@ class Limit(Broker):
     async def buy(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert not test
@@ -69,7 +69,7 @@ class Limit(Broker):
         else:
             raise NotImplementedError()
 
-        res = await self._fill(exchange, symbol, Side.BUY, account, size=size, quote=quote)
+        res = await self._fill(exchange, account, symbol, Side.BUY, size=size, quote=quote)
 
         # Validate fee and quote expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -89,10 +89,10 @@ class Limit(Broker):
     async def sell(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert not test
@@ -103,7 +103,7 @@ class Limit(Broker):
         _log.info(
             f'selling {size} {base_asset} with limit orders at spread ({account} account)'
         )
-        res = await self._fill(exchange, symbol, Side.SELL, account, size=size)
+        res = await self._fill(exchange, account, symbol, Side.SELL, size=size)
 
         # Validate fee and quote expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -121,7 +121,7 @@ class Limit(Broker):
         return res
 
     async def _fill(
-        self, exchange: str, symbol: str, side: Side, account: str,
+        self, exchange: str, account: str, symbol: str, side: Side,
         size: Optional[Decimal] = None, quote: Optional[Decimal] = None
     ) -> OrderResult:
         await self._orderbook.ensure_sync([exchange], [symbol])
@@ -139,15 +139,15 @@ class Limit(Broker):
             raise ValueError('Neither size nor quote specified')
 
         async with self._orderbook.connect_stream_orders(
-            exchange=exchange, symbol=symbol, account=account
+            exchange=exchange, account=account, symbol=symbol
         ) as stream:
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
                 self._keep_limit_order_best(
                     exchange=exchange,
+                    account=account,
                     symbol=symbol,
                     side=side,
-                    account=account,
                     ctx=ctx,
                 )
             )
@@ -174,7 +174,7 @@ class Limit(Broker):
         return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
 
     async def _keep_limit_order_best(
-        self, exchange: str, symbol: str, side: Side, account: str, ctx: _Context
+        self, exchange: str, account: str, symbol: str, side: Side, ctx: _Context
     ) -> None:
         orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -260,6 +260,7 @@ class Limit(Broker):
             _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
             await self._orderbook.place_order(
                 exchange=exchange,
+                account=account,
                 symbol=symbol,
                 side=side,
                 type_=OrderType.LIMIT,
@@ -267,7 +268,6 @@ class Limit(Broker):
                 size=size,
                 time_in_force=TimeInForce.GTC,
                 client_id=ctx.client_id,
-                account=account,
                 test=False,
             )
             await ctx.new_event.wait()

@@ -49,6 +49,9 @@ class Chandler:
         self._storage_batch_size = storage_batch_size
         self._earliest_exchange_start = earliest_exchange_start
 
+        if not self._informant:
+            _log.warning('informant not setup')
+
     async def list_candles(
         self,
         exchange: str,

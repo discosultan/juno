@@ -12,10 +12,10 @@ class Broker(ABC):
     async def buy(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         pass
@@ -24,10 +24,10 @@ class Broker(ABC):
     async def sell(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         pass

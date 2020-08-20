@@ -113,7 +113,9 @@ class Rust(Solver):
         fees, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         c_fees, c_filters = self._get_or_create_c_fees_filters(config.symbol, fees, filters)
         borrow_info = (
-            self._informant.get_borrow_info(config.exchange, base_asset) if config.short
+            self._informant.get_borrow_info(
+                exchange=config.exchange, asset=base_asset, account=config.symbol
+            ) if config.short
             else _DEFAULT_BORROW_INFO
         )
         c_borrow_info = self._get_or_create_c_borrow_info(config.symbol, borrow_info)

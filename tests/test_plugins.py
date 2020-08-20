@@ -12,14 +12,19 @@ from juno.utils import full_path
 
 @pytest.mark.manual
 @pytest.mark.plugin
-async def test_discord(request, config: Dict[str, Any]) -> None:
+async def test_discord(request, config: Dict[str, Any], mocker) -> None:
     skip_non_configured(request, config)
 
     from juno.plugins.discord import Discord
 
     trading_summary = TradingSummary(start=0, quote=Decimal('1.0'), quote_asset='btc')
     events = Events()
-    async with Discord(events, config) as discord:
+    async with Discord(
+        chandler=mocker.patch('juno.components.chandler.Chandler'),
+        informant=mocker.patch('juno.components.informant.Informant'),
+        events=events,
+        config=config,
+    ) as discord:
         await discord.activate('agent', 'test')
 
         candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))

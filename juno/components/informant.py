@@ -88,9 +88,13 @@ class Informant:
         filters = exchange_info.filters.get('__all__') or exchange_info.filters[symbol]
         return fees, filters
 
-    def get_borrow_info(self, exchange: str, asset: str) -> BorrowInfo:
+    def get_borrow_info(self, exchange: str, asset: str, account: str) -> BorrowInfo:
+        assert account != 'spot'
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        return exchange_info.borrow_info.get('__all__') or exchange_info.borrow_info[asset]
+        borrow_info = (
+            exchange_info.borrow_info.get('__all__') or exchange_info.borrow_info[account]
+        )
+        return borrow_info.get('__all__') or borrow_info[asset]
 
     # TODO: Do we need this? And the borrow param?
     def list_assets(
@@ -107,7 +111,7 @@ class Informant:
             matching_assets = {a for p in patterns for a in fnmatch.filter(all_assets.keys(), p)}
             result = (a for a in result if a in matching_assets)
         if borrow:
-            borrowable_assets = set(exchange_info.borrow_info.keys())
+            borrowable_assets = {a for bi in exchange_info.borrow_info.values() for a in bi.keys()}
             result = (a for a in result if a in borrowable_assets)
 
         return list(result)

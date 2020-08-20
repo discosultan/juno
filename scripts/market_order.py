@@ -35,25 +35,41 @@ async def main() -> None:
     exchanges = [exchange]
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=exchanges)
-    orderbook = Orderbook(exchanges=exchanges, config={'symbol': args.symbol})
     wallet = Wallet(exchanges=exchanges)
+    orderbook = Orderbook(exchanges=exchanges, wallet=wallet, config={'symbol': args.symbol})
     market = MARKET_BROKER_TYPE(informant, orderbook, exchanges)
     async with exchange, informant, orderbook, wallet:
         base = (
-            BASE if BASE is not None else wallet.get_balance(exchange_name, base_asset).available
+            BASE if BASE is not None else wallet.get_balance(
+                exchange=exchange_name,
+                account='spot',
+                asset=base_asset,
+            ).available
         )
         quote = (
             QUOTE if QUOTE is not None
-            else wallet.get_balance(exchange_name, quote_asset).available
+            else wallet.get_balance(
+                exchange=exchange_name,
+                account='spot',
+                asset=quote_asset,
+            ).available
         )
         logging.info(f'base: {base} {base_asset}; quote: {quote} {quote_asset}')
         if args.side is Side.BUY:
             res = await market.buy(
-                exchange=exchange_name, symbol=args.symbol, quote=quote, test=TEST
+                exchange=exchange_name,
+                account='spot',
+                symbol=args.symbol,
+                quote=quote,
+                test=TEST,
             )
         else:
             res = await market.sell(
-                exchange=exchange_name, symbol=args.symbol, size=base, test=TEST
+                exchange=exchange_name,
+                account='spot',
+                symbol=args.symbol,
+                size=base,
+                test=TEST,
             )
 
         logging.info(res)

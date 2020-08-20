@@ -33,10 +33,10 @@ class Market2(Broker):
     async def buy(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert not test
@@ -46,7 +46,7 @@ class Market2(Broker):
 
         if size is not None:
             _log.info(f'buying {size} {symbol} with market order ({account} account)')
-            return await self._fill(exchange, symbol, Side.BUY, account, size=size)
+            return await self._fill(exchange, account, symbol, Side.BUY, size=size)
         elif quote is not None:
             _log.info(
                 f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
@@ -60,19 +60,19 @@ class Market2(Broker):
                     exchange, symbol, quote, fees.taker, filters
                 )
                 return await self._fill(
-                    exchange, symbol, Side.BUY, account, size=Fill.total_size(fills)
+                    exchange, account, symbol, Side.BUY, size=Fill.total_size(fills)
                 )
-            return await self._fill(exchange, symbol, Side.BUY, account, quote=quote)
+            return await self._fill(exchange, account, symbol, Side.BUY, quote=quote)
         else:
             raise NotImplementedError()
 
     async def sell(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         assert not test
@@ -80,14 +80,14 @@ class Market2(Broker):
         Broker.validate_funds(size, quote)
 
         _log.info(f'selling {size} {symbol} with market order ({account} account)')
-        return await self._fill(exchange, symbol, Side.SELL, account, size=size)
+        return await self._fill(exchange, account, symbol, Side.SELL, size=size)
 
     async def _fill(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         side: Side,
-        account: str,
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
     ) -> OrderResult:
@@ -99,17 +99,17 @@ class Market2(Broker):
         client_id = self._get_client_id()
 
         async with self._orderbook.connect_stream_orders(
-            exchange=exchange, symbol=symbol, account=account
+            exchange=exchange, account=account, symbol=symbol
         ) as stream:
             await self._orderbook.place_order(
                 exchange=exchange,
+                account=account,
                 symbol=symbol,
                 side=side,
                 type_=OrderType.MARKET,
                 size=size,
                 quote=quote,
                 client_id=client_id,
-                account=account,
                 test=False,
             )
 

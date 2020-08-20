@@ -22,14 +22,21 @@ from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import unpack_symbol
 
+from .wallet import Wallet
+
 _log = logging.getLogger(__name__)
 
 
-# TODO: Store the state of opened account locally, so we wouldn't need to do unnecessary requests.
 class Orderbook:
     # TODO: Remove such usage of config.
-    def __init__(self, exchanges: List[Exchange], config: Dict[str, Any] = {}) -> None:
+    def __init__(
+        self,
+        exchanges: List[Exchange],
+        wallet: Optional[Wallet] = None,
+        config: Dict[str, Any] = {},
+    ) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._wallet = wallet
         self._symbols = list_names(config, 'symbol')
         self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
 
@@ -47,6 +54,9 @@ class Orderbook:
         self._data: Dict[str, Dict[str, _OrderbookData]] = defaultdict(
             lambda: defaultdict(_OrderbookData)
         )
+
+        if not self._wallet:
+            _log.warning('wallet not setup')
 
     async def __aenter__(self) -> Orderbook:
         await self.ensure_sync(self._exchanges.keys(), self._symbols)
@@ -140,15 +150,18 @@ class Orderbook:
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, exchange: str, symbol: str, account: str = 'spot',
+        self, exchange: str, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         await self._ensure_account(exchange, account)
-        async with self._exchanges[exchange].connect_stream_orders(symbol, account) as stream:
+        async with self._exchanges[exchange].connect_stream_orders(
+            account=account, symbol=symbol
+        ) as stream:
             yield stream
 
     async def place_order(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         side: Side,
         type_: OrderType,
@@ -157,7 +170,6 @@ class Orderbook:
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         await self._ensure_account(exchange, account)
@@ -177,9 +189,9 @@ class Orderbook:
     async def cancel_order(
         self,
         exchange: str,
+        account: str,
         symbol: str,
         client_id: str,
-        account: str = 'spot',
     ) -> None:
         await self._ensure_account(exchange, account)
         await self._exchanges[exchange].cancel_order(
@@ -207,12 +219,8 @@ class Orderbook:
         await barrier.wait()
 
     async def _ensure_account(self, exchange: str, account: str) -> None:
-        if account in ['spot', 'margin']:
-            return
-        try:
-            await self._exchanges[exchange].create_account(account)
-        except ExchangeException:
-            _log.info(f'account {account} already created')
+        if self._wallet:
+            await self._wallet.ensure_account(exchange, account)
 
     async def _sync_orderbook(self, exchange: str, symbol: str, barrier: SlotBarrier) -> None:
         orderbook = self._data[exchange][symbol]

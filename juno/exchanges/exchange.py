@@ -29,7 +29,7 @@ class Exchange(ABC):
         pass
 
     @abstractmethod
-    async def map_balances(self, account: str = 'spot') -> Dict[str, Balance]:
+    async def map_balances(self, account: str) -> Dict[str, Balance]:
         pass
 
     @asynccontextmanager
@@ -63,13 +63,14 @@ class Exchange(ABC):
     @abstractmethod
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: str = 'spot',
+        self, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         yield  # type: ignore
 
     @abstractmethod
     async def place_order(
         self,
+        account: str,
         symbol: str,
         side: Side,
         type_: OrderType,
@@ -78,7 +79,6 @@ class Exchange(ABC):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         pass
@@ -86,9 +86,9 @@ class Exchange(ABC):
     @abstractmethod
     async def cancel_order(
         self,
+        account: str,
         symbol: str,
         client_id: str,
-        account: str = 'spot',
     ) -> None:
         pass
 
@@ -106,14 +106,17 @@ class Exchange(ABC):
     ) -> None:
         pass
 
-    async def borrow(self, asset: str, size: Decimal, account: str = 'margin') -> None:
+    async def borrow(self, asset: str, size: Decimal, account: str) -> None:
         pass
 
-    async def repay(self, asset: str, size: Decimal, account: str = 'margin') -> None:
+    async def repay(self, asset: str, size: Decimal, account: str) -> None:
         pass
 
-    async def get_max_borrowable(self, asset: str, account: str = 'margin') -> Decimal:
+    async def get_max_borrowable(self, asset: str, account: str) -> Decimal:
         pass
 
     async def create_account(self, account: str) -> None:
         pass
+
+    async def list_open_accounts(self) -> List[str]:
+        return ['spot']

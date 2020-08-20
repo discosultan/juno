@@ -100,7 +100,7 @@ async def test_downside_trailing_stop_loss() -> None:
         ]
     })
     informant = fakes.Informant(
-        filters=Filters(cross_margin=True),
+        filters=Filters(isolated_margin=True),
         borrow_info=BorrowInfo(limit=Decimal('1.0')),
         margin_multiplier=2,
     )
@@ -180,7 +180,7 @@ async def test_downside_take_profit() -> None:
         ]
     })
     informant = fakes.Informant(
-        filters=Filters(cross_margin=True),
+        filters=Filters(isolated_margin=True),
         borrow_info=BorrowInfo(limit=Decimal('1.0')),
         margin_multiplier=2,
     )

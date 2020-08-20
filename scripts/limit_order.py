@@ -17,7 +17,7 @@ parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default='
 parser.add_argument(
     'value', nargs='?', type=Decimal, default=None, help='if buy, quote; otherwise base size'
 )
-parser.add_argument('account', nargs='?', default='spot')
+parser.add_argument('-a', '--account', nargs='?', default='spot')
 args = parser.parse_args()
 
 
@@ -26,10 +26,11 @@ async def main() -> None:
     memory = Memory()
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=[exchange])
-    orderbook = Orderbook(exchanges=[exchange])
     wallet = Wallet(exchanges=[exchange])
+    orderbook = Orderbook(exchanges=[exchange], wallet=wallet)
     limit = Limit(informant, orderbook)
     async with exchange, memory, informant, orderbook, wallet:
+        await wallet.ensure_sync(['binance'], [args.account])
         await asyncio.gather(
             *(transact_symbol(
                 informant, orderbook, wallet, exchange, limit, s
@@ -47,8 +48,12 @@ async def transact_symbol(
 ) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
     fees, filters = informant.get_fees_filters('binance', symbol)
-    available_base = wallet.get_balance('binance', base_asset, account=args.account).available
-    available_quote = wallet.get_balance('binance', quote_asset, account=args.account).available
+    available_base = wallet.get_balance(
+        exchange='binance', account=args.account, asset=base_asset
+    ).available
+    available_quote = wallet.get_balance(
+        exchange='binance', account=args.account, asset=quote_asset
+    ).available
     value = args.value if args.value is not None else (
         available_quote if args.side is Side.BUY else available_base
     )
@@ -61,7 +66,7 @@ async def transact_symbol(
             filters=filters
         )
         res = await limit.buy(
-            exchange='binance', symbol=symbol, quote=value, account=args.account, test=False,
+            exchange='binance', account=args.account, symbol=symbol, quote=value, test=False,
         )
     else:
         market_fills = orderbook.find_order_bids(
@@ -69,7 +74,7 @@ async def transact_symbol(
             filters=filters
         )
         res = await limit.sell(
-            exchange='binance', symbol=symbol, size=value, account=args.account, test=False
+            exchange='binance', account=args.account, symbol=symbol, size=value, test=False
         )
 
     logging.info(res)

@@ -125,7 +125,7 @@ class Coinbase(Exchange):
                     break
         return list(tickers.values())
 
-    async def map_balances(self, account: str = 'spot') -> Dict[str, Balance]:
+    async def map_balances(self, account: str) -> Dict[str, Balance]:
         if account != 'spot':
             raise NotImplementedError()
         res = await self._private_request('GET', '/accounts')
@@ -187,7 +187,7 @@ class Coinbase(Exchange):
 
     @asynccontextmanager
     async def connect_stream_orders(
-        self, symbol: str, account: str = 'spot'
+        self, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         assert account == 'spot'
 
@@ -254,6 +254,7 @@ class Coinbase(Exchange):
 
     async def place_order(
         self,
+        account: str,
         symbol: str,
         side: Side,
         type_: OrderType,
@@ -262,7 +263,6 @@ class Coinbase(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        account: str = 'spot',
         test: bool = True,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
@@ -295,9 +295,9 @@ class Coinbase(Exchange):
 
     async def cancel_order(
         self,
+        account: str,
         symbol: str,
         client_id: str,
-        account: str = 'spot',
     ) -> None:
         res = await self._private_request('DELETE', f'/orders/client:{client_id}', {
             'product_id': _to_product(symbol),
@@ -387,10 +387,10 @@ class Coinbase(Exchange):
 
     async def _request(self, method: str, url: str, **kwargs: Any) -> ClientJsonResponse:
         url = _BASE_REST_URL + url
-        async with self._session.request_json(method, url, **kwargs) as res:
-            if res.status == 429:
-                raise ExchangeException(res.data['message'])
-            return res
+        res = await self._session.request_json(method, url, **kwargs)
+        if res.status == 429:
+            raise ExchangeException(res.data['message'])
+        return res
 
 
 class CoinbaseFeed:
