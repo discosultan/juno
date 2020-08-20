@@ -76,56 +76,73 @@ class Orderbook:
         return sorted(self._data[exchange][symbol].sides[Side.SELL].items(), reverse=True)
 
     def find_order_asks(
-        self, exchange: str, symbol: str, size: Decimal, fee_rate: Decimal, filters: Filters
+        self,
+        exchange: str,
+        symbol: str,
+        fee_rate: Decimal,
+        filters: Filters,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
     ) -> List[Fill]:
-        result = []
-        base_asset, quote_asset = unpack_symbol(symbol)
-        for aprice, asize in self.list_asks(exchange, symbol):
-            if asize >= size:
-                fee = round_half_up(size * fee_rate, filters.base_precision)
-                result.append(Fill.with_computed_quote(
-                    price=aprice, size=size, fee=fee, fee_asset=base_asset,
-                    precision=filters.quote_precision
-                ))
-                break
-            else:
-                fee = round_half_up(asize * fee_rate, filters.base_precision)
-                result.append(Fill.with_computed_quote(
-                    price=aprice, size=asize, fee=fee, fee_asset=base_asset,
-                    precision=filters.quote_precision
-                ))
-                size -= asize
-        return result
+        if size is not None and quote is not None:
+            raise ValueError()
+        if size is None and quote is None:
+            raise ValueError()
 
-    def find_order_asks_by_quote(
-        self, exchange: str, symbol: str, quote: Decimal, fee_rate: Decimal, filters: Filters
-    ) -> List[Fill]:
         result = []
         base_asset, quote_asset = unpack_symbol(symbol)
-        for aprice, asize in self.list_asks(exchange, symbol):
-            aquote = aprice * asize
-            if aquote >= quote:
-                size = filters.size.round_down(quote / aprice)
-                if size != 0:
+        if size is not None:
+            for aprice, asize in self.list_asks(exchange, symbol):
+                if asize >= size:
                     fee = round_half_up(size * fee_rate, filters.base_precision)
                     result.append(Fill.with_computed_quote(
                         price=aprice, size=size, fee=fee, fee_asset=base_asset,
                         precision=filters.quote_precision
                     ))
-                break
-            else:
-                assert asize != 0
-                fee = round_half_up(asize * fee_rate, filters.base_precision)
-                result.append(Fill.with_computed_quote(
-                    price=aprice, size=asize, fee=fee, fee_asset=base_asset,
-                    precision=filters.quote_precision
-                ))
-                quote -= aquote
+                    break
+                else:
+                    fee = round_half_up(asize * fee_rate, filters.base_precision)
+                    result.append(Fill.with_computed_quote(
+                        price=aprice, size=asize, fee=fee, fee_asset=base_asset,
+                        precision=filters.quote_precision
+                    ))
+                    size -= asize
+        elif quote is not None:
+            for aprice, asize in self.list_asks(exchange, symbol):
+                aquote = aprice * asize
+                if aquote >= quote:
+                    size = filters.size.round_down(quote / aprice)
+                    if size != 0:
+                        fee = round_half_up(size * fee_rate, filters.base_precision)
+                        result.append(Fill.with_computed_quote(
+                            price=aprice, size=size, fee=fee, fee_asset=base_asset,
+                            precision=filters.quote_precision
+                        ))
+                    break
+                else:
+                    assert asize != 0
+                    fee = round_half_up(asize * fee_rate, filters.base_precision)
+                    result.append(Fill.with_computed_quote(
+                        price=aprice, size=asize, fee=fee, fee_asset=base_asset,
+                        precision=filters.quote_precision
+                    ))
+                    quote -= aquote
         return result
 
     def find_order_bids(
-        self, exchange: str, symbol: str, size: Decimal, fee_rate: Decimal, filters: Filters
+        self,
+        exchange: str,
+        symbol: str,
+        fee_rate: Decimal,
+        filters: Filters,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
     ) -> List[Fill]:
+        if quote is not None:
+            raise NotImplementedError()
+        if size is None:
+            raise ValueError()
+
         result = []
         base_asset, quote_asset = unpack_symbol(symbol)
         for bprice, bsize in self.list_bids(exchange, symbol):

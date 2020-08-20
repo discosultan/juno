@@ -129,7 +129,7 @@ async def test_find_order_asks_by_quote(
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
     exchange.can_stream_depth_snapshot = False
     async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
-        output = orderbook.find_order_asks_by_quote(
+        output = orderbook.find_order_asks(
             exchange='exchange', symbol='eth-btc', quote=quote, fee_rate=FEE_RATE, filters=FILTERS
         )
         assert_fills(output, expected_output)

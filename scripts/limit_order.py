@@ -14,14 +14,15 @@ from juno.utils import unpack_symbol
 parser = argparse.ArgumentParser()
 parser.add_argument('side', nargs='?', type=lambda s: Side[s.upper()], default=Side.BUY)
 parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default='eth-btc')
-parser.add_argument(
-    'value', nargs='?', type=Decimal, default=None, help='if buy, quote; otherwise base size'
-)
+parser.add_argument('-s', '--size', type=Decimal, default=None)
+parser.add_argument('-q', '--quote', type=Decimal, default=None)
 parser.add_argument('-a', '--account', nargs='?', default='spot')
 args = parser.parse_args()
 
 
 async def main() -> None:
+    assert not (args.size and args.quote)
+
     exchange = init_instance(Binance, from_env())
     memory = Memory()
     sqlite = SQLite()
@@ -48,33 +49,42 @@ async def transact_symbol(
 ) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
     fees, filters = informant.get_fees_filters('binance', symbol)
+
     available_base = wallet.get_balance(
         exchange='binance', account=args.account, asset=base_asset
     ).available
     available_quote = wallet.get_balance(
         exchange='binance', account=args.account, asset=quote_asset
     ).available
-    value = args.value if args.value is not None else (
-        available_quote if args.side is Side.BUY else available_base
-    )
     logging.info(
         f'available base: {available_base} {base_asset}; available quote: {available_quote} '
         f'{quote_asset}')
+
+    size = args.size
+    quote = args.quote
+    if not size and not quote:
+        if args.side is Side.BUY:
+            quote = available_quote
+        else:
+            size = available_base
+
     if args.side is Side.BUY:
-        market_fills = orderbook.find_order_asks_by_quote(
-            exchange='binance', symbol=symbol, quote=value, fee_rate=fees.maker,
+        market_fills = orderbook.find_order_asks(
+            exchange='binance', symbol=symbol, size=size, quote=quote, fee_rate=fees.maker,
             filters=filters
         )
         res = await limit.buy(
-            exchange='binance', account=args.account, symbol=symbol, quote=value, test=False,
+            exchange='binance', account=args.account, symbol=symbol, quote=quote, size=size,
+            test=False,
         )
     else:
+        assert not quote
         market_fills = orderbook.find_order_bids(
-            exchange='binance', symbol=symbol, size=value, fee_rate=fees.maker,
+            exchange='binance', symbol=symbol, size=size, quote=quote, fee_rate=fees.maker,
             filters=filters
         )
         res = await limit.sell(
-            exchange='binance', account=args.account, symbol=symbol, size=value, test=False
+            exchange='binance', account=args.account, symbol=symbol, size=size, test=False
         )
 
     logging.info(res)
