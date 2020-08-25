@@ -4,6 +4,7 @@ from typing import Dict, List
 
 import aiohttp
 import pytest
+from pytest_lazyfixture import lazy_fixture
 
 import juno
 from juno import (
@@ -17,7 +18,7 @@ from juno.typing import types_match
 from juno.utils import list_concretes_from_module
 
 exchange_types = list_concretes_from_module(juno.exchanges, Exchange)
-exchanges = [pytest.lazy_fixture(e.__name__.lower()) for e in exchange_types]
+exchanges = [lazy_fixture(e.__name__.lower()) for e in exchange_types]
 exchange_ids = [e.__name__ for e in exchange_types]
 
 

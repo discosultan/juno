@@ -29,7 +29,7 @@ setup(
             'flake8-comprehensions',
             'flake8-isort',
             'flake8-quotes',
-            'isort < 5',
+            'isort',
             'mypy',
             'pytest',
             'pytest-aiohttp',
