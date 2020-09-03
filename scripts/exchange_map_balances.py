@@ -20,7 +20,7 @@ args = parser.parse_args()
 
 async def main() -> None:
     async with init_instance(args.exchange, from_env()) as client:
-        balances = await client.map_balances(margin=args.account == 'margin')
+        balances = await client.map_balances(account=args.account)
         logging.info(balances)
 
 

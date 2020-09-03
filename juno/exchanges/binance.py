@@ -331,6 +331,7 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
+    # TODO: Use account param; adjust script
     async def list_orders(self, symbol: Optional[str], margin: bool = False) -> List[Order]:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#current-open-orders-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/margin-api.md#query-margin-accounts-open-order-user_data
