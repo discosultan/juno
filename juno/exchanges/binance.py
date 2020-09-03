@@ -10,7 +10,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Callable, Dict, List, Optional
+from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 import aiohttp
 from multidict import MultiDict
@@ -862,16 +862,9 @@ class Binance(Exchange):
             raise ExchangeException(str(e))
 
     async def _get_user_data_stream(self, account: str) -> UserDataStream:
-        return await self._get_or_create_user_data_stream(
-            account, lambda: UserDataStream(self, account)
-        )
-
-    async def _get_or_create_user_data_stream(
-        self, key: str, factory: Callable[[], UserDataStream]
-    ) -> UserDataStream:
-        if not (stream := self._user_data_streams.get(key)):
-            stream = factory()
-            self._user_data_streams[key] = stream
+        if not (stream := self._user_data_streams.get(account)):
+            stream = UserDataStream(self, account)
+            self._user_data_streams[account] = stream
             await stream.__aenter__()
         return stream
 
@@ -1068,13 +1061,13 @@ class UserDataStream:
     )
     async def _update_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#pingkeep-alive-a-listenkey
-        data = {}
+        data = {'listenKey': listen_key}
         if self._account not in ['spot', 'margin']:
             data['symbol'] = _to_http_symbol(self._account)
         return await self._binance._api_request(
             'PUT',
             self._base_url,
-            data={'listenKey': listen_key},
+            data=data,
             security=_SEC_USER_STREAM,
         )
 
@@ -1088,13 +1081,13 @@ class UserDataStream:
     )
     async def _delete_listen_key(self, listen_key: str) -> ClientJsonResponse:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
-        data = {}
+        data = {'listenKey': listen_key}
         if self._account not in ['spot', 'margin']:
             data['symbol'] = _to_http_symbol(self._account)
         return await self._binance._api_request(
             'DELETE',
             self._base_url,
-            data={'listenKey': listen_key},
+            data=data,
             security=_SEC_USER_STREAM
         )
 
