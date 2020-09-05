@@ -276,8 +276,7 @@ class Binance(Exchange):
                     ] = Balance(available=Decimal(balance['f']), hold=Decimal(balance['l']))
                 yield result
 
-        # 'outboundAccountInfo' - Full list of balances.
-        # 'outboundAccountPosition' - Only changed balances.
+        # Yields only assets that are possibly changed.
         user_data_stream = await self._get_user_data_stream(account)
         async with user_data_stream.subscribe('outboundAccountPosition') as stream:
             yield inner(stream)
