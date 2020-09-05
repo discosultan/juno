@@ -5,9 +5,7 @@ import uuid
 from decimal import Decimal
 from typing import AsyncIterable, Callable, List, Optional
 
-from juno import (
-    Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, TimeInForce
-)
+from juno import Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook
 from juno.utils import unpack_symbol

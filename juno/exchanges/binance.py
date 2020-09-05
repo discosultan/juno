@@ -460,7 +460,10 @@ class Binance(Exchange):
         total_quote = Decimal(q) if (q := res.data.get('cummulativeQuoteQty')) else Decimal('0.0')
         return OrderResult(
             time=res.data['transactTime'],
-            status=_from_order_status(s) if (s := res.data.get('status')) else OrderStatus.NEW,
+            status=(
+                _from_order_status(status) if (status := res.data.get('status'))
+                else OrderStatus.NEW
+            ),
             fills=[
                 Fill(
                     price=(p := Decimal(f['price'])),
