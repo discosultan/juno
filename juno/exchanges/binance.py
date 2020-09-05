@@ -27,7 +27,6 @@ from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientJsonResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page
-from juno.math import ratios, split_by_ratios
 from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import AsyncLimiter, unpack_symbol
@@ -451,25 +450,25 @@ class Binance(Exchange):
         if test:
             url += '/test'
         res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
+
         if test:
             return OrderResult(time=time_ms(), status=OrderStatus.NEW)
-        total_size = Decimal(res.data['executedQty'])
-        total_quote = Decimal(res.data['cummulativeQuoteQty'])
-        fill_quotes = split_by_ratios(
-            total_quote,
-            ratios(total_size, [Decimal(f['qty']) for f in res.data['fills']]),
-        )
+        # In case of LIMIT_MARKET order, the following are not present in the resposne:
+        # - status
+        # - cummulativeQuoteQty
+        # - fills
+        total_quote = Decimal(q) if (q := res.data.get('cummulativeQuoteQty')) else Decimal('0.0')
         return OrderResult(
             time=res.data['transactTime'],
-            status=_from_order_status(res.data['status']),
+            status=_from_order_status(s) if (s := res.data.get('status')) else OrderStatus.NEW,
             fills=[
                 Fill(
-                    price=Decimal(f['price']),
-                    size=Decimal(f['qty']),
-                    quote=q,
+                    price=(p := Decimal(f['price'])),
+                    size=(s := Decimal(f['qty'])),
+                    quote=(p * s).quantize(total_quote),
                     fee=Decimal(f['commission']),
                     fee_asset=f['commissionAsset'].lower()
-                ) for f, q in zip(res.data['fills'], fill_quotes)
+                ) for f in res.data.get('fills', [])
             ]
         )
 

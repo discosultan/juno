@@ -268,11 +268,11 @@ class Coinbase(Exchange):
         # https://docs.pro.coinbase.com/#place-a-new-order
         if test or account != 'spot':
             raise NotImplementedError()
-        if type_ not in [OrderType.MARKET, OrderType.LIMIT]:
+        if type_ not in [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]:
             # Supports stop orders through params.
             raise NotImplementedError()
 
-        data = {
+        data: Dict[str, Any] = {
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
             'side': 'buy' if side is Side.BUY else 'sell',
             'product_id': _to_product(symbol),
@@ -287,6 +287,8 @@ class Coinbase(Exchange):
             data['time_in_force'] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data['client_oid'] = client_id
+        if type_ is OrderType.LIMIT_MAKER:
+            data['post_only'] = True
 
         base_asset, quote_asset = unpack_symbol(symbol)
         res = await self._private_request('POST', '/orders', data=data)

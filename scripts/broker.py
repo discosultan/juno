@@ -3,38 +3,42 @@ import asyncio
 import logging
 from decimal import Decimal
 
-from juno import Fill, Side
-from juno.brokers import Limit
+from juno import Fill, Side, brokers, exchanges
 from juno.components import Informant, Orderbook, Wallet
 from juno.config import from_env, init_instance
-from juno.exchanges import Binance, Exchange
-from juno.storages import Memory, SQLite
-from juno.utils import unpack_symbol
+from juno.storages import SQLite
+from juno.utils import get_module_type, unpack_symbol
 
 parser = argparse.ArgumentParser()
 parser.add_argument('side', nargs='?', type=lambda s: Side[s.upper()], default=Side.BUY)
 parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default='eth-btc')
+parser.add_argument('-b', '--broker', default='limit')
+parser.add_argument('-e', '--exchange', default='binance')
+parser.add_argument('-a', '--account', default='spot')
 parser.add_argument('-s', '--size', type=Decimal, default=None)
 parser.add_argument('-q', '--quote', type=Decimal, default=None)
-parser.add_argument('-a', '--account', nargs='?', default='spot')
+parser.add_argument(
+    '-t', '--test',
+    action='store_true',
+    default=False,
+)
 args = parser.parse_args()
 
 
 async def main() -> None:
     assert not (args.size and args.quote)
 
-    exchange = init_instance(Binance, from_env())
-    memory = Memory()
+    exchange = init_instance(get_module_type(exchanges, args.exchange), from_env())
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=[exchange])
     wallet = Wallet(exchanges=[exchange])
     orderbook = Orderbook(exchanges=[exchange], wallet=wallet)
-    limit = Limit(informant, orderbook)
-    async with exchange, memory, informant, orderbook, wallet:
+    broker = get_module_type(brokers, args.broker)(informant, orderbook)
+    async with exchange, informant, orderbook, wallet:
         await wallet.ensure_sync(['binance'], [args.account])
         await asyncio.gather(
             *(transact_symbol(
-                informant, orderbook, wallet, exchange, limit, s
+                informant, orderbook, wallet, exchange, broker, s
             ) for s in args.symbols)
         )
 
@@ -43,22 +47,23 @@ async def transact_symbol(
     informant: Informant,
     orderbook: Orderbook,
     wallet: Wallet,
-    exchange: Exchange,
-    limit: Limit,
+    exchange: exchanges.Exchange,
+    broker: brokers.Broker,
     symbol: str,
 ) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
-    fees, filters = informant.get_fees_filters('binance', symbol)
+    fees, filters = informant.get_fees_filters(args.exchange, symbol)
 
     available_base = wallet.get_balance(
-        exchange='binance', account=args.account, asset=base_asset
+        exchange=args.exchange, account=args.account, asset=base_asset
     ).available
     available_quote = wallet.get_balance(
-        exchange='binance', account=args.account, asset=quote_asset
+        exchange=args.exchange, account=args.account, asset=quote_asset
     ).available
     logging.info(
-        f'available base: {available_base} {base_asset}; available quote: {available_quote} '
-        f'{quote_asset}')
+        f'available base: {available_base} {base_asset}; quote: {available_quote} '
+        f'{quote_asset}'
+    )
 
     size = args.size
     quote = args.quote
@@ -67,24 +72,40 @@ async def transact_symbol(
             quote = available_quote
         else:
             size = available_base
+    logging.info(f'using base: {size} {base_asset}; quote: {quote} {quote_asset}')
 
     if args.side is Side.BUY:
         market_fills = orderbook.find_order_asks(
-            exchange='binance', symbol=symbol, size=size, quote=quote, fee_rate=fees.maker,
-            filters=filters
+            exchange=args.exchange,
+            symbol=symbol,
+            size=size,
+            quote=quote,
+            fee_rate=fees.maker,
+            filters=filters,
         )
-        res = await limit.buy(
-            exchange='binance', account=args.account, symbol=symbol, quote=quote, size=size,
-            test=False,
+        res = await broker.buy(
+            exchange=args.exchange,
+            account=args.account,
+            symbol=symbol,
+            quote=quote,
+            size=size,
+            test=args.test,
         )
     else:
-        assert not quote
         market_fills = orderbook.find_order_bids(
-            exchange='binance', symbol=symbol, size=size, quote=quote, fee_rate=fees.maker,
-            filters=filters
+            exchange=args.exchange,
+            symbol=symbol,
+            size=size,
+            quote=quote,
+            fee_rate=fees.maker,
+            filters=filters,
         )
-        res = await limit.sell(
-            exchange='binance', account=args.account, symbol=symbol, size=size, test=False
+        res = await broker.sell(
+            exchange=args.exchange,
+            account=args.account,
+            symbol=symbol,
+            size=size,
+            test=args.test,
         )
 
     logging.info(res)
