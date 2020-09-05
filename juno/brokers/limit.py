@@ -238,6 +238,9 @@ class Limit(Broker):
                 ctx.available += add_back
                 # Use a new client ID for new order.
                 ctx.client_id = self._get_client_id()
+                # Reset last order info because we currently have no order active.
+                last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
+                last_order_size = Decimal('0.0')
 
             # No need to round price as we take it from existing orders.
             size = ctx.available / price if ctx.use_quote else ctx.available
