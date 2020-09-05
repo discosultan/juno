@@ -89,6 +89,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         short: bool = False  # Take short positions.
         close_on_exit: bool = True  # Whether to close open positions on exit.
         track: List[str] = []
+        track_exclude: List[str] = []  # Symbols to ignore.
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
         position_count: int = 2
@@ -159,6 +160,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.position_count > 0
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
+        assert not list(set(config.track) & set(config.track_exclude))  # No common elements.
 
         state = state or Multi.State()
 
@@ -236,10 +238,10 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         return state.summary
 
     async def _find_top_symbols(self, config: Config) -> List[str]:
-        count = config.track_count - len(config.track)
         tickers = self._informant.list_tickers(
             config.exchange, symbol_pattern=SYMBOL_PATTERN, spot=True, isolated_margin=True
         )
+        # Filter.
         if config.track_required_start is not None:
             first_candles = await asyncio.gather(
                 *(
@@ -250,6 +252,9 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             tickers = [
                 t for t, c in zip(tickers, first_candles) if c.time <= config.track_required_start
             ]
+        if config.track_exclude:
+            tickers = [t for t in tickers if t not in config.track_exclude]
+        # Validate.
         if len(tickers) < config.track_count:
             required_start_msg = (
                 '' if config.track_required_start is None
@@ -259,6 +264,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 f'Exchange only supports {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
                 f'while {config.track_count} requested{required_start_msg}'
             )
+        # Compose.
+        count = config.track_count - len(config.track)
         return config.track + [t.symbol for t in tickers[0:count] if t not in config.track]
 
     async def _manage_positions(
