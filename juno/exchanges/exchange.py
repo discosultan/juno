@@ -34,7 +34,7 @@ class Exchange(ABC):
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: str = 'spot'
+        self, account: str
     ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
 

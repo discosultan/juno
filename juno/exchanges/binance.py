@@ -816,6 +816,8 @@ class Binance(Exchange):
             # The following are NOT documented but seem to be rate limited as well.
             '/sapi/v1/userDataStream',
             '/sapi/v1/userDataStream/isolated',
+            '/sapi/v1/margin/isolated/transfer',
+            '/sapi/v1/margin/isolated/create',
         }:
             limiters.append(self._margin_limiter.acquire())
 

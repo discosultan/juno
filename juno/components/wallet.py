@@ -31,7 +31,7 @@ class Wallet:
 
     async def __aenter__(self) -> Wallet:
         await asyncio.gather(
-            *(self._fetch_open_account(e) for e in self._exchanges.keys())
+            *(self._fetch_open_accounts(e) for e in self._exchanges.keys())
         )
         await asyncio.gather(
             self.ensure_sync(self._exchanges.keys(), ['spot']),
@@ -131,7 +131,7 @@ class Wallet:
         except ExchangeException:
             _log.info(f'account {account} already created')
 
-    async def _fetch_open_account(self, exchange: str) -> None:
+    async def _fetch_open_accounts(self, exchange: str) -> None:
         open_accounts = await self._exchanges[exchange].list_open_accounts()
         self._open_accounts[exchange] = set(open_accounts)
 
