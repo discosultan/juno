@@ -30,17 +30,6 @@ def minmax(values: Iterable[Decimal]) -> Tuple[Decimal, Decimal]:
     return min_, max_
 
 
-def ratios(total: Decimal, parts: List[Decimal]) -> List[Decimal]:
-    assert sum(parts, Decimal('0.0')) == total
-    return [part / total for part in parts]
-
-
-def split_by_ratios(total: Decimal, ratios: List[Decimal]) -> List[Decimal]:
-    result = [(total * ratio).quantize(total) for ratio in ratios]
-    assert sum(result, Decimal('0.0')) == total
-    return result
-
-
 def split(total: Decimal, parts: int) -> List[Decimal]:
     assert parts > 0
 

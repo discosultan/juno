@@ -66,6 +66,11 @@ class Orderbook:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(*self._sync_tasks.values())
 
+    def can_place_order_market_quote(self, exchange: str) -> bool:
+        if exchange == '__all__':
+            return all(e.can_place_order_market_quote for e in self._exchanges.values())
+        return self._exchanges[exchange].can_place_order_market_quote
+
     def get_updated_event(self, exchange: str, symbol: str) -> Event[None]:
         return self._data[exchange][symbol].updated
 

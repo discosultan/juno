@@ -1,11 +1,10 @@
 import logging
 import uuid
 from decimal import Decimal
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.components import Informant, Orderbook
-from juno.exchanges import Exchange
 from juno.utils import unpack_symbol
 
 from .broker import Broker
@@ -22,12 +21,10 @@ class Market2(Broker):
         self,
         informant: Informant,
         orderbook: Orderbook,
-        exchanges: List[Exchange],
         get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_client_id = get_client_id
 
     async def buy(
@@ -52,8 +49,7 @@ class Market2(Broker):
                 f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
                 f'({account} account)'
             )
-            exchange_instance = self._exchanges[exchange]
-            if not exchange_instance.can_place_order_market_quote:
+            if not self._orderbook.can_place_order_market_quote(exchange):
                 await self._orderbook.ensure_sync([exchange], [symbol])
                 fees, filters = self._informant.get_fees_filters(exchange, symbol)
                 fills = self._orderbook.find_order_asks(

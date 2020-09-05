@@ -258,18 +258,22 @@ class Limit(Broker):
                     raise _Filled()
 
             _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
-            await self._orderbook.place_order(
-                exchange=exchange,
-                account=account,
-                symbol=symbol,
-                side=side,
-                type_=OrderType.LIMIT,
-                price=price,
-                size=size,
-                time_in_force=TimeInForce.GTC,
-                client_id=ctx.client_id,
-                test=False,
-            )
+            try:
+                await self._orderbook.place_order(
+                    exchange=exchange,
+                    account=account,
+                    symbol=symbol,
+                    side=side,
+                    type_=OrderType.LIMIT_MAKER,
+                    price=price,
+                    size=size,
+                    client_id=ctx.client_id,
+                    test=False,
+                )
+            except OrderException:
+                # Order would immediately match and take. Retry.
+                continue
+
             await ctx.new_event.wait()
             deduct = price * size if ctx.use_quote else size
             ctx.available -= deduct
