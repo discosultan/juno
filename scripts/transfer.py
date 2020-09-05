@@ -3,23 +3,25 @@ import asyncio
 import logging
 from decimal import Decimal
 
+from juno import exchanges
 from juno.config import from_env, init_instance
-from juno.exchanges import Binance
+from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
 parser.add_argument('assets', nargs='?', type=lambda s: s.split(','), default='btc')
 parser.add_argument('from_account', nargs='?', default='margin')
 parser.add_argument('to_account', nargs='?', default='spot')
+parser.add_argument('-e', '--exchange', default='binance')
 parser.add_argument('-s', '--size', nargs='?', type=Decimal, default=None)
 args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(Binance, from_env()) as client:
+    async with init_instance(get_module_type(exchanges, args.exchange), from_env()) as client:
         await asyncio.gather(*(transfer_asset(client, a) for a in args.assets))
 
 
-async def transfer_asset(client: Binance, asset: str) -> None:
+async def transfer_asset(client: exchanges.Exchange, asset: str) -> None:
     size = args.size
     if not size:
         balances = await client.map_balances(account=args.from_account)
