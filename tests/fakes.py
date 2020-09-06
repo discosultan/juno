@@ -24,7 +24,7 @@ class Exchange(exchanges.Exchange):
         future_candles=[],
         exchange_info=ExchangeInfo(),
         tickers=[],
-        balances={},
+        balances={'spot': {}},
         future_balances=[],
         depth=Depth.Snapshot(),
         future_depths=[],

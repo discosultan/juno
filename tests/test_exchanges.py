@@ -112,9 +112,9 @@ async def test_map_balances(loop, request, exchange: Exchange) -> None:
             pass
         accounts.extend(('margin', 'isolated'))
 
-    balances = await exchange.map_balances(*accounts)
-
-    assert types_match(balances, Dict[str, Dict[str, Balance]])
+    for account in accounts:
+        balances = await exchange.map_balances(account=account)
+        assert types_match(balances, Dict[str, Dict[str, Balance]])
 
 
 @pytest.mark.exchange

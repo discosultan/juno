@@ -27,7 +27,7 @@ class Advice(IntEnum):
 
 
 class Balance(NamedTuple):
-    available: Decimal
+    available: Decimal = Decimal('0.0')
     # TODO: Do we need it? Kraken doesn't provide that data, for example.
     hold: Decimal = Decimal('0.0')
     # Margin account related. Binance doesn't provide this through websocket!

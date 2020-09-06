@@ -31,7 +31,7 @@ class Exchange(ABC):
     # Result outer key - account
     # Result inner key - asset
     @abstractmethod
-    async def map_balances(self, *accounts: str) -> Dict[str, Dict[str, Balance]]:
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         pass
 
     @asynccontextmanager

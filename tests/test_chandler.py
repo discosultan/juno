@@ -418,7 +418,7 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
                     volume=Decimal('2.0'),
                 )
 
-    exchange = mocker.patch('juno.exchanges.Binance')
+    exchange = mocker.patch('juno.exchanges.Exchange')
     exchange.stream_historical_candles.side_effect = stream_historical_candles
     chandler = Chandler(storage=storage, exchanges=[exchange])
 

@@ -10,7 +10,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Awaitable, Dict, List, Optional
+from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 import aiohttp
 from multidict import MultiDict
@@ -222,10 +222,9 @@ class Binance(Exchange):
             ) for t in response_data
         ]
 
-    async def map_balances(self, *accounts: str) -> Dict[str, Dict[str, Balance]]:
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         result = {}
-
-        async def map_spot() -> None:
+        if account == 'spot':
             res = await self._api_request(
                 'GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA
             )
@@ -236,8 +235,7 @@ class Binance(Exchange):
                 )
                 for b in res.data['balances']
             }
-
-        async def map_margin() -> None:
+        elif account == 'margin':
             res = await self._api_request(
                 'GET', '/sapi/v1/margin/account', weight=1, security=_SEC_USER_DATA
             )
@@ -250,8 +248,7 @@ class Binance(Exchange):
                 )
                 for b in res.data['userAssets']
             }
-
-        async def map_isolated() -> None:
+        elif account == 'isolated':
             res = await self._api_request(
                 'GET', '/sapi/v1/margin/isolated/account', weight=1, security=_SEC_USER_DATA
             )
@@ -273,16 +270,8 @@ class Binance(Exchange):
                         interest=Decimal(quote_balance['interest']),
                     ),
                 }
-
-        tasks: List[Awaitable] = []
-        if 'spot' in accounts:
-            tasks.append(map_spot())
-        if 'margin' in accounts:
-            tasks.append(map_margin())
-        if 'isolated' in accounts:
-            tasks.append(map_isolated())
-        await asyncio.gather(*tasks)
-
+        else:
+            raise NotImplementedError()
         return result
 
     @asynccontextmanager

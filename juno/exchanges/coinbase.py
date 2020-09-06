@@ -125,15 +125,17 @@ class Coinbase(Exchange):
                     break
         return list(tickers.values())
 
-    async def map_balances(self, *accounts: str) -> Dict[str, Dict[str, Balance]]:
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         result = {}
-        if 'spot' in accounts:
+        if account == 'spot':
             res = await self._private_request('GET', '/accounts')
             result['spot'] = {
                 b['currency'].lower(): Balance(
                     available=Decimal(b['available']), hold=Decimal(b['hold'])
                 ) for b in res.data
             }
+        else:
+            raise NotImplementedError()
         return result
 
     async def stream_historical_candles(

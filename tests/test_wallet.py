@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import AsyncMock
 
 from juno import Balance
 from juno.components import Wallet
@@ -17,3 +18,31 @@ async def test_get_balance() -> None:
         )
 
     assert out_balance == balance
+
+
+async def test_all_significant_balances(mocker) -> None:
+    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
+    exchange.map_balances = AsyncMock(side_effect=[
+        {
+            'spot': {
+                'eth': Balance(),
+                'btc': Balance(available=Decimal('1.0')),
+            },
+        },
+        {
+            'eth-btc': {
+                'eth': Balance(available=Decimal('1.0')),
+                'btc': Balance(),
+            },
+        }
+    ])
+
+    async with Wallet(exchanges=[exchange]) as wallet:
+        balances = await wallet.map_balances(
+            exchange='magicmock', accounts=['spot', 'isolated'], significant=True
+        )
+
+    assert balances == {
+        'spot': {'btc': Balance(available=Decimal('1.0'))},
+        'eth-btc': {'eth': Balance(available=Decimal('1.0'))},
+    }
