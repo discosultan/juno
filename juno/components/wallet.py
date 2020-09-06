@@ -62,7 +62,10 @@ class Wallet:
         asset: str,
         account: str,
     ) -> Balance:
-        return (await self._exchanges[exchange].map_balances(account=account))[asset]
+        # Currently, for Binance, we need to put all isolated margin accounts into an umbrella
+        # 'isolated' account when requesting balances.
+        account_arg = account if account in ['spot', 'margin'] else 'isolated'
+        return (await self._exchanges[exchange].map_balances(account_arg))[account][asset]
 
     def get_updated_event(
         self,
