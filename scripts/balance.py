@@ -12,6 +12,7 @@ parser.add_argument(
     'accounts', nargs='?', type=lambda a: a.split(','), default='spot,margin,isolated'
 )
 parser.add_argument('-e', '--exchange', default='binance')
+# TODO: Support stream flag to also stream upcoming balance changes.
 args = parser.parse_args()
 
 
