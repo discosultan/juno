@@ -5,7 +5,7 @@ import logging
 from collections import defaultdict
 from decimal import Decimal
 from itertools import product
-from typing import AsyncIterable, Dict, Iterable, List, Set, Tuple
+from typing import AsyncIterable, Dict, Iterable, List, Optional, Set, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -33,53 +33,54 @@ class Wallet:
         await asyncio.gather(
             *(self._fetch_open_accounts(e) for e in self._exchanges.keys())
         )
-        await asyncio.gather(
-            self.ensure_sync(self._exchanges.keys(), ['spot']),
-            # self.ensure_sync(
-            #     (k for k, v in self._exchanges.items() if v.can_margin_trade),
-            #     ['margin'],
-            # ),
-        )
+        # TODO: Introduce a synchronization context.
+        # await asyncio.gather(
+        #     self.ensure_sync(self._exchanges.keys(), ['spot']),
+        #     # self.ensure_sync(
+        #     #     (k for k, v in self._exchanges.items() if v.can_margin_trade),
+        #     #     ['margin'],
+        #     # ),
+        # )
         _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(*self._sync_tasks.values())
 
-    def get_balance(
-        self,
-        exchange: str,
-        account: str,
-        asset: str,
-    ) -> Balance:
-        return self._exchange_accounts[exchange][account].balances[asset]
-
-    # TODO: Find a better solution for keeping local balances up-to-date. Consolidate with
-    # `get_balance`.
-    async def get_balance2(
+    async def get_balance(
         self,
         exchange: str,
         asset: str,
         account: str,
     ) -> Balance:
-        return (await self._exchanges[exchange].map_balances(account=account))[asset]
+        if account == 'isolated':
+            raise ValueError('Ambiguous account: isolated')
+        # Currently, for Binance, we need to put all isolated margin accounts into an umbrella
+        # 'isolated' account when requesting balances.
+        account_arg = account if account in ['spot', 'margin'] else 'isolated'
+        return (await self._exchanges[exchange].map_balances(account=account_arg))[account][asset]
 
-    def get_updated_event(
+    async def map_balances(
         self,
         exchange: str,
-        account: str,
-    ) -> Event[None]:
-        return self._exchange_accounts[exchange][account].updated
-
-    def map_significant_balances(
-        self,
-        exchange: str,
-        account: str,
-    ) -> Dict[str, Balance]:
-        return {
-            k: v for k, v in self._exchange_accounts[exchange][account].balances.items()
-            if v.significant
-        }
+        accounts: List[str],
+        significant: Optional[bool] = None,
+    ) -> Dict[str, Dict[str, Balance]]:
+        exchange_instance = self._exchanges[exchange]
+        result: Dict[str, Dict[str, Balance]] = {}
+        balances = await asyncio.gather(
+            *(exchange_instance.map_balances(account=a) for a in accounts)
+        )
+        for balance in balances:
+            result.update(balance)
+        # Filtering.
+        if significant is not None:
+            result = {
+                k: {
+                    a: b for a, b in v.items() if b.significant == significant
+                } for k, v in result.items()
+            }
+        return result
 
     async def transfer(
         self, exchange: str, asset: str, size: Decimal, from_account: str, to_account: str
@@ -162,7 +163,7 @@ class Wallet:
             # Figure out a better way to handle these. Perhaps separate balance and borrow state.
             async with exchange_instance.connect_stream_balances(account=account) as stream:
                 # Get initial status from REST API.
-                yield await exchange_instance.map_balances(account=account)
+                yield (await exchange_instance.map_balances(account=account))[account]
 
                 # Stream future updates over WS.
                 async for balances in stream:
@@ -172,7 +173,7 @@ class Wallet:
                 f'{exchange} does not support streaming {account} balances; fething only initial '
                 'balances; further updates not implemented'
             )
-            yield await exchange_instance.map_balances(account=account)
+            yield (await exchange_instance.map_balances(account))[account]
 
 
 class _Account:

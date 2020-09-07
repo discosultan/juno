@@ -2,8 +2,9 @@ import argparse
 import asyncio
 import logging
 from decimal import Decimal
+from typing import Dict
 
-from juno import Fill, Side, brokers, exchanges
+from juno import Balance, Fill, Side, brokers, exchanges
 from juno.components import Informant, Orderbook, Wallet
 from juno.config import from_env, init_instance
 from juno.storages import SQLite
@@ -35,10 +36,12 @@ async def main() -> None:
     orderbook = Orderbook(exchanges=[exchange], wallet=wallet)
     broker = get_module_type(brokers, args.broker)(informant, orderbook)
     async with exchange, informant, orderbook, wallet:
-        await wallet.ensure_sync(['binance'], [args.account])
+        balances = (await wallet.map_balances(
+            exchange=args.exchange, accounts=[args.account]
+        ))[args.account]
         await asyncio.gather(
             *(transact_symbol(
-                informant, orderbook, wallet, exchange, broker, s
+                informant, orderbook, exchange, broker, balances, s
             ) for s in args.symbols)
         )
 
@@ -46,20 +49,16 @@ async def main() -> None:
 async def transact_symbol(
     informant: Informant,
     orderbook: Orderbook,
-    wallet: Wallet,
     exchange: exchanges.Exchange,
     broker: brokers.Broker,
+    balances: Dict[str, Balance],
     symbol: str,
 ) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)
     fees, filters = informant.get_fees_filters(args.exchange, symbol)
 
-    available_base = wallet.get_balance(
-        exchange=args.exchange, account=args.account, asset=base_asset
-    ).available
-    available_quote = wallet.get_balance(
-        exchange=args.exchange, account=args.account, asset=quote_asset
-    ).available
+    available_base = balances[base_asset].available
+    available_quote = balances[quote_asset].available
     logging.info(
         f'available base: {available_base} {base_asset}; quote: {available_quote} '
         f'{quote_asset}'

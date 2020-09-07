@@ -103,37 +103,18 @@ async def test_list_one_ticker(loop, request, exchange: Exchange) -> None:
 async def test_map_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    balances = await exchange.map_balances(account='spot')
+    accounts = ['spot']
+    if isinstance(exchange, Binance):
+        # Make sure the isolated margin account is open.
+        try:
+            await exchange.create_account('eth-btc')
+        except ExchangeException:
+            pass
+        accounts.extend(('margin', 'isolated'))
 
-    assert types_match(balances, Dict[str, Balance])
-
-
-@pytest.mark.exchange
-@pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_cross_margin_balances(loop, request, exchange: Exchange) -> None:
-    skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_margin_trade)
-
-    balances = await exchange.map_balances(account='margin')
-
-    assert types_match(balances, Dict[str, Balance])
-
-
-@pytest.mark.exchange
-@pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_isolated_margin_balances(loop, request, exchange: Exchange) -> None:
-    skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_margin_trade)
-
-    try:
-        await exchange.create_account('eth-btc')
-    except ExchangeException:
-        pass
-    balances = await exchange.map_balances(account='eth-btc')
-
-    assert types_match(balances, Dict[str, Balance])
+    for account in accounts:
+        balances = await exchange.map_balances(account=account)
+        assert types_match(balances, Dict[str, Dict[str, Balance]])
 
 
 @pytest.mark.exchange

@@ -796,7 +796,7 @@ class PositionMixin(ABC):
                 end=time_ms(),
             )
         else:
-            interest = (await self.wallet.get_balance2(
+            interest = (await self.wallet.get_balance(
                 exchange=position.exchange,
                 asset=base_asset,
                 account=position.symbol,
@@ -833,7 +833,7 @@ class PositionMixin(ABC):
             # still be borrowed funds on the account. Double check and repay more if that is the
             # case.
             # Careful with this check! We may have another position still open.
-            new_balance = await self.wallet.get_balance2(
+            new_balance = await self.wallet.get_balance(
                 exchange=position.exchange,
                 asset=base_asset,
                 account=position.symbol,
@@ -859,7 +859,7 @@ class PositionMixin(ABC):
                     size=new_balance.repay,
                     account=position.symbol,
                 )
-                assert (await self.wallet.get_balance2(
+                assert (await self.wallet.get_balance(
                     exchange=position.exchange,
                     asset=base_asset,
                     account=position.symbol,

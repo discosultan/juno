@@ -241,7 +241,9 @@ async def test_live(exchange: fakes.Exchange, container: Container) -> None:
         ],
     ))
     exchange.exchange_info = ExchangeInfo(candle_intervals=[1])
-    exchange.balances = {'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0'))}
+    exchange.balances = {
+        'spot': {'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0'))}
+    }
     exchange.place_order_result = OrderResult(
         time=2,
         status=OrderStatus.FILLED,
@@ -291,7 +293,7 @@ async def test_live_persist_and_resume(
     container.add_singleton_instance(Callable[[], int], lambda: fakes.Time(time=0).get_time)
     container.add_singleton_type(Broker, lambda: Market)
     exchange.candle_queue.put_nowait(Candle(time=0, close=Decimal('1.0')))
-    exchange.balances = {'btc': Balance(available=Decimal('1.0'))}
+    exchange.balances = {'spot': {'btc': Balance(available=Decimal('1.0'))}}
     exchange.can_stream_depth_snapshot = False
     exchange.exchange_info = ExchangeInfo(candle_intervals=[1])
     config = Live.Config(

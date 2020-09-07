@@ -107,15 +107,17 @@ class Kraken(Exchange):
             ) for pair, val in res['result'].items()
         ]
 
-    async def map_balances(self, account: str) -> Dict[str, Balance]:
-        if account != 'spot':
-            raise NotImplementedError()
-        res = await self._request_private('/0/private/Balance')
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         result = {}
-        for asset, available in res['result'].items():
-            if len(asset) == 4 and asset[0] in ['X', 'Z']:
-                asset = asset[1:]
-            result[asset.lower()] = Balance(available=Decimal(available), hold=Decimal('0.0'))
+        if account == 'spot':
+            res = await self._request_private('/0/private/Balance')
+            result['spot'] = {
+                a[1:].lower(): Balance(available=Decimal(v), hold=Decimal('0.0'))
+                for a, v in res['result'].items()
+                if len(a) == 4 and a[0] in ['X', 'Z']
+            }
+        else:
+            raise NotImplementedError()
         return result
 
     async def stream_historical_candles(

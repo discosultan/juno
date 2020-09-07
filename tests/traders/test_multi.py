@@ -1,6 +1,5 @@
 import asyncio
 from decimal import Decimal
-from unittest.mock import AsyncMock
 
 import pytest
 
@@ -372,14 +371,14 @@ async def test_close_on_exit(
 
 
 async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
-    wallet = mocker.patch('juno.components.wallet.Wallet')
+    wallet = mocker.patch('juno.components.wallet.Wallet', autospec=True)
     wallet.get_balance.return_value = Balance(Decimal('1.0'))
-    broker = mocker.patch('juno.brokers.market.Market')
-    broker.buy = AsyncMock(return_value=OrderResult(
+    broker = mocker.patch('juno.brokers.market.Market', autospec=True)
+    broker.buy.return_value = OrderResult(
         time=0,
         status=OrderStatus.FILLED,
         fills=[Fill.with_computed_quote(price=Decimal('1.0'), size=Decimal('1.0'))],
-    ))
+    )
 
     chandler = fakes.Chandler(
         future_candles={('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]},

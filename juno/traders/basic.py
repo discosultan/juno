@@ -134,7 +134,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             state.real_start = self._get_time_ms()
 
         if state.quote == -1:
-            state.quote = self.request_quote(
+            state.quote = await self.request_quote(
                 config.quote, config.exchange, config.quote_asset, config.mode
             )
             assert state.quote > filters.price.min

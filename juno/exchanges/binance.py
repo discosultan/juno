@@ -222,43 +222,57 @@ class Binance(Exchange):
             ) for t in response_data
         ]
 
-    async def map_balances(self, account: str) -> Dict[str, Balance]:
-        weight = 5 if account == 'spot' else 1
-        if account in ['spot', 'margin']:
-            url = '/api/v3/account' if account == 'spot' else '/sapi/v1/margin/account'
-            res = await self._api_request('GET', url, weight=weight, security=_SEC_USER_DATA)
-            is_margin = account == 'margin'
-            return {
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
+        result = {}
+        if account == 'spot':
+            res = await self._api_request(
+                'GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA
+            )
+            result['spot'] = {
                 b['asset'].lower(): Balance(
                     available=Decimal(b['free']),
                     hold=Decimal(b['locked']),
-                    borrowed=Decimal(b['borrowed'] if is_margin else Decimal('0.0')),
-                    interest=Decimal(b['interest'] if is_margin else Decimal('0.0')),
                 )
-                for b in res.data['userAssets' if is_margin else 'balances']
+                for b in res.data['balances']
             }
+        elif account == 'margin':
+            res = await self._api_request(
+                'GET', '/sapi/v1/margin/account', weight=1, security=_SEC_USER_DATA
+            )
+            result['margin'] = {
+                b['asset'].lower(): Balance(
+                    available=Decimal(b['free']),
+                    hold=Decimal(b['locked']),
+                    borrowed=Decimal(b['borrowed']),
+                    interest=Decimal(b['interest']),
+                )
+                for b in res.data['userAssets']
+            }
+        elif account == 'isolated':
+            res = await self._api_request(
+                'GET', '/sapi/v1/margin/isolated/account', weight=1, security=_SEC_USER_DATA
+            )
+            for balances in res.data['assets']:
+                base_asset, quote_asset = unpack_symbol(_from_symbol(balances['symbol']))
+                base_balance = balances['baseAsset']
+                quote_balance = balances['quoteAsset']
+                result[f'{base_asset}-{quote_asset}'] = {
+                    base_asset: Balance(
+                        available=Decimal(base_balance['free']),
+                        hold=Decimal(base_balance['locked']),
+                        borrowed=Decimal(base_balance['borrowed']),
+                        interest=Decimal(base_balance['interest']),
+                    ),
+                    quote_asset: Balance(
+                        available=Decimal(quote_balance['free']),
+                        hold=Decimal(quote_balance['locked']),
+                        borrowed=Decimal(quote_balance['borrowed']),
+                        interest=Decimal(quote_balance['interest']),
+                    ),
+                }
         else:
-            url = '/sapi/v1/margin/isolated/account'
-            res = await self._api_request('GET', url, weight=weight, security=_SEC_USER_DATA)
-            # TODO: _from_symbol called twice
-            balances = next(a for a in res.data['assets'] if _from_symbol(a['symbol']) == account)
-            base_asset, quote_asset = unpack_symbol(_from_symbol(balances['symbol']))
-            base_balance = balances['baseAsset']
-            quote_balance = balances['quoteAsset']
-            return {
-                base_asset: Balance(
-                    available=Decimal(base_balance['free']),
-                    hold=Decimal(base_balance['locked']),
-                    borrowed=Decimal(base_balance['borrowed']),
-                    interest=Decimal(base_balance['interest']),
-                ),
-                quote_asset: Balance(
-                    available=Decimal(quote_balance['free']),
-                    hold=Decimal(quote_balance['locked']),
-                    borrowed=Decimal(quote_balance['borrowed']),
-                    interest=Decimal(quote_balance['interest']),
-                ),
-            }
+            raise NotImplementedError()
+        return result
 
     @asynccontextmanager
     async def connect_stream_balances(

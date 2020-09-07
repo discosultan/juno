@@ -28,8 +28,10 @@ class Exchange(ABC):
         # Empty list to disable filter.
         pass
 
+    # Result outer key - account
+    # Result inner key - asset
     @abstractmethod
-    async def map_balances(self, account: str) -> Dict[str, Balance]:
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         pass
 
     @asynccontextmanager
