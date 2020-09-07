@@ -11,7 +11,7 @@ async def test_get_balance(mocker) -> None:
     exchange.map_balances.return_value = {'spot': {'btc': balance}}
 
     async with Wallet(exchanges=[exchange]) as wallet:
-        out_balance = wallet.get_balance(
+        out_balance = await wallet.get_balance(
             exchange='magicmock', account='spot', asset='btc'
         )
 
