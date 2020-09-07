@@ -36,9 +36,9 @@ async def main() -> None:
     orderbook = Orderbook(exchanges=[exchange], wallet=wallet)
     broker = get_module_type(brokers, args.broker)(informant, orderbook)
     async with exchange, informant, orderbook, wallet:
-        balances = await wallet.map_balances(
+        balances = (await wallet.map_balances(
             exchange=args.exchange, accounts=[args.account]
-        )[args.account]
+        ))[args.account]
         await asyncio.gather(
             *(transact_symbol(
                 informant, orderbook, exchange, broker, balances, s

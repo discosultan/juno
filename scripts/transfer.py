@@ -24,7 +24,7 @@ async def main() -> None:
 async def transfer_asset(client: exchanges.Exchange, asset: str) -> None:
     size = args.size
     if not size:
-        balances = await client.map_balances(account=args.from_account)
+        balances = (await client.map_balances(account=args.from_account))[args.from_account]
         size = balances[asset].available
     await client.transfer(
         asset=asset, size=size, from_account=args.from_account, to_account=args.to_account

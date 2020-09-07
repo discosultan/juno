@@ -176,7 +176,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
 
         if state.quotes is None:
-            quote = self.request_quote(config.quote, config.exchange, 'btc', config.mode)
+            quote = await self.request_quote(config.quote, config.exchange, 'btc', config.mode)
             position_quote = quote / config.position_count
             for symbol in state.symbols:
                 fees, filters = self._informant.get_fees_filters(config.exchange, symbol)

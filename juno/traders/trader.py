@@ -28,7 +28,7 @@ class Trader(ABC):
     async def run(self, config: Any, state: Optional[Any] = None) -> TradingSummary:
         pass
 
-    def request_quote(
+    async def request_quote(
         self, quote: Optional[Decimal], exchange: str, asset: str, mode: TradingMode
     ) -> Decimal:
         if mode in [TradingMode.BACKTEST, TradingMode.PAPER]:
@@ -36,9 +36,9 @@ class Trader(ABC):
                 raise ValueError('Quote must be specified when backtesting or paper trading')
             return quote
 
-        available_quote = await self.wallet.get_balance(
+        available_quote = (await self.wallet.get_balance(
             exchange=exchange, account='spot', asset=asset
-        ).available
+        )).available
 
         if quote is None:
             _log.info(f'quote not specified; using available {available_quote} {asset}')

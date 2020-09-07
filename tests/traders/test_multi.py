@@ -371,7 +371,7 @@ async def test_close_on_exit(
 
 
 async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
-    wallet = mocker.patch('juno.components.wallet.Wallet')
+    wallet = mocker.patch('juno.components.wallet.Wallet', autospec=True)
     wallet.get_balance.return_value = Balance(Decimal('1.0'))
     broker = mocker.patch('juno.brokers.market.Market', autospec=True)
     broker.buy.return_value = OrderResult(

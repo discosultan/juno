@@ -19,17 +19,6 @@ _log = logging.getLogger(__name__)
 
 
 class Wallet:
-    # class Synchronized:
-    #     def __init__(self) -> None:
-    #       pass
-
-    #     def get_balance(self) -> Balance:
-    #       pass
-
-    #     @property
-    #     def updated(self) -> Event[None]:
-    #         return self._exchange_accounts[exchange][account].updated
-
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         # Outer key: <exchange>
@@ -39,13 +28,12 @@ class Wallet:
         )
         self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
         self._open_accounts: Dict[str, Set[str]] = {}
-        # self._streams: Dict[Tuple[str, str], ]
 
     async def __aenter__(self) -> Wallet:
-        # TODO: Make fetching open accounts also lazy.
         await asyncio.gather(
             *(self._fetch_open_accounts(e) for e in self._exchanges.keys())
         )
+        # TODO: Introduce a synchronization context.
         # await asyncio.gather(
         #     self.ensure_sync(self._exchanges.keys(), ['spot']),
         #     # self.ensure_sync(

@@ -59,6 +59,7 @@ class Orderbook:
             _log.warning('wallet not setup')
 
     async def __aenter__(self) -> Orderbook:
+        # TODO: Introduce a synchronization context.
         await self.ensure_sync(self._exchanges.keys(), self._symbols)
         _log.info('ready')
         return self
