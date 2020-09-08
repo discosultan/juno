@@ -14,7 +14,7 @@ from juno import BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Tic
 from juno.asyncio import cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.storages import Storage
-from juno.time import DAY_MS, strfinterval, time_ms
+from juno.time import HOUR_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
 from juno.utils import unpack_symbol
 
@@ -35,7 +35,7 @@ class Informant:
         storage: Storage,
         exchanges: List[Exchange],
         get_time_ms: Callable[[], int] = time_ms,
-        cache_time: int = DAY_MS,
+        cache_time: int = 6 * HOUR_MS,
     ) -> None:
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
