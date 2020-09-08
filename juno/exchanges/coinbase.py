@@ -107,7 +107,9 @@ class Coinbase(Exchange):
             candle_intervals=[60000, 300000, 900000, 3600000, 21600000, 86400000]
         )
 
-    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+        # TODO: Use REST endpoint instead of WS here?
+        # https://docs.pro.coinbase.com/#get-product-ticker
         # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
         if not symbols:
             raise ValueError('Empty symbols list not supported')
@@ -117,13 +119,13 @@ class Coinbase(Exchange):
             async for msg in ws:
                 symbol = _from_product(msg['product_id'])
                 tickers[symbol] = Ticker(
-                    symbol=symbol,
-                    volume=Decimal(msg['volume_24h']),
-                    quote_volume=Decimal('0.0')  # Not supported.
+                    volume=Decimal(msg['volume_24h']),  # TODO: incorrect?!
+                    quote_volume=Decimal('0.0'),  # Not supported.
+                    price=Decimal(msg['price']),
                 )
                 if len(tickers) == len(symbols):
                     break
-        return list(tickers.values())
+        return tickers
 
     async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         result = {}

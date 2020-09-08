@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
+from more_itertools import take
+
 from juno import Advice, Candle, Interval, Timestamp
 from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
@@ -238,22 +240,22 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         return state.summary
 
     async def _find_top_symbols(self, config: Config) -> List[str]:
-        tickers = self._informant.list_tickers(
-            config.exchange, symbol_pattern=SYMBOL_PATTERN, spot=True, isolated_margin=True
+        tickers = self._informant.map_tickers(
+            config.exchange, symbol_patterns=[SYMBOL_PATTERN],
+            exclude_symbol_patterns=config.track_exclude, spot=True, isolated_margin=True
         )
         # Filter.
         if config.track_required_start is not None:
             first_candles = await asyncio.gather(
                 *(
-                    self._chandler.get_first_candle(config.exchange, t.symbol, config.interval)
-                    for t in tickers
+                    self._chandler.get_first_candle(config.exchange, s, config.interval)
+                    for s in tickers.keys()
                 )
             )
-            tickers = [
-                t for t, c in zip(tickers, first_candles) if c.time <= config.track_required_start
-            ]
-        if config.track_exclude:
-            tickers = [t for t in tickers if t not in config.track_exclude]
+            tickers = {
+                s: t for (s, t), c in zip(tickers.items(), first_candles)
+                if c.time <= config.track_required_start
+            }
         # Validate.
         if len(tickers) < config.track_count:
             required_start_msg = (
@@ -266,7 +268,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
         # Compose.
         count = config.track_count - len(config.track)
-        return config.track + [t.symbol for t in tickers[0:count] if t not in config.track]
+        return config.track + [s for s, t in take(count, tickers.items()) if t not in config.track]
 
     async def _manage_positions(
         self, config: Config, state: State, candles_updated: SlotBarrier,

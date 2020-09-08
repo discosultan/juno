@@ -3,7 +3,7 @@ import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, NamedTuple, Optional, Union
 
 import pytest
 
@@ -87,7 +87,16 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
 @pytest.mark.parametrize('item,type_', [
     (Candle(time=1, close=Decimal('1.0')), Candle),
     (ExchangeInfo(candle_intervals=[1, 2]), ExchangeInfo),
-    ([Ticker(symbol='eth-btc', volume=Decimal('1.0'), quote_volume=Decimal('0.1'))], List[Ticker]),
+    (
+        {
+            'eth-btc': Ticker(
+                volume=Decimal('1.0'),
+                quote_volume=Decimal('0.1'),
+                price=Decimal('1.0'),
+            ),
+        },
+        Dict[str, Ticker],
+    ),
     ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees]),
     (
         Position.Long(

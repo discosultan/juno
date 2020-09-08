@@ -44,3 +44,27 @@ async def test_map_all_significant_balances(mocker) -> None:
         'spot': {'btc': Balance(available=Decimal('1.0'))},
         'eth-btc': {'eth': Balance(available=Decimal('1.0'))},
     }
+
+
+async def test_map_all_isolated(mocker) -> None:
+    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
+    exchange.map_balances.return_value = {
+        'eth-btc': {
+            'eth': Balance(available=Decimal('1.0')),
+            'btc': Balance(available=Decimal('2.0')),
+        },
+        'ltc-btc': {
+            'ltc': Balance(),
+            'btc': Balance(),
+        },
+    }
+
+    async with Wallet(exchanges=[exchange]) as wallet:
+        balances = await wallet.map_balances(exchange='magicmock', accounts=['eth-btc'])
+
+    assert balances == {
+        'eth-btc': {
+            'eth': Balance(available=Decimal('1.0')),
+            'btc': Balance(available=Decimal('2.0')),
+        },
+    }

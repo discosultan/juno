@@ -798,8 +798,8 @@ class PositionMixin(ABC):
         else:
             interest = (await self.wallet.get_balance(
                 exchange=position.exchange,
-                asset=base_asset,
                 account=position.symbol,
+                asset=base_asset,
             )).interest
 
         size = position.borrowed + interest
@@ -835,8 +835,8 @@ class PositionMixin(ABC):
             # Careful with this check! We may have another position still open.
             new_balance = await self.wallet.get_balance(
                 exchange=position.exchange,
-                asset=base_asset,
                 account=position.symbol,
+                asset=base_asset,
             )
             if new_balance.repay > 0:
                 _log.warning(
@@ -861,8 +861,8 @@ class PositionMixin(ABC):
                 )
                 assert (await self.wallet.get_balance(
                     exchange=position.exchange,
-                    asset=base_asset,
                     account=position.symbol,
+                    asset=base_asset,
                 )).repay == 0
 
             transfer = closed_position.collateral + closed_position.profit

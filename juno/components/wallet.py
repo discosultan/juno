@@ -50,8 +50,8 @@ class Wallet:
     async def get_balance(
         self,
         exchange: str,
-        asset: str,
         account: str,
+        asset: str,
     ) -> Balance:
         if account == 'isolated':
             raise ValueError('Ambiguous account: isolated')
@@ -66,13 +66,19 @@ class Wallet:
         accounts: List[str],
         significant: Optional[bool] = None,
     ) -> Dict[str, Dict[str, Balance]]:
+        account_args = {a if a in ['spot', 'margin'] else 'isolated' for a in accounts}
+
         exchange_instance = self._exchanges[exchange]
         result: Dict[str, Dict[str, Balance]] = {}
         balances = await asyncio.gather(
-            *(exchange_instance.map_balances(account=a) for a in accounts)
+            *(exchange_instance.map_balances(account=a) for a in account_args)
         )
         for balance in balances:
             result.update(balance)
+        if 'isolated' not in accounts:
+            for key in list(result.keys()):
+                if key not in accounts:
+                    del result[key]
         # Filtering.
         if significant is not None:
             result = {
