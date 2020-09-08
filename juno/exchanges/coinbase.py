@@ -119,7 +119,6 @@ class Coinbase(Exchange):
             async for msg in ws:
                 symbol = _from_product(msg['product_id'])
                 tickers[symbol] = Ticker(
-                    symbol=symbol,
                     volume=Decimal(msg['volume_24h']),  # TODO: incorrect?!
                     quote_volume=Decimal('0.0'),  # Not supported.
                     price=Decimal(msg['price']),

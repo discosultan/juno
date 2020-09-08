@@ -100,8 +100,7 @@ class Kraken(Exchange):
 
         res = await self._request_public('GET', '/0/public/Ticker', data=data)
         return {
-            (s := _from_symbol(pair)): Ticker(
-                symbol=s,
+            _from_symbol(pair): Ticker(
                 volume=Decimal(val['v'][1]),
                 quote_volume=Decimal('0.0'),  # Not supported.
                 price=Decimal(val['c'][0]),

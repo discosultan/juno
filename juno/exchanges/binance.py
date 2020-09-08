@@ -215,8 +215,7 @@ class Binance(Exchange):
         res = await self._api_request('GET', '/api/v3/ticker/24hr', data=data, weight=weight)
         response_data = [res.data] if symbols else res.data
         return {
-            (s := _from_symbol(t['symbol'])): Ticker(
-                symbol=s,
+            _from_symbol(t['symbol']): Ticker(
                 volume=Decimal(t['volume']),
                 quote_volume=Decimal(t['quoteVolume']),
                 price=Decimal(t['lastPrice']),

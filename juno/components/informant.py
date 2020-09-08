@@ -164,39 +164,47 @@ class Informant:
         return list(result)
 
     # TODO: bound to be out-of-date with the current syncing approach
-    def list_tickers(
+    def map_tickers(
         self,
         exchange: str,
-        symbol_pattern: Optional[str] = None,
+        symbol_patterns: Optional[List[str]] = None,
+        exclude_symbol_patterns: Optional[List[str]] = None,
         spot: Optional[bool] = None,
         cross_margin: Optional[bool] = None,
         isolated_margin: Optional[bool] = None,
-    ) -> List[Ticker]:
+    ) -> Dict[str, Ticker]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         all_tickers = self._synced_data[exchange][_Timestamped[Dict[str, Ticker]]].item
 
-        result = (t for t in all_tickers.values())
+        result = ((s, t) for s, t in all_tickers.items())
 
-        if symbol_pattern is not None:
-            result = (t for t in result if fnmatch.fnmatch(t.symbol, symbol_pattern))
+        if symbol_patterns is not None:
+            result = (
+                (s, t) for s, t in result if any(fnmatch.fnmatch(s, p) for p in symbol_patterns)
+            )
+        if exclude_symbol_patterns is not None:
+            result = (
+                (s, t) for s, t in result
+                if not all(fnmatch.fnmatch(s, p) for p in exclude_symbol_patterns)
+            )
         if spot is not None:
             result = (
-                t for t in result
-                if exchange_info.filters[t.symbol].spot == spot
+                (s, t) for s, t in result
+                if exchange_info.filters[s].spot == spot
             )
         if cross_margin is not None:
             result = (
-                t for t in result
-                if exchange_info.filters[t.symbol].cross_margin == cross_margin
+                (s, t) for s, t in result
+                if exchange_info.filters[s].cross_margin == cross_margin
             )
         if isolated_margin is not None:
             result = (
-                t for t in result
-                if exchange_info.filters[t.symbol].isolated_margin == isolated_margin
+                (s, t) for s, t in result
+                if exchange_info.filters[s].isolated_margin == isolated_margin
             )
 
         # Sorted by quote volume desc. Watch out when queried with different quote assets.
-        return sorted(result, key=lambda t: t.quote_volume, reverse=True)
+        return dict(sorted(result, key=lambda st: st[1].quote_volume, reverse=True))
 
     def list_exchanges(self, symbol: Optional[str] = None) -> List[str]:
         result = (e for e in self._exchanges.keys())

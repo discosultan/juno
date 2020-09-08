@@ -241,7 +241,6 @@ class Side(IntEnum):
 
 
 class Ticker(NamedTuple):
-    symbol: str
     volume: Decimal  # 24h.
     quote_volume: Decimal  # 24h.
     price: Decimal  # Last.

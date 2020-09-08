@@ -3,7 +3,7 @@ import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, NamedTuple, Optional, Union
 
 import pytest
 
@@ -90,7 +90,6 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
     (
         {
             'eth-btc': Ticker(
-                symbol='eth-btc',
                 volume=Decimal('1.0'),
                 quote_volume=Decimal('0.1'),
                 price=Decimal('1.0'),

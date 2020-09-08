@@ -237,8 +237,9 @@ class Informant(components.Informant):
     def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
 
-    def list_tickers(
-        self, exchange, symbol_pattern=None, spot=True, cross_margin=False, isolated_margin=False
+    def map_tickers(
+        self, exchange, symbol_patterns=None, exclude_symbol_patterns=None, spot=True,
+        cross_margin=False, isolated_margin=False
     ):
         return self.tickers
 
