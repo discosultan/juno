@@ -22,7 +22,7 @@ async def main() -> None:
             )
             assets = [
                 a for a, b in balances['spot'].items()
-                if a != 'btc'
+                if a not in {'btc', 'bnb'}
                 and (s := f'{a}-btc') in tickers
                 and b.hold == 0
                 and b.available > 0
