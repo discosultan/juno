@@ -65,9 +65,9 @@ class Informant:
         self._tickers_sync_task = create_task_cancel_on_exc(
             self._periodic_sync_for_exchanges(
                 'tickers',
-                _Timestamped[List[Ticker]],
+                _Timestamped[Dict[str, Ticker]],
                 tickers_synced_evt,
-                lambda e: e.list_tickers(),
+                lambda e: e.map_tickers(),
                 [n for n, e in self._exchanges.items() if e.can_list_all_tickers],
             )
         )
@@ -163,6 +163,7 @@ class Informant:
 
         return list(result)
 
+    # TODO: bound to be out-of-date with the current syncing approach
     def list_tickers(
         self,
         exchange: str,
@@ -172,9 +173,9 @@ class Informant:
         isolated_margin: Optional[bool] = None,
     ) -> List[Ticker]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        all_tickers = self._synced_data[exchange][_Timestamped[List[Ticker]]].item
+        all_tickers = self._synced_data[exchange][_Timestamped[Dict[str, Ticker]]].item
 
-        result = (t for t in all_tickers)
+        result = (t for t in all_tickers.values())
 
         if symbol_pattern is not None:
             result = (t for t in result if fnmatch.fnmatch(t.symbol, symbol_pattern))

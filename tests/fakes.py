@@ -23,7 +23,7 @@ class Exchange(exchanges.Exchange):
         historical_candles=[],
         future_candles=[],
         exchange_info=ExchangeInfo(),
-        tickers=[],
+        tickers={},
         balances={'spot': {}},
         future_balances=[],
         depth=Depth.Snapshot(),
@@ -74,7 +74,7 @@ class Exchange(exchanges.Exchange):
         self.get_exchange_info_calls.append([result])
         return result
 
-    async def list_tickers(self):
+    async def map_tickers(self):
         return self.tickers
 
     async def map_balances(self, account):
@@ -201,7 +201,7 @@ class Informant(components.Informant):
         filters=Filters(),
         symbols=[],
         candle_intervals=[],
-        tickers=[],
+        tickers={},
         exchanges=[],
         borrow_info=BorrowInfo(),
         margin_multiplier=2,

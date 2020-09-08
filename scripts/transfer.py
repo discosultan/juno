@@ -4,6 +4,7 @@ import logging
 from decimal import Decimal
 
 from juno import exchanges
+from juno.components import Wallet
 from juno.config import from_env, init_instance
 from juno.utils import get_module_type
 
@@ -17,15 +18,19 @@ args = parser.parse_args()
 
 
 async def main() -> None:
-    async with init_instance(get_module_type(exchanges, args.exchange), from_env()) as client:
-        await asyncio.gather(*(transfer_asset(client, a) for a in args.assets))
+    client = init_instance(get_module_type(exchanges, args.exchange), from_env())
+    wallet = Wallet([client])
+    async with client, wallet:
+        await asyncio.gather(*(transfer_asset(wallet, client, a) for a in args.assets))
 
 
-async def transfer_asset(client: exchanges.Exchange, asset: str) -> None:
+async def transfer_asset(wallet: Wallet, client: exchanges.Exchange, asset: str) -> None:
     size = args.size
     if not size:
-        balances = (await client.map_balances(account=args.from_account))[args.from_account]
-        size = balances[asset].available
+        balance = await wallet.get_balance(
+            exchange=args.exchange, account=args.from_account, asset=asset
+        )
+        size = balance.available
     await client.transfer(
         asset=asset, size=size, from_account=args.from_account, to_account=args.to_account
     )

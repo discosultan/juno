@@ -206,7 +206,7 @@ class Binance(Exchange):
             borrow_info=borrow_info,
         )
 
-    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
         if len(symbols) > 1:
             raise NotImplementedError()
 
@@ -214,13 +214,14 @@ class Binance(Exchange):
         weight = 1 if symbols else 40
         res = await self._api_request('GET', '/api/v3/ticker/24hr', data=data, weight=weight)
         response_data = [res.data] if symbols else res.data
-        return [
-            Ticker(
-                symbol=_from_symbol(t['symbol']),
+        return {
+            (s := _from_symbol(t['symbol'])): Ticker(
+                symbol=s,
                 volume=Decimal(t['volume']),
-                quote_volume=Decimal(t['quoteVolume'])
+                quote_volume=Decimal(t['quoteVolume']),
+                price=Decimal(t['lastPrice']),
             ) for t in response_data
-        ]
+        }
 
     async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         result = {}
