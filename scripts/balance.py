@@ -27,13 +27,15 @@ async def log_balances(wallet: Wallet) -> None:
     account_balances = await wallet.map_balances(
         exchange=args.exchange, accounts=args.accounts, significant=True
     )
+    all_empty = True
     for account, account_balance in account_balances.items():
-        logging.info(f'{args.exchange} {account} account')
-        if len(account_balance) == 0:
-            logging.info('nothing to show')
-        else:
+        if len(account_balance) > 0:
+            all_empty = False
+            logging.info(f'{args.exchange} {account} account')
             for asset, balance in account_balance.items():
                 logging.info(f'{asset} - {balance}')
+    if all_empty:
+        logging.info('all accounts empty')
 
 
 asyncio.run(main())

@@ -16,4 +16,5 @@ async def main() -> None:
         max_borrowable = await client.get_max_borrowable(asset=args.asset, account=args.account)
         logging.info(f'max borrowable {max_borrowable} {args.asset}')
 
+
 asyncio.run(main())

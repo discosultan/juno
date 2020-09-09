@@ -7,6 +7,7 @@ from juno.exchanges import Binance
 
 parser = argparse.ArgumentParser()
 parser.add_argument('assets', nargs='?', type=lambda s: s.split(','), default=None)
+parser.add_argument('--test', action='store_true', default=False)
 args = parser.parse_args()
 
 DUST_BTC_THRESHOLD = 0.001
@@ -30,7 +31,8 @@ async def main() -> None:
             ]
         if len(assets) > 0:
             logging.info(f'converting {assets}')
-            await client.convert_dust(assets)
+            if not args.test:
+                await client.convert_dust(assets)
         else:
             logging.info('nothing to convert')
 

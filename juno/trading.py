@@ -733,7 +733,7 @@ class PositionMixin(ABC):
         if mode is TradingMode.PAPER:
             borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         else:
-            _log.info(f'transferring {collateral} {quote_asset} to margin account')
+            _log.info(f'transferring {collateral} {quote_asset} from spot to {symbol} account')
             await self.wallet.transfer(
                 exchange=exchange,
                 asset=quote_asset,
@@ -741,6 +741,8 @@ class PositionMixin(ABC):
                 from_account='spot',
                 to_account=symbol,
             )
+            # TODO: We need to subscribe to wallet balance stream and wait for an update event
+            # before we can borrow/get_max_borrowable.
             borrowed = min(
                 _calculate_borrowed(filters, margin_multiplier, collateral, price),
                 await self.wallet.get_max_borrowable(
@@ -866,7 +868,9 @@ class PositionMixin(ABC):
                 )).repay == 0
 
             transfer = closed_position.collateral + closed_position.profit
-            _log.info(f'transferring {transfer} {quote_asset} to spot account')
+            _log.info(
+                f'transferring {transfer} {quote_asset} from {position.symbol} to spot account'
+            )
             await self.wallet.transfer(
                 exchange=position.exchange,
                 asset=quote_asset,
