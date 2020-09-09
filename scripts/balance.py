@@ -23,6 +23,8 @@ async def main() -> None:
     async with client, wallet:
         await log_accounts(wallet, args.accounts)
         if args.stream:
+            if 'isolated' in args.accounts:
+                raise ValueError('Cannot stream all isolated margin accounts')
             await asyncio.gather(*(stream_account(wallet, a) for a in args.accounts))
 
 
@@ -42,7 +44,7 @@ async def log_accounts(wallet: Wallet, accounts: List[str]) -> None:
 
 
 async def stream_account(wallet: Wallet, account: str) -> None:
-    async with wallet.sync_balances(account=account) as ctx:
+    async with wallet.sync_balances(exchange=args.exchange, account=account) as ctx:
         while True:
             await ctx.updated.wait()
             log(account, ctx.balances)

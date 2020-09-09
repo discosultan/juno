@@ -271,7 +271,6 @@ class Event(Generic[T]):
             await self._event.wait()
         if self._autoclear:
             self.clear()
-        # Ugly but we can't really express ourselves clearly to the type system.
         return cast(T, self._event_data)
 
     async def stream(self, timeout: Optional[float] = None) -> AsyncIterable[T]:

@@ -241,9 +241,10 @@ class Orderbook:
             )
         await barrier.wait()
 
+    # TODO: Move to wallet.
     async def _ensure_account(self, exchange: str, account: str) -> None:
         if self._wallet:
-            await self._wallet.ensure_account(exchange, account)
+            await self._wallet._ensure_account(exchange, account)
 
     async def _sync_orderbook(self, exchange: str, symbol: str, barrier: SlotBarrier) -> None:
         orderbook = self._data[exchange][symbol]
