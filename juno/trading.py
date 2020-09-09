@@ -741,6 +741,8 @@ class PositionMixin(ABC):
                 from_account='spot',
                 to_account=symbol,
             )
+            # TODO: We need to subscribe to wallet balance stream and wait for an update event
+            # before we can borrow/get_max_borrowable.
             borrowed = min(
                 _calculate_borrowed(filters, margin_multiplier, collateral, price),
                 await self.wallet.get_max_borrowable(
