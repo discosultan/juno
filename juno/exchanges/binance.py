@@ -996,10 +996,14 @@ class UserDataStream:
                 await self._cancel()
 
     async def _cancel(self) -> None:
-        await cancel(self._listen_key_refresh_task, self._stream_user_data_task)
+        to_cancel = [
+            self._listen_key_refresh_task,
+            self._stream_user_data_task,
+        ]
         # We set the tasks to `None` so that we could re-initate the stream again.
         self._listen_key_refresh_task = None
         self._stream_user_data_task = None
+        await cancel(*to_cancel)
 
     async def _ensure_listen_key(self) -> None:
         async with self._listen_key_lock:
