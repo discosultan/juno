@@ -28,6 +28,8 @@ CANDLE_KEY = Candle.__name__.lower()
 FIRST_CANDLE_KEY = f'first_{CANDLE_KEY}'
 
 
+# TODO: Remove dependency to Informant. Perhaps fetch exchange supported candle intervals
+# separately (from a separate exchange method).
 class Chandler:
     def __init__(
         self,
