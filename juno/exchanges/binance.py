@@ -963,7 +963,6 @@ class UserDataStream:
 
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
-        self._old_tasks: List[asyncio.Task[None]] = []
 
         self._queues: Dict[str, Dict[str, asyncio.Queue]] = (
             defaultdict(lambda: defaultdict(asyncio.Queue))
@@ -978,7 +977,7 @@ class UserDataStream:
         # It will get deleted automatically by Binance after 60 mins of inactivity.
         # if self._listen_key:
         #     await self._delete_listen_key(self._listen_key)
-        await cancel(self._listen_key_refresh_task, self._stream_user_data_task)
+        await self._cancel()
 
     @asynccontextmanager
     async def subscribe(self, event_type: str) -> AsyncIterator[AsyncIterable[Any]]:
@@ -993,7 +992,18 @@ class UserDataStream:
             yield stream_queue(event_queues[queue_id], raise_on_exc=True)
         finally:
             del event_queues[queue_id]
-            # TODO: unsubscribe if no other consumers?
+            if all(len(q) == 0 for q in self._queues.values()):
+                await self._cancel()
+
+    async def _cancel(self) -> None:
+        to_cancel = [
+            self._listen_key_refresh_task,
+            self._stream_user_data_task,
+        ]
+        # We set the tasks to `None` so that we could re-initate the stream again.
+        self._listen_key_refresh_task = None
+        self._stream_user_data_task = None
+        await cancel(*to_cancel)
 
     async def _ensure_listen_key(self) -> None:
         async with self._listen_key_lock:
