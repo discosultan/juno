@@ -733,7 +733,7 @@ class PositionMixin(ABC):
         if mode is TradingMode.PAPER:
             borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         else:
-            _log.info(f'transferring {collateral} {quote_asset} to margin account')
+            _log.info(f'transferring {collateral} {quote_asset} from spot to {symbol} account')
             await self.wallet.transfer(
                 exchange=exchange,
                 asset=quote_asset,
@@ -866,7 +866,9 @@ class PositionMixin(ABC):
                 )).repay == 0
 
             transfer = closed_position.collateral + closed_position.profit
-            _log.info(f'transferring {transfer} {quote_asset} to spot account')
+            _log.info(
+                f'transferring {transfer} {quote_asset} from {position.symbol} to spot account'
+            )
             await self.wallet.transfer(
                 exchange=position.exchange,
                 asset=quote_asset,
