@@ -3,14 +3,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
+from contextlib import asynccontextmanager
 from decimal import Decimal
-from itertools import product
-from typing import AsyncIterable, Dict, Iterable, List, Optional, Set, Tuple
+from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Balance, ExchangeException
-from juno.asyncio import Event, SlotBarrier, cancel, create_task_cancel_on_exc
+from juno.asyncio import Event, cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
@@ -19,33 +19,60 @@ _log = logging.getLogger(__name__)
 
 
 class Wallet:
+    class BalanceSyncContext:
+        def __init__(self) -> None:
+            self.balances: Dict[str, Balance] = {}
+            self.updated: Event[None] = Event(autoclear=True)
+
+        def clear(self) -> None:
+            self.updated.clear()
+
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        # Outer key: <exchange>
-        # Inner key: <account>
-        self._exchange_accounts: Dict[str, Dict[str, _Account]] = defaultdict(
-            lambda: defaultdict(_Account)
-        )
-        self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
         self._open_accounts: Dict[str, Set[str]] = {}
+
+        # Balance sync state.
+        # Key: (exchange, account)
+        self._balance_sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
+        self._balance_sync_ctxs: Dict[Tuple[str, str], Wallet.BalanceSyncContext] = defaultdict(
+            Wallet.BalanceSyncContext
+        )
+        self._balance_sync_counters: Dict[Tuple[str, str], int] = defaultdict(int)
 
     async def __aenter__(self) -> Wallet:
         await asyncio.gather(
             *(self._fetch_open_accounts(e) for e in self._exchanges.keys())
         )
-        # TODO: Introduce a synchronization context.
-        # await asyncio.gather(
-        #     self.ensure_sync(self._exchanges.keys(), ['spot']),
-        #     # self.ensure_sync(
-        #     #     (k for k, v in self._exchanges.items() if v.can_margin_trade),
-        #     #     ['margin'],
-        #     # ),
-        # )
         _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(*self._sync_tasks.values())
+        await cancel(*self._balance_sync_tasks.values())
+
+    @asynccontextmanager
+    async def sync_balances(
+        self, exchange: str, account: str
+    ) -> AsyncIterator[BalanceSyncContext]:
+        key = (exchange, account)
+        ctx = self._balance_sync_ctxs[key]
+
+        if self._balance_sync_counters[key] == 0:
+            self._balance_sync_counters[key] += 1
+            synced = asyncio.Event()
+            self._balance_sync_tasks[key] = create_task_cancel_on_exc(
+                self._sync_balances(exchange, account, synced)
+            )
+            await synced.wait()
+        else:
+            self._balance_sync_counters[key] += 1
+
+        try:
+            yield ctx
+        finally:
+            self._balance_sync_counters[key] -= 1
+            if self._balance_sync_counters[key] == 0:
+                ctx.clear()
+                await cancel(self._balance_sync_tasks[key])
 
     async def get_balance(
         self,
@@ -91,45 +118,24 @@ class Wallet:
     async def transfer(
         self, exchange: str, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
-        await self.ensure_account(exchange, to_account)
+        await self._ensure_account(exchange, to_account)
         await self._exchanges[exchange].transfer(
             asset=asset, size=size, from_account=from_account, to_account=to_account
         )
 
     async def borrow(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
-        await self.ensure_account(exchange, account)
+        await self._ensure_account(exchange, account)
         await self._exchanges[exchange].borrow(asset=asset, size=size, account=account)
 
     async def repay(self, exchange: str, asset: str, size: Decimal, account: str) -> None:
-        await self.ensure_account(exchange, account)
+        await self._ensure_account(exchange, account)
         await self._exchanges[exchange].repay(asset=asset, size=size, account=account)
 
     async def get_max_borrowable(self, exchange: str, asset: str, account: str) -> Decimal:
-        await self.ensure_account(exchange, account)
+        await self._ensure_account(exchange, account)
         return await self._exchanges[exchange].get_max_borrowable(asset=asset, account=account)
 
-    async def ensure_sync(self, exchanges: Iterable[str], accounts: Iterable[str]) -> None:
-        # Only pick products which are not being synced yet.
-        products = [
-            p for p in product(exchanges, accounts) if p not in self._sync_tasks.keys()
-        ]
-        if len(products) == 0:
-            return
-
-        _log.info(f'syncing {products}')
-
-        # Create accounts where necessary.
-        await asyncio.gather(*(self.ensure_account(e, a) for e, a in products))
-
-        # Barrier to wait for initial data to be fetched.
-        barrier = SlotBarrier(products)
-        for exchange, account in products:
-            self._sync_tasks[(exchange, account)] = create_task_cancel_on_exc(
-                self._sync_balances(exchange, account, barrier)
-            )
-        await barrier.wait()
-
-    async def ensure_account(self, exchange: str, account: str) -> None:
+    async def _ensure_account(self, exchange: str, account: str) -> None:
         if account in self._open_accounts[exchange]:
             return
         try:
@@ -142,8 +148,8 @@ class Wallet:
         open_accounts = await self._exchanges[exchange].list_open_accounts()
         self._open_accounts[exchange] = set(open_accounts)
 
-    async def _sync_balances(self, exchange: str, account: str, barrier: SlotBarrier) -> None:
-        exchange_wallet = self._exchange_accounts[exchange][account]
+    async def _sync_balances(self, exchange: str, account: str, synced: asyncio.Event) -> None:
+        ctx = self._balance_sync_ctxs[(exchange, account)]
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
@@ -152,12 +158,13 @@ class Wallet:
         ):
             with attempt:
                 async for balances in self._stream_balances(exchange, account):
-                    _log.info(f'received {account} balance update from {exchange}')
-                    exchange_wallet.balances = balances
+                    _log.info(f'received {exchange} {account} balance update')
+                    # TODO: Use Python 3.9 dict |= operator.
+                    ctx.balances = {**ctx.balances, **balances}
                     if is_first:
                         is_first = False
-                        barrier.release((exchange, account))
-                    exchange_wallet.updated.set()
+                        synced.set()
+                    ctx.updated.set()
 
     async def _stream_balances(
         self, exchange: str, account: str
@@ -169,7 +176,7 @@ class Wallet:
             # Figure out a better way to handle these. Perhaps separate balance and borrow state.
             async with exchange_instance.connect_stream_balances(account=account) as stream:
                 # Get initial status from REST API.
-                yield (await exchange_instance.map_balances(account=account))[account]
+                yield (await self.map_balances(exchange=exchange, accounts=[account]))[account]
 
                 # Stream future updates over WS.
                 async for balances in stream:
@@ -180,9 +187,3 @@ class Wallet:
                 'balances; further updates not implemented'
             )
             yield (await exchange_instance.map_balances(account))[account]
-
-
-class _Account:
-    def __init__(self) -> None:
-        self.balances: Dict[str, Balance] = {}
-        self.updated: Event[None] = Event(autoclear=True)
