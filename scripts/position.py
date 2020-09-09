@@ -35,7 +35,7 @@ class PositionHandler(PositionMixin):
         self._informant = Informant(storage=storage, exchanges=[exchange])
         self._chandler = Chandler(storage=storage, exchanges=[exchange])
         self._wallet = Wallet(exchanges=[exchange])
-        self._orderbook = Orderbook(exchanges=[exchange], wallet=self._wallet)
+        self._orderbook = Orderbook(exchanges=[exchange])
         self._broker = Limit(informant=self._informant, orderbook=self._orderbook)
         await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
         await self._wallet.__aenter__()

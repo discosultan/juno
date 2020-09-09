@@ -22,22 +22,15 @@ from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import unpack_symbol
 
-from .wallet import Wallet
-
 _log = logging.getLogger(__name__)
 
 
 class Orderbook:
-    # TODO: Remove such usage of config.
     def __init__(
         self,
         exchanges: List[Exchange],
-        wallet: Optional[Wallet] = None,
-        config: Dict[str, Any] = {},
     ) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._wallet = wallet
-        self._symbols = list_names(config, 'symbol')
         self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
 
         # {
@@ -55,12 +48,9 @@ class Orderbook:
             lambda: defaultdict(_OrderbookData)
         )
 
-        if not self._wallet:
-            _log.warning('wallet not setup')
-
     async def __aenter__(self) -> Orderbook:
         # TODO: Introduce a synchronization context.
-        await self.ensure_sync(self._exchanges.keys(), self._symbols)
+        # await self.ensure_sync(self._exchanges.keys(), self._symbols)
         _log.info('ready')
         return self
 
@@ -240,11 +230,6 @@ class Orderbook:
                 self._sync_orderbook(exchange, symbol, barrier)
             )
         await barrier.wait()
-
-    # TODO: Move to wallet.
-    async def _ensure_account(self, exchange: str, account: str) -> None:
-        if self._wallet:
-            await self._wallet._ensure_account(exchange, account)
 
     async def _sync_orderbook(self, exchange: str, symbol: str, barrier: SlotBarrier) -> None:
         orderbook = self._data[exchange][symbol]

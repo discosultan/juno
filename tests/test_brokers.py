@@ -483,7 +483,7 @@ async def test_limit_buy_places_at_highest_bid_if_no_spread() -> None:
 async def init_market_broker(exchange: Exchange) -> AsyncIterator[Market]:
     memory = Memory()
     informant = Informant(memory, [exchange])
-    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
+    orderbook = Orderbook([exchange])
     async with memory, informant, orderbook:
         broker = Market(informant, orderbook)
         yield broker
@@ -493,7 +493,7 @@ async def init_market_broker(exchange: Exchange) -> AsyncIterator[Market]:
 async def init_market2_broker(exchange: Exchange) -> AsyncIterator[Market2]:
     memory = Memory()
     informant = Informant(memory, [exchange])
-    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
+    orderbook = Orderbook([exchange])
     async with memory, informant, orderbook:
         broker = Market2(informant, orderbook, get_client_id=lambda: order_client_id)
         yield broker
@@ -503,7 +503,7 @@ async def init_market2_broker(exchange: Exchange) -> AsyncIterator[Market2]:
 async def init_limit_broker(exchange: Exchange) -> AsyncIterator[Limit]:
     memory = Memory()
     informant = Informant(memory, [exchange])
-    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
+    orderbook = Orderbook([exchange])
     async with memory, informant, orderbook:
         broker = Limit(informant, orderbook, get_client_id=lambda: order_client_id)
         yield broker

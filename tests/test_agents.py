@@ -306,9 +306,6 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
     candles: asyncio.Queue[Candle] = asyncio.Queue()
     candles.put_nowait(Candle(time=0, close=Decimal('1.0')))
     exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
-    # TODO: Can probably remove after Orderbook is made lazy.
-    exchange.can_stream_depth_snapshot = False
-    exchange.get_depth.return_value = Depth.Snapshot()
     exchange.map_balances.return_value = {'spot': {'btc': Balance(available=Decimal('1.0'))}}
 
     container = _get_container(exchange)
@@ -348,8 +345,6 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
 
 def _get_container(exchange: Exchange) -> Container:
     container = Container()
-    # TODO: Remove after Orderbook has been made lazy.
-    container.add_singleton_instance(Dict[str, Any], lambda: {'symbol': 'eth-btc'})
     container.add_singleton_instance(Storage, lambda: Memory())
     container.add_singleton_instance(List[Exchange], lambda: [exchange])
     container.add_singleton_instance(List[Trader], lambda: [container.resolve(Basic)])

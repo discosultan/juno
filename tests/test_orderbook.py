@@ -31,7 +31,7 @@ async def test_list_asks_bids(storage) -> None:
     exchange = fakes.Exchange(depth=snapshot)
     exchange.can_stream_depth_snapshot = False
 
-    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
+    async with Orderbook(exchanges=[exchange]) as orderbook:
         asks = orderbook.list_asks(exchange='exchange', symbol='eth-btc')
         bids = orderbook.list_bids(exchange='exchange', symbol='eth-btc')
 
@@ -68,7 +68,7 @@ async def test_find_order_asks(size, snapshot_asks, expected_output) -> None:
     snapshot = Depth.Snapshot(asks=snapshot_asks, bids=[])
     exchange = fakes.Exchange(depth=snapshot)
     exchange.can_stream_depth_snapshot = False
-    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
+    async with Orderbook(exchanges=[exchange]) as orderbook:
         output = orderbook.find_order_asks(
             exchange='exchange', symbol='eth-btc', size=size, fee_rate=FEE_RATE, filters=FILTERS
         )
@@ -128,7 +128,7 @@ async def test_find_order_asks_by_quote(
     updates = [Depth.Update(asks=update_asks, bids=[])]
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
     exchange.can_stream_depth_snapshot = False
-    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
+    async with Orderbook(exchanges=[exchange]) as orderbook:
         output = orderbook.find_order_asks(
             exchange='exchange', symbol='eth-btc', quote=quote, fee_rate=FEE_RATE, filters=FILTERS
         )
@@ -187,7 +187,7 @@ async def test_find_order_bids(size, snapshot_bids, update_bids, expected_output
     updates = [Depth.Update(asks=[], bids=update_bids)]
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
     exchange.can_stream_depth_snapshot = False
-    async with Orderbook(exchanges=[exchange], config={'symbol': 'eth-btc'}) as orderbook:
+    async with Orderbook(exchanges=[exchange]) as orderbook:
         output = orderbook.find_order_bids(
             exchange='exchange', symbol='eth-btc', size=size, fee_rate=FEE_RATE, filters=FILTERS
         )
