@@ -31,13 +31,13 @@ class Wallet:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._open_accounts: Dict[str, Set[str]] = {}
 
-        self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
-        # Outer key: <exchange>
-        # Inner key: <account>
-        self._sync_ctxs: Dict[Tuple[str, str], Wallet.BalanceSyncContext] = defaultdict(
+        # Balance sync state.
+        # Key: (exchange, account)
+        self._balance_sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
+        self._balance_sync_ctxs: Dict[Tuple[str, str], Wallet.BalanceSyncContext] = defaultdict(
             Wallet.BalanceSyncContext
         )
-        self._sync_counters: Dict[Tuple[str, str], int] = defaultdict(int)
+        self._balance_sync_counters: Dict[Tuple[str, str], int] = defaultdict(int)
 
     async def __aenter__(self) -> Wallet:
         await asyncio.gather(
@@ -47,32 +47,32 @@ class Wallet:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(*self._sync_tasks.values())
+        await cancel(*self._balance_sync_tasks.values())
 
     @asynccontextmanager
     async def sync_balances(
         self, exchange: str, account: str
     ) -> AsyncIterator[BalanceSyncContext]:
         key = (exchange, account)
-        ctx = self._sync_ctxs[key]
+        ctx = self._balance_sync_ctxs[key]
 
-        if self._sync_counters[key] == 0:
-            self._sync_counters[key] += 1
+        if self._balance_sync_counters[key] == 0:
+            self._balance_sync_counters[key] += 1
             synced = asyncio.Event()
-            self._sync_tasks[key] = create_task_cancel_on_exc(
+            self._balance_sync_tasks[key] = create_task_cancel_on_exc(
                 self._sync_balances(exchange, account, synced)
             )
             await synced.wait()
         else:
-            self._sync_counters[key] += 1
+            self._balance_sync_counters[key] += 1
 
         try:
             yield ctx
         finally:
-            self._sync_counters[key] -= 1
-            if self._sync_counters[key] == 0:
+            self._balance_sync_counters[key] -= 1
+            if self._balance_sync_counters[key] == 0:
                 ctx.clear()
-                await cancel(self._sync_tasks[key])
+                await cancel(self._balance_sync_tasks[key])
 
     async def get_balance(
         self,
@@ -149,7 +149,7 @@ class Wallet:
         self._open_accounts[exchange] = set(open_accounts)
 
     async def _sync_balances(self, exchange: str, account: str, synced: asyncio.Event) -> None:
-        ctx = self._sync_ctxs[(exchange, account)]
+        ctx = self._balance_sync_ctxs[(exchange, account)]
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
