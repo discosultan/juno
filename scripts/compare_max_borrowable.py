@@ -20,8 +20,8 @@ args = parser.parse_args()
 async def main() -> None:
     exchange = init_instance(Binance, from_env())
     storage = SQLite()
-    informant = Informant(storage, exchanges=[exchange])
-    chandler = Chandler(storage, [exchange], informant=informant)
+    informant = Informant(storage=storage, exchanges=[exchange])
+    chandler = Chandler(storage=storage, exchanges=[exchange])
     wallet = Wallet(exchanges=[exchange])
     async with exchange, informant:
         # Note that we need to do this sequentially; because we cannot transfer duplicate amounts

@@ -22,6 +22,7 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
+        candle_intervals=[],
         exchange_info=ExchangeInfo(),
         tickers={},
         balances={'spot': {}},
@@ -41,6 +42,7 @@ class Exchange(exchanges.Exchange):
             # TODO: Rename candle_queue to future_candles.
             self.candle_queue.put_nowait(future_candle)
 
+        self.candle_intervals = candle_intervals
         self.exchange_info = exchange_info
         self.get_exchange_info_calls = []
         self.tickers = tickers
@@ -68,6 +70,9 @@ class Exchange(exchanges.Exchange):
         self.trade_queue = asyncio.Queue()
         for future_trade in future_trades:
             self.trade_queue.put_nowait(future_trade)
+
+    def list_candle_intervals(self):
+        return self.candle_intervals
 
     async def get_exchange_info(self):
         result = self.exchange_info

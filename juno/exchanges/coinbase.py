@@ -75,6 +75,16 @@ class Coinbase(Exchange):
         await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
+    def list_candle_intervals(self) -> List[int]:
+        return [
+            60000,  # 1m
+            300000,  # 5m
+            900000,  # 15m
+            3600000,  # 1h
+            21600000,  # 6h
+            86400000,  # 1d
+        ]
+
     async def get_exchange_info(self) -> ExchangeInfo:
         # TODO: Fetch from exchange API if possible? Also has a more complex structure.
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
@@ -103,8 +113,6 @@ class Coinbase(Exchange):
         return ExchangeInfo(
             fees=fees,
             filters=filters,
-            # 1m, 5m, 15m, 1h, 6h, 1d
-            candle_intervals=[60000, 300000, 900000, 3600000, 21600000, 86400000]
         )
 
     async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:

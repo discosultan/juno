@@ -12,7 +12,6 @@ async def main() -> None:
         exchange_info = await client.get_exchange_info()
         logging.info(exchange_info.filters['btc-eur'])
         logging.info(exchange_info.filters.keys())
-        logging.info(exchange_info.candle_intervals)
 
 
 asyncio.run(main())

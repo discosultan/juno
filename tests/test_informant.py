@@ -78,9 +78,7 @@ async def test_list_symbols(storage, symbols, patterns, expected_output) -> None
     ([1, 2, 3], [1, 2], [1, 2]),
 ])
 async def test_list_candle_intervals(storage, intervals, patterns, expected_output) -> None:
-    exchange = fakes.Exchange(
-        exchange_info=ExchangeInfo(candle_intervals=intervals)
-    )
+    exchange = fakes.Exchange(candle_intervals=intervals)
 
     async with Informant(storage=storage, exchanges=[exchange]) as informant:
         output = informant.list_candle_intervals('exchange', patterns)

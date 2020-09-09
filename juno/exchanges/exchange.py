@@ -21,6 +21,10 @@ class Exchange(ABC):
     can_place_order_market_quote: bool = False  # Whether market order accepts quote param.
 
     @abstractmethod
+    def list_candle_intervals(self) -> List[int]:
+        pass
+
+    @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
         pass
 

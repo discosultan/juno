@@ -734,15 +734,16 @@ class PositionMixin(ABC):
             borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} from spot to {symbol} account')
-            await self.wallet.transfer(
-                exchange=exchange,
-                asset=quote_asset,
-                size=collateral,
-                from_account='spot',
-                to_account=symbol,
-            )
-            # TODO: We need to subscribe to wallet balance stream and wait for an update event
-            # before we can borrow/get_max_borrowable.
+            async with self.wallet.sync_balances(exchange=exchange, account=symbol) as ctx:
+                await self.wallet.transfer(
+                    exchange=exchange,
+                    asset=quote_asset,
+                    size=collateral,
+                    from_account='spot',
+                    to_account=symbol,
+                )
+                await ctx.updated.wait()
+
             borrowed = min(
                 _calculate_borrowed(filters, margin_multiplier, collateral, price),
                 await self.wallet.get_max_borrowable(

@@ -74,6 +74,19 @@ class Kraken(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
+    def list_candle_intervals(self) -> List[int]:
+        return [
+            60000,  # 1m
+            300000,  # 5m
+            900000,  # 15m
+            1800000,  # 30m
+            3600000,  # 1h
+            14400000,  # 4h
+            86400000,  # 1d
+            604800000,  # 1w
+            1296000000,  # 15d
+        ]
+
     async def get_exchange_info(self) -> ExchangeInfo:
         res = await self._request_public('GET', '/0/public/AssetPairs')
         fees, filters = {}, {}

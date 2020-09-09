@@ -101,6 +101,25 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
+    def list_candle_intervals(self) -> List[int]:
+        return [
+            60000,  # 1m
+            180000,  # 3m
+            300000,  # 5m
+            900000,  # 15m
+            1800000,  # 30m
+            3600000,  # 1h
+            7200000,  # 2h
+            14400000,  # 4h
+            21600000,  # 6h
+            28800000,  # 8h
+            43200000,  # 12h
+            86400000,  # 1d
+            259200000,  # 3d
+            604800000,  # 1w
+            2629746000,  # 1M
+        ]
+
     async def get_exchange_info(self) -> ExchangeInfo:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
@@ -198,11 +217,6 @@ class Binance(Exchange):
         return ExchangeInfo(
             fees=fees,
             filters=filters,
-            # 1m 3m 5m 15m 30m 1h 2h 4h 6h 8h 12h 1d 3d 1w 1M
-            candle_intervals=[
-                60000, 180000, 300000, 900000, 1800000, 3600000, 7200000, 14400000, 21600000,
-                28800000, 43200000, 86400000, 259200000, 604800000, 2629746000
-            ],
             borrow_info=borrow_info,
         )
 

@@ -24,7 +24,7 @@ async def main() -> None:
     sqlite = SQLite()
     informant = Informant(sqlite, [binance])
     trades = Trades(sqlite, [binance])
-    chandler = Chandler(sqlite, [binance], informant=informant, trades=trades)
+    chandler = Chandler(sqlite, [binance], trades=trades)
     solver = Python(informant=informant)
     async with binance, informant:
         candles = await list_async(

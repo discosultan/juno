@@ -277,6 +277,5 @@ class Trade(NamedTuple):
 class ExchangeInfo(NamedTuple):
     fees: Dict[str, Fees] = {'__all__': Fees()}
     filters: Dict[str, Filters] = {'__all__': Filters()}
-    candle_intervals: List[int] = []
     # Keys: account, asset
     borrow_info: Dict[str, Dict[str, BorrowInfo]] = {'__all__': {'__all__': BorrowInfo()}}

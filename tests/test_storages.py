@@ -86,7 +86,7 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
 
 @pytest.mark.parametrize('item,type_', [
     (Candle(time=1, close=Decimal('1.0')), Candle),
-    (ExchangeInfo(candle_intervals=[1, 2]), ExchangeInfo),
+    (ExchangeInfo(), ExchangeInfo),
     (
         {
             'eth-btc': Ticker(

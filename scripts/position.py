@@ -32,11 +32,11 @@ class PositionHandler(PositionMixin):
         exchange = init_instance(Binance, from_env())
         self._exchanges = {'binance': exchange}
         storage = SQLite()
-        self._informant = Informant(storage, [exchange])
-        self._chandler = Chandler(storage, [exchange], informant=self._informant)
-        self._wallet = Wallet([exchange])
-        self._orderbook = Orderbook([exchange], wallet=self._wallet)
-        self._broker = Limit(self._informant, self._orderbook)
+        self._informant = Informant(storage=storage, exchanges=[exchange])
+        self._chandler = Chandler(storage=storage, exchanges=[exchange])
+        self._wallet = Wallet(exchanges=[exchange])
+        self._orderbook = Orderbook(exchanges=[exchange], wallet=self._wallet)
+        self._broker = Limit(informant=self._informant, orderbook=self._orderbook)
         await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
         await self._wallet.__aenter__()
         await asyncio.gather(

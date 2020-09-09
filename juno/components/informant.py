@@ -153,8 +153,7 @@ class Informant:
     def list_candle_intervals(
         self, exchange: str, patterns: Optional[List[int]] = None
     ) -> List[int]:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        all_intervals = exchange_info.candle_intervals
+        all_intervals = self._exchanges[exchange].list_candle_intervals()
 
         result = (i for i in all_intervals)
 

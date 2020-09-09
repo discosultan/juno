@@ -166,12 +166,14 @@ async def stream_queue(
             if raise_on_exc and isinstance(item, Exception):
                 raise item
             yield item
+            queue.task_done()
     else:
         while True:
             item = await asyncio.wait_for(queue.get(), timeout=timeout)
             if raise_on_exc and isinstance(item, Exception):
                 raise item
             yield item
+            queue.task_done()
 
 
 class Barrier:

@@ -19,7 +19,6 @@ from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
 from juno.utils import key, unpack_symbol
 
-from .informant import Informant
 from .trades import Trades
 
 _log = logging.getLogger(__name__)
@@ -28,14 +27,11 @@ CANDLE_KEY = Candle.__name__.lower()
 FIRST_CANDLE_KEY = f'first_{CANDLE_KEY}'
 
 
-# TODO: Remove dependency to Informant. Perhaps fetch exchange supported candle intervals
-# separately (from a separate exchange method).
 class Chandler:
     def __init__(
         self,
         storage: Storage,
         exchanges: List[Exchange],
-        informant: Optional[Informant] = None,
         trades: Optional[Trades] = None,
         get_time_ms: Callable[[], int] = time_ms,
         storage_batch_size: int = 1000,
@@ -45,14 +41,10 @@ class Chandler:
 
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._informant = informant
         self._trades = trades
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
         self._earliest_exchange_start = earliest_exchange_start
-
-        if not self._informant:
-            _log.warning('informant not setup')
 
     async def list_candles(
         self,
@@ -306,11 +298,7 @@ class Chandler:
         self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int
     ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
-        # If informant is not available, we assume the interval to be supported. We will fail in
-        # exchange if it is not.
-        is_candle_interval_supported = (
-            not self._informant or interval in self._informant.list_candle_intervals(exchange)
-        )
+        is_candle_interval_supported = interval in exchange_instance.list_candle_intervals()
 
         async def inner(stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
             if start < current:  # Historical.
