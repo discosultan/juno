@@ -187,9 +187,3 @@ class Wallet:
                 'balances; further updates not implemented'
             )
             yield (await exchange_instance.map_balances(account))[account]
-
-
-class _Account:
-    def __init__(self) -> None:
-        self.balances: Dict[str, Balance] = {}
-        self.updated: Event[None] = Event(autoclear=True)
