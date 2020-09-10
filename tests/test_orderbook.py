@@ -1,8 +1,10 @@
+import asyncio
 from decimal import Decimal
 
 import pytest
 
 from juno import Depth, ExchangeException, Filters
+from juno.asyncio import stream_queue
 from juno.components import Orderbook
 from juno.filters import Price, Size
 
@@ -192,7 +194,7 @@ async def test_find_order_bids(size, snapshot_bids, update_bids, expected_output
     assert_fills(output, expected_output)
 
 
-async def test_sync_twice_should_share_context(mocker) -> None:
+async def test_concurrent_sync_should_not_ping_exchange_multiple_times(mocker) -> None:
     asks = [(Decimal('1.0'), Decimal('1.0'))]
 
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
@@ -200,13 +202,48 @@ async def test_sync_twice_should_share_context(mocker) -> None:
     exchange.get_depth.return_value = Depth.Snapshot(asks=asks)
 
     async with Orderbook(exchanges=[exchange]) as orderbook:
-        async with orderbook.sync('magicmock', 'eth-btc') as orderbook1:
-            async with orderbook.sync('magicmock', 'eth-btc') as orderbook2:
-                assert orderbook2.list_asks() == asks
-            assert orderbook1.list_asks() == asks
+        # First calls to exchange.
+        async with orderbook.sync('magicmock', 'eth-btc') as book1:
+            async with orderbook.sync('magicmock', 'eth-btc') as book2:
+                assert book2.list_asks() == asks
+            assert book1.list_asks() == asks
 
-    assert exchange.get_depth.assert_called_once()
-    assert exchange.connect_stream_depth.assert_called_once()
+        # Second calls to exchange.
+        async with orderbook.sync('magicmock', 'eth-btc') as book:
+            assert book.list_asks() == asks
+
+    assert exchange.get_depth.call_count == 2
+    assert exchange.connect_stream_depth.call_count == 2
+
+
+async def test_concurrent_sync_should_have_isolated_events(mocker) -> None:
+    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
+    exchange.can_stream_depth_snapshot = False
+    exchange.get_depth.return_value = Depth.Snapshot()
+    depths: asyncio.Queue[Depth.Update] = asyncio.Queue()
+    exchange.connect_stream_depth.return_value.__aenter__.return_value = stream_queue(depths)
+
+    async with Orderbook(exchanges=[exchange]) as orderbook:
+        ctx1 = orderbook.sync('magicmock', 'eth-btc')
+        ctx2 = orderbook.sync('magicmock', 'eth-btc')
+        book1, book2 = await asyncio.gather(ctx1.__aenter__(), ctx2.__aenter__())
+
+        assert not book1.updated.is_set()
+        assert not book2.updated.is_set()
+
+        await depths.put(Depth.Update(asks=[(Decimal('1.0'), Decimal('1.0'))]))
+        await depths.join()
+
+        assert book1.updated.is_set()
+        assert book2.updated.is_set()
+
+        await book1.updated.wait()
+        assert book2.updated.is_set()
+
+        await asyncio.gather(
+            ctx1.__aexit__(None, None, None),
+            ctx2.__aexit__(None, None, None),
+        )
 
 
 async def test_sync_on_exchange_exception() -> None:

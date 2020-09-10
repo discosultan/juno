@@ -197,7 +197,7 @@ class Orderbook:
                         assert not is_first
                         _update_orderbook_side(ctx.sides[Side.BUY], depth.asks)
                         _update_orderbook_side(ctx.sides[Side.SELL], depth.bids)
-                        ctx.updated.set
+                        ctx.updated.set()
                     else:
                         raise NotImplementedError(depth)
 
