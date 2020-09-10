@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -21,19 +22,19 @@ _log = logging.getLogger(__name__)
 
 
 class Orderbook:
-    # TODO: Separate context per consumer? Can remove RCs this way as well.
     class SyncContext:
-        def __init__(self, symbol: str) -> None:
+        def __init__(
+            self,
+            symbol: str,
+            sides: Optional[Dict[Side, Dict[Decimal, Decimal]]] = None
+        ) -> None:
             self.symbol = symbol
-            self.sides: Dict[Side, Dict[Decimal, Decimal]] = {
+            self.sides = {
                 Side.BUY: {},
                 Side.SELL: {},
-            }
+            } if sides is None else sides
             # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
-
-        def clear(self) -> None:
-            self.updated.clear()
 
         def list_asks(self) -> List[Tuple[Decimal, Decimal]]:
             return sorted(self.sides[Side.BUY].items())
@@ -133,8 +134,9 @@ class Orderbook:
         # Order sync state.
         # Key: (exchange, symbol)
         self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
-        self._sync_ctxs: Dict[Tuple[str, str], Orderbook.SyncContext] = {}
-        self._sync_counters: Dict[Tuple[str, str], int] = defaultdict(int)
+        self._sync_ctxs: Dict[Tuple[str, str], Dict[str, Orderbook.SyncContext]] = defaultdict(
+            dict
+        )
 
     async def __aenter__(self) -> Orderbook:
         _log.info('ready')
@@ -150,31 +152,31 @@ class Orderbook:
 
     @asynccontextmanager
     async def sync(self, exchange: str, symbol: str) -> AsyncIterator[SyncContext]:
+        id_ = str(uuid.uuid4())
         key = (exchange, symbol)
-        if not (ctx := self._sync_ctxs.get(key)):
-            ctx = Orderbook.SyncContext(symbol)
-            self._sync_ctxs[key] = ctx
+        ctxs = self._sync_ctxs[key]
 
-        if self._sync_counters[key] == 0:
-            self._sync_counters[key] += 1
+        if len(ctxs) == 0:
+            ctx = Orderbook.SyncContext(symbol)
+            ctxs[id_] = ctx
             synced = asyncio.Event()
             self._sync_tasks[key] = create_task_cancel_on_exc(
                 self._sync_orderbook(exchange, symbol, synced)
             )
             await synced.wait()
         else:
-            self._sync_counters[key] += 1
+            ctx = Orderbook.SyncContext(symbol, next(iter(ctxs.values())).sides)
+            ctxs[id_] = ctx
 
         try:
             yield ctx
         finally:
-            self._sync_counters[key] -= 1
-            if self._sync_counters[key] == 0:
-                ctx.clear()
+            del ctxs[id_]
+            if len(ctxs) == 0:
                 await cancel(self._sync_tasks[key])
 
     async def _sync_orderbook(self, exchange: str, symbol: str, synced: asyncio.Event) -> None:
-        ctx = self._sync_ctxs[(exchange, symbol)]
+        ctxs = self._sync_ctxs[(exchange, symbol)]
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
@@ -184,20 +186,26 @@ class Orderbook:
             with attempt:
                 async for depth in self._stream_depth(exchange, symbol):
                     if isinstance(depth, Depth.Snapshot):
-                        _set_orderbook_side(ctx.sides[Side.BUY], depth.asks)
-                        _set_orderbook_side(ctx.sides[Side.SELL], depth.bids)
+                        for ctx in ctxs.values():
+                            _set_orderbook_side(ctx.sides[Side.BUY], depth.asks)
+                            _set_orderbook_side(ctx.sides[Side.SELL], depth.bids)
+
                         if is_first:
                             is_first = False
                             synced.set()
                         else:
-                            ctx.updated.set()
+                            for ctx in ctxs.values():
+                                ctx.updated.set()
                     elif isinstance(depth, Depth.Update):
                         # TODO: For example, with depth level 10, Kraken expects us to discard
                         # levels outside level 10. They will not publish messages to delete them.
                         assert not is_first
-                        _update_orderbook_side(ctx.sides[Side.BUY], depth.asks)
-                        _update_orderbook_side(ctx.sides[Side.SELL], depth.bids)
-                        ctx.updated.set()
+                        for ctx in ctxs.values():
+                            _update_orderbook_side(ctx.sides[Side.BUY], depth.asks)
+                            _update_orderbook_side(ctx.sides[Side.SELL], depth.bids)
+
+                        for ctx in ctxs.values():
+                            ctx.updated.set()
                     else:
                         raise NotImplementedError(depth)
 

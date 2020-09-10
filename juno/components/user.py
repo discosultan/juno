@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -19,15 +20,11 @@ _log = logging.getLogger(__name__)
 
 
 class User:
-    # TODO: Separate context per consumer? Can remove RCs this way as well.
     class WalletSyncContext:
-        def __init__(self) -> None:
-            self.balances: Dict[str, Balance] = {}
+        def __init__(self, balances: Optional[Dict[str, Balance]] = None) -> None:
+            self.balances = {} if balances is None else balances
             # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
-
-        def clear(self) -> None:
-            self.updated.clear()
 
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -36,10 +33,9 @@ class User:
         # Balance sync state.
         # Key: (exchange, account)
         self._wallet_sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
-        self._wallet_sync_ctxs: Dict[Tuple[str, str], User.WalletSyncContext] = defaultdict(
-            User.WalletSyncContext
-        )
-        self._wallet_sync_counters: Dict[Tuple[str, str], int] = defaultdict(int)
+        self._wallet_sync_ctxs: Dict[
+            Tuple[str, str], Dict[str, User.WalletSyncContext]
+        ] = defaultdict(dict)
 
     async def __aenter__(self) -> User:
         await asyncio.gather(
@@ -55,25 +51,27 @@ class User:
     async def sync_wallet(
         self, exchange: str, account: str
     ) -> AsyncIterator[WalletSyncContext]:
+        id_ = str(uuid.uuid4())
         key = (exchange, account)
-        ctx = self._wallet_sync_ctxs[key]
+        ctxs = self._wallet_sync_ctxs[key]
 
-        if self._wallet_sync_counters[key] == 0:
-            self._wallet_sync_counters[key] += 1
+        if len(ctxs) == 0:
+            ctx = User.WalletSyncContext()
+            ctxs[id_] = ctx
             synced = asyncio.Event()
             self._wallet_sync_tasks[key] = create_task_cancel_on_exc(
                 self._sync_balances(exchange, account, synced)
             )
             await synced.wait()
         else:
-            self._wallet_sync_counters[key] += 1
+            ctx = User.WalletSyncContext(next(iter(ctxs.values())).balances)
+            ctxs[id_] = ctx
 
         try:
             yield ctx
         finally:
-            self._wallet_sync_counters[key] -= 1
-            if self._wallet_sync_counters[key] == 0:
-                ctx.clear()
+            del ctxs[id_]
+            if len(ctxs) == 0:
                 await cancel(self._wallet_sync_tasks[key])
 
     async def get_balance(
@@ -203,7 +201,7 @@ class User:
         self._open_accounts[exchange] = set(open_accounts)
 
     async def _sync_balances(self, exchange: str, account: str, synced: asyncio.Event) -> None:
-        ctx = self._wallet_sync_ctxs[(exchange, account)]
+        ctxs = self._wallet_sync_ctxs[(exchange, account)]
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
@@ -213,13 +211,15 @@ class User:
             with attempt:
                 async for balances in self._stream_balances(exchange, account):
                     _log.info(f'received {exchange} {account} balance update')
-                    # TODO: Use Python 3.9 dict |= operator.
-                    ctx.balances = {**ctx.balances, **balances}
+                    for ctx in ctxs.values():
+                        ctx.balances.update(balances)
+
                     if is_first:
                         is_first = False
                         synced.set()
                     else:
-                        ctx.updated.set()
+                        for ctx in ctxs.values():
+                            ctx.updated.set()
 
     async def _stream_balances(
         self, exchange: str, account: str
