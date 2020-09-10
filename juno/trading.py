@@ -787,7 +787,7 @@ class PositionMixin(ABC):
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
 
-        # TODO: Take interest from user (if Binance supports streaming it for margin account)
+        # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
         if mode is TradingMode.PAPER:
             borrow_info = self.informant.get_borrow_info(
                 exchange=position.exchange, asset=base_asset, account=position.symbol

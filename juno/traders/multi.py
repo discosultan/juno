@@ -80,7 +80,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         strategy: TypeConstructor[Strategy]
         symbol_strategies: Dict[str, TypeConstructor[Strategy]] = {}  # Overrides default strategy.
         start: Optional[Timestamp] = None  # None means max earliest is found.
-        quote: Optional[Decimal] = None  # None means exchange user is queried.
+        quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
         trail_stop_loss: bool = True
         take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
