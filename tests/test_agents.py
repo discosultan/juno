@@ -155,18 +155,16 @@ async def test_paper(mocker) -> None:
     ]:
         candles.put_nowait(candle)
     exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
-    exchange.can_stream_depth_snapshot = True
-    exchange.connect_stream_depth.return_value.__aenter__.return_value = resolved_stream(
-        Depth.Snapshot(
-            bids=[
-                (Decimal('10.0'), Decimal('5.0')),  # 1.
-                (Decimal('50.0'), Decimal('1.0')),  # 1.
-            ],
-            asks=[
-                (Decimal('20.0'), Decimal('4.0')),  # 2.
-                (Decimal('10.0'), Decimal('2.0')),  # 2.
-            ],
-        ),
+    exchange.can_stream_depth_snapshot = False
+    exchange.get_depth.return_value = Depth.Snapshot(
+        bids=[
+            (Decimal('10.0'), Decimal('5.0')),  # 1.
+            (Decimal('50.0'), Decimal('1.0')),  # 1.
+        ],
+        asks=[
+            (Decimal('20.0'), Decimal('4.0')),  # 2.
+            (Decimal('10.0'), Decimal('2.0')),  # 2.
+        ],
     )
     exchange.place_order.side_effect = [
         OrderResult(
@@ -233,19 +231,6 @@ async def test_live(mocker) -> None:
     ]:
         candles.put_nowait(candle)
     exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
-    exchange.can_stream_depth_snapshot = True
-    exchange.connect_stream_depth.return_value.__aenter__.return_value = resolved_stream(
-        Depth.Snapshot(
-            bids=[
-                (Decimal('10.0'), Decimal('5.0')),  # 1.
-                (Decimal('50.0'), Decimal('1.0')),  # 1.
-            ],
-            asks=[
-                (Decimal('20.0'), Decimal('4.0')),  # 2.
-                (Decimal('10.0'), Decimal('2.0')),  # 2.
-            ],
-        ),
-    )
     exchange.map_balances.return_value = {
         'spot': {'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0'))}
     }
