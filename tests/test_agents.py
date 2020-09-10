@@ -2,7 +2,7 @@
 
 import asyncio
 from decimal import Decimal
-from typing import Any, Callable, Dict, List
+from typing import Callable, List
 
 import pytest
 
@@ -10,7 +10,7 @@ from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, 
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel, resolved_stream, stream_queue
 from juno.brokers import Broker, Market
-from juno.components import Chandler, Informant, Orderbook, Wallet
+from juno.components import Chandler, Informant, Orderbook, User
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
@@ -155,18 +155,16 @@ async def test_paper(mocker) -> None:
     ]:
         candles.put_nowait(candle)
     exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
-    exchange.can_stream_depth_snapshot = True
-    exchange.connect_stream_depth.return_value.__aenter__.return_value = resolved_stream(
-        Depth.Snapshot(
-            bids=[
-                (Decimal('10.0'), Decimal('5.0')),  # 1.
-                (Decimal('50.0'), Decimal('1.0')),  # 1.
-            ],
-            asks=[
-                (Decimal('20.0'), Decimal('4.0')),  # 2.
-                (Decimal('10.0'), Decimal('2.0')),  # 2.
-            ],
-        ),
+    exchange.can_stream_depth_snapshot = False
+    exchange.get_depth.return_value = Depth.Snapshot(
+        bids=[
+            (Decimal('10.0'), Decimal('5.0')),  # 1.
+            (Decimal('50.0'), Decimal('1.0')),  # 1.
+        ],
+        asks=[
+            (Decimal('20.0'), Decimal('4.0')),  # 2.
+            (Decimal('10.0'), Decimal('2.0')),  # 2.
+        ],
     )
     exchange.place_order.side_effect = [
         OrderResult(
@@ -233,19 +231,6 @@ async def test_live(mocker) -> None:
     ]:
         candles.put_nowait(candle)
     exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
-    exchange.can_stream_depth_snapshot = True
-    exchange.connect_stream_depth.return_value.__aenter__.return_value = resolved_stream(
-        Depth.Snapshot(
-            bids=[
-                (Decimal('10.0'), Decimal('5.0')),  # 1.
-                (Decimal('50.0'), Decimal('1.0')),  # 1.
-            ],
-            asks=[
-                (Decimal('20.0'), Decimal('4.0')),  # 2.
-                (Decimal('10.0'), Decimal('2.0')),  # 2.
-            ],
-        ),
-    )
     exchange.map_balances.return_value = {
         'spot': {'btc': Balance(available=Decimal('100.0'), hold=Decimal('50.0'))}
     }
@@ -306,9 +291,6 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
     candles: asyncio.Queue[Candle] = asyncio.Queue()
     candles.put_nowait(Candle(time=0, close=Decimal('1.0')))
     exchange.connect_stream_candles.return_value.__aenter__.return_value = stream_queue(candles)
-    # TODO: Can probably remove after Orderbook is made lazy.
-    exchange.can_stream_depth_snapshot = False
-    exchange.get_depth.return_value = Depth.Snapshot()
     exchange.map_balances.return_value = {'spot': {'btc': Balance(available=Decimal('1.0'))}}
 
     container = _get_container(exchange)
@@ -348,13 +330,11 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
 
 def _get_container(exchange: Exchange) -> Container:
     container = Container()
-    # TODO: Remove after Orderbook has been made lazy.
-    container.add_singleton_instance(Dict[str, Any], lambda: {'symbol': 'eth-btc'})
     container.add_singleton_instance(Storage, lambda: Memory())
     container.add_singleton_instance(List[Exchange], lambda: [exchange])
     container.add_singleton_instance(List[Trader], lambda: [container.resolve(Basic)])
     container.add_singleton_type(Informant)
     container.add_singleton_type(Orderbook)
     container.add_singleton_type(Chandler)
-    container.add_singleton_type(Wallet)
+    container.add_singleton_type(User)
     return container

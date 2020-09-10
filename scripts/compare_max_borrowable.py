@@ -4,7 +4,7 @@ import logging
 from decimal import Decimal
 
 from juno import time
-from juno.components import Chandler, Informant, Wallet
+from juno.components import Chandler, Informant, User
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.storages import SQLite
@@ -22,19 +22,19 @@ async def main() -> None:
     storage = SQLite()
     informant = Informant(storage=storage, exchanges=[exchange])
     chandler = Chandler(storage=storage, exchanges=[exchange])
-    wallet = Wallet(exchanges=[exchange])
+    user = User(exchanges=[exchange])
     async with exchange, informant:
         # Note that we need to do this sequentially; because we cannot transfer duplicate amounts
         # of collateral. Also, the max amount from exchange would be incorrect.
         for symbol in args.symbols:
-            await process_symbol(informant, chandler, wallet, symbol)
+            await process_symbol(informant, chandler, user, symbol)
 
 
 async def process_symbol(
-    informant: Informant, chandler: Chandler, wallet: Wallet, symbol: str
+    informant: Informant, chandler: Chandler, user: User, symbol: str
 ) -> None:
     exchange_amount, manual_amount = await asyncio.gather(
-        max_exchange(wallet, symbol),
+        max_exchange(user, symbol),
         max_manual(informant, chandler, symbol),
     )
     base_asset, _ = unpack_symbol(symbol)
@@ -45,17 +45,17 @@ async def process_symbol(
         logging.error('manual amount exceeds exchange amount')
 
 
-async def max_exchange(wallet: Wallet, symbol: str) -> Decimal:
+async def max_exchange(user: User, symbol: str) -> Decimal:
     base_asset, quote_asset = unpack_symbol(symbol)
-    await wallet.transfer(
+    await user.transfer(
         'binance', quote_asset, args.collateral, from_account='spot', to_account=args.account
     )
     try:
-        max_borrowable = await wallet.get_max_borrowable(
+        max_borrowable = await user.get_max_borrowable(
             'binance', asset=base_asset, account=args.account
         )
     finally:
-        await wallet.transfer(
+        await user.transfer(
             'binance', quote_asset, args.collateral, from_account=args.account, to_account='spot'
         )
     return max_borrowable

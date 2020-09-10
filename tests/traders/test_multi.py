@@ -412,8 +412,8 @@ async def test_close_on_exit(
 
 
 async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
-    wallet = mocker.patch('juno.components.wallet.Wallet', autospec=True)
-    wallet.get_balance.return_value = Balance(Decimal('1.0'))
+    user = mocker.patch('juno.components.user.User', autospec=True)
+    user.get_balance.return_value = Balance(Decimal('1.0'))
     broker = mocker.patch('juno.brokers.market.Market', autospec=True)
     broker.buy.return_value = OrderResult(
         time=0,
@@ -431,7 +431,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
             price=Decimal('1.0'),
         ),
     })
-    trader = traders.Multi(chandler=chandler, informant=informant, wallet=wallet, broker=broker)
+    trader = traders.Multi(chandler=chandler, informant=informant, user=user, broker=broker)
     config = traders.Multi.Config(
         exchange='dummy',
         interval=1,
@@ -460,7 +460,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
         Candle(time=1, close=Decimal('2.0'))
     )
 
-    wallet.get_balance.return_value = Balance(Decimal('0.0'))
+    user.get_balance.return_value = Balance(Decimal('0.0'))
     await trader.run(config, state)
 
 

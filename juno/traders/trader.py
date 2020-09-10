@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Any, Optional
 
 from juno.brokers import Broker
-from juno.components import Wallet
+from juno.components import User
 from juno.trading import TradingMode, TradingSummary
 
 _log = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ class Trader(ABC):
 
     @property
     @abstractmethod
-    def wallet(self) -> Wallet:
+    def user(self) -> User:
         pass
 
     @abstractmethod
@@ -36,7 +36,7 @@ class Trader(ABC):
                 raise ValueError('Quote must be specified when backtesting or paper trading')
             return quote
 
-        available_quote = (await self.wallet.get_balance(
+        available_quote = (await self.user.get_balance(
             exchange=exchange, account='spot', asset=asset
         )).available
 

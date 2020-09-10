@@ -4,7 +4,7 @@ from .informant import Informant
 from .orderbook import Orderbook
 from .prices import Prices
 from .trades import Trades
-from .wallet import Wallet
+from .user import User
 
 __all__ = [
     'Chandler',
@@ -13,5 +13,5 @@ __all__ = [
     'Orderbook',
     'Prices',
     'Trades',
-    'Wallet',
+    'User',
 ]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
@@ -9,7 +10,7 @@ from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tupl
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import Balance, ExchangeException
+from juno import Balance, ExchangeException, OrderResult, OrderType, OrderUpdate, Side, TimeInForce
 from juno.asyncio import Event, cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
@@ -18,14 +19,12 @@ from juno.typing import ExcType, ExcValue, Traceback
 _log = logging.getLogger(__name__)
 
 
-class Wallet:
-    class BalanceSyncContext:
-        def __init__(self) -> None:
-            self.balances: Dict[str, Balance] = {}
+class User:
+    class WalletSyncContext:
+        def __init__(self, balances: Optional[Dict[str, Balance]] = None) -> None:
+            self.balances = {} if balances is None else balances
+            # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
-
-        def clear(self) -> None:
-            self.updated.clear()
 
     def __init__(self, exchanges: List[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -33,13 +32,12 @@ class Wallet:
 
         # Balance sync state.
         # Key: (exchange, account)
-        self._balance_sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
-        self._balance_sync_ctxs: Dict[Tuple[str, str], Wallet.BalanceSyncContext] = defaultdict(
-            Wallet.BalanceSyncContext
-        )
-        self._balance_sync_counters: Dict[Tuple[str, str], int] = defaultdict(int)
+        self._wallet_sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
+        self._wallet_sync_ctxs: Dict[
+            Tuple[str, str], Dict[str, User.WalletSyncContext]
+        ] = defaultdict(dict)
 
-    async def __aenter__(self) -> Wallet:
+    async def __aenter__(self) -> User:
         await asyncio.gather(
             *(self._fetch_open_accounts(e) for e in self._exchanges.keys())
         )
@@ -47,32 +45,34 @@ class Wallet:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(*self._balance_sync_tasks.values())
+        await cancel(*self._wallet_sync_tasks.values())
 
     @asynccontextmanager
-    async def sync_balances(
+    async def sync_wallet(
         self, exchange: str, account: str
-    ) -> AsyncIterator[BalanceSyncContext]:
+    ) -> AsyncIterator[WalletSyncContext]:
+        id_ = str(uuid.uuid4())
         key = (exchange, account)
-        ctx = self._balance_sync_ctxs[key]
+        ctxs = self._wallet_sync_ctxs[key]
 
-        if self._balance_sync_counters[key] == 0:
-            self._balance_sync_counters[key] += 1
+        if len(ctxs) == 0:
+            ctx = User.WalletSyncContext()
+            ctxs[id_] = ctx
             synced = asyncio.Event()
-            self._balance_sync_tasks[key] = create_task_cancel_on_exc(
+            self._wallet_sync_tasks[key] = create_task_cancel_on_exc(
                 self._sync_balances(exchange, account, synced)
             )
             await synced.wait()
         else:
-            self._balance_sync_counters[key] += 1
+            ctx = User.WalletSyncContext(next(iter(ctxs.values())).balances)
+            ctxs[id_] = ctx
 
         try:
             yield ctx
         finally:
-            self._balance_sync_counters[key] -= 1
-            if self._balance_sync_counters[key] == 0:
-                ctx.clear()
-                await cancel(self._balance_sync_tasks[key])
+            del ctxs[id_]
+            if len(ctxs) == 0:
+                await cancel(self._wallet_sync_tasks[key])
 
     async def get_balance(
         self,
@@ -115,6 +115,58 @@ class Wallet:
             }
         return result
 
+    @asynccontextmanager
+    async def connect_stream_orders(
+        self, exchange: str, account: str, symbol: str
+    ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
+        await self._ensure_account(exchange, account)
+        async with self._exchanges[exchange].connect_stream_orders(
+            account=account, symbol=symbol
+        ) as stream:
+            yield stream
+
+    async def place_order(
+        self,
+        exchange: str,
+        account: str,
+        symbol: str,
+        side: Side,
+        type_: OrderType,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+        price: Optional[Decimal] = None,
+        time_in_force: Optional[TimeInForce] = None,
+        client_id: Optional[str] = None,
+        test: bool = True,
+    ) -> OrderResult:
+        await self._ensure_account(exchange, account)
+        return await self._exchanges[exchange].place_order(
+            symbol=symbol,
+            side=side,
+            type_=type_,
+            size=size,
+            quote=quote,
+            price=price,
+            time_in_force=time_in_force,
+            client_id=client_id,
+            account=account,
+            test=test,
+        )
+
+    async def cancel_order(
+        self,
+        exchange: str,
+        account: str,
+        symbol: str,
+        client_id: str,
+    ) -> None:
+        await self._ensure_account(exchange, account)
+        await self._exchanges[exchange].cancel_order(
+            symbol=symbol,
+            client_id=client_id,
+            account=account,
+        )
+
     async def transfer(
         self, exchange: str, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
@@ -149,7 +201,7 @@ class Wallet:
         self._open_accounts[exchange] = set(open_accounts)
 
     async def _sync_balances(self, exchange: str, account: str, synced: asyncio.Event) -> None:
-        ctx = self._balance_sync_ctxs[(exchange, account)]
+        ctxs = self._wallet_sync_ctxs[(exchange, account)]
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
@@ -159,12 +211,15 @@ class Wallet:
             with attempt:
                 async for balances in self._stream_balances(exchange, account):
                     _log.info(f'received {exchange} {account} balance update')
-                    # TODO: Use Python 3.9 dict |= operator.
-                    ctx.balances = {**ctx.balances, **balances}
+                    for ctx in ctxs.values():
+                        ctx.balances.update(balances)
+
                     if is_first:
                         is_first = False
                         synced.set()
-                    ctx.updated.set()
+                    else:
+                        for ctx in ctxs.values():
+                            ctx.updated.set()
 
     async def _stream_balances(
         self, exchange: str, account: str
