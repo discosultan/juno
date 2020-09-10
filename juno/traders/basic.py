@@ -5,7 +5,7 @@ from typing import Callable, Dict, List, NamedTuple, Optional
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant, Wallet
+from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
 from juno.strategies import Changed, Strategy
 from juno.time import time_ms
@@ -29,7 +29,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         end: Timestamp
         strategy: TypeConstructor[Strategy]
         start: Optional[Timestamp] = None  # None means earliest is found.
-        quote: Optional[Decimal] = None  # None means exchange wallet is queried.
+        quote: Optional[Decimal] = None  # None means exchange user is queried.
         stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
         trail_stop_loss: bool = True
         take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -74,7 +74,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         self,
         chandler: Chandler,
         informant: Informant,
-        wallet: Optional[Wallet] = None,
+        user: Optional[User] = None,
         broker: Optional[Broker] = None,  # Only required if not backtesting.
         events: Events = Events(),
         exchanges: List[Exchange] = [],
@@ -82,7 +82,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     ) -> None:
         self._chandler = chandler
         self._informant = informant
-        self._wallet = wallet
+        self._user = user
         self._broker = broker
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -106,9 +106,9 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         return self._exchanges
 
     @property
-    def wallet(self) -> Wallet:
-        assert self._wallet
-        return self._wallet
+    def user(self) -> User:
+        assert self._user
+        return self._user
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.mode is TradingMode.BACKTEST or self.broker

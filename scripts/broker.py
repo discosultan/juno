@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Dict
 
 from juno import Balance, Fill, Side, brokers, exchanges
-from juno.components import Informant, Orderbook, Wallet
+from juno.components import Informant, Orderbook, User
 from juno.config import from_env, init_instance
 from juno.storages import SQLite
 from juno.utils import get_module_type, unpack_symbol
@@ -32,11 +32,11 @@ async def main() -> None:
     exchange = init_instance(get_module_type(exchanges, args.exchange), from_env())
     sqlite = SQLite()
     informant = Informant(storage=sqlite, exchanges=[exchange])
-    wallet = Wallet(exchanges=[exchange])
+    user = User(exchanges=[exchange])
     orderbook = Orderbook(exchanges=[exchange])
     broker = get_module_type(brokers, args.broker)(informant, orderbook)
-    async with exchange, informant, orderbook, wallet:
-        balances = (await wallet.map_balances(
+    async with exchange, informant, orderbook, user:
+        balances = (await user.map_balances(
             exchange=args.exchange, accounts=[args.account]
         ))[args.account]
         await asyncio.gather(
@@ -73,39 +73,36 @@ async def transact_symbol(
             size = available_base
     logging.info(f'using base: {size} {base_asset}; quote: {quote} {quote_asset}')
 
-    if args.side is Side.BUY:
-        market_fills = orderbook.find_order_asks(
-            exchange=args.exchange,
-            symbol=symbol,
-            size=size,
-            quote=quote,
-            fee_rate=fees.maker,
-            filters=filters,
-        )
-        res = await broker.buy(
-            exchange=args.exchange,
-            account=args.account,
-            symbol=symbol,
-            quote=quote,
-            size=size,
-            test=args.test,
-        )
-    else:
-        market_fills = orderbook.find_order_bids(
-            exchange=args.exchange,
-            symbol=symbol,
-            size=size,
-            quote=quote,
-            fee_rate=fees.maker,
-            filters=filters,
-        )
-        res = await broker.sell(
-            exchange=args.exchange,
-            account=args.account,
-            symbol=symbol,
-            size=size,
-            test=args.test,
-        )
+    async with orderbook.sync(args.exchange, symbol) as book:
+        if args.side is Side.BUY:
+            market_fills = book.find_order_asks(
+                size=size,
+                quote=quote,
+                fee_rate=fees.maker,
+                filters=filters,
+            )
+            res = await broker.buy(
+                exchange=args.exchange,
+                account=args.account,
+                symbol=symbol,
+                quote=quote,
+                size=size,
+                test=args.test,
+            )
+        else:
+            market_fills = book.find_order_bids(
+                size=size,
+                quote=quote,
+                fee_rate=fees.maker,
+                filters=filters,
+            )
+            res = await broker.sell(
+                exchange=args.exchange,
+                account=args.account,
+                symbol=symbol,
+                size=size,
+                test=args.test,
+            )
 
     logging.info(res)
     logging.info(f'{args.account} {args.side.name} {symbol}')

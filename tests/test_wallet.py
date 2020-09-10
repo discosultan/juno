@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from juno import Balance
-from juno.components import Wallet
+from juno.components import User
 
 
 async def test_get_balance(mocker) -> None:
@@ -10,8 +10,8 @@ async def test_get_balance(mocker) -> None:
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
     exchange.map_balances.return_value = {'spot': {'btc': balance}}
 
-    async with Wallet(exchanges=[exchange]) as wallet:
-        out_balance = await wallet.get_balance(
+    async with User(exchanges=[exchange]) as user:
+        out_balance = await user.get_balance(
             exchange='magicmock', account='spot', asset='btc'
         )
 
@@ -35,8 +35,8 @@ async def test_map_all_significant_balances(mocker) -> None:
         }
     ]
 
-    async with Wallet(exchanges=[exchange]) as wallet:
-        balances = await wallet.map_balances(
+    async with User(exchanges=[exchange]) as user:
+        balances = await user.map_balances(
             exchange='magicmock', accounts=['spot', 'isolated'], significant=True
         )
 
@@ -59,8 +59,8 @@ async def test_map_all_isolated(mocker) -> None:
         },
     }
 
-    async with Wallet(exchanges=[exchange]) as wallet:
-        balances = await wallet.map_balances(exchange='magicmock', accounts=['eth-btc'])
+    async with User(exchanges=[exchange]) as user:
+        balances = await user.map_balances(exchange='magicmock', accounts=['eth-btc'])
 
     assert balances == {
         'eth-btc': {

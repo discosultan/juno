@@ -7,7 +7,7 @@ from typing import AsyncIterable, Callable, List, Optional
 
 from juno import Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.asyncio import Event, cancel
-from juno.components import Informant, Orderbook
+from juno.components import Informant, Orderbook, User
 from juno.utils import unpack_symbol
 
 from .broker import Broker
@@ -35,10 +35,12 @@ class Limit(Broker):
         self,
         informant: Informant,
         orderbook: Orderbook,
+        user: User,
         get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
+        self._user = user
         self._get_client_id = get_client_id
 
     async def buy(
@@ -122,8 +124,6 @@ class Limit(Broker):
         self, exchange: str, account: str, symbol: str, side: Side,
         size: Optional[Decimal] = None, quote: Optional[Decimal] = None
     ) -> OrderResult:
-        await self._orderbook.ensure_sync([exchange], [symbol])
-
         client_id = self._get_client_id()
         if size is not None:
             if size == 0:
@@ -136,7 +136,7 @@ class Limit(Broker):
         else:
             raise ValueError('Neither size nor quote specified')
 
-        async with self._orderbook.connect_stream_orders(
+        async with self._user.connect_stream_orders(
             exchange=exchange, account=account, symbol=symbol
         ) as stream:
             # Keeps a limit order at spread.
@@ -174,113 +174,121 @@ class Limit(Broker):
     async def _keep_limit_order_best(
         self, exchange: str, account: str, symbol: str, side: Side, ctx: _Context
     ) -> None:
-        orderbook_updated = self._orderbook.get_updated_event(exchange, symbol)
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
         last_order_size = Decimal('0.0')
-        while True:
-            await orderbook_updated.wait()
-
-            asks = self._orderbook.list_asks(exchange, symbol)
-            bids = self._orderbook.list_bids(exchange, symbol)
-            ob_side = bids if side is Side.BUY else asks
-            ob_other_side = asks if side is Side.BUY else bids
-            op_step = operator.add if side is Side.BUY else operator.sub
-            op_last_price_cmp = operator.le if side is Side.BUY else operator.ge
-
-            if len(ob_side) == 0:
-                raise NotImplementedError(
-                    f'no existing {symbol} {"bids" if side is Side.BUY else "asks"} in orderbook! '
-                    'what is optimal price?'
-                )
-
-            if len(ob_other_side) == 0:
-                price = op_step(ob_side[0][0], filters.price.step)
-            else:
-                spread = abs(ob_other_side[0][0] - ob_side[0][0])
-                if spread == filters.price.step:
-                    price = ob_side[0][0]
+        is_first = True
+        async with self._orderbook.sync(exchange, symbol) as orderbook:
+            while True:
+                if is_first:
+                    is_first = False
                 else:
+                    await orderbook.updated.wait()
+
+                asks = orderbook.list_asks()
+                bids = orderbook.list_bids()
+                ob_side = bids if side is Side.BUY else asks
+                ob_other_side = asks if side is Side.BUY else bids
+                op_step = operator.add if side is Side.BUY else operator.sub
+                op_last_price_cmp = operator.le if side is Side.BUY else operator.ge
+
+                if len(ob_side) == 0:
+                    raise NotImplementedError(
+                        f'no existing {symbol} {"bids" if side is Side.BUY else "asks"} in '
+                        'orderbook! what is optimal price?'
+                    )
+
+                if len(ob_other_side) == 0:
                     price = op_step(ob_side[0][0], filters.price.step)
+                else:
+                    spread = abs(ob_other_side[0][0] - ob_side[0][0])
+                    if spread == filters.price.step:
+                        price = ob_side[0][0]
+                    else:
+                        price = op_step(ob_side[0][0], filters.price.step)
 
-            if op_last_price_cmp(price, last_order_price):
-                continue
+                if op_last_price_cmp(price, last_order_price):
+                    continue
 
-            if last_order_price not in [0, Decimal('Inf')]:
-                # Cancel prev Order.
-                _log.info(
-                    f'cancelling previous {symbol} {side.name} order {ctx.client_id} at price '
-                    f'{last_order_price}'
-                )
-                try:
-                    await self._orderbook.cancel_order(
-                        exchange=exchange, symbol=symbol, client_id=ctx.client_id, account=account
+                # If we have an order in the orderbook.
+                if last_order_size > 0:
+                    # Cancel prev Order.
+                    _log.info(
+                        f'cancelling previous {symbol} {side.name} order {ctx.client_id} at price '
+                        f'{last_order_price}'
                     )
-                except OrderException as exc:
-                    _log.warning(
-                        f'failed to cancel {symbol} {side.name} order {ctx.client_id}; probably '
-                        f'got filled; {exc}'
+                    try:
+                        await self._user.cancel_order(
+                            exchange=exchange,
+                            symbol=symbol,
+                            client_id=ctx.client_id,
+                            account=account,
+                        )
+                    except OrderException as exc:
+                        _log.warning(
+                            f'failed to cancel {symbol} {side.name} order {ctx.client_id}; '
+                            f'probably got filled; {exc}'
+                        )
+                        break
+                    _log.info(
+                        f'waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled'
                     )
-                    break
-                _log.info(
-                    f'waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled'
-                )
-                fills_since_last_order = await ctx.cancelled_event.wait()
-                filled_size_since_last_order = Fill.total_size(fills_since_last_order)
-                add_back_size = last_order_size - filled_size_since_last_order
-                add_back = add_back_size * last_order_price if ctx.use_quote else add_back_size
-                _log.info(
-                    f'last {symbol} {side.name} order size {last_order_size} but filled '
-                    f'{filled_size_since_last_order}; {add_back_size} still to be filled'
-                )
-                ctx.available += add_back
-                # Use a new client ID for new order.
-                ctx.client_id = self._get_client_id()
-                # Reset last order info because we currently have no order active.
-                last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
-                last_order_size = Decimal('0.0')
+                    fills_since_last_order = await ctx.cancelled_event.wait()
+                    filled_size_since_last_order = Fill.total_size(fills_since_last_order)
+                    add_back_size = last_order_size - filled_size_since_last_order
+                    add_back = add_back_size * last_order_price if ctx.use_quote else add_back_size
+                    _log.info(
+                        f'last {symbol} {side.name} order size {last_order_size} but filled '
+                        f'{filled_size_since_last_order}; {add_back_size} still to be filled'
+                    )
+                    ctx.available += add_back
+                    # Use a new client ID for new order.
+                    ctx.client_id = self._get_client_id()
+                    # Reset last order info because we currently have no order active.
+                    last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
+                    last_order_size = Decimal('0.0')
 
-            # No need to round price as we take it from existing orders.
-            size = ctx.available / price if ctx.use_quote else ctx.available
-            size = filters.size.round_down(size)
+                # No need to round price as we take it from existing orders.
+                size = ctx.available / price if ctx.use_quote else ctx.available
+                size = filters.size.round_down(size)
 
-            _log.info(f'validating {symbol} {side.name} order price and size')
-            if len(ctx.fills) == 0:
-                # We only want to raise an exception if the filters fail while we haven't had any
-                # fills yet.
-                filters.size.validate(size)
-                filters.min_notional.validate_limit(price=price, size=size)
-            else:
-                try:
+                _log.info(f'validating {symbol} {side.name} order price and size')
+                if len(ctx.fills) == 0:
+                    # We only want to raise an exception if the filters fail while we haven't had
+                    # any fills yet.
                     filters.size.validate(size)
                     filters.min_notional.validate_limit(price=price, size=size)
-                except OrderException as e:
-                    _log.info(f'{symbol} {side.name} price / size no longer valid: {e}')
-                    raise _Filled()
+                else:
+                    try:
+                        filters.size.validate(size)
+                        filters.min_notional.validate_limit(price=price, size=size)
+                    except OrderException as e:
+                        _log.info(f'{symbol} {side.name} price / size no longer valid: {e}')
+                        raise _Filled()
 
-            _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
-            try:
-                await self._orderbook.place_order(
-                    exchange=exchange,
-                    account=account,
-                    symbol=symbol,
-                    side=side,
-                    type_=OrderType.LIMIT_MAKER,
-                    price=price,
-                    size=size,
-                    client_id=ctx.client_id,
-                    test=False,
-                )
-            except OrderException:
-                # Order would immediately match and take. Retry.
-                continue
+                _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
+                try:
+                    await self._user.place_order(
+                        exchange=exchange,
+                        account=account,
+                        symbol=symbol,
+                        side=side,
+                        type_=OrderType.LIMIT_MAKER,
+                        price=price,
+                        size=size,
+                        client_id=ctx.client_id,
+                        test=False,
+                    )
+                except OrderException:
+                    # Order would immediately match and take. Retry.
+                    continue
 
-            await ctx.new_event.wait()
-            deduct = price * size if ctx.use_quote else size
-            ctx.available -= deduct
+                await ctx.new_event.wait()
+                deduct = price * size if ctx.use_quote else size
+                ctx.available -= deduct
 
-            last_order_price = price
-            last_order_size = size
+                last_order_price = price
+                last_order_size = size
 
     async def _track_fills(
         self, symbol: str, stream: AsyncIterable[OrderUpdate.Any], side: Side, ctx: _Context

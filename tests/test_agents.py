@@ -2,7 +2,7 @@
 
 import asyncio
 from decimal import Decimal
-from typing import Any, Callable, Dict, List
+from typing import Callable, List
 
 import pytest
 
@@ -10,7 +10,7 @@ from juno import Balance, Candle, Depth, ExchangeInfo, Fees, Fill, OrderResult, 
 from juno.agents import Backtest, Live, Paper
 from juno.asyncio import cancel, resolved_stream, stream_queue
 from juno.brokers import Broker, Market
-from juno.components import Chandler, Informant, Orderbook, Wallet
+from juno.components import Chandler, Informant, Orderbook, User
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
@@ -351,5 +351,5 @@ def _get_container(exchange: Exchange) -> Container:
     container.add_singleton_type(Informant)
     container.add_singleton_type(Orderbook)
     container.add_singleton_type(Chandler)
-    container.add_singleton_type(Wallet)
+    container.add_singleton_type(User)
     return container

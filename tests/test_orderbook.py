@@ -32,8 +32,9 @@ async def test_list_asks_bids(storage) -> None:
     exchange.can_stream_depth_snapshot = False
 
     async with Orderbook(exchanges=[exchange]) as orderbook:
-        asks = orderbook.list_asks(exchange='exchange', symbol='eth-btc')
-        bids = orderbook.list_bids(exchange='exchange', symbol='eth-btc')
+        async with orderbook.sync('exchange', 'eth-btc') as book:
+            asks = book.list_asks()
+            bids = book.list_bids()
 
     assert asks == [
         (Decimal('1.0'), Decimal('1.0')),
@@ -69,10 +70,9 @@ async def test_find_order_asks(size, snapshot_asks, expected_output) -> None:
     exchange = fakes.Exchange(depth=snapshot)
     exchange.can_stream_depth_snapshot = False
     async with Orderbook(exchanges=[exchange]) as orderbook:
-        output = orderbook.find_order_asks(
-            exchange='exchange', symbol='eth-btc', size=size, fee_rate=FEE_RATE, filters=FILTERS
-        )
-        assert_fills(output, expected_output)
+        async with orderbook.sync('exchange', 'eth-btc') as book:
+            output = book.find_order_asks(size=size, fee_rate=FEE_RATE, filters=FILTERS)
+    assert_fills(output, expected_output)
 
 
 @pytest.mark.parametrize(
@@ -129,10 +129,9 @@ async def test_find_order_asks_by_quote(
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
     exchange.can_stream_depth_snapshot = False
     async with Orderbook(exchanges=[exchange]) as orderbook:
-        output = orderbook.find_order_asks(
-            exchange='exchange', symbol='eth-btc', quote=quote, fee_rate=FEE_RATE, filters=FILTERS
-        )
-        assert_fills(output, expected_output)
+        async with orderbook.sync('exchange', 'eth-btc') as book:
+            output = book.find_order_asks(quote=quote, fee_rate=FEE_RATE, filters=FILTERS)
+    assert_fills(output, expected_output)
 
 
 @pytest.mark.parametrize(
@@ -188,22 +187,26 @@ async def test_find_order_bids(size, snapshot_bids, update_bids, expected_output
     exchange = fakes.Exchange(depth=snapshot, future_depths=updates)
     exchange.can_stream_depth_snapshot = False
     async with Orderbook(exchanges=[exchange]) as orderbook:
-        output = orderbook.find_order_bids(
-            exchange='exchange', symbol='eth-btc', size=size, fee_rate=FEE_RATE, filters=FILTERS
-        )
-        assert_fills(output, expected_output)
+        async with orderbook.sync('exchange', 'eth-btc') as book:
+            output = book.find_order_bids(size=size, fee_rate=FEE_RATE, filters=FILTERS)
+    assert_fills(output, expected_output)
 
 
-async def test_sync_on_demand() -> None:
-    exchange = fakes.Exchange(depth=Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))]))
+async def test_sync_twice_should_share_context(mocker) -> None:
+    asks = [(Decimal('1.0'), Decimal('1.0'))]
+
+    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
     exchange.can_stream_depth_snapshot = False
-    async with Orderbook(exchanges=[exchange]) as orderbook:
-        assert orderbook.list_asks('exchange', 'eth-btc') == []
+    exchange.get_depth.return_value = Depth.Snapshot(asks=asks)
 
-        await orderbook.ensure_sync(['exchange'], ['eth-btc'])
-        # Second call shouldn't do anything.
-        await orderbook.ensure_sync(['exchange'], ['eth-btc'])
-        assert orderbook.list_asks('exchange', 'eth-btc') == [(Decimal('1.0'), Decimal('1.0'))]
+    async with Orderbook(exchanges=[exchange]) as orderbook:
+        async with orderbook.sync('magicmock', 'eth-btc') as orderbook1:
+            async with orderbook.sync('magicmock', 'eth-btc') as orderbook2:
+                assert orderbook2.list_asks() == asks
+            assert orderbook1.list_asks() == asks
+
+    assert exchange.get_depth.assert_called_once()
+    assert exchange.connect_stream_depth.assert_called_once()
 
 
 async def test_sync_on_exchange_exception() -> None:
@@ -211,13 +214,14 @@ async def test_sync_on_exchange_exception() -> None:
         depth=Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))]),
         future_depths=[
             ExchangeException(),
-            Depth.Update(asks=[(Decimal('1.0'), Decimal('1.0'))]),
+            Depth.Update(asks=[(Decimal('2.0'), Decimal('1.0'))]),
         ],
     )
     exchange.can_stream_depth_snapshot = False
     async with Orderbook(exchanges=[exchange]) as orderbook:
-        await orderbook.ensure_sync(['exchange'], ['eth-btc'])
-        await exchange.depth_queue.join()
+        async with orderbook.sync('exchange', 'eth-btc') as book:
+            await exchange.depth_queue.join()
+            assert book.list_asks()
 
 
 def assert_fills(output, expected_output) -> None:

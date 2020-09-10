@@ -13,7 +13,7 @@ from typing import Iterable, List, Optional, Type, Union
 
 from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
-from juno.components import Chandler, Informant, Wallet
+from juno.components import Chandler, Informant, User
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, YEAR_MS, strftimestamp, time_ms
 from juno.utils import extract_public, unpack_symbol
@@ -665,7 +665,7 @@ class PositionMixin(ABC):
 
     @property
     @abstractmethod
-    def wallet(self) -> Wallet:
+    def user(self) -> User:
         pass
 
     async def open_long_position(
@@ -734,24 +734,24 @@ class PositionMixin(ABC):
             borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} from spot to {symbol} account')
-            async with self.wallet.sync_balances(exchange=exchange, account=symbol) as ctx:
-                await self.wallet.transfer(
+            async with self.user.sync_wallet(exchange=exchange, account=symbol) as wallet:
+                await self.user.transfer(
                     exchange=exchange,
                     asset=quote_asset,
                     size=collateral,
                     from_account='spot',
                     to_account=symbol,
                 )
-                await ctx.updated.wait()
+                await wallet.updated.wait()
 
             borrowed = min(
                 _calculate_borrowed(filters, margin_multiplier, collateral, price),
-                await self.wallet.get_max_borrowable(
+                await self.user.get_max_borrowable(
                     exchange=exchange, asset=base_asset, account=symbol
                 ),
             )
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
-            await self.wallet.borrow(
+            await self.user.borrow(
                 exchange=exchange,
                 asset=base_asset,
                 size=borrowed,
@@ -787,7 +787,7 @@ class PositionMixin(ABC):
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
 
-        # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
+        # TODO: Take interest from user (if Binance supports streaming it for margin account)
         if mode is TradingMode.PAPER:
             borrow_info = self.informant.get_borrow_info(
                 exchange=position.exchange, asset=base_asset, account=position.symbol
@@ -799,7 +799,7 @@ class PositionMixin(ABC):
                 end=time_ms(),
             )
         else:
-            interest = (await self.wallet.get_balance(
+            interest = (await self.user.get_balance(
                 exchange=position.exchange,
                 account=position.symbol,
                 asset=base_asset,
@@ -825,7 +825,7 @@ class PositionMixin(ABC):
             _log.info(
                 f'repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}'
             )
-            await self.wallet.repay(
+            await self.user.repay(
                 exchange=position.exchange,
                 asset=base_asset,
                 size=position.borrowed + interest,
@@ -836,7 +836,7 @@ class PositionMixin(ABC):
             # still be borrowed funds on the account. Double check and repay more if that is the
             # case.
             # Careful with this check! We may have another position still open.
-            new_balance = await self.wallet.get_balance(
+            new_balance = await self.user.get_balance(
                 exchange=position.exchange,
                 account=position.symbol,
                 asset=base_asset,
@@ -856,13 +856,13 @@ class PositionMixin(ABC):
                         'implemented'
                     )
                     raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
-                await self.wallet.repay(
+                await self.user.repay(
                     exchange=position.exchange,
                     asset=base_asset,
                     size=new_balance.repay,
                     account=position.symbol,
                 )
-                assert (await self.wallet.get_balance(
+                assert (await self.user.get_balance(
                     exchange=position.exchange,
                     account=position.symbol,
                     asset=base_asset,
@@ -872,7 +872,7 @@ class PositionMixin(ABC):
             _log.info(
                 f'transferring {transfer} {quote_asset} from {position.symbol} to spot account'
             )
-            await self.wallet.transfer(
+            await self.user.transfer(
                 exchange=position.exchange,
                 asset=quote_asset,
                 size=transfer,

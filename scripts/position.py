@@ -7,7 +7,7 @@ from decimal import Decimal
 from typing import Dict
 
 from juno.brokers import Broker, Limit
-from juno.components import Chandler, Informant, Orderbook, Wallet
+from juno.components import Chandler, Informant, Orderbook, User
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Exchange
 from juno.storages import SQLite
@@ -34,23 +34,23 @@ class PositionHandler(PositionMixin):
         storage = SQLite()
         self._informant = Informant(storage=storage, exchanges=[exchange])
         self._chandler = Chandler(storage=storage, exchanges=[exchange])
-        self._wallet = Wallet(exchanges=[exchange])
+        self._user = User(exchanges=[exchange])
         self._orderbook = Orderbook(exchanges=[exchange])
-        self._broker = Limit(informant=self._informant, orderbook=self._orderbook)
+        self._broker = Limit(informant=self._informant, orderbook=self._orderbook, user=self._user)
         await asyncio.gather(*(e.__aenter__() for e in self._exchanges.values()))
-        await self._wallet.__aenter__()
         await asyncio.gather(
             self._informant.__aenter__(),
             self._orderbook.__aenter__(),
+            self._user.__aenter__(),
         )
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await asyncio.gather(
-            self._informant.__aexit__(exc_type, exc, tb),
+            self._user.__aexit__(exc_type, exc, tb),
             self._orderbook.__aexit__(exc_type, exc, tb),
+            self._informant.__aexit__(exc_type, exc, tb),
         )
-        await self._wallet.__aexit__(exc_type, exc, tb)
         await asyncio.gather(*(e.__aexit__(exc_type, exc, tb) for e in self._exchanges.values()))
 
     @property
@@ -70,8 +70,8 @@ class PositionHandler(PositionMixin):
         return self._exchanges
 
     @property
-    def wallet(self) -> Wallet:
-        return self._wallet
+    def user(self) -> User:
+        return self._user
 
 
 async def main() -> None:

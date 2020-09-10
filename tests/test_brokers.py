@@ -10,7 +10,7 @@ from juno import (
     Depth, ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus, OrderUpdate
 )
 from juno.brokers import Limit, Market, Market2
-from juno.components import Informant, Orderbook
+from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
 from juno.filters import Filters, MinNotional, Price, Size
 from juno.storages import Memory
@@ -484,8 +484,9 @@ async def init_market_broker(exchange: Exchange) -> AsyncIterator[Market]:
     memory = Memory()
     informant = Informant(memory, [exchange])
     orderbook = Orderbook([exchange])
-    async with memory, informant, orderbook:
-        broker = Market(informant, orderbook)
+    user = User([exchange])
+    async with memory, informant, orderbook, user:
+        broker = Market(informant, orderbook, user)
         yield broker
 
 
@@ -494,8 +495,9 @@ async def init_market2_broker(exchange: Exchange) -> AsyncIterator[Market2]:
     memory = Memory()
     informant = Informant(memory, [exchange])
     orderbook = Orderbook([exchange])
-    async with memory, informant, orderbook:
-        broker = Market2(informant, orderbook, get_client_id=lambda: order_client_id)
+    user = User([exchange])
+    async with memory, informant, orderbook, user:
+        broker = Market2(informant, orderbook, user, get_client_id=lambda: order_client_id)
         yield broker
 
 
@@ -504,8 +506,9 @@ async def init_limit_broker(exchange: Exchange) -> AsyncIterator[Limit]:
     memory = Memory()
     informant = Informant(memory, [exchange])
     orderbook = Orderbook([exchange])
-    async with memory, informant, orderbook:
-        broker = Limit(informant, orderbook, get_client_id=lambda: order_client_id)
+    user = User([exchange])
+    async with memory, informant, orderbook, user:
+        broker = Limit(informant, orderbook, user, get_client_id=lambda: order_client_id)
         yield broker
 
 
