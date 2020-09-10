@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import BorrowInfo, ExchangeInfo, Fees, Filters
+from juno import BorrowInfo, ExchangeInfo, Fees, Filters, Ticker
 from juno.components import Informant
 from juno.filters import Price, Size
 
@@ -129,3 +129,22 @@ async def test_resource_caching_to_storage(storage) -> None:
     assert len(exchange.get_exchange_info_calls) == 2
     assert len(storage.get_calls) == 3
     assert len(storage.set_calls) == 2
+
+
+async def test_map_tickers_exclude_symbol_patterns(mocker, storage) -> None:
+    tickers = {
+        'btc': Ticker(
+            volume=Decimal('1.0'),
+            quote_volume=Decimal('1.0'),
+            price=Decimal('1.0'),
+        ),
+    }
+
+    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
+    exchange.get_exchange_info.return_value = ExchangeInfo()
+    exchange.map_tickers.return_value = tickers
+
+    async with Informant(storage=storage, exchanges=[exchange]) as informant:
+        assert informant.map_tickers('magicmock', exclude_symbol_patterns=None) == tickers
+        assert informant.map_tickers('magicmock', exclude_symbol_patterns=[]) == tickers
+        assert informant.map_tickers('magicmock', exclude_symbol_patterns=['btc']) == {}

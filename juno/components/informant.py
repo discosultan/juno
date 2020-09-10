@@ -181,7 +181,7 @@ class Informant:
             result = (
                 (s, t) for s, t in result if any(fnmatch.fnmatch(s, p) for p in symbol_patterns)
             )
-        if exclude_symbol_patterns is not None:
+        if exclude_symbol_patterns:
             result = (
                 (s, t) for s, t in result
                 if not all(fnmatch.fnmatch(s, p) for p in exclude_symbol_patterns)
