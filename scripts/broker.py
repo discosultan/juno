@@ -34,7 +34,7 @@ async def main() -> None:
     informant = Informant(storage=sqlite, exchanges=[exchange])
     user = User(exchanges=[exchange])
     orderbook = Orderbook(exchanges=[exchange])
-    broker = get_module_type(brokers, args.broker)(informant, orderbook)
+    broker = get_module_type(brokers, args.broker)(informant, orderbook, user)
     async with exchange, informant, orderbook, user:
         balances = (await user.map_balances(
             exchange=args.exchange, accounts=[args.account]
