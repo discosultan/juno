@@ -11,7 +11,7 @@ pub fn list_candles(
         "SELECT time, open, high, low, close, volume FROM candle WHERE time >= ? AND time < ? \
         ORDER BY time"
     )?;
-    Ok(stmt
+    stmt
         .query_map(params![end as i64, start as i64], |row| {
             Ok(Candle {
                 time: row.get::<_, i64>(0)? as u64,
@@ -22,6 +22,6 @@ pub fn list_candles(
                 volume: row.get(5)?,
             })
         })
-        ?.map(|candle| candle.unwrap())
-        .collect::<Vec<Candle>>())
+        .map_err(|e| e.into())
+        ?.collect()
 }
