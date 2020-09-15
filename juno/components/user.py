@@ -51,6 +51,8 @@ class User:
     async def sync_wallet(
         self, exchange: str, account: str
     ) -> AsyncIterator[WalletSyncContext]:
+        await self._ensure_account(exchange, account)
+
         id_ = str(uuid.uuid4())
         key = (exchange, account)
         ctxs = self._wallet_sync_ctxs[key]
