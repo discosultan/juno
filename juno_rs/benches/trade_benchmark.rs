@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use juno_rs::{
     filters::{Filters, Price, Size},
     strategies::MAMACX,
-    trade::trade,
+    traders::trade,
     BorrowInfo, Candle, Fees,
 };
 

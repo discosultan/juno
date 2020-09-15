@@ -1,15 +1,13 @@
-use crate::{
-    prelude::*,
-    storages::list_candles,
-};
+use juno_rs::{prelude::*, storages::list_candles};
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let candles = list_candles(
         "binance",
         "eth-btc",
         DAY_MS,
-        "2020-01-01".to_interval(),
-        "2020-02-01".to_interval(),
-    );
-    println!("Hello, world! {:?}", candles);
+        "2020-01-01".to_timestamp(),
+        "2020-02-01".to_timestamp(),
+    )?;
+    println!("Hello, world!\n{:?}", candles);
+    Ok(())
 }

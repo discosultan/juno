@@ -39,11 +39,11 @@ impl IntervalStrExt for str {
 }
 
 pub trait IntervalIntExt {
-    fn to_interval_string(self) -> &'static str;
+    fn to_interval_str(self) -> &'static str;
 }
 
 impl IntervalIntExt for u64 {
-    fn to_interval_string(self) -> &'static str {
+    fn to_interval_str(self) -> &'static str {
         match self {
             60_000 => "1m",
             180_000 => "3m",
@@ -81,53 +81,19 @@ pub trait TimestampStrExt {
 
 impl TimestampStrExt for str {
     fn to_timestamp(&self) -> u64 {
-        self.parse::<DateTime<Utc>>()
-            .map(|x| x.to_timestamp())
-            .or_else(|_| self.parse::<NaiveDateTime>().map(|x| x.to_timestamp()))
-            .or_else(|_| self.parse::<NaiveDate>().map(|x| x.to_timestamp()))
+        Err(())
+            .or_else(|_| {
+                self.parse::<DateTime<Utc>>()
+                    .map(|x| x.timestamp() as u64 * 1000 + u64::from(x.timestamp_subsec_millis()))
+            })
+            .or_else(|_| {
+                self.parse::<NaiveDateTime>()
+                    .map(|x| x.timestamp() as u64 * 1000 + u64::from(x.timestamp_subsec_millis()))
+            })
+            .or_else(|_| {
+                self.parse::<NaiveDate>()
+                    .map(|x| x.and_hms(0, 0, 0).timestamp() as u64 * 1000)
+            })
             .expect("parsed timestamp")
-    }
-}
-
-pub trait TimestampIntExt {
-    fn to_date_time(self) -> DateTime<Utc>;
-}
-
-impl TimestampIntExt for u64 {
-    fn to_date_time(self) -> DateTime<Utc> {
-        let secs = self / 1000;
-        let subsec_nanos = self * 1_000_000 - secs * 1_000_000_000;
-        DateTime::<Utc>::from_utc(
-            NaiveDateTime::from_timestamp(secs as i64, subsec_nanos as u32),
-            Utc,
-        )
-    }
-}
-
-pub trait TimestampDateTimeExt {
-    fn to_timestamp(&self) -> u64;
-}
-
-impl TimestampDateTimeExt for DateTime<Utc> {
-    fn to_timestamp(&self) -> u64 {
-        self.timestamp() as u64 * 1000 + u64::from(self.timestamp_subsec_millis())
-    }
-}
-
-impl TimestampDateTimeExt for Date<Utc> {
-    fn to_timestamp(&self) -> u64 {
-        self.and_hms(0, 0, 0).to_timestamp()
-    }
-}
-
-impl TimestampDateTimeExt for NaiveDateTime {
-    fn to_timestamp(&self) -> u64 {
-        self.timestamp() as u64 * 1000 + u64::from(self.timestamp_subsec_millis())
-    }
-}
-
-impl TimestampDateTimeExt for NaiveDate {
-    fn to_timestamp(&self) -> u64 {
-        self.and_hms(0, 0, 0).timestamp() as u64 * 1000
     }
 }

@@ -2,26 +2,34 @@ use crate::common::Candle;
 use rusqlite::{params, Connection};
 use std::error::Error;
 
+fn blob_to_f64(blob: Vec<u8>) -> Result<f64, rusqlite::Error> {
+    let s = std::str::from_utf8(&blob).map_err(|e| rusqlite::Error::Utf8Error(e))?;
+    s.parse::<f64>()
+        .map_err(|_| rusqlite::Error::ExecuteReturnedResults {})
+}
+
 pub fn list_candles(
-    exchange: &str, symbol: &str, interval: u64, start: u64, end: u64
+    exchange: &str,
+    symbol: &str,
+    interval: u64,
+    start: u64,
+    end: u64,
 ) -> Result<Vec<Candle>, Box<dyn Error>> {
     let shard = format!("{}_{}_{}", exchange, symbol, interval);
-    let conn = Connection::open(format!("~/.juno/data/v47_{}.db", shard))?;
+    let conn = Connection::open(format!("/home/discosultan/.juno/data/v47_{}.db", shard))?;
     let mut stmt = conn.prepare(
         "SELECT time, open, high, low, close, volume FROM candle WHERE time >= ? AND time < ? \
-        ORDER BY time"
+        ORDER BY time",
     )?;
-    stmt
-        .query_map(params![end as i64, start as i64], |row| {
-            Ok(Candle {
-                time: row.get::<_, i64>(0)? as u64,
-                open: row.get(1)?,
-                high: row.get(2)?,
-                low: row.get(3)?,
-                close: row.get(4)?,
-                volume: row.get(5)?,
-            })
+    let res = stmt.query_map(params![start as i64, end as i64], |row| {
+        Ok(Candle {
+            time: row.get::<_, i64>(0)? as u64,
+            open: blob_to_f64(row.get(1)?)?,
+            high: blob_to_f64(row.get(2)?)?,
+            low: blob_to_f64(row.get(3)?)?,
+            close: blob_to_f64(row.get(4)?)?,
+            volume: blob_to_f64(row.get(5)?)?,
         })
-        .map_err(|e| e.into())
-        ?.collect()
+    })?;
+    res.map(|r| r.map_err(|e| e.into())).collect()
 }

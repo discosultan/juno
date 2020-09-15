@@ -4,6 +4,7 @@ pub mod common;
 pub mod filters;
 pub mod indicators;
 pub mod math;
+pub mod prelude;
 pub mod statistics;
 pub mod storages;
 pub mod strategies;
