@@ -43,6 +43,7 @@ _SEC_MARGIN = 5  # Endpoint requires sending a valid API-Key and signature.
 _SEC_USER_STREAM = 3  # Endpoint requires sending a valid API-Key.
 _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
+_ERR_UNKNOWN = -1000
 _ERR_NEW_ORDER_REJECTED = -2010
 _ERR_CANCEL_REJECTED = -2011
 _ERR_INVALID_TIMESTAMP = -1021
@@ -815,6 +816,8 @@ class Binance(Exchange):
                     if (retry_after := res.headers.get('Retry-After')):
                         _log.info(f'server provided retry-after {retry_after}; sleeping')
                         await asyncio.sleep(float(retry_after))
+                    raise ExchangeException(error_msg)
+                elif error_code == _ERR_UNKNOWN:
                     raise ExchangeException(error_msg)
                 else:
                     raise NotImplementedError(f'No handling for binance error: {res.data}')
