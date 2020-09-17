@@ -2,6 +2,7 @@
 
 pub mod common;
 pub mod filters;
+pub mod genetics;
 pub mod indicators;
 pub mod math;
 pub mod prelude;

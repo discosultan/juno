@@ -23,16 +23,16 @@ pub trait Strategy {
     fn update(&mut self, candle: &Candle) -> Advice;
 }
 
-struct MidTrend {
+pub struct MidTrend {
     policy: u32,
     previous: Option<Advice>,
     enabled: bool,
 }
 
 impl MidTrend {
-    const POLICY_CURRENT: u32 = 0;
-    const POLICY_PREVIOUS: u32 = 1;
-    const POLICY_IGNORE: u32 = 2;
+    pub const POLICY_CURRENT: u32 = 0;
+    pub const POLICY_PREVIOUS: u32 = 1;
+    pub const POLICY_IGNORE: u32 = 2;
 
     pub fn new(policy: u32) -> Self {
         Self {

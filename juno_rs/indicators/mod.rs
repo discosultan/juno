@@ -32,24 +32,26 @@ pub trait MA {
     fn maturity(&self) -> u32;
 }
 
-pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
+pub mod adler32 {
     // Adler32 of lowercased indicator name.
-    const ALMA: u32 = 67_568_028;
-    const EMA: u32 = 40_698_164;
-    const EMA2: u32 = 64_160_102;
-    const SMA: u32 = 43_450_690;
-    const SMMA: u32 = 72_483_247;
-    const DEMA: u32 = 66_978_200;
-    const KAMA: u32 = 68_026_779;
+    pub const ALMA: u32 = 67_568_028;
+    pub const EMA: u32 = 40_698_164;
+    pub const EMA2: u32 = 64_160_102;
+    pub const SMA: u32 = 43_450_690;
+    pub const SMMA: u32 = 72_483_247;
+    pub const DEMA: u32 = 66_978_200;
+    pub const KAMA: u32 = 68_026_779;
+}
 
+pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     match code {
-        ALMA => Box::new(Alma::new(period)),
-        EMA => Box::new(Ema::new(period)),
-        EMA2 => Box::new(Ema2::new(period)),
-        SMA => Box::new(Sma::new(period)),
-        SMMA => Box::new(Smma::new(period)),
-        DEMA => Box::new(Dema::new(period)),
-        KAMA => Box::new(Kama::new(period)),
+        adler32::ALMA => Box::new(Alma::new(period)),
+        adler32::EMA => Box::new(Ema::new(period)),
+        adler32::EMA2 => Box::new(Ema2::new(period)),
+        adler32::SMA => Box::new(Sma::new(period)),
+        adler32::SMMA => Box::new(Smma::new(period)),
+        adler32::DEMA => Box::new(Dema::new(period)),
+        adler32::KAMA => Box::new(Kama::new(period)),
         _ => panic!("indicator not supported"),
     }
 }
