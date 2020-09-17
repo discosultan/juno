@@ -57,17 +57,38 @@ impl Chromosome for FourWeekRuleParams {
     }
 }
 
-pub fn run<T: Chromosome>() {
+pub fn evolve<T: Chromosome>() {
     let population_size = 100;
     let generations = 10;
     let seed = 1;
 
     let mut rng = StdRng::seed_from_u64(seed);
 
-    let population: Vec<Individual<T>> = iter::repeat(population_size)
+    let mut population: Vec<Individual<T>> = iter::repeat(population_size)
         .map(|_| Individual {
             trader: TraderParams::generate(&mut rng),
             strategy: T::generate(&mut rng)
         })
         .collect();
+
+    for _ in 0..generations {
+        // TODO: evolve
+        run_generation(&mut population, &mut rng);
+    }
+}
+
+fn run_generation<T: Chromosome>(population: &mut Vec<Individual<T>>, rng: &mut StdRng) {
+    // TODO: Support different strategies here. A la parallel cpu or gpu, for example.
+    for ind in population.iter() {
+        let fitness = evaluate(ind);
+        // evaluate
+        // select
+        // crossover
+        // mutate
+        // clone??
+    }
+}
+
+fn evaluate<T: Chromosome>(ind: &Individual<T>) -> f64 {
+    1.0
 }
