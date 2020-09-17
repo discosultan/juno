@@ -4,9 +4,12 @@ pub mod common;
 pub mod filters;
 pub mod indicators;
 pub mod math;
+pub mod prelude;
 pub mod statistics;
+pub mod storages;
 pub mod strategies;
-pub mod trade;
+pub mod time;
+pub mod traders;
 pub mod trading;
 
 pub use crate::{
@@ -17,7 +20,7 @@ pub use crate::{
 use crate::{
     statistics::analyse,
     strategies::{Macd, MacdRsi, Strategy, MAMACX},
-    trade::trade,
+    traders::trade,
 };
 use std::slice;
 

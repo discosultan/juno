@@ -1,8 +1,5 @@
 use super::MA;
-use std::{
-    cmp::min,
-    collections::VecDeque,
-};
+use std::{cmp::min, collections::VecDeque};
 
 pub struct Alma {
     pub value: f64,
@@ -26,7 +23,7 @@ impl Alma {
         let sw: f64 = tmp.iter().sum();
         Self {
             value: 0.0,
-            
+
             weights: tmp.iter().map(|v| v / sw).collect::<Vec<f64>>(),
             prices: VecDeque::with_capacity(period as usize),
 
@@ -46,7 +43,9 @@ impl Alma {
         self.prices.push_back(price);
 
         if self.t >= self.t1 {
-            self.value = self.prices.iter()
+            self.value = self
+                .prices
+                .iter()
                 .zip(self.weights.iter())
                 .map(|(p, w)| p * w)
                 .sum()
