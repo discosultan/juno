@@ -249,6 +249,7 @@ fn tick<T: Strategy>(
                 &mut state,
                 fees,
                 filters,
+                borrow_info,
                 margin_multiplier,
                 candle.time + interval,
                 candle.close,
@@ -313,6 +314,7 @@ fn try_open_short_position<T: Strategy>(
     state: &mut State<T>,
     fees: &Fees,
     filters: &Filters,
+    borrow_info: &BorrowInfo,
     margin_multiplier: u32,
     time: u64,
     price: f64,
@@ -321,7 +323,7 @@ fn try_open_short_position<T: Strategy>(
     if collateral_size == 0.0 {
         return false;
     }
-    let borrowed = collateral_size * (margin_multiplier - 1) as f64;
+    let borrowed = f64::min(collateral_size * (margin_multiplier - 1) as f64, borrow_info.limit);
 
     let quote = round_down(price * borrowed, filters.quote_precision);
     let fee = round_half_up(quote * fees.taker, filters.quote_precision);

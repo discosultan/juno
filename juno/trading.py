@@ -585,14 +585,17 @@ class SimulatedPositionMixin(ABC):
         self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
         log: bool = True
     ) -> Position.OpenShort:
-        _, quote_asset = unpack_symbol(symbol)
+        base_asset, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
+        limit = self.informant.get_borrow_info(
+            exchange=exchange, asset=base_asset, account=symbol
+        ).limit
         # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
         # lowers multiplier for now for reduced risk.
         margin_multiplier = 2
         # margin_multiplier = self.informant.get_margin_multiplier(exchange)
 
-        borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
+        borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
         quote = round_down(price * borrowed, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
@@ -731,7 +734,10 @@ class PositionMixin(ABC):
         price = (await self.chandler.get_last_candle(exchange, symbol, MIN_MS)).close
 
         if mode is TradingMode.PAPER:
-            borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
+            limit = self.informant.get_borrow_info(
+                exchange=exchange, asset=base_asset, account=symbol
+            ).limit
+            borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} from spot to {symbol} account')
             async with self.user.sync_wallet(exchange=exchange, account=symbol) as wallet:
@@ -744,12 +750,10 @@ class PositionMixin(ABC):
                 )
                 await wallet.updated.wait()
 
-            borrowed = min(
-                _calculate_borrowed(filters, margin_multiplier, collateral, price),
-                await self.user.get_max_borrowable(
-                    exchange=exchange, asset=base_asset, account=symbol
-                ),
+            limit = await self.user.get_max_borrowable(
+                exchange=exchange, asset=base_asset, account=symbol
             )
+            borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
             await self.user.borrow(
                 exchange=exchange,
@@ -887,7 +891,7 @@ class PositionMixin(ABC):
 
 
 def _calculate_borrowed(
-    filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal
+    filters: Filters, margin_multiplier: int, limit: Decimal, collateral: Decimal, price: Decimal
 ) -> Decimal:
     collateral_size = filters.size.round_down(collateral / price)
     if collateral_size == 0:
@@ -895,7 +899,7 @@ def _calculate_borrowed(
     borrowed = collateral_size * (margin_multiplier - 1)
     if borrowed == 0:
         raise OrderException('Borrowed 0; incorrect margin multiplier?')
-    return borrowed
+    return min(borrowed, limit)
 
 
 def _calculate_interest(borrowed: Decimal, hourly_rate: Decimal, start: int, end: int) -> Decimal:
