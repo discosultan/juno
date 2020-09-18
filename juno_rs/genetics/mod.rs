@@ -1,5 +1,5 @@
 use rand::{Rng, SeedableRng, rngs::StdRng};
-use rayon::prelude::*;
+// use rayon::prelude::*;
 use std::iter;
 
 pub trait Chromosome {
@@ -55,7 +55,7 @@ fn run_generation<T: Chromosome>(population: &Vec<Individual<T>>, rng: &mut StdR
     // let fitness_slices = fitnesses.chunks_exact_mut(1).collect();
 
     // evaluate
-    let fitnesses: Vec<f64> = 
+    // let fitnesses: Vec<f64> = 
     // select
     // crossover
     // mutate

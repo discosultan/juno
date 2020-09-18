@@ -1,4 +1,5 @@
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, NO_PARAMS, params};
+use serde_json;
 use std::error::Error;
 use crate::common::{Candle, ExchangeInfo};
 
@@ -39,5 +40,11 @@ pub fn list_candles(
 pub fn get_exchange_info(exchange: &str) -> Result<ExchangeInfo, Box<dyn Error>> {
     let shard = exchange;
     let conn = Connection::open(format!("/home/discosultan/.juno/data/{}_{}.db", VERSION, shard))?;
-    let mut stmt = conn.execute("SELECT * FROM keyvaluepair WHERE key=exchange_info")?;
+    let json = conn.query_row(
+        "SELECT item FROM keyvaluepair WHERE key = 'exchange_info' LIMIT 1",
+        NO_PARAMS,
+        |row| row.get::<_, String>(0),
+    )?;
+    println!("{}", json);
+    Ok(serde_json::from_str::<ExchangeInfo>(&json)?)
 }

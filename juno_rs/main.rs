@@ -9,5 +9,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "2020-02-01".to_timestamp(),
     )?;
     println!("{:?}", candles);
+    let exchange_info = storages::get_exchange_info("binance")?;
+        // println!("{:?}", exchange_info.fees);
+        // println!("{:?}", exchange_info.filters);
+        // println!("{:?}", exchange_info.borrow_info);
     Ok(())
 }

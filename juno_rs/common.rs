@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use crate::filters::Filters;
 
@@ -9,7 +10,7 @@ pub enum Advice {
     Liquidate,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 #[repr(C)]
 pub struct BorrowInfo {
     pub daily_interest_rate: f64,
@@ -27,13 +28,14 @@ pub struct Candle {
     pub volume: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 #[repr(C)]
 pub struct Fees {
     pub maker: f64,
     pub taker: f64,
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct ExchangeInfo {
     pub fees: HashMap<String, Fees>,
     pub filters: HashMap<String, Filters>,
