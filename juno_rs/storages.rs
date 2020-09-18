@@ -1,6 +1,8 @@
-use crate::common::Candle;
 use rusqlite::{params, Connection};
 use std::error::Error;
+use crate::common::{Candle, ExchangeInfo};
+
+const VERSION: &str = "v47";
 
 fn blob_to_f64(blob: Vec<u8>) -> Result<f64, rusqlite::Error> {
     let s = std::str::from_utf8(&blob).map_err(|e| rusqlite::Error::Utf8Error(e))?;
@@ -16,7 +18,7 @@ pub fn list_candles(
     end: u64,
 ) -> Result<Vec<Candle>, Box<dyn Error>> {
     let shard = format!("{}_{}_{}", exchange, symbol, interval);
-    let conn = Connection::open(format!("/home/discosultan/.juno/data/v47_{}.db", shard))?;
+    let conn = Connection::open(format!("/home/discosultan/.juno/data/{}_{}.db", VERSION, shard))?;
     let mut stmt = conn.prepare(
         "SELECT time, open, high, low, close, volume FROM candle WHERE time >= ? AND time < ? \
         ORDER BY time",
@@ -32,4 +34,10 @@ pub fn list_candles(
         })
     })?;
     res.map(|r| r.map_err(|e| e.into())).collect()
+}
+
+pub fn get_exchange_info(exchange: &str) -> Result<ExchangeInfo, Box<dyn Error>> {
+    let shard = exchange;
+    let conn = Connection::open(format!("/home/discosultan/.juno/data/{}_{}.db", VERSION, shard))?;
+    let mut stmt = conn.execute("SELECT * FROM keyvaluepair WHERE key=exchange_info")?;
 }

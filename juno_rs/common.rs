@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use crate::filters::Filters;
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Advice {
     None,
@@ -29,4 +32,10 @@ pub struct Candle {
 pub struct Fees {
     pub maker: f64,
     pub taker: f64,
+}
+
+pub struct ExchangeInfo {
+    pub fees: HashMap<String, Fees>,
+    pub filters: HashMap<String, Filters>,
+    pub borrow_info: HashMap<String, HashMap<String, BorrowInfo>>,
 }
