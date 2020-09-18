@@ -20,6 +20,7 @@ chrono = "0.4"
 ndarray = "0.13"
 ndarray-stats = "0.3"
 rand = "0.7"
+rayon = "1"
 rusqlite = "0.24.0"
 
 [dev-dependencies]

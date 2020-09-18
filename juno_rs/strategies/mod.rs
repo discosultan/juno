@@ -8,7 +8,7 @@ mod single_ma;
 mod triple_ma;
 
 pub use double_ma::DoubleMA;
-pub use four_week_rule::FourWeekRule;
+pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
 pub use macd::Macd;
 pub use macdrsi::MacdRsi;
 pub use mamacx::MAMACX;

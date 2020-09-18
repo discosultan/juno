@@ -43,6 +43,16 @@ pub mod adler32 {
     pub const KAMA: u32 = 68_026_779;
 }
 
+pub const MA_CHOICES: [u32; 7] = [
+    adler32::ALMA,
+    adler32::EMA,
+    adler32::EMA2,
+    adler32::SMA,
+    adler32::SMMA,
+    adler32::DEMA,
+    adler32::KAMA,
+];
+
 pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     match code {
         adler32::ALMA => Box::new(Alma::new(period)),

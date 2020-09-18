@@ -105,29 +105,13 @@ pub unsafe extern "C" fn triplema(
     run_test(trading_info, strategy_factory, analysis_info)
 }
 
-#[repr(C)]
-pub struct FourWeekRuleInfo {
-    period: u32,
-    ma: u32,
-    ma_period: u32,
-    mid_trend_policy: u32,
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn fourweekrule(
     trading_info: *const TradingInfo,
-    strategy_info: *const FourWeekRuleInfo,
+    strategy_info: *const strategies::FourWeekRuleParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
-        strategies::FourWeekRule::new(
-            strategy_info.period,
-            strategy_info.ma,
-            strategy_info.ma_period,
-            strategy_info.mid_trend_policy,
-        )
-    };
+    let strategy_factory = || strategies::FourWeekRule::new(&*strategy_info);
     run_test(trading_info, strategy_factory, analysis_info)
 }
 

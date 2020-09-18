@@ -1,10 +1,30 @@
 use std::{cmp::min, collections::VecDeque};
-
+use rand::{Rng, rngs::StdRng};
 use crate::{
+    genetics::Chromosome,
     indicators, math,
     strategies::{MidTrend, Strategy},
     Advice, Candle,
 };
+
+#[repr(C)]
+pub struct FourWeekRuleParams {
+    pub period: u32,
+    pub ma: u32,
+    pub ma_period: u32,
+    pub mid_trend_policy: u32,
+}
+
+impl Chromosome for FourWeekRuleParams {
+    fn generate(rng: &mut StdRng) -> Self {
+        Self {
+            period: rng.gen_range(2, 100),
+            ma: indicators::MA_CHOICES[rng.gen_range(0, indicators::MA_CHOICES.len())],
+            ma_period: rng.gen_range(2, 100),
+            mid_trend_policy: MidTrend::POLICY_IGNORE,
+        }
+    }
+}
 
 pub struct FourWeekRule {
     mid_trend: MidTrend,
@@ -16,14 +36,14 @@ pub struct FourWeekRule {
 }
 
 impl FourWeekRule {
-    pub fn new(period: u32, ma: u32, ma_period: u32, mid_trend_policy: u32) -> Self {
+    pub fn new(params: &FourWeekRuleParams) -> Self {
         Self {
-            mid_trend: MidTrend::new(mid_trend_policy),
-            prices: VecDeque::with_capacity(period as usize),
-            ma: indicators::ma_from_adler32(ma, ma_period),
+            mid_trend: MidTrend::new(params.mid_trend_policy),
+            prices: VecDeque::with_capacity(params.period as usize),
+            ma: indicators::ma_from_adler32(params.ma, params.ma_period),
             advice: Advice::None,
             t: 0,
-            t1: period,
+            t1: params.period,
         }
     }
 }

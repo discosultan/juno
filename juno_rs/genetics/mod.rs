@@ -1,5 +1,5 @@
-use crate::{indicators::adler32, strategies::MidTrend};
 use rand::{Rng, SeedableRng, rngs::StdRng};
+use rayon::prelude::*;
 use std::iter;
 
 pub trait Chromosome {
@@ -29,34 +29,6 @@ impl Chromosome for TraderParams {
     }
 }
 
-struct FourWeekRuleParams {
-    pub period: u32,
-    pub ma: u32,
-    pub ma_period: u32,
-    pub mid_trend_policy: u32,
-}
-
-const MA_CHOICES: [u32; 7] = [
-    adler32::ALMA,
-    adler32::EMA,
-    adler32::EMA2,
-    adler32::SMA,
-    adler32::SMMA,
-    adler32::DEMA,
-    adler32::KAMA,
-];
-
-impl Chromosome for FourWeekRuleParams {
-    fn generate(rng: &mut StdRng) -> Self {
-        Self {
-            period: rng.gen_range(2, 100),
-            ma: MA_CHOICES[rng.gen_range(0, MA_CHOICES.len())],
-            ma_period: rng.gen_range(2, 100),
-            mid_trend_policy: MidTrend::POLICY_IGNORE,
-        }
-    }
-}
-
 pub fn evolve<T: Chromosome>() {
     let population_size = 100;
     let generations = 10;
@@ -77,18 +49,32 @@ pub fn evolve<T: Chromosome>() {
     }
 }
 
-fn run_generation<T: Chromosome>(population: &mut Vec<Individual<T>>, rng: &mut StdRng) {
+fn run_generation<T: Chromosome>(population: &Vec<Individual<T>>, rng: &mut StdRng) {
     // TODO: Support different strategies here. A la parallel cpu or gpu, for example.
-    for ind in population.iter() {
-        let fitness = evaluate(ind);
-        // evaluate
-        // select
-        // crossover
-        // mutate
-        // clone??
-    }
+    // let fitnesses = Vec::with_capacity(population.len());
+    // let fitness_slices = fitnesses.chunks_exact_mut(1).collect();
+
+    // evaluate
+    let fitnesses: Vec<f64> = 
+    // select
+    // crossover
+    // mutate
+    // clone??
 }
 
-fn evaluate<T: Chromosome>(ind: &Individual<T>) -> f64 {
-    1.0
+struct Evaluator {
+    
+}
+
+impl Evaluator {
+    pub fn evaluate<T: Chromosome>(&self, population: &Vec<Individual<T>>) -> Vec<f64> {
+        population
+            .iter()
+            .map(|ind| self.evaluate_individual(ind))
+            .collect()
+    }
+
+    fn evaluate_individual<T: Chromosome>(&self, ind: &Individual<T>) -> f64 {
+        1.0
+    }
 }
