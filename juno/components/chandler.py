@@ -453,7 +453,7 @@ class Chandler:
         if not candle:
             if self._exchanges[exchange].can_stream_historical_earliest_candle:
                 candle = await first_async(self._exchanges[exchange].stream_historical_candles(
-                    symbol=symbol, interval=interval, start=0, end=sys.maxsize
+                    symbol=symbol, interval=interval, start=0, end=MAX_TIME_MS
                 ))
             else:
                 candle = await self._find_first_candle_by_binary_search(exchange, symbol, interval)
