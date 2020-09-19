@@ -1,9 +1,16 @@
 use rusqlite::{Connection, NO_PARAMS, params};
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::error::Error;
 use crate::common::{Candle, ExchangeInfo};
 
-const VERSION: &str = "v47";
+const VERSION: &str = "v48";
+
+#[derive(Deserialize, Serialize)]
+struct Timestamped<T> {
+    pub time: u64,
+    pub item: T,
+}
 
 fn blob_to_f64(blob: Vec<u8>) -> Result<f64, rusqlite::Error> {
     let s = std::str::from_utf8(&blob).map_err(|e| rusqlite::Error::Utf8Error(e))?;
@@ -41,10 +48,10 @@ pub fn get_exchange_info(exchange: &str) -> Result<ExchangeInfo, Box<dyn Error>>
     let shard = exchange;
     let conn = Connection::open(format!("/home/discosultan/.juno/data/{}_{}.db", VERSION, shard))?;
     let json = conn.query_row(
-        "SELECT item FROM keyvaluepair WHERE key = 'exchange_info' LIMIT 1",
+        "SELECT value FROM keyvaluepair WHERE key = 'exchange_info' LIMIT 1",
         NO_PARAMS,
         |row| row.get::<_, String>(0),
     )?;
-    println!("{}", json);
-    Ok(serde_json::from_str::<ExchangeInfo>(&json)?)
+    let res = serde_json::from_str::<Timestamped<ExchangeInfo>>(&json)?;
+    Ok(res.item)
 }

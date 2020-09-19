@@ -10,8 +10,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     )?;
     println!("{:?}", candles);
     let exchange_info = storages::get_exchange_info("binance")?;
-        // println!("{:?}", exchange_info.fees);
-        // println!("{:?}", exchange_info.filters);
-        // println!("{:?}", exchange_info.borrow_info);
+    println!("{:?}", exchange_info.fees["eth-btc"]);
+    println!("{:?}", exchange_info.filters["eth-btc"]);
+    println!("{:?}", exchange_info.borrow_info["eth-btc"]);
     Ok(())
 }
