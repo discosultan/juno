@@ -6,6 +6,13 @@ use crate::{
     Advice, Candle,
 };
 
+#[repr(C)]
+pub struct SingleMAParams {
+    pub ma: u32,
+    pub period: u32,
+    pub persistence: u32,
+}
+
 pub struct SingleMA {
     ma: Box<dyn MA>,
     previous_ma_value: f64,
@@ -16,21 +23,21 @@ pub struct SingleMA {
     t1: u32,
 }
 
-impl SingleMA {
-    pub fn new(ma: u32, period: u32, persistence: u32) -> Self {
+impl Strategy for SingleMA {
+    type Params = SingleMAParams;
+
+    fn new(params: &Self::Params) -> Self {
         Self {
-            ma: ma_from_adler32(ma, period),
+            ma: ma_from_adler32(params.ma, params.period),
             previous_ma_value: 0.0,
             advice: Advice::None,
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(persistence, false),
+            persistence: Persistence::new(params.persistence, false),
             t: 0,
-            t1: period - 1,
+            t1: params.period - 1,
         }
     }
-}
 
-impl Strategy for SingleMA {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.ma.update(candle.close);
 

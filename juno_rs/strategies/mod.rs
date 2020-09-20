@@ -7,19 +7,21 @@ mod rsi;
 mod single_ma;
 mod triple_ma;
 
-pub use double_ma::DoubleMA;
+pub use double_ma::{DoubleMA, DoubleMAParams};
 pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
-pub use macd::Macd;
-pub use macdrsi::MacdRsi;
-pub use mamacx::MAMACX;
-pub use rsi::Rsi;
-pub use single_ma::SingleMA;
-use std::cmp::min;
-pub use triple_ma::TripleMA;
+pub use macd::{Macd, MacdParams};
+pub use macdrsi::{MacdRsi, MacdRsiParams};
+pub use mamacx::{MAMACX, MAMACXParams};
+pub use rsi::{Rsi, RsiParams};
+pub use single_ma::{SingleMA, SingleMAParams};
+pub use triple_ma::{TripleMA, TripleMAParams};
 
 use crate::{Advice, Candle};
+use std::cmp::min;
 
 pub trait Strategy {
+    type Params;
+    fn new(params: &Self::Params) -> Self;
     fn update(&mut self, candle: &Candle) -> Advice;
 }
 

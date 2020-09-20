@@ -35,8 +35,10 @@ pub struct FourWeekRule {
     t1: u32,
 }
 
-impl FourWeekRule {
-    pub fn new(params: &FourWeekRuleParams) -> Self {
+impl Strategy for FourWeekRule {
+    type Params = FourWeekRuleParams;
+
+    fn new(params: &Self::Params) -> Self {
         Self {
             mid_trend: MidTrend::new(params.mid_trend_policy),
             prices: VecDeque::with_capacity(params.period as usize),
@@ -46,9 +48,7 @@ impl FourWeekRule {
             t1: params.period,
         }
     }
-}
 
-impl Strategy for FourWeekRule {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.ma.update(candle.close);
 

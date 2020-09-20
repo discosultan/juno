@@ -6,6 +6,14 @@ use crate::{
     Advice, Candle,
 };
 
+#[repr(C)]
+pub struct MacdParams {
+    pub short_period: u32,
+    pub long_period: u32,
+    pub signal_period: u32,
+    pub persistence: u32,
+}
+
 pub struct Macd {
     macd: indicators::Macd,
     mid_trend: MidTrend,
@@ -14,19 +22,21 @@ pub struct Macd {
     t1: u32,
 }
 
-impl Macd {
-    pub fn new(short_period: u32, long_period: u32, signal_period: u32, persistence: u32) -> Self {
+impl Strategy for Macd {
+    type Params = MacdParams;
+
+    fn new(params: &Self::Params) -> Self {
         Self {
-            macd: indicators::Macd::new(short_period, long_period, signal_period),
+            macd: indicators::Macd::new(
+                params.short_period, params.long_period, params.signal_period
+            ),
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(persistence, false),
+            persistence: Persistence::new(params.persistence, false),
             t: 0,
-            t1: max(long_period, signal_period) - 1,
+            t1: max(params.long_period, params.signal_period) - 1,
         }
     }
-}
 
-impl Strategy for Macd {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.macd.update(candle.close);
 

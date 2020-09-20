@@ -20,89 +20,36 @@ pub use crate::{
 };
 use crate::{
     statistics::analyse,
-    strategies::{Macd, MacdRsi, Strategy, MAMACX},
+    strategies::Strategy,
     traders::trade,
 };
 use std::slice;
 
-#[repr(C)]
-pub struct SingleMAInfo {
-    ma: u32,
-    period: u32,
-    persistence: u32,
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn singlema(
     trading_info: *const TradingInfo,
-    strategy_info: *const SingleMAInfo,
+    strategy_info: *const strategies::SingleMAParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
-        strategies::SingleMA::new(
-            strategy_info.ma,
-            strategy_info.period,
-            strategy_info.persistence,
-        )
-    };
-    run_test(trading_info, strategy_factory, analysis_info)
-}
-
-#[repr(C)]
-pub struct DoubleMAInfo {
-    short_ma: u32,
-    long_ma: u32,
-    short_period: u32,
-    long_period: u32,
+    run_test::<strategies::SingleMA>(trading_info, strategy_info, analysis_info)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn doublema(
     trading_info: *const TradingInfo,
-    strategy_info: *const DoubleMAInfo,
+    strategy_info: *const strategies::DoubleMAParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
-        strategies::DoubleMA::new(
-            strategy_info.short_ma,
-            strategy_info.long_ma,
-            strategy_info.short_period,
-            strategy_info.long_period,
-        )
-    };
-    run_test(trading_info, strategy_factory, analysis_info)
-}
-
-#[repr(C)]
-pub struct TripleMAInfo {
-    short_ma: u32,
-    medium_ma: u32,
-    long_ma: u32,
-    short_period: u32,
-    medium_period: u32,
-    long_period: u32,
+    run_test::<strategies::DoubleMA>(trading_info, strategy_info, analysis_info)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn triplema(
     trading_info: *const TradingInfo,
-    strategy_info: *const TripleMAInfo,
+    strategy_info: *const strategies::TripleMAParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
-        strategies::TripleMA::new(
-            strategy_info.short_ma,
-            strategy_info.medium_ma,
-            strategy_info.long_ma,
-            strategy_info.short_period,
-            strategy_info.medium_period,
-            strategy_info.long_period,
-        )
-    };
-    run_test(trading_info, strategy_factory, analysis_info)
+    run_test::<strategies::TripleMA>(trading_info, strategy_info, analysis_info)
 }
 
 #[no_mangle]
@@ -111,114 +58,51 @@ pub unsafe extern "C" fn fourweekrule(
     strategy_info: *const strategies::FourWeekRuleParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    let strategy_factory = || strategies::FourWeekRule::new(&*strategy_info);
-    run_test(trading_info, strategy_factory, analysis_info)
-}
-
-#[repr(C)]
-pub struct MacdInfo {
-    short_period: u32,
-    long_period: u32,
-    signal_period: u32,
-    persistence: u32,
+    run_test::<strategies::FourWeekRule>(trading_info, strategy_info, analysis_info)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn macd(
     trading_info: *const TradingInfo,
-    strategy_info: *const MacdInfo,
+    strategy_info: *const strategies::MacdParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
-        Macd::new(
-            strategy_info.short_period,
-            strategy_info.long_period,
-            strategy_info.signal_period,
-            strategy_info.persistence,
-        )
-    };
-    run_test(trading_info, strategy_factory, analysis_info)
-}
-
-#[repr(C)]
-pub struct MacdRsiInfo {
-    macd_short_period: u32,
-    macd_long_period: u32,
-    macd_signal_period: u32,
-    rsi_period: u32,
-    rsi_up_threshold: f64,
-    rsi_down_threshold: f64,
-    persistence: u32,
+    run_test::<strategies::Macd>(trading_info, strategy_info, analysis_info)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn macdrsi(
     trading_info: *const TradingInfo,
-    strategy_info: *const MacdRsiInfo,
+    strategy_info: *const strategies::MacdRsiParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
-        MacdRsi::new(
-            strategy_info.macd_short_period,
-            strategy_info.macd_long_period,
-            strategy_info.macd_signal_period,
-            strategy_info.rsi_period,
-            strategy_info.rsi_up_threshold,
-            strategy_info.rsi_down_threshold,
-            strategy_info.persistence,
-        )
-    };
-    run_test(trading_info, strategy_factory, analysis_info)
-}
-
-#[repr(C)]
-pub struct MAMACXInfo {
-    short_period: u32,
-    long_period: u32,
-    neg_threshold: f64,
-    pos_threshold: f64,
-    persistence: u32,
-    short_ma: u32,
-    long_ma: u32,
+    run_test::<strategies::MacdRsi>(trading_info, strategy_info, analysis_info)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn mamacx(
     trading_info: *const TradingInfo,
-    strategy_info: *const MAMACXInfo,
+    strategy_info: *const strategies::MAMACXParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    let strategy_info = &*strategy_info;
-    let strategy_factory = || {
-        MAMACX::new(
-            strategy_info.short_period,
-            strategy_info.long_period,
-            strategy_info.neg_threshold,
-            strategy_info.pos_threshold,
-            strategy_info.persistence,
-            strategy_info.short_ma,
-            strategy_info.long_ma,
-        )
-    };
-    run_test(trading_info, strategy_factory, analysis_info)
+    run_test::<strategies::MAMACX>(trading_info, strategy_info, analysis_info)
 }
 
-unsafe fn run_test<TF: Fn() -> TS, TS: Strategy>(
+unsafe fn run_test<TS: Strategy>(
     trading_info: *const TradingInfo,
-    strategy_factory: TF,
+    strategy_params: *const TS::Params,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
     // Trading.
     // Turn unsafe ptrs to safe references.
     let trading_info = &*trading_info;
+    let strategy_params = &*strategy_params;
     let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
     let fees = &*trading_info.fees;
     let filters = &*trading_info.filters;
     let borrow_info = &*trading_info.borrow_info;
-    let trading_result = trade(
-        strategy_factory,
+    let trading_result = trade::<TS>(
+        strategy_params,
         candles,
         fees,
         filters,

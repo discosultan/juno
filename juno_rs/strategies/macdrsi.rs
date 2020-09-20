@@ -1,7 +1,18 @@
 use crate::{
-    strategies::{combine, Macd, MidTrend, Persistence, Rsi, Strategy},
+    strategies::{combine, Macd, MacdParams, MidTrend, Persistence, Rsi, RsiParams, Strategy},
     Advice, Candle,
 };
+
+#[repr(C)]
+pub struct MacdRsiParams {
+    pub macd_short_period: u32,
+    pub macd_long_period: u32,
+    pub macd_signal_period: u32,
+    pub rsi_period: u32,
+    pub rsi_up_threshold: f64,
+    pub rsi_down_threshol: f64,
+    pub persistence: u32,
+}
 
 pub struct MacdRsi {
     macd: Macd,
@@ -10,26 +21,32 @@ pub struct MacdRsi {
     persistence: Persistence,
 }
 
-impl MacdRsi {
-    pub fn new(
-        macd_short_period: u32,
-        macd_long_period: u32,
-        macd_signal_period: u32,
-        rsi_period: u32,
-        rsi_up_threshold: f64,
-        rsi_down_threshol: f64,
-        persistence: u32,
-    ) -> Self {
+impl Strategy for MacdRsi {
+    type Params = MacdRsiParams;
+
+    fn new(params: &Self::Params) -> Self {
         Self {
-            macd: Macd::new(macd_short_period, macd_long_period, macd_signal_period, 0),
-            rsi: Rsi::new(rsi_period, rsi_up_threshold, rsi_down_threshol, 0),
+            macd: Macd::new(
+                &MacdParams {
+                    short_period: params.macd_short_period,
+                    long_period: params.macd_long_period,
+                    signal_period: params.macd_signal_period,
+                    persistence: 0,
+                }
+            ),
+            rsi: Rsi::new(
+                &RsiParams {
+                    period: params.rsi_period,
+                    up_threshold: params.rsi_up_threshold,
+                    down_threshold: params.rsi_down_threshol,
+                    persistence: 0,
+                }
+            ),
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(persistence, false),
+            persistence: Persistence::new(params.persistence, false),
         }
     }
-}
 
-impl Strategy for MacdRsi {
     fn update(&mut self, candle: &Candle) -> Advice {
         let macd_advice = self.macd.update(candle);
         let rsi_advice = self.rsi.update(candle);
