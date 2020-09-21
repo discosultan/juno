@@ -25,32 +25,32 @@ use crate::{
 };
 use std::slice;
 
-#[no_mangle]
-pub unsafe extern "C" fn singlema(
-    trading_info: *const TradingInfo,
-    strategy_info: *const strategies::SingleMAParams,
-    analysis_info: *const AnalysisInfo,
-) -> FitnessValues {
-    run_test::<strategies::SingleMA>(trading_info, strategy_info, analysis_info)
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn singlema(
+//     trading_info: *const TradingInfo,
+//     strategy_info: *const strategies::SingleMAParams,
+//     analysis_info: *const AnalysisInfo,
+// ) -> FitnessValues {
+//     run_test::<strategies::SingleMA>(trading_info, strategy_info, analysis_info)
+// }
 
-#[no_mangle]
-pub unsafe extern "C" fn doublema(
-    trading_info: *const TradingInfo,
-    strategy_info: *const strategies::DoubleMAParams,
-    analysis_info: *const AnalysisInfo,
-) -> FitnessValues {
-    run_test::<strategies::DoubleMA>(trading_info, strategy_info, analysis_info)
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn doublema(
+//     trading_info: *const TradingInfo,
+//     strategy_info: *const strategies::DoubleMAParams,
+//     analysis_info: *const AnalysisInfo,
+// ) -> FitnessValues {
+//     run_test::<strategies::DoubleMA>(trading_info, strategy_info, analysis_info)
+// }
 
-#[no_mangle]
-pub unsafe extern "C" fn triplema(
-    trading_info: *const TradingInfo,
-    strategy_info: *const strategies::TripleMAParams,
-    analysis_info: *const AnalysisInfo,
-) -> FitnessValues {
-    run_test::<strategies::TripleMA>(trading_info, strategy_info, analysis_info)
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn triplema(
+//     trading_info: *const TradingInfo,
+//     strategy_info: *const strategies::TripleMAParams,
+//     analysis_info: *const AnalysisInfo,
+// ) -> FitnessValues {
+//     run_test::<strategies::TripleMA>(trading_info, strategy_info, analysis_info)
+// }
 
 #[no_mangle]
 pub unsafe extern "C" fn fourweekrule(
@@ -61,32 +61,32 @@ pub unsafe extern "C" fn fourweekrule(
     run_test::<strategies::FourWeekRule>(trading_info, strategy_info, analysis_info)
 }
 
-#[no_mangle]
-pub unsafe extern "C" fn macd(
-    trading_info: *const TradingInfo,
-    strategy_info: *const strategies::MacdParams,
-    analysis_info: *const AnalysisInfo,
-) -> FitnessValues {
-    run_test::<strategies::Macd>(trading_info, strategy_info, analysis_info)
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn macd(
+//     trading_info: *const TradingInfo,
+//     strategy_info: *const strategies::MacdParams,
+//     analysis_info: *const AnalysisInfo,
+// ) -> FitnessValues {
+//     run_test::<strategies::Macd>(trading_info, strategy_info, analysis_info)
+// }
 
-#[no_mangle]
-pub unsafe extern "C" fn macdrsi(
-    trading_info: *const TradingInfo,
-    strategy_info: *const strategies::MacdRsiParams,
-    analysis_info: *const AnalysisInfo,
-) -> FitnessValues {
-    run_test::<strategies::MacdRsi>(trading_info, strategy_info, analysis_info)
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn macdrsi(
+//     trading_info: *const TradingInfo,
+//     strategy_info: *const strategies::MacdRsiParams,
+//     analysis_info: *const AnalysisInfo,
+// ) -> FitnessValues {
+//     run_test::<strategies::MacdRsi>(trading_info, strategy_info, analysis_info)
+// }
 
-#[no_mangle]
-pub unsafe extern "C" fn mamacx(
-    trading_info: *const TradingInfo,
-    strategy_info: *const strategies::MAMACXParams,
-    analysis_info: *const AnalysisInfo,
-) -> FitnessValues {
-    run_test::<strategies::MAMACX>(trading_info, strategy_info, analysis_info)
-}
+// #[no_mangle]
+// pub unsafe extern "C" fn mamacx(
+//     trading_info: *const TradingInfo,
+//     strategy_info: *const strategies::MAMACXParams,
+//     analysis_info: *const AnalysisInfo,
+// ) -> FitnessValues {
+//     run_test::<strategies::MAMACX>(trading_info, strategy_info, analysis_info)
+// }
 
 unsafe fn run_test<TS: Strategy>(
     trading_info: *const TradingInfo,

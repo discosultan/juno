@@ -151,7 +151,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         .map(|v| (v + 1.0).ln())
         .collect::<Vec<f64>>();
     let annualized_return = 365.0_f64 * mean(&g_returns).expect("g_returns to not be empty");
-    // TODO: Set is as a const. However, `sqrt()` is not supported as a const fn as of now.
+    // TODO: Set this as a const. However, `sqrt()` is not supported as a const fn as of now.
     let sqrt_365 = 365.0_f64.sqrt();
 
     // Sharpe ratio.
@@ -197,4 +197,8 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
         - (beta * 365.0 * mean(&benchmark_g_returns).expect("benchmark_g_returns to not be empty"));
 
     (alpha, beta)
+}
+
+pub fn calculate_sharpe_ratio(summary: &TradingSummary) -> f64 {
+    1.0
 }

@@ -1,7 +1,6 @@
 use std::{cmp::min, collections::VecDeque};
 use rand::{Rng, rngs::StdRng};
 use crate::{
-    genetics::Chromosome,
     indicators, math,
     strategies::{MidTrend, Strategy},
     Advice, Candle,
@@ -13,17 +12,6 @@ pub struct FourWeekRuleParams {
     pub ma: u32,
     pub ma_period: u32,
     pub mid_trend_policy: u32,
-}
-
-impl Chromosome for FourWeekRuleParams {
-    fn generate(rng: &mut StdRng) -> Self {
-        Self {
-            period: rng.gen_range(2, 100),
-            ma: indicators::MA_CHOICES[rng.gen_range(0, indicators::MA_CHOICES.len())],
-            ma_period: rng.gen_range(2, 100),
-            mid_trend_policy: MidTrend::POLICY_IGNORE,
-        }
-    }
 }
 
 pub struct FourWeekRule {
@@ -73,5 +61,14 @@ impl Strategy for FourWeekRule {
         self.prices.push_back(candle.close);
         self.t = min(self.t + 1, self.t1);
         advice
+    }
+
+    fn generate(rng: &mut StdRng) -> Self::Params {
+        Self::Params {
+            period: rng.gen_range(2, 100),
+            ma: indicators::MA_CHOICES[rng.gen_range(0, indicators::MA_CHOICES.len())],
+            ma_period: rng.gen_range(2, 100),
+            mid_trend_policy: MidTrend::POLICY_IGNORE,
+        }
     }
 }

@@ -1,28 +1,30 @@
-mod double_ma;
+// mod double_ma;
 mod four_week_rule;
-mod macd;
-mod macdrsi;
-mod mamacx;
-mod rsi;
-mod single_ma;
-mod triple_ma;
+// mod macd;
+// mod macdrsi;
+// mod mamacx;
+// mod rsi;
+// mod single_ma;
+// mod triple_ma;
 
-pub use double_ma::{DoubleMA, DoubleMAParams};
+// pub use double_ma::{DoubleMA, DoubleMAParams};
 pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
-pub use macd::{Macd, MacdParams};
-pub use macdrsi::{MacdRsi, MacdRsiParams};
-pub use mamacx::{MAMACX, MAMACXParams};
-pub use rsi::{Rsi, RsiParams};
-pub use single_ma::{SingleMA, SingleMAParams};
-pub use triple_ma::{TripleMA, TripleMAParams};
+// pub use macd::{Macd, MacdParams};
+// pub use macdrsi::{MacdRsi, MacdRsiParams};
+// pub use mamacx::{MAMACX, MAMACXParams};
+// pub use rsi::{Rsi, RsiParams};
+// pub use single_ma::{SingleMA, SingleMAParams};
+// pub use triple_ma::{TripleMA, TripleMAParams};
 
 use crate::{Advice, Candle};
+use rand::rngs::StdRng;
 use std::cmp::min;
 
 pub trait Strategy {
     type Params;
     fn new(params: &Self::Params) -> Self;
     fn update(&mut self, candle: &Candle) -> Advice;
+    fn generate(rng: &mut StdRng) -> Self::Params;
 }
 
 pub struct MidTrend {
