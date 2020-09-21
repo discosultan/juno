@@ -1,7 +1,7 @@
 use crate::{
     common::Candle,
     math::{floor_multiple, mean, std_deviation},
-    trading::TradingSummary,
+    trading::{Position, TradingSummary},
 };
 use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
@@ -62,27 +62,25 @@ fn get_trades_from_summary(
     interval: u64,
 ) -> HashMap<u64, Vec<(Asset, f64)>> {
     let mut trades = HashMap::new();
-    let long_pos = summary.long_positions.iter().map(|pos| {
-        (
-            pos.time,
-            pos.cost,
-            pos.base_gain,
-            pos.close_time,
-            pos.base_cost,
-            pos.gain,
-        )
-    });
-    let short_pos = summary.short_positions.iter().map(|pos| {
-        (
-            pos.time,
-            pos.cost,
-            pos.base_gain,
-            pos.close_time,
-            pos.base_cost,
-            pos.gain,
-        )
-    });
-    for (time, cost, base_gain, close_time, base_cost, gain) in long_pos.chain(short_pos) {
+    for pos in summary.positions.iter() {
+        let (time, cost, base_gain, close_time, base_cost, gain) = match pos {
+            Position::Long(pos) => (
+                pos.time,
+                pos.cost,
+                pos.base_gain,
+                pos.close_time,
+                pos.base_cost,
+                pos.gain,
+            ),
+            Position::Short(pos) => (
+                pos.time,
+                pos.cost,
+                pos.base_gain,
+                pos.close_time,
+                pos.base_cost,
+                pos.gain,
+            ),
+        };
         // Open.
         let time = floor_multiple(time, interval);
         let day_trades = trades.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
