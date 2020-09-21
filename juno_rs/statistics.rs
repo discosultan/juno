@@ -1,10 +1,11 @@
 use crate::{
+    common::Candle,
     math::{floor_multiple, mean, std_deviation},
     trading::TradingSummary,
 };
 use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
-use std::{cmp::max, collections::HashMap};
+use std::{cmp::max, collections::HashMap, error::Error};
 
 pub type AnalysisResult = (f64,);
 
@@ -199,6 +200,56 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     (alpha, beta)
 }
 
-pub fn calculate_sharpe_ratio(summary: &TradingSummary) -> f64 {
-    1.0
+pub fn calculate_sharpe_ratio(
+    summary: &TradingSummary, candles: &[Candle], interval: u64
+) -> Result<f64, Box<dyn Error>> {
+    let performance = get_portfolio_performance(summary, candles, interval);
+    let mut a_returns = Vec::with_capacity(performance.len() - 1);
+    for i in 0..a_returns.capacity() {
+        a_returns.push(performance[i + 1] / performance[i] - 1.0);
+    }
+
+    let g_returns = a_returns
+        .iter()
+        .map(|v| (v + 1.0).ln())
+        .collect::<Vec<f64>>();
+    let annualized_return = 365.0_f64 * mean(&g_returns).ok_or("g_returns empty")?;
+    // TODO: Set this as a const. However, `sqrt()` is not supported as a const fn as of now.
+    let sqrt_365 = 365.0_f64.sqrt();
+
+    let annualized_volatility =
+        sqrt_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
+
+    // Sharpe ratio.
+    Ok(annualized_return / annualized_volatility)
+}
+
+fn get_portfolio_performance(summary: &TradingSummary, candles: &[Candle], interval: u64) -> Vec<f64> {
+    let deltas = get_trades_from_summary(summary, interval);
+
+    let start_day = floor_multiple(summary.start, interval);
+    let end_day = floor_multiple(summary.end, interval);
+    let length = (end_day - start_day) / interval;
+
+    let mut running = summary.cost;
+    let mut performance = Vec::with_capacity(length as usize);
+    performance.push(running);
+
+    for i in 0..length {
+        let time_day = start_day + i * interval;
+        // Update holdings.
+        let day_deltas = deltas.get(&time_day);
+        if let Some(day_trades) = day_deltas {
+            for (asset, size) in day_trades {
+                if *asset == Asset::Quote {
+                    running += size;
+                } else {
+                    running += size * candles[i as usize].close;
+                }
+            }
+        }
+        performance.push(running);
+    }
+
+    performance
 }

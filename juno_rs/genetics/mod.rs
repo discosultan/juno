@@ -1,7 +1,7 @@
 use rand::{Rng, SeedableRng, rngs::StdRng};
 // use rayon::prelude::*;
 use std::iter;
-use crate::{common, storages, strategies::Strategy, traders};
+use crate::{common, storages, statistics, strategies::Strategy, traders};
 
 struct Individual<T: Strategy> {
     trader: TraderParams,
@@ -109,6 +109,6 @@ impl Evaluator {
             true,
             true,
         );
-        1.0
+        statistics::calculate_sharpe_ratio(&summary, &self.candles, self.interval)
     }
 }
