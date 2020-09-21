@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::filters::Filters;
+pub use crate::filters::Filters;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Advice {
@@ -10,14 +10,14 @@ pub enum Advice {
     Liquidate,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[repr(C)]
 pub struct BorrowInfo {
     pub daily_interest_rate: f64,
     pub limit: f64,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Candle {
     pub time: u64,
@@ -28,7 +28,7 @@ pub struct Candle {
     pub volume: f64,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[repr(C)]
 pub struct Fees {
     pub maker: f64,

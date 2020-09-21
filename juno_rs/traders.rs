@@ -5,6 +5,10 @@ use crate::{
     Advice, BorrowInfo, Candle, Fees, Filters,
 };
 
+pub const MISSED_CANDLE_POLICY_IGNORE: u32 = 0;
+pub const MISSED_CANDLE_POLICY_RESTART: u32 = 1;
+pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
+
 const HOUR_MS: u64 = 3_600_000;
 
 struct State<T: Strategy> {

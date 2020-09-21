@@ -1,17 +1,50 @@
-use juno_rs::{prelude::*, storages};
+use juno_rs::{indicators, prelude::*, statistics, storages, strategies, traders};
+
+pub fn unpack(value: &str) -> (&str, &str) {
+    let dash_i = value.find('-').unwrap();
+    (&value[dash_i..], &value[0..dash_i])
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let exchange = "binance";
+    let symbol = "eth-btc";
+    let interval = DAY_MS;
+    let quote = 1.0;
+
+    let (_, base_asset) = unpack(symbol);
     let candles = storages::list_candles(
-        "binance",
-        "eth-btc",
+        exchange,
+        symbol,
         DAY_MS,
+        "2019-01-01".to_timestamp(),
         "2020-01-01".to_timestamp(),
-        "2020-02-01".to_timestamp(),
     )?;
-    println!("{:?}", candles);
-    let exchange_info = storages::get_exchange_info("binance")?;
-    println!("{:?}", exchange_info.fees["eth-btc"]);
-    println!("{:?}", exchange_info.filters["eth-btc"]);
-    println!("{:?}", exchange_info.borrow_info["eth-btc"]);
+    let exchange_info = storages::get_exchange_info(exchange)?;
+
+    let summary = traders::trade::<strategies::FourWeekRule>(
+        &strategies::FourWeekRuleParams {
+            period: 28,
+            ma: indicators::adler32::KAMA,
+            ma_period: 14,
+            mid_trend_policy: strategies::MidTrend::POLICY_IGNORE,
+        },
+        &candles,
+        &exchange_info.fees[symbol],
+        &exchange_info.filters[symbol],
+        &exchange_info.borrow_info[symbol][base_asset],
+        2,
+        interval,
+        quote,
+        traders::MISSED_CANDLE_POLICY_IGNORE,
+        0.13,
+        true,
+        0.0,
+        true,
+        true,
+    );
+    println!("summary {:?}", summary);
+    println!(
+        "sharpe {}", statistics::calculate_sharpe_ratio(&summary, &candles, interval)?
+    );
     Ok(())
 }
