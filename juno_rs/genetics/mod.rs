@@ -28,7 +28,7 @@ impl TraderParams {
 }
 
 pub struct GeneticAlgorithm {
-    evaluator: evaluation::Evaluator,
+    evaliation: evaluation::Evaluation,
 }
 
 impl GeneticAlgorithm {
@@ -58,7 +58,7 @@ impl GeneticAlgorithm {
         // let fitness_slices = fitnesses.chunks_exact_mut(1).collect();
     
         // evaluate
-        let fitnesses: Vec<f64> = self.evaluator.evaluate(population);
+        let fitnesses: Vec<f64> = self.evaliation.evaluate(population);
         // select
         // crossover
         // mutate

@@ -8,13 +8,13 @@ struct SymbolCtx {
     filters: common::Filters,
     borrow_info: common::BorrowInfo,
 }
-pub struct Evaluator {
+pub struct Evaluation {
     symbol_ctxs: Vec<SymbolCtx>,
     interval: u64,
     quote: f64,
 }
 
-impl Evaluator {
+impl Evaluation {
     pub fn new(
         exchange: &str, symbols: &[&str], interval: u64, start: u64, end: u64, quote: f64
     ) -> Result<Self, Box<dyn std::error::Error>> {
