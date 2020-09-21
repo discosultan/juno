@@ -1,8 +1,8 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
     strategies::{Changed, Strategy},
-    trading::{StopLoss, TakeProfit},
-    Advice, BorrowInfo, Candle, Fees, Filters, LongPosition, ShortPosition, TradingSummary,
+    trading::{LongPosition, Position, ShortPosition, StopLoss, TakeProfit, TradingSummary},
+    Advice, BorrowInfo, Candle, Fees, Filters,
 };
 
 const HOUR_MS: u64 = 3_600_000;
@@ -301,7 +301,7 @@ fn close_long_position<T: Strategy>(
         let fee = round_half_up(quote * fees.taker, filters.quote_precision);
 
         pos.close(time, price, size, quote, fee);
-        summary.append_long_position(pos);
+        summary.append_position(Position::Long(pos));
 
         state.open_long_position = None;
         state.quote += quote - fee;
@@ -323,7 +323,10 @@ fn try_open_short_position<T: Strategy>(
     if collateral_size == 0.0 {
         return false;
     }
-    let borrowed = f64::min(collateral_size * (margin_multiplier - 1) as f64, borrow_info.limit);
+    let borrowed = f64::min(
+        collateral_size * (margin_multiplier - 1) as f64,
+        borrow_info.limit,
+    );
 
     let quote = round_down(price * borrowed, filters.quote_precision);
     let fee = round_half_up(quote * fees.taker, filters.quote_precision);
@@ -364,7 +367,7 @@ fn close_short_position<T: Strategy>(
         size += fee;
 
         pos.close(interest, time, price, size, quote, fee);
-        summary.append_short_position(pos);
+        summary.append_position(Position::Short(pos));
 
         state.open_short_position = None;
         state.quote -= quote;

@@ -90,6 +90,12 @@ impl TakeProfit {
 }
 
 #[derive(Debug)]
+pub enum Position {
+    Long(LongPosition),
+    Short(ShortPosition),
+}
+
+#[derive(Debug)]
 pub struct LongPosition {
     pub time: u64,
     pub price: f64,
@@ -207,8 +213,7 @@ impl ShortPosition {
 
 #[derive(Debug)]
 pub struct TradingSummary {
-    pub long_positions: Vec<LongPosition>,
-    pub short_positions: Vec<ShortPosition>,
+    pub positions: Vec<Position>,
 
     pub interval: u64,
     pub start: u64,
@@ -234,8 +239,7 @@ pub struct TradingSummary {
 impl TradingSummary {
     pub fn new(interval: u64, start: u64, end: u64, quote: f64) -> Self {
         Self {
-            long_positions: Vec::new(),
-            short_positions: Vec::new(),
+            positions: Vec::new(),
             interval,
             start,
             end,
@@ -256,32 +260,24 @@ impl TradingSummary {
         }
     }
 
-    pub fn append_long_position(&mut self, pos: LongPosition) {
-        self.long_positions.push(pos);
-    }
-
-    pub fn append_short_position(&mut self, pos: ShortPosition) {
-        self.short_positions.push(pos);
+    pub fn append_position(&mut self, pos: Position) {
+        self.positions.push(pos);
     }
 
     pub fn calculate(&mut self) {
         let mut quote = self.cost;
         let mut max_quote = quote;
-        self.num_positions = self.long_positions.len() as u32 + self.short_positions.len() as u32;
+        self.num_positions = self.positions.len() as u32;
         self.max_drawdown = 0.0;
         self.drawdowns.resize(self.num_positions as usize + 1, 0.0);
         self.drawdowns[0] = 0.0;
 
-        let long_pos = self
-            .long_positions
-            .iter()
-            .map(|pos| (pos.profit, pos.duration));
-        let short_pos = self
-            .short_positions
-            .iter()
-            .map(|pos| (pos.profit, pos.duration));
+        for (i, pos) in self.positions.iter().enumerate() {
+            let (profit, duration) = match pos {
+                Position::Long(pos) => (pos.profit, pos.duration),
+                Position::Short(pos) => (pos.profit, pos.duration),
+            };
 
-        for (i, (profit, duration)) in long_pos.chain(short_pos).enumerate() {
             self.profit += profit;
 
             if profit >= 0.0 {
