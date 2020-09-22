@@ -45,6 +45,7 @@ _SEC_MARKET_DATA = 4  # Endpoint requires sending a valid API-Key.
 
 _ERR_UNKNOWN = -1000
 _ERR_NEW_ORDER_REJECTED = -2010
+_ERR_MARGIN_NEW_ORDER_REJECTED = 27037
 _ERR_CANCEL_REJECTED = -2011
 _ERR_INVALID_TIMESTAMP = -1021
 _ERR_INVALID_LISTEN_KEY = -1125
@@ -801,7 +802,7 @@ class Binance(Exchange):
                     raise ExchangeException(error_msg)
                 elif error_code == _ERR_CANCEL_REJECTED:
                     raise OrderException(error_msg)
-                elif error_code == _ERR_NEW_ORDER_REJECTED:
+                elif error_code in {_ERR_NEW_ORDER_REJECTED, _ERR_MARGIN_NEW_ORDER_REJECTED}:
                     raise OrderException(error_msg)
                 elif error_code == _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST:
                     raise ExchangeException(error_msg)
