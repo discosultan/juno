@@ -1,14 +1,34 @@
+mod crossover;
 mod evaluation;
+mod selection;
 
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use std::iter;
-use crate::strategies::Strategy;
-
+use crate::{
+    genetics::{
+        evaluation::Evaluation,
+        selection::Selection,
+    },
+    strategies::Strategy,
+};
+// We need to manually implement clone because of:
+// https://github.com/rust-lang/rust/issues/26925
+// #[derive(Clone)]
 pub struct Individual<T: Strategy> {
     trader: TraderParams,
     strategy: T::Params,
 }
 
+impl<T: Strategy> Clone for Individual<T> {
+    fn clone(&self) -> Self {
+        Self {
+            trader: self.trader.clone(),
+            strategy: self.strategy.clone(),
+        }
+    }
+}
+
+#[derive(Clone)]
 struct TraderParams {
     pub missed_candle_policy: u32,
     pub stop_loss: f64,
@@ -27,11 +47,12 @@ impl TraderParams {
     }
 }
 
-pub struct GeneticAlgorithm {
-    evaliation: evaluation::Evaluation,
+pub struct GeneticAlgorithm<TS: Selection> {
+    evaluation: Evaluation,
+    selection: TS,
 }
 
-impl GeneticAlgorithm {
+impl<TS> GeneticAlgorithm<TS> where TS: Selection {
     pub fn evolve<T: Strategy>(&self) {
         let population_size = 100;
         let generations = 10;
@@ -53,14 +74,14 @@ impl GeneticAlgorithm {
     }
     
     fn run_generation<T: Strategy>(&self, population: &Vec<Individual<T>>, rng: &mut StdRng) {
-        // TODO: Support different strategies here. A la parallel cpu or gpu, for example.
-        // let fitnesses = Vec::with_capacity(population.len());
-        // let fitness_slices = fitnesses.chunks_exact_mut(1).collect();
-    
         // evaluate
-        let fitnesses: Vec<f64> = self.evaliation.evaluate(population);
+        let fitnesses: Vec<f64> = self.evaluation.evaluate(population);
         // select
+        let selection_count = 10;
+        let selected: Vec<usize> = self.selection.select(&fitnesses, selection_count);
+        let parents: Vec<&Individual<T>> = selected.iter().map(|i| &population[*i]).collect();
         // crossover
+
         // mutate
         // clone??
     }

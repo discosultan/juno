@@ -6,6 +6,7 @@ use crate::{
     Advice, Candle,
 };
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct FourWeekRuleParams {
     pub period: u32,

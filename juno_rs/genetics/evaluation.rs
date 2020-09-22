@@ -41,6 +41,9 @@ impl Evaluation {
     }
 
     pub fn evaluate<T: Strategy>(&self, population: &Vec<Individual<T>>) -> Vec<f64> {
+        // TODO: Support different strategies here. A la parallel cpu or gpu, for example.
+        // let fitnesses = Vec::with_capacity(population.len());
+        // let fitness_slices = fitnesses.chunks_exact_mut(1).collect();
         population
             .iter()
             .map(|ind| self.evaluate_individual(ind))

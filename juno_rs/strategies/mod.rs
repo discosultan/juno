@@ -21,7 +21,7 @@ use rand::rngs::StdRng;
 use std::cmp::min;
 
 pub trait Strategy {
-    type Params;
+    type Params: Clone;
     fn new(params: &Self::Params) -> Self;
     fn update(&mut self, candle: &Candle) -> Advice;
     fn generate(rng: &mut StdRng) -> Self::Params;
