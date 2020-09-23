@@ -31,19 +31,19 @@ pub struct Individual<T: Chromosome> {
     strategy: T,
 }
 
-impl<T: Chromosome> Individual<T> {
-    pub fn len() -> usize {
+impl<T: Chromosome> Chromosome for Individual<T> {
+    fn len() -> usize {
         TraderParams::len() + T::len()
     }
 
-    pub fn generate(rng: &mut StdRng) -> Self {
+    fn generate(rng: &mut StdRng) -> Self {
         Self {
             trader: TraderParams::generate(rng),
             strategy: T::generate(rng),
         }
     }
 
-    pub fn mutate(&mut self, rng: &mut StdRng, i: usize) {
+    fn mutate(&mut self, rng: &mut StdRng, i: usize) {
         if i < TraderParams::len() {
             self.trader.mutate(rng, i);
         } else {
@@ -51,7 +51,7 @@ impl<T: Chromosome> Individual<T> {
         }
     }
 
-    pub fn cross(&mut self, parent: &Individual<T>, i: usize) {
+    fn cross(&mut self, parent: &Individual<T>, i: usize) {
         if i < TraderParams::len() {
             self.trader.cross(&parent.trader, i);
         } else {
