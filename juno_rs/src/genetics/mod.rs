@@ -1,9 +1,15 @@
 mod crossover;
 mod evaluation;
+mod mutation;
 mod selection;
 
 use crate::{
-    genetics::{evaluation::Evaluation, selection::Selection},
+    genetics::{
+        crossover::Crossover,
+        evaluation::Evaluation,
+        mutation::Mutation,
+        selection::Selection,
+    },
     strategies::Strategy,
 };
 use juno_derive_rs::*;
@@ -11,7 +17,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 use std::iter;
 
 pub trait Chromosome: Clone {
-    fn length() -> usize;
+    fn len() -> usize;
     fn generate(rng: &mut StdRng) -> Self;
     fn mutate(&mut self, rng: &mut StdRng, i: usize);
     fn cross(&mut self, parent: &Self, i: usize);
@@ -26,6 +32,10 @@ pub struct Individual<T: Chromosome> {
 }
 
 impl<T: Chromosome> Individual<T> {
+    pub fn len() -> usize {
+        TraderParams::len() + T::len()
+    }
+
     pub fn generate(rng: &mut StdRng) -> Self {
         Self {
             trader: TraderParams::generate(rng),
@@ -34,24 +44,20 @@ impl<T: Chromosome> Individual<T> {
     }
 
     pub fn mutate(&mut self, rng: &mut StdRng, i: usize) {
-        if i < TraderParams::length() {
+        if i < TraderParams::len() {
             self.trader.mutate(rng, i);
         } else {
-            self.strategy.mutate(rng, i - TraderParams::length());
+            self.strategy.mutate(rng, i - TraderParams::len());
         }
     }
 
     pub fn cross(&mut self, parent: &Individual<T>, i: usize) {
-        if i < TraderParams::length() {
+        if i < TraderParams::len() {
             self.trader.cross(&parent.trader, i);
         } else {
             self.strategy
-                .cross(&parent.strategy, i - TraderParams::length());
+                .cross(&parent.strategy, i - TraderParams::len());
         }
-    }
-
-    pub fn length() -> usize {
-        TraderParams::length() + T::length()
     }
 }
 
@@ -93,23 +99,36 @@ fn take_profit(rng: &mut StdRng) -> f64 {
     }
 }
 
-pub struct GeneticAlgorithm<TS: Selection> {
-    evaluation: Evaluation,
-    selection: TS,
-}
-
-impl<TS> GeneticAlgorithm<TS>
+pub struct GeneticAlgorithm<TS, TC, TM>
 where
     TS: Selection,
+    TC: Crossover,
+    TM: Mutation,
 {
-    pub fn evolve<T: Strategy>(&self) {
+    evaluation: Evaluation,
+    selection: TS,
+    crossover: TC,
+    mutation: TM,
+}
+
+impl<TS, TC, TM> GeneticAlgorithm<TS, TC, TM>
+where
+    TS: Selection,
+    TC: Crossover,
+    TM: Mutation,
+{
+    pub fn evolve<T: Strategy>(&mut self) {
         let population_size = 100;
         let generations = 10;
         let seed = 1;
 
+        if population_size % 2 == 1 {
+            panic!("odd population size not supported");
+        }
+
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let mut population: Vec<Individual<T::Params>> = iter::repeat(population_size)
+        let population: Vec<Individual<T::Params>> = iter::repeat(population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
 
@@ -132,6 +151,13 @@ where
         let parents: Vec<&Individual<T::Params>> =
             selected.iter().map(|i| &population[*i]).collect();
         // crossover
+        for i in (0..parents.len()).step_by(2) {
+            // TODO: Support using more than two parents.
+            // TODO: Also use 
+            let (mut child1, mut child2) = self.crossover.cross(rng, parents[i], parents[i + 1]);
+            self.mutation.mutate(rng, &mut child1);
+            self.mutation.mutate(rng, &mut child2);
+        }
 
         // mutate
         // clone??

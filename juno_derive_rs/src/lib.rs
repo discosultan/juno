@@ -17,7 +17,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
 
     let output = quote! {
         impl #impl_generics Chromosome for #name #ty_generics #where_clause {
-            fn length() -> usize {
+            fn len() -> usize {
                 #field_count
             }
 

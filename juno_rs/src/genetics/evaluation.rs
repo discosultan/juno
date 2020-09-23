@@ -8,6 +8,7 @@ struct SymbolCtx {
     filters: common::Filters,
     borrow_info: common::BorrowInfo,
 }
+
 pub struct Evaluation {
     symbol_ctxs: Vec<SymbolCtx>,
     interval: u64,
