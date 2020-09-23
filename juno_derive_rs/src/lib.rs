@@ -8,10 +8,14 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+
     let len_field_count = input.fields.iter().count();
+
     let generate_field_name = input.fields.iter().map(|field| &field.ident);
+
     let mutate_field_name = input.fields.iter().map(|field| &field.ident);
     let mutate_index = input.fields.iter().enumerate().map(|(i, _)| i);
+
     let cross_field_name = input.fields.iter().map(|field| &field.ident);
     let cross_index = input.fields.iter().enumerate().map(|(i, _)| i);
 
