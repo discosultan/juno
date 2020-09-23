@@ -12,15 +12,22 @@ use crate::{
     },
     strategies::Strategy,
 };
+
+pub trait Chromosome: Clone + FieldCount {
+    fn generate(rng: &mut StdRng) -> Self;
+    fn mutate(&mut self, rng: &mut StdRng, i: usize);
+    fn cross(&mut self, parent: &Self, i: usize);
+}
+
 // We need to manually implement clone because of:
 // https://github.com/rust-lang/rust/issues/26925
 // #[derive(Clone)]
-pub struct Individual<T: Strategy> {
+pub struct Individual<T: Chromosome> {
     trader: TraderParams,
-    strategy: T::Params,
+    strategy: T,
 }
 
-impl<T: Strategy> Individual<T> {
+impl<T: Chromosome> Individual<T> {
     pub fn generate(rng: &mut StdRng) -> Self {
         Self {
             trader: TraderParams::generate(rng),
@@ -36,20 +43,20 @@ impl<T: Strategy> Individual<T> {
         }
     }
 
-    pub fn cross(&mut self, parent: &TraderParams, i: usize) {
+    pub fn cross(&mut self, parent: &Individual<T>, i: usize) {
         if i < TraderParams::field_count() {
-            self.trader.cross(parent, i);
+            self.trader.cross(&parent.trader, i);
         } else {
-            self.strategy.cross(parent, i - TraderParams::field_count());
+            self.strategy.cross(&parent.strategy, i - TraderParams::field_count());
         }
     }
 
     pub fn length() -> usize {
-        TraderParams::field_count() + T::Params::field_count()
+        TraderParams::field_count() + T::field_count()
     }
 }
 
-impl<T: Strategy> Clone for Individual<T> {
+impl<T: Chromosome> Clone for Individual<T> {
     fn clone(&self) -> Self {
         Self {
             trader: self.trader.clone(),
@@ -58,7 +65,7 @@ impl<T: Strategy> Clone for Individual<T> {
     }
 }
 
-#[derive(Clone, Default, FieldCount)]
+#[derive(Clone, FieldCount)]
 struct TraderParams {
     pub missed_candle_policy: u32,
     pub stop_loss: f64,
@@ -66,8 +73,8 @@ struct TraderParams {
     pub take_profit: f64,
 }
 
-impl TraderParams {
-    pub fn generate(rng: &mut StdRng) -> Self {
+impl Chromosome for TraderParams {
+    fn generate(rng: &mut StdRng) -> Self {
         Self {
             missed_candle_policy: candle_policy(rng),
             stop_loss: stop_loss(rng),
@@ -76,7 +83,7 @@ impl TraderParams {
         }
     }
 
-    pub fn mutate(&mut self, rng: &mut StdRng, i: usize) {
+    fn mutate(&mut self, rng: &mut StdRng, i: usize) {
         match i {
             0 => self.missed_candle_policy = candle_policy(rng),
             1 => self.stop_loss = stop_loss(rng),
@@ -86,7 +93,7 @@ impl TraderParams {
         };
     }
 
-    pub fn cross(&mut self, parent: &TraderParams, i: usize) {
+    fn cross(&mut self, parent: &Self, i: usize) {
         match i {
             0 => self.missed_candle_policy = parent.missed_candle_policy,
             1 => self.stop_loss = parent.stop_loss,
@@ -119,23 +126,28 @@ impl<TS> GeneticAlgorithm<TS> where TS: Selection {
     
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let mut population: Vec<Individual<T>> = iter::repeat(population_size)
+        let mut population: Vec<Individual<T::Params>> = iter::repeat(population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
     
         for _ in 0..generations {
             // TODO: evolve
-            self.run_generation(&mut population, &mut rng);
+            self.run_generation::<T>(&population, &mut rng);
         }
     }
     
-    fn run_generation<T: Strategy>(&self, population: &Vec<Individual<T>>, rng: &mut StdRng) {
+    fn run_generation<T: Strategy>(
+        &self, population: &Vec<Individual<T::Params>>, rng: &mut StdRng
+    ) {
         // evaluate
-        let fitnesses: Vec<f64> = self.evaluation.evaluate(population);
+        let fitnesses: Vec<f64> = self.evaluation.evaluate::<T>(population);
         // select
         let selection_count = 10;
         let selected: Vec<usize> = self.selection.select(&fitnesses, selection_count);
-        let parents: Vec<&Individual<T>> = selected.iter().map(|i| &population[*i]).collect();
+        let parents: Vec<&Individual<T::Params>> = selected
+            .iter()
+            .map(|i| &population[*i])
+            .collect();
         // crossover
 
         // mutate

@@ -16,15 +16,14 @@ pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
 // pub use single_ma::{SingleMA, SingleMAParams};
 // pub use triple_ma::{TripleMA, TripleMAParams};
 
-use crate::{Advice, Candle};
-use rand::rngs::StdRng;
+use crate::{Advice, Candle, genetics::Chromosome};
+use field_count::FieldCount;
 use std::cmp::min;
 
 pub trait Strategy {
-    type Params: Clone;
+    type Params: Chromosome + Clone + FieldCount;
     fn new(params: &Self::Params) -> Self;
     fn update(&mut self, candle: &Candle) -> Advice;
-    fn generate(rng: &mut StdRng) -> Self::Params;
 }
 
 pub struct MidTrend {

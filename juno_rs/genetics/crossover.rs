@@ -1,8 +1,7 @@
-use crate::strategies::Strategy;
-use super::Individual;
+use super::{Chromosome, Individual};
 
 pub trait Crossover {
-    fn cross<T: Strategy>(
+    fn cross<T: Chromosome>(
         &self, parent1: &Individual<T>, parent2: &Individual<T>
     ) -> (Individual<T>, Individual<T>);
 }
@@ -10,7 +9,7 @@ pub trait Crossover {
 pub struct UniformCrossover;
 
 impl Crossover for UniformCrossover {
-    fn cross<T: Strategy>(
+    fn cross<T: Chromosome>(
         &self, parent1: &Individual<T>, parent2: &Individual<T>
     ) -> (Individual<T>, Individual<T>) {
         let mut child1 = parent1.clone();
