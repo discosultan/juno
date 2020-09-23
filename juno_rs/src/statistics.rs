@@ -199,7 +199,9 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
 }
 
 pub fn calculate_sharpe_ratio(
-    summary: &TradingSummary, candles: &[Candle], interval: u64
+    summary: &TradingSummary,
+    candles: &[Candle],
+    interval: u64,
 ) -> Result<f64, Box<dyn Error>> {
     let performance = get_portfolio_performance(summary, candles, interval);
     let mut a_returns = Vec::with_capacity(performance.len() - 1);
@@ -215,14 +217,17 @@ pub fn calculate_sharpe_ratio(
     // TODO: Set this as a const. However, `sqrt()` is not supported as a const fn as of now.
     let sqrt_365 = 365.0_f64.sqrt();
 
-    let annualized_volatility =
-        sqrt_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
+    let annualized_volatility = sqrt_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
 
     // Sharpe ratio.
     Ok(annualized_return / annualized_volatility)
 }
 
-fn get_portfolio_performance(summary: &TradingSummary, candles: &[Candle], interval: u64) -> Vec<f64> {
+fn get_portfolio_performance(
+    summary: &TradingSummary,
+    candles: &[Candle],
+    interval: u64,
+) -> Vec<f64> {
     let deltas = get_trades_from_summary(summary, interval);
 
     let start_day = floor_multiple(summary.start, interval);

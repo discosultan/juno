@@ -1,6 +1,6 @@
+pub use crate::filters::Filters;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-pub use crate::filters::Filters;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Advice {

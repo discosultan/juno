@@ -1,0 +1,30 @@
+[package]
+name = "juno_rs"
+version = "0.1.0"
+authors = ["discosultan <jaanusvarus@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = [
+    "cdylib",  # For FFI.
+    "rlib",  # For benchmarking.
+]
+
+[dependencies]
+chrono = "0.4"
+juno_derive_rs = { version = "0.1", path = "../juno_derive_rs" }
+ndarray = "0.13"
+ndarray-stats = "0.3"
+rand = "0.7"
+rayon = "1"
+rusqlite = "0.24.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "trade_benchmark"
+path = "benches/trade_benchmark.rs"
+harness = false

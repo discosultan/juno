@@ -1,14 +1,14 @@
-use std::{cmp::min, collections::VecDeque};
-use field_count::FieldCount;
-use rand::{Rng, rngs::StdRng};
 use crate::{
     genetics::Chromosome,
     indicators, math,
     strategies::{MidTrend, Strategy},
     Advice, Candle,
 };
+use juno_derive_rs::*;
+use rand::{rngs::StdRng, Rng};
+use std::{cmp::min, collections::VecDeque};
 
-#[derive(Clone, FieldCount)]
+#[derive(Chromosome, Clone)]
 #[repr(C)]
 pub struct FourWeekRuleParams {
     pub period: u32,
@@ -17,43 +17,29 @@ pub struct FourWeekRuleParams {
     pub mid_trend_policy: u32,
 }
 
-impl Chromosome for FourWeekRuleParams {
-    fn generate(rng: &mut StdRng) -> Self {
+impl Default for FourWeekRuleParams {
+    fn default() -> Self {
         Self {
-            period: period(rng),
-            ma: ma(rng),
-            ma_period: ma_period(rng),
-            mid_trend_policy: mid_trend_policy(rng),
+            period: 28,
+            ma: indicators::adler32::EMA,
+            ma_period: 14,
+            mid_trend_policy: MidTrend::POLICY_IGNORE,
         }
-    }
-
-    fn mutate(&mut self, rng: &mut StdRng, i: usize) {
-        match i {
-            0 => self.period = period(rng),
-            1 => self.ma = ma(rng),
-            2 => self.ma_period = ma_period(rng),
-            3 => self.mid_trend_policy = mid_trend_policy(rng),
-            _ => panic!("invalid index")
-        };
-    }
-
-    fn cross(&mut self, parent: &Self, i: usize) {
-        match i {
-            0 => self.period = parent.period,
-            1 => self.ma = parent.ma,
-            2 => self.ma_period = parent.ma_period,
-            3 => self.mid_trend_policy = parent.mid_trend_policy,
-            _ => panic!("invalid index")
-        };
     }
 }
 
-fn period(rng: &mut StdRng) -> u32 { rng.gen_range(2, 100) }
+fn period(rng: &mut StdRng) -> u32 {
+    rng.gen_range(2, 100)
+}
 fn ma(rng: &mut StdRng) -> u32 {
     indicators::MA_CHOICES[rng.gen_range(0, indicators::MA_CHOICES.len())]
 }
-fn ma_period(rng: &mut StdRng) -> u32 { rng.gen_range(2, 100) }
-fn mid_trend_policy(_rng: &mut StdRng) -> u32 { MidTrend::POLICY_IGNORE }
+fn ma_period(rng: &mut StdRng) -> u32 {
+    rng.gen_range(2, 100)
+}
+fn mid_trend_policy(_rng: &mut StdRng) -> u32 {
+    MidTrend::POLICY_IGNORE
+}
 
 pub struct FourWeekRule {
     mid_trend: MidTrend,

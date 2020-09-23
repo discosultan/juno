@@ -1,35 +1,5 @@
-[package]
-name = "juno-rs"
-version = "0.5.0"
-authors = ["Jaanus Varus <jaanusvarus@gmail.com>"]
-edition = "2018"
-
-[lib]
-crate-type = [
-    "cdylib",  # For FFI.
-    "rlib",  # For benchmarking.
+[workspace]
+members = [
+    "juno_rs",
+    "juno_derive_rs",
 ]
-path = "juno_rs/lib.rs"
-
-[[bin]]
-name = "juno"
-path = "juno_rs/main.rs"
-
-[dependencies]
-chrono = "0.4"
-field_count = "0.1"
-ndarray = "0.13"
-ndarray-stats = "0.3"
-rand = "0.7"
-rayon = "1"
-rusqlite = "0.24.0"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-
-[dev-dependencies]
-criterion = "0.3"
-
-[[bench]]
-name = "trade_benchmark"
-path = "juno_rs/benches/trade_benchmark.rs"
-harness = false

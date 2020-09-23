@@ -1,8 +1,8 @@
-use rusqlite::{Connection, NO_PARAMS, params};
+use crate::common::{Candle, ExchangeInfo};
+use rusqlite::{params, Connection, NO_PARAMS};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::error::Error;
-use crate::common::{Candle, ExchangeInfo};
 
 const VERSION: &str = "v48";
 
@@ -26,7 +26,10 @@ pub fn list_candles(
     end: u64,
 ) -> Result<Vec<Candle>, Box<dyn Error>> {
     let shard = format!("{}_{}_{}", exchange, symbol, interval);
-    let conn = Connection::open(format!("/home/discosultan/.juno/data/{}_{}.db", VERSION, shard))?;
+    let conn = Connection::open(format!(
+        "/home/discosultan/.juno/data/{}_{}.db",
+        VERSION, shard
+    ))?;
     let mut stmt = conn.prepare(
         "SELECT time, open, high, low, close, volume FROM candle WHERE time >= ? AND time < ? \
         ORDER BY time",
@@ -46,7 +49,10 @@ pub fn list_candles(
 
 pub fn get_exchange_info(exchange: &str) -> Result<ExchangeInfo, Box<dyn Error>> {
     let shard = exchange;
-    let conn = Connection::open(format!("/home/discosultan/.juno/data/{}_{}.db", VERSION, shard))?;
+    let conn = Connection::open(format!(
+        "/home/discosultan/.juno/data/{}_{}.db",
+        VERSION, shard
+    ))?;
     let json = conn.query_row(
         "SELECT value FROM keyvaluepair WHERE key = 'exchange_info' LIMIT 1",
         NO_PARAMS,

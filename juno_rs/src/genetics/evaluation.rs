@@ -1,6 +1,6 @@
 // use rayon::prelude::*;
-use crate::{common, storages, statistics, strategies::Strategy, traders};
 use super::Individual;
+use crate::{common, statistics, storages, strategies::Strategy, traders};
 
 struct SymbolCtx {
     candles: Vec<common::Candle>,
@@ -16,7 +16,12 @@ pub struct Evaluation {
 
 impl Evaluation {
     pub fn new(
-        exchange: &str, symbols: &[&str], interval: u64, start: u64, end: u64, quote: f64
+        exchange: &str,
+        symbols: &[&str],
+        interval: u64,
+        start: u64,
+        end: u64,
+        quote: f64,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let exchange_info = storages::get_exchange_info(exchange)?;
         let symbol_ctxs = symbols
@@ -25,7 +30,8 @@ impl Evaluation {
                 let dash_i = symbol.find('-').unwrap();
                 let base_asset = &symbol[0..dash_i];
                 SymbolCtx {
-                    candles: storages::list_candles(exchange, symbol, interval, start, end).unwrap(),
+                    candles: storages::list_candles(exchange, symbol, interval, start, end)
+                        .unwrap(),
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
                     borrow_info: exchange_info.borrow_info[symbol][base_asset],
@@ -76,5 +82,9 @@ impl Evaluation {
     }
 }
 
-fn linear(acc: f64, val: f64) -> f64 { acc + val }
-fn ln(acc: f64, val: f64) -> f64 { acc + val.ln() }
+fn linear(acc: f64, val: f64) -> f64 {
+    acc + val
+}
+fn ln(acc: f64, val: f64) -> f64 {
+    acc + val.ln()
+}

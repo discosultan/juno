@@ -1,18 +1,14 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use juno_rs::{
     filters::{Filters, Price, Size},
-    strategies::MAMACX,
-    traders::trade,
-    BorrowInfo, Candle, Fees,
+    strategies::{FourWeekRule, FourWeekRuleParams},
+    traders, BorrowInfo, Candle, Fees,
 };
 
 const MIN_MS: u64 = 60000;
 
-// Adler32 of lowercased indicator name.
-const EMA: u32 = 40698164;
-
 fn trade_benchmark(c: &mut Criterion) {
-    let strategy_factory = || MAMACX::new(9, 24, -0.1, 0.1, 0, EMA, EMA);
+    let strategy_params = FourWeekRuleParams::default();
     let num_candles = 525600;
     let mut candles = Vec::with_capacity(num_candles);
     for i in 0..num_candles {
@@ -49,16 +45,18 @@ fn trade_benchmark(c: &mut Criterion) {
     };
     c.bench_function("trade", |b| {
         b.iter(|| {
-            trade(
-                strategy_factory,
+            traders::trade::<FourWeekRule>(
+                &strategy_params,
                 &candles,
                 &fees,
                 &filters,
                 &borrow_info,
-                3,
+                2,
                 60000,
                 1.0,
-                0,
+                traders::MISSED_CANDLE_POLICY_IGNORE,
+                0.0,
+                false,
                 0.0,
                 true,
                 true,

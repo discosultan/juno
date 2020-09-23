@@ -44,7 +44,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("summary {:?}", summary);
     println!(
-        "sharpe {}", statistics::calculate_sharpe_ratio(&summary, &candles, interval)?
+        "sharpe {}",
+        statistics::calculate_sharpe_ratio(&summary, &candles, interval)?
     );
     Ok(())
 }

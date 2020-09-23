@@ -18,11 +18,7 @@ pub use crate::{
     filters::Filters,
     trading::{LongPosition, ShortPosition, TradingSummary},
 };
-use crate::{
-    statistics::analyse,
-    strategies::Strategy,
-    traders::trade,
-};
+use crate::{statistics::analyse, strategies::Strategy, traders::trade};
 use std::slice;
 
 // #[no_mangle]
