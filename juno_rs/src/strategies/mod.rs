@@ -20,7 +20,7 @@ use crate::{genetics::Chromosome, Advice, Candle};
 use std::cmp::min;
 
 pub trait Strategy {
-    type Params: Chromosome + Clone;
+    type Params: Chromosome;
     fn new(params: &Self::Params) -> Self;
     fn update(&mut self, candle: &Candle) -> Advice;
 }
