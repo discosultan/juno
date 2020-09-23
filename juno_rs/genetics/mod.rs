@@ -2,6 +2,7 @@ mod crossover;
 mod evaluation;
 mod selection;
 
+use field_count::FieldCount;
 use rand::{Rng, SeedableRng, rngs::StdRng};
 use std::iter;
 use crate::{
@@ -19,6 +20,35 @@ pub struct Individual<T: Strategy> {
     strategy: T::Params,
 }
 
+impl<T: Strategy> Individual<T> {
+    pub fn generate(rng: &mut StdRng) -> Self {
+        Self {
+            trader: TraderParams::generate(rng),
+            strategy: T::generate(rng),
+        }
+    }
+
+    pub fn mutate(&mut self, rng: &mut StdRng, i: usize) {
+        if i < TraderParams::field_count() {
+            self.trader.mutate(rng, i);
+        } else {
+            self.strategy.mutate(rng, i - TraderParams::field_count());
+        }
+    }
+
+    pub fn cross(&mut self, parent: &TraderParams, i: usize) {
+        if i < TraderParams::field_count() {
+            self.trader.cross(parent, i);
+        } else {
+            self.strategy.cross(parent, i - TraderParams::field_count());
+        }
+    }
+
+    pub fn length() -> usize {
+        TraderParams::field_count() + T::Params::field_count()
+    }
+}
+
 impl<T: Strategy> Clone for Individual<T> {
     fn clone(&self) -> Self {
         Self {
@@ -28,7 +58,7 @@ impl<T: Strategy> Clone for Individual<T> {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default, FieldCount)]
 struct TraderParams {
     pub missed_candle_policy: u32,
     pub stop_loss: f64,
@@ -37,14 +67,43 @@ struct TraderParams {
 }
 
 impl TraderParams {
-    fn generate(rng: &mut StdRng) -> Self {
+    pub fn generate(rng: &mut StdRng) -> Self {
         Self {
-            missed_candle_policy: rng.gen_range(0, 3),
-            stop_loss: if rng.gen_bool(0.5) { 0.0 } else { rng.gen_range(0.0001, 0.9999) },
-            trail_stop_loss: rng.gen_bool(0.5),
-            take_profit: if rng.gen_bool(0.5) { 0.0 } else { rng.gen_range(0.0001, 9.9999) },
+            missed_candle_policy: candle_policy(rng),
+            stop_loss: stop_loss(rng),
+            trail_stop_loss: trail_stop_loss(rng),
+            take_profit: take_profit(rng),
         }
     }
+
+    pub fn mutate(&mut self, rng: &mut StdRng, i: usize) {
+        match i {
+            0 => self.missed_candle_policy = candle_policy(rng),
+            1 => self.stop_loss = stop_loss(rng),
+            2 => self.trail_stop_loss = trail_stop_loss(rng),
+            3 => self.take_profit = take_profit(rng),
+            _ => panic!("invalid index")
+        };
+    }
+
+    pub fn cross(&mut self, parent: &TraderParams, i: usize) {
+        match i {
+            0 => self.missed_candle_policy = parent.missed_candle_policy,
+            1 => self.stop_loss = parent.stop_loss,
+            2 => self.trail_stop_loss = parent.trail_stop_loss,
+            3 => self.take_profit = parent.take_profit,
+            _ => panic!("invalid index")
+        };
+    }
+}
+
+fn candle_policy(rng: &mut StdRng) -> u32 { rng.gen_range(0, 3) }
+fn stop_loss(rng: &mut StdRng) -> f64 {
+    if rng.gen_bool(0.5) { 0.0 } else { rng.gen_range(0.0001, 0.9999) }
+}
+fn trail_stop_loss(rng: &mut StdRng) -> bool { rng.gen_bool(0.5) }
+fn take_profit(rng: &mut StdRng) -> f64 {
+    if rng.gen_bool(0.5) { 0.0 } else { rng.gen_range(0.0001, 9.9999) }
 }
 
 pub struct GeneticAlgorithm<TS: Selection> {
@@ -61,10 +120,7 @@ impl<TS> GeneticAlgorithm<TS> where TS: Selection {
         let mut rng = StdRng::seed_from_u64(seed);
 
         let mut population: Vec<Individual<T>> = iter::repeat(population_size)
-            .map(|_| Individual {
-                trader: TraderParams::generate(&mut rng),
-                strategy: T::generate(&mut rng)
-            })
+            .map(|_| Individual::generate(&mut rng))
             .collect();
     
         for _ in 0..generations {

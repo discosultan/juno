@@ -1,4 +1,5 @@
 use std::{cmp::min, collections::VecDeque};
+use field_count::FieldCount;
 use rand::{Rng, rngs::StdRng};
 use crate::{
     indicators, math,
@@ -6,7 +7,7 @@ use crate::{
     Advice, Candle,
 };
 
-#[derive(Clone)]
+#[derive(Clone, FieldCount)]
 #[repr(C)]
 pub struct FourWeekRuleParams {
     pub period: u32,
