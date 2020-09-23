@@ -8,23 +8,23 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-    let field_count = input.fields.iter().count();
-    let field_name_1 = input.fields.iter().map(|field| &field.ident);
-    let field_name_2 = input.fields.iter().map(|field| &field.ident);
-    let index_2 = input.fields.iter().enumerate().map(|(i, _)| i);
-    let field_name_3 = input.fields.iter().map(|field| &field.ident);
-    let index_3 = input.fields.iter().enumerate().map(|(i, _)| i);
+    let len_field_count = input.fields.iter().count();
+    let generate_field_name = input.fields.iter().map(|field| &field.ident);
+    let mutate_field_name = input.fields.iter().map(|field| &field.ident);
+    let mutate_index = input.fields.iter().enumerate().map(|(i, _)| i);
+    let cross_field_name = input.fields.iter().map(|field| &field.ident);
+    let cross_index = input.fields.iter().enumerate().map(|(i, _)| i);
 
     let output = quote! {
         impl #impl_generics Chromosome for #name #ty_generics #where_clause {
             fn len() -> usize {
-                #field_count
+                #len_field_count
             }
 
             fn generate(rng: &mut StdRng) -> Self {
                 Self {
                     #(
-                        #field_name_1: #field_name_1(rng),
+                        #generate_field_name: #generate_field_name(rng),
                     )*
                 }
             }
@@ -32,7 +32,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
             fn mutate(&mut self, rng: &mut StdRng, i: usize) {
                 match i {
                     #(
-                        #index_2 => self.#field_name_2 = #field_name_2(rng),
+                        #mutate_index => self.#mutate_field_name = #mutate_field_name(rng),
                     )*
                     _ => panic!("index out of bounds")
                 };
@@ -41,7 +41,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
             fn cross(&mut self, parent: &Self, i: usize) {
                 match i {
                     #(
-                        #index_3 => self.#field_name_3 = parent.#field_name_3,
+                        #cross_index => self.#cross_field_name = parent.#cross_field_name,
                     )*
                     _ => panic!("index out of bounds")
                 };
