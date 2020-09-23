@@ -53,7 +53,7 @@ fn ma(rng: &mut StdRng) -> u32 {
     indicators::MA_CHOICES[rng.gen_range(0, indicators::MA_CHOICES.len())]
 }
 fn ma_period(rng: &mut StdRng) -> u32 { rng.gen_range(2, 100) }
-fn mid_trend_policy(rng: &mut StdRng) -> u32 { MidTrend::POLICY_IGNORE }
+fn mid_trend_policy(_rng: &mut StdRng) -> u32 { MidTrend::POLICY_IGNORE }
 
 pub struct FourWeekRule {
     mid_trend: MidTrend,
