@@ -51,10 +51,11 @@ pub fn analyse(
         .iter()
         .map(|d| d.values().sum())
         .collect::<Vec<f64>>();
-    let portfolio_stats = calculate_statistics(&portfolio_performance);
+    calculate_statistics(&portfolio_performance)
+    // let portfolio_stats = calculate_statistics(&portfolio_performance);
     // let (alpha, _beta) = calculate_alpha_beta(&benchmark_g_returns, &portfolio_stats);
     // (alpha,)
-    portfolio_stats
+    // portfolio_stats
 }
 
 fn get_trades_from_summary(

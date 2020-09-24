@@ -1,7 +1,6 @@
 use crate::common::{Candle, ExchangeInfo};
 use rusqlite::{params, Connection, NO_PARAMS};
 use serde::{Deserialize, Serialize};
-use serde_json;
 use std::error::Error;
 
 const VERSION: &str = "v48";
@@ -13,7 +12,7 @@ struct Timestamped<T> {
 }
 
 fn blob_to_f64(blob: Vec<u8>) -> Result<f64, rusqlite::Error> {
-    let s = std::str::from_utf8(&blob).map_err(|e| rusqlite::Error::Utf8Error(e))?;
+    let s = std::str::from_utf8(&blob).map_err(rusqlite::Error::Utf8Error)?;
     s.parse::<f64>()
         .map_err(|_| rusqlite::Error::ExecuteReturnedResults {})
 }

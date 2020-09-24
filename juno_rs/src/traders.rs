@@ -100,7 +100,7 @@ pub fn trade<TS: Strategy>(
                             close: last_candle.close,
                             volume: last_candle.volume,
                         };
-                        if !tick(
+                        if tick(
                             &mut state,
                             &mut summary,
                             &fees,
@@ -111,7 +111,7 @@ pub fn trade<TS: Strategy>(
                             long,
                             short,
                             &missed_candle,
-                        ) {
+                        ).is_err() {
                             exit = true;
                             break;
                         }
@@ -123,7 +123,7 @@ pub fn trade<TS: Strategy>(
                 break;
             }
 
-            if !tick(
+            if tick(
                 &mut state,
                 &mut summary,
                 &fees,
@@ -134,7 +134,7 @@ pub fn trade<TS: Strategy>(
                 long,
                 short,
                 candle,
-            ) {
+            ).is_err() {
                 exit = true;
                 break;
             }
@@ -188,68 +188,53 @@ fn tick<T: Strategy>(
     long: bool,
     short: bool,
     candle: &Candle,
-) -> bool {
+) -> Result<(), &'static str> {
     state.stop_loss.update(candle);
     state.take_profit.update(candle);
     let advice = state.changed.update(state.strategy.update(&candle));
 
-    if state.open_long_position.is_some() {
-        if advice == Advice::Short || advice == Advice::Liquidate {
-            close_long_position(
-                &mut state,
-                &mut summary,
-                fees,
-                filters,
-                candle.time + interval,
-                candle.close,
-            );
-        } else if state.stop_loss.upside_hit() || state.take_profit.upside_hit() {
-            close_long_position(
-                &mut state,
-                &mut summary,
-                fees,
-                filters,
-                candle.time + interval,
-                candle.close,
-            );
-        }
-    } else if state.open_short_position.is_some() {
-        if advice == Advice::Long || advice == Advice::Liquidate {
-            close_short_position(
-                &mut state,
-                &mut summary,
-                fees,
-                filters,
-                borrow_info,
-                candle.time + interval,
-                candle.close,
-            );
-        } else if state.stop_loss.downside_hit() || state.take_profit.downside_hit() {
-            close_short_position(
-                &mut state,
-                &mut summary,
-                fees,
-                filters,
-                borrow_info,
-                candle.time + interval,
-                candle.close,
-            );
-        }
+    if state.open_long_position.is_some()
+        && (advice == Advice::Short
+            || advice == Advice::Liquidate
+            || state.stop_loss.upside_hit()
+            || state.take_profit.upside_hit())
+    {
+        close_long_position(
+            &mut state,
+            &mut summary,
+            fees,
+            filters,
+            candle.time + interval,
+            candle.close,
+        );
+    } else if state.open_short_position.is_some()
+        && (advice == Advice::Long
+            || advice == Advice::Liquidate
+            || state.stop_loss.downside_hit()
+            || state.take_profit.downside_hit())
+    {
+        close_short_position(
+            &mut state,
+            &mut summary,
+            fees,
+            filters,
+            borrow_info,
+            candle.time + interval,
+            candle.close,
+        );
     }
 
     if state.open_long_position.is_none() && state.open_short_position.is_none() {
         if long && advice == Advice::Long {
-            if !try_open_long_position(
+            try_open_long_position(
                 &mut state,
                 fees,
                 filters,
                 candle.time + interval,
                 candle.close,
-            ) {
-                return false;
-            }
+            )?;
         } else if short && advice == Advice::Short {
-            if !try_open_short_position(
+            try_open_short_position(
                 &mut state,
                 fees,
                 filters,
@@ -257,16 +242,14 @@ fn tick<T: Strategy>(
                 margin_multiplier,
                 candle.time + interval,
                 candle.close,
-            ) {
-                return false;
-            }
+            )?;
         }
         state.stop_loss.clear(candle);
         state.take_profit.clear(candle);
     }
 
     state.last_candle = Some(*candle);
-    true
+    Ok(())
 }
 
 fn try_open_long_position<T: Strategy>(
@@ -275,10 +258,10 @@ fn try_open_long_position<T: Strategy>(
     filters: &Filters,
     time: u64,
     price: f64,
-) -> bool {
+) -> Result<(), &'static str> {
     let size = filters.size.round_down(state.quote / price);
     if size == 0.0 {
-        return false;
+        return Err("size 0");
     }
 
     let quote = round_down(price * size, filters.quote_precision);
@@ -287,7 +270,7 @@ fn try_open_long_position<T: Strategy>(
     state.open_long_position = Some(LongPosition::new(time, price, size, quote, fee));
     state.quote -= quote;
 
-    true
+    Ok(())
 }
 
 fn close_long_position<T: Strategy>(
@@ -322,10 +305,10 @@ fn try_open_short_position<T: Strategy>(
     margin_multiplier: u32,
     time: u64,
     price: f64,
-) -> bool {
+) -> Result<(), &'static str> {
     let collateral_size = filters.size.round_down(state.quote / price);
     if collateral_size == 0.0 {
-        return false;
+        return Err("collateral 0");
     }
     let borrowed = f64::min(
         collateral_size * (margin_multiplier - 1) as f64,
@@ -346,7 +329,7 @@ fn try_open_short_position<T: Strategy>(
     ));
 
     state.quote += quote - fee;
-    true
+    Ok(())
 }
 
 fn close_short_position<T: Strategy>(
