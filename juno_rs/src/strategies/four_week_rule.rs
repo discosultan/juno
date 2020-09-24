@@ -8,7 +8,7 @@ use juno_derive_rs::*;
 use rand::{rngs::StdRng, Rng};
 use std::{cmp::min, collections::VecDeque};
 
-#[derive(Chromosome, Clone)]
+#[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
 pub struct FourWeekRuleParams {
     pub period: u32,

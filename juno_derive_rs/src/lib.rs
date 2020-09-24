@@ -13,11 +13,11 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
 
     let generate_field_name = input.fields.iter().map(|field| &field.ident);
 
-    let mutate_field_name = input.fields.iter().map(|field| &field.ident);
-    let mutate_index = input.fields.iter().enumerate().map(|(i, _)| i);
+    let cross_field_index = 0..len_field_count;
+    let cross_field_name = generate_field_name.clone();
 
-    let cross_field_name = input.fields.iter().map(|field| &field.ident);
-    let cross_index = input.fields.iter().enumerate().map(|(i, _)| i);
+    let mutate_field_index = cross_field_index.clone();
+    let mutate_field_name = generate_field_name.clone();
 
     let output = quote! {
         impl #impl_generics Chromosome for #name #ty_generics #where_clause {
@@ -33,19 +33,19 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn mutate(&mut self, rng: &mut StdRng, i: usize) {
+            fn cross(&mut self, parent: &Self, i: usize) {
                 match i {
                     #(
-                        #mutate_index => self.#mutate_field_name = #mutate_field_name(rng),
+                        #cross_field_index => self.#cross_field_name = parent.#cross_field_name,
                     )*
                     _ => panic!("index out of bounds")
                 };
             }
 
-            fn cross(&mut self, parent: &Self, i: usize) {
+            fn mutate(&mut self, rng: &mut StdRng, i: usize) {
                 match i {
                     #(
-                        #cross_index => self.#cross_field_name = parent.#cross_field_name,
+                        #mutate_field_index => self.#mutate_field_name = #mutate_field_name(rng),
                     )*
                     _ => panic!("index out of bounds")
                 };
