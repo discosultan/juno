@@ -1,11 +1,11 @@
 use rand::{Rng, rngs::StdRng};
-use super::{Chromosome, Individual};
+use super::Chromosome;
 
 pub trait Mutation {
     fn mutate<T: Chromosome>(
         &self,
         rng: &mut StdRng,
-        ind: &mut Individual<T>,
+        chromosome: &mut T,
     );
 }
 
@@ -25,11 +25,11 @@ impl Mutation for UniformMutation {
     fn mutate<T: Chromosome>(
         &self,
         rng: &mut StdRng,
-        ind: &mut Individual<T>,
+        chromosome: &mut T,
     ) {
-        for i in 0..Individual::<T>::len() {
+        for i in 0..T::len() {
             if rng.gen::<f32>() < self.mutation_probability {
-                ind.mutate(rng, i);
+                chromosome.mutate(rng, i);
             }
         }
     }

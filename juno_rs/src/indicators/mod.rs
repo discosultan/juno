@@ -26,7 +26,7 @@ pub use sma::Sma;
 pub use smma::Smma;
 pub use stoch::Stoch;
 
-pub trait MA {
+pub trait MA: Send + Sync {
     fn update(&mut self, price: f64);
     fn value(&self) -> f64;
     fn maturity(&self) -> u32;

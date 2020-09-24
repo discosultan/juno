@@ -1,6 +1,13 @@
-// use rayon::prelude::*;
-use super::Individual;
 use crate::{common, statistics, storages, strategies::Strategy, traders};
+use rayon::prelude::*;
+use std::{error::Error, marker::PhantomData};
+use super::{Chromosome, Individual, TradingChromosome};
+
+pub trait Evaluation {
+    type Chromosome: Chromosome;
+
+    fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]);
+}
 
 struct SymbolCtx {
     candles: Vec<common::Candle>,
@@ -9,13 +16,14 @@ struct SymbolCtx {
     borrow_info: common::BorrowInfo,
 }
 
-pub struct Evaluation {
+pub struct BasicEvaluation<T: Strategy> {
     symbol_ctxs: Vec<SymbolCtx>,
     interval: u64,
     quote: f64,
+    phantom: PhantomData<T>,
 }
 
-impl Evaluation {
+impl<T: Strategy> BasicEvaluation<T> {
     pub fn new(
         exchange: &str,
         symbols: &[&str],
@@ -23,7 +31,7 @@ impl Evaluation {
         start: u64,
         end: u64,
         quote: f64,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
+    ) -> Result<Self, Box<dyn Error>> {
         let exchange_info = storages::get_exchange_info(exchange)?;
         let symbol_ctxs = symbols
             .iter()
@@ -44,25 +52,16 @@ impl Evaluation {
             symbol_ctxs,
             interval,
             quote,
+            phantom: PhantomData,
         })
     }
 
-    pub fn evaluate<T: Strategy>(&self, population: &Vec<Individual<T::Params>>) -> Vec<f64> {
-        // TODO: Support different strategies here. A la parallel cpu or gpu, for example.
-        // let fitnesses = Vec::with_capacity(population.len());
-        // let fitness_slices = fitnesses.chunks_exact_mut(1).collect();
-        population
-            .iter()
-            .map(|ind| self.evaluate_individual::<T>(ind))
-            .collect()
-    }
-
-    fn evaluate_individual<T: Strategy>(&self, ind: &Individual<T::Params>) -> f64 {
-        self.symbol_ctxs
+    fn evaluate_individual(&self, ind: &mut Individual<TradingChromosome<T::Params>>) {
+        ind.fitness = self.symbol_ctxs
             .iter()
             .map(|ctx| {
                 let summary = traders::trade::<T>(
-                    &ind.strategy,
+                    &ind.chromosome.strategy,
                     &ctx.candles,
                     &ctx.fees,
                     &ctx.filters,
@@ -70,16 +69,32 @@ impl Evaluation {
                     2,
                     self.interval,
                     self.quote,
-                    ind.trader.missed_candle_policy,
-                    ind.trader.stop_loss,
-                    ind.trader.trail_stop_loss,
-                    ind.trader.take_profit,
+                    ind.chromosome.trader.missed_candle_policy,
+                    ind.chromosome.trader.stop_loss,
+                    ind.chromosome.trader.trail_stop_loss,
+                    ind.chromosome.trader.take_profit,
                     true,
                     true,
                 );
                 statistics::calculate_sharpe_ratio(&summary, &ctx.candles, self.interval).unwrap()
             })
-            .fold(0.0, linear)
+            .fold(0.0, linear);
+        // TODO: get rid of this as well
+        assert!(!ind.fitness.is_nan());
+    }
+}
+
+impl<T: Strategy> Evaluation for BasicEvaluation<T> {
+    type Chromosome = TradingChromosome<T::Params>;
+
+    fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]) {
+        // TODO: Support different strategies here. A la parallel cpu or gpu, for example.
+        // let fitnesses = Vec::with_capacity(population.len());
+        // let fitness_slices = fitnesses.chunks_exact_mut(1).collect();
+        population
+            // .iter_mut()
+            .par_iter_mut()
+            .for_each(|ind| self.evaluate_individual(ind));
     }
 }
 

@@ -33,12 +33,15 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 }
             }
 
-            fn cross(&mut self, parent: &Self, i: usize) {
+            fn cross(&mut self, other: &mut Self, i: usize) {
                 match i {
                     #(
-                        #cross_field_index => self.#cross_field_name = parent.#cross_field_name,
+                        #cross_field_index => std::mem::swap(
+                            &mut self.#cross_field_name,
+                            &mut other.#cross_field_name,
+                        ),
                     )*
-                    _ => panic!("index out of bounds")
+                    _ => panic!("index out of bounds"),
                 };
             }
 
@@ -47,7 +50,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                     #(
                         #mutate_field_index => self.#mutate_field_name = #mutate_field_name(rng),
                     )*
-                    _ => panic!("index out of bounds")
+                    _ => panic!("index out of bounds"),
                 };
             }
         }

@@ -7,19 +7,21 @@ pub fn unpack(value: &str) -> (&str, &str) {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let exchange = "binance";
-    let symbol = "eth-btc";
+    let symbols = ["eth-btc", "ltc-btc", "xrp-btc"];
     let interval = DAY_MS;
     let start = "2019-01-01".to_timestamp();
     let end = "2020-01-01".to_timestamp();
     let quote = 1.0;
 
     let algo = genetics::GeneticAlgorithm::new(
-        genetics::evaluation::Evaluation::new(exchange, &[symbol], interval, start, end, quote)?,
+        genetics::evaluation::BasicEvaluation::<strategies::FourWeekRule>::new(
+            exchange, &symbols, interval, start, end, quote
+        )?,
         genetics::selection::EliteSelection { },
         genetics::crossover::UniformCrossover::default(),
         genetics::mutation::UniformMutation::default(),
     );
-    algo.evolve::<strategies::FourWeekRule>();
+    algo.evolve();
     Ok(())
 }
 

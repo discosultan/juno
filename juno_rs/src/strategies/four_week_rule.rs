@@ -50,6 +50,12 @@ pub struct FourWeekRule {
     t1: u32,
 }
 
+// TODO: Bad! We want to use par_iter in evaluation but it requires strategy to be send + sync.
+// However, we don't really ever send a strat instance between threads, therefore it's okay to
+// impl the following.
+unsafe impl Send for FourWeekRule {}
+unsafe impl Sync for FourWeekRule {}
+
 impl Strategy for FourWeekRule {
     type Params = FourWeekRuleParams;
 

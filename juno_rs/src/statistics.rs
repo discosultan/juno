@@ -220,7 +220,7 @@ pub fn calculate_sharpe_ratio(
     let annualized_volatility = sqrt_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
 
     // Sharpe ratio.
-    Ok(annualized_return / annualized_volatility)
+    if annualized_return.is_nan() { Ok(0.0) } else { Ok(annualized_return / annualized_volatility) }
 }
 
 fn get_portfolio_performance(

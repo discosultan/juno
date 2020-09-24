@@ -1,13 +1,13 @@
 use rand::{Rng, rngs::StdRng};
-use super::{Chromosome, Individual};
+use super::Chromosome;
 
 pub trait Crossover {
     fn cross<T: Chromosome>(
         &self,
         rng: &mut StdRng,
-        parent1: &Individual<T>,
-        parent2: &Individual<T>,
-    ) -> (Individual<T>, Individual<T>);
+        chromosome1: &mut T,
+        chromosome2: &mut T,
+    );
 }
 
 pub struct UniformCrossover {
@@ -26,19 +26,19 @@ impl Crossover for UniformCrossover {
     fn cross<T: Chromosome>(
         &self,
         rng: &mut StdRng,
-        parent1: &Individual<T>,
-        parent2: &Individual<T>,
-    ) -> (Individual<T>, Individual<T>) {
-        let mut child1 = parent1.clone();
-        let mut child2 = parent2.clone();
+        chromosome1: &mut T,
+        chromosome2: &mut T,
+    ) {
+        // let mut child1 = parent1.clone();
+        // let mut child2 = parent2.clone();
 
-        for i in 0..Individual::<T>::len() {
+        for i in 0..T::len() {
             if rng.gen::<f32>() < self.mix_probability {
-                child1.cross(parent2, i);
-                child2.cross(parent1, i);
+                chromosome1.cross(chromosome2, i);
+                // chromosome2.cross(chromosome1, i);
             }
         }
 
-        (child1, child2)
+        // (child1, child2)
     }
 }
