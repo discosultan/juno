@@ -15,8 +15,7 @@ struct State<T: Strategy> {
     pub strategy: T,
     pub changed: Changed,
     pub quote: f64,
-    pub open_long_position: Option<LongPosition>,
-    pub open_short_position: Option<ShortPosition>,
+    pub open_position: Option<Position>,
     pub last_candle: Option<Candle>,
     pub stop_loss: StopLoss,
     pub take_profit: TakeProfit,
@@ -34,8 +33,7 @@ impl<T: Strategy> State<T> {
             strategy,
             changed: Changed::new(true),
             quote,
-            open_long_position: None,
-            open_short_position: None,
+            open_position: None,
             last_candle: None,
             stop_loss: StopLoss::new(stop_loss, trail_stop_loss),
             take_profit: TakeProfit::new(take_profit),
@@ -111,7 +109,9 @@ pub fn trade<TS: Strategy>(
                             long,
                             short,
                             &missed_candle,
-                        ).is_err() {
+                        )
+                        .is_err()
+                        {
                             exit = true;
                             break;
                         }
@@ -134,7 +134,9 @@ pub fn trade<TS: Strategy>(
                 long,
                 short,
                 candle,
-            ).is_err() {
+            )
+            .is_err()
+            {
                 exit = true;
                 break;
             }
@@ -150,18 +152,16 @@ pub fn trade<TS: Strategy>(
     }
 
     if let Some(last_candle) = state.last_candle {
-        if state.open_long_position.is_some() {
-            close_long_position(
+        match state.open_position {
+            Some(Position::Long(_)) => close_long_position(
                 &mut state,
                 &mut summary,
                 fees,
                 filters,
                 last_candle.time + interval,
                 last_candle.close,
-            );
-        }
-        if state.open_short_position.is_some() {
-            close_short_position(
+            ),
+            Some(Position::Short(_)) => close_short_position(
                 &mut state,
                 &mut summary,
                 fees,
@@ -169,7 +169,8 @@ pub fn trade<TS: Strategy>(
                 borrow_info,
                 last_candle.time + interval,
                 last_candle.close,
-            );
+            ),
+            None => {}
         }
     }
 
@@ -193,38 +194,42 @@ fn tick<T: Strategy>(
     state.take_profit.update(candle);
     let advice = state.changed.update(state.strategy.update(&candle));
 
-    if state.open_long_position.is_some()
-        && (advice == Advice::Short
-            || advice == Advice::Liquidate
-            || state.stop_loss.upside_hit()
-            || state.take_profit.upside_hit())
-    {
-        close_long_position(
-            &mut state,
-            &mut summary,
-            fees,
-            filters,
-            candle.time + interval,
-            candle.close,
-        );
-    } else if state.open_short_position.is_some()
-        && (advice == Advice::Long
-            || advice == Advice::Liquidate
-            || state.stop_loss.downside_hit()
-            || state.take_profit.downside_hit())
-    {
-        close_short_position(
-            &mut state,
-            &mut summary,
-            fees,
-            filters,
-            borrow_info,
-            candle.time + interval,
-            candle.close,
-        );
+    match state.open_position {
+        Some(Position::Long(_))
+            if advice == Advice::Short
+                || advice == Advice::Liquidate
+                || state.stop_loss.upside_hit()
+                || state.take_profit.upside_hit() =>
+        {
+            close_long_position(
+                &mut state,
+                &mut summary,
+                fees,
+                filters,
+                candle.time + interval,
+                candle.close,
+            )
+        }
+        Some(Position::Short(_))
+            if advice == Advice::Long
+                || advice == Advice::Liquidate
+                || state.stop_loss.downside_hit()
+                || state.take_profit.downside_hit() =>
+        {
+            close_short_position(
+                &mut state,
+                &mut summary,
+                fees,
+                filters,
+                borrow_info,
+                candle.time + interval,
+                candle.close,
+            )
+        }
+        _ => {}
     }
 
-    if state.open_long_position.is_none() && state.open_short_position.is_none() {
+    if state.open_position.is_none() {
         if long && advice == Advice::Long {
             try_open_long_position(
                 &mut state,
@@ -267,7 +272,9 @@ fn try_open_long_position<T: Strategy>(
     let quote = round_down(price * size, filters.quote_precision);
     let fee = round_half_up(size * fees.taker, filters.base_precision);
 
-    state.open_long_position = Some(LongPosition::new(time, price, size, quote, fee));
+    state.open_position = Some(Position::Long(LongPosition::new(
+        time, price, size, quote, fee,
+    )));
     state.quote -= quote;
 
     Ok(())
@@ -281,7 +288,7 @@ fn close_long_position<T: Strategy>(
     time: u64,
     price: f64,
 ) {
-    if let Some(mut pos) = state.open_long_position.take() {
+    if let Some(Position::Long(mut pos)) = state.open_position.take() {
         let size = filters.size.round_down(pos.base_gain);
 
         let quote = round_down(price * size, filters.quote_precision);
@@ -290,9 +297,10 @@ fn close_long_position<T: Strategy>(
         pos.close(time, price, size, quote, fee);
         summary.append_position(Position::Long(pos));
 
-        state.open_long_position = None;
+        state.open_position = None;
         state.quote += quote - fee;
     } else {
+        // TODO: Refactor to get rid of this.
         panic!();
     }
 }
@@ -318,7 +326,7 @@ fn try_open_short_position<T: Strategy>(
     let quote = round_down(price * borrowed, filters.quote_precision);
     let fee = round_half_up(quote * fees.taker, filters.quote_precision);
 
-    state.open_short_position = Some(ShortPosition::new(
+    state.open_position = Some(Position::Short(ShortPosition::new(
         time,
         state.quote,
         borrowed,
@@ -326,7 +334,7 @@ fn try_open_short_position<T: Strategy>(
         borrowed,
         quote,
         fee,
-    ));
+    )));
 
     state.quote += quote - fee;
     Ok(())
@@ -341,7 +349,7 @@ fn close_short_position<T: Strategy>(
     time: u64,
     price: f64,
 ) {
-    if let Some(mut pos) = state.open_short_position.take() {
+    if let Some(Position::Short(mut pos)) = state.open_position.take() {
         let borrowed = pos.borrowed;
 
         let duration = ceil_multiple(time - pos.time, HOUR_MS) / HOUR_MS;
@@ -356,7 +364,7 @@ fn close_short_position<T: Strategy>(
         pos.close(interest, time, price, size, quote, fee);
         summary.append_position(Position::Short(pos));
 
-        state.open_short_position = None;
+        state.open_position = None;
         state.quote -= quote;
     } else {
         panic!();
