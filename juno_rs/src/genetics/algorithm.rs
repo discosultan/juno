@@ -1,11 +1,6 @@
-use crate::{
-    genetics::{
-        Individual,
-        crossover::Crossover,
-        evaluation::Evaluation,
-        mutation::Mutation,
-        selection::Selection,
-    },
+use crate::genetics::{
+    crossover::Crossover, evaluation::Evaluation, mutation::Mutation, selection::Selection,
+    Individual,
 };
 use rand::prelude::*;
 use std::time;
@@ -30,12 +25,7 @@ where
     TC: Crossover,
     TM: Mutation,
 {
-    pub fn new(
-        evaluation: TE,
-        selection: TS,
-        crossover: TC,
-        mutation: TM,
-    ) -> Self {
+    pub fn new(evaluation: TE, selection: TS, crossover: TC, mutation: TM) -> Self {
         Self {
             evaluation,
             selection,

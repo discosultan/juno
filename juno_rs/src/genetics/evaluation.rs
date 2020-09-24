@@ -1,7 +1,7 @@
+use super::{Chromosome, Individual, TradingChromosome};
 use crate::{common, statistics, storages, strategies::Strategy, traders};
 use rayon::prelude::*;
 use std::{error::Error, marker::PhantomData};
-use super::{Chromosome, Individual, TradingChromosome};
 
 pub trait Evaluation {
     type Chromosome: Chromosome;
@@ -57,7 +57,8 @@ impl<T: Strategy> BasicEvaluation<T> {
     }
 
     fn evaluate_individual(&self, ind: &mut Individual<TradingChromosome<T::Params>>) {
-        ind.fitness = self.symbol_ctxs
+        ind.fitness = self
+            .symbol_ctxs
             .iter()
             .map(|ctx| {
                 let summary = traders::trade::<T>(

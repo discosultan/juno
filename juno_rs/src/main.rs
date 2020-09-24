@@ -15,9 +15,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let algo = genetics::GeneticAlgorithm::new(
         genetics::evaluation::BasicEvaluation::<strategies::FourWeekRule>::new(
-            exchange, &symbols, interval, start, end, quote
+            exchange, &symbols, interval, start, end, quote,
         )?,
-        genetics::selection::EliteSelection { },
+        genetics::selection::EliteSelection {},
         genetics::crossover::UniformCrossover::default(),
         genetics::mutation::UniformMutation::default(),
     );
