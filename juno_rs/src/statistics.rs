@@ -3,6 +3,7 @@ use crate::{
     math::{floor_multiple, mean, std_deviation},
     trading::{Position, TradingSummary},
 };
+use lazy_static::lazy_static;
 use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
 use std::{cmp::max, collections::HashMap, error::Error};
@@ -10,6 +11,10 @@ use std::{cmp::max, collections::HashMap, error::Error};
 pub type AnalysisResult = (f64,);
 
 const DAY_MS: u64 = 86_400_000;
+
+lazy_static! {
+    static ref SQRT_365: f64 = 365.0;
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Asset {
@@ -215,15 +220,12 @@ pub fn calculate_sharpe_ratio(
         .map(|v| (v + 1.0).ln())
         .collect::<Vec<f64>>();
     let annualized_return = 365.0_f64 * mean(&g_returns).ok_or("g_returns empty")?;
-    // TODO: Set this as a const. However, `sqrt()` is not supported as a const fn as of now.
-    let sqrt_365 = 365.0_f64.sqrt();
-
-    let annualized_volatility = sqrt_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
 
     // Sharpe ratio.
     if annualized_return.is_nan() {
         Ok(0.0)
     } else {
+        let annualized_volatility = *SQRT_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
         Ok(annualized_return / annualized_volatility)
     }
 }

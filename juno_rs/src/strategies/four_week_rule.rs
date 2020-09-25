@@ -53,6 +53,8 @@ pub struct FourWeekRule {
 // TODO: Bad! We want to use par_iter in evaluation but it requires strategy to be send + sync.
 // However, we don't really ever send a strat instance between threads, therefore it's okay to
 // impl the following.
+// We can use https://github.com/dtolnay/typetag to serialize a Box<dyn trait> if needed. Otherwise,
+// turn it into a generic and use a macro to generate all variations.
 unsafe impl Send for FourWeekRule {}
 unsafe impl Sync for FourWeekRule {}
 

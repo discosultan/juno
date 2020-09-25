@@ -35,8 +35,8 @@ where
     }
 
     pub fn evolve(&self) {
-        let population_size = 1000;
-        let generations = 500;
+        let population_size = 250;
+        let generations = 100;
         let seed = 1;
 
         assert!(population_size >= 2);
@@ -45,7 +45,7 @@ where
 
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let mut parents: Vec<Individual<TE::Chromosome>> = (0..population_size)
+        let mut parents = (0..population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
         self.evaluate_and_sort_by_fitness_desc(&mut parents);
@@ -56,10 +56,11 @@ where
             println!("gen {}", i);
             self.run_generation(&mut rng, &mut parents, &mut offsprings);
             std::mem::swap(&mut parents, &mut offsprings);
+            offsprings.clear();
         }
 
         // Print best.
-        println!("{} {:?}", offsprings[0].fitness, offsprings[0].chromosome);
+        println!("{} {:?}", parents[0].fitness, parents[0].chromosome);
     }
 
     fn run_generation(
@@ -70,7 +71,6 @@ where
     ) {
         // select
         let start = time::Instant::now();
-        offsprings.clear();
         self.selection.select(parents, offsprings, parents.len());
         println!("select {:?}", start.elapsed());
 
