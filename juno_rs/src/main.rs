@@ -8,13 +8,13 @@ pub fn unpack(value: &str) -> (&str, &str) {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let exchange = "binance";
     let symbols = ["eth-btc", "ltc-btc", "xrp-btc"];
-    let interval = DAY_MS;
-    let start = "2019-01-01".to_timestamp();
-    let end = "2020-01-01".to_timestamp();
+    let interval = HOUR_MS;
+    let start = "2017-11-10".to_timestamp();
+    let end = "2020-09-25".to_timestamp();
     let quote = 1.0;
 
     let algo = genetics::GeneticAlgorithm::new(
-        genetics::evaluation::BasicEvaluation::<strategies::FourWeekRule>::new(
+        genetics::evaluation::BasicEvaluation::<strategies::TripleMA>::new(
             exchange, &symbols, interval, start, end, quote,
         )?,
         genetics::selection::EliteSelection {},

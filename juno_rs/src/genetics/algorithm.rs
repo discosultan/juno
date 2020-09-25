@@ -35,7 +35,7 @@ where
     }
 
     pub fn evolve(&self) {
-        let population_size = 250;
+        let population_size = 100;
         let generations = 100;
         let seed = 1;
 

@@ -221,11 +221,11 @@ pub fn calculate_sharpe_ratio(
         .collect::<Vec<f64>>();
     let annualized_return = 365.0_f64 * mean(&g_returns).ok_or("g_returns empty")?;
 
-    // Sharpe ratio.
-    if annualized_return.is_nan() {
+    if annualized_return.is_nan() || annualized_return == 0.0 {
         Ok(0.0)
     } else {
         let annualized_volatility = *SQRT_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
+        // Sharpe ratio.
         Ok(annualized_return / annualized_volatility)
     }
 }

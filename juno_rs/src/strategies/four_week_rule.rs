@@ -5,7 +5,7 @@ use crate::{
     Advice, Candle,
 };
 use juno_derive_rs::*;
-use rand::{rngs::StdRng, Rng};
+use rand::prelude::*;
 use std::{cmp::min, collections::VecDeque};
 
 #[derive(Chromosome, Clone, Debug)]
