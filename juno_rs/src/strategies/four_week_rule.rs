@@ -42,22 +42,16 @@ fn mid_trend_policy(_rng: &mut StdRng) -> u32 {
     MidTrend::POLICY_IGNORE
 }
 
+// We can use https://github.com/dtolnay/typetag to serialize a Box<dyn trait> if needed. Otherwise,
+// turn it into a generic and use a macro to generate all variations.
 pub struct FourWeekRule {
     mid_trend: MidTrend,
     prices: VecDeque<f64>,
-    ma: Box<dyn indicators::MA>,
+    ma: Box<dyn indicators::MA + Send + Sync>,
     advice: Advice,
     t: u32,
     t1: u32,
 }
-
-// TODO: Bad! We want to use par_iter in evaluation but it requires strategy to be send + sync.
-// However, we don't really ever send a strat instance between threads, therefore it's okay to
-// impl the following.
-// We can use https://github.com/dtolnay/typetag to serialize a Box<dyn trait> if needed. Otherwise,
-// turn it into a generic and use a macro to generate all variations.
-unsafe impl Send for FourWeekRule {}
-unsafe impl Sync for FourWeekRule {}
 
 impl Strategy for FourWeekRule {
     type Params = FourWeekRuleParams;
