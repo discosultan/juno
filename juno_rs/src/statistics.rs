@@ -155,12 +155,10 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         .iter()
         .map(|v| (v + 1.0).ln())
         .collect::<Vec<f64>>();
-    let annualized_return = 365.0_f64 * mean(&g_returns);
-    // TODO: Set this as a const. However, `sqrt()` is not supported as a const fn as of now.
-    let sqrt_365 = 365.0_f64.sqrt();
+    let annualized_return = 365.0 * mean(&g_returns);
 
     // Sharpe ratio.
-    let annualized_volatility = sqrt_365 * std_deviation(&g_returns);
+    let annualized_volatility = *SQRT_365 * std_deviation(&g_returns);
     let sharpe_ratio = annualized_return / annualized_volatility;
 
     // Sortino ratio.
@@ -169,7 +167,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         .cloned()
         .filter(|&v| v < 0.0)
         .collect::<Vec<f64>>();
-    let annualized_downside_risk = sqrt_365 * std_deviation(&neg_g_returns);
+    let annualized_downside_risk = *SQRT_365 * std_deviation(&neg_g_returns);
     let sortino_ratio = annualized_return / annualized_downside_risk;
 
     Statistics {
@@ -216,7 +214,7 @@ pub fn calculate_sharpe_ratio(
         .iter()
         .map(|v| (v + 1.0).ln())
         .collect::<Vec<f64>>();
-    let annualized_return = 365.0_f64 * mean(&g_returns);
+    let annualized_return = 365.0 * mean(&g_returns);
 
     if annualized_return.is_nan() || annualized_return == 0.0 {
         Ok(0.0)
