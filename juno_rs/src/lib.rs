@@ -4,6 +4,7 @@ pub mod common;
 pub mod filters;
 pub mod genetics;
 pub mod indicators;
+pub mod itertools;
 pub mod math;
 pub mod prelude;
 pub mod statistics;
@@ -39,14 +40,14 @@ use std::slice;
 //     run_test::<strategies::DoubleMA>(trading_info, strategy_info, analysis_info)
 // }
 
-// #[no_mangle]
-// pub unsafe extern "C" fn triplema(
-//     trading_info: *const TradingInfo,
-//     strategy_info: *const strategies::TripleMAParams,
-//     analysis_info: *const AnalysisInfo,
-// ) -> FitnessValues {
-//     run_test::<strategies::TripleMA>(trading_info, strategy_info, analysis_info)
-// }
+#[no_mangle]
+pub unsafe extern "C" fn triplema(
+    trading_info: *const TradingInfo,
+    strategy_info: *const strategies::TripleMAParams,
+    analysis_info: *const AnalysisInfo,
+) -> FitnessValues {
+    run_test::<strategies::TripleMA>(trading_info, strategy_info, analysis_info)
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn fourweekrule(

@@ -13,7 +13,7 @@ pub type AnalysisResult = (f64,);
 const DAY_MS: u64 = 86_400_000;
 
 lazy_static! {
-    static ref SQRT_365: f64 = 365.0;
+    static ref SQRT_365: f64 = 365.0_f64.sqrt();
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -155,13 +155,12 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         .iter()
         .map(|v| (v + 1.0).ln())
         .collect::<Vec<f64>>();
-    let annualized_return = 365.0_f64 * mean(&g_returns).expect("g_returns to not be empty");
+    let annualized_return = 365.0_f64 * mean(&g_returns);
     // TODO: Set this as a const. However, `sqrt()` is not supported as a const fn as of now.
     let sqrt_365 = 365.0_f64.sqrt();
 
     // Sharpe ratio.
-    let annualized_volatility =
-        sqrt_365 * std_deviation(&g_returns).expect("g_returns to not be empty");
+    let annualized_volatility = sqrt_365 * std_deviation(&g_returns);
     let sharpe_ratio = annualized_return / annualized_volatility;
 
     // Sortino ratio.
@@ -170,8 +169,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         .cloned()
         .filter(|&v| v < 0.0)
         .collect::<Vec<f64>>();
-    let annualized_downside_risk =
-        sqrt_365 * std_deviation(&neg_g_returns).expect("neg_g_returns to not be empty");
+    let annualized_downside_risk = sqrt_365 * std_deviation(&neg_g_returns);
     let sortino_ratio = annualized_return / annualized_downside_risk;
 
     Statistics {
@@ -198,8 +196,7 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     let covariance_matrix = matrix.cov(1.0).expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return
-        - (beta * 365.0 * mean(&benchmark_g_returns).expect("benchmark_g_returns to not be empty"));
+    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
 
     (alpha, beta)
 }
@@ -219,12 +216,12 @@ pub fn calculate_sharpe_ratio(
         .iter()
         .map(|v| (v + 1.0).ln())
         .collect::<Vec<f64>>();
-    let annualized_return = 365.0_f64 * mean(&g_returns).ok_or("g_returns empty")?;
+    let annualized_return = 365.0_f64 * mean(&g_returns);
 
     if annualized_return.is_nan() || annualized_return == 0.0 {
         Ok(0.0)
     } else {
-        let annualized_volatility = *SQRT_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
+        let annualized_volatility = *SQRT_365 * std_deviation(&g_returns);
         // Sharpe ratio.
         Ok(annualized_return / annualized_volatility)
     }
@@ -251,10 +248,9 @@ fn get_portfolio_performance(
         let day_deltas = deltas.get(&time_day);
         if let Some(day_trades) = day_deltas {
             for (asset, size) in day_trades {
-                if *asset == Asset::Quote {
-                    running += size;
-                } else {
-                    running += size * candles[i as usize].close;
+                match asset {
+                    Asset::Quote => running += size,
+                    Asset::Base => running += size * candles[i as usize].close,
                 }
             }
         }
