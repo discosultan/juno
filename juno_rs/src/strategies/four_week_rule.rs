@@ -1,7 +1,7 @@
 use crate::{
     genetics::Chromosome,
     indicators,
-    itertools,
+    itertools::IteratorExt,
     strategies::{MidTrend, Strategy},
     Advice, Candle,
 };
@@ -72,7 +72,7 @@ impl Strategy for FourWeekRule {
 
         let mut advice = Advice::None;
         if self.t >= self.t1 {
-            let (lowest, highest) = itertools::minmax(self.prices.iter());
+            let (lowest, highest) = self.prices.iter().minmax();
 
             if candle.close >= highest {
                 self.advice = Advice::Long;

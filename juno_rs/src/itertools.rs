@@ -1,13 +1,3 @@
-pub fn minmax<'a>(values: impl Iterator<Item = &'a f64>) -> (f64, f64) {
-    let mut min = f64::NAN;
-    let mut max = f64::NAN;
-    for value in values {
-        min = f64::min(min, *value);
-        max = f64::max(max, *value);
-    }
-    (min, max)
-}
-
 pub struct Pairwise<I: Iterator> {
     previous: Option<I::Item>,
     underlying: I,
@@ -41,18 +31,31 @@ pub trait IteratorExt: Iterator {
             underlying: self,
         }
     }
+
+    fn minmax<'a>(self) -> (f64, f64)
+    where
+        Self: Iterator<Item = &'a f64> + Sized,
+    {
+        let mut min = f64::NAN;
+        let mut max = f64::NAN;
+        for &value in self {
+            min = f64::min(min, value);
+            max = f64::max(max, value);
+        }
+        (min, max)
+    }
 }
 
 impl<I: Iterator> IteratorExt for I {}
 
 #[cfg(test)]
 mod tests {
-    use super::{IteratorExt, minmax};
+    use super::IteratorExt;
 
     #[test]
     fn test_minmax() {
         let vals = [3.0, 1.0, 2.0];
-        assert_eq!(minmax(vals.iter()), (1.0, 3.0));
+        assert_eq!(vals.iter().minmax(), (1.0, 3.0));
     }
 
     #[test]
