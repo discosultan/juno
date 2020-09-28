@@ -1,7 +1,7 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
     strategies::{Changed, Strategy},
-    trading::{LongPosition, Position, ShortPosition, StopLoss, TakeProfit, TradingSummary},
+    trading::{LongPosition, Position, ShortPosition, StopLoss, TakeProfit, TradingContext},
     Advice, BorrowInfo, Candle, Fees, Filters,
 };
 
@@ -56,7 +56,7 @@ pub fn trade<TS: Strategy>(
     take_profit: f64,
     long: bool,
     short: bool,
-) -> TradingSummary {
+) -> TradingContext {
     let two_interval = interval * 2;
 
     let candles_len = candles.len();
@@ -66,7 +66,7 @@ pub fn trade<TS: Strategy>(
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
 
-    let mut summary = TradingSummary::new(interval, start, end, quote);
+    let mut summary = TradingContext::new(start, end, quote);
     let mut state = State::new(
         TS::new(strategy_params),
         quote,
@@ -174,13 +174,12 @@ pub fn trade<TS: Strategy>(
         }
     }
 
-    summary.calculate();
     summary
 }
 
 fn tick<T: Strategy>(
     mut state: &mut State<T>,
-    mut summary: &mut TradingSummary,
+    mut summary: &mut TradingContext,
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
@@ -282,7 +281,7 @@ fn try_open_long_position<T: Strategy>(
 
 fn close_long_position<T: Strategy>(
     state: &mut State<T>,
-    summary: &mut TradingSummary,
+    summary: &mut TradingContext,
     fees: &Fees,
     filters: &Filters,
     time: u64,
@@ -295,7 +294,7 @@ fn close_long_position<T: Strategy>(
         let fee = round_half_up(quote * fees.taker, filters.quote_precision);
 
         pos.close(time, price, size, quote, fee);
-        summary.append_position(Position::Long(pos));
+        summary.positions.push(Position::Long(pos));
 
         state.open_position = None;
         state.quote += quote - fee;
@@ -342,7 +341,7 @@ fn try_open_short_position<T: Strategy>(
 
 fn close_short_position<T: Strategy>(
     state: &mut State<T>,
-    summary: &mut TradingSummary,
+    summary: &mut TradingContext,
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
@@ -362,7 +361,7 @@ fn close_short_position<T: Strategy>(
         size += fee;
 
         pos.close(interest, time, price, size, quote, fee);
-        summary.append_position(Position::Short(pos));
+        summary.positions.push(Position::Short(pos));
 
         state.open_position = None;
         state.quote -= quote;

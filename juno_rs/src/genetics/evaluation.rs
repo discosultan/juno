@@ -87,7 +87,7 @@ impl<T: Strategy> BasicEvaluation<T> {
                     true,
                     true,
                 );
-                statistics::calculate_sharpe_ratio(
+                statistics::get_sharpe_ratio(
                     &summary, &ctx.filled_candles, self.interval
                 ).unwrap()
             })

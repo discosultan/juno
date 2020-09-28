@@ -17,9 +17,9 @@ pub mod trading;
 pub use crate::{
     common::{Advice, BorrowInfo, Candle, Fees},
     filters::Filters,
-    trading::{LongPosition, ShortPosition, TradingSummary},
+    trading::{LongPosition, ShortPosition, TradingContext},
 };
-use crate::{statistics::analyse, strategies::Strategy, traders::trade};
+use crate::{strategies::Strategy, time::DAY_MS, traders::trade};
 use std::slice;
 
 // #[no_mangle]
@@ -130,11 +130,12 @@ unsafe fn run_test<TS: Strategy>(
         analysis_info.benchmark_g_returns_length as usize,
     );
 
-    let stats = analyse(
+    let stats = statistics::analyse(
         quote_fiat_prices,
         base_fiat_prices,
         benchmark_g_returns,
         &trading_result,
+        DAY_MS,
     );
 
     // Combine.
