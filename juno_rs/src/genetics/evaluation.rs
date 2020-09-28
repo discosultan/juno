@@ -1,5 +1,5 @@
 use super::{Chromosome, Individual, TradingChromosome};
-use crate::{common, statistics, storages, strategies::Strategy, traders};
+use crate::{common, statistics::StatisticsContext, storages, strategies::Strategy, traders};
 use rayon::prelude::*;
 use std::{error::Error, marker::PhantomData};
 
@@ -11,6 +11,7 @@ pub trait Evaluation {
 
 struct SymbolCtx {
     candles: Vec<common::Candle>,
+    statistics: StatisticsContext,
     fees: common::Fees,
     filters: common::Filters,
     borrow_info: common::BorrowInfo,
@@ -38,9 +39,12 @@ impl<T: Strategy> BasicEvaluation<T> {
             .map(|&symbol| {
                 let dash_i = symbol.find('-').unwrap();
                 let base_asset = &symbol[0..dash_i];
+                let candles = storages::list_candles(
+                    exchange, symbol, interval, start, end
+                ).unwrap();
                 SymbolCtx {
-                    candles: storages::list_candles(exchange, symbol, interval, start, end)
-                        .unwrap(),
+                    statistics: StatisticsContext::new(interval, start, end, &candles),
+                    candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
                     borrow_info: exchange_info.borrow_info[symbol][base_asset],
@@ -77,7 +81,7 @@ impl<T: Strategy> BasicEvaluation<T> {
                     true,
                     true,
                 );
-                statistics::calculate_sharpe_ratio(&summary, &ctx.candles, self.interval).unwrap()
+                ctx.statistics.get_sharpe_ratio(&summary)
             })
             .fold(0.0, linear);
         // TODO: get rid of this as well

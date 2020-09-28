@@ -6,32 +6,33 @@ pub fn floor_multiple(value: u64, multiple: u64) -> u64 {
     value - (value % multiple)
 }
 
-pub fn mean(data: &[f64]) -> Option<f64> {
-    let sum = data.iter().sum::<f64>();
+pub fn mean(data: &[f64]) -> f64 {
     let count = data.len();
-
-    match count {
-        positive if positive > 0 => Some(sum / count as f64),
-        _ => None,
+    if count == 0 {
+        f64::NAN
+    } else {
+        let sum = data.iter().sum::<f64>();
+        sum / count as f64
     }
 }
 
-pub fn std_deviation(data: &[f64]) -> Option<f64> {
-    match (mean(data), data.len()) {
-        (Some(data_mean), count) if count > 0 => {
-            let variance = data
-                .iter()
-                .map(|value| {
-                    let diff = data_mean - value;
+pub fn std_deviation(data: &[f64]) -> f64 {
+    let count = data.len();
+    if count == 0 {
+        f64::NAN
+    } else {
+        let sum = data.iter().sum::<f64>();
+        let mean = sum / count as f64;
+        let variance = data
+            .iter()
+            .map(|value| {
+                let diff = mean - value;
 
-                    diff * diff
-                })
-                .sum::<f64>()
-                / count as f64;
-
-            Some(variance.sqrt())
-        }
-        _ => None,
+                diff * diff
+            })
+            .sum::<f64>()
+            / count as f64;
+        variance.sqrt()
     }
 }
 
@@ -75,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_mean() {
-        assert_eq!(mean(&[1.0, 2.0, 3.0]).unwrap(), 2.0)
+        assert_eq!(mean(&[1.0, 2.0, 3.0]), 2.0)
     }
 
     #[test]

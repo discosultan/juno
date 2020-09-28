@@ -1,12 +1,13 @@
 use crate::{
     common::Candle,
+    itertools::IteratorExt,
     math::{floor_multiple, mean, std_deviation},
     trading::{Position, TradingSummary},
 };
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
-use std::{cmp::max, collections::HashMap, error::Error};
+use std::{cell::Cell, cmp::max, collections::HashMap};
 
 pub type AnalysisResult = (f64,);
 
@@ -155,13 +156,10 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         .iter()
         .map(|v| (v + 1.0).ln())
         .collect::<Vec<f64>>();
-    let annualized_return = 365.0_f64 * mean(&g_returns).expect("g_returns to not be empty");
-    // TODO: Set this as a const. However, `sqrt()` is not supported as a const fn as of now.
-    let sqrt_365 = 365.0_f64.sqrt();
+    let annualized_return = 365.0_f64 * mean(&g_returns);
 
     // Sharpe ratio.
-    let annualized_volatility =
-        sqrt_365 * std_deviation(&g_returns).expect("g_returns to not be empty");
+    let annualized_volatility = *SQRT_365 * std_deviation(&g_returns);
     let sharpe_ratio = annualized_return / annualized_volatility;
 
     // Sortino ratio.
@@ -170,8 +168,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         .cloned()
         .filter(|&v| v < 0.0)
         .collect::<Vec<f64>>();
-    let annualized_downside_risk =
-        sqrt_365 * std_deviation(&neg_g_returns).expect("neg_g_returns to not be empty");
+    let annualized_downside_risk = *SQRT_365 * std_deviation(&neg_g_returns);
     let sortino_ratio = annualized_return / annualized_downside_risk;
 
     Statistics {
@@ -198,68 +195,156 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     let covariance_matrix = matrix.cov(1.0).expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return
-        - (beta * 365.0 * mean(&benchmark_g_returns).expect("benchmark_g_returns to not be empty"));
+    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
 
     (alpha, beta)
 }
 
-pub fn calculate_sharpe_ratio(
-    summary: &TradingSummary,
-    candles: &[Candle],
+// Not Sync!
+pub struct StatisticsContext {
+    candles_filled: Vec<Candle>,
+    start: u64,
     interval: u64,
-) -> Result<f64, Box<dyn Error>> {
-    let performance = get_portfolio_performance(summary, candles, interval);
-    let mut a_returns = Vec::with_capacity(performance.len() - 1);
-    for i in 0..a_returns.capacity() {
-        a_returns.push(performance[i + 1] / performance[i] - 1.0);
-    }
 
-    let g_returns = a_returns
-        .iter()
-        .map(|v| (v + 1.0).ln())
-        .collect::<Vec<f64>>();
-    let annualized_return = 365.0_f64 * mean(&g_returns).ok_or("g_returns empty")?;
-
-    if annualized_return.is_nan() || annualized_return == 0.0 {
-        Ok(0.0)
-    } else {
-        let annualized_volatility = *SQRT_365 * std_deviation(&g_returns).ok_or("g_returns empty")?;
-        // Sharpe ratio.
-        Ok(annualized_return / annualized_volatility)
-    }
+    asset_deltas: Cell<Vec<HashMap<Asset, f64>>>,
+    performance: Cell<Vec<f64>>,
+    a_returns: Cell<Vec<f64>>,
+    g_returns: Cell<Vec<f64>>,
 }
 
-fn get_portfolio_performance(
-    summary: &TradingSummary,
-    candles: &[Candle],
-    interval: u64,
-) -> Vec<f64> {
-    let deltas = get_trades_from_summary(summary, interval);
+impl StatisticsContext {
+    pub fn new(interval: u64, start: u64, end: u64, candles: &[Candle]) -> Self {
+        let start = floor_multiple(start, interval);
+        let end = floor_multiple(end, interval);
+        let length = ((end - start) / interval) as usize;
 
-    let start_day = floor_multiple(summary.start, interval);
-    let end_day = floor_multiple(summary.end, interval);
-    let length = (end_day - start_day) / interval;
-
-    let mut running = summary.cost;
-    let mut performance = Vec::with_capacity(length as usize);
-    performance.push(running);
-
-    for i in 0..length {
-        let time_day = start_day + i * interval;
-        // Update holdings.
-        let day_deltas = deltas.get(&time_day);
-        if let Some(day_trades) = day_deltas {
-            for (asset, size) in day_trades {
-                if *asset == Asset::Quote {
-                    running += size;
-                } else {
-                    running += size * candles[i as usize].close;
+        let mut candles_filled = Vec::with_capacity(length);
+        let mut current = start;
+        let mut prev_candle: Option<&Candle> = None;
+        for candle in candles {
+            let mut diff = (candle.time - current) / interval;
+            for i in 1..=diff {
+                diff -= 1;
+                match prev_candle {
+                    None => panic!("missing first candle in period; cannot fill"),
+                    Some(ref c) => candles_filled.push(Candle {
+                        time: c.time + i as u64 * interval,
+                        open: c.open,
+                        high: c.high,
+                        low: c.low,
+                        close: c.close,
+                        volume: c.volume,
+                    }),
                 }
             }
+            candles_filled.push(*candle);
+            prev_candle = Some(candle);
+            current += interval;
         }
-        performance.push(running);
+        assert_eq!(candles_filled.len(), length);
+
+        Self {
+            candles_filled,
+            start,
+            interval,
+            asset_deltas: Cell::new(vec![HashMap::new(); 2]),
+            performance: Cell::new(Vec::with_capacity(length)),
+            a_returns: Cell::new(Vec::with_capacity(length - 1)),
+            g_returns: Cell::new(Vec::with_capacity(length - 1)),
+        }
     }
 
-    performance
+    pub fn get_sharpe_ratio(&self, summary: &TradingSummary) -> f64 {
+        self.populate_asset_deltas(summary);
+        self.populate_performance(summary);
+
+        let performance = self.performance.get_mut();
+        let a_returns = self.a_returns.get_mut();
+        let g_returns = self.g_returns.get_mut();
+
+        a_returns.extend(performance.iter().pairwise().map(|(a, b)| b / a - 1.0));
+        g_returns.extend(a_returns.iter().map(|v| (v + 1.0).ln()));
+
+        let annualized_return = 365.0 * mean(g_returns);
+        let sharpe_ratio = if annualized_return.is_nan() || annualized_return == 0.0 {
+            0.0
+        } else {
+            let annualized_volatility = *SQRT_365 * std_deviation(g_returns);
+            annualized_return / annualized_volatility
+        };
+
+        self.clear();
+
+        sharpe_ratio
+    }
+
+    fn len(&self) -> usize {
+        self.candles_filled.len()
+    }
+
+    fn clear(&mut self) {
+        self.asset_deltas.get_mut().iter_mut().for_each(|d| d.clear());
+        self.performance.get_mut().clear();
+        self.a_returns.get_mut().clear();
+        self.g_returns.get_mut().clear();
+    }
+
+    fn populate_asset_deltas(&mut self, summary: &TradingSummary) {
+        let asset_deltas = self.asset_deltas.get_mut();
+
+        for pos in summary.positions.iter() {
+            let (time, cost, base_gain, close_time, base_cost, gain) = match pos {
+                Position::Long(pos) => (
+                    pos.time,
+                    pos.cost,
+                    pos.base_gain,
+                    pos.close_time,
+                    pos.base_cost,
+                    pos.gain,
+                ),
+                Position::Short(pos) => (
+                    pos.time,
+                    pos.cost,
+                    pos.base_gain,
+                    pos.close_time,
+                    pos.base_cost,
+                    pos.gain,
+                ),
+            };
+
+            // Open.
+            let i = (floor_multiple(time, self.interval) - self.start) / self.interval;
+            let period_deltas = &mut asset_deltas[i as usize];
+            *period_deltas.entry(Asset::Quote).or_default() -= cost;
+            *period_deltas.entry(Asset::Base).or_default() += base_gain;
+
+            // Close.
+            let i = (floor_multiple(close_time, self.interval) - self.start) / self.interval;
+            let period_deltas = &mut asset_deltas[i as usize];
+            *period_deltas.entry(Asset::Base).or_default() -= base_cost;
+            *period_deltas.entry(Asset::Quote).or_default() += gain;
+        }
+    }
+
+    fn populate_performance(&mut self, summary: &TradingSummary) {
+        let asset_deltas = self.asset_deltas.get_mut();
+        let performance = self.performance.get_mut();
+
+        let mut running = summary.cost;
+        performance.push(running);
+
+        for i in 0..self.len() {
+            // Update holdings.
+            let period_deltas = &asset_deltas[i];
+            if period_deltas.len() > 0 {
+                for (asset, size) in period_deltas {
+                    match asset {
+                        Asset::Quote => running += size,
+                        Asset::Base => running += size * self.candles_filled[i].close,
+                    }
+                }
+            }
+            performance.push(running);
+        }
+    }
 }

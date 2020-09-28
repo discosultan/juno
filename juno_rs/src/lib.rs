@@ -4,6 +4,7 @@ pub mod common;
 pub mod filters;
 pub mod genetics;
 pub mod indicators;
+pub mod itertools;
 pub mod math;
 pub mod prelude;
 pub mod statistics;
