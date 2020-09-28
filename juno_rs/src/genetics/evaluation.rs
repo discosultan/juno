@@ -1,5 +1,12 @@
 use super::{Chromosome, Individual, TradingChromosome};
-use crate::{common, statistics, storages, strategies::Strategy, traders};
+use crate::{
+    common::{BorrowInfo, Candle, Fees, Filters},
+    math::floor_multiple,
+    statistics,
+    storages,
+    strategies::Strategy,
+    traders,
+};
 use rayon::prelude::*;
 use std::{error::Error, marker::PhantomData};
 
@@ -10,10 +17,11 @@ pub trait Evaluation {
 }
 
 struct SymbolCtx {
-    candles: Vec<common::Candle>,
-    fees: common::Fees,
-    filters: common::Filters,
-    borrow_info: common::BorrowInfo,
+    candles: Vec<Candle>,
+    filled_candles: Vec<Candle>,
+    fees: Fees,
+    filters: Filters,
+    borrow_info: BorrowInfo,
 }
 
 pub struct BasicEvaluation<T: Strategy> {
@@ -38,9 +46,11 @@ impl<T: Strategy> BasicEvaluation<T> {
             .map(|&symbol| {
                 let dash_i = symbol.find('-').unwrap();
                 let base_asset = &symbol[0..dash_i];
+                let candles = storages::list_candles(exchange, symbol, interval, start, end)
+                    .unwrap();
                 SymbolCtx {
-                    candles: storages::list_candles(exchange, symbol, interval, start, end)
-                        .unwrap(),
+                    filled_candles: fill_missing_candles(interval, start, end, &candles),
+                    candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
                     borrow_info: exchange_info.borrow_info[symbol][base_asset],
@@ -77,7 +87,9 @@ impl<T: Strategy> BasicEvaluation<T> {
                     true,
                     true,
                 );
-                statistics::calculate_sharpe_ratio(&summary, &ctx.candles, self.interval).unwrap()
+                statistics::calculate_sharpe_ratio(
+                    &summary, &ctx.filled_candles, self.interval
+                ).unwrap()
             })
             .fold(0.0, linear);
         // TODO: get rid of this as well
@@ -104,4 +116,41 @@ fn linear(acc: f64, val: f64) -> f64 {
 }
 fn ln(acc: f64, val: f64) -> f64 {
     acc + val.ln()
+}
+
+fn fill_missing_candles(interval: u64, start: u64, end: u64, candles: &[Candle]) -> Vec<Candle> {
+    let start = floor_multiple(start, interval);
+    let end = floor_multiple(end, interval);
+    let length = ((end - start) / interval) as usize;
+
+    let mut candles_filled = Vec::with_capacity(length);
+    let mut current = start;
+    let mut prev_candle: Option<&Candle> = None;
+
+    for candle in candles {
+        let mut diff = (candle.time - current) / interval;
+        for i in 1..=diff {
+            diff -= 1;
+            match prev_candle {
+                None => panic!("missing first candle in period; cannot fill"),
+                Some(ref c) => candles_filled.push(Candle {
+                    time: c.time + i as u64 * interval,
+                    open: c.open,
+                    high: c.high,
+                    low: c.low,
+                    close: c.close,
+                    volume: c.volume,
+                }),
+            }
+            current += interval;
+        }
+
+        candles_filled.push(*candle);
+        current += interval;
+
+        prev_candle = Some(candle);
+    }
+
+    assert_eq!(candles_filled.len(), length);
+    candles_filled
 }
