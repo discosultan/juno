@@ -38,8 +38,8 @@ pub struct Statistics {
 }
 
 pub fn analyse(
-    quote_fiat_prices: &[f64],
-    base_fiat_prices: &[f64],
+    quote_prices: &[f64],
+    base_prices: &[f64],
     _benchmark_g_returns: &[f64],
     summary: &TradingContext,
     interval: u64,
@@ -47,8 +47,8 @@ pub fn analyse(
     let trades = get_trades_from_summary(summary, interval);
     let asset_performance = get_asset_performance(
         summary,
-        quote_fiat_prices,
-        base_fiat_prices,
+        quote_prices,
+        base_prices,
         &trades,
         interval,
     );
@@ -203,7 +203,7 @@ pub fn get_sharpe_ratio(
     summary: &TradingContext,
     candles: &[Candle],
     interval: u64,
-) -> Result<f64, Box<dyn Error>> {
+) -> f64 {
     let deltas = get_trades_from_summary(summary, interval);
 
     let start = floor_multiple(summary.start, interval);
@@ -237,10 +237,10 @@ pub fn get_sharpe_ratio(
     }
 
     let mean_g_returns = sum_g_returns / length as f64;
-
     let annualized_return = 365.0 * mean_g_returns;
-    if annualized_return.is_nan() || annualized_return == 0.0 {
-        Ok(0.0)
+
+    let sharpe_ratio = if annualized_return.is_nan() || annualized_return == 0.0 {
+        0.0
     } else {
         let variance =  g_returns
             .iter()
@@ -251,8 +251,10 @@ pub fn get_sharpe_ratio(
             .sum::<f64>() / length as f64;
         let annualized_volatility = *SQRT_365 * variance.sqrt();
         // Sharpe ratio.
-        Ok(annualized_return / annualized_volatility)
-    }
+        annualized_return / annualized_volatility
+    };
+
+    sharpe_ratio
 
     // let performance = get_portfolio_performance(summary, candles, interval);
     // let mut a_returns = Vec::with_capacity(performance.len() - 1);

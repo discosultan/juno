@@ -41,7 +41,7 @@ class Python(Solver, SimulatedPositionMixin):
         summary = self._trade(config)
         portfolio = analyse_portfolio(
             benchmark_g_returns=config.benchmark_g_returns,
-            fiat_prices=config.fiat_prices,
+            asset_prices=config.fiat_prices,
             trading_summary=summary,
         )
         return FitnessValues.from_trading_summary(summary, portfolio.stats)

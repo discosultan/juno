@@ -112,7 +112,7 @@ class Backtest(Agent):
         benchmark = analyse_benchmark(fiat_prices['btc'])
         portfolio = analyse_portfolio(
             benchmark_g_returns=benchmark.g_returns,
-            fiat_prices=fiat_prices,
+            asset_prices=fiat_prices,
             trading_summary=summary,
         )
 

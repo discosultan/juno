@@ -5,6 +5,7 @@ use crate::{
     statistics,
     storages,
     strategies::Strategy,
+    time,
     traders,
 };
 use rayon::prelude::*;
@@ -87,9 +88,7 @@ impl<T: Strategy> BasicEvaluation<T> {
                     true,
                     true,
                 );
-                statistics::get_sharpe_ratio(
-                    &summary, &ctx.filled_candles, self.interval
-                ).unwrap()
+                statistics::get_sharpe_ratio(&summary, &ctx.filled_candles, time::DAY_MS)
             })
             .fold(0.0, linear);
         // TODO: get rid of this as well
