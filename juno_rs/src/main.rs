@@ -1,15 +1,25 @@
 #![allow(dead_code)]
 
-use juno_rs::{genetics, indicators, prelude::*, statistics, storages, strategies, traders};
+use juno_rs::{
+    fill_missing_candles,
+    genetics,
+    indicators,
+    prelude::*,
+    statistics,
+    storages,
+    strategies,
+    traders,
+};
 
+// TODO: Move to lib. Cleanup duplicate.
 pub fn unpack(value: &str) -> (&str, &str) {
     let dash_i = value.find('-').unwrap();
     (&value[dash_i..], &value[0..dash_i])
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // backtest()
-    optimize()
+    // optimize()
+    backtest()
 }
 
 fn optimize() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,8 +45,10 @@ fn optimize() -> Result<(), Box<dyn std::error::Error>> {
 
 fn backtest() -> Result<(), Box<dyn std::error::Error>> {
     let exchange = "binance";
-    let symbol = "eth-btc";
+    let symbol = "xrp-btc";
     let interval = DAY_MS;
+    let start = "2018-01-01".to_timestamp();
+    let end = "2020-01-01".to_timestamp();
     let quote = 1.0;
 
     let (_, base_asset) = unpack(symbol);
@@ -44,8 +56,8 @@ fn backtest() -> Result<(), Box<dyn std::error::Error>> {
         exchange,
         symbol,
         DAY_MS,
-        "2018-01-01".to_timestamp(),
-        "2020-01-01".to_timestamp(),
+        start,
+        end,
     )?;
     let exchange_info = storages::get_exchange_info(exchange)?;
 
@@ -72,8 +84,8 @@ fn backtest() -> Result<(), Box<dyn std::error::Error>> {
     );
     // println!("summary {:?}", summary);
 
-    // TODO: Can be wrong if missing candles.
-    let base_prices: Vec<f64> = candles.iter().map(|candle| candle.close).collect();
+    let candles_missing_filled = fill_missing_candles(interval, start, end, &candles);
+    let base_prices: Vec<f64> = candles_missing_filled.iter().map(|candle| candle.close).collect();
     println!(
         "sharpe ratio {}",
         statistics::get_sharpe_ratio(&summary, &base_prices, None, interval)
