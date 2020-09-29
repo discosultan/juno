@@ -3,7 +3,7 @@ pub struct Pairwise<I: Iterator> {
     underlying: I,
 }
 
-impl<I: Iterator> Iterator for Pairwise<I>
+impl<I> Iterator for Pairwise<I>
 where
     I: Iterator,
     I::Item: Copy,
