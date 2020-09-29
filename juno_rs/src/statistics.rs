@@ -1,12 +1,11 @@
 use crate::{
-    common::Candle,
     math::{floor_multiple, mean, std_deviation},
     trading::{Position, TradingContext},
 };
 use lazy_static::lazy_static;
 use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
-use std::{collections::HashMap, error::Error};
+use std::collections::HashMap;
 
 pub type AnalysisResult = (f64,);
 
@@ -38,18 +37,16 @@ pub struct Statistics {
 }
 
 pub fn analyse(
-    quote_prices: &[f64],
     base_prices: &[f64],
+    quote_prices: Option<&[f64]>,
     _benchmark_g_returns: &[f64],
     summary: &TradingContext,
     interval: u64,
 ) -> Statistics {
-    let trades = get_trades_from_summary(summary, interval);
     let asset_performance = get_asset_performance(
         summary,
-        quote_prices,
         base_prices,
-        &trades,
+        quote_prices,
         interval,
     );
     let portfolio_performance = asset_performance
@@ -63,11 +60,11 @@ pub fn analyse(
     // portfolio_stats
 }
 
-fn get_trades_from_summary(
+fn map_period_deltas_from_summary(
     summary: &TradingContext,
     interval: u64,
 ) -> HashMap<u64, Vec<(Asset, f64)>> {
-    let mut trades = HashMap::new();
+    let mut period_deltas = HashMap::new();
     for pos in summary.positions.iter() {
         let (time, cost, base_gain, close_time, base_cost, gain) = match pos {
             Position::Long(pos) => (
@@ -89,60 +86,62 @@ fn get_trades_from_summary(
         };
         // Open.
         let time = floor_multiple(time, interval);
-        let deltas = trades.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
+        let deltas = period_deltas.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
         deltas.push((Asset::Quote, -cost));
         deltas.push((Asset::Base, base_gain));
         // Close.
         let time = floor_multiple(close_time, interval);
-        let deltas = trades.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
+        let deltas = period_deltas.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
         deltas.push((Asset::Base, -base_cost));
         deltas.push((Asset::Quote, gain));
     }
-    trades
+    period_deltas
 }
 
 fn get_asset_performance(
     summary: &TradingContext,
-    quote_fiat_daily: &[f64],
-    base_fiat_daily: &[f64],
-    trades: &HashMap<u64, Vec<(Asset, f64)>>,
+    base_prices: &[f64],
+    quote_prices: Option<&[f64]>,
     interval: u64,
 ) -> Vec<HashMap<Asset, f64>> {
-    let start_day = floor_multiple(summary.start, interval);
-    let length = quote_fiat_daily.len() as u64;
+    let period_deltas = map_period_deltas_from_summary(summary, interval);
+
+    let start = floor_multiple(summary.start, interval);
+    let end = floor_multiple(summary.end, interval);
+    let length = ((end - start) / interval) as usize;
 
     let mut asset_holdings = HashMap::new();
     asset_holdings.insert(Asset::Base, 0.0);
     asset_holdings.insert(Asset::Quote, summary.quote);
 
-    let mut asset_performance = Vec::with_capacity(length as usize);
+    let mut period_asset_performances = Vec::with_capacity(length);
 
     for i in 0..length {
-        let time_day = start_day + i * interval;
+        let time = start + i as u64 * interval;
         // Update holdings.
-        let day_trades = trades.get(&time_day);
-        if let Some(day_trades) = day_trades {
-            for (asset, size) in day_trades {
+        let deltas = period_deltas.get(&time);
+        if let Some(deltas) = deltas {
+            for (asset, size) in deltas {
                 *asset_holdings.entry(*asset).or_insert(0.0) += size;
             }
         }
 
         // Update asset performance (mark-to-market portfolio).
-        let mut asset_performance_day = HashMap::new();
+        let mut asset_performances = HashMap::new();
         for asset in [Asset::Base, Asset::Quote].iter() {
-            // TODO: improve this shit.
-            let asset_fiat_value = if *asset == Asset::Base {
-                base_fiat_daily[i as usize]
-            } else {
-                quote_fiat_daily[i as usize]
-            };
-            *asset_performance_day.entry(*asset).or_insert(0.0) =
-                asset_holdings[asset] * asset_fiat_value;
+            let entry = asset_performances.entry(*asset).or_insert(0.0);
+            *entry = match asset {
+                Asset::Base => asset_holdings[asset] * base_prices[i],
+                Asset::Quote => match quote_prices {
+                    Some(prices) => asset_holdings[asset] * prices[i],
+                    None => asset_holdings[asset],
+                },
+            }
         }
-        asset_performance.push(asset_performance_day);
+        period_asset_performances.push(asset_performances);
     }
 
-    asset_performance
+    period_asset_performances
 }
 
 fn calculate_statistics(performance: &[f64]) -> Statistics {
@@ -201,31 +200,43 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
 
 pub fn get_sharpe_ratio(
     summary: &TradingContext,
-    candles: &[Candle],
+    base_prices: &[f64],
+    quote_prices: Option<&[f64]>,
     interval: u64,
 ) -> f64 {
-    let deltas = get_trades_from_summary(summary, interval);
+    let period_deltas = map_period_deltas_from_summary(summary, interval);
 
     let start = floor_multiple(summary.start, interval);
     let end = floor_multiple(summary.end, interval);
     let length = ((end - start) / interval) as usize;
 
-    let mut prev_performance = summary.quote;
-    let mut performance = summary.quote;
+    let mut base_holding = 0.0;
+    let mut quote_holding = summary.quote;
+
+    let mut prev_performance = match quote_prices {
+        Some(quote_prices) => quote_holding * quote_prices[0],  // TODO: Use candle open price here?
+        None => quote_holding,
+    };
 
     let mut g_returns = Vec::with_capacity(length);
     let mut sum_g_returns = 0.0;
 
-    for (time, candle) in (start..end).step_by(interval as usize).zip(candles) {
-        let deltas = deltas.get(&time);
+    for (i, time) in (start..end).step_by(interval as usize).enumerate() {
+        let deltas = period_deltas.get(&time);
         if let Some(deltas) = deltas {
             for (asset, size) in deltas {
                 match asset {
-                    Asset::Quote => performance += size,
-                    Asset::Base => performance += size * candle.close,
+                    Asset::Base => base_holding += size,
+                    Asset::Quote => quote_holding += size,
                 }
             }
         }
+        let performance =
+            base_holding * base_prices[i]
+            + match quote_prices {
+                Some(quote_prices) => quote_holding * quote_prices[i],
+                None => quote_holding,
+            };
 
         let a_return = performance / prev_performance - 1.0;
 
@@ -242,69 +253,17 @@ pub fn get_sharpe_ratio(
     let sharpe_ratio = if annualized_return.is_nan() || annualized_return == 0.0 {
         0.0
     } else {
-        let variance =  g_returns
+        let variance = g_returns
             .iter()
             .map(|value| {
                 let diff = mean_g_returns - value;
                 diff * diff
             })
             .sum::<f64>() / length as f64;
-        let annualized_volatility = *SQRT_365 * variance.sqrt();
-        // Sharpe ratio.
+        let std_dev = variance.sqrt();
+        let annualized_volatility = *SQRT_365 * std_dev;
         annualized_return / annualized_volatility
     };
 
     sharpe_ratio
-
-    // let performance = get_portfolio_performance(summary, candles, interval);
-    // let mut a_returns = Vec::with_capacity(performance.len() - 1);
-    // for i in 0..a_returns.capacity() {
-    //     a_returns.push(performance[i + 1] / performance[i] - 1.0);
-    // }
-
-    // let g_returns = a_returns
-    //     .iter()
-    //     .map(|v| (v + 1.0).ln())
-    //     .collect::<Vec<f64>>();
-    // let annualized_return = 365.0 * mean(&g_returns);
-
-    // if annualized_return.is_nan() || annualized_return == 0.0 {
-    //     Ok(0.0)
-    // } else {
-    //     let annualized_volatility = *SQRT_365 * std_deviation(&g_returns);
-    //     // Sharpe ratio.
-    //     Ok(annualized_return / annualized_volatility)
-    // }
 }
-
-// fn get_portfolio_performance(
-//     summary: &TradingSummary,
-//     candles: &[Candle],
-//     interval: u64,
-// ) -> Vec<f64> {
-//     let deltas = get_trades_from_summary(summary, interval);
-
-//     let start = floor_multiple(summary.start, interval);
-//     let end = floor_multiple(summary.end, interval);
-//     let length = ((end - start) / interval) as usize;
-
-//     let mut running = summary.cost;
-//     let mut performance = Vec::with_capacity(length + 1);
-//     performance.push(running);
-
-//     for (time, candle) in (start..end).step_by(interval as usize).zip(candles) {
-//         // Update holdings.
-//         let deltas = deltas.get(&time);
-//         if let Some(deltas) = deltas {
-//             for (asset, size) in deltas {
-//                 match asset {
-//                     Asset::Quote => running += size,
-//                     Asset::Base => running += size * candle.close,
-//                 }
-//             }
-//         }
-//         performance.push(running);
-//     }
-
-//     performance
-// }

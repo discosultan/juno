@@ -131,8 +131,8 @@ unsafe fn run_test<TS: Strategy>(
     );
 
     let stats = statistics::analyse(
-        quote_fiat_prices,
-        base_fiat_prices,
+        &base_fiat_prices,
+        Some(&quote_fiat_prices),
         benchmark_g_returns,
         &trading_result,
         DAY_MS,

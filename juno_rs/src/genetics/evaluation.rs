@@ -19,16 +19,17 @@ pub trait Evaluation {
 
 struct SymbolCtx {
     candles: Vec<Candle>,
-    filled_candles: Vec<Candle>,
     fees: Fees,
     filters: Filters,
     borrow_info: BorrowInfo,
+    stats_base_prices: Vec<f64>,
 }
 
 pub struct BasicEvaluation<T: Strategy> {
     symbol_ctxs: Vec<SymbolCtx>,
     interval: u64,
     quote: f64,
+    stats_interval: u64,
     phantom: PhantomData<T>,
 }
 
@@ -42,6 +43,7 @@ impl<T: Strategy> BasicEvaluation<T> {
         quote: f64,
     ) -> Result<Self, Box<dyn Error>> {
         let exchange_info = storages::get_exchange_info(exchange)?;
+        let stats_interval = time::DAY_MS;
         let symbol_ctxs = symbols
             .iter()
             .map(|&symbol| {
@@ -49,12 +51,21 @@ impl<T: Strategy> BasicEvaluation<T> {
                 let base_asset = &symbol[0..dash_i];
                 let candles = storages::list_candles(exchange, symbol, interval, start, end)
                     .unwrap();
+                // TODO: Do listing and filling of missing candles in one go.
+                let stats_candles = storages::list_candles(
+                    exchange, symbol, stats_interval, start, end
+                ).unwrap();
+                let stats_candles = fill_missing_candles(stats_interval, start, end, &stats_candles);
+                let stats_prices: Vec<f64> = stats_candles
+                    .iter()
+                    .map(|candle| candle.close)
+                    .collect();
                 SymbolCtx {
-                    filled_candles: fill_missing_candles(interval, start, end, &candles),
                     candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
                     borrow_info: exchange_info.borrow_info[symbol][base_asset],
+                    stats_base_prices: stats_prices,
                 }
             })
             .collect();
@@ -62,6 +73,7 @@ impl<T: Strategy> BasicEvaluation<T> {
         Ok(Self {
             symbol_ctxs,
             interval,
+            stats_interval,
             quote,
             phantom: PhantomData,
         })
@@ -88,7 +100,9 @@ impl<T: Strategy> BasicEvaluation<T> {
                     true,
                     true,
                 );
-                statistics::get_sharpe_ratio(&summary, &ctx.filled_candles, time::DAY_MS)
+                statistics::get_sharpe_ratio(
+                    &summary, &ctx.stats_base_prices, None, self.stats_interval
+                )
             })
             .fold(0.0, linear);
         // TODO: get rid of this as well
