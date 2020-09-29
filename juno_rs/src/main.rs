@@ -8,13 +8,14 @@ pub fn unpack(value: &str) -> (&str, &str) {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    backtest()
+    // backtest()
+    optimize()
 }
 
 fn optimize() -> Result<(), Box<dyn std::error::Error>> {
     let exchange = "binance";
-    // let symbols = ["eth-btc", "ltc-btc", "xrp-btc"];
-    let symbols = ["eth-btc"];
+    let symbols = ["eth-btc", "ltc-btc", "xrp-btc"];
+    // let symbols = ["eth-btc"];
     let interval = HOUR_MS;
     let start = "2017-11-10".to_timestamp();
     let end = "2020-09-25".to_timestamp();
