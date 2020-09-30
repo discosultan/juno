@@ -22,12 +22,18 @@ impl Dema {
             t2: t1 * 2,
         }
     }
+}
 
-    pub fn maturity(&self) -> u32 {
+impl MA for Dema {
+    fn maturity(&self) -> u32 {
         self.t2
     }
 
-    pub fn update(&mut self, price: f64) {
+    fn mature(&self) -> bool {
+        self.t >= self.t2
+    }
+
+    fn update(&mut self, price: f64) {
         self.ema1.update(price);
 
         if self.t <= self.t1 {
@@ -43,18 +49,8 @@ impl Dema {
 
         self.t = min(self.t + 1, self.t2);
     }
-}
-
-impl MA for Dema {
-    fn update(&mut self, price: f64) {
-        self.update(price)
-    }
 
     fn value(&self) -> f64 {
         self.value
-    }
-
-    fn maturity(&self) -> u32 {
-        self.t2
     }
 }

@@ -1,5 +1,5 @@
-use super::dx::DX;
-use super::smma::Smma;
+use super::{dx::DX, smma::Smma, MA};
+use std::cmp::max;
 
 pub struct Adx {
     pub value: f64,
@@ -14,6 +14,14 @@ impl Adx {
             dx: DX::new(period),
             smma: Smma::new(period),
         }
+    }
+
+    pub fn maturity(&self) -> u32 {
+        max(self.dx.maturity(), self.smma.maturity())
+    }
+
+    pub fn mature(&self) -> bool {
+        self.dx.mature() && self.smma.mature()
     }
 
     pub fn update(&mut self, high: f64, low: f64, close: f64) {

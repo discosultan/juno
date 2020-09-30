@@ -30,6 +30,14 @@ impl DI {
         }
     }
 
+    pub fn maturity(&self) -> u32 {
+        self.t2
+    }
+
+    pub fn mature(&self) -> bool {
+        self.t >= self.t2
+    }
+
     pub fn update(&mut self, high: f64, low: f64, close: f64) {
         self.dm.update(high, low);
 

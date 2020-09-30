@@ -27,9 +27,10 @@ pub use smma::Smma;
 pub use stoch::Stoch;
 
 pub trait MA: Send + Sync {
+    fn maturity(&self) -> u32;
+    fn mature(&self) -> bool;
     fn update(&mut self, price: f64);
     fn value(&self) -> f64;
-    fn maturity(&self) -> u32;
 }
 
 pub mod adler32 {

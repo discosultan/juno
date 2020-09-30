@@ -1,4 +1,4 @@
-use super::smma::Smma;
+use super::{smma::Smma, MA};
 use std::cmp::min;
 
 pub struct Rsi {
@@ -27,6 +27,10 @@ impl Rsi {
 
     pub fn maturity(&self) -> u32 {
         self.t1
+    }
+
+    pub fn mature(&self) -> bool {
+        self.t >= self.t1
     }
 
     pub fn update(&mut self, price: f64) {

@@ -18,18 +18,6 @@ impl Ema {
         }
     }
 
-    pub fn maturity(&self) -> u32 {
-        self.t1
-    }
-
-    pub fn update(&mut self, price: f64) {
-        self.value = match self.t {
-            0 => price,
-            _ => (price - self.value) * self.a + self.value,
-        };
-        self.t = min(self.t + 1, self.t1);
-    }
-
     pub fn with_smoothing(period: u32, a: f64) -> Self {
         let mut indicator = Self::new(period);
         indicator.a = a;
@@ -38,16 +26,24 @@ impl Ema {
 }
 
 impl MA for Ema {
+    fn maturity(&self) -> u32 {
+        self.t1
+    }
+
+    fn mature(&self) -> bool {
+        self.t >= self.t1
+    }
+
     fn update(&mut self, price: f64) {
-        self.update(price)
+        self.value = match self.t {
+            0 => price,
+            _ => (price - self.value) * self.a + self.value,
+        };
+        self.t = min(self.t + 1, self.t1);
     }
 
     fn value(&self) -> f64 {
         self.value
-    }
-
-    fn maturity(&self) -> u32 {
-        self.maturity()
     }
 }
 
@@ -73,12 +69,18 @@ impl Ema2 {
             t: 0,
         }
     }
+}
 
-    pub fn maturity(&self) -> u32 {
+impl MA for Ema2 {
+    fn maturity(&self) -> u32 {
         self.t1
     }
 
-    pub fn update(&mut self, price: f64) {
+    fn mature(&self) -> bool {
+        self.t > self.t1
+    }
+
+    fn update(&mut self, price: f64) {
         if self.t <= self.t1 {
             self.sma.update(price);
         }
@@ -91,18 +93,8 @@ impl Ema2 {
 
         self.t = min(self.t + 1, self.t2)
     }
-}
-
-impl MA for Ema2 {
-    fn update(&mut self, price: f64) {
-        self.update(price)
-    }
 
     fn value(&self) -> f64 {
         self.value
-    }
-
-    fn maturity(&self) -> u32 {
-        self.maturity()
     }
 }

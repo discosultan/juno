@@ -31,7 +31,7 @@ pub trait SymbolExt {
 impl SymbolExt for str {
     fn assets(&self) -> (&str, &str) {
         let dash_i = dash_index(self);
-        ( &self[..dash_i], &self[dash_i..])
+        (&self[..dash_i], &self[dash_i..])
     }
     fn base_asset(&self) -> &str {
         &self[..dash_index(self)]

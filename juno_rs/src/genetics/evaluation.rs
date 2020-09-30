@@ -1,10 +1,9 @@
 use super::{Chromosome, Individual, TradingChromosome};
 use crate::{
-    SymbolExt,
     common::{BorrowInfo, Candle, Fees, Filters},
     fill_missing_candles, statistics, storages,
     strategies::Strategy,
-    time, traders,
+    time, traders, SymbolExt,
 };
 use rayon::prelude::*;
 use std::{error::Error, marker::PhantomData};
@@ -80,9 +79,7 @@ impl<T: Strategy> BasicEvaluation<T> {
             .collect()
     }
 
-    fn evaluate_symbol(
-        &self, ctx: &SymbolCtx, chromosome: &TradingChromosome<T::Params>
-    ) -> f64 {
+    fn evaluate_symbol(&self, ctx: &SymbolCtx, chromosome: &TradingChromosome<T::Params>) -> f64 {
         let summary = traders::trade::<T>(
             &chromosome.strategy,
             &ctx.candles,
@@ -121,12 +118,13 @@ impl<T: Strategy> Evaluation for BasicEvaluation<T> {
         population
             // .iter_mut()
             .par_iter_mut()
-            .for_each(|ind| ind.fitness = self
-                .symbol_ctxs
-                .iter()
-                .map(|ctx| self.evaluate_symbol(ctx, &ind.chromosome))
-                .fold(0.0, sum_log)
-            );
+            .for_each(|ind| {
+                ind.fitness = self
+                    .symbol_ctxs
+                    .iter()
+                    .map(|ctx| self.evaluate_symbol(ctx, &ind.chromosome))
+                    .fold(0.0, sum_log)
+            });
     }
 }
 

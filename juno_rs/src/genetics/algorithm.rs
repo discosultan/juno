@@ -29,7 +29,11 @@ where
     TR: Reinsertion,
 {
     pub fn new(
-        evaluation: TE, selection: TS, crossover: TC, mutation: TM, reinsertion: TR
+        evaluation: TE,
+        selection: TS,
+        crossover: TC,
+        mutation: TM,
+        reinsertion: TR,
     ) -> Self {
         Self {
             evaluation,
@@ -81,7 +85,8 @@ where
     ) {
         // select
         let start = time::Instant::now();
-        self.selection.select(rng, parents, offsprings, self.reinsertion.selection_rate());
+        self.selection
+            .select(rng, parents, offsprings, self.reinsertion.selection_rate());
         println!("select {:?}", start.elapsed());
 
         // crossover & mutation
@@ -110,7 +115,8 @@ where
         // evaluate
         self.evaluate_and_sort_by_fitness_desc(offsprings);
         // reinsert
-        self.reinsertion.reinsert(parents, offsprings, population_size)
+        self.reinsertion
+            .reinsert(parents, offsprings, population_size)
     }
 
     fn evaluate_and_sort_by_fitness_desc(&self, population: &mut Vec<Individual<TE::Chromosome>>) {

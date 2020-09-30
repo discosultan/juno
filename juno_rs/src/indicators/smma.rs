@@ -23,12 +23,18 @@ impl Smma {
             t2: period,
         }
     }
+}
 
-    pub fn maturity(&self) -> u32 {
+impl MA for Smma {
+    fn maturity(&self) -> u32 {
         self.t1
     }
 
-    pub fn update(&mut self, price: f64) {
+    fn mature(&self) -> bool {
+        self.t >= self.t1
+    }
+
+    fn update(&mut self, price: f64) {
         if self.t <= self.t1 {
             self.sma.update(price);
         }
@@ -41,18 +47,8 @@ impl Smma {
 
         self.t = min(self.t + 1, self.t2);
     }
-}
-
-impl MA for Smma {
-    fn update(&mut self, price: f64) {
-        self.update(price)
-    }
 
     fn value(&self) -> f64 {
         self.value
-    }
-
-    fn maturity(&self) -> u32 {
-        self.maturity()
     }
 }

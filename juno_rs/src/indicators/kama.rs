@@ -31,12 +31,18 @@ impl Kama {
             t2: period,
         }
     }
+}
 
-    pub fn maturity(&self) -> u32 {
+impl MA for Kama {
+    fn maturity(&self) -> u32 {
         self.t1
     }
 
-    pub fn update(&mut self, price: f64) {
+    fn mature(&self) -> bool {
+        self.t >= self.t1
+    }
+
+    fn update(&mut self, price: f64) {
         if self.t > 0 {
             if self.diffs.len() == self.t2 as usize {
                 self.diffs.pop_front();
@@ -68,19 +74,9 @@ impl Kama {
         self.prices.push_back(price);
         self.t = min(self.t + 1, self.t2)
     }
-}
-
-impl MA for Kama {
-    fn update(&mut self, price: f64) {
-        self.update(price)
-    }
 
     fn value(&self) -> f64 {
         self.value
-    }
-
-    fn maturity(&self) -> u32 {
-        self.maturity()
     }
 }
 

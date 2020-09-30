@@ -37,7 +37,7 @@ class Ema:
 
     @property
     def mature(self) -> bool:
-        return self._t >= self.maturity
+        return self._t >= self._t1
 
     def set_smoothing_factor(self, a: Decimal) -> None:
         self._a = a
@@ -109,7 +109,7 @@ class Ema2:
 
     @property
     def mature(self) -> bool:
-        return self._t >= self.maturity
+        return self._t >= self._t1
 
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t2)

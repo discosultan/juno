@@ -47,7 +47,9 @@ fn optimize() -> Result<(), Box<dyn std::error::Error>> {
     let best_individual = algo.evolve(population_size, generations, Some(1));
     println!("{:?}", best_individual);
 
-    let symbol_fitnesses = algo.evaluation.evaluate_symbols(&best_individual.chromosome);
+    let symbol_fitnesses = algo
+        .evaluation
+        .evaluate_symbols(&best_individual.chromosome);
     for (symbol, fitness) in symbols.iter().zip(symbol_fitnesses) {
         println!("{} sharpe ratio - {}", symbol, fitness);
     }

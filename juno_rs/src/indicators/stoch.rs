@@ -1,4 +1,4 @@
-use super::sma::Sma;
+use super::{sma::Sma, MA};
 use std::cmp::min;
 
 pub struct Stoch {
@@ -37,6 +37,10 @@ impl Stoch {
 
     pub fn maturity(&self) -> u32 {
         self.t3
+    }
+
+    pub fn mature(&self) -> bool {
+        self.t >= self.t3
     }
 
     pub fn update(&mut self, high: f64, low: f64, close: f64) {

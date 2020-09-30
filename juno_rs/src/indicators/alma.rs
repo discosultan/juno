@@ -31,12 +31,18 @@ impl Alma {
             t1: period - 1,
         }
     }
+}
 
-    pub fn maturity(&self) -> u32 {
+impl MA for Alma {
+    fn maturity(&self) -> u32 {
         self.t1
     }
 
-    pub fn update(&mut self, price: f64) {
+    fn mature(&self) -> bool {
+        self.t >= self.t1
+    }
+
+    fn update(&mut self, price: f64) {
         if self.prices.len() == (self.t1 + 1) as usize {
             self.prices.pop_front();
         }
@@ -53,18 +59,8 @@ impl Alma {
 
         self.t = min(self.t + 1, self.t1)
     }
-}
-
-impl MA for Alma {
-    fn update(&mut self, price: f64) {
-        self.update(price)
-    }
 
     fn value(&self) -> f64 {
         self.value
-    }
-
-    fn maturity(&self) -> u32 {
-        self.maturity()
     }
 }
