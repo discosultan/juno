@@ -6,6 +6,17 @@ use crate::{
     Advice, Candle,
 };
 
+#[repr(C)]
+pub struct MAMACXParams {
+    pub short_period: u32,
+    pub long_period: u32,
+    pub neg_threshold: f64,
+    pub pos_threshold: f64,
+    pub persistence: u32,
+    pub short_ma: u32,
+    pub long_ma: u32,
+}
+
 pub struct MAMACX {
     short_ma: Box<dyn MA>,
     long_ma: Box<dyn MA>,
@@ -17,33 +28,25 @@ pub struct MAMACX {
     t1: u32,
 }
 
-impl MAMACX {
-    pub fn new(
-        short_period: u32,
-        long_period: u32,
-        neg_threshold: f64,
-        pos_threshold: f64,
-        persistence: u32,
-        short_ma: u32,
-        long_ma: u32,
-    ) -> Self {
-        let short_ma = ma_from_adler32(short_ma, short_period);
-        let long_ma = ma_from_adler32(long_ma, long_period);
+impl Strategy for MAMACX {
+    type Params = MAMACXParams;
+
+    fn new(params: &Self::Params) -> Self {
+        let short_ma = ma_from_adler32(params.short_ma, params.short_period);
+        let long_ma = ma_from_adler32(params.long_ma, params.long_period);
         let t1 = max(long_ma.maturity(), short_ma.maturity());
         Self {
             short_ma,
             long_ma,
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(persistence, false),
-            neg_threshold,
-            pos_threshold,
+            persistence: Persistence::new(params.persistence, false),
+            neg_threshold: params.neg_threshold,
+            pos_threshold: params.pos_threshold,
             t: 0,
             t1,
         }
     }
-}
 
-impl Strategy for MAMACX {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.short_ma.update(candle.close);
         self.long_ma.update(candle.close);

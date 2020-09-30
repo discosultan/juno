@@ -1,33 +1,33 @@
 [
-    [
-        0.0010,
-        0.0010
-    ],
-    [
-        [
-            0.00000100,
-            100000.00000000,
-            0.00000100
-        ],
-        [
-            5,
-            0.2,
-            300000
-        ],
-        [
-            0.00100000,
-            100000.00000000,
-            0.00100000
-        ],
-        [
-            0.00010000,
-            true,
-            300000
-        ],
-        8,
-        8,
-        true,
-        true,
-        true
-    ]
+    {
+        "maker": 0.0010,
+        "taker": 0.0010
+    },
+    {
+        "price": {
+            "min": 0.00000100,
+            "max": 100000.00000000,
+            "step": 0.00000100
+        },
+        "percent_price": {
+            "multiplier_up": 5,
+            "multiplier_down": 0.2,
+            "avg_price_period": 300000
+        },
+        "size": {
+            "min": 0.00100000,
+            "max": 100000.00000000,
+            "step": 0.00100000
+        },
+        "min_notional": {
+            "min_notional": 0.00010000,
+            "apply_to_market": true,
+            "avg_price_period": 300000
+        },
+        "base_precision": 8,
+        "quote_precision": 8,
+        "spot": true,
+        "cross_margin": true,
+        "isolated_margin": true
+    }
 ]

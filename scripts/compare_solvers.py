@@ -107,7 +107,7 @@ async def main() -> None:
         ))
         portfolio = analyse_portfolio(
             benchmark_g_returns=benchmark.g_returns,
-            fiat_prices=fiat_prices,
+            asset_prices=fiat_prices,
             trading_summary=trading_summary,
         )
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
@@ -48,7 +49,8 @@ class Balance(NamedTuple):
         )
 
 
-class BorrowInfo(NamedTuple):
+@dataclass
+class BorrowInfo:
     daily_interest_rate: Decimal = Decimal('0.0')
     limit: Decimal = Decimal('0.0')
 
@@ -107,7 +109,8 @@ class Depth(ModuleType):
     Any = Union[Snapshot, Update]
 
 
-class Fees(NamedTuple):
+@dataclass
+class Fees:
     maker: Decimal = Decimal('0.0')
     taker: Decimal = Decimal('0.0')
 
@@ -274,8 +277,11 @@ class Trade(NamedTuple):
         }
 
 
-class ExchangeInfo(NamedTuple):
-    fees: Dict[str, Fees] = {'__all__': Fees()}
-    filters: Dict[str, Filters] = {'__all__': Filters()}
+@dataclass
+class ExchangeInfo:
+    fees: Dict[str, Fees] = field(default_factory=lambda: {'__all__': Fees()})
+    filters: Dict[str, Filters] = field(default_factory=lambda: {'__all__': Filters()})
     # Keys: account, asset
-    borrow_info: Dict[str, Dict[str, BorrowInfo]] = {'__all__': {'__all__': BorrowInfo()}}
+    borrow_info: Dict[str, Dict[str, BorrowInfo]] = field(
+        default_factory=lambda: {'__all__': {'__all__': BorrowInfo()}}
+    )

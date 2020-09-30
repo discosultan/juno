@@ -1,38 +1,41 @@
-mod double_ma;
+// mod double_ma;
 mod four_week_rule;
-mod macd;
-mod macdrsi;
-mod mamacx;
-mod rsi;
-mod single_ma;
+// mod macd;
+// mod macdrsi;
+// mod mamacx;
+// mod rsi;
+// mod single_ma;
 mod triple_ma;
 
-pub use double_ma::DoubleMA;
-pub use four_week_rule::FourWeekRule;
-pub use macd::Macd;
-pub use macdrsi::MacdRsi;
-pub use mamacx::MAMACX;
-pub use rsi::Rsi;
-pub use single_ma::SingleMA;
+// pub use double_ma::{DoubleMA, DoubleMAParams};
+pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
+// pub use macd::{Macd, MacdParams};
+// pub use macdrsi::{MacdRsi, MacdRsiParams};
+// pub use mamacx::{MAMACX, MAMACXParams};
+// pub use rsi::{Rsi, RsiParams};
+// pub use single_ma::{SingleMA, SingleMAParams};
+pub use triple_ma::{TripleMA, TripleMAParams};
+
+use crate::{genetics::Chromosome, Advice, Candle};
 use std::cmp::min;
-pub use triple_ma::TripleMA;
 
-use crate::{Advice, Candle};
+pub trait Strategy: Send + Sync {
+    type Params: Chromosome;
 
-pub trait Strategy {
+    fn new(params: &Self::Params) -> Self;
     fn update(&mut self, candle: &Candle) -> Advice;
 }
 
-struct MidTrend {
+pub struct MidTrend {
     policy: u32,
     previous: Option<Advice>,
     enabled: bool,
 }
 
 impl MidTrend {
-    const POLICY_CURRENT: u32 = 0;
-    const POLICY_PREVIOUS: u32 = 1;
-    const POLICY_IGNORE: u32 = 2;
+    pub const POLICY_CURRENT: u32 = 0;
+    pub const POLICY_PREVIOUS: u32 = 1;
+    pub const POLICY_IGNORE: u32 = 2;
 
     pub fn new(policy: u32) -> Self {
         Self {

@@ -6,9 +6,16 @@ use crate::{
     Advice, Candle,
 };
 
-pub struct DoubleMA {
-    short_ma: Box<dyn MA>,
-    long_ma: Box<dyn MA>,
+#[repr(C)]
+pub struct SingleMAParams {
+    pub ma: u32,
+    pub period: u32,
+    pub persistence: u32,
+}
+
+pub struct SingleMA {
+    ma: Box<dyn MA>,
+    previous_ma_value: f64,
     advice: Advice,
     mid_trend: MidTrend,
     persistence: Persistence,
@@ -16,30 +23,29 @@ pub struct DoubleMA {
     t1: u32,
 }
 
-impl DoubleMA {
-    pub fn new(short_ma: u32, long_ma: u32, short_period: u32, long_period: u32) -> Self {
+impl Strategy for SingleMA {
+    type Params = SingleMAParams;
+
+    fn new(params: &Self::Params) -> Self {
         Self {
-            short_ma: ma_from_adler32(short_ma, short_period),
-            long_ma: ma_from_adler32(long_ma, long_period),
+            ma: ma_from_adler32(params.ma, params.period),
+            previous_ma_value: 0.0,
             advice: Advice::None,
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(0, false),
+            persistence: Persistence::new(params.persistence, false),
             t: 0,
-            t1: long_period - 1,
+            t1: params.period - 1,
         }
     }
-}
 
-impl Strategy for DoubleMA {
     fn update(&mut self, candle: &Candle) -> Advice {
-        self.short_ma.update(candle.close);
-        self.long_ma.update(candle.close);
+        self.ma.update(candle.close);
 
         let mut advice = Advice::None;
         if self.t == self.t1 {
-            if self.short_ma.value() > self.long_ma.value() {
+            if candle.close > self.ma.value() && self.ma.value() > self.previous_ma_value {
                 self.advice = Advice::Long;
-            } else if self.short_ma.value() < self.long_ma.value() {
+            } else if candle.close < self.ma.value() && self.ma.value() < self.previous_ma_value {
                 self.advice = Advice::Short;
             }
 
@@ -49,6 +55,7 @@ impl Strategy for DoubleMA {
             );
         }
 
+        self.previous_ma_value = self.ma.value();
         self.t = min(self.t + 1, self.t1);
         advice
     }

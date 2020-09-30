@@ -6,6 +6,14 @@ use crate::{
     Advice, Candle,
 };
 
+#[repr(C)]
+pub struct RsiParams {
+    pub period: u32,
+    pub up_threshold: f64,
+    pub down_threshold: f64,
+    pub persistence: u32,
+}
+
 pub struct Rsi {
     rsi: indicators::Rsi,
     up_threshold: f64,
@@ -16,21 +24,21 @@ pub struct Rsi {
     t1: u32,
 }
 
-impl Rsi {
-    pub fn new(period: u32, up_threshold: f64, down_threshold: f64, persistence: u32) -> Self {
+impl Strategy for Rsi {
+    type Params = RsiParams;
+
+    fn new(params: &Self::Params) -> Self {
         Self {
-            rsi: indicators::Rsi::new(period),
-            up_threshold,
-            down_threshold,
+            rsi: indicators::Rsi::new(params.period),
+            up_threshold: params.up_threshold,
+            down_threshold: params.down_threshold,
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(persistence, false),
+            persistence: Persistence::new(params.persistence, false),
             t: 0,
-            t1: period - 1,
+            t1: params.period - 1,
         }
     }
-}
 
-impl Strategy for Rsi {
     fn update(&mut self, candle: &Candle) -> Advice {
         self.rsi.update(candle.close);
 

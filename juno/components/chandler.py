@@ -456,6 +456,9 @@ class Chandler:
                     symbol=symbol, interval=interval, start=0, end=MAX_TIME_MS
                 ))
             else:
+                # TODO: It would be faster to try to search the first candle of highest interval
+                # first. Then slowly move to more granular intervals until we find the requested
+                # one. The search space is significantly smaller with such approach.
                 candle = await self._find_first_candle_by_binary_search(exchange, symbol, interval)
             await self._storage.set(
                 shard=shard,
