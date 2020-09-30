@@ -1,5 +1,4 @@
 use super::{ema::Ema, MA};
-use std::cmp::min;
 
 pub struct Macd {
     pub value: f64,
@@ -9,9 +8,6 @@ pub struct Macd {
     short_ema: Ema,
     long_ema: Ema,
     signal_ema: Ema,
-
-    t: u32,
-    t1: u32,
 }
 
 impl Macd {
@@ -34,8 +30,6 @@ impl Macd {
             short_ema,
             long_ema,
             signal_ema,
-            t: 0,
-            t1: long_period - 1,
         }
     }
 
@@ -51,13 +45,11 @@ impl Macd {
         self.short_ema.update(price);
         self.long_ema.update(price);
 
-        if self.t == self.t1 {
+        if self.long_ema.mature() {
             self.value = self.short_ema.value - self.long_ema.value;
             self.signal_ema.update(self.value);
             self.signal = self.signal_ema.value;
             self.histogram = self.value - self.signal;
         }
-
-        self.t = min(self.t + 1, self.t1);
     }
 }
