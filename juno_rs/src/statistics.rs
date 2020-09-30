@@ -43,12 +43,7 @@ pub fn analyse(
     summary: &TradingContext,
     interval: u64,
 ) -> Statistics {
-    let asset_performance = get_asset_performance(
-        summary,
-        base_prices,
-        quote_prices,
-        interval,
-    );
+    let asset_performance = get_asset_performance(summary, base_prices, quote_prices, interval);
     let portfolio_performance = asset_performance
         .iter()
         .map(|d| d.values().sum())
@@ -86,12 +81,16 @@ fn map_period_deltas_from_summary(
         };
         // Open.
         let time = floor_multiple(time, interval);
-        let deltas = period_deltas.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
+        let deltas = period_deltas
+            .entry(time)
+            .or_insert_with(Vec::<(Asset, f64)>::new);
         deltas.push((Asset::Quote, -cost));
         deltas.push((Asset::Base, base_gain));
         // Close.
         let time = floor_multiple(close_time, interval);
-        let deltas = period_deltas.entry(time).or_insert_with(Vec::<(Asset, f64)>::new);
+        let deltas = period_deltas
+            .entry(time)
+            .or_insert_with(Vec::<(Asset, f64)>::new);
         deltas.push((Asset::Base, -base_cost));
         deltas.push((Asset::Quote, gain));
     }
@@ -214,7 +213,7 @@ pub fn get_sharpe_ratio(
     let mut quote_holding = summary.quote;
 
     let mut prev_performance = match quote_prices {
-        Some(quote_prices) => quote_holding * quote_prices[0],  // TODO: Use candle open price here?
+        Some(quote_prices) => quote_holding * quote_prices[0], // TODO: Use candle open price here?
         None => quote_holding,
     };
 
@@ -231,8 +230,7 @@ pub fn get_sharpe_ratio(
                 }
             }
         }
-        let performance =
-            base_holding * base_prices[i]
+        let performance = base_holding * base_prices[i]
             + match quote_prices {
                 Some(quote_prices) => quote_holding * quote_prices[i],
                 None => quote_holding,
@@ -259,7 +257,8 @@ pub fn get_sharpe_ratio(
                 let diff = mean_g_returns - value;
                 diff * diff
             })
-            .sum::<f64>() / length as f64;
+            .sum::<f64>()
+            / length as f64;
         let std_dev = variance.sqrt();
         let annualized_volatility = *SQRT_365 * std_dev;
         annualized_return / annualized_volatility

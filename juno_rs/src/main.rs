@@ -1,13 +1,7 @@
 #![allow(dead_code)]
 
 use juno_rs::{
-    fill_missing_candles,
-    genetics,
-    indicators,
-    prelude::*,
-    statistics,
-    storages,
-    strategies,
+    fill_missing_candles, genetics, indicators, prelude::*, statistics, storages, strategies,
     traders,
 };
 
@@ -52,13 +46,7 @@ fn backtest() -> Result<(), Box<dyn std::error::Error>> {
     let quote = 1.0;
 
     let (_, base_asset) = unpack(symbol);
-    let candles = storages::list_candles(
-        exchange,
-        symbol,
-        DAY_MS,
-        start,
-        end,
-    )?;
+    let candles = storages::list_candles(exchange, symbol, DAY_MS, start, end)?;
     let exchange_info = storages::get_exchange_info(exchange)?;
 
     let summary = traders::trade::<strategies::FourWeekRule>(
@@ -85,18 +73,15 @@ fn backtest() -> Result<(), Box<dyn std::error::Error>> {
     // println!("summary {:?}", summary);
 
     let candles_missing_filled = fill_missing_candles(interval, start, end, &candles);
-    let base_prices: Vec<f64> = candles_missing_filled.iter().map(|candle| candle.close).collect();
+    let base_prices: Vec<f64> = candles_missing_filled
+        .iter()
+        .map(|candle| candle.close)
+        .collect();
     println!(
         "sharpe ratio {}",
         statistics::get_sharpe_ratio(&summary, &base_prices, None, interval)
     );
-    let stats = statistics::analyse(
-        &base_prices,
-        None,
-        &[],
-        &summary,
-        interval,
-    );
+    let stats = statistics::analyse(&base_prices, None, &[], &summary, interval);
     println!("old sharpe ratio {}", stats.sharpe_ratio);
     Ok(())
 }

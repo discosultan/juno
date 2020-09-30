@@ -1,9 +1,9 @@
 use crate::{
-    BorrowInfo, Candle, Fees, Filters,
     statistics,
     strategies::{self, Strategy},
     time::DAY_MS,
     traders::trade,
+    BorrowInfo, Candle, Fees, Filters,
 };
 use std::slice;
 

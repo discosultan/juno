@@ -1,12 +1,9 @@
 use super::{Chromosome, Individual, TradingChromosome};
 use crate::{
     common::{BorrowInfo, Candle, Fees, Filters},
-    fill_missing_candles,
-    statistics,
-    storages,
+    fill_missing_candles, statistics, storages,
     strategies::Strategy,
-    time,
-    traders,
+    time, traders,
 };
 use rayon::prelude::*;
 use std::{error::Error, marker::PhantomData};
@@ -49,17 +46,15 @@ impl<T: Strategy> BasicEvaluation<T> {
             .map(|&symbol| {
                 let dash_i = symbol.find('-').unwrap();
                 let base_asset = &symbol[0..dash_i];
-                let candles = storages::list_candles(exchange, symbol, interval, start, end)
-                    .unwrap();
+                let candles =
+                    storages::list_candles(exchange, symbol, interval, start, end).unwrap();
                 // TODO: Do listing and filling of missing candles in one go.
-                let stats_candles = storages::list_candles(
-                    exchange, symbol, stats_interval, start, end
-                ).unwrap();
-                let stats_candles = fill_missing_candles(stats_interval, start, end, &stats_candles);
-                let stats_prices: Vec<f64> = stats_candles
-                    .iter()
-                    .map(|candle| candle.close)
-                    .collect();
+                let stats_candles =
+                    storages::list_candles(exchange, symbol, stats_interval, start, end).unwrap();
+                let stats_candles =
+                    fill_missing_candles(stats_interval, start, end, &stats_candles);
+                let stats_prices: Vec<f64> =
+                    stats_candles.iter().map(|candle| candle.close).collect();
                 SymbolCtx {
                     candles,
                     fees: exchange_info.fees[symbol],
@@ -101,7 +96,10 @@ impl<T: Strategy> BasicEvaluation<T> {
                     true,
                 );
                 statistics::get_sharpe_ratio(
-                    &summary, &ctx.stats_base_prices, None, self.stats_interval
+                    &summary,
+                    &ctx.stats_base_prices,
+                    None,
+                    self.stats_interval,
                 )
             })
             .fold(0.0, linear);

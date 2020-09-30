@@ -266,15 +266,16 @@ impl TradingContext {
             max_drawdown = f64::max(max_drawdown, drawdown);
         }
 
-        let (mean_position_profit, mean_position_duration, mean_drawdown) = if self.positions.len() > 0 {
-            (
-                profit / self.positions.len() as f64, 
-                total_position_duration / self.positions.len() as u64,
-                total_drawdown / self.positions.len() as f64,
-            )
-        } else {
-            (0.0, 0, 0.0)
-        };
+        let (mean_position_profit, mean_position_duration, mean_drawdown) =
+            if self.positions.len() > 0 {
+                (
+                    profit / self.positions.len() as f64,
+                    total_position_duration / self.positions.len() as u64,
+                    total_drawdown / self.positions.len() as f64,
+                )
+            } else {
+                (0.0, 0, 0.0)
+            };
 
         let duration = self.end - self.start;
         let cost = self.quote;
@@ -344,8 +345,6 @@ pub struct TradingSummary {
 //             num_positions_in_loss: 0,
 //         }
 //     }
-
-
 
 //     pub fn calculate(&mut self) {
 //         let mut quote = self.cost;

@@ -15,14 +15,19 @@ pub mod time;
 pub mod traders;
 pub mod trading;
 
+use crate::math::floor_multiple;
 pub use crate::{
     common::{Advice, BorrowInfo, Candle, Fees},
-    filters::Filters,
     ffi::*,
+    filters::Filters,
 };
-use crate::math::floor_multiple;
 
-pub fn fill_missing_candles(interval: u64, start: u64, end: u64, candles: &[Candle]) -> Vec<Candle> {
+pub fn fill_missing_candles(
+    interval: u64,
+    start: u64,
+    end: u64,
+    candles: &[Candle],
+) -> Vec<Candle> {
     let start = floor_multiple(start, interval);
     let end = floor_multiple(end, interval);
     let length = ((end - start) / interval) as usize;
