@@ -125,7 +125,7 @@ impl<T: Strategy> Evaluation for BasicEvaluation<T> {
                 .symbol_ctxs
                 .iter()
                 .map(|ctx| self.evaluate_symbol(ctx, &ind.chromosome))
-                .fold(0.0, sum_linear)
+                .fold(0.0, sum_log)
             );
     }
 }
@@ -133,6 +133,10 @@ impl<T: Strategy> Evaluation for BasicEvaluation<T> {
 fn sum_linear(acc: f64, val: f64) -> f64 {
     acc + val
 }
-fn sum_ln(acc: f64, val: f64) -> f64 {
-    acc + val.ln()
+fn sum_log(acc: f64, val: f64) -> f64 {
+    acc + if val > 0.0 {
+        (val + 1.0).log10()
+    } else {
+        -(-val + 1.0).log10()
+    }
 }

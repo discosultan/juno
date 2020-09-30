@@ -7,10 +7,10 @@
         {
             "type": "optimize",
             "exchange": "binance",
-            "symbols": ["eth-btc", "ltc-btc", "xrp-btc"],
+            "symbols": ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"],
             "start": "2017-11-10",
             "end": "2020-09-30",
-            "intervals": ["1h"],
+            "intervals": ["15m", "30m", "1h", "2h", "4h", "8h", "12h", "1d"],
             "quote": 1.0,
             "missed_candle_policy": null,
             "stop_loss": null,

@@ -18,7 +18,7 @@ pub struct EliteReinsertion {
 
 impl EliteReinsertion {
     pub fn new(selection_rate: f32) -> Self {
-        assert!(selection_rate < 1.0);
+        assert!(0.0 < selection_rate && selection_rate < 1.0);
         Self {
             selection_rate,
         }
