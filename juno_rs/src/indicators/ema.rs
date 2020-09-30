@@ -5,6 +5,7 @@ pub struct Ema {
     pub value: f64,
     a: f64,
     t: u32,
+    t1: u32,
 }
 
 impl Ema {
@@ -13,25 +14,24 @@ impl Ema {
             value: 0.0,
             a: 2.0 / f64::from(period + 1),
             t: 0,
+            t1: period - 1,
         }
     }
 
     pub fn maturity(&self) -> u32 {
-        0
+        self.t1
     }
 
     pub fn update(&mut self, price: f64) {
         self.value = match self.t {
-            0 => {
-                self.t = 1;
-                price
-            }
+            0 => price,
             _ => (price - self.value) * self.a + self.value,
         };
+        self.t = min(self.t + 1, self.t1);
     }
 
-    pub fn with_smoothing(a: f64) -> Self {
-        let mut indicator = Self::new(0);
+    pub fn with_smoothing(period: u32, a: f64) -> Self {
+        let mut indicator = Self::new(period);
         indicator.a = a;
         indicator
     }

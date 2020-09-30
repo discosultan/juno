@@ -18,6 +18,7 @@ class Ema:
     _denominator: Decimal = Decimal('0.0')
 
     _t: int = -1
+    _t1: int
 
     def __init__(self, period: int, adjust: bool = False) -> None:
         if period < 1:
@@ -28,21 +29,22 @@ class Ema:
             self._prices = []
         # Decay calculated in terms of span.
         self.set_smoothing_factor(Decimal('2.0') / (period + 1))
+        self._t1 = period - 1
 
     @property
     def maturity(self) -> int:
-        return 0
+        return self._t1
 
     @property
     def mature(self) -> bool:
-        return True
+        return self._t >= self.maturity
 
     def set_smoothing_factor(self, a: Decimal) -> None:
         self._a = a
         self._a_inv = 1 - self._a
 
     def update(self, price: Decimal) -> Decimal:
-        self._t = min(self._t + 1, 1)
+        self._t = min(self._t + 1, self._t1)
 
         if self._adjust:
             self._prices.append(price)
@@ -65,8 +67,8 @@ class Ema:
         return self.value
 
     @staticmethod
-    def with_smoothing(a: Decimal, adjust: bool = False) -> Ema:
-        ema = Ema(1, adjust=adjust)  # Dummy period.
+    def with_smoothing(period: int, a: Decimal, adjust: bool = False) -> Ema:
+        ema = Ema(period, adjust=adjust)  # Dummy period.
         ema.set_smoothing_factor(a)
         return ema
 
@@ -104,6 +106,10 @@ class Ema2:
     @property
     def maturity(self) -> int:
         return self._t1
+
+    @property
+    def mature(self) -> bool:
+        return self._t >= self.maturity
 
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t2)

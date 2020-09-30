@@ -56,12 +56,8 @@ async def test_backtest(mocker) -> None:
         end=6,
         quote=Decimal('100.0'),
         strategy={
-            'type': 'mamacx',
-            'short_period': 1,
-            'long_period': 2,
-            'neg_threshold': Decimal('-1.0'),
-            'pos_threshold': Decimal('1.0'),
-            'persistence': 0
+            'type': 'fixed',
+            'advices': ['none', 'long', 'none', 'liquidate', 'long'],
         },
         trader={
             'type': 'basic',
@@ -189,12 +185,8 @@ async def test_paper(mocker) -> None:
         interval=1,
         quote=Decimal('100.0'),
         strategy={
-            'type': 'mamacx',
-            'short_period': 1,
-            'long_period': 2,
-            'neg_threshold': Decimal('-1.0'),
-            'pos_threshold': Decimal('1.0'),
-            'persistence': 0,
+            'type': 'fixed',
+            'advices': ['none', 'long', 'none', 'liquidate'],
         },
         trader={
             'type': 'basic',
@@ -256,12 +248,8 @@ async def test_live(mocker) -> None:
         exchange='magicmock',
         interval=1,
         strategy={
-            'type': 'mamacx',
-            'short_period': 1,
-            'long_period': 2,
-            'neg_threshold': Decimal('-1.0'),
-            'pos_threshold': Decimal('1.0'),
-            'persistence': 0,
+            'type': 'fixed',
+            'advices': ['none', 'long', 'none', 'liquidate'],
         },
         trader={
             'type': 'basic',
