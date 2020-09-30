@@ -16,18 +16,30 @@ fn optimize() -> Result<(), Box<dyn std::error::Error>> {
     // let symbols = ["eth-btc"];
     let interval = HOUR_MS;
     let start = "2017-11-10".to_timestamp();
-    let end = "2020-09-25".to_timestamp();
+    let end = "2020-09-30".to_timestamp();
     let quote = 1.0;
 
     let algo = genetics::GeneticAlgorithm::new(
         genetics::evaluation::BasicEvaluation::<strategies::TripleMA>::new(
             exchange, &symbols, interval, start, end, quote,
         )?,
-        genetics::selection::EliteSelection {},
-        genetics::crossover::UniformCrossover::default(),
-        genetics::mutation::UniformMutation::default(),
+        genetics::selection::EliteSelection::default(),
+        // genetics::crossover::UniformCrossover::default(),
+        genetics::crossover::UniformCrossover::new(0.75),
+        // genetics::mutation::UniformMutation::default(),
+        genetics::mutation::UniformMutation::new(0.25),
+        genetics::reinsertion::EliteReinsertion::default(),
     );
-    algo.evolve();
+    let population_size = 128;
+    let generations = 32;
+    let best_individual = algo.evolve(population_size, generations, Some(1));
+    println!("{:?}", best_individual);
+
+    let symbol_fitnesses = algo.evaluation.evaluate_symbols(&best_individual.chromosome);
+    for (symbol, fitness) in symbols.iter().zip(symbol_fitnesses) {
+        println!("{} - {:?}", symbol, fitness);
+    }
+
     Ok(())
 }
 

@@ -7,21 +7,21 @@
         {
             "type": "optimize",
             "exchange": "binance",
-            "symbols": ["eth-btc"],
-            "start": "2018-01-01",
-            "end": "2020-01-01",
-            "intervals": ["1d"],
+            "symbols": ["eth-btc", "ltc-btc", "xrp-btc"],
+            "start": "2017-11-10",
+            "end": "2020-09-30",
+            "intervals": ["1h"],
             "quote": 1.0,
             "missed_candle_policy": null,
             "stop_loss": null,
             "strategy": {
-                "type": "fourweekrule"
+                "type": "triplema"
             },
             "long": true,
             "short": true,
-            "population_size": 10,
-            "max_generations": 100,
-            "seed": null,
+            "population_size": 64,
+            "max_generations": 32,
+            "seed": 1,
             "verbose": true
         }
     ]

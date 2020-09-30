@@ -60,11 +60,10 @@ pub fn fill_missing_candles(
     let mut prev_candle: Option<&Candle> = None;
 
     for candle in candles {
-        let mut diff = (candle.time - current) / interval;
+        let diff = (candle.time - current) / interval;
         for i in 1..=diff {
-            diff -= 1;
             match prev_candle {
-                None => panic!("missing first candle in period; cannot fill"),
+                None => panic!("missing candle(s) from start of period; cannot fill"),
                 Some(ref c) => candles_filled.push(Candle {
                     time: c.time + i as u64 * interval,
                     open: c.open,
@@ -83,6 +82,10 @@ pub fn fill_missing_candles(
         prev_candle = Some(candle);
     }
 
+    if current != end {
+        panic!("missing candle(s) from end of period; cannot fill");
+    }
     assert_eq!(candles_filled.len(), length);
+
     candles_filled
 }

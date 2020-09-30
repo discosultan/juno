@@ -47,7 +47,7 @@ impl<T: Strategy> BasicEvaluation<T> {
             .map(|&symbol| {
                 let candles =
                     storages::list_candles(exchange, symbol, interval, start, end).unwrap();
-                // TODO: Do listing and filling of missing candles in one go.
+                // TODO: Do listing and filling of missing candles in one go?
                 let stats_candles =
                     storages::list_candles(exchange, symbol, stats_interval, start, end).unwrap();
                 let stats_candles =
@@ -73,37 +73,41 @@ impl<T: Strategy> BasicEvaluation<T> {
         })
     }
 
-    fn evaluate_individual(&self, ind: &mut Individual<TradingChromosome<T::Params>>) {
-        ind.fitness = self
-            .symbol_ctxs
-            .iter()
-            .map(|ctx| {
-                let summary = traders::trade::<T>(
-                    &ind.chromosome.strategy,
-                    &ctx.candles,
-                    &ctx.fees,
-                    &ctx.filters,
-                    &ctx.borrow_info,
-                    2,
-                    self.interval,
-                    self.quote,
-                    ind.chromosome.trader.missed_candle_policy,
-                    ind.chromosome.trader.stop_loss,
-                    ind.chromosome.trader.trail_stop_loss,
-                    ind.chromosome.trader.take_profit,
-                    true,
-                    true,
-                );
-                statistics::get_sharpe_ratio(
-                    &summary,
-                    &ctx.stats_base_prices,
-                    None,
-                    self.stats_interval,
-                )
-            })
-            .fold(0.0, linear);
+    pub fn evaluate_symbols(&self, chromosome: &TradingChromosome<T::Params>) -> Vec<f64> {
+        self.symbol_ctxs
+            .par_iter()
+            .map(|ctx| self.evaluate_symbol(ctx, chromosome))
+            .collect()
+    }
+
+    fn evaluate_symbol(
+        &self, ctx: &SymbolCtx, chromosome: &TradingChromosome<T::Params>
+    ) -> f64 {
+        let summary = traders::trade::<T>(
+            &chromosome.strategy,
+            &ctx.candles,
+            &ctx.fees,
+            &ctx.filters,
+            &ctx.borrow_info,
+            2,
+            self.interval,
+            self.quote,
+            chromosome.trader.missed_candle_policy,
+            chromosome.trader.stop_loss,
+            chromosome.trader.trail_stop_loss,
+            chromosome.trader.take_profit,
+            true,
+            true,
+        );
+        let sharpe_ratio = statistics::get_sharpe_ratio(
+            &summary,
+            &ctx.stats_base_prices,
+            None,
+            self.stats_interval,
+        );
         // TODO: get rid of this as well
-        assert!(!ind.fitness.is_nan());
+        assert!(!sharpe_ratio.is_nan());
+        sharpe_ratio
     }
 }
 
@@ -117,13 +121,18 @@ impl<T: Strategy> Evaluation for BasicEvaluation<T> {
         population
             // .iter_mut()
             .par_iter_mut()
-            .for_each(|ind| self.evaluate_individual(ind));
+            .for_each(|ind| ind.fitness = self
+                .symbol_ctxs
+                .iter()
+                .map(|ctx| self.evaluate_symbol(ctx, &ind.chromosome))
+                .fold(0.0, sum_linear)
+            );
     }
 }
 
-fn linear(acc: f64, val: f64) -> f64 {
+fn sum_linear(acc: f64, val: f64) -> f64 {
     acc + val
 }
-fn ln(acc: f64, val: f64) -> f64 {
+fn sum_ln(acc: f64, val: f64) -> f64 {
     acc + val.ln()
 }

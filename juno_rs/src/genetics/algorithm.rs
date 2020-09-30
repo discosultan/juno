@@ -1,66 +1,75 @@
 use crate::genetics::{
-    crossover::Crossover, evaluation::Evaluation, mutation::Mutation, selection::Selection,
-    Individual,
+    crossover::Crossover, evaluation::Evaluation, mutation::Mutation, reinsertion::Reinsertion,
+    selection::Selection, Individual,
 };
 use rand::prelude::*;
 use std::time;
 
-pub struct GeneticAlgorithm<TE, TS, TC, TM>
+pub struct GeneticAlgorithm<TE, TS, TC, TM, TR>
 where
     TE: Evaluation,
     TS: Selection,
     TC: Crossover,
     TM: Mutation,
+    TR: Reinsertion,
 {
-    evaluation: TE,
-    selection: TS,
-    crossover: TC,
-    mutation: TM,
+    pub evaluation: TE,
+    pub selection: TS,
+    pub crossover: TC,
+    pub mutation: TM,
+    pub reinsertion: TR,
 }
 
-impl<TE, TS, TC, TM> GeneticAlgorithm<TE, TS, TC, TM>
+impl<TE, TS, TC, TM, TR> GeneticAlgorithm<TE, TS, TC, TM, TR>
 where
     TE: Evaluation,
     TS: Selection,
     TC: Crossover,
     TM: Mutation,
+    TR: Reinsertion,
 {
-    pub fn new(evaluation: TE, selection: TS, crossover: TC, mutation: TM) -> Self {
+    pub fn new(
+        evaluation: TE, selection: TS, crossover: TC, mutation: TM, reinsertion: TR
+    ) -> Self {
         Self {
             evaluation,
             selection,
             crossover,
             mutation,
+            reinsertion,
         }
     }
 
-    pub fn evolve(&self) {
-        let population_size = 50;
-        let generations = 100;
-        let seed = 1;
-
+    pub fn evolve(
+        &self,
+        population_size: usize,
+        generations: usize,
+        seed: Option<u64>,
+    ) -> Individual<TE::Chromosome> {
         assert!(population_size >= 2);
         // TODO: Get rid of this assertion.
         assert_eq!(population_size % 2, 0);
 
-        let mut rng = StdRng::seed_from_u64(seed);
+        let mut rng = match seed {
+            Some(seed) => StdRng::seed_from_u64(seed),
+            None => StdRng::from_entropy(),
+        };
 
         let mut parents = (0..population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
         self.evaluate_and_sort_by_fitness_desc(&mut parents);
 
-        let mut offsprings = Vec::with_capacity(population_size);
+        let mut offsprings = Vec::with_capacity(population_size as usize);
 
         for i in 0..generations {
             println!("gen {}", i);
-            self.run_generation(&mut rng, &mut parents, &mut offsprings);
+            self.run_generation(&mut rng, &mut parents, &mut offsprings, population_size);
             std::mem::swap(&mut parents, &mut offsprings);
             offsprings.clear();
         }
 
-        // Print best.
-        println!("{} {:?}", parents[0].fitness, parents[0].chromosome);
+        parents[0].clone()
     }
 
     fn run_generation(
@@ -68,10 +77,11 @@ where
         rng: &mut StdRng,
         parents: &mut Vec<Individual<TE::Chromosome>>,
         offsprings: &mut Vec<Individual<TE::Chromosome>>,
+        population_size: usize,
     ) {
         // select
         let start = time::Instant::now();
-        self.selection.select(parents, offsprings, parents.len());
+        self.selection.select(rng, parents, offsprings, self.reinsertion.selection_rate());
         println!("select {:?}", start.elapsed());
 
         // crossover & mutation
@@ -99,6 +109,8 @@ where
 
         // evaluate
         self.evaluate_and_sort_by_fitness_desc(offsprings);
+        // reinsert
+        self.reinsertion.reinsert(parents, offsprings, population_size)
     }
 
     fn evaluate_and_sort_by_fitness_desc(&self, population: &mut Vec<Individual<TE::Chromosome>>) {
@@ -107,7 +119,7 @@ where
         println!("evaluation {:?}", start.elapsed());
 
         let start = time::Instant::now();
-        population.sort_by(|ind1, ind2| ind2.fitness.partial_cmp(&ind1.fitness).unwrap());
+        population.sort_by(Individual::fitness_desc);
         println!("sorting {:?}", start.elapsed());
     }
 }

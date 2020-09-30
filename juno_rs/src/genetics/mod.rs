@@ -2,13 +2,14 @@ pub mod algorithm;
 pub mod crossover;
 pub mod evaluation;
 pub mod mutation;
+pub mod reinsertion;
 pub mod selection;
 
 pub use algorithm::GeneticAlgorithm;
 
 use juno_derive_rs::*;
 use rand::prelude::*;
-use std::fmt::Debug;
+use std::{cmp::Ordering, fmt::Debug};
 
 pub trait Chromosome: Clone + Debug + Send + Sync {
     fn len() -> usize;
@@ -17,12 +18,10 @@ pub trait Chromosome: Clone + Debug + Send + Sync {
     fn mutate(&mut self, rng: &mut StdRng, i: usize);
 }
 
-// We cannot derive Clone but need to manually implement it because of:
-// https://github.com/rust-lang/rust/issues/26925
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Individual<T: Chromosome> {
-    chromosome: T,
-    fitness: f64,
+    pub chromosome: T,
+    pub fitness: f64,
 }
 
 impl<T: Chromosome> Individual<T> {
@@ -39,14 +38,9 @@ impl<T: Chromosome> Individual<T> {
             fitness: f64::MIN,
         }
     }
-}
 
-impl<T: Chromosome> Clone for Individual<T> {
-    fn clone(&self) -> Self {
-        Self {
-            chromosome: self.chromosome.clone(),
-            fitness: f64::MIN,
-        }
+    fn fitness_desc(ind1: &Individual<T>, ind2: &Individual<T>) -> Ordering {
+        ind2.fitness.partial_cmp(&ind1.fitness).unwrap()
     }
 }
 

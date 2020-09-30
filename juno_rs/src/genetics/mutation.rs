@@ -1,5 +1,5 @@
 use super::Chromosome;
-use rand::{rngs::StdRng, Rng};
+use rand::prelude::*;
 
 pub trait Mutation {
     fn mutate<T: Chromosome>(&self, rng: &mut StdRng, chromosome: &mut T);
@@ -7,6 +7,15 @@ pub trait Mutation {
 
 pub struct UniformMutation {
     mutation_probability: f32,
+}
+
+impl UniformMutation {
+    pub fn new(mutation_probability: f32) -> Self {
+        assert!(0.0 <= mutation_probability && mutation_probability <= 1.0);
+        UniformMutation {
+            mutation_probability,
+        }
+    }
 }
 
 impl Default for UniformMutation {
