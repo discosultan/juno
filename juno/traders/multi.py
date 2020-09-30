@@ -6,10 +6,12 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
 
+from more_itertools import take
+
 from juno import Advice, Candle, Interval, Timestamp
 from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
-from juno.components import Chandler, Events, Informant, Wallet
+from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
 from juno.strategies import Changed, Strategy
@@ -89,6 +91,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         short: bool = False  # Take short positions.
         close_on_exit: bool = True  # Whether to close open positions on exit.
         track: List[str] = []
+        track_exclude: List[str] = []  # Symbols to ignore.
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
         position_count: int = 2
@@ -113,7 +116,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         self,
         chandler: Chandler,
         informant: Informant,
-        wallet: Optional[Wallet] = None,
+        user: Optional[User] = None,
         broker: Optional[Broker] = None,
         events: Events = Events(),
         exchanges: List[Exchange] = [],
@@ -121,7 +124,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     ) -> None:
         self._chandler = chandler
         self._informant = informant
-        self._wallet = wallet
+        self._user = user
         self._broker = broker
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
@@ -145,9 +148,9 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         return self._exchanges
 
     @property
-    def wallet(self) -> Wallet:
-        assert self._wallet
-        return self._wallet
+    def user(self) -> User:
+        assert self._user
+        return self._user
 
     async def run(self, config: Config, state: Optional[State] = None) -> TradingSummary:
         assert config.mode is TradingMode.BACKTEST or self.broker
@@ -159,6 +162,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert config.position_count > 0
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
+        assert not list(set(config.track) & set(config.track_exclude))  # No common elements.
 
         state = state or Multi.State()
 
@@ -174,7 +178,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             )
 
         if state.quotes is None:
-            quote = self.request_quote(config.quote, config.exchange, 'btc', config.mode)
+            quote = await self.request_quote(config.quote, config.exchange, 'btc', config.mode)
             position_quote = quote / config.position_count
             for symbol in state.symbols:
                 fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
@@ -236,20 +240,23 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         return state.summary
 
     async def _find_top_symbols(self, config: Config) -> List[str]:
-        count = config.track_count - len(config.track)
-        tickers = self._informant.list_tickers(
-            config.exchange, symbol_pattern=SYMBOL_PATTERN, spot=True, isolated_margin=True
+        tickers = self._informant.map_tickers(
+            config.exchange, symbol_patterns=[SYMBOL_PATTERN],
+            exclude_symbol_patterns=config.track_exclude, spot=True, isolated_margin=True
         )
+        # Filter.
         if config.track_required_start is not None:
             first_candles = await asyncio.gather(
                 *(
-                    self._chandler.get_first_candle(config.exchange, t.symbol, config.interval)
-                    for t in tickers
+                    self._chandler.get_first_candle(config.exchange, s, config.interval)
+                    for s in tickers.keys()
                 )
             )
-            tickers = [
-                t for t, c in zip(tickers, first_candles) if c.time <= config.track_required_start
-            ]
+            tickers = {
+                s: t for (s, t), c in zip(tickers.items(), first_candles)
+                if c.time <= config.track_required_start
+            }
+        # Validate.
         if len(tickers) < config.track_count:
             required_start_msg = (
                 '' if config.track_required_start is None
@@ -259,7 +266,9 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 f'Exchange only supports {len(tickers)} symbols matching pattern {SYMBOL_PATTERN} '
                 f'while {config.track_count} requested{required_start_msg}'
             )
-        return config.track + [t.symbol for t in tickers[0:count] if t not in config.track]
+        # Compose.
+        count = config.track_count - len(config.track)
+        return config.track + [s for s, t in take(count, tickers.items()) if t not in config.track]
 
     async def _manage_positions(
         self, config: Config, state: State, candles_updated: SlotBarrier,

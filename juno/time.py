@@ -61,6 +61,7 @@ def strfinterval(interval: int) -> str:
 
 
 def strpinterval(interval: str) -> int:
+    # TODO: Make on-par with strfinterval. Also in Rust impl.
     return int(interval[:-1]) * _INTERVAL_FACTORS[interval[-1]]
 
 

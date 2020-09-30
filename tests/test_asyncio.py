@@ -3,8 +3,8 @@ import asyncio
 import pytest
 
 from juno.asyncio import (
-    Barrier, Event, SlotBarrier, cancel, chain_async, enumerate_async, first_async, list_async,
-    map_async, merge_async, repeat_async, resolved_stream, zip_async
+    Barrier, Event, SlotBarrier, cancel, chain_async, dict_async, enumerate_async, first_async,
+    list_async, map_async, merge_async, repeat_async, resolved_stream, zip_async
 )
 
 
@@ -43,6 +43,18 @@ async def test_list_async() -> None:
             yield i
 
     assert await list_async(gen()) == [0, 1, 2]
+
+
+async def test_dict_async() -> None:
+    async def gen():
+        for k, v in zip(['a', 'b', 'c'], [0, 1, 2]):
+            yield k, v
+
+    assert await dict_async(gen()) == {
+        'a': 0,
+        'b': 1,
+        'c': 2,
+    }
 
 
 async def test_first_async() -> None:

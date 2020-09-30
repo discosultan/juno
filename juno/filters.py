@@ -1,13 +1,14 @@
 # Exchange filters.
 # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#filters
 
+from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
-from typing import NamedTuple
 
 from .errors import OrderException
 
 
-class Price(NamedTuple):
+@dataclass
+class Price:
     min: Decimal = Decimal('0.0')
     max: Decimal = Decimal('0.0')  # 0 means disabled.
     step: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -31,7 +32,8 @@ class Price(NamedTuple):
         )
 
 
-class PercentPrice(NamedTuple):
+@dataclass
+class PercentPrice:
     multiplier_up: Decimal = Decimal('Inf')
     multiplier_down: Decimal = Decimal('0.0')
     avg_price_period: int = 0  # 0 means the last price is used.
@@ -43,7 +45,8 @@ class PercentPrice(NamedTuple):
         )
 
 
-class Size(NamedTuple):
+@dataclass
+class Size:
     min: Decimal = Decimal('0.0')
     max: Decimal = Decimal('0.0')  # 0 means disabled.
     step: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -79,7 +82,8 @@ class Size(NamedTuple):
             )
 
 
-class MinNotional(NamedTuple):
+@dataclass
+class MinNotional:
     min_notional: Decimal = Decimal('0.0')
     apply_to_market: bool = False
     avg_price_period: int = 0  # 0 means the last price is used.
@@ -103,11 +107,12 @@ class MinNotional(NamedTuple):
             self.validate_limit(avg_price, size)
 
 
-class Filters(NamedTuple):
-    price: Price = Price()
-    percent_price: PercentPrice = PercentPrice()
-    size: Size = Size()
-    min_notional: MinNotional = MinNotional()
+@dataclass
+class Filters:
+    price: Price = field(default_factory=Price)
+    percent_price: PercentPrice = field(default_factory=PercentPrice)
+    size: Size = field(default_factory=Size)
+    min_notional: MinNotional = field(default_factory=MinNotional)
 
     base_precision: int = 8
     quote_precision: int = 8

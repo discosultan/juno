@@ -62,6 +62,10 @@ async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
     return [item async for item in async_iter]
 
 
+async def dict_async(async_iter: AsyncIterable[Tuple[T, U]]) -> Dict[T, U]:
+    return {key: value async for key, value in async_iter}
+
+
 async def first_async(async_iter: AsyncIterable[T]) -> T:
     async for item in async_iter:
         return item
@@ -162,12 +166,14 @@ async def stream_queue(
             if raise_on_exc and isinstance(item, Exception):
                 raise item
             yield item
+            queue.task_done()
     else:
         while True:
             item = await asyncio.wait_for(queue.get(), timeout=timeout)
             if raise_on_exc and isinstance(item, Exception):
                 raise item
             yield item
+            queue.task_done()
 
 
 class Barrier:

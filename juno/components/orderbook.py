@@ -2,268 +2,212 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from itertools import product
-from typing import Any, AsyncIterable, AsyncIterator, Dict, Iterable, List, Optional, Tuple
+from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import (
-    Depth, ExchangeException, Fill, Filters, OrderResult, OrderType, OrderUpdate, Side,
-    TimeInForce
-)
-from juno.asyncio import Event, SlotBarrier, cancel, create_task_cancel_on_exc
-from juno.config import list_names
+from juno import Depth, ExchangeException, Fill, Filters, Side
+from juno.asyncio import Event, cancel, create_task_cancel_on_exc
 from juno.exchanges import Exchange
 from juno.math import round_half_up
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import unpack_symbol
 
-from .wallet import Wallet
-
 _log = logging.getLogger(__name__)
 
 
 class Orderbook:
-    # TODO: Remove such usage of config.
-    def __init__(
-        self,
-        exchanges: List[Exchange],
-        wallet: Optional[Wallet] = None,
-        config: Dict[str, Any] = {},
-    ) -> None:
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._wallet = wallet
-        self._symbols = list_names(config, 'symbol')
-        self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
+    class SyncContext:
+        def __init__(
+            self,
+            symbol: str,
+            sides: Optional[Dict[Side, Dict[Decimal, Decimal]]] = None
+        ) -> None:
+            self.symbol = symbol
+            self.sides = {
+                Side.BUY: {},
+                Side.SELL: {},
+            } if sides is None else sides
+            # Will not be set for initial data.
+            self.updated: Event[None] = Event(autoclear=True)
 
-        # {
-        #   "binance": {
-        #     "eth-btc": {
-        #       "asks": {
-        #         Decimal('1.0'): Decimal('2.0')
-        #       },
-        #       "bids": {
-        #       }
-        #     }
-        #   }
-        # }
-        self._data: Dict[str, Dict[str, _OrderbookData]] = defaultdict(
-            lambda: defaultdict(_OrderbookData)
+        def list_asks(self) -> List[Tuple[Decimal, Decimal]]:
+            return sorted(self.sides[Side.BUY].items())
+
+        def list_bids(self) -> List[Tuple[Decimal, Decimal]]:
+            return sorted(self.sides[Side.SELL].items(), reverse=True)
+
+        def find_order_asks(
+            self,
+            fee_rate: Decimal,
+            filters: Filters,
+            size: Optional[Decimal] = None,
+            quote: Optional[Decimal] = None,
+        ) -> List[Fill]:
+            if size is not None and quote is not None:
+                raise ValueError()
+            if size is None and quote is None:
+                raise ValueError()
+
+            result = []
+            base_asset, quote_asset = unpack_symbol(self.symbol)
+            if size is not None:
+                for aprice, asize in self.list_asks():
+                    if asize >= size:
+                        fee = round_half_up(size * fee_rate, filters.base_precision)
+                        result.append(Fill.with_computed_quote(
+                            price=aprice, size=size, fee=fee, fee_asset=base_asset,
+                            precision=filters.quote_precision
+                        ))
+                        break
+                    else:
+                        fee = round_half_up(asize * fee_rate, filters.base_precision)
+                        result.append(Fill.with_computed_quote(
+                            price=aprice, size=asize, fee=fee, fee_asset=base_asset,
+                            precision=filters.quote_precision
+                        ))
+                        size -= asize
+            elif quote is not None:
+                for aprice, asize in self.list_asks():
+                    aquote = aprice * asize
+                    if aquote >= quote:
+                        size = filters.size.round_down(quote / aprice)
+                        if size != 0:
+                            fee = round_half_up(size * fee_rate, filters.base_precision)
+                            result.append(Fill.with_computed_quote(
+                                price=aprice, size=size, fee=fee, fee_asset=base_asset,
+                                precision=filters.quote_precision
+                            ))
+                        break
+                    else:
+                        assert asize != 0
+                        fee = round_half_up(asize * fee_rate, filters.base_precision)
+                        result.append(Fill.with_computed_quote(
+                            price=aprice, size=asize, fee=fee, fee_asset=base_asset,
+                            precision=filters.quote_precision
+                        ))
+                        quote -= aquote
+            return result
+
+        def find_order_bids(
+            self,
+            fee_rate: Decimal,
+            filters: Filters,
+            size: Optional[Decimal] = None,
+            quote: Optional[Decimal] = None,
+        ) -> List[Fill]:
+            if quote is not None:
+                raise NotImplementedError()
+            if size is None:
+                raise ValueError()
+
+            result = []
+            base_asset, quote_asset = unpack_symbol(self.symbol)
+            for bprice, bsize in self.list_bids():
+                if bsize >= size:
+                    rsize = filters.size.round_down(size)
+                    if size != 0:
+                        fee = round_half_up(bprice * rsize * fee_rate, filters.quote_precision)
+                        result.append(Fill.with_computed_quote(
+                            price=bprice, size=rsize, fee=fee, fee_asset=quote_asset,
+                            precision=filters.quote_precision
+                        ))
+                    break
+                else:
+                    assert bsize != 0
+                    fee = round_half_up(bprice * bsize * fee_rate, filters.quote_precision)
+                    result.append(Fill.with_computed_quote(
+                        price=bprice, size=bsize, fee=fee, fee_asset=quote_asset,
+                        precision=filters.quote_precision
+                    ))
+                    size -= bsize
+            return result
+
+    def __init__(self, exchanges: List[Exchange]) -> None:
+        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+
+        # Order sync state.
+        # Key: (exchange, symbol)
+        self._sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
+        self._sync_ctxs: Dict[Tuple[str, str], Dict[str, Orderbook.SyncContext]] = defaultdict(
+            dict
         )
 
-        if not self._wallet:
-            _log.warning('wallet not setup')
-
     async def __aenter__(self) -> Orderbook:
-        await self.ensure_sync(self._exchanges.keys(), self._symbols)
         _log.info('ready')
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(*self._sync_tasks.values())
 
-    def get_updated_event(self, exchange: str, symbol: str) -> Event[None]:
-        return self._data[exchange][symbol].updated
-
-    def list_asks(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
-        return sorted(self._data[exchange][symbol].sides[Side.BUY].items())
-
-    def list_bids(self, exchange: str, symbol: str) -> List[Tuple[Decimal, Decimal]]:
-        return sorted(self._data[exchange][symbol].sides[Side.SELL].items(), reverse=True)
-
-    def find_order_asks(
-        self,
-        exchange: str,
-        symbol: str,
-        fee_rate: Decimal,
-        filters: Filters,
-        size: Optional[Decimal] = None,
-        quote: Optional[Decimal] = None,
-    ) -> List[Fill]:
-        if size is not None and quote is not None:
-            raise ValueError()
-        if size is None and quote is None:
-            raise ValueError()
-
-        result = []
-        base_asset, quote_asset = unpack_symbol(symbol)
-        if size is not None:
-            for aprice, asize in self.list_asks(exchange, symbol):
-                if asize >= size:
-                    fee = round_half_up(size * fee_rate, filters.base_precision)
-                    result.append(Fill.with_computed_quote(
-                        price=aprice, size=size, fee=fee, fee_asset=base_asset,
-                        precision=filters.quote_precision
-                    ))
-                    break
-                else:
-                    fee = round_half_up(asize * fee_rate, filters.base_precision)
-                    result.append(Fill.with_computed_quote(
-                        price=aprice, size=asize, fee=fee, fee_asset=base_asset,
-                        precision=filters.quote_precision
-                    ))
-                    size -= asize
-        elif quote is not None:
-            for aprice, asize in self.list_asks(exchange, symbol):
-                aquote = aprice * asize
-                if aquote >= quote:
-                    size = filters.size.round_down(quote / aprice)
-                    if size != 0:
-                        fee = round_half_up(size * fee_rate, filters.base_precision)
-                        result.append(Fill.with_computed_quote(
-                            price=aprice, size=size, fee=fee, fee_asset=base_asset,
-                            precision=filters.quote_precision
-                        ))
-                    break
-                else:
-                    assert asize != 0
-                    fee = round_half_up(asize * fee_rate, filters.base_precision)
-                    result.append(Fill.with_computed_quote(
-                        price=aprice, size=asize, fee=fee, fee_asset=base_asset,
-                        precision=filters.quote_precision
-                    ))
-                    quote -= aquote
-        return result
-
-    def find_order_bids(
-        self,
-        exchange: str,
-        symbol: str,
-        fee_rate: Decimal,
-        filters: Filters,
-        size: Optional[Decimal] = None,
-        quote: Optional[Decimal] = None,
-    ) -> List[Fill]:
-        if quote is not None:
-            raise NotImplementedError()
-        if size is None:
-            raise ValueError()
-
-        result = []
-        base_asset, quote_asset = unpack_symbol(symbol)
-        for bprice, bsize in self.list_bids(exchange, symbol):
-            if bsize >= size:
-                rsize = filters.size.round_down(size)
-                if size != 0:
-                    fee = round_half_up(bprice * rsize * fee_rate, filters.quote_precision)
-                    result.append(Fill.with_computed_quote(
-                        price=bprice, size=rsize, fee=fee, fee_asset=quote_asset,
-                        precision=filters.quote_precision
-                    ))
-                break
-            else:
-                assert bsize != 0
-                fee = round_half_up(bprice * bsize * fee_rate, filters.quote_precision)
-                result.append(Fill.with_computed_quote(
-                    price=bprice, size=bsize, fee=fee, fee_asset=quote_asset,
-                    precision=filters.quote_precision
-                ))
-                size -= bsize
-        return result
+    def can_place_order_market_quote(self, exchange: str) -> bool:
+        if exchange == '__all__':
+            return all(e.can_place_order_market_quote for e in self._exchanges.values())
+        return self._exchanges[exchange].can_place_order_market_quote
 
     @asynccontextmanager
-    async def connect_stream_orders(
-        self, exchange: str, account: str, symbol: str
-    ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
-        await self._ensure_account(exchange, account)
-        async with self._exchanges[exchange].connect_stream_orders(
-            account=account, symbol=symbol
-        ) as stream:
-            yield stream
+    async def sync(self, exchange: str, symbol: str) -> AsyncIterator[SyncContext]:
+        id_ = str(uuid.uuid4())
+        key = (exchange, symbol)
+        ctxs = self._sync_ctxs[key]
 
-    async def place_order(
-        self,
-        exchange: str,
-        account: str,
-        symbol: str,
-        side: Side,
-        type_: OrderType,
-        size: Optional[Decimal] = None,
-        quote: Optional[Decimal] = None,
-        price: Optional[Decimal] = None,
-        time_in_force: Optional[TimeInForce] = None,
-        client_id: Optional[str] = None,
-        test: bool = True,
-    ) -> OrderResult:
-        await self._ensure_account(exchange, account)
-        return await self._exchanges[exchange].place_order(
-            symbol=symbol,
-            side=side,
-            type_=type_,
-            size=size,
-            quote=quote,
-            price=price,
-            time_in_force=time_in_force,
-            client_id=client_id,
-            account=account,
-            test=test,
-        )
-
-    async def cancel_order(
-        self,
-        exchange: str,
-        account: str,
-        symbol: str,
-        client_id: str,
-    ) -> None:
-        await self._ensure_account(exchange, account)
-        await self._exchanges[exchange].cancel_order(
-            symbol=symbol,
-            client_id=client_id,
-            account=account,
-        )
-
-    async def ensure_sync(self, exchanges: Iterable[str], symbols: Iterable[str]) -> None:
-        # Only pick products which are not being synced yet.
-        products = [
-            p for p in product(exchanges, symbols) if p not in self._sync_tasks.keys()
-        ]
-        if len(products) == 0:
-            return
-
-        _log.info(f'syncing {products}')
-
-        # Barrier to wait for initial data to be fetched.
-        barrier = SlotBarrier(products)
-        for exchange, symbol in products:
-            self._sync_tasks[(exchange, symbol)] = create_task_cancel_on_exc(
-                self._sync_orderbook(exchange, symbol, barrier)
+        if len(ctxs) == 0:
+            ctx = Orderbook.SyncContext(symbol)
+            ctxs[id_] = ctx
+            synced = asyncio.Event()
+            self._sync_tasks[key] = create_task_cancel_on_exc(
+                self._sync_orderbook(exchange, symbol, synced)
             )
-        await barrier.wait()
+            await synced.wait()
+        else:
+            ctx = Orderbook.SyncContext(symbol, next(iter(ctxs.values())).sides)
+            ctxs[id_] = ctx
 
-    async def _ensure_account(self, exchange: str, account: str) -> None:
-        if self._wallet:
-            await self._wallet.ensure_account(exchange, account)
+        try:
+            yield ctx
+        finally:
+            del ctxs[id_]
+            if len(ctxs) == 0:
+                await cancel(self._sync_tasks[key])
 
-    async def _sync_orderbook(self, exchange: str, symbol: str, barrier: SlotBarrier) -> None:
-        orderbook = self._data[exchange][symbol]
+    async def _sync_orderbook(self, exchange: str, symbol: str, synced: asyncio.Event) -> None:
+        ctxs = self._sync_ctxs[(exchange, symbol)]
+        is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(3, 300),
             retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):
             with attempt:
-                orderbook.snapshot_received = False
                 async for depth in self._stream_depth(exchange, symbol):
                     if isinstance(depth, Depth.Snapshot):
-                        _set_orderbook_side(orderbook.sides[Side.BUY], depth.asks)
-                        _set_orderbook_side(orderbook.sides[Side.SELL], depth.bids)
-                        orderbook.snapshot_received = True
-                        if barrier.slot_locked((exchange, symbol)):
-                            barrier.release((exchange, symbol))
+                        for ctx in ctxs.values():
+                            _set_orderbook_side(ctx.sides[Side.BUY], depth.asks)
+                            _set_orderbook_side(ctx.sides[Side.SELL], depth.bids)
+
+                        if is_first:
+                            is_first = False
+                            synced.set()
+                        else:
+                            for ctx in ctxs.values():
+                                ctx.updated.set()
                     elif isinstance(depth, Depth.Update):
                         # TODO: For example, with depth level 10, Kraken expects us to discard
                         # levels outside level 10. They will not publish messages to delete them.
-                        assert orderbook.snapshot_received
-                        _update_orderbook_side(orderbook.sides[Side.BUY], depth.asks)
-                        _update_orderbook_side(orderbook.sides[Side.SELL], depth.bids)
+                        assert not is_first
+                        for ctx in ctxs.values():
+                            _update_orderbook_side(ctx.sides[Side.BUY], depth.asks)
+                            _update_orderbook_side(ctx.sides[Side.SELL], depth.bids)
+
+                        for ctx in ctxs.values():
+                            ctx.updated.set()
                     else:
                         raise NotImplementedError(depth)
-                    orderbook.updated.set()
 
     async def _stream_depth(self, exchange: str, symbol: str) -> AsyncIterable[Depth.Any]:
         exchange_instance = self._exchanges[exchange]
@@ -336,13 +280,3 @@ def _update_orderbook_side(
             # Receiving an event that removes a price level that is not in the local orderbook can
             # happen and is normal for Binance, for example.
             pass
-
-
-class _OrderbookData:
-    def __init__(self) -> None:
-        self.sides: Dict[Side, Dict[Decimal, Decimal]] = {
-            Side.BUY: {},
-            Side.SELL: {},
-        }
-        self.updated: Event[None] = Event(autoclear=True)
-        self.snapshot_received = False

@@ -1,11 +1,10 @@
 import logging
 import uuid
 from decimal import Decimal
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
-from juno.components import Informant, Orderbook
-from juno.exchanges import Exchange
+from juno.components import Informant, Orderbook, User
 from juno.utils import unpack_symbol
 
 from .broker import Broker
@@ -22,12 +21,12 @@ class Market2(Broker):
         self,
         informant: Informant,
         orderbook: Orderbook,
-        exchanges: List[Exchange],
+        user: User,
         get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
-        self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
+        self._user = user
         self._get_client_id = get_client_id
 
     async def buy(
@@ -52,14 +51,12 @@ class Market2(Broker):
                 f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
                 f'({account} account)'
             )
-            exchange_instance = self._exchanges[exchange]
-            if not exchange_instance.can_place_order_market_quote:
-                await self._orderbook.ensure_sync([exchange], [symbol])
+            if not self._orderbook.can_place_order_market_quote(exchange):
                 fees, filters = self._informant.get_fees_filters(exchange, symbol)
-                fills = self._orderbook.find_order_asks(
-                    exchange=exchange, symbol=symbol, quote=quote, fee_rate=fees.taker,
-                    filters=filters
-                )
+                async with self._orderbook.sync(exchange, symbol) as orderbook:
+                    fills = orderbook.find_order_asks(
+                        quote=quote, fee_rate=fees.taker, filters=filters
+                    )
                 return await self._fill(
                     exchange, account, symbol, Side.BUY, size=Fill.total_size(fills)
                 )
@@ -99,10 +96,10 @@ class Market2(Broker):
 
         client_id = self._get_client_id()
 
-        async with self._orderbook.connect_stream_orders(
+        async with self._user.connect_stream_orders(
             exchange=exchange, account=account, symbol=symbol
         ) as stream:
-            await self._orderbook.place_order(
+            await self._user.place_order(
                 exchange=exchange,
                 account=account,
                 symbol=symbol,

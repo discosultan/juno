@@ -41,17 +41,6 @@ def test_minmax() -> None:
     assert output == (Decimal('1.0'), Decimal('3.0'))
 
 
-def test_split_by_ratios() -> None:
-    output = math.split_by_ratios(
-        Decimal('0.24690'),
-        math.ratios(
-            Decimal('0.12345'),
-            [Decimal('0.10000'), Decimal('0.02340'), Decimal('0.00005')],
-        ),
-    )
-    assert output == [Decimal('0.20000'), Decimal('0.04680'), Decimal('0.00010')]
-
-
 @pytest.mark.parametrize('input_,parts,expected_output', [
     (
         Decimal('1.0001'),

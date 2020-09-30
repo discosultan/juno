@@ -1,15 +1,13 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Dict, List
+from typing import Dict
 
 import aiohttp
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
 import juno
-from juno import (
-    Balance, Candle, Depth, ExchangeException, ExchangeInfo, OrderType, Side, Ticker, Trade
-)
+from juno import Balance, Candle, Depth, ExchangeInfo, OrderType, Side, Ticker, Trade
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
@@ -74,66 +72,59 @@ async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_list_tickers(loop, request, exchange: Exchange) -> None:
+async def test_map_tickers(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_list_all_tickers)
 
     # Note, this is an expensive call!
-    tickers = await exchange.list_tickers()
+    tickers = await exchange.map_tickers()
 
     assert len(tickers) > 0
-    assert types_match(tickers, List[Ticker])
+    assert types_match(tickers, Dict[str, Ticker])
 
 
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_list_one_ticker(loop, request, exchange: Exchange) -> None:
+async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
-    tickers = await exchange.list_tickers(symbols=['eth-btc'])
+    tickers = await exchange.map_tickers(symbols=['eth-btc'])
 
     assert len(tickers) == 1
-    assert types_match(tickers, List[Ticker])
+    assert types_match(tickers, Dict[str, Ticker])
 
 
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_map_balances(loop, request, exchange: Exchange) -> None:
+async def test_map_spot_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     balances = await exchange.map_balances(account='spot')
-
-    assert types_match(balances, Dict[str, Balance])
+    assert types_match(balances, Dict[str, Dict[str, Balance]])
 
 
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_cross_margin_balances(loop, request, exchange: Exchange) -> None:
+async def test_map_cross_margin_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_margin_trade)
 
     balances = await exchange.map_balances(account='margin')
-
-    assert types_match(balances, Dict[str, Balance])
+    assert types_match(balances, Dict[str, Dict[str, Balance]])
 
 
 @pytest.mark.exchange
 @pytest.mark.manual
 @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_get_isolated_margin_balances(loop, request, exchange: Exchange) -> None:
+async def test_map_isolated_margin_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
     skip_no_capability(exchange.can_margin_trade)
 
-    try:
-        await exchange.create_account('eth-btc')
-    except ExchangeException:
-        pass
-    balances = await exchange.map_balances(account='eth-btc')
-
-    assert types_match(balances, Dict[str, Balance])
+    balances = await exchange.map_balances(account='isolated')
+    assert types_match(balances, Dict[str, Dict[str, Balance]])
 
 
 @pytest.mark.exchange

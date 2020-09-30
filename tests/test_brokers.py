@@ -10,7 +10,7 @@ from juno import (
     Depth, ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus, OrderUpdate
 )
 from juno.brokers import Limit, Market, Market2
-from juno.components import Informant, Orderbook
+from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
 from juno.filters import Filters, MinNotional, Price, Size
 from juno.storages import Memory
@@ -424,13 +424,69 @@ async def test_limit_partial_fill_cancel_min_notional() -> None:
         assert len(exchange.cancel_order_calls) == 1
 
 
+async def test_limit_buy_places_at_highest_bid_if_no_spread() -> None:
+    # Min step is 0.1.
+    snapshot = Depth.Snapshot(
+        asks=[(Decimal('1.0'), Decimal('1.0'))],
+        bids=[(Decimal('0.9'), Decimal('1.0'))],
+    )
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_limit_broker(exchange) as broker:
+        task = asyncio.create_task(broker.buy(
+            exchange='exchange',
+            account='spot',
+            symbol='eth-btc',
+            quote=Decimal('0.9'),
+            test=False,
+        ))
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('0.9'), Decimal('2.0'))])
+        )
+        await yield_control()  # Shouldn't cancel previous order because no spread.
+        await exchange.orders_queue.put(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('0.9'),
+                    size=Decimal('1.0'),
+                    quote=Decimal('0.9'),
+                    fee=Decimal('0.1'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        await exchange.orders_queue.put(
+            OrderUpdate.Done(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        result = await asyncio.wait_for(task, timeout=1)
+
+        assert result.status is OrderStatus.FILLED
+        assert len(exchange.place_order_calls) == 1
+        assert len(exchange.cancel_order_calls) == 0
+        assert exchange.place_order_calls[0]['price'] == Decimal('0.9')
+
+
 @asynccontextmanager
 async def init_market_broker(exchange: Exchange) -> AsyncIterator[Market]:
     memory = Memory()
     informant = Informant(memory, [exchange])
-    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
-    async with memory, informant, orderbook:
-        broker = Market(informant, orderbook, [exchange])
+    orderbook = Orderbook([exchange])
+    user = User([exchange])
+    async with memory, informant, orderbook, user:
+        broker = Market(informant, orderbook, user)
         yield broker
 
 
@@ -438,9 +494,10 @@ async def init_market_broker(exchange: Exchange) -> AsyncIterator[Market]:
 async def init_market2_broker(exchange: Exchange) -> AsyncIterator[Market2]:
     memory = Memory()
     informant = Informant(memory, [exchange])
-    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
-    async with memory, informant, orderbook:
-        broker = Market2(informant, orderbook, [exchange], get_client_id=lambda: order_client_id)
+    orderbook = Orderbook([exchange])
+    user = User([exchange])
+    async with memory, informant, orderbook, user:
+        broker = Market2(informant, orderbook, user, get_client_id=lambda: order_client_id)
         yield broker
 
 
@@ -448,9 +505,10 @@ async def init_market2_broker(exchange: Exchange) -> AsyncIterator[Market2]:
 async def init_limit_broker(exchange: Exchange) -> AsyncIterator[Limit]:
     memory = Memory()
     informant = Informant(memory, [exchange])
-    orderbook = Orderbook([exchange], config={'symbol': 'eth-btc'})
-    async with memory, informant, orderbook:
-        broker = Limit(informant, orderbook, get_client_id=lambda: order_client_id)
+    orderbook = Orderbook([exchange])
+    user = User([exchange])
+    async with memory, informant, orderbook, user:
+        broker = Limit(informant, orderbook, user, get_client_id=lambda: order_client_id)
         yield broker
 
 

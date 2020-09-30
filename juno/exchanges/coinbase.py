@@ -75,6 +75,16 @@ class Coinbase(Exchange):
         await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
+    def list_candle_intervals(self) -> List[int]:
+        return [
+            60000,  # 1m
+            300000,  # 5m
+            900000,  # 15m
+            3600000,  # 1h
+            21600000,  # 6h
+            86400000,  # 1d
+        ]
+
     async def get_exchange_info(self) -> ExchangeInfo:
         # TODO: Fetch from exchange API if possible? Also has a more complex structure.
         # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
@@ -103,11 +113,11 @@ class Coinbase(Exchange):
         return ExchangeInfo(
             fees=fees,
             filters=filters,
-            # 1m, 5m, 15m, 1h, 6h, 1d
-            candle_intervals=[60000, 300000, 900000, 3600000, 21600000, 86400000]
         )
 
-    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+        # TODO: Use REST endpoint instead of WS here?
+        # https://docs.pro.coinbase.com/#get-product-ticker
         # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
         if not symbols:
             raise ValueError('Empty symbols list not supported')
@@ -117,23 +127,25 @@ class Coinbase(Exchange):
             async for msg in ws:
                 symbol = _from_product(msg['product_id'])
                 tickers[symbol] = Ticker(
-                    symbol=symbol,
-                    volume=Decimal(msg['volume_24h']),
-                    quote_volume=Decimal('0.0')  # Not supported.
+                    volume=Decimal(msg['volume_24h']),  # TODO: incorrect?!
+                    quote_volume=Decimal('0.0'),  # Not supported.
+                    price=Decimal(msg['price']),
                 )
                 if len(tickers) == len(symbols):
                     break
-        return list(tickers.values())
+        return tickers
 
-    async def map_balances(self, account: str) -> Dict[str, Balance]:
-        if account != 'spot':
-            raise NotImplementedError()
-        res = await self._private_request('GET', '/accounts')
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         result = {}
-        for balance in res.data:
-            result[
-                balance['currency'].lower()
-            ] = Balance(available=Decimal(balance['available']), hold=Decimal(balance['hold']))
+        if account == 'spot':
+            res = await self._private_request('GET', '/accounts')
+            result['spot'] = {
+                b['currency'].lower(): Balance(
+                    available=Decimal(b['available']), hold=Decimal(b['hold'])
+                ) for b in res.data
+            }
+        else:
+            raise NotImplementedError()
         return result
 
     async def stream_historical_candles(
@@ -268,11 +280,11 @@ class Coinbase(Exchange):
         # https://docs.pro.coinbase.com/#place-a-new-order
         if test or account != 'spot':
             raise NotImplementedError()
-        if type_ not in [OrderType.MARKET, OrderType.LIMIT]:
+        if type_ not in [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]:
             # Supports stop orders through params.
             raise NotImplementedError()
 
-        data = {
+        data: Dict[str, Any] = {
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
             'side': 'buy' if side is Side.BUY else 'sell',
             'product_id': _to_product(symbol),
@@ -287,6 +299,8 @@ class Coinbase(Exchange):
             data['time_in_force'] = _to_time_in_force(time_in_force)
         if client_id is not None:
             data['client_oid'] = client_id
+        if type_ is OrderType.LIMIT_MAKER:
+            data['post_only'] = True
 
         base_asset, quote_asset = unpack_symbol(symbol)
         res = await self._private_request('POST', '/orders', data=data)

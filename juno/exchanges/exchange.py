@@ -21,20 +21,26 @@ class Exchange(ABC):
     can_place_order_market_quote: bool = False  # Whether market order accepts quote param.
 
     @abstractmethod
-    async def get_exchange_info(self) -> ExchangeInfo:
-        pass
-
-    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
-        # Empty list to disable filter.
+    def list_candle_intervals(self) -> List[int]:
         pass
 
     @abstractmethod
-    async def map_balances(self, account: str) -> Dict[str, Balance]:
+    async def get_exchange_info(self) -> ExchangeInfo:
+        pass
+
+    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+        # Empty list to disable filter.
+        pass
+
+    # Result outer key - account
+    # Result inner key - asset
+    @abstractmethod
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         pass
 
     @asynccontextmanager
     async def connect_stream_balances(
-        self, account: str = 'spot'
+        self, account: str
     ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
         yield  # type: ignore
 

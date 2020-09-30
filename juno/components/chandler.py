@@ -19,7 +19,6 @@ from juno.tenacity import stop_after_attempt_with_reset
 from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
 from juno.utils import key, unpack_symbol
 
-from .informant import Informant
 from .trades import Trades
 
 _log = logging.getLogger(__name__)
@@ -33,7 +32,6 @@ class Chandler:
         self,
         storage: Storage,
         exchanges: List[Exchange],
-        informant: Optional[Informant] = None,
         trades: Optional[Trades] = None,
         get_time_ms: Callable[[], int] = time_ms,
         storage_batch_size: int = 1000,
@@ -43,14 +41,10 @@ class Chandler:
 
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._informant = informant
         self._trades = trades
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
         self._earliest_exchange_start = earliest_exchange_start
-
-        if not self._informant:
-            _log.warning('informant not setup')
 
     async def list_candles(
         self,
@@ -304,11 +298,7 @@ class Chandler:
         self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int
     ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
-        # If informant is not available, we assume the interval to be supported. We will fail in
-        # exchange if it is not.
-        is_candle_interval_supported = (
-            not self._informant or interval in self._informant.list_candle_intervals(exchange)
-        )
+        is_candle_interval_supported = interval in exchange_instance.list_candle_intervals()
 
         async def inner(stream: Optional[AsyncIterable[Candle]]) -> AsyncIterable[Candle]:
             if start < current:  # Historical.
@@ -463,9 +453,12 @@ class Chandler:
         if not candle:
             if self._exchanges[exchange].can_stream_historical_earliest_candle:
                 candle = await first_async(self._exchanges[exchange].stream_historical_candles(
-                    symbol=symbol, interval=interval, start=0, end=sys.maxsize
+                    symbol=symbol, interval=interval, start=0, end=MAX_TIME_MS
                 ))
             else:
+                # TODO: It would be faster to try to search the first candle of highest interval
+                # first. Then slowly move to more granular intervals until we find the requested
+                # one. The search space is significantly smaller with such approach.
                 candle = await self._find_first_candle_by_binary_search(exchange, symbol, interval)
             await self._storage.set(
                 shard=shard,

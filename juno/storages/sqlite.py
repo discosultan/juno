@@ -20,7 +20,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = '45'
+_VERSION = '48'
 
 T = TypeVar('T')
 
@@ -145,7 +145,7 @@ class SQLite(Storage):
             with self._connect(shard) as conn:
                 self._ensure_table(conn, _KEY_VALUE_PAIR_KEY, KeyValuePair)
                 row = conn.execute(
-                    f'SELECT * FROM {_KEY_VALUE_PAIR_KEY} WHERE key=?', [key]
+                    f'SELECT * FROM {_KEY_VALUE_PAIR_KEY} WHERE key=? LIMIT 1', [key]
                 ).fetchone()
                 return raw_to_type(json.loads(row[1]), type_) if row else None
 

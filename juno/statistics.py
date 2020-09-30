@@ -44,7 +44,7 @@ def analyse_benchmark(prices: List[Decimal]) -> AnalysisSummary:
 
 def analyse_portfolio(
     benchmark_g_returns: pd.Series,
-    fiat_prices: Dict[str, List[Decimal]],
+    asset_prices: Dict[str, List[Decimal]],
     trading_summary: TradingSummary,
     interval: int = DAY_MS,
 ) -> AnalysisSummary:
@@ -56,7 +56,7 @@ def analyse_portfolio(
     # Validate we have enough data. It may be that trading ended prematurely and we have more price
     # points available than needed.
     num_ticks = (end - start) // interval
-    for asset, prices in fiat_prices.items():
+    for asset, prices in asset_prices.items():
         if len(prices) < num_ticks:
             raise ValueError(
                 f'Expected at least {num_ticks} price points for {asset} but got {len(prices)}'
@@ -64,7 +64,7 @@ def analyse_portfolio(
 
     trades = _get_trades_from_summary(trading_summary, interval)
     asset_performance = _get_asset_performance(
-        trading_summary, start, end, fiat_prices, trades, interval
+        trading_summary, start, end, asset_prices, trades, interval
     )
     portfolio_performance = pd.Series(
         [float(sum(v for v in apd.values())) for apd in asset_performance]
@@ -96,7 +96,7 @@ def _get_asset_performance(
     summary: TradingSummary,
     start_day: int,
     end_day: int,
-    market_data: Dict[str, List[Decimal]],
+    asset_prices: Dict[str, List[Decimal]],
     trades: Dict[int, List[Tuple[str, Decimal]]],
     interval: int,
 ) -> List[Dict[str, Decimal]]:
@@ -114,9 +114,9 @@ def _get_asset_performance(
                 asset_holdings[asset] = asset_holdings[asset] + size
 
         # Update asset performance (mark-to-market portfolio).
-        asset_performance_day = {k: Decimal('0.0') for k in market_data.keys()}
-        for asset, asset_prices in market_data.items():
-            asset_performance_day[asset] = asset_holdings[asset] * asset_prices[i]
+        asset_performance_day = {k: Decimal('0.0') for k in asset_prices.keys()}
+        for asset, prices in asset_prices.items():
+            asset_performance_day[asset] = asset_holdings[asset] * prices[i]
 
         asset_performance.append(asset_performance_day)
         i += 1

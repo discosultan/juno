@@ -74,6 +74,19 @@ class Kraken(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
+    def list_candle_intervals(self) -> List[int]:
+        return [
+            60000,  # 1m
+            300000,  # 5m
+            900000,  # 15m
+            1800000,  # 30m
+            3600000,  # 1h
+            14400000,  # 4h
+            86400000,  # 1d
+            604800000,  # 1w
+            1296000000,  # 15d
+        ]
+
     async def get_exchange_info(self) -> ExchangeInfo:
         res = await self._request_public('GET', '/0/public/AssetPairs')
         fees, filters = {}, {}
@@ -92,30 +105,32 @@ class Kraken(Exchange):
             )
         return ExchangeInfo(fees=fees, filters=filters)
 
-    async def list_tickers(self, symbols: List[str] = []) -> List[Ticker]:
+    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
         if not symbols:
             raise ValueError('Empty symbols list not supported')
 
         data = {'pair': ','.join((_to_http_symbol(s) for s in symbols))}
 
         res = await self._request_public('GET', '/0/public/Ticker', data=data)
-        return [
-            Ticker(
-                symbol=_from_symbol(pair),
+        return {
+            _from_symbol(pair): Ticker(
                 volume=Decimal(val['v'][1]),
-                quote_volume=Decimal('0.0')  # Not supported.
+                quote_volume=Decimal('0.0'),  # Not supported.
+                price=Decimal(val['c'][0]),
             ) for pair, val in res['result'].items()
-        ]
+        }
 
-    async def map_balances(self, account: str) -> Dict[str, Balance]:
-        if account != 'spot':
-            raise NotImplementedError()
-        res = await self._request_private('/0/private/Balance')
+    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
         result = {}
-        for asset, available in res['result'].items():
-            if len(asset) == 4 and asset[0] in ['X', 'Z']:
-                asset = asset[1:]
-            result[asset.lower()] = Balance(available=Decimal(available), hold=Decimal('0.0'))
+        if account == 'spot':
+            res = await self._request_private('/0/private/Balance')
+            result['spot'] = {
+                a[1:].lower(): Balance(available=Decimal(v), hold=Decimal('0.0'))
+                for a, v in res['result'].items()
+                if len(a) == 4 and a[0] in ['X', 'Z']
+            }
+        else:
+            raise NotImplementedError()
         return result
 
     async def stream_historical_candles(

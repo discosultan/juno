@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from dataclasses import asdict
 
 import juno.json as json
 from juno import exchanges
@@ -26,7 +27,7 @@ async def main() -> None:
 
     if DUMP_AS_JSON:
         with open(f'{exchange_name}_{SYMBOL}_fees_filters.json', 'w') as f:
-            json.dump((fees, filters), f, indent=4)
+            json.dump((asdict(fees), asdict(filters)), f, indent=4)
 
 
 asyncio.run(main())

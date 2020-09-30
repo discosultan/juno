@@ -13,7 +13,7 @@ from typing import Iterable, List, Optional, Type, Union
 
 from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
-from juno.components import Chandler, Informant, Wallet
+from juno.components import Chandler, Informant, User
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, YEAR_MS, strftimestamp, time_ms
 from juno.utils import extract_public, unpack_symbol
@@ -585,14 +585,17 @@ class SimulatedPositionMixin(ABC):
         self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
         log: bool = True
     ) -> Position.OpenShort:
-        _, quote_asset = unpack_symbol(symbol)
+        base_asset, quote_asset = unpack_symbol(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
+        limit = self.informant.get_borrow_info(
+            exchange=exchange, asset=base_asset, account=symbol
+        ).limit
         # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
         # lowers multiplier for now for reduced risk.
         margin_multiplier = 2
         # margin_multiplier = self.informant.get_margin_multiplier(exchange)
 
-        borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
+        borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
         quote = round_down(price * borrowed, filters.quote_precision)
         fee = round_half_up(quote * fees.taker, filters.quote_precision)
 
@@ -665,7 +668,7 @@ class PositionMixin(ABC):
 
     @property
     @abstractmethod
-    def wallet(self) -> Wallet:
+    def user(self) -> User:
         pass
 
     async def open_long_position(
@@ -731,24 +734,28 @@ class PositionMixin(ABC):
         price = (await self.chandler.get_last_candle(exchange, symbol, MIN_MS)).close
 
         if mode is TradingMode.PAPER:
-            borrowed = _calculate_borrowed(filters, margin_multiplier, collateral, price)
+            limit = self.informant.get_borrow_info(
+                exchange=exchange, asset=base_asset, account=symbol
+            ).limit
+            borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
         else:
-            _log.info(f'transferring {collateral} {quote_asset} to margin account')
-            await self.wallet.transfer(
-                exchange=exchange,
-                asset=quote_asset,
-                size=collateral,
-                from_account='spot',
-                to_account=symbol,
+            _log.info(f'transferring {collateral} {quote_asset} from spot to {symbol} account')
+            async with self.user.sync_wallet(exchange=exchange, account=symbol) as wallet:
+                await self.user.transfer(
+                    exchange=exchange,
+                    asset=quote_asset,
+                    size=collateral,
+                    from_account='spot',
+                    to_account=symbol,
+                )
+                await wallet.updated.wait()
+
+            limit = await self.user.get_max_borrowable(
+                exchange=exchange, asset=base_asset, account=symbol
             )
-            borrowed = min(
-                _calculate_borrowed(filters, margin_multiplier, collateral, price),
-                await self.wallet.get_max_borrowable(
-                    exchange=exchange, asset=base_asset, account=symbol
-                ),
-            )
+            borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
-            await self.wallet.borrow(
+            await self.user.borrow(
                 exchange=exchange,
                 asset=base_asset,
                 size=borrowed,
@@ -796,10 +803,10 @@ class PositionMixin(ABC):
                 end=time_ms(),
             )
         else:
-            interest = (await self.wallet.get_balance2(
+            interest = (await self.user.get_balance(
                 exchange=position.exchange,
-                asset=base_asset,
                 account=position.symbol,
+                asset=base_asset,
             )).interest
 
         size = position.borrowed + interest
@@ -822,7 +829,7 @@ class PositionMixin(ABC):
             _log.info(
                 f'repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}'
             )
-            await self.wallet.repay(
+            await self.user.repay(
                 exchange=position.exchange,
                 asset=base_asset,
                 size=position.borrowed + interest,
@@ -833,10 +840,10 @@ class PositionMixin(ABC):
             # still be borrowed funds on the account. Double check and repay more if that is the
             # case.
             # Careful with this check! We may have another position still open.
-            new_balance = await self.wallet.get_balance2(
+            new_balance = await self.user.get_balance(
                 exchange=position.exchange,
-                asset=base_asset,
                 account=position.symbol,
+                asset=base_asset,
             )
             if new_balance.repay > 0:
                 _log.warning(
@@ -853,21 +860,23 @@ class PositionMixin(ABC):
                         'implemented'
                     )
                     raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
-                await self.wallet.repay(
+                await self.user.repay(
                     exchange=position.exchange,
                     asset=base_asset,
                     size=new_balance.repay,
                     account=position.symbol,
                 )
-                assert (await self.wallet.get_balance2(
+                assert (await self.user.get_balance(
                     exchange=position.exchange,
-                    asset=base_asset,
                     account=position.symbol,
+                    asset=base_asset,
                 )).repay == 0
 
             transfer = closed_position.collateral + closed_position.profit
-            _log.info(f'transferring {transfer} {quote_asset} to spot account')
-            await self.wallet.transfer(
+            _log.info(
+                f'transferring {transfer} {quote_asset} from {position.symbol} to spot account'
+            )
+            await self.user.transfer(
                 exchange=position.exchange,
                 asset=quote_asset,
                 size=transfer,
@@ -882,7 +891,7 @@ class PositionMixin(ABC):
 
 
 def _calculate_borrowed(
-    filters: Filters, margin_multiplier: int, collateral: Decimal, price: Decimal
+    filters: Filters, margin_multiplier: int, limit: Decimal, collateral: Decimal, price: Decimal
 ) -> Decimal:
     collateral_size = filters.size.round_down(collateral / price)
     if collateral_size == 0:
@@ -890,7 +899,7 @@ def _calculate_borrowed(
     borrowed = collateral_size * (margin_multiplier - 1)
     if borrowed == 0:
         raise OrderException('Borrowed 0; incorrect margin multiplier?')
-    return borrowed
+    return min(borrowed, limit)
 
 
 def _calculate_interest(borrowed: Decimal, hourly_rate: Decimal, start: int, end: int) -> Decimal:

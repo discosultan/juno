@@ -22,9 +22,10 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
+        candle_intervals=[],
         exchange_info=ExchangeInfo(),
-        tickers=[],
-        balances={},
+        tickers={},
+        balances={'spot': {}},
         future_balances=[],
         depth=Depth.Snapshot(),
         future_depths=[],
@@ -41,6 +42,7 @@ class Exchange(exchanges.Exchange):
             # TODO: Rename candle_queue to future_candles.
             self.candle_queue.put_nowait(future_candle)
 
+        self.candle_intervals = candle_intervals
         self.exchange_info = exchange_info
         self.get_exchange_info_calls = []
         self.tickers = tickers
@@ -69,12 +71,15 @@ class Exchange(exchanges.Exchange):
         for future_trade in future_trades:
             self.trade_queue.put_nowait(future_trade)
 
+    def list_candle_intervals(self):
+        return self.candle_intervals
+
     async def get_exchange_info(self):
         result = self.exchange_info
         self.get_exchange_info_calls.append([result])
         return result
 
-    async def list_tickers(self):
+    async def map_tickers(self):
         return self.tickers
 
     async def map_balances(self, account):
@@ -201,7 +206,7 @@ class Informant(components.Informant):
         filters=Filters(),
         symbols=[],
         candle_intervals=[],
-        tickers=[],
+        tickers={},
         exchanges=[],
         borrow_info=BorrowInfo(),
         margin_multiplier=2,
@@ -237,8 +242,9 @@ class Informant(components.Informant):
     def list_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
 
-    def list_tickers(
-        self, exchange, symbol_pattern=None, spot=True, cross_margin=False, isolated_margin=False
+    def map_tickers(
+        self, exchange, symbol_patterns=None, exclude_symbol_patterns=None, spot=True,
+        cross_margin=False, isolated_margin=False
     ):
         return self.tickers
 
