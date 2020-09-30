@@ -1,5 +1,6 @@
 use super::{Chromosome, Individual, TradingChromosome};
 use crate::{
+    SymbolExt,
     common::{BorrowInfo, Candle, Fees, Filters},
     fill_missing_candles, statistics, storages,
     strategies::Strategy,
@@ -44,8 +45,6 @@ impl<T: Strategy> BasicEvaluation<T> {
         let symbol_ctxs = symbols
             .iter()
             .map(|&symbol| {
-                let dash_i = symbol.find('-').unwrap();
-                let base_asset = &symbol[0..dash_i];
                 let candles =
                     storages::list_candles(exchange, symbol, interval, start, end).unwrap();
                 // TODO: Do listing and filling of missing candles in one go.
@@ -59,7 +58,7 @@ impl<T: Strategy> BasicEvaluation<T> {
                     candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
-                    borrow_info: exchange_info.borrow_info[symbol][base_asset],
+                    borrow_info: exchange_info.borrow_info[symbol][symbol.base_asset()],
                     stats_base_prices: stats_prices,
                 }
             })

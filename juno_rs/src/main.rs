@@ -5,15 +5,9 @@ use juno_rs::{
     traders,
 };
 
-// TODO: Move to lib. Cleanup duplicate.
-pub fn unpack(value: &str) -> (&str, &str) {
-    let dash_i = value.find('-').unwrap();
-    (&value[dash_i..], &value[0..dash_i])
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // optimize()
-    backtest()
+    optimize()
+    // backtest()
 }
 
 fn optimize() -> Result<(), Box<dyn std::error::Error>> {
@@ -45,7 +39,6 @@ fn backtest() -> Result<(), Box<dyn std::error::Error>> {
     let end = "2020-01-01".to_timestamp();
     let quote = 1.0;
 
-    let (_, base_asset) = unpack(symbol);
     let candles = storages::list_candles(exchange, symbol, DAY_MS, start, end)?;
     let exchange_info = storages::get_exchange_info(exchange)?;
 
@@ -59,7 +52,7 @@ fn backtest() -> Result<(), Box<dyn std::error::Error>> {
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
-        &exchange_info.borrow_info[symbol][base_asset],
+        &exchange_info.borrow_info[symbol][symbol.base_asset()],
         2,
         interval,
         quote,
