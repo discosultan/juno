@@ -41,7 +41,9 @@ class TripleMA:
         medium_period: int = 9,  # Common 9 or 10.
         long_period: int = 18,  # Common 18 or 20.
     ) -> None:
+        assert short_period > 0
         assert short_period < medium_period < long_period
+
         self._short_ma = get_module_type(indicators, short_ma)(short_period)
         self._medium_ma = get_module_type(indicators, medium_ma)(medium_period)
         self._long_ma = get_module_type(indicators, long_ma)(long_period)
