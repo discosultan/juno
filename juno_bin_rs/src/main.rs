@@ -9,6 +9,7 @@ use juno_rs::{
     strategies::{self, Strategy},
     tactics, traders,
 };
+use prettytable::{Table, Row, Cell};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: support validating against arbitrary threshold.
