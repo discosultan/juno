@@ -54,10 +54,13 @@ where
         // TODO: Get rid of this assertion.
         assert_eq!(population_size % 2, 0);
 
-        let mut rng = match seed {
-            Some(seed) => StdRng::seed_from_u64(seed),
-            None => StdRng::from_entropy(),
+        let seed = match seed {
+            Some(seed) => seed,
+            None => rand::thread_rng().gen_range(0, u64::MAX),
         };
+        println!("using seed {}", seed);
+
+        let mut rng = StdRng::seed_from_u64(seed);
 
         let mut gens = Vec::with_capacity(generations);
 
