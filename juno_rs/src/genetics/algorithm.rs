@@ -49,7 +49,7 @@ where
         population_size: usize,
         generations: usize,
         seed: Option<u64>,
-    ) -> Individual<TE::Chromosome> {
+    ) -> Vec<Individual<TE::Chromosome>> {
         assert!(population_size >= 2);
         // TODO: Get rid of this assertion.
         assert_eq!(population_size % 2, 0);
@@ -59,6 +59,8 @@ where
             None => StdRng::from_entropy(),
         };
 
+        let mut gens = Vec::with_capacity(generations);
+
         let mut parents = (0..population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
@@ -67,13 +69,16 @@ where
         let mut offsprings = Vec::with_capacity(population_size as usize);
 
         for i in 0..generations {
-            println!("gen {} best fitness {}", i, parents[0].fitness);
             self.run_generation(&mut rng, &mut parents, &mut offsprings, population_size);
+
             std::mem::swap(&mut parents, &mut offsprings);
             offsprings.clear();
+
+            gens.push(parents[0].clone());
+            println!("gen {} best fitness {}", i, parents[0].fitness);
         }
 
-        parents[0].clone()
+        gens
     }
 
     fn run_generation(

@@ -31,7 +31,7 @@ fn optimize<T: Strategy>() -> Result<(), Box<dyn std::error::Error>> {
     let symbols = ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"];
     // let symbols = ["eth-btc"];
     // let interval = DAY_MS;
-    let interval = HOUR_MS; // 8
+    let interval = 8 * HOUR_MS; // 8
     // let interval = 15 * MIN_MS;
     let start = "2017-12-08".to_timestamp();
     let end = "2020-09-30".to_timestamp();
@@ -51,7 +51,9 @@ fn optimize<T: Strategy>() -> Result<(), Box<dyn std::error::Error>> {
     let population_size = 512;
     let generations = 64;
     let seed = Some(1);
-    let best_individual = algo.evolve(population_size, generations, seed);
+    let gens = algo.evolve(population_size, generations, seed);
+    let best_individual = &gens[gens.len() - 1];
+
     let symbol_fitnesses = algo
         .evaluation
         .evaluate_symbols(&best_individual.chromosome);
