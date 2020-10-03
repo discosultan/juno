@@ -1,11 +1,7 @@
-use crate::{
-    genetics::Chromosome,
-    indicators,
-    Candle,
-};
+use super::{Oscillator, Tactic};
+use crate::{genetics::Chromosome, indicators, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
-use super::{Oscillator, Tactic};
 
 #[repr(C)]
 #[derive(Chromosome, Clone, Debug)]
@@ -40,6 +36,10 @@ impl Tactic for Rsi {
             up_threshold: params.up_threshold,
             down_threshold: params.down_threshold,
         }
+    }
+
+    fn maturity(&self) -> u32 {
+        self.rsi.maturity()
     }
 
     fn update(&mut self, candle: &Candle) {

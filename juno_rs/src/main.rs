@@ -1,15 +1,23 @@
 #![allow(dead_code)]
 
 use juno_rs::{
-    fill_missing_candles, genetics, indicators, prelude::*, statistics, storages, strategies,
-    traders,
+    fill_missing_candles,
+    genetics::{crossover, evaluation, mutation, reinsertion, selection, GeneticAlgorithm},
+    indicators,
+    prelude::*,
+    statistics, storages,
+    strategies::{self, Strategy},
+    tactics, traders,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
     // TODO: Print out trading summaries.
-    optimize()?;
+    // optimize::<strategies::Cx<tactics::DoubleMA>>()?;
+    // optimize::<strategies::Cx<tactics::TripleMA>>()?;
+    // optimize::<strategies::CxOsc<tactics::SingleMA, tactics::Rsi>>()?;
+    optimize::<strategies::CxOsc<tactics::TripleMA, tactics::Rsi>>()?;
     // backtest("eth-btc")?;
     // backtest("ltc-btc")?;
     // backtest("xrp-btc")?;
@@ -18,41 +26,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn optimize() -> Result<(), Box<dyn std::error::Error>> {
+fn optimize<T: Strategy>() -> Result<(), Box<dyn std::error::Error>> {
     let exchange = "binance";
     let symbols = ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"];
     // let symbols = ["eth-btc"];
     // let interval = DAY_MS;
-    let interval = 8 * HOUR_MS;
+    let interval = HOUR_MS; // 8
     // let interval = 15 * MIN_MS;
     let start = "2017-12-08".to_timestamp();
     let end = "2020-09-30".to_timestamp();
     let quote = 1.0;
 
-    let algo = genetics::GeneticAlgorithm::new(
-        genetics::evaluation::BasicEvaluation::<strategies::FourWeekRule>::new(
-            exchange, &symbols, interval, start, end, quote,
-        )?,
-        genetics::selection::EliteSelection::default(),
-        // genetics::selection::TournamentSelection::default(),
-        // genetics::crossover::UniformCrossover::default(),
-        genetics::crossover::UniformCrossover::new(0.75),
-        // genetics::mutation::UniformMutation::default(),
-        genetics::mutation::UniformMutation::new(0.25),
-        // genetics::reinsertion::EliteReinsertion::default(),
-        genetics::reinsertion::EliteReinsertion::new(0.75),
+    let algo = GeneticAlgorithm::new(
+        evaluation::BasicEvaluation::<T>::new(exchange, &symbols, interval, start, end, quote)?,
+        selection::EliteSelection::default(),
+        // selection::TournamentSelection::default(),
+        // crossover::UniformCrossover::default(),
+        crossover::UniformCrossover::new(0.75),
+        // mutation::UniformMutation::default(),
+        mutation::UniformMutation::new(0.25),
+        // reinsertion::EliteReinsertion::default(),
+        reinsertion::EliteReinsertion::new(0.75),
     );
     let population_size = 512;
     let generations = 64;
-    let best_individual = algo.evolve(population_size, generations, Some(1));
-    println!("{:?}", best_individual);
-
+    let seed = Some(1);
+    let best_individual = algo.evolve(population_size, generations, seed);
     let symbol_fitnesses = algo
         .evaluation
         .evaluate_symbols(&best_individual.chromosome);
-    for (symbol, fitness) in symbols.iter().zip(symbol_fitnesses) {
-        println!("{} sharpe ratio - {}", symbol, fitness);
-    }
+
+    println!("strategy {}", std::any::type_name::<T>());
+    println!("interval {}", interval.to_interval_str());
+    println!("best individual {:?}", best_individual);
+    symbols
+        .iter()
+        .zip(symbol_fitnesses)
+        .for_each(|(symbol, fitness)| println!("{} sharpe ratio - {}", symbol, fitness));
 
     Ok(())
 }

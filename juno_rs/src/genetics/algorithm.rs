@@ -67,7 +67,7 @@ where
         let mut offsprings = Vec::with_capacity(population_size as usize);
 
         for i in 0..generations {
-            println!("gen {}", i);
+            println!("gen {} best fitness {}", i, parents[0].fitness);
             self.run_generation(&mut rng, &mut parents, &mut offsprings, population_size);
             std::mem::swap(&mut parents, &mut offsprings);
             offsprings.clear();

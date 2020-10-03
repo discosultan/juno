@@ -1,12 +1,11 @@
+use super::{Signal, Tactic};
 use crate::{
     genetics::Chromosome,
     indicators::{ma_from_adler32, MA, MA_CHOICES},
-    strategies::{combine, MidTrend, Persistence, Strategy},
     Advice, Candle,
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
-use std::cmp::min;
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
@@ -44,39 +43,38 @@ pub struct TripleMA {
     medium_ma: Box<dyn MA>,
     long_ma: Box<dyn MA>,
     advice: Advice,
-    mid_trend: MidTrend,
-    persistence: Persistence,
-    t: u32,
-    t1: u32,
 }
 
 unsafe impl Send for TripleMA {}
 unsafe impl Sync for TripleMA {}
 
-impl Strategy for TripleMA {
+impl Tactic for TripleMA {
     type Params = TripleMAParams;
 
     fn new(params: &Self::Params) -> Self {
         let (short_period, medium_period, long_period) = params.periods;
+        assert!(short_period > 0);
+        assert!(short_period < medium_period);
+        assert!(medium_period < long_period);
+
         Self {
             short_ma: ma_from_adler32(params.short_ma, short_period),
             medium_ma: ma_from_adler32(params.medium_ma, medium_period),
             long_ma: ma_from_adler32(params.long_ma, long_period),
             advice: Advice::None,
-            mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(0, false),
-            t: 0,
-            t1: long_period - 1,
         }
     }
 
-    fn update(&mut self, candle: &Candle) -> Advice {
+    fn maturity(&self) -> u32 {
+        self.long_ma.maturity()
+    }
+
+    fn update(&mut self, candle: &Candle) {
         self.short_ma.update(candle.close);
         self.medium_ma.update(candle.close);
         self.long_ma.update(candle.close);
 
-        let mut advice = Advice::None;
-        if self.t == self.t1 {
+        if self.long_ma.mature() {
             if self.short_ma.value() > self.medium_ma.value()
                 && self.medium_ma.value() > self.long_ma.value()
             {
@@ -96,14 +94,12 @@ impl Strategy for TripleMA {
             {
                 self.advice = Advice::Liquidate;
             }
-
-            advice = combine(
-                self.mid_trend.update(self.advice),
-                self.persistence.update(self.advice),
-            );
         }
+    }
+}
 
-        self.t = min(self.t + 1, self.t1);
-        advice
+impl Signal for TripleMA {
+    fn advice(&self) -> Advice {
+        self.advice
     }
 }
