@@ -2,18 +2,14 @@ use crate::{
     math::{floor_multiple, mean, std_deviation},
     trading::{Position, TradingContext},
 };
-use lazy_static::lazy_static;
 use ndarray::prelude::*;
 use ndarray_stats::CorrelationExt;
 use std::collections::HashMap;
 
 pub type AnalysisResult = (f64,);
 
-const DAY_MS: u64 = 86_400_000;
-
-lazy_static! {
-    static ref SQRT_365: f64 = 365.0_f64.sqrt();
-}
+// TODO: Use const fn when `365.0.sqrt()` is supported.
+const SQRT_365: f64 = 19.10497317454279908588432590477168560028076171875;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Asset {
@@ -156,7 +152,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
     let annualized_return = 365.0 * mean(&g_returns);
 
     // Sharpe ratio.
-    let annualized_volatility = *SQRT_365 * std_deviation(&g_returns);
+    let annualized_volatility = SQRT_365 * std_deviation(&g_returns);
     let sharpe_ratio = annualized_return / annualized_volatility;
 
     // Sortino ratio.
@@ -165,7 +161,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         .cloned()
         .filter(|&v| v < 0.0)
         .collect::<Vec<f64>>();
-    let annualized_downside_risk = *SQRT_365 * std_deviation(&neg_g_returns);
+    let annualized_downside_risk = SQRT_365 * std_deviation(&neg_g_returns);
     let sortino_ratio = annualized_return / annualized_downside_risk;
 
     Statistics {
@@ -260,7 +256,7 @@ pub fn get_sharpe_ratio(
             .sum::<f64>()
             / length as f64;
         let std_dev = variance.sqrt();
-        let annualized_volatility = *SQRT_365 * std_dev;
+        let annualized_volatility = SQRT_365 * std_dev;
         annualized_return / annualized_volatility
     };
 
