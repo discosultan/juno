@@ -31,6 +31,7 @@ fn main() -> Result<()> {
         quote: 1.0,
     };
     let symbols = vec!["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"];
+    let validation_symbols = vec!["ada-btc"];
 
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
@@ -38,7 +39,9 @@ fn main() -> Result<()> {
     // optimize::<strategies::Cx<tactics::DoubleMA>>()?;
     // optimize::<strategies::Cx<tactics::TripleMA>>()?;
     // optimize::<strategies::CxOsc<tactics::SingleMA, tactics::Rsi>>()?;
-    optimize::<strategies::CxOsc<tactics::TripleMA, tactics::Rsi>>(&args, &symbols)?;
+    optimize_validate_print::<strategies::CxOsc<tactics::TripleMA, tactics::Rsi>>(
+        &args, &symbols, &validation_symbols
+    )?;
 
     // let chromosome = TradingChromosome {
     //     trader: TraderParams {
@@ -59,7 +62,21 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn optimize<T: Strategy>(args: &Params, symbols: &[&str]) -> Result<()> {
+fn optimize_validate_print<T: Strategy>(
+    args: &Params, symbols: &[&str], validation_symbols: &[&str]
+) -> Result<()> {
+    // Optimize.
+    let gens = optimize::<T>(&args, &symbols)?;
+
+    // print_best_individual::<T>(args, symbols, &gens);
+    print_all_generations::<T>(&args, &symbols, &validation_symbols, &gens);
+
+    Ok(())
+}
+
+fn optimize<T: Strategy>(
+    args: &Params, symbols: &[&str]
+) -> Result<Vec<Individual<TradingChromosome<T::Params>>>> {
     let algo = GeneticAlgorithm::new(
         evaluation::BasicEvaluation::<T>::new(
             args.exchange, symbols, args.interval, args.start, args.end, args.quote
@@ -77,15 +94,13 @@ fn optimize<T: Strategy>(args: &Params, symbols: &[&str]) -> Result<()> {
     let generations = 64;
     let seed = Some(1);
     let gens = algo.evolve(population_size, generations, seed);
-
-    // print_best_individual::<T>(args, symbols, &gens);
-    print_all_generations::<T>(args, symbols, &gens);
-
-    Ok(())
+    Ok(gens)
 }
 
 fn print_best_individual<T: Strategy>(
-    args: &Params, symbols: &[&str], gens: &[Individual<TradingChromosome<T::Params>>]
+    args: &Params,
+    symbols: &[&str],
+    gens: &[Individual<TradingChromosome<T::Params>>]
 ) {
     let best_individual = &gens[gens.len() - 1];
 
@@ -104,13 +119,19 @@ fn print_best_individual<T: Strategy>(
 }
 
 fn print_all_generations<T: Strategy>(
-    args: &Params, symbols: &[&str], gens: &[Individual<TradingChromosome<T::Params>>]
+    args: &Params,
+    symbols: &[&str],
+    validation_symbols: &[&str],
+    gens: &[Individual<TradingChromosome<T::Params>>],
 ) {
     let mut table = Table::new();
     let mut cells = vec![Cell::new("")];
     symbols
         .iter()
         .for_each(|symbol| cells.push(Cell::new(&format!("{} sharpe", symbol))));
+    validation_symbols
+        .iter()
+        .for_each(|symbol| cells.push(Cell::new(&format!("{} sharpe (v)", symbol))));
     cells.push(Cell::new("fitness"));
     table.add_row(Row::new(cells));
 
@@ -120,15 +141,30 @@ fn print_all_generations<T: Strategy>(
             continue;
         }
 
-        let symbol_fitnesses: Vec<f64> = symbols
+        // Gen number.
+        let mut cells = vec![Cell::new(&(i + 1).to_string())];
+
+        // Training symbol sharpes.
+        let symbol_sharpes: Vec<f64> = symbols
             .iter()
             .map(|symbol| backtest::<T>(args, symbol, &ind.chromosome).unwrap())
             .collect();
-        let mut cells = vec![Cell::new(&(i + 1).to_string())];
-        symbol_fitnesses
+        symbol_sharpes
             .iter()
             .for_each(|fitness| cells.push(Cell::new(&fitness.to_string())));
+
+        // Validation symbol sharpes.
+        let validation_symbol_sharpes: Vec<f64> = validation_symbols
+            .iter()
+            .map(|symbol| backtest::<T>(args, symbol, &ind.chromosome).unwrap())
+            .collect();
+        validation_symbol_sharpes
+            .iter()
+            .for_each(|fitness| cells.push(Cell::new(&fitness.to_string())));
+
+        // Fitness.
         cells.push(Cell::new(&ind.fitness.to_string()));
+
         table.add_row(Row::new(cells));
 
         last_fitness = ind.fitness;
