@@ -1,6 +1,7 @@
 mod cx;
 mod cx_osc;
 mod double_ma;
+mod four_week_rule;
 mod rsi;
 mod single_ma;
 mod triple_ma;
@@ -8,6 +9,7 @@ mod triple_ma;
 pub use cx::{Cx, CxParams};
 pub use cx_osc::{CxOsc, CxOscParams};
 pub use double_ma::{DoubleMA, DoubleMAParams};
+pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
 pub use rsi::{Rsi, RsiParams};
 pub use single_ma::{SingleMA, SingleMAParams};
 pub use triple_ma::{TripleMA, TripleMAParams};

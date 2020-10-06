@@ -1,6 +1,6 @@
 use crate::{
     statistics,
-    strategies::{self, Strategy},
+    tactics::{self, Signal},
     time::DAY_MS,
     traders::trade,
     BorrowInfo, Candle, Fees, Filters,
@@ -10,7 +10,7 @@ use std::slice;
 // #[no_mangle]
 // pub unsafe extern "C" fn singlema(
 //     trading_info: *const TradingInfo,
-//     strategy_info: *const strategies::SingleMAParams,
+//     strategy_info: *const tactics::SingleMAParams,
 //     analysis_info: *const AnalysisInfo,
 // ) -> FitnessValues {
 //     run_test::<strategies::SingleMA>(trading_info, strategy_info, analysis_info)
@@ -19,7 +19,7 @@ use std::slice;
 // #[no_mangle]
 // pub unsafe extern "C" fn doublema(
 //     trading_info: *const TradingInfo,
-//     strategy_info: *const strategies::DoubleMAParams,
+//     strategy_info: *const tactics::DoubleMAParams,
 //     analysis_info: *const AnalysisInfo,
 // ) -> FitnessValues {
 //     run_test::<strategies::DoubleMA>(trading_info, strategy_info, analysis_info)
@@ -28,114 +28,113 @@ use std::slice;
 #[no_mangle]
 pub unsafe extern "C" fn triplema(
     trading_info: *const TradingInfo,
-    strategy_info: *const strategies::TripleMAParams,
+    strategy_info: *const tactics::TripleMAParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    run_test::<strategies::TripleMA>(trading_info, strategy_info, analysis_info)
+    run_test::<tactics::TripleMA>(trading_info, strategy_info, analysis_info)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn fourweekrule(
     trading_info: *const TradingInfo,
-    strategy_info: *const strategies::FourWeekRuleParams,
+    strategy_info: *const tactics::FourWeekRuleParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    run_test::<strategies::FourWeekRule>(trading_info, strategy_info, analysis_info)
+    run_test::<tactics::FourWeekRule>(trading_info, strategy_info, analysis_info)
 }
 
 // #[no_mangle]
 // pub unsafe extern "C" fn macd(
 //     trading_info: *const TradingInfo,
-//     strategy_info: *const strategies::MacdParams,
+//     strategy_info: *const tactics::MacdParams,
 //     analysis_info: *const AnalysisInfo,
 // ) -> FitnessValues {
-//     run_test::<strategies::Macd>(trading_info, strategy_info, analysis_info)
+//     run_test::<tactics::Macd>(trading_info, strategy_info, analysis_info)
 // }
 
 // #[no_mangle]
 // pub unsafe extern "C" fn macdrsi(
 //     trading_info: *const TradingInfo,
-//     strategy_info: *const strategies::MacdRsiParams,
+//     strategy_info: *const tactics::MacdRsiParams,
 //     analysis_info: *const AnalysisInfo,
 // ) -> FitnessValues {
-//     run_test::<strategies::MacdRsi>(trading_info, strategy_info, analysis_info)
+//     run_test::<tactics::MacdRsi>(trading_info, strategy_info, analysis_info)
 // }
 
 // #[no_mangle]
 // pub unsafe extern "C" fn mamacx(
 //     trading_info: *const TradingInfo,
-//     strategy_info: *const strategies::MAMACXParams,
+//     strategy_info: *const tactics::MAMACXParams,
 //     analysis_info: *const AnalysisInfo,
 // ) -> FitnessValues {
-//     run_test::<strategies::MAMACX>(trading_info, strategy_info, analysis_info)
+//     run_test::<tactics::MAMACX>(trading_info, strategy_info, analysis_info)
 // }
 
-unsafe fn run_test<TS: Strategy>(
+unsafe fn run_test<T: Signal>(
     trading_info: *const TradingInfo,
-    strategy_params: *const TS::Params,
+    strategy_params: *const T::Params,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    FitnessValues(0.0)
-    // // Trading.
-    // // Turn unsafe ptrs to safe references.
-    // let trading_info = &*trading_info;
-    // let strategy_params = &*strategy_params;
-    // let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
-    // let fees = &*trading_info.fees;
-    // let filters = &*trading_info.filters;
-    // let borrow_info = &*trading_info.borrow_info;
-    // let trading_result = trade::<TS>(
-    //     strategy_params,
-    //     candles,
-    //     fees,
-    //     filters,
-    //     borrow_info,
-    //     trading_info.margin_multiplier,
-    //     trading_info.interval,
-    //     trading_info.quote,
-    //     trading_info.missed_candle_policy,
-    //     trading_info.stop_loss,
-    //     trading_info.trail_stop_loss,
-    //     trading_info.take_profit,
-    //     trading_info.long,
-    //     trading_info.short,
-    // );
+    // Trading.
+    // Turn unsafe ptrs to safe references.
+    let trading_info = &*trading_info;
+    let strategy_params = &*strategy_params;
+    let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
+    let fees = &*trading_info.fees;
+    let filters = &*trading_info.filters;
+    let borrow_info = &*trading_info.borrow_info;
+    let trading_result = trade::<T>(
+        strategy_params,
+        candles,
+        fees,
+        filters,
+        borrow_info,
+        trading_info.margin_multiplier,
+        trading_info.interval,
+        trading_info.quote,
+        trading_info.missed_candle_policy,
+        trading_info.stop_loss,
+        trading_info.trail_stop_loss,
+        trading_info.take_profit,
+        trading_info.long,
+        trading_info.short,
+    );
 
-    // // Analysis.
-    // let analysis_info = &*analysis_info;
-    // let quote_fiat_prices = slice::from_raw_parts(
-    //     analysis_info.quote_fiat_prices,
-    //     analysis_info.quote_fiat_prices_length as usize,
-    // );
-    // let base_fiat_prices = slice::from_raw_parts(
-    //     analysis_info.base_fiat_prices,
-    //     analysis_info.base_fiat_prices_length as usize,
-    // );
-    // let benchmark_g_returns = slice::from_raw_parts(
-    //     analysis_info.benchmark_g_returns,
-    //     analysis_info.benchmark_g_returns_length as usize,
-    // );
+    // Analysis.
+    let analysis_info = &*analysis_info;
+    let quote_fiat_prices = slice::from_raw_parts(
+        analysis_info.quote_fiat_prices,
+        analysis_info.quote_fiat_prices_length as usize,
+    );
+    let base_fiat_prices = slice::from_raw_parts(
+        analysis_info.base_fiat_prices,
+        analysis_info.base_fiat_prices_length as usize,
+    );
+    let benchmark_g_returns = slice::from_raw_parts(
+        analysis_info.benchmark_g_returns,
+        analysis_info.benchmark_g_returns_length as usize,
+    );
 
-    // let stats = statistics::analyse(
-    //     &base_fiat_prices,
-    //     Some(&quote_fiat_prices),
-    //     benchmark_g_returns,
-    //     &trading_result,
-    //     DAY_MS,
-    // );
+    let stats = statistics::analyse(
+        &base_fiat_prices,
+        Some(&quote_fiat_prices),
+        benchmark_g_returns,
+        &trading_result,
+        DAY_MS,
+    );
 
-    // // Combine.
-    // FitnessValues(
-    //     stats.sharpe_ratio,
-    //     // stats.sortino_ratio,
-    //     // trading_result.profit,
-    //     // trading_result.mean_drawdown,
-    //     // trading_result.max_drawdown,
-    //     // trading_result.mean_position_profit,
-    //     // trading_result.mean_position_duration,
-    //     // trading_result.num_positions_in_profit,
-    //     // trading_result.num_positions_in_loss,
-    // )
+    // Combine.
+    FitnessValues(
+        stats.sharpe_ratio,
+        // stats.sortino_ratio,
+        // trading_result.profit,
+        // trading_result.mean_drawdown,
+        // trading_result.max_drawdown,
+        // trading_result.mean_position_profit,
+        // trading_result.mean_position_duration,
+        // trading_result.num_positions_in_profit,
+        // trading_result.num_positions_in_loss,
+    )
 }
 
 #[repr(C)]
