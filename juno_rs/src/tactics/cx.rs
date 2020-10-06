@@ -1,12 +1,11 @@
 use crate::{
     genetics::Chromosome,
     indicators::{ma_from_adler32, MA, MA_CHOICES},
-    strategies::{combine, MidTrend, Persistence, Strategy},
+    strategies::{combine, MidTrend, Persistence},
     tactics::{Oscillator, Signal, Tactic},
     Advice, Candle,
 };
 use rand::prelude::*;
-use std::cmp::min;
 
 #[derive(Clone, Debug)]
 pub struct CxParams<C: Chromosome> {
@@ -33,14 +32,14 @@ impl<C: Chromosome> Chromosome for CxParams<C> {
     }
 }
 
-pub struct Cx<C: Tactic + Signal> {
+pub struct Cx<C: Signal> {
     cx: C,
     // short_ma: Box<dyn MA>,
     // medium_ma: Box<dyn MA>,
     // long_ma: Box<dyn MA>,
     // advice: Advice,
-    // mid_trend: MidTrend,
-    // persistence: Persistence,
+    mid_trend: MidTrend,
+    persistence: Persistence,
     // t: u32,
     // t1: u32,
 }
@@ -48,7 +47,7 @@ pub struct Cx<C: Tactic + Signal> {
 // unsafe impl Send for CxOsc {}
 // unsafe impl Sync for CxOsc {}
 
-impl<C: Tactic + Signal> Strategy for Cx<C> {
+impl<C: Signal> Tactic for Cx<C> {
     type Params = CxParams<C::Params>;
 
     fn new(params: &Self::Params) -> Self {
@@ -58,16 +57,23 @@ impl<C: Tactic + Signal> Strategy for Cx<C> {
             // medium_ma: ma_from_adler32(params.medium_ma, medium_period),
             // long_ma: ma_from_adler32(params.long_ma, long_period),
             // advice: Advice::None,
-            // mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            // persistence: Persistence::new(0, false),
+            mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
+            persistence: Persistence::new(0, false),
             // t: 0,
             // t1: long_period - 1,
         }
     }
 
-    fn update(&mut self, candle: &Candle) -> Advice {
+    fn maturity(&self) -> u32 {
+        self.cx.maturity()
+    }
+
+    fn mature(&self) -> bool {
+        self.cx.mature()
+    }
+
+    fn update(&mut self, candle: &Candle) {
         self.cx.update(candle);
-        self.cx.advice()
         // Advice::None
         // self.short_ma.update(candle.close);
         // self.medium_ma.update(candle.close);
@@ -105,3 +111,10 @@ impl<C: Tactic + Signal> Strategy for Cx<C> {
         // advice
     }
 }
+
+impl<C: Signal> Signal for Cx<C> {
+    fn advice(&self) -> Advice {
+        self.cx.advice()
+    }
+}
+

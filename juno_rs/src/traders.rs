@@ -1,6 +1,7 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
-    strategies::{Changed, Strategy},
+    strategies::{Changed},
+    tactics::Signal,
     trading::{LongPosition, Position, ShortPosition, StopLoss, TakeProfit, TradingContext},
     Advice, BorrowInfo, Candle, Fees, Filters,
 };
@@ -11,7 +12,7 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 
 const HOUR_MS: u64 = 3_600_000;
 
-struct State<T: Strategy> {
+struct State<T: Signal> {
     pub strategy: T,
     pub changed: Changed,
     pub quote: f64,
@@ -21,7 +22,7 @@ struct State<T: Strategy> {
     pub take_profit: TakeProfit,
 }
 
-impl<T: Strategy> State<T> {
+impl<T: Signal> State<T> {
     pub fn new(
         strategy: T,
         quote: f64,
@@ -41,8 +42,8 @@ impl<T: Strategy> State<T> {
     }
 }
 
-pub fn trade<TS: Strategy>(
-    strategy_params: &TS::Params,
+pub fn trade<T: Signal>(
+    strategy_params: &T::Params,
     candles: &[Candle],
     fees: &Fees,
     filters: &Filters,
@@ -68,7 +69,7 @@ pub fn trade<TS: Strategy>(
 
     let mut summary = TradingContext::new(start, end, quote);
     let mut state = State::new(
-        TS::new(strategy_params),
+        T::new(strategy_params),
         quote,
         stop_loss,
         trail_stop_loss,
@@ -86,7 +87,7 @@ pub fn trade<TS: Strategy>(
                 let diff = candle.time - last_candle.time;
                 if missed_candle_policy == 1 && diff >= two_interval {
                     restart = true;
-                    state.strategy = TS::new(strategy_params);
+                    state.strategy = T::new(strategy_params);
                 } else if missed_candle_policy == 2 && diff >= two_interval {
                     let num_missed = diff / interval - 1;
                     for i in 1..=num_missed {
@@ -177,7 +178,7 @@ pub fn trade<TS: Strategy>(
     summary
 }
 
-fn tick<T: Strategy>(
+fn tick<T: Signal>(
     mut state: &mut State<T>,
     mut summary: &mut TradingContext,
     fees: &Fees,
@@ -191,7 +192,8 @@ fn tick<T: Strategy>(
 ) -> Result<(), &'static str> {
     state.stop_loss.update(candle);
     state.take_profit.update(candle);
-    let advice = state.changed.update(state.strategy.update(&candle));
+    state.strategy.update(&candle);
+    let advice = state.changed.update(state.strategy.advice());
 
     match state.open_position {
         Some(Position::Long(_))
@@ -256,7 +258,7 @@ fn tick<T: Strategy>(
     Ok(())
 }
 
-fn try_open_long_position<T: Strategy>(
+fn try_open_long_position<T: Signal>(
     state: &mut State<T>,
     fees: &Fees,
     filters: &Filters,
@@ -279,7 +281,7 @@ fn try_open_long_position<T: Strategy>(
     Ok(())
 }
 
-fn close_long_position<T: Strategy>(
+fn close_long_position<T: Signal>(
     state: &mut State<T>,
     summary: &mut TradingContext,
     fees: &Fees,
@@ -304,7 +306,7 @@ fn close_long_position<T: Strategy>(
     }
 }
 
-fn try_open_short_position<T: Strategy>(
+fn try_open_short_position<T: Signal>(
     state: &mut State<T>,
     fees: &Fees,
     filters: &Filters,
@@ -339,7 +341,7 @@ fn try_open_short_position<T: Strategy>(
     Ok(())
 }
 
-fn close_short_position<T: Strategy>(
+fn close_short_position<T: Signal>(
     state: &mut State<T>,
     summary: &mut TradingContext,
     fees: &Fees,

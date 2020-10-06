@@ -75,66 +75,67 @@ unsafe fn run_test<TS: Strategy>(
     strategy_params: *const TS::Params,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    // Trading.
-    // Turn unsafe ptrs to safe references.
-    let trading_info = &*trading_info;
-    let strategy_params = &*strategy_params;
-    let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
-    let fees = &*trading_info.fees;
-    let filters = &*trading_info.filters;
-    let borrow_info = &*trading_info.borrow_info;
-    let trading_result = trade::<TS>(
-        strategy_params,
-        candles,
-        fees,
-        filters,
-        borrow_info,
-        trading_info.margin_multiplier,
-        trading_info.interval,
-        trading_info.quote,
-        trading_info.missed_candle_policy,
-        trading_info.stop_loss,
-        trading_info.trail_stop_loss,
-        trading_info.take_profit,
-        trading_info.long,
-        trading_info.short,
-    );
+    FitnessValues(0.0)
+    // // Trading.
+    // // Turn unsafe ptrs to safe references.
+    // let trading_info = &*trading_info;
+    // let strategy_params = &*strategy_params;
+    // let candles = slice::from_raw_parts(trading_info.candles, trading_info.candles_length as usize);
+    // let fees = &*trading_info.fees;
+    // let filters = &*trading_info.filters;
+    // let borrow_info = &*trading_info.borrow_info;
+    // let trading_result = trade::<TS>(
+    //     strategy_params,
+    //     candles,
+    //     fees,
+    //     filters,
+    //     borrow_info,
+    //     trading_info.margin_multiplier,
+    //     trading_info.interval,
+    //     trading_info.quote,
+    //     trading_info.missed_candle_policy,
+    //     trading_info.stop_loss,
+    //     trading_info.trail_stop_loss,
+    //     trading_info.take_profit,
+    //     trading_info.long,
+    //     trading_info.short,
+    // );
 
-    // Analysis.
-    let analysis_info = &*analysis_info;
-    let quote_fiat_prices = slice::from_raw_parts(
-        analysis_info.quote_fiat_prices,
-        analysis_info.quote_fiat_prices_length as usize,
-    );
-    let base_fiat_prices = slice::from_raw_parts(
-        analysis_info.base_fiat_prices,
-        analysis_info.base_fiat_prices_length as usize,
-    );
-    let benchmark_g_returns = slice::from_raw_parts(
-        analysis_info.benchmark_g_returns,
-        analysis_info.benchmark_g_returns_length as usize,
-    );
+    // // Analysis.
+    // let analysis_info = &*analysis_info;
+    // let quote_fiat_prices = slice::from_raw_parts(
+    //     analysis_info.quote_fiat_prices,
+    //     analysis_info.quote_fiat_prices_length as usize,
+    // );
+    // let base_fiat_prices = slice::from_raw_parts(
+    //     analysis_info.base_fiat_prices,
+    //     analysis_info.base_fiat_prices_length as usize,
+    // );
+    // let benchmark_g_returns = slice::from_raw_parts(
+    //     analysis_info.benchmark_g_returns,
+    //     analysis_info.benchmark_g_returns_length as usize,
+    // );
 
-    let stats = statistics::analyse(
-        &base_fiat_prices,
-        Some(&quote_fiat_prices),
-        benchmark_g_returns,
-        &trading_result,
-        DAY_MS,
-    );
+    // let stats = statistics::analyse(
+    //     &base_fiat_prices,
+    //     Some(&quote_fiat_prices),
+    //     benchmark_g_returns,
+    //     &trading_result,
+    //     DAY_MS,
+    // );
 
-    // Combine.
-    FitnessValues(
-        stats.sharpe_ratio,
-        // stats.sortino_ratio,
-        // trading_result.profit,
-        // trading_result.mean_drawdown,
-        // trading_result.max_drawdown,
-        // trading_result.mean_position_profit,
-        // trading_result.mean_position_duration,
-        // trading_result.num_positions_in_profit,
-        // trading_result.num_positions_in_loss,
-    )
+    // // Combine.
+    // FitnessValues(
+    //     stats.sharpe_ratio,
+    //     // stats.sortino_ratio,
+    //     // trading_result.profit,
+    //     // trading_result.mean_drawdown,
+    //     // trading_result.max_drawdown,
+    //     // trading_result.mean_position_profit,
+    //     // trading_result.mean_position_duration,
+    //     // trading_result.num_positions_in_profit,
+    //     // trading_result.num_positions_in_loss,
+    // )
 }
 
 #[repr(C)]

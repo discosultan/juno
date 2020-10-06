@@ -42,6 +42,10 @@ impl Tactic for Rsi {
         self.rsi.maturity()
     }
 
+    fn mature(&self) -> bool {
+        self.rsi.mature()
+    }
+
     fn update(&mut self, candle: &Candle) {
         self.rsi.update(candle.close);
     }

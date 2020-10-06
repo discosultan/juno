@@ -3,14 +3,15 @@
 use juno_rs::{
     fill_missing_candles,
     genetics::{
-        crossover, evaluation, mutation, reinsertion, selection, GeneticAlgorithm, Individual, TradingChromosome
+        crossover, evaluation, mutation, reinsertion, selection, GeneticAlgorithm, Individual,
+        TraderParams, TradingChromosome,
     },
     prelude::*,
     statistics, storages,
-    strategies::{self, Strategy},
-    tactics, traders,
+    tactics::{self, Signal},
+    traders,
 };
-use prettytable::{Table, Row, Cell};
+use prettytable::{Cell, Row, Table};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
@@ -39,9 +40,11 @@ fn main() -> Result<()> {
     // optimize::<strategies::Cx<tactics::DoubleMA>>()?;
     // optimize::<strategies::Cx<tactics::TripleMA>>()?;
     // optimize::<strategies::CxOsc<tactics::SingleMA, tactics::Rsi>>()?;
-    optimize_validate_print::<strategies::CxOsc<tactics::TripleMA, tactics::Rsi>>(
-        &args, &symbols, &validation_symbols
-    )?;
+    // optimize_validate_print::<strategies::CxOsc<tactics::TripleMA, tactics::Rsi>>(
+    //     &args,
+    //     &symbols,
+    //     &validation_symbols,
+    // )?;
 
     // let chromosome = TradingChromosome {
     //     trader: TraderParams {
@@ -58,12 +61,36 @@ fn main() -> Result<()> {
     //     },
     // };
     // backtest::<strategies::FourWeekRule>(&args, "eth-btc", &chromosome)?;
+    let chromosome = TradingChromosome {
+        trader: TraderParams {
+            missed_candle_policy: 0,
+            stop_loss: 0.9669264261498001,
+            trail_stop_loss: true,
+            take_profit: 0.0,
+        },
+        strategy: tactics::CxOscParams {
+            cx_params: tactics::TripleMAParams {
+                short_ma: 72483247,
+                medium_ma: 66978200,
+                long_ma: 68026779,
+                periods: (35, 48, 97),
+            },
+            osc_params: tactics::RsiParams {
+                period: 88,
+                up_threshold: 64.11491594864773,
+                down_threshold: 34.31436808000039,
+            },
+        },
+    };
+    backtest::<tactics::CxOsc<tactics::TripleMA, tactics::Rsi>>(&args, "eth-btc", &chromosome)?;
 
     Ok(())
 }
 
-fn optimize_validate_print<T: Strategy>(
-    args: &Params, symbols: &[&str], validation_symbols: &[&str]
+fn optimize_validate_print<T: Signal>(
+    args: &Params,
+    symbols: &[&str],
+    validation_symbols: &[&str],
 ) -> Result<()> {
     // Optimize.
     let gens = optimize::<T>(&args, &symbols)?;
@@ -74,12 +101,18 @@ fn optimize_validate_print<T: Strategy>(
     Ok(())
 }
 
-fn optimize<T: Strategy>(
-    args: &Params, symbols: &[&str]
+fn optimize<T: Signal>(
+    args: &Params,
+    symbols: &[&str],
 ) -> Result<Vec<Individual<TradingChromosome<T::Params>>>> {
     let algo = GeneticAlgorithm::new(
         evaluation::BasicEvaluation::<T>::new(
-            args.exchange, symbols, args.interval, args.start, args.end, args.quote
+            args.exchange,
+            symbols,
+            args.interval,
+            args.start,
+            args.end,
+            args.quote,
         )?,
         selection::EliteSelection::default(),
         // selection::TournamentSelection::default(),
@@ -97,10 +130,10 @@ fn optimize<T: Strategy>(
     Ok(gens)
 }
 
-fn print_best_individual<T: Strategy>(
+fn print_best_individual<T: Signal>(
     args: &Params,
     symbols: &[&str],
-    gens: &[Individual<TradingChromosome<T::Params>>]
+    gens: &[Individual<TradingChromosome<T::Params>>],
 ) {
     let best_individual = &gens[gens.len() - 1];
 
@@ -118,7 +151,7 @@ fn print_best_individual<T: Strategy>(
         .for_each(|(symbol, fitness)| println!("{} sharpe ratio - {}", symbol, fitness));
 }
 
-fn print_all_generations<T: Strategy>(
+fn print_all_generations<T: Signal>(
     args: &Params,
     symbols: &[&str],
     validation_symbols: &[&str],
@@ -137,12 +170,16 @@ fn print_all_generations<T: Strategy>(
 
     let mut last_fitness = f64::NAN;
     for (i, ind) in gens.iter().enumerate() {
+        if i == 27 {
+            println!("{:?}", ind);
+        }
+
         if ind.fitness == last_fitness {
             continue;
         }
 
         // Gen number.
-        let mut cells = vec![Cell::new(&(i + 1).to_string())];
+        let mut cells = vec![Cell::new(&i.to_string())];
 
         // Training symbol sharpes.
         let symbol_sharpes: Vec<f64> = symbols
@@ -175,12 +212,13 @@ fn print_all_generations<T: Strategy>(
     table.printstd();
 }
 
-fn backtest<T: Strategy>(
-    args: &Params, symbol: &str, chrom: &TradingChromosome<T::Params>
+fn backtest<T: Signal>(
+    args: &Params,
+    symbol: &str,
+    chrom: &TradingChromosome<T::Params>,
 ) -> Result<f64> {
-    let candles = storages::list_candles(
-        args.exchange, symbol, args.interval, args.start, args.end
-    )?;
+    let candles =
+        storages::list_candles(args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(args.exchange)?;
 
     let summary = traders::trade::<T>(
@@ -202,12 +240,10 @@ fn backtest<T: Strategy>(
     // println!("summary {:?}", summary);
 
     let stats_interval = DAY_MS;
-    let stats_candles = storages::list_candles(
-        args.exchange, symbol, stats_interval, args.start, args.end
-    )?;
-    let candles_missing_filled = fill_missing_candles(
-        stats_interval, args.start, args.end, &stats_candles
-    );
+    let stats_candles =
+        storages::list_candles(args.exchange, symbol, stats_interval, args.start, args.end)?;
+    let candles_missing_filled =
+        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles);
     let base_prices: Vec<f64> = candles_missing_filled
         .iter()
         .map(|candle| candle.close)
@@ -215,5 +251,15 @@ fn backtest<T: Strategy>(
     // let stats = statistics::analyse(&base_prices, None, &[], &summary, args.interval);
     // println!("old sharpe ratio {}", stats.sharpe_ratio);
 
-    Ok(statistics::get_sharpe_ratio(&summary, &base_prices, None, stats_interval))
+    println!("{:?}", summary.get_summary());
+
+    let sharpe = statistics::get_sharpe_ratio(
+        &summary,
+        &base_prices,
+        None,
+        stats_interval,
+    );
+    println!("sharpe {}", sharpe);
+
+    Ok(sharpe)
 }

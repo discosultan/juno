@@ -68,10 +68,12 @@ where
             .map(|_| Individual::generate(&mut rng))
             .collect();
         self.evaluate_and_sort_by_fitness_desc(&mut parents);
+        gens.push(parents[0].clone());
+        println!("gen 0 best fitness {}", parents[0].fitness);
 
         let mut offsprings = Vec::with_capacity(population_size as usize);
 
-        for i in 0..generations {
+        for i in 1..=generations {
             self.run_generation(&mut rng, &mut parents, &mut offsprings, population_size);
 
             std::mem::swap(&mut parents, &mut offsprings);

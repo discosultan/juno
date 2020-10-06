@@ -69,6 +69,10 @@ impl Tactic for TripleMA {
         self.long_ma.maturity()
     }
 
+    fn mature(&self) -> bool {
+        self.long_ma.mature()
+    }
+
     fn update(&mut self, candle: &Candle) {
         self.short_ma.update(candle.close);
         self.medium_ma.update(candle.close);

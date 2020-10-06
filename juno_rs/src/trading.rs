@@ -237,7 +237,7 @@ impl TradingContext {
         let mut num_positions_in_profit = 0;
         let mut num_positions_in_loss = 0;
 
-        let mut drawdowns = Vec::with_capacity(self.positions.len());
+        // let mut drawdowns = Vec::with_capacity(self.positions.len());
         let mut max_drawdown = 0.0;
         let mut total_drawdown = 0.0;
 
@@ -261,7 +261,7 @@ impl TradingContext {
             quote += pos_profit;
             max_quote = f64::max(max_quote, quote);
             let drawdown = 1.0 - quote / max_quote;
-            drawdowns.push(drawdown);
+            // drawdowns.push(drawdown);
             total_drawdown += drawdown;
             max_drawdown = f64::max(max_drawdown, drawdown);
         }
@@ -294,7 +294,7 @@ impl TradingContext {
             annualized_roi,
             mean_position_profit,
             mean_position_duration,
-            drawdowns,
+            // drawdowns,
             max_drawdown,
             mean_drawdown,
             num_positions: self.positions.len() as u32,
@@ -304,6 +304,7 @@ impl TradingContext {
     }
 }
 
+#[derive(Debug)]
 pub struct TradingSummary {
     pub start: u64,
     pub end: u64,
@@ -315,7 +316,7 @@ pub struct TradingSummary {
     pub annualized_roi: f64,
     pub mean_position_profit: f64,
     pub mean_position_duration: u64,
-    pub drawdowns: Vec<f64>,
+    // pub drawdowns: Vec<f64>,
     pub max_drawdown: f64,
     pub mean_drawdown: f64,
     pub num_positions: u32,

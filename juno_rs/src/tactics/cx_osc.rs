@@ -1,12 +1,12 @@
 use crate::{
     genetics::Chromosome,
     indicators::{ma_from_adler32, MA, MA_CHOICES},
-    strategies::{combine, MidTrend, Persistence, Strategy},
+    strategies::{combine, MidTrend, Persistence},
     tactics::{Oscillator, Signal, Tactic},
     Advice, Candle,
 };
 use rand::prelude::*;
-use std::cmp::min;
+use std::cmp::max;
 
 #[derive(Clone, Debug)]
 pub struct CxOscParams<C: Chromosome, O: Chromosome> {
@@ -59,7 +59,7 @@ pub struct CxOsc<C: Tactic + Signal, O: Tactic + Oscillator> {
 // unsafe impl Send for CxOsc {}
 // unsafe impl Sync for CxOsc {}
 
-impl<C: Tactic + Signal, O: Tactic + Oscillator> Strategy for CxOsc<C, O> {
+impl<C: Signal, O: Oscillator> Tactic for CxOsc<C, O> {
     type Params = CxOscParams<C::Params, O::Params>;
 
     fn new(params: &Self::Params) -> Self {
@@ -77,28 +77,18 @@ impl<C: Tactic + Signal, O: Tactic + Oscillator> Strategy for CxOsc<C, O> {
         }
     }
 
-    fn update(&mut self, candle: &Candle) -> Advice {
+    fn maturity(&self) -> u32 {
+        max(self.cx.maturity(), self.osc.maturity())
+    }
+
+    fn mature(&self) -> bool {
+        self.cx.mature() && self.osc.mature()
+    }
+
+    fn update(&mut self, candle: &Candle) {
         self.cx.update(candle);
         self.osc.update(candle);
 
-        match self.cx.advice() {
-            Advice::None => Advice::None,
-            Advice::Liquidate => Advice::Liquidate,
-            Advice::Long => {
-                if self.osc.oversold() {
-                    Advice::Long
-                } else {
-                    Advice::Liquidate
-                }
-            }
-            Advice::Short => {
-                if self.osc.oversold() {
-                    Advice::Short
-                } else {
-                    Advice::Liquidate
-                }
-            }
-        }
         // Advice::None
         // self.short_ma.update(candle.close);
         // self.medium_ma.update(candle.close);
@@ -134,5 +124,32 @@ impl<C: Tactic + Signal, O: Tactic + Oscillator> Strategy for CxOsc<C, O> {
 
         // self.t = min(self.t + 1, self.t1);
         // advice
+    }
+}
+
+impl<C: Signal, O: Oscillator> Signal for CxOsc<C, O> {
+    fn advice(&self) -> Advice {
+        if self.mature() {
+            match self.cx.advice() {
+                Advice::None => Advice::None,
+                Advice::Liquidate => Advice::Liquidate,
+                Advice::Long => {
+                    if self.osc.oversold() {
+                        Advice::Long
+                    } else {
+                        Advice::Liquidate
+                    }
+                }
+                Advice::Short => {
+                    if self.osc.oversold() {
+                        Advice::Short
+                    } else {
+                        Advice::Liquidate
+                    }
+                }
+            }
+        } else {
+            Advice::None
+        }
     }
 }

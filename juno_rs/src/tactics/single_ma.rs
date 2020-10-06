@@ -47,6 +47,10 @@ impl Tactic for SingleMA {
         self.ma.maturity()
     }
 
+    fn mature(&self) -> bool {
+        self.ma.mature()
+    }
+
     fn update(&mut self, candle: &Candle) {
         self.ma.update(candle.close);
 
