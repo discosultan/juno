@@ -1,9 +1,7 @@
-// mod macd;
 // mod macdrsi;
 // mod mamacx;
 // mod rsi;
 
-// pub use macd::{Macd, MacdParams};
 // pub use macdrsi::{MacdRsi, MacdRsiParams};
 // pub use mamacx::{MAMACX, MAMACXParams};
 // pub use rsi::{Rsi, RsiParams};
