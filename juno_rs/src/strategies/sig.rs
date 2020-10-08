@@ -38,8 +38,6 @@ pub struct Sig<S: Signal> {
     advice: Advice,
     mid_trend: MidTrend,
     persistence: Persistence,
-    // t: u32,
-    // t1: u32,
 }
 
 impl<S: Signal> Strategy for Sig<S> {
@@ -48,14 +46,9 @@ impl<S: Signal> Strategy for Sig<S> {
     fn new(params: &Self::Params) -> Self {
         Self {
             sig: S::new(&params.sig_params),
-            // short_ma: ma_from_adler32(params.short_ma, short_period),
-            // medium_ma: ma_from_adler32(params.medium_ma, medium_period),
-            // long_ma: ma_from_adler32(params.long_ma, long_period),
             advice: Advice::None,
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
             persistence: Persistence::new(0, false),
-            // t: 0,
-            // t1: long_period - 1,
         }
     }
 
@@ -71,38 +64,10 @@ impl<S: Signal> Strategy for Sig<S> {
         self.sig.update(candle);
         if self.sig.mature() {
             self.advice = self.mid_trend.update(self.sig.advice())
+            // advice = combine(
+            //     self.mid_trend.update(self.advice),
+            //     self.persistence.update(self.advice),
+            // );
         }
-        // Advice::None
-
-        // let mut advice = Advice::None;
-        // if self.t == self.t1 {
-        //     if self.short_ma.value() > self.medium_ma.value()
-        //         && self.medium_ma.value() > self.long_ma.value()
-        //     {
-        //         self.advice = Advice::Long;
-        //     } else if self.short_ma.value() < self.medium_ma.value()
-        //         && self.medium_ma.value() < self.long_ma.value()
-        //     {
-        //         self.advice = Advice::Short;
-        //     } else if self.advice == Advice::Short
-        //         && self.short_ma.value() > self.medium_ma.value()
-        //         && self.short_ma.value() > self.long_ma.value()
-        //     {
-        //         self.advice = Advice::Liquidate
-        //     } else if self.advice == Advice::Long
-        //         && self.short_ma.value() < self.medium_ma.value()
-        //         && self.short_ma.value() < self.long_ma.value()
-        //     {
-        //         self.advice = Advice::Liquidate;
-        //     }
-
-        //     advice = combine(
-        //         self.mid_trend.update(self.advice),
-        //         self.persistence.update(self.advice),
-        //     );
-        // }
-
-        // self.t = min(self.t + 1, self.t1);
-        // advice
     }
 }
