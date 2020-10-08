@@ -35,6 +35,7 @@ fn signal_period(rng: &mut StdRng) -> u32 {
     rng.gen_range(1, 100)
 }
 
+#[derive(Signal)]
 pub struct Macd {
     macd: indicators::Macd,
     advice: Advice,
@@ -71,11 +72,5 @@ impl Tactic for Macd {
                 Advice::Short
             }
         }
-    }
-}
-
-impl Signal for Macd {
-    fn advice(&self) -> Advice {
-        self.advice
     }
 }

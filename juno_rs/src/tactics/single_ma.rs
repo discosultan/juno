@@ -21,6 +21,7 @@ fn period(rng: &mut StdRng) -> u32 {
     rng.gen_range(1, 100)
 }
 
+#[derive(Signal)]
 pub struct SingleMA {
     ma: Box<dyn MA>,
     previous_ma_value: f64,
@@ -63,11 +64,5 @@ impl Tactic for SingleMA {
         }
 
         self.previous_ma_value = self.ma.value()
-    }
-}
-
-impl Signal for SingleMA {
-    fn advice(&self) -> Advice {
-        self.advice
     }
 }

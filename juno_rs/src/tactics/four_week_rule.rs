@@ -39,6 +39,7 @@ fn ma_period(rng: &mut StdRng) -> u32 {
 
 // We can use https://github.com/dtolnay/typetag to serialize a Box<dyn trait> if needed. Otherwise,
 // turn it into a generic and use a macro to generate all variations.
+#[derive(Signal)]
 pub struct FourWeekRule {
     prices: VecDeque<f64>,
     ma: Box<dyn indicators::MA + Send + Sync>,
@@ -71,7 +72,6 @@ impl Tactic for FourWeekRule {
     fn update(&mut self, candle: &Candle) {
         self.ma.update(candle.close);
 
-        let mut advice = Advice::None;
         if self.mature() {
             let (lowest, highest) = self.prices.iter().minmax();
 
@@ -90,11 +90,5 @@ impl Tactic for FourWeekRule {
 
         self.prices.push_back(candle.close);
         self.t = min(self.t + 1, self.t1);
-    }
-}
-
-impl Signal for FourWeekRule {
-    fn advice(&self) -> Advice {
-        self.advice
     }
 }

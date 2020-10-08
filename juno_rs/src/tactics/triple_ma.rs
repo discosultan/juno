@@ -38,6 +38,7 @@ fn periods(rng: &mut StdRng) -> (u32, u32, u32) {
     }
 }
 
+#[derive(Signal)]
 pub struct TripleMA {
     short_ma: Box<dyn MA>,
     medium_ma: Box<dyn MA>,
@@ -99,11 +100,5 @@ impl Tactic for TripleMA {
                 self.advice = Advice::Liquidate;
             }
         }
-    }
-}
-
-impl Signal for TripleMA {
-    fn advice(&self) -> Advice {
-        self.advice
     }
 }
