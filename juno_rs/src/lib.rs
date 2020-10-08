@@ -11,7 +11,6 @@ pub mod prelude;
 pub mod statistics;
 pub mod storages;
 pub mod strategies;
-pub mod tactics;
 pub mod time;
 pub mod traders;
 pub mod trading;

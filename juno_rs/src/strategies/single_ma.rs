@@ -1,4 +1,4 @@
-use super::{Signal, Tactic};
+use super::{Signal, Strategy};
 use crate::{
     genetics::Chromosome,
     indicators::{ma_from_adler32, MA, MA_CHOICES},
@@ -31,7 +31,7 @@ pub struct SingleMA {
 unsafe impl Send for SingleMA {}
 unsafe impl Sync for SingleMA {}
 
-impl Tactic for SingleMA {
+impl Strategy for SingleMA {
     type Params = SingleMAParams;
 
     fn new(params: &Self::Params) -> Self {

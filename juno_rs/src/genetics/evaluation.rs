@@ -2,7 +2,7 @@ use super::{Chromosome, Individual, TradingChromosome};
 use crate::{
     common::{BorrowInfo, Candle, Fees, Filters},
     fill_missing_candles, statistics, storages,
-    tactics::Signal,
+    strategies::Signal,
     time, traders, SymbolExt,
 };
 use rayon::prelude::*;

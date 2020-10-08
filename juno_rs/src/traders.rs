@@ -1,7 +1,7 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
     strategies::{Changed},
-    tactics::Signal,
+    strategies::Signal,
     trading::{LongPosition, Position, ShortPosition, StopLoss, TakeProfit, TradingContext},
     Advice, BorrowInfo, Candle, Fees, Filters,
 };

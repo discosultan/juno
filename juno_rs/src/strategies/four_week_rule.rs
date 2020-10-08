@@ -2,12 +2,12 @@ use crate::{
     genetics::Chromosome,
     indicators,
     itertools::IteratorExt,
-    tactics::{Signal, Tactic},
     Advice, Candle,
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
 use std::{cmp::min, collections::VecDeque};
+use super::{Signal, Strategy};
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
@@ -48,7 +48,7 @@ pub struct FourWeekRule {
     t1: u32,
 }
 
-impl Tactic for FourWeekRule {
+impl Strategy for FourWeekRule {
     type Params = FourWeekRuleParams;
 
     fn new(params: &Self::Params) -> Self {

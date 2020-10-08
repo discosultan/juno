@@ -8,7 +8,7 @@ use juno_rs::{
     },
     prelude::*,
     statistics, storages,
-    tactics::{self, Signal},
+    strategies::*,
     traders,
 };
 use prettytable::{Cell, Row, Table};
@@ -37,10 +37,10 @@ fn main() -> Result<()> {
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
     // TODO: Print out trading summaries.
-    // optimize::<strategies::Cx<tactics::DoubleMA>>()?;
-    // optimize::<strategies::Cx<tactics::TripleMA>>()?;
-    // optimize::<strategies::CxOsc<tactics::SingleMA, tactics::Rsi>>()?;
-    // optimize_validate_print::<strategies::CxOsc<tactics::TripleMA, tactics::Rsi>>(
+    // optimize::<Sig<DoubleMA>>()?;
+    // optimize::<Sig<TripleMA>>()?;
+    // optimize::<SigOsc<SingleMA, Rsi>>()?;
+    // optimize_validate_print::<SigOsc<TripleMA, Rsi>>(
     //     &args,
     //     &symbols,
     //     &validation_symbols,
@@ -53,14 +53,14 @@ fn main() -> Result<()> {
     //         trail_stop_loss: true,
     //         take_profit: 0.0,
     //     },
-    //     strategy: strategies::FourWeekRuleParams {
+    //     strategy: FourWeekRuleParams {
     //         period: 28,
     //         ma: indicators::adler32::KAMA,
     //         ma_period: 14,
-    //         mid_trend_policy: strategies::MidTrend::POLICY_IGNORE,
+    //         mid_trend_policy: MidTrend::POLICY_IGNORE,
     //     },
     // };
-    // backtest::<strategies::FourWeekRule>(&args, "eth-btc", &chromosome)?;
+    // backtest::<FourWeekRule>(&args, "eth-btc", &chromosome)?;
     let chromosome = TradingChromosome {
         trader: TraderParams {
             missed_candle_policy: 0,
@@ -68,21 +68,21 @@ fn main() -> Result<()> {
             trail_stop_loss: true,
             take_profit: 0.0,
         },
-        strategy: tactics::CxOscParams {
-            cx_params: tactics::TripleMAParams {
+        strategy: SigOscParams {
+            cx_params: TripleMAParams {
                 short_ma: 72483247,
                 medium_ma: 66978200,
                 long_ma: 68026779,
                 periods: (35, 48, 97),
             },
-            osc_params: tactics::RsiParams {
+            osc_params: RsiParams {
                 period: 88,
                 up_threshold: 64.11491594864773,
                 down_threshold: 34.31436808000039,
             },
         },
     };
-    backtest::<tactics::CxOsc<tactics::TripleMA, tactics::Rsi>>(&args, "eth-btc", &chromosome)?;
+    backtest::<SigOsc<TripleMA, Rsi>>(&args, "eth-btc", &chromosome)?;
 
     Ok(())
 }

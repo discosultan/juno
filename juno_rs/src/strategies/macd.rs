@@ -1,11 +1,11 @@
 use crate::{
     genetics::Chromosome,
     indicators,
-    tactics::{Signal, Tactic},
     Advice, Candle,
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
+use super::{Signal, Strategy};
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
@@ -41,7 +41,7 @@ pub struct Macd {
     advice: Advice,
 }
 
-impl Tactic for Macd {
+impl Strategy for Macd {
     type Params = MacdParams;
 
     fn new(params: &Self::Params) -> Self {

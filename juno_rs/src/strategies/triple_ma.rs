@@ -1,4 +1,4 @@
-use super::{Signal, Tactic};
+use super::{Signal, Strategy};
 use crate::{
     genetics::Chromosome,
     indicators::{ma_from_adler32, MA, MA_CHOICES},
@@ -49,7 +49,7 @@ pub struct TripleMA {
 unsafe impl Send for TripleMA {}
 unsafe impl Sync for TripleMA {}
 
-impl Tactic for TripleMA {
+impl Strategy for TripleMA {
     type Params = TripleMAParams;
 
     fn new(params: &Self::Params) -> Self {
