@@ -51,8 +51,6 @@ class MAMACX(StrategyBase):
             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
         )
 
-        self._short_ma = get_module_type(indicators, short_ma)(short_period)
-        self._long_ma = get_module_type(indicators, long_ma)(long_period)
         self._neg_threshold = neg_threshold
         self._pos_threshold = pos_threshold
 
