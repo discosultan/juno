@@ -31,8 +31,8 @@ fn main() -> Result<()> {
         end: "2020-09-30".to_timestamp(),
         quote: 1.0,
     };
-    let symbols = vec!["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"];
-    let validation_symbols = vec!["ada-btc"];
+    // let symbols = vec!["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"];
+    // let validation_symbols = vec!["ada-btc"];
 
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.

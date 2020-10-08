@@ -1,6 +1,5 @@
 use crate::{
     genetics::Chromosome,
-    indicators::{ma_from_adler32, MA, MA_CHOICES},
     strategies::{combine, MidTrend, Persistence},
     Advice, Candle,
 };
@@ -55,9 +54,6 @@ pub struct SigOsc<C: Signal, O: Oscillator> {
     // t: u32,
     // t1: u32,
 }
-
-// unsafe impl Send for CxOsc {}
-// unsafe impl Sync for CxOsc {}
 
 impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
     type Params = SigOscParams<S::Params, O::Params>;

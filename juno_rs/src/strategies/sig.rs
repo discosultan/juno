@@ -1,6 +1,5 @@
 use crate::{
     genetics::Chromosome,
-    indicators::{ma_from_adler32, MA, MA_CHOICES},
     strategies::{combine, MidTrend, Persistence},
     Advice, Candle,
 };
