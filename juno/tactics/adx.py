@@ -27,6 +27,10 @@ class Adx:
     def maturity(self) -> int:
         return self._adx.maturity
 
+    @property
+    def mature(self) -> bool:
+        return self._adx.mature
+
     def update(self, candle: Candle) -> None:
         self._adx.update(candle.high, candle.low)
         if self._adx.mature:

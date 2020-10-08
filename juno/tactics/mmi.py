@@ -27,6 +27,10 @@ class Mmi:
     def maturity(self) -> int:
         return self._mmi.maturity
 
+    @property
+    def mature(self) -> bool:
+        return self._mmi.mature
+
     def update(self, candle: Candle) -> None:
         self._mmi.update(candle.close)
         if self._mmi.mature:

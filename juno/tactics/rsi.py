@@ -39,6 +39,10 @@ class Rsi:
         return self._rsi.maturity
 
     @property
+    def mature(self) -> bool:
+        return self._rsi.mature
+
+    @property
     def overbought(self) -> bool:
         return self._rsi.mature and self._rsi.value >= self._up_threshold
 

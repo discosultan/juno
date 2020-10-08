@@ -52,6 +52,10 @@ class TripleMA:
     def maturity(self) -> int:
         return self._long_ma.maturity
 
+    @property
+    def mature(self) -> bool:
+        return self._long_ma.mature
+
     def update(self, candle: Candle) -> Advice:
         self._short_ma.update(candle.close)
         self._medium_ma.update(candle.close)

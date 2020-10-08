@@ -43,6 +43,10 @@ class FourWeekRule:
     def maturity(self) -> int:
         return self._t1
 
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
+
     def update(self, candle: Candle) -> Advice:
         self._t = min(self._t + 1, self._t1)
         self._ma.update(candle.close)

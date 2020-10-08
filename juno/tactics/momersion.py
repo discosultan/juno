@@ -27,6 +27,10 @@ class Momersion:
     def maturity(self) -> int:
         return self._momersion.maturity
 
+    @property
+    def mature(self) -> bool:
+        return self._momersion.mature
+
     def update(self, candle: Candle) -> None:
         self._momersion.update(candle.close)
         if self._momersion.mature:
