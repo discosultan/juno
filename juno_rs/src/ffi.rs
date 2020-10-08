@@ -16,14 +16,14 @@ use std::slice;
 //     run_test::<strategies::SingleMA>(trading_info, strategy_info, analysis_info)
 // }
 
-// #[no_mangle]
-// pub unsafe extern "C" fn doublema(
-//     trading_info: *const TradingInfo,
-//     strategy_info: *const strategies::DoubleMAParams,
-//     analysis_info: *const AnalysisInfo,
-// ) -> FitnessValues {
-//     run_test::<strategies::DoubleMA>(trading_info, strategy_info, analysis_info)
-// }
+#[no_mangle]
+pub unsafe extern "C" fn doublema(
+    trading_info: *const TradingInfo,
+    strategy_info: *const strategies::DoubleMAParams,
+    analysis_info: *const AnalysisInfo,
+) -> FitnessValues {
+    run_test::<strategies::DoubleMA>(trading_info, strategy_info, analysis_info)
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn triplema(

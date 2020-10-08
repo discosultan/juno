@@ -77,7 +77,7 @@ class Rust(Solver):
         if not dst_path.is_file():
             _log.info(f'compiling rust module with working directory {src_dir}')
             proc = await asyncio.create_subprocess_shell(
-                'cargo build --release',
+                'cargo build --release --package juno_rs',
                 cwd=src_dir,
                 # stdout=asyncio.subprocess.PIPE,
                 # stderr=asyncio.subprocess.PIPE,

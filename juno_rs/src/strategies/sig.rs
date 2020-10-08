@@ -3,6 +3,7 @@ use crate::{
     strategies::{combine, MidTrend, Persistence},
     Advice, Candle,
 };
+use juno_derive_rs::*;
 use rand::prelude::*;
 use super::{Signal, Strategy};
 
@@ -31,9 +32,10 @@ impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
     }
 }
 
+#[derive(Signal)]
 pub struct Sig<S: Signal> {
     sig: S,
-    // advice: Advice,
+    advice: Advice,
     mid_trend: MidTrend,
     persistence: Persistence,
     // t: u32,
@@ -49,7 +51,7 @@ impl<S: Signal> Strategy for Sig<S> {
             // short_ma: ma_from_adler32(params.short_ma, short_period),
             // medium_ma: ma_from_adler32(params.medium_ma, medium_period),
             // long_ma: ma_from_adler32(params.long_ma, long_period),
-            // advice: Advice::None,
+            advice: Advice::None,
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
             persistence: Persistence::new(0, false),
             // t: 0,
@@ -67,6 +69,9 @@ impl<S: Signal> Strategy for Sig<S> {
 
     fn update(&mut self, candle: &Candle) {
         self.sig.update(candle);
+        if self.sig.mature() {
+            self.advice = self.mid_trend.update(self.sig.advice())
+        }
         // Advice::None
 
         // let mut advice = Advice::None;
@@ -101,10 +106,3 @@ impl<S: Signal> Strategy for Sig<S> {
         // advice
     }
 }
-
-impl<S: Signal> Signal for Sig<S> {
-    fn advice(&self) -> Advice {
-        self.sig.advice()
-    }
-}
-

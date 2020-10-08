@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-// TOOD: Get rid of this.
+// TODO: Get rid of this.
 
 pub mod common;
 pub mod ffi;
