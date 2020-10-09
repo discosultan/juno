@@ -1,11 +1,7 @@
-use crate::{
-    genetics::Chromosome,
-    indicators,
-    Advice, Candle,
-};
+use super::{Signal, Strategy};
+use crate::{genetics::Chromosome, indicators, Advice, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
-use super::{Signal, Strategy};
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
@@ -54,9 +50,7 @@ impl Strategy for Macd {
     fn new(params: &Self::Params) -> Self {
         let (short_period, long_period) = params.periods;
         Self {
-            macd: indicators::Macd::new(
-                short_period, long_period, params.signal_period
-            ),
+            macd: indicators::Macd::new(short_period, long_period, params.signal_period),
             advice: Advice::None,
         }
     }

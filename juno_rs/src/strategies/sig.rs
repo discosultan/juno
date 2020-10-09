@@ -1,3 +1,4 @@
+use super::{Signal, Strategy};
 use crate::{
     genetics::Chromosome,
     strategies::{combine, MidTrend, Persistence},
@@ -6,7 +7,6 @@ use crate::{
 use juno_derive_rs::*;
 use rand::prelude::*;
 use std::cmp::max;
-use super::{Signal, Strategy};
 
 #[derive(Clone, Debug)]
 pub struct SigParams<S: Chromosome> {

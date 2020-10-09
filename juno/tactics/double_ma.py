@@ -6,7 +6,7 @@ from juno.constraints import Int, Pair, Uniform
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
+from .strategy import Meta, StrategyBase, ma_choices
 
 
 # Signals long when shorter average crosses above the longer.

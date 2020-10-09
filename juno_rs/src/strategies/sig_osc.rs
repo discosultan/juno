@@ -1,3 +1,4 @@
+use super::{Oscillator, Signal, Strategy};
 use crate::{
     genetics::Chromosome,
     strategies::{combine, MidTrend, Persistence},
@@ -5,7 +6,6 @@ use crate::{
 };
 use rand::prelude::*;
 use std::cmp::max;
-use super::{Oscillator, Signal, Strategy};
 
 #[derive(Clone, Debug)]
 pub struct SigOscParams<C: Chromosome, O: Chromosome> {

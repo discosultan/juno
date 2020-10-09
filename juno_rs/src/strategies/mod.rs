@@ -1,18 +1,18 @@
-mod sig;
-mod sig_osc;
 mod double_ma;
 mod four_week_rule;
 mod macd;
 mod rsi;
+mod sig;
+mod sig_osc;
 mod single_ma;
 mod triple_ma;
 
-pub use sig::{Sig, SigParams};
-pub use sig_osc::{SigOsc, SigOscParams};
-pub use double_ma::{DoubleMA, DoubleMA2, DoubleMAParams, DoubleMA2Params};
+pub use double_ma::{DoubleMA, DoubleMA2, DoubleMA2Params, DoubleMAParams};
 pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
 pub use macd::{Macd, MacdParams};
 pub use rsi::{Rsi, RsiParams};
+pub use sig::{Sig, SigParams};
+pub use sig_osc::{SigOsc, SigOscParams};
 pub use single_ma::{SingleMA, SingleMAParams};
 pub use triple_ma::{TripleMA, TripleMAParams};
 

@@ -253,12 +253,7 @@ fn backtest<T: Signal>(
 
     println!("{:?}", summary.get_summary());
 
-    let sharpe = statistics::get_sharpe_ratio(
-        &summary,
-        &base_prices,
-        None,
-        stats_interval,
-    );
+    let sharpe = statistics::get_sharpe_ratio(&summary, &base_prices, None, stats_interval);
     println!("sharpe {}", sharpe);
 
     Ok(sharpe)

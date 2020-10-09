@@ -1,13 +1,8 @@
-use crate::{
-    genetics::Chromosome,
-    indicators,
-    itertools::IteratorExt,
-    Advice, Candle,
-};
+use super::{Signal, Strategy};
+use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use std::{cmp::min, collections::VecDeque};
-use super::{Signal, Strategy};
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
