@@ -29,7 +29,7 @@ STRATEGY_KWARGS = {
     'ma_period': 14,
     'mid_trend_policy': MidTrendPolicy.IGNORE,
 }
-# STRATEGY_TYPE = strategies.MAMACX
+# STRATEGY_TYPE = strategies.DoubleMA2
 # STRATEGY_KWARGS = {
 #     'short_period': 4,
 #     'long_period': 60,

@@ -15,7 +15,7 @@
             "missed_candle_policy": null,
             "stop_loss": null,
             "strategy": {
-                "type": "doublema"
+                "type": "doublema2"
             },
             "long": true,
             "short": true,

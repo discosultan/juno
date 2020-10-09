@@ -118,7 +118,7 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
         interval=HOUR_MS,
         quote=Decimal('100.0'),
         strategy={
-            'type': 'mamacx',
+            'type': 'doublema2',
             'short_period': 18,
             'long_period': 29,
             'neg_threshold': Decimal('-0.25'),

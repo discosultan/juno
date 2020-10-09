@@ -5,11 +5,14 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
+use std::cmp::max;
 use super::{Signal, Strategy};
 
 #[derive(Clone, Debug)]
 pub struct SigParams<S: Chromosome> {
     pub sig_params: S,
+    pub persistence: u32,
+    // TODO: Add midtrendpolicy
 }
 
 impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
@@ -20,6 +23,7 @@ impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
     fn generate(rng: &mut StdRng) -> Self {
         Self {
             sig_params: Sig::generate(rng),
+            persistence: rng.gen_range(0, 10),
         }
     }
 
@@ -53,7 +57,7 @@ impl<S: Signal> Strategy for Sig<S> {
     }
 
     fn maturity(&self) -> u32 {
-        self.sig.maturity()
+        self.sig.maturity() + max(self.mid_trend.maturity(), self.persistence.maturity())
     }
 
     fn mature(&self) -> bool {
@@ -63,11 +67,10 @@ impl<S: Signal> Strategy for Sig<S> {
     fn update(&mut self, candle: &Candle) {
         self.sig.update(candle);
         if self.sig.mature() {
-            self.advice = self.mid_trend.update(self.sig.advice())
-            // advice = combine(
-            //     self.mid_trend.update(self.advice),
-            //     self.persistence.update(self.advice),
-            // );
+            self.advice = combine(
+                self.mid_trend.update(self.sig.advice()),
+                self.persistence.update(self.sig.advice()),
+            );
         }
     }
 }

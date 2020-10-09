@@ -11,7 +11,7 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 from juno.solvers import Python
 from juno.storages import SQLite
-from juno.strategies import MAMACX
+from juno.strategies import DoubleMA2
 from juno.time import strptimestamp
 from juno.utils import extract_public
 
@@ -46,7 +46,7 @@ async def main() -> None:
                 fiat_prices={},
                 benchmark_g_returns=pd.Series([]),
                 candles=candles,
-                strategy_type=MAMACX,
+                strategy_type=DoubleMA2,
                 strategy_args=strategy_args,
                 exchange='binance',
                 symbol='eth-btc',

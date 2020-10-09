@@ -10,7 +10,7 @@ from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
 
 
 # Moving average moving average crossover.
-class MAMACX(StrategyBase):
+class DoubleMA2(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(
