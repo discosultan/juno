@@ -83,6 +83,8 @@ pub struct DoubleMA2Params {
     pub periods: (u32, u32),
     pub neg_threshold: f64,
     pub pos_threshold: f64,
+    // TODO: remove
+    pub persistence: u32,
     pub short_ma: u32,
     pub long_ma: u32,
 }
@@ -92,6 +94,10 @@ fn neg_threshold(rng: &mut StdRng) -> f64 {
 }
 fn pos_threshold(rng: &mut StdRng) -> f64 {
     rng.gen_range(0.1, 1.0)
+}
+// TODO: Remove
+fn persistence(rng: &mut StdRng) -> u32 {
+    rng.gen_range(1, 10)
 }
 
 #[derive(Signal)]

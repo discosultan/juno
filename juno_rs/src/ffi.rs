@@ -101,10 +101,12 @@ pub unsafe extern "C" fn doublema2(
             short_ma: strategy_info.short_ma,
             long_ma: strategy_info.long_ma,
             periods: strategy_info.periods,
+            // TODO: Remove
+            persistence: strategy_info.persistence,
             neg_threshold: strategy_info.neg_threshold,
             pos_threshold: strategy_info.pos_threshold,
         },
-        persistence: 0,
+        persistence: strategy_info.persistence,
     };
     let strategy_info = &params;
     run_test::<strategies::Sig<strategies::DoubleMA2>>(trading_info, strategy_info, analysis_info)

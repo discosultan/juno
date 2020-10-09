@@ -39,9 +39,9 @@ impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
 #[derive(Signal)]
 pub struct Sig<S: Signal> {
     sig: S,
-    advice: Advice,
     mid_trend: MidTrend,
     persistence: Persistence,
+    advice: Advice,
 }
 
 impl<S: Signal> Strategy for Sig<S> {
@@ -50,9 +50,9 @@ impl<S: Signal> Strategy for Sig<S> {
     fn new(params: &Self::Params) -> Self {
         Self {
             sig: S::new(&params.sig_params),
-            advice: Advice::None,
             mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(0, false),
+            persistence: Persistence::new(params.persistence, false),
+            advice: Advice::None,
         }
     }
 
