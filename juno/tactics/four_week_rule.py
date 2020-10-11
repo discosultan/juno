@@ -26,7 +26,7 @@ class FourWeekRule:
     _prices: Deque[Decimal]
     _ma: MA
     _advice: Advice = Advice.NONE
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     def __init__(
@@ -37,7 +37,7 @@ class FourWeekRule:
     ) -> None:
         self._prices = deque(maxlen=period)
         self._ma = get_module_type(indicators, ma)(ma_period)
-        self._t1 = period
+        self._t1 = period + 1
 
     @property
     def maturity(self) -> int:
@@ -49,6 +49,7 @@ class FourWeekRule:
 
     def update(self, candle: Candle) -> Advice:
         self._t = min(self._t + 1, self._t1)
+
         self._ma.update(candle.close)
 
         if self._t >= self._t1:
