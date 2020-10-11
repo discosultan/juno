@@ -12,7 +12,7 @@ class Alma:
     _weights: List[Decimal]
     _prices: Deque[Decimal]
 
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     def __init__(
@@ -35,7 +35,7 @@ class Alma:
 
         self._prices = deque(maxlen=period)
 
-        self._t1 = period - 1
+        self._t1 = period
 
     @property
     def maturity(self) -> int:
@@ -47,6 +47,7 @@ class Alma:
 
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t1)
+
         self._prices.append(price)
 
         if self.mature:

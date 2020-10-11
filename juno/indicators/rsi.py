@@ -9,13 +9,13 @@ class Rsi:
     _mean_down: Smma
     _mean_up: Smma
     _last_price: Decimal = Decimal('0.0')
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     def __init__(self, period: int) -> None:
         self._mean_down = Smma(period)
         self._mean_up = Smma(period)
-        self._t1 = period
+        self._t1 = period + 1
 
     @property
     def maturity(self) -> int:
@@ -28,7 +28,7 @@ class Rsi:
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t1)
 
-        if self._t > 0:
+        if self._t > 1:
             up = Decimal('0.0')
             down = Decimal('0.0')
             if price > self._last_price:

@@ -309,7 +309,7 @@ async def test_adjust_start_ignore_mid_trend() -> None:
         strategy=TypeConstructor.from_type(
             Fixed,
             advices=[Advice.NONE, Advice.LONG, Advice.LONG, Advice.NONE],
-            maturity=1,
+            maturity=2,
             mid_trend_policy=MidTrendPolicy.IGNORE,
             persistence=1,
         ),
@@ -342,7 +342,7 @@ async def test_adjust_start_persistence() -> None:
         strategy=TypeConstructor.from_type(
             Fixed,
             advices=[Advice.NONE, Advice.LONG, Advice.LONG, Advice.LONG],
-            maturity=1,
+            maturity=2,
             mid_trend_policy=MidTrendPolicy.CURRENT,
             persistence=2,
         ),
@@ -385,7 +385,7 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         quote=Decimal('1.0'),
         strategy=TypeConstructor.from_type(
             Fixed,
-            maturity=2,
+            maturity=3,
         ),
         adjust_start=True,
     )

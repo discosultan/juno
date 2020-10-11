@@ -28,10 +28,9 @@ class Macd(StrategyBase):
         signal_period: int = 9,
         persistence: int = 0,
     ) -> None:
-        super().__init__(maturity=max(long_period, signal_period) - 1, persistence=persistence)
-        self.validate(short_period, long_period, signal_period, persistence)
-
         self._macd = indicators.Macd(short_period, long_period, signal_period)
+        super().__init__(maturity=self._macd.maturity, persistence=persistence)
+        self.validate(short_period, long_period, signal_period, persistence)
 
     def tick(self, candle: Candle) -> Advice:
         self._macd.update(candle.close)

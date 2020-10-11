@@ -17,7 +17,7 @@ class Fixed(StrategyBase):
     def __init__(
         self,
         advices: List[Advice] = [],
-        maturity: int = 0,
+        maturity: int = 1,
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,
         cancel: bool = False,

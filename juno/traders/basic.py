@@ -157,10 +157,10 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             # becomes effective. Only do it on first run because subsequent runs mean
             # missed candles and we don't want to fetch passed a missed candle.
             _log.info(
-                f'fetching {state.strategy.adjust_hint} candle(s) before start time to warm-up '
+                f'fetching {state.strategy.maturity - 1} candle(s) before start time to warm-up '
                 'strategy'
             )
-            state.current = max(state.current - state.strategy.adjust_hint * config.interval, 0)
+            state.current = max(state.current - (state.strategy.maturity - 1) * config.interval, 0)
             state.start_adjusted = True
 
         state.stop_loss.threshold = config.stop_loss

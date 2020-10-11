@@ -48,7 +48,7 @@ class TripleMA(StrategyBase):
         self._medium_ma = get_module_type(indicators, medium_ma)(medium_period)
         self._long_ma = get_module_type(indicators, long_ma)(long_period)
         super().__init__(
-            maturity=long_period - 1,
+            maturity=max(self._short_ma.maturity, self._medium_ma.maturity, self._long_ma.maturity),
             persistence=0,
             mid_trend_policy=MidTrendPolicy.IGNORE,
         )

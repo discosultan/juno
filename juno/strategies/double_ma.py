@@ -38,7 +38,7 @@ class DoubleMA(StrategyBase):
         self._short_ma = get_module_type(indicators, short_ma)(short_period)
         self._long_ma = get_module_type(indicators, long_ma)(long_period)
         super().__init__(
-            maturity=long_period - 1,
+            maturity=max(self._long_ma.maturity, self._short_ma.maturity),
             persistence=0,
             mid_trend_policy=MidTrendPolicy.IGNORE,
         )

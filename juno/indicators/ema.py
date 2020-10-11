@@ -17,7 +17,7 @@ class Ema:
     _prices: List[Decimal]
     _denominator: Decimal = Decimal('0.0')
 
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     def __init__(self, period: int, adjust: bool = False) -> None:
@@ -29,7 +29,7 @@ class Ema:
             self._prices = []
         # Decay calculated in terms of span.
         self.set_smoothing_factor(Decimal('2.0') / (period + 1))
-        self._t1 = period - 1
+        self._t1 = period
 
     @property
     def maturity(self) -> int:
@@ -59,7 +59,7 @@ class Ema:
             self._denominator += self._a_inv**(len(self._prices) - 1)
             self.value = numerator / self._denominator
         else:
-            if self._t == 0:
+            if self._t == 1:
                 self.value = price
             else:
                 self.value += (price - self.value) * self._a
@@ -88,7 +88,7 @@ class Ema2:
 
     _sma: Sma
     _a: Decimal
-    _t: int = -1
+    _t: int = 0
     _t1: int
     _t2: int
 
@@ -100,8 +100,8 @@ class Ema2:
 
         self._a = Decimal('2.0') / (period + 1)
 
-        self._t1 = period - 1
-        self._t2 = period
+        self._t1 = period
+        self._t2 = period + 1
 
     @property
     def maturity(self) -> int:
@@ -119,7 +119,7 @@ class Ema2:
 
         if self._t == self._t1:
             self.value = self._sma.value
-        elif self._t == self._t2:
+        elif self._t >= self._t2:
             self.value = (price - self.value) * self._a + self.value
 
         return self.value

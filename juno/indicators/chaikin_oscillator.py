@@ -12,11 +12,11 @@ class ChaikinOscillator:
 
     @property
     def maturity(self) -> int:
-        return 0
+        return max(self._long_ema.maturity, self._short_ema.maturity)
 
     @property
     def mature(self) -> bool:
-        return True
+        return self._long_ema.mature and self._short_ema.mature
 
     def update(self, high: Decimal, low: Decimal, close: Decimal, volume: Decimal) -> Decimal:
         if high != low:

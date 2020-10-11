@@ -30,19 +30,19 @@ class DummyStrategy(strategies.StrategyBase):
         pass
 
 
-@pytest.mark.parametrize('maturity', [0, 1, 2])
+@pytest.mark.parametrize('maturity', [1, 2, 3])
 def test_mature(maturity: int) -> None:
     strategy = strategies.StrategyBase(maturity=maturity)
     assert not strategy.mature
 
-    for i in range(maturity + 1):
+    for i in range(1, maturity + 1):
         strategy.update(Candle(time=i))
         assert strategy.mature == (i == maturity)
 
 
 def test_mid_trend_current() -> None:
     target = strategies.MidTrend(MidTrendPolicy.CURRENT)
-    assert target.maturity == 0
+    assert target.maturity == 1
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
@@ -50,7 +50,7 @@ def test_mid_trend_current() -> None:
 
 def test_mid_trend_previous() -> None:
     target = strategies.MidTrend(MidTrendPolicy.PREVIOUS)
-    assert target.maturity == 1
+    assert target.maturity == 2
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
@@ -58,7 +58,7 @@ def test_mid_trend_previous() -> None:
 
 def test_mid_trend_ignore() -> None:
     target = strategies.MidTrend(MidTrendPolicy.IGNORE)
-    assert target.maturity == 1
+    assert target.maturity == 2
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.SHORT) is Advice.SHORT
@@ -74,7 +74,7 @@ def test_mid_trend_ignore_starting_with_none_does_not_ignore_first(
 
 # def test_ignore_not_mature(
 # ) -> None:
-#     target = strategies.Maturity(maturity=1)
+#     target = strategies.Maturity(maturity=2)
 #     assert target.update(Advice.LONG) is Advice.NONE
 #     assert target.update(Advice.LONG) is Advice.LONG
 #     assert target.update(Advice.LONG) is Advice.LONG
@@ -83,7 +83,7 @@ def test_mid_trend_ignore_starting_with_none_does_not_ignore_first(
 
 def test_persistence_level_0() -> None:
     target = strategies.Persistence(level=0)
-    assert target.maturity == 0
+    assert target.maturity == 1
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.SHORT) is Advice.SHORT
@@ -91,7 +91,7 @@ def test_persistence_level_0() -> None:
 
 def test_persistence_level_1() -> None:
     target = strategies.Persistence(level=1)
-    assert target.maturity == 1
+    assert target.maturity == 2
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG
@@ -101,7 +101,7 @@ def test_persistence_level_1() -> None:
 
 def test_persistence_level_1_return_previous() -> None:
     target = strategies.Persistence(level=1, return_previous=True)
-    assert target.maturity == 1
+    assert target.maturity == 2
     assert target.update(Advice.LONG) is Advice.NONE
     assert target.update(Advice.LONG) is Advice.LONG
     assert target.update(Advice.LONG) is Advice.LONG

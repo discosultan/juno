@@ -38,7 +38,7 @@ class FourWeekRule(StrategyBase):
         ma_period: int = 14,  # Normally half the period.
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.IGNORE,
     ) -> None:
-        super().__init__(maturity=period, mid_trend_policy=mid_trend_policy, persistence=0)
+        super().__init__(maturity=period + 1, mid_trend_policy=mid_trend_policy, persistence=0)
         self._prices = deque(maxlen=period)
         self._ma = get_module_type(indicators, ma)(ma_period)
 

@@ -33,9 +33,9 @@ class Rsi(StrategyBase):
         down_threshold: Decimal = Decimal('30.0'),
         persistence: int = 0,
     ) -> None:
-        super().__init__(maturity=period - 1, persistence=persistence)
-        self.validate(period, up_threshold, down_threshold, persistence)
         self._rsi = indicators.Rsi(period)
+        super().__init__(maturity=self._rsi.maturity, persistence=persistence)
+        self.validate(period, up_threshold, down_threshold, persistence)
         self._up_threshold = up_threshold
         self._down_threshold = down_threshold
 

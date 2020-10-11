@@ -10,7 +10,7 @@ class Adxr:
     value: Decimal = Decimal('0.0')
     _adx: Adx
     _historical_adx: Deque[Decimal]
-    _t: int = -1
+    _t: int = 0
     _t1: int
     _t2: int
     _t3: int
@@ -20,7 +20,7 @@ class Adxr:
         self._historical_adx = deque(maxlen=period)
         self._t1 = self._adx.maturity
         self._t2 = self._t1 + period - 1
-        self._t3 = (period - 1) * 3
+        self._t3 = period * 3 - 2
 
     @property
     def maturity(self) -> int:
@@ -32,6 +32,7 @@ class Adxr:
 
     def update(self, high: Decimal, low: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t3)
+
         self._adx.update(high, low)
 
         if self._t >= self._t1:

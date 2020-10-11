@@ -23,7 +23,7 @@ class SingleMA:
     _ma: MA
     _previous_ma_value: Decimal = Decimal('0.0')
     _advice: Advice = Advice.NONE
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     def __init__(
@@ -44,6 +44,7 @@ class SingleMA:
 
     def update(self, candle: Candle) -> Advice:
         self._t = min(self._t + 1, self._t1)
+
         self._ma.update(candle.close)
 
         if self._t >= self._t1:

@@ -11,14 +11,14 @@ class Cci:
     _sma: Sma
     _scale: Decimal
     _typical_prices: Deque[Decimal]
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     def __init__(self, period: int) -> None:
         self._sma = Sma(period)
         self._scale = Decimal('1.0') / period
         self._typical_prices = deque(maxlen=period)
-        self._t1 = (period - 1) * 2
+        self._t1 = period * 2 - 1
 
     @property
     def maturity(self) -> int:
