@@ -36,6 +36,7 @@ setup(
             'pytest-aiohttp',
             'pytest-lazy-fixture',
             'pytest-mock',
+            'pyyaml',
             'rope',
             'yapf',
         ],
