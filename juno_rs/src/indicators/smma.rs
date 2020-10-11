@@ -17,7 +17,7 @@ impl Smma {
         Self {
             value: 0.0,
             sma: Sma::new(period),
-            weight: f64::from(period),
+            weight: period.into(),
             t: 0,
             t1: period,
             t2: period + 1,

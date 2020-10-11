@@ -14,8 +14,8 @@ class DM:
     _prev_high: Decimal = Decimal('0.0')
     _prev_low: Decimal = Decimal('0.0')
 
-    _t: int = -1
-    _t1: int = 1
+    _t: int = 0
+    _t1: int = 2
     _t2: int
     _t3: int
 
@@ -25,8 +25,8 @@ class DM:
 
         self._per = (period - 1) / Decimal(period)
 
-        self._t2 = period - 1
-        self._t3 = period
+        self._t2 = period
+        self._t3 = period + 1
 
     @property
     def maturity(self) -> int:
@@ -55,7 +55,7 @@ class DM:
         if self._t == self._t2:
             self.plus_value = self._dmup
             self.minus_value = self._dmdown
-        elif self._t == self._t3:
+        elif self._t >= self._t3:
             dp, dm = _calc_direction(self._prev_high, self._prev_low, high, low)
             self._dmup = self._dmup * self._per + dp
             self._dmdown = self._dmdown * self._per + dm

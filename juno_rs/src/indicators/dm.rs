@@ -39,10 +39,18 @@ impl DM {
         self.t >= self.t2
     }
 
+    pub fn diff(&self) -> f64 {
+        f64::abs(self.plus_value - self.minus_value)
+    }
+
+    pub fn sum(&self) -> f64 {
+        self.plus_value + self.minus_value
+    }
+
     pub fn update(&mut self, high: f64, low: f64) {
         self.t = min(self.t + 1, self.t3);
 
-        if self.t >= self.t1 && self.t < self.t2 {
+        if self.t >= self.t1 && self.t < self.t3 {
             let (dp, dm) = calc_direction(self.prev_high, self.prev_low, high, low);
             self.dmup += dp;
             self.dmdown += dm;

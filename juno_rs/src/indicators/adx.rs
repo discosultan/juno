@@ -24,9 +24,13 @@ impl Adx {
         self.dx.mature() && self.smma.mature()
     }
 
-    pub fn update(&mut self, high: f64, low: f64, close: f64) {
-        self.dx.update(high, low, close);
-        self.smma.update(self.dx.value);
-        self.value = self.smma.value;
+    pub fn update(&mut self, high: f64, low: f64) {
+        self.dx.update(high, low);
+        self.value = if self.dx.value == 0.0 {
+            0.0
+        } else {
+            self.smma.update(self.dx.value);
+            self.smma.value
+        }
     }
 }
