@@ -76,34 +76,3 @@ impl MA for Kama {
         self.value
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::{super::MA, Kama};
-
-    #[test]
-    fn test_kama() {
-        let inputs = vec![
-            50.25, 50.55, 52.50, 54.50, 54.10, 54.12, 55.50, 50.20, 50.45, 50.24, 50.24, 55.12,
-            56.54, 56.12, 56.10, 54.12, 59.54, 54.52,
-        ];
-        let expected_outputs = vec![
-            54.5000, 54.3732, 54.2948, 54.6461, 53.8270, 53.3374, 52.8621, 51.8722, 53.1180,
-            54.4669, 55.0451, 55.4099, 55.3468, 55.7115, 55.6875,
-        ];
-        let mut indicator = Kama::new(4);
-        let offset = inputs.len() - expected_outputs.len();
-        for i in 0..inputs.len() {
-            indicator.update(inputs[i]);
-            if i >= offset {
-                let value = indicator.value();
-                let expected = expected_outputs[i - offset];
-                let diff = f64::abs(value - expected);
-                assert!(
-                    diff < 0.001,
-                    format!("expected {} but got {}; diff is {}", expected, value, diff)
-                );
-            }
-        }
-    }
-}

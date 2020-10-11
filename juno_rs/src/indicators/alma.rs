@@ -14,10 +14,15 @@ pub struct Alma {
 
 impl Alma {
     pub fn new(period: u32) -> Self {
+        let sigma = (period as f64 / 1.5).floor() as u32;
+        Self::with_sigma(period, sigma)
+    }
+
+    pub fn with_sigma(period: u32, sigma: u32) -> Self {
         let offset = 0.85;
-        let sig = (period as f64 / 1.5).floor();
+        
         let m = (offset * (period - 1) as f64).floor();
-        let s = period as f64 * 1.0 / sig;
+        let s = period as f64 * 1.0 / sigma as f64;
         let tmp = (0..period)
             .map(|i| (-(i as f64 - m) * (i as f64 - m) / (2.0 * s * s)).exp())
             .collect::<Vec<f64>>();

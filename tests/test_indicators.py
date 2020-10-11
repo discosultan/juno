@@ -46,16 +46,16 @@ def test_ema(data) -> None:
     _assert(indicators.Ema(5), data['ema'], 3)
 
 
-def test_sma(data) -> None:
-    _assert(indicators.Sma(5), data['sma'], 3)
-
-
 def test_macd(data) -> None:
     _assert(indicators.Macd(12, 26, 9), data['macd'], 9)
 
 
 def test_rsi(data) -> None:
     _assert(indicators.Rsi(5), data['rsi'], 4)
+
+
+def test_sma(data) -> None:
+    _assert(indicators.Sma(5), data['sma'], 3)
 
 
 def test_stoch(data) -> None:

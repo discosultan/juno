@@ -1,4 +1,5 @@
 use super::{ema::Ema, MA};
+use std::cmp::max;
 
 pub struct Macd {
     pub value: f64,
@@ -34,7 +35,7 @@ impl Macd {
     }
 
     pub fn maturity(&self) -> u32 {
-        self.long_ema.maturity() + self.signal_ema.maturity()
+        max(self.long_ema.maturity(), self.short_ema.maturity()) + self.signal_ema.maturity() - 1
     }
 
     pub fn mature(&self) -> bool {

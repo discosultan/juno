@@ -1,12 +1,12 @@
 use super::{sma::Sma, MA};
+use bounded_vec_deque::BoundedVecDeque;
 use std::cmp::min;
 
 pub struct Stoch {
     pub k: f64,
     pub d: f64,
-    i: usize,
-    k_high_window: Vec<f64>,
-    k_low_window: Vec<f64>,
+    k_high_window: BoundedVecDeque<f64>,
+    k_low_window: BoundedVecDeque<f64>,
     k_sma: Sma,
     d_sma: Sma,
     t: u32,
@@ -23,9 +23,8 @@ impl Stoch {
         Self {
             k: 0.0,
             d: 0.0,
-            i: 0,
-            k_high_window: vec![0.0; k_period as usize],
-            k_low_window: vec![0.0; k_period as usize],
+            k_high_window: BoundedVecDeque::new(k_period as usize),
+            k_low_window: BoundedVecDeque::new(k_period as usize),
             k_sma: Sma::new(k_sma_period),
             d_sma: Sma::new(d_sma_period),
             t: 0,
@@ -46,13 +45,12 @@ impl Stoch {
     pub fn update(&mut self, high: f64, low: f64, close: f64) {
         self.t = min(self.t + 1, self.t3);
 
-        self.k_high_window[self.i] = high;
-        self.k_low_window[self.i] = low;
-        self.i = (self.i + 1) % self.k_high_window.len();
+        self.k_high_window.push_back(high);
+        self.k_low_window.push_back(low);
 
         if self.t >= self.t1 {
-            let max_high = self.k_high_window.iter().cloned().fold(0.0, f64::max);
-            let min_low = self.k_low_window.iter().cloned().fold(0.0, f64::min);
+            let max_high = self.k_high_window.iter().cloned().fold(f64::MIN, f64::max);
+            let min_low = self.k_low_window.iter().cloned().fold(f64::MAX, f64::min);
             let fast_k = 100.0 * (close - min_low) / (max_high - min_low);
 
             self.k_sma.update(fast_k);
