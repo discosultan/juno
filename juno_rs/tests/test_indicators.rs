@@ -21,151 +21,123 @@ struct IndicatorData {
 #[test]
 fn test_adx() -> Result<()> {
     let mut indicator = indicators::Adx::new(14);
-    assert(
-        "adx",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?, inputs[1][i].parse()?);
-            Ok(vec![indicator.value])
-        },
-    )
+    assert("adx", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?, inputs[1][i].parse()?);
+        Ok(vec![indicator.value])
+    })
 }
 
 #[test]
 fn test_alma() -> Result<()> {
     let mut indicator = indicators::Alma::with_sigma(9, 6);
-    assert(
-        "alma",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?);
-            Ok(vec![indicator.value])
-        },
-    )
+    assert("alma", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?);
+        Ok(vec![indicator.value])
+    })
 }
 
 #[test]
 fn test_dema() -> Result<()> {
     let mut indicator = indicators::Dema::new(5);
-    assert(
-        "dema",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?);
-            Ok(vec![indicator.value])
-        },
-    )
+    assert("dema", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?);
+        Ok(vec![indicator.value])
+    })
 }
 
 #[test]
 fn test_di() -> Result<()> {
     let mut indicator = indicators::DI::new(14);
-    assert(
-        "di",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?, inputs[1][i].parse()?, inputs[2][i].parse()?);
-            Ok(vec![indicator.plus_value, indicator.minus_value])
-        },
-    )
+    assert("di", |inputs, i| {
+        indicator.update(
+            inputs[0][i].parse()?,
+            inputs[1][i].parse()?,
+            inputs[2][i].parse()?,
+        );
+        Ok(vec![indicator.plus_value, indicator.minus_value])
+    })
 }
 
 #[test]
 fn test_dm() -> Result<()> {
     let mut indicator = indicators::DM::new(14);
-    assert(
-        "dm",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?, inputs[1][i].parse()?);
-            Ok(vec![indicator.plus_value, indicator.minus_value])
-        },
-    )
+    assert("dm", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?, inputs[1][i].parse()?);
+        Ok(vec![indicator.plus_value, indicator.minus_value])
+    })
 }
 
 #[test]
 fn test_dx() -> Result<()> {
     let mut indicator = indicators::DX::new(14);
-    assert(
-        "dx",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?, inputs[1][i].parse()?);
-            Ok(vec![indicator.value])
-        },
-    )
+    assert("dx", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?, inputs[1][i].parse()?);
+        Ok(vec![indicator.value])
+    })
 }
 
 #[test]
 fn test_ema() -> Result<()> {
     let mut indicator = indicators::Ema::new(5);
-    assert(
-        "ema",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?);
-            Ok(vec![indicator.value])
-        },
-    )
+    assert("ema", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?);
+        Ok(vec![indicator.value])
+    })
 }
 
 #[test]
 fn test_kama() -> Result<()> {
     let mut indicator = indicators::Kama::new(4);
-    assert(
-        "kama",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?);
-            Ok(vec![indicator.value])
-        },
-    )
+    assert("kama", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?);
+        Ok(vec![indicator.value])
+    })
 }
 
 #[test]
 fn test_macd() -> Result<()> {
     let mut indicator = indicators::Macd::new(12, 26, 9);
-    assert(
-        "macd",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?);
-            Ok(vec![indicator.value, indicator.signal, indicator.histogram])
-        },
-    )
+    assert("macd", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?);
+        Ok(vec![indicator.value, indicator.signal, indicator.histogram])
+    })
 }
 
 #[test]
 fn test_rsi() -> Result<()> {
     let mut indicator = indicators::Rsi::new(5);
-    assert(
-        "rsi",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?);
-            Ok(vec![indicator.value])
-        },
-    )
+    assert("rsi", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?);
+        Ok(vec![indicator.value])
+    })
 }
 
 #[test]
 fn test_sma() -> Result<()> {
     let mut indicator = indicators::Sma::new(5);
-    assert(
-        "sma",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?);
-            Ok(vec![indicator.value])
-        },
-    )
+    assert("sma", |inputs, i| {
+        indicator.update(inputs[0][i].parse()?);
+        Ok(vec![indicator.value])
+    })
 }
 
 #[test]
 fn test_stoch() -> Result<()> {
     let mut indicator = indicators::Stoch::new(5, 3, 3);
-    assert(
-        "stoch",
-        |inputs, i| {
-            indicator.update(inputs[0][i].parse()?, inputs[1][i].parse()?, inputs[2][i].parse()?);
-            Ok(vec![indicator.k, indicator.d])
-        },
-    )
+    assert("stoch", |inputs, i| {
+        indicator.update(
+            inputs[0][i].parse()?,
+            inputs[1][i].parse()?,
+            inputs[2][i].parse()?,
+        );
+        Ok(vec![indicator.k, indicator.d])
+    })
 }
 
 fn assert<T>(name: &str, mut update: T) -> Result<()>
 where
     T: FnMut(&Vec<Vec<String>>, usize) -> Result<Vec<f64>>,
- {
+{
     let data = &DATA[name];
     let input_len = data.inputs[0].len();
     let output_len = data.outputs[0].len();
@@ -186,8 +158,3 @@ where
     }
     Ok(())
 }
-
-
-
-// def test_adx(data) -> None:
-//     _assert(indicators.Adx(14), data['adx'], 4)

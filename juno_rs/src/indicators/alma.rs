@@ -20,7 +20,7 @@ impl Alma {
 
     pub fn with_sigma(period: u32, sigma: u32) -> Self {
         let offset = 0.85;
-        
+
         let m = (offset * (period - 1) as f64).floor();
         let s = period as f64 * 1.0 / sigma as f64;
         let tmp = (0..period)
