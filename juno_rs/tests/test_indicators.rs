@@ -1,8 +1,15 @@
 use juno_rs::indicators;
+use once_cell::sync::Lazy;
 use serde::Deserialize;
 use std::fs::File;
 use std::collections::HashMap;
-// use std::io::prelude::*;
+
+static DATA: Lazy<HashMap<String, IndicatorData>> = Lazy::new(|| {
+    // Relative to juno_rs dir.
+    let file = File::open("../tests/data/indicators.yaml")
+        .expect("unable to open indicators data file");
+    serde_yaml::from_reader(file).expect("unable to deserialize indicator data")
+});
 
 type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
@@ -14,10 +21,7 @@ struct IndicatorData {
 
 #[test]
 fn test_adx() -> Result {
-    // Relative to juno_rs dir.
-    let file = File::open("../tests/data/indicators.yaml")?;
-    let data: HashMap<String, IndicatorData> = serde_yaml::from_reader(file)?;
-    let data = &data["adx"];
+    let data = &DATA["adx"];
 
     let mut indicator = indicators::Adx::new(14);
 
@@ -41,9 +45,9 @@ fn test_adx() -> Result {
     // assert_eq!(adder::add(3, 2), 5);
 }
 
-fn assert() {
+// fn assert(indicator: ) {
 
-}
+// }
 
 // def test_adx(data) -> None:
 //     _assert(indicators.Adx(14), data['adx'], 4)
