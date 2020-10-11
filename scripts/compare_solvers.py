@@ -7,38 +7,37 @@ from juno.config import format_as_config, from_env, init_instance
 from juno.math import floor_multiple
 from juno.solvers import Python, Rust, Solver
 from juno.statistics import analyse_benchmark, analyse_portfolio
-from juno.strategies import MidTrendPolicy
 from juno.traders import Basic
 from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.DAY_MS
-START = time.strptimestamp('2017-08-17')
-END = time.strptimestamp('2017-10-01')
-MISSED_CANDLE_POLICY = MissedCandlePolicy.LAST
-STOP_LOSS = Decimal('0.124')
+START = time.strptimestamp('2020-09-01')
+END = time.strptimestamp('2020-09-30')
+MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
+STOP_LOSS = Decimal('0.0747')
 TRAIL_STOP_LOSS = True
 TAKE_PROFIT = Decimal('0.0')
 LONG = False
 SHORT = True
-STRATEGY_TYPE = strategies.FourWeekRule
-STRATEGY_KWARGS = {
-    'period': 28,
-    'ma': 'smma',
-    'ma_period': 14,
-    'mid_trend_policy': MidTrendPolicy.IGNORE,
-}
-# STRATEGY_TYPE = strategies.DoubleMA2
+# STRATEGY_TYPE = strategies.FourWeekRule
 # STRATEGY_KWARGS = {
-#     'short_period': 4,
-#     'long_period': 60,
-#     'neg_threshold': Decimal('-0.435'),
-#     'pos_threshold': Decimal('0.211'),
-#     'persistence': 5,
-#     'short_ma': 'kama',
-#     'long_ma': 'sma',
+#     'period': 28,
+#     'ma': 'smma',w
+#     'ma_period': 14,
+#     'mid_trend_policy': strategies.MidTrendPolicy.IGNORE,
 # }
+STRATEGY_TYPE = strategies.DoubleMA2
+STRATEGY_KWARGS = {
+    'short_period': 4,
+    'long_period': 24,
+    'neg_threshold': Decimal('-0.426'),
+    'pos_threshold': Decimal('0.337'),
+    'persistence': 1,
+    'short_ma': 'ema2',
+    'long_ma': 'alma',
+}
 
 
 async def main() -> None:

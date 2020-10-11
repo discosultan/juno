@@ -6,6 +6,7 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
+use std::cmp::max;
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
@@ -67,11 +68,14 @@ impl Strategy for TripleMA {
     }
 
     fn maturity(&self) -> u32 {
-        self.long_ma.maturity()
+        max(
+            max(self.long_ma.maturity(), self.medium_ma.maturity()),
+            self.short_ma.maturity(),
+        )
     }
 
     fn mature(&self) -> bool {
-        self.long_ma.mature()
+        self.long_ma.mature() && self.medium_ma.mature() && self.short_ma.mature()
     }
 
     fn update(&mut self, candle: &Candle) {
@@ -79,7 +83,7 @@ impl Strategy for TripleMA {
         self.medium_ma.update(candle.close);
         self.long_ma.update(candle.close);
 
-        if self.long_ma.mature() {
+        if self.mature() {
             if self.short_ma.value() > self.medium_ma.value()
                 && self.medium_ma.value() > self.long_ma.value()
             {

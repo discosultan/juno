@@ -1,8 +1,9 @@
-use super::{Signal, Strategy};
+use bounded_vec_deque::BoundedVecDeque;
 use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
-use std::{cmp::min, collections::VecDeque};
+use std::cmp::min;
+use super::{Signal, Strategy};
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
@@ -36,7 +37,7 @@ fn ma_period(rng: &mut StdRng) -> u32 {
 // turn it into a generic and use a macro to generate all variations.
 #[derive(Signal)]
 pub struct FourWeekRule {
-    prices: VecDeque<f64>,
+    prices: BoundedVecDeque<f64>,
     ma: Box<dyn indicators::MA + Send + Sync>,
     advice: Advice,
     t: u32,
@@ -48,11 +49,11 @@ impl Strategy for FourWeekRule {
 
     fn new(params: &Self::Params) -> Self {
         Self {
-            prices: VecDeque::with_capacity(params.period as usize),
+            prices: BoundedVecDeque::new(params.period as usize),
             ma: indicators::ma_from_adler32(params.ma, params.ma_period),
             advice: Advice::None,
             t: 0,
-            t1: params.period,
+            t1: params.period + 1,
         }
     }
 
@@ -65,6 +66,8 @@ impl Strategy for FourWeekRule {
     }
 
     fn update(&mut self, candle: &Candle) {
+        self.t = min(self.t + 1, self.t1);
+
         self.ma.update(candle.close);
 
         if self.mature() {
@@ -79,11 +82,8 @@ impl Strategy for FourWeekRule {
             {
                 self.advice = Advice::Liquidate;
             }
-
-            self.prices.pop_front();
         }
 
         self.prices.push_back(candle.close);
-        self.t = min(self.t + 1, self.t1);
     }
 }

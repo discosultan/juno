@@ -16,7 +16,7 @@ class Kama:
     _prices: Deque[Decimal]
     _diffs: Deque[Decimal]
 
-    _t: int = -1
+    _t: int = 0
     _t1: int
     _t2: int
 
@@ -30,12 +30,13 @@ class Kama:
         self._prices = deque(maxlen=period)
         self._diffs = deque(maxlen=period)
 
-        self._t1 = period - 1
-        self._t2 = period
+        self._t1 = period
+        self._t2 = period + 1
 
     @property
     def maturity(self) -> int:
-        return self._t1
+        # TODO: Change to _t1 when we change the meaning of maturity
+        return self._t1 - 1
 
     @property
     def mature(self) -> bool:
@@ -44,12 +45,13 @@ class Kama:
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t2)
 
-        if self._t > 0:
+        if len(self._prices) > 0:
             self._diffs.append(abs(price - self._prices[-1]))
 
         if self._t == self._t1:
             self.value = price
-        elif self._t == self._t2:
+        elif self._t >= self._t2:
+            # TODO: Can optimize this.
             diff_sum = sum(self._diffs)
             if diff_sum == 0:
                 er = Decimal('1.0')

@@ -11,6 +11,7 @@ crate-type = [
 ]
 
 [dependencies]
+bounded-vec-deque = "0.1"
 chrono = "0.4"
 juno_derive_rs = { version = "0.1", path = "../juno_derive_rs" }
 ndarray = "0.13"

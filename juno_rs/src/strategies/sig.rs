@@ -6,7 +6,7 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
-use std::cmp::max;
+use std::cmp::{max, min};
 
 #[derive(Clone, Debug)]
 pub struct SigParams<S: Chromosome> {
@@ -42,29 +42,38 @@ pub struct Sig<S: Signal> {
     mid_trend: MidTrend,
     persistence: Persistence,
     advice: Advice,
+    t: u32,
+    t1: u32,
 }
 
 impl<S: Signal> Strategy for Sig<S> {
     type Params = SigParams<S::Params>;
 
     fn new(params: &Self::Params) -> Self {
+        let sig = S::new(&params.sig_params);
+        let mid_trend = MidTrend::new(MidTrend::POLICY_IGNORE);
+        let persistence = Persistence::new(params.persistence, false);
         Self {
-            sig: S::new(&params.sig_params),
-            mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            persistence: Persistence::new(params.persistence, false),
             advice: Advice::None,
+            t: 0,
+            t1: sig.maturity() + max(mid_trend.maturity(), persistence.maturity()) - 1,
+            sig,
+            mid_trend,
+            persistence,
         }
     }
 
     fn maturity(&self) -> u32 {
-        self.sig.maturity() + max(self.mid_trend.maturity(), self.persistence.maturity())
+        self.t1
     }
 
     fn mature(&self) -> bool {
-        self.sig.mature()
+        self.t >= self.t1
     }
 
     fn update(&mut self, candle: &Candle) {
+        self.t = min(self.t + 1, self.t1);
+
         self.sig.update(candle);
         if self.sig.mature() {
             self.advice = combine(

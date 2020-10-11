@@ -15,13 +15,13 @@
             "missed_candle_policy": null,
             "stop_loss": null,
             "strategy": {
-                "type": "doublema2"
+                "type": "macd"
             },
             "long": true,
             "short": true,
             "population_size": 64,
             "max_generations": 32,
-            "seed": 2,
+            "seed": 3,
             "verbose": true
         }
     ]

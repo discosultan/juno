@@ -17,7 +17,7 @@ pub struct Stoch {
 
 impl Stoch {
     pub fn new(k_period: u32, k_sma_period: u32, d_sma_period: u32) -> Self {
-        let t1 = k_period - 1;
+        let t1 = k_period;
         let t2 = t1 + k_sma_period - 1;
         let t3 = t2 + d_sma_period - 1;
         Self {
@@ -44,6 +44,8 @@ impl Stoch {
     }
 
     pub fn update(&mut self, high: f64, low: f64, close: f64) {
+        self.t = min(self.t + 1, self.t3);
+
         self.k_high_window[self.i] = high;
         self.k_low_window[self.i] = low;
         self.i = (self.i + 1) % self.k_high_window.len();
@@ -59,12 +61,10 @@ impl Stoch {
                 self.d_sma.update(self.k_sma.value);
             }
 
-            if self.t == self.t3 {
+            if self.t >= self.t3 {
                 self.k = self.k_sma.value;
                 self.d = self.d_sma.value;
             }
         }
-
-        self.t = min(self.t + 1, self.t3);
     }
 }

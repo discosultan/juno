@@ -1,11 +1,12 @@
+use bounded_vec_deque::BoundedVecDeque;
 use super::MA;
-use std::{cmp::min, collections::VecDeque};
+use std::cmp::min;
 
 pub struct Alma {
     pub value: f64,
 
     weights: Vec<f64>,
-    prices: VecDeque<f64>,
+    prices: BoundedVecDeque<f64>,
 
     t: u32,
     t1: u32,
@@ -25,10 +26,10 @@ impl Alma {
             value: 0.0,
 
             weights: tmp.iter().map(|v| v / sw).collect::<Vec<f64>>(),
-            prices: VecDeque::with_capacity(period as usize),
+            prices: BoundedVecDeque::new(period as usize),
 
             t: 0,
-            t1: period - 1,
+            t1: period,
         }
     }
 }
@@ -43,12 +44,11 @@ impl MA for Alma {
     }
 
     fn update(&mut self, price: f64) {
-        if self.prices.len() == (self.t1 + 1) as usize {
-            self.prices.pop_front();
-        }
+        self.t = min(self.t + 1, self.t1);
+
         self.prices.push_back(price);
 
-        if self.t >= self.t1 {
+        if self.mature() {
             self.value = self
                 .prices
                 .iter()
@@ -56,8 +56,6 @@ impl MA for Alma {
                 .map(|(p, w)| p * w)
                 .sum()
         }
-
-        self.t = min(self.t + 1, self.t1)
     }
 
     fn value(&self) -> f64 {

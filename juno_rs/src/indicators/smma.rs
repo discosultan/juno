@@ -19,8 +19,8 @@ impl Smma {
             sma: Sma::new(period),
             weight: f64::from(period),
             t: 0,
-            t1: period - 1,
-            t2: period,
+            t1: period,
+            t2: period + 1,
         }
     }
 }
@@ -35,17 +35,17 @@ impl MA for Smma {
     }
 
     fn update(&mut self, price: f64) {
+        self.t = min(self.t + 1, self.t2);
+
         if self.t <= self.t1 {
             self.sma.update(price);
         }
 
         if self.t == self.t1 {
             self.value = self.sma.value;
-        } else {
+        } else if self.t >= self.t2 {
             self.value = (self.value * (self.weight - 1.0) + price) / self.weight;
         }
-
-        self.t = min(self.t + 1, self.t2);
     }
 
     fn value(&self) -> f64 {

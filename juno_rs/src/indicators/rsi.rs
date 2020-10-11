@@ -21,7 +21,7 @@ impl Rsi {
             mean_up: Smma::new(period),
             last_price: 0.0,
             t: 0,
-            t1: period,
+            t1: period + 1,
         }
     }
 
@@ -34,7 +34,9 @@ impl Rsi {
     }
 
     pub fn update(&mut self, price: f64) {
-        if self.t > 0 {
+        self.t = min(self.t + 1, self.t1);
+
+        if self.t > 1 {
             let (up, down) = if price > self.last_price {
                 (price - self.last_price, 0.0)
             } else if price < self.last_price {
@@ -46,7 +48,7 @@ impl Rsi {
             self.mean_up.update(up);
             self.mean_down.update(down);
 
-            if self.t == self.t1 {
+            if self.mature() {
                 if self.mean_down.value == 0.0 && self.mean_up.value != 0.0 {
                     self.value = 100.0;
                 } else if self.mean_down.value == 0.0 {
@@ -59,6 +61,5 @@ impl Rsi {
         }
 
         self.last_price = price;
-        self.t = min(self.t + 1, self.t1);
     }
 }

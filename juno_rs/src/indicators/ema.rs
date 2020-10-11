@@ -14,7 +14,7 @@ impl Ema {
             value: 0.0,
             a: 2.0 / f64::from(period + 1),
             t: 0,
-            t1: period - 1,
+            t1: period,
         }
     }
 
@@ -35,11 +35,11 @@ impl MA for Ema {
     }
 
     fn update(&mut self, price: f64) {
+        self.t = min(self.t + 1, self.t1);
         self.value = match self.t {
-            0 => price,
+            1 => price,
             _ => (price - self.value) * self.a + self.value,
         };
-        self.t = min(self.t + 1, self.t1);
     }
 
     fn value(&self) -> f64 {
@@ -64,8 +64,8 @@ impl Ema2 {
             period,
             a: 2.0 / f64::from(period + 1),
             sma: Sma::new(period),
-            t1: period - 1,
-            t2: period,
+            t1: period,
+            t2: period + 1,
             t: 0,
         }
     }
@@ -77,7 +77,7 @@ impl MA for Ema2 {
     }
 
     fn mature(&self) -> bool {
-        self.t > self.t1
+        self.t >= self.t1
     }
 
     fn update(&mut self, price: f64) {
@@ -87,7 +87,7 @@ impl MA for Ema2 {
 
         if self.t == self.t1 {
             self.value = self.sma.value
-        } else if self.t == self.t2 {
+        } else if self.t >= self.t2 {
             self.value = (price - self.value) * self.a + self.value;
         }
 

@@ -18,7 +18,7 @@ impl Sma {
             i: 0,
             sum: 0.0,
             t: 0,
-            t1: period - 1,
+            t1: period,
         }
     }
 }
@@ -33,13 +33,13 @@ impl MA for Sma {
     }
 
     fn update(&mut self, price: f64) {
+        self.t = min(self.t + 1, self.t1);
+
         let last = self.prices[self.i];
         self.prices[self.i] = price;
         self.i = (self.i + 1) % self.prices.len();
         self.sum = self.sum - last + price;
         self.value = self.sum / self.prices.len() as f64;
-
-        self.t = min(self.t + 1, self.t1);
     }
 
     fn value(&self) -> f64 {

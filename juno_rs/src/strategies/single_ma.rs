@@ -6,6 +6,7 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
+use std::cmp::min;
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
@@ -26,6 +27,8 @@ pub struct SingleMA {
     ma: Box<dyn MA>,
     previous_ma_value: f64,
     advice: Advice,
+    t: u32,
+    t1: u32,
 }
 
 unsafe impl Send for SingleMA {}
@@ -37,25 +40,30 @@ impl Strategy for SingleMA {
     fn new(params: &Self::Params) -> Self {
         assert!(params.period > 0);
 
+        let ma = ma_from_adler32(params.ma, params.period);
         Self {
-            ma: ma_from_adler32(params.ma, params.period),
             previous_ma_value: 0.0,
             advice: Advice::None,
+            t: 0,
+            t1: ma.maturity() + 1,
+            ma,
         }
     }
 
     fn maturity(&self) -> u32 {
-        self.ma.maturity()
+        self.t1
     }
 
     fn mature(&self) -> bool {
-        self.ma.mature()
+        self.t >= self.t1
     }
 
     fn update(&mut self, candle: &Candle) {
+        self.t = min(self.t + 1, self.maturity());
+
         self.ma.update(candle.close);
 
-        if self.ma.mature() {
+        if self.mature() {
             if candle.close > self.ma.value() && self.ma.value() > self.previous_ma_value {
                 self.advice = Advice::Long;
             } else if candle.close < self.ma.value() && self.ma.value() < self.previous_ma_value {
@@ -63,6 +71,8 @@ impl Strategy for SingleMA {
             }
         }
 
-        self.previous_ma_value = self.ma.value()
+        if self.ma.mature() {
+            self.previous_ma_value = self.ma.value();
+        }
     }
 }
