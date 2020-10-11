@@ -1,5 +1,5 @@
-use bounded_vec_deque::BoundedVecDeque;
 use super::MA;
+use bounded_vec_deque::BoundedVecDeque;
 use std::cmp::min;
 
 pub struct Alma {

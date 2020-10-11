@@ -1,13 +1,12 @@
 use juno_rs::indicators;
 use once_cell::sync::Lazy;
 use serde::Deserialize;
-use std::fs::File;
-use std::collections::HashMap;
+use std::{collections::HashMap, fs::File};
 
 static DATA: Lazy<HashMap<String, IndicatorData>> = Lazy::new(|| {
     // Relative to juno_rs dir.
-    let file = File::open("../tests/data/indicators.yaml")
-        .expect("unable to open indicators data file");
+    let file =
+        File::open("../tests/data/indicators.yaml").expect("unable to open indicators data file");
     serde_yaml::from_reader(file).expect("unable to deserialize indicator data")
 });
 

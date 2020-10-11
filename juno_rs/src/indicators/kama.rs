@@ -1,5 +1,5 @@
-use bounded_vec_deque::BoundedVecDeque;
 use super::MA;
+use bounded_vec_deque::BoundedVecDeque;
 use std::cmp::min;
 
 pub struct Kama {
@@ -47,7 +47,8 @@ impl MA for Kama {
         self.t = min(self.t + 1, self.t2);
 
         if self.prices.len() > 0 {
-            self.diffs.push_back(f64::abs(price - self.prices[self.prices.len() - 1]));
+            self.diffs
+                .push_back(f64::abs(price - self.prices[self.prices.len() - 1]));
         }
 
         if self.t == self.t1 {

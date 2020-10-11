@@ -1,9 +1,9 @@
-use bounded_vec_deque::BoundedVecDeque;
+use super::{Signal, Strategy};
 use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Candle};
+use bounded_vec_deque::BoundedVecDeque;
 use juno_derive_rs::*;
 use rand::prelude::*;
 use std::cmp::min;
-use super::{Signal, Strategy};
 
 #[derive(Chromosome, Clone, Debug)]
 #[repr(C)]
