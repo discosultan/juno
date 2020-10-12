@@ -4,15 +4,17 @@ from typing import List
 
 from juno import Advice, Candle
 
-from .strategy import MidTrendPolicy, StrategyBase
+from .strategy import MidTrend, MidTrendPolicy, Persistence
 
 _log = logging.getLogger(__name__)
 
 
-class Fixed(StrategyBase):
+class Fixed:
     advices: List[Advice]
     updates: List[Candle]
     cancel: bool
+    mid_trend: MidTrend
+    persistence: Persistence
 
     def __init__(
         self,

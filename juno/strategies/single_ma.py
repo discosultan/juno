@@ -1,49 +1,53 @@
 from decimal import Decimal
+from typing import Dict
 
 from juno import Advice, Candle, indicators
-from juno.constraints import Int
-from juno.indicators import MA, Ema
+from juno.constraints import Constraint, Int
+from juno.indicators import MA, Ema2
 from juno.utils import get_module_type
 
-from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
+from .strategy import ma_choices
 
 
 # Signals long when a candle close price goes above moving average and moving average is ascending.
 # Signals short when a candle close price goes below moving average and moving average is
 # descending.
 # J. Murphy 201
-class SingleMA(StrategyBase):
-    @staticmethod
-    def meta() -> Meta:
-        return Meta(
-            constraints={
-                'ma': ma_choices,
-                'period': Int(1, 100),
-                'persistence': Int(0, 10),
-            }
-        )
+class SingleMA:
+    class Meta:
+        constraints: Dict[str, Constraint] = {
+            'ma': ma_choices,
+            'period': Int(1, 100),
+        }
 
     _ma: MA
     _previous_ma_value: Decimal = Decimal('0.0')
     _advice: Advice = Advice.NONE
+    _t: int = 0
+    _t1: int
 
     def __init__(
         self,
-        ma: str = Ema.__name__.lower(),
+        ma: str = Ema2.__name__.lower(),
         period: int = 50,  # Daily.
-        persistence: int = 0,
     ) -> None:
         self._ma = get_module_type(indicators, ma)(period)
-        super().__init__(
-            maturity=self._ma.maturity + 1,
-            persistence=persistence,
-            mid_trend_policy=MidTrendPolicy.IGNORE,
-        )
+        self._t1 = self._ma.maturity + 1
 
-    def tick(self, candle: Candle) -> Advice:
+    @property
+    def maturity(self) -> int:
+        return self._t1
+
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
+
+    def update(self, candle: Candle) -> Advice:
+        self._t = min(self._t + 1, self._t1)
+
         self._ma.update(candle.close)
 
-        if self.mature2:
+        if self._t >= self._t1:
             if candle.close > self._ma.value and self._ma.value > self._previous_ma_value:
                 self._advice = Advice.LONG
             elif candle.close < self._ma.value and self._ma.value < self._previous_ma_value:

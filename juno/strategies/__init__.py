@@ -1,24 +1,28 @@
+from .adx import Adx
 from .double_ma import DoubleMA, DoubleMA2
 from .fixed import Fixed
 from .four_week_rule import FourWeekRule
-from .rsi import Rsi
+from .macd import Macd
+from .mmi import Mmi
+from .momersion import Momersion
 from .single_ma import SingleMA
-from .strategy import Changed, Meta, MidTrend, MidTrendPolicy, Persistence, Strategy, StrategyBase
+from .strategy import Changed, MidTrend, MidTrendPolicy, Persistence, Strategy
 from .triple_ma import TripleMA
 
 __all__ = [
+    'Adx',
     'Changed',
     'DoubleMA',
     'DoubleMA2',
     'Fixed',
     'FourWeekRule',
-    'Meta',
+    'Macd',
     'MidTrend',
     'MidTrendPolicy',
+    'Mmi',
+    'Momersion',
     'Persistence',
-    'Rsi',
     'SingleMA',
     'Strategy',
-    'StrategyBase',
     'TripleMA',
 ]
