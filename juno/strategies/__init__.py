@@ -5,6 +5,7 @@ from .four_week_rule import FourWeekRule
 from .macd import Macd
 from .mmi import Mmi
 from .momersion import Momersion
+from .sig import Sig
 from .single_ma import SingleMA
 from .strategy import Changed, MidTrend, MidTrendPolicy, Persistence, Strategy
 from .triple_ma import TripleMA
@@ -22,6 +23,7 @@ __all__ = [
     'Mmi',
     'Momersion',
     'Persistence',
+    'Sig',
     'SingleMA',
     'Strategy',
     'TripleMA',

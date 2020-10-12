@@ -1,68 +1,56 @@
-# import operator
-# from decimal import Decimal
+from typing import Any, Dict, Tuple, Union
 
-# from juno import Advice, Candle, indicators
-# from juno.constraints import Int, Pair, Uniform
-# from juno.indicators import MA, Ema
-# from juno.utils import get_module_type
+from juno import Advice, Candle
+from juno.constraints import Constraint, Int
 
-# from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
-# from .common import mid_trend_policy_choices
+from .strategy import MidTrend, MidTrendPolicy, Persistence, mid_trend_policy_choices
 
 
-# # Generic signal.
-# class Sig:
-#     class Meta:
-#         constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {
-            
-#             # 'persistence': Int(0, 10),
-#             # 'mid_trend_policy': mid_trend_policy_choices,
-#         }
+# Generic signal with additional persistence and mid trend filters.
+class Sig:
+    class Meta:
+        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {
+            'persistence': Int(0, 10),
+            'mid_trend_policy': mid_trend_policy_choices,
+        }
 
-#     _short_ma: MA
-#     _long_ma: MA
-#     _neg_threshold: Decimal
-#     _pos_threshold: Decimal
+    _advice: Advice = Advice.NONE
+    _sig: Any
+    _mid_trend: MidTrend
+    _persistence: Persistence
+    _t: int = 0
+    _t1: int
 
-#     def __init__(
-#         self,
-#         short_period: int,
-#         long_period: int,
-#         neg_threshold: Decimal,
-#         pos_threshold: Decimal,
-#         persistence: int = 0,
-#         short_ma: str = Ema.__name__.lower(),
-#         long_ma: str = Ema.__name__.lower(),
-#     ) -> None:
-#         self._short_ma = get_module_type(indicators, short_ma)(short_period)
-#         self._long_ma = get_module_type(indicators, long_ma)(long_period)
+    def __init__(
+        self,
+        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
+        persistence: int = 0,
+    ) -> None:
+        self._mid_trend = MidTrend(mid_trend_policy)
+        self._persistence = Persistence(level=persistence, return_previous=False)
+        self._t1 = (
+            self._sig.maturity
+            + max(self._mid_trend.maturity, self._persistence.maturity)
+            - 1
+        )
 
-#         super().__init__(
-#             maturity=max(self._long_ma.maturity, self._short_ma.maturity),
-#             persistence=persistence,
-#             mid_trend_policy=MidTrendPolicy.IGNORE,
-#         )
-#         self.validate(
-#             short_period, long_period, neg_threshold, pos_threshold, persistence, short_ma, long_ma
-#         )
+    @property
+    def maturity(self) -> int:
+        return self._t1
 
-#         self._neg_threshold = neg_threshold
-#         self._pos_threshold = pos_threshold
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
 
-#     def tick(self, candle: Candle) -> Advice:
-#         self._short_ma.update(candle.close)
-#         self._long_ma.update(candle.close)
+    def update(self, candle: Candle) -> Advice:
+        self._t = min(self._t + 1, self._t1)
 
-#         if self.mature:
-#             diff = (
-#                 100
-#                 * (self._short_ma.value - self._long_ma.value)
-#                 / ((self._short_ma.value + self._long_ma.value) / 2)
-#             )
+        advice = self._sig.update(candle)
 
-#             if diff > self._pos_threshold:
-#                 return Advice.LONG
-#             elif diff < self._neg_threshold:
-#                 return Advice.SHORT
+        if self.mature:
+            self._advice = Advice.combine(
+                self._mid_trend.update(advice),
+                self._persistence.update(advice),
+            )
 
-#         return Advice.NONE
+        return self._advice
