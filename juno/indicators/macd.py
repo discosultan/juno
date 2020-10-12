@@ -48,7 +48,7 @@ class Macd:
         self._short_ema.update(price)
         self._long_ema.update(price)
 
-        if self._long_ema.mature:
+        if self._long_ema.mature and self._short_ema.mature:
             self.value = self._short_ema.value - self._long_ema.value
             self.signal = self._signal_ema.update(self.value)
             self.histogram = self.value - self.signal

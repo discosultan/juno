@@ -46,7 +46,7 @@ impl Macd {
         self.short_ema.update(price);
         self.long_ema.update(price);
 
-        if self.long_ema.mature() {
+        if self.long_ema.mature() && self.short_ema.mature() {
             self.value = self.short_ema.value - self.long_ema.value;
             self.signal_ema.update(self.value);
             self.signal = self.signal_ema.value;

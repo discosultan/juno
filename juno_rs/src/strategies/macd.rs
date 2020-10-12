@@ -35,7 +35,7 @@ fn signal_period(rng: &mut StdRng) -> u32 {
 }
 // TODO: Remove
 fn persistence(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 10)
+    rng.gen_range(0, 10)
 }
 
 #[derive(Signal)]

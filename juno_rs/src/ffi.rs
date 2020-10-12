@@ -20,8 +20,9 @@ pub unsafe extern "C" fn singlema(
         sig_params: strategies::SingleMAParams {
             ma: strategy_info.ma,
             period: strategy_info.period,
+            persistence: strategy_info.persistence,
         },
-        persistence: 0,
+        persistence: strategy_info.persistence,
     };
     let strategy_info = &params;
     run_test::<strategies::Sig<strategies::SingleMA>>(trading_info, strategy_info, analysis_info)
@@ -46,6 +47,31 @@ pub unsafe extern "C" fn doublema(
     };
     let strategy_info = &params;
     run_test::<strategies::Sig<strategies::DoubleMA>>(trading_info, strategy_info, analysis_info)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn doublema2(
+    trading_info: *const TradingInfo,
+    strategy_info: *const strategies::DoubleMA2Params,
+    analysis_info: *const AnalysisInfo,
+) -> FitnessValues {
+    // run_test::<strategies::DuobleMA2>(trading_info, strategy_info, analysis_info)
+    // TODO: Temp.
+    let strategy_info = &*strategy_info;
+    let params = strategies::SigParams::<strategies::DoubleMA2Params> {
+        sig_params: strategies::DoubleMA2Params {
+            short_ma: strategy_info.short_ma,
+            long_ma: strategy_info.long_ma,
+            periods: strategy_info.periods,
+            // TODO: Remove
+            persistence: strategy_info.persistence,
+            neg_threshold: strategy_info.neg_threshold,
+            pos_threshold: strategy_info.pos_threshold,
+        },
+        persistence: strategy_info.persistence,
+    };
+    let strategy_info = &params;
+    run_test::<strategies::Sig<strategies::DoubleMA2>>(trading_info, strategy_info, analysis_info)
 }
 
 #[no_mangle]
@@ -85,31 +111,6 @@ pub unsafe extern "C" fn macd(
     };
     let strategy_info = &params;
     run_test::<strategies::Sig<strategies::Macd>>(trading_info, strategy_info, analysis_info)
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn doublema2(
-    trading_info: *const TradingInfo,
-    strategy_info: *const strategies::DoubleMA2Params,
-    analysis_info: *const AnalysisInfo,
-) -> FitnessValues {
-    // run_test::<strategies::DuobleMA2>(trading_info, strategy_info, analysis_info)
-    // TODO: Temp.
-    let strategy_info = &*strategy_info;
-    let params = strategies::SigParams::<strategies::DoubleMA2Params> {
-        sig_params: strategies::DoubleMA2Params {
-            short_ma: strategy_info.short_ma,
-            long_ma: strategy_info.long_ma,
-            periods: strategy_info.periods,
-            // TODO: Remove
-            persistence: strategy_info.persistence,
-            neg_threshold: strategy_info.neg_threshold,
-            pos_threshold: strategy_info.pos_threshold,
-        },
-        persistence: strategy_info.persistence,
-    };
-    let strategy_info = &params;
-    run_test::<strategies::Sig<strategies::DoubleMA2>>(trading_info, strategy_info, analysis_info)
 }
 
 unsafe fn run_test<T: Signal>(

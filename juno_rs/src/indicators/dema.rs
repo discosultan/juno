@@ -18,7 +18,7 @@ impl Dema {
             ema2: Ema::new(period),
             t: 0,
             t1: period,
-            t2: (period * 2) - 1,
+            t2: period * 2 - 1,
         }
     }
 }
@@ -43,7 +43,7 @@ impl MA for Dema {
 
         if self.t >= self.t1 {
             self.ema2.update(self.ema1.value);
-            if self.mature() {
+            if self.t >= self.t2 {
                 self.value = self.ema1.value * 2.0 - self.ema2.value;
             }
         }

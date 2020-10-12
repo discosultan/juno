@@ -98,7 +98,7 @@ fn pos_threshold(rng: &mut StdRng) -> f64 {
 }
 // TODO: Remove
 fn persistence(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 10)
+    rng.gen_range(0, 10)
 }
 
 #[derive(Signal)]
@@ -133,11 +133,11 @@ impl Strategy for DoubleMA2 {
     }
 
     fn maturity(&self) -> u32 {
-        self.long_ma.maturity()
+        max(self.long_ma.maturity(), self.short_ma.maturity())
     }
 
     fn mature(&self) -> bool {
-        self.long_ma.mature()
+        self.long_ma.mature() && self.short_ma.mature()
     }
 
     fn update(&mut self, candle: &Candle) {

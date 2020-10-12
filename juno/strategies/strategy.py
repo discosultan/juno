@@ -178,7 +178,7 @@ class StrategyBase(Strategy):
     def __init__(
         self,
         maturity: int = 1,
-        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
+        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.IGNORE,
         persistence: int = 0,
     ) -> None:
         assert maturity >= 1
@@ -199,6 +199,10 @@ class StrategyBase(Strategy):
             + max(self._mid_trend_filter.maturity, self._persistence_filter.maturity)
             - 1
         )
+
+    @property
+    def mature2(self) -> int:
+        return self._t >= self._maturity
 
     def update(self, candle: Candle) -> Advice:
         assert candle.time > self._last_candle_time

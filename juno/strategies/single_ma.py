@@ -35,7 +35,7 @@ class SingleMA(StrategyBase):
     ) -> None:
         self._ma = get_module_type(indicators, ma)(period)
         super().__init__(
-            maturity=self._ma.maturity,
+            maturity=self._ma.maturity + 1,
             persistence=persistence,
             mid_trend_policy=MidTrendPolicy.IGNORE,
         )
@@ -43,7 +43,7 @@ class SingleMA(StrategyBase):
     def tick(self, candle: Candle) -> Advice:
         self._ma.update(candle.close)
 
-        if self.mature:
+        if self.mature2:
             if candle.close > self._ma.value and self._ma.value > self._previous_ma_value:
                 self._advice = Advice.LONG
             elif candle.close < self._ma.value and self._ma.value < self._previous_ma_value:

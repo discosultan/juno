@@ -47,7 +47,7 @@ class DoubleMA(StrategyBase):
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
-        if self.mature:
+        if self.mature2:
             if self._short_ma.value > self._long_ma.value:
                 self._advice = Advice.LONG
             elif self._short_ma.value < self._long_ma.value:
@@ -105,7 +105,7 @@ class DoubleMA2(StrategyBase):
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
-        if self.mature:
+        if self.mature2:
             diff = (
                 100
                 * (self._short_ma.value - self._long_ma.value)

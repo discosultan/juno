@@ -35,8 +35,7 @@ class Kama:
 
     @property
     def maturity(self) -> int:
-        # TODO: Change to _t1 when we change the meaning of maturity
-        return self._t1 - 1
+        return self._t1
 
     @property
     def mature(self) -> bool:

@@ -35,7 +35,7 @@ class Macd(StrategyBase):
     def tick(self, candle: Candle) -> Advice:
         self._macd.update(candle.close)
 
-        if self.mature:
+        if self.mature2:
             if self._macd.value > self._macd.signal:
                 return Advice.LONG
             else:

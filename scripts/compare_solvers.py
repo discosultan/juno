@@ -13,30 +13,21 @@ from juno.utils import extract_public, unpack_symbol
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.DAY_MS
-START = time.strptimestamp('2020-09-01')
-END = time.strptimestamp('2020-09-30')
-MISSED_CANDLE_POLICY = MissedCandlePolicy.IGNORE
-STOP_LOSS = Decimal('0.0747')
+START = time.strptimestamp('2020-03-10')
+END = time.strptimestamp('2020-04-20')
+MISSED_CANDLE_POLICY = MissedCandlePolicy.RESTART
+STOP_LOSS = Decimal('0.0')
 TRAIL_STOP_LOSS = True
 TAKE_PROFIT = Decimal('0.0')
-LONG = False
+LONG = True
 SHORT = True
-# STRATEGY_TYPE = strategies.FourWeekRule
-# STRATEGY_KWARGS = {
-#     'period': 28,
-#     'ma': 'smma',w
-#     'ma_period': 14,
-#     'mid_trend_policy': strategies.MidTrendPolicy.IGNORE,
-# }
-STRATEGY_TYPE = strategies.DoubleMA2
+STRATEGY_TYPE = strategies.Macd
+# NB! Needs to be ordered!
 STRATEGY_KWARGS = {
-    'short_period': 4,
-    'long_period': 24,
-    'neg_threshold': Decimal('-0.426'),
-    'pos_threshold': Decimal('0.337'),
-    'persistence': 1,
-    'short_ma': 'ema2',
-    'long_ma': 'alma',
+    'short_period': 1,
+    'long_period': 16,
+    'signal_period': 23,
+    'persistence': 0,
 }
 
 
@@ -89,26 +80,26 @@ async def main() -> None:
         rust_result = rust_solver.solve(solver_config)
         python_result = python_solver.solve(solver_config)
 
-        trading_summary = await trader.run(Basic.Config(
-            exchange='binance',
-            symbol=SYMBOL,
-            interval=INTERVAL,
-            start=start,
-            end=end,
-            quote=Decimal('1.0'),
-            strategy=TypeConstructor.from_type(STRATEGY_TYPE, **STRATEGY_KWARGS),
-            missed_candle_policy=MISSED_CANDLE_POLICY,
-            stop_loss=STOP_LOSS,
-            take_profit=TAKE_PROFIT,
-            adjust_start=False,
-            long=LONG,
-            short=SHORT,
-        ))
-        portfolio = analyse_portfolio(
-            benchmark_g_returns=benchmark.g_returns,
-            asset_prices=fiat_prices,
-            trading_summary=trading_summary,
-        )
+        # trading_summary = await trader.run(Basic.Config(
+        #     exchange='binance',
+        #     symbol=SYMBOL,
+        #     interval=INTERVAL,
+        #     start=start,
+        #     end=end,
+        #     quote=Decimal('1.0'),
+        #     strategy=TypeConstructor.from_type(STRATEGY_TYPE, **STRATEGY_KWARGS),
+        #     missed_candle_policy=MISSED_CANDLE_POLICY,
+        #     stop_loss=STOP_LOSS,
+        #     take_profit=TAKE_PROFIT,
+        #     adjust_start=False,
+        #     long=LONG,
+        #     short=SHORT,
+        # ))
+        # portfolio = analyse_portfolio(
+        #     benchmark_g_returns=benchmark.g_returns,
+        #     asset_prices=fiat_prices,
+        #     trading_summary=trading_summary,
+        # )
 
         logging.info('=== rust solver ===')
         # logging.info(f'alpha {rust_result.alpha}')
@@ -122,12 +113,12 @@ async def main() -> None:
         # logging.info(f'profit {python_result.profit}')
         # logging.info(f'mean pos dur {python_result.mean_position_duration}')
 
-        logging.info('=== python trader ===')
-        # logging.info(f'alpha {portfolio.stats.alpha}')
-        logging.info(f'sharpe ratio {portfolio.stats.sharpe_ratio}')
-        logging.info(f'profit {trading_summary.profit}')
-        logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
-        logging.info(f'{format_as_config(extract_public(trading_summary))}')
+        # logging.info('=== python trader ===')
+        # # logging.info(f'alpha {portfolio.stats.alpha}')
+        # logging.info(f'sharpe ratio {portfolio.stats.sharpe_ratio}')
+        # logging.info(f'profit {trading_summary.profit}')
+        # logging.info(f'mean pos dur {trading_summary.mean_position_duration}')
+        # logging.info(f'{format_as_config(extract_public(trading_summary))}')
 
 
 asyncio.run(main())

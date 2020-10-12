@@ -32,7 +32,7 @@ class DummyStrategy(strategies.StrategyBase):
 
 @pytest.mark.parametrize('maturity', [1, 2, 3])
 def test_mature(maturity: int) -> None:
-    strategy = strategies.StrategyBase(maturity=maturity)
+    strategy = strategies.StrategyBase(maturity=maturity, mid_trend_policy=MidTrendPolicy.CURRENT)
     assert not strategy.mature
 
     for i in range(1, maturity + 1):

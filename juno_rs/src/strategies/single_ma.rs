@@ -13,6 +13,8 @@ use std::cmp::min;
 pub struct SingleMAParams {
     pub ma: u32,
     pub period: u32,
+    // TODO: TEMP
+    pub persistence: u32,
 }
 
 fn ma(rng: &mut StdRng) -> u32 {
@@ -20,6 +22,10 @@ fn ma(rng: &mut StdRng) -> u32 {
 }
 fn period(rng: &mut StdRng) -> u32 {
     rng.gen_range(1, 100)
+}
+// TODO: Remove
+fn persistence(rng: &mut StdRng) -> u32 {
+    rng.gen_range(0, 10)
 }
 
 #[derive(Signal)]
@@ -59,7 +65,7 @@ impl Strategy for SingleMA {
     }
 
     fn update(&mut self, candle: &Candle) {
-        self.t = min(self.t + 1, self.maturity());
+        self.t = min(self.t + 1, self.t1);
 
         self.ma.update(candle.close);
 
