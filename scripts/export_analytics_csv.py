@@ -41,7 +41,7 @@ async def main() -> None:
             strategy=get_module_type_constructor(
                 strategies,
                 {
-                    'type': 'mamacx',
+                    'type': 'doublema2',
                     'short_period': 3,
                     'long_period': 73,
                     'neg_threshold': Decimal('-0.102'),

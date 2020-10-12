@@ -6,7 +6,7 @@ from juno import Fill
 from juno.agents import Agent, AgentStatus
 from juno.config import format_as_config
 from juno.storages import SQLite
-from juno.strategies import MAMACX
+from juno.strategies import DoubleMA2
 from juno.traders import Basic
 from juno.trading import CloseReason, Position, TradingSummary
 from juno.utils import extract_public
@@ -73,7 +73,7 @@ async def main() -> None:
         )
     )
     trader_state = Basic.State(
-        strategy=MAMACX(84, 92, Decimal('-0.172'), Decimal('0.377'), 0, 'sma', 'ema2'),
+        strategy=DoubleMA2(84, 92, Decimal('-0.172'), Decimal('0.377'), 0, 'sma', 'ema2'),
         quote=Decimal('0.0205325200000000'),
         summary=trading_summary,
     )

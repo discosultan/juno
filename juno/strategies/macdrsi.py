@@ -6,10 +6,10 @@ from juno.constraints import Int, Pair, Uniform
 
 from .macd import Macd
 from .rsi import Rsi
-from .strategy import Meta, Strategy
+from .strategy import Meta, StrategyBase
 
 
-class MacdRsi(Strategy):
+class MacdRsi(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -40,7 +40,7 @@ class MacdRsi(Strategy):
         self._macd = Macd(macd_short_period, macd_long_period, macd_signal_period, 0)
         self._rsi = Rsi(rsi_period, rsi_up_threshold, rsi_down_threshold, 0)
         super().__init__(
-            maturity=max(macd_long_period - 1, macd_signal_period - 1, rsi_period - 1),
+            maturity=self._macd.maturity,
             persistence=persistence
         )
         self.validate(

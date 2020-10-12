@@ -1,5 +1,7 @@
 [workspace]
 members = [
+    "juno_bin_rs",
     "juno_rs",
     "juno_derive_rs",
 ]
+default-members = ["juno_bin_rs"]

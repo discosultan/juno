@@ -12,9 +12,7 @@ pub struct UniformCrossover {
 impl UniformCrossover {
     pub fn new(mix_probability: f32) -> Self {
         assert!(0.0 <= mix_probability && mix_probability <= 1.0);
-        Self {
-            mix_probability,
-        }
+        Self { mix_probability }
     }
 }
 

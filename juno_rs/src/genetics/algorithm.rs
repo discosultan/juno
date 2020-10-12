@@ -29,7 +29,11 @@ where
     TR: Reinsertion,
 {
     pub fn new(
-        evaluation: TE, selection: TS, crossover: TC, mutation: TM, reinsertion: TR
+        evaluation: TE,
+        selection: TS,
+        crossover: TC,
+        mutation: TM,
+        reinsertion: TR,
     ) -> Self {
         Self {
             evaluation,
@@ -45,31 +49,41 @@ where
         population_size: usize,
         generations: usize,
         seed: Option<u64>,
-    ) -> Individual<TE::Chromosome> {
+    ) -> Vec<Individual<TE::Chromosome>> {
         assert!(population_size >= 2);
         // TODO: Get rid of this assertion.
         assert_eq!(population_size % 2, 0);
 
-        let mut rng = match seed {
-            Some(seed) => StdRng::seed_from_u64(seed),
-            None => StdRng::from_entropy(),
+        let seed = match seed {
+            Some(seed) => seed,
+            None => rand::thread_rng().gen_range(0, u64::MAX),
         };
+        println!("using seed {}", seed);
+
+        let mut rng = StdRng::seed_from_u64(seed);
+
+        let mut gens = Vec::with_capacity(generations);
 
         let mut parents = (0..population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
         self.evaluate_and_sort_by_fitness_desc(&mut parents);
+        gens.push(parents[0].clone());
+        println!("gen 0 best fitness {}", parents[0].fitness);
 
         let mut offsprings = Vec::with_capacity(population_size as usize);
 
-        for i in 0..generations {
-            println!("gen {}", i);
+        for i in 1..=generations {
             self.run_generation(&mut rng, &mut parents, &mut offsprings, population_size);
+
             std::mem::swap(&mut parents, &mut offsprings);
             offsprings.clear();
+
+            gens.push(parents[0].clone());
+            println!("gen {} best fitness {}", i, parents[0].fitness);
         }
 
-        parents[0].clone()
+        gens
     }
 
     fn run_generation(
@@ -81,7 +95,8 @@ where
     ) {
         // select
         let start = time::Instant::now();
-        self.selection.select(rng, parents, offsprings, self.reinsertion.selection_rate());
+        self.selection
+            .select(rng, parents, offsprings, self.reinsertion.selection_rate());
         println!("select {:?}", start.elapsed());
 
         // crossover & mutation
@@ -110,7 +125,8 @@ where
         // evaluate
         self.evaluate_and_sort_by_fitness_desc(offsprings);
         // reinsert
-        self.reinsertion.reinsert(parents, offsprings, population_size)
+        self.reinsertion
+            .reinsert(parents, offsprings, population_size)
     }
 
     fn evaluate_and_sort_by_fitness_desc(&self, population: &mut Vec<Individual<TE::Chromosome>>) {

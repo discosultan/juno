@@ -46,8 +46,8 @@ impl<T: Chromosome> Individual<T> {
 
 #[derive(Clone, Debug)]
 pub struct TradingChromosome<T: Chromosome> {
-    trader: TraderParams,
-    strategy: T,
+    pub trader: TraderParams,
+    pub strategy: T,
 }
 
 impl<T: Chromosome> Chromosome for TradingChromosome<T> {
@@ -81,7 +81,7 @@ impl<T: Chromosome> Chromosome for TradingChromosome<T> {
 }
 
 #[derive(Chromosome, Clone, Debug)]
-struct TraderParams {
+pub struct TraderParams {
     pub missed_candle_policy: u32,
     pub stop_loss: f64,
     pub trail_stop_loss: bool,

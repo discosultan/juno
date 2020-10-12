@@ -14,7 +14,7 @@ class Mmi:
 
     _prices: Deque[Decimal]
 
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     # Common periods are between 200 - 500.
@@ -24,7 +24,7 @@ class Mmi:
 
         self._prices = deque(maxlen=period)
 
-        self._t1 = period - 1
+        self._t1 = period
 
     @property
     def maturity(self) -> int:
@@ -36,9 +36,10 @@ class Mmi:
 
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t1)
+
         self._prices.append(price)
 
-        if self.mature:
+        if self._t >= self._t1:
             med = median(self._prices)
             nh = 0
             nl = 0
@@ -47,6 +48,6 @@ class Mmi:
                     nl += 1
                 if next_price < med and next_price < prev_price:
                     nh += 1
-            self.value = Decimal('100.0') * (nl + nh) / self._t1
+            self.value = Decimal('100.0') * (nl + nh) / (self._t1 - 1)
 
         return self.value

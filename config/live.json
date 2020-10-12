@@ -20,7 +20,7 @@
                 "stop_loss": 0.1832
             },
             "strategy": {
-                "type": "mamacx",
+                "type": "doublema2",
                 "short_period": 19,
                 "long_period": 31,
                 "neg_threshold": -0.201,

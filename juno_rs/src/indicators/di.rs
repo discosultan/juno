@@ -24,13 +24,23 @@ impl DI {
             atr: 0.0,
             prev_close: 0.0,
             t: 0,
-            t1: 1,
-            t2: period - 1,
-            t3: period,
+            t1: 2,
+            t2: period,
+            t3: period + 1,
         }
     }
 
+    pub fn maturity(&self) -> u32 {
+        self.t2
+    }
+
+    pub fn mature(&self) -> bool {
+        self.t >= self.t2
+    }
+
     pub fn update(&mut self, high: f64, low: f64, close: f64) {
+        self.t = min(self.t + 1, self.t3);
+
         self.dm.update(high, low);
 
         if self.t >= self.t1 && self.t < self.t3 {
@@ -40,14 +50,13 @@ impl DI {
         if self.t == self.t2 {
             self.plus_value = 100.0 * self.dm.plus_value / self.atr;
             self.minus_value = 100.0 * self.dm.minus_value / self.atr;
-        } else if self.t == self.t3 {
+        } else if self.t >= self.t3 {
             self.atr = self.atr * self.per + calc_truerange(self.prev_close, high, low);
             self.plus_value = 100.0 * self.dm.plus_value / self.atr;
             self.minus_value = 100.0 * self.dm.minus_value / self.atr;
         }
 
         self.prev_close = close;
-        self.t = min(self.t + 1, self.t3);
     }
 }
 

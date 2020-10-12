@@ -8,7 +8,7 @@ class Sma:
     _prices: List[Decimal]
     _i: int = 0
     _sum: Decimal = Decimal('0.0')
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     def __init__(self, period: int) -> None:
@@ -16,7 +16,7 @@ class Sma:
             raise ValueError(f'Invalid period ({period})')
 
         self._prices = [Decimal('0.0')] * period
-        self._t1 = period - 1
+        self._t1 = period
 
     @property
     def maturity(self) -> int:

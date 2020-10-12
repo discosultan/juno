@@ -18,9 +18,7 @@ pub struct EliteSelection {
 
 impl EliteSelection {
     pub fn new(shuffle: bool) -> Self {
-        Self {
-            shuffle,
-        }
+        Self { shuffle }
     }
 }
 

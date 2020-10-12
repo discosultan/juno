@@ -41,7 +41,7 @@ class Signal(Agent):
 
         now = time_ms()
         start = floor_multiple(now, config.interval)
-        start -= strategy.adjust_hint * config.interval
+        start -= (strategy.maturity - 1) * config.interval
 
         changed = Changed(True)
 

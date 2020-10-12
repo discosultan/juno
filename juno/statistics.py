@@ -136,8 +136,14 @@ def _calculate_statistics(
     annualized_return = 365 * g_returns.mean()
     annualized_volatility = _SQRT_365 * g_returns.std(ddof=0)
     annualized_downside_risk = _SQRT_365 * neg_g_returns.std(ddof=0)
-    sharpe_ratio = annualized_return / annualized_volatility
-    sortino_ratio = annualized_return / annualized_downside_risk
+
+    sharpe_ratio = (
+        annualized_return / annualized_volatility if annualized_volatility else Decimal('0.0')
+    )
+    sortino_ratio = (
+        annualized_return / annualized_downside_risk if annualized_downside_risk
+        else Decimal('0.0')
+    )
     cagr = (
         (performance.iloc[-1] / performance.iloc[0])
         ** (1 / (performance.size / 365))
@@ -148,9 +154,12 @@ def _calculate_statistics(
     if benchmark_g_returns is not None:
         covariance_matrix = pd.concat(
             [g_returns, benchmark_g_returns], axis=1
-        ).dropna().cov()
-        beta = covariance_matrix.iloc[0].iloc[1] / covariance_matrix.iloc[1].iloc[1]
-        alpha = annualized_return - (beta * 365 * benchmark_g_returns.mean())
+        ).dropna().cov(ddof=0)
+        y = covariance_matrix.iloc[1].iloc[1]
+        if y != 0:
+            x = covariance_matrix.iloc[0].iloc[1]
+            beta = x / y
+            alpha = annualized_return - (beta * 365 * benchmark_g_returns.mean())
 
     return AnalysisSummary(
         performance=performance,

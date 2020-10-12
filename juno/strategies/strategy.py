@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import IntEnum
 from typing import Any, Dict, NamedTuple, Optional, Tuple, Union
 
@@ -51,7 +52,7 @@ class MidTrend:
 
     @property
     def maturity(self) -> int:
-        return 0 if self._policy is MidTrendPolicy.CURRENT else 1
+        return 1 if self._policy is MidTrendPolicy.CURRENT else 2
 
     def update(self, value: Advice) -> Advice:
         if not self._enabled or self._policy is not MidTrendPolicy.IGNORE:
@@ -76,12 +77,13 @@ class Persistence:
 
     def __init__(self, level: int, return_previous: bool = False) -> None:
         assert level >= 0
+
         self._level = level
         self._return_previous = return_previous
 
     @property
     def maturity(self) -> int:
-        return self._level
+        return self._level + 1
 
     def update(self, value: Advice) -> Advice:
         if self._level == 0:
@@ -123,7 +125,7 @@ class Changed:
 
     @property
     def maturity(self) -> int:
-        return 0
+        return 1
 
     def update(self, value: Advice) -> Advice:
         if not self._enabled:
@@ -143,11 +145,25 @@ class Meta(NamedTuple):
     constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {}
 
 
-class Strategy:
+class Strategy(ABC):
+    meta: Any
+    advice: Advice
+
+    @property
+    @abstractmethod
+    def maturity(self) -> int:
+        pass
+
+    @abstractmethod
+    def update(self, candle: Candle) -> Advice:
+        pass
+
+
+class StrategyBase(Strategy):
     advice: Advice = Advice.NONE
     _maturity: int
 
-    _t: int = -1
+    _t: int = 0
 
     # _maturity_filter: Maturity
     _mid_trend_filter: MidTrend
@@ -159,19 +175,13 @@ class Strategy:
     def meta() -> Meta:
         return Meta()
 
-    @property
-    def adjust_hint(self) -> int:
-        return (
-            self._maturity
-            + max(self._mid_trend_filter.maturity, self._persistence_filter.maturity)
-        )
-
     def __init__(
         self,
-        maturity: int = 0,
-        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
+        maturity: int = 1,
+        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.IGNORE,
         persistence: int = 0,
     ) -> None:
+        assert maturity >= 1
         self._maturity = maturity
 
         # self._maturity_filter = Maturity(maturity=maturity)
@@ -180,15 +190,28 @@ class Strategy:
 
     @property
     def mature(self) -> bool:
+        return self._t >= self.maturity
+
+    @property
+    def maturity(self) -> int:
+        return (
+            self._maturity
+            + max(self._mid_trend_filter.maturity, self._persistence_filter.maturity)
+            - 1
+        )
+
+    @property
+    def mature2(self) -> int:
         return self._t >= self._maturity
 
     def update(self, candle: Candle) -> Advice:
         assert candle.time > self._last_candle_time
 
-        self._t = min(self._t + 1, self._maturity)
+        self._t = min(self._t + 1, self.maturity)
+
         advice = self.tick(candle)
 
-        if self.mature:
+        if self._t >= self._maturity:
             advice = Advice.combine(
                 self._mid_trend_filter.update(advice),
                 self._persistence_filter.update(advice),

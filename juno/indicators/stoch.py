@@ -16,7 +16,7 @@ class Stoch:
     _k_sma: Sma
     _d_sma: Sma
 
-    _t: int = -1
+    _t: int = 0
     _t1: int
     _t2: int
     _t3: int
@@ -31,7 +31,7 @@ class Stoch:
         self._k_sma = Sma(k_sma_period)
         self._d_sma = Sma(d_sma_period)
 
-        self._t1 = k_period - 1
+        self._t1 = k_period
         self._t2 = self._t1 + k_sma_period - 1
         self._t3 = self._t2 + d_sma_period - 1
 
@@ -45,6 +45,7 @@ class Stoch:
 
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
         self._t = min(self._t + 1, self._t3)
+
         self._k_high_window.append(high)
         self._k_low_window.append(low)
 
@@ -58,7 +59,7 @@ class Stoch:
             if self._t >= self._t2:
                 self._d_sma.update(self._k_sma.value)
 
-            if self._t == self._t3:
+            if self._t >= self._t3:
                 self.k = self._k_sma.value
                 self.d = self._d_sma.value
 

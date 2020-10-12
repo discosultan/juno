@@ -19,7 +19,7 @@ SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
 TRAINING_VALIDATION_SPLIT = 0.75
 QUOTE = Decimal('1.0')
-STRATEGY_TYPE = 'mamacx'
+STRATEGY_TYPE = 'doublema2'
 
 
 async def main() -> None:

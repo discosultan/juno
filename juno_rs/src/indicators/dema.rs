@@ -12,22 +12,29 @@ pub struct Dema {
 
 impl Dema {
     pub fn new(period: u32) -> Self {
-        let t1 = period - 1;
         Self {
             value: 0.0,
             ema1: Ema::new(period),
             ema2: Ema::new(period),
             t: 0,
-            t1,
-            t2: t1 * 2,
+            t1: period,
+            t2: period * 2 - 1,
         }
     }
+}
 
-    pub fn maturity(&self) -> u32 {
+impl MA for Dema {
+    fn maturity(&self) -> u32 {
         self.t2
     }
 
-    pub fn update(&mut self, price: f64) {
+    fn mature(&self) -> bool {
+        self.t >= self.t2
+    }
+
+    fn update(&mut self, price: f64) {
+        self.t = min(self.t + 1, self.t2);
+
         self.ema1.update(price);
 
         if self.t <= self.t1 {
@@ -36,25 +43,13 @@ impl Dema {
 
         if self.t >= self.t1 {
             self.ema2.update(self.ema1.value);
-            if self.t == self.t2 {
+            if self.t >= self.t2 {
                 self.value = self.ema1.value * 2.0 - self.ema2.value;
             }
         }
-
-        self.t = min(self.t + 1, self.t2);
-    }
-}
-
-impl MA for Dema {
-    fn update(&mut self, price: f64) {
-        self.update(price)
     }
 
     fn value(&self) -> f64 {
         self.value
-    }
-
-    fn maturity(&self) -> u32 {
-        self.t2
     }
 }

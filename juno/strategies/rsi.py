@@ -3,12 +3,12 @@ from decimal import Decimal
 from juno import Advice, Candle, indicators
 from juno.constraints import Int, Uniform
 
-from .strategy import Meta, Strategy
+from .strategy import Meta, StrategyBase
 
 
 # RSI based strategy which signals buy when the indicator is coming out of an oversold area and
 # sell when coming out of an overbought area.
-class Rsi(Strategy):
+class Rsi(StrategyBase):
     @staticmethod
     def meta() -> Meta:
         return Meta(
@@ -33,9 +33,9 @@ class Rsi(Strategy):
         down_threshold: Decimal = Decimal('30.0'),
         persistence: int = 0,
     ) -> None:
-        super().__init__(maturity=period - 1, persistence=persistence)
-        self.validate(period, up_threshold, down_threshold, persistence)
         self._rsi = indicators.Rsi(period)
+        super().__init__(maturity=self._rsi.maturity, persistence=persistence)
+        self.validate(period, up_threshold, down_threshold, persistence)
         self._up_threshold = up_threshold
         self._down_threshold = down_threshold
 

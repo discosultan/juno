@@ -12,8 +12,8 @@ class Kvo:
     _prev_dm: Decimal = Decimal('0.0')
     _cm: Decimal = Decimal('0.0')
     _trend: int = 0
-    _t: int = -1
-    _t1: int = 1
+    _t: int = 0
+    _t1: int = 2
 
     def __init__(self, short_period: int, long_period: int) -> None:
         if short_period < 1:
@@ -40,7 +40,7 @@ class Kvo:
         hlc = high + low + close
         dm = high - low
 
-        if self._t > 0:
+        if self._t > 1:
             if hlc > self._prev_hlc and self._trend != 1:
                 self._trend = 1
                 self._cm = self._prev_dm

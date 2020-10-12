@@ -8,15 +8,15 @@ class Smma:
     value: Decimal = Decimal('0.0')
     _sma: Sma
     _weight: int
-    _t: int = -1
+    _t: int = 0
     _t1: int
     _t2: int
 
     def __init__(self, period: int) -> None:
         self._sma = Sma(period)
         self._weight = period
-        self._t1 = period - 1
-        self._t2 = period
+        self._t1 = period
+        self._t2 = period + 1
 
     @property
     def maturity(self) -> int:
@@ -34,7 +34,7 @@ class Smma:
 
         if self._t == self._t1:
             self.value = self._sma.value
-        elif self._t == self._t2:
+        elif self._t >= self._t2:
             self.value = (self.value * (self._weight - 1) + price) / self._weight
 
         return self.value

@@ -17,7 +17,8 @@ class Ema:
     _prices: List[Decimal]
     _denominator: Decimal = Decimal('0.0')
 
-    _t: int = -1
+    _t: int = 0
+    _t1: int
 
     def __init__(self, period: int, adjust: bool = False) -> None:
         if period < 1:
@@ -28,21 +29,22 @@ class Ema:
             self._prices = []
         # Decay calculated in terms of span.
         self.set_smoothing_factor(Decimal('2.0') / (period + 1))
+        self._t1 = period
 
     @property
     def maturity(self) -> int:
-        return 0
+        return self._t1
 
     @property
     def mature(self) -> bool:
-        return True
+        return self._t >= self._t1
 
     def set_smoothing_factor(self, a: Decimal) -> None:
         self._a = a
         self._a_inv = 1 - self._a
 
     def update(self, price: Decimal) -> Decimal:
-        self._t = min(self._t + 1, 1)
+        self._t = min(self._t + 1, self._t1)
 
         if self._adjust:
             self._prices.append(price)
@@ -57,7 +59,7 @@ class Ema:
             self._denominator += self._a_inv**(len(self._prices) - 1)
             self.value = numerator / self._denominator
         else:
-            if self._t == 0:
+            if self._t == 1:
                 self.value = price
             else:
                 self.value += (price - self.value) * self._a
@@ -65,8 +67,8 @@ class Ema:
         return self.value
 
     @staticmethod
-    def with_smoothing(a: Decimal, adjust: bool = False) -> Ema:
-        ema = Ema(1, adjust=adjust)  # Dummy period.
+    def with_smoothing(period: int, a: Decimal, adjust: bool = False) -> Ema:
+        ema = Ema(period, adjust=adjust)  # Dummy period.
         ema.set_smoothing_factor(a)
         return ema
 
@@ -86,7 +88,7 @@ class Ema2:
 
     _sma: Sma
     _a: Decimal
-    _t: int = -1
+    _t: int = 0
     _t1: int
     _t2: int
 
@@ -98,12 +100,16 @@ class Ema2:
 
         self._a = Decimal('2.0') / (period + 1)
 
-        self._t1 = period - 1
-        self._t2 = period
+        self._t1 = period
+        self._t2 = period + 1
 
     @property
     def maturity(self) -> int:
         return self._t1
+
+    @property
+    def mature(self) -> bool:
+        return self._t >= self._t1
 
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t2)
@@ -113,7 +119,7 @@ class Ema2:
 
         if self._t == self._t1:
             self.value = self._sma.value
-        elif self._t == self._t2:
+        elif self._t >= self._t2:
             self.value = (price - self.value) * self._a + self.value
 
         return self.value

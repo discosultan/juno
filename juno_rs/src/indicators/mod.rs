@@ -27,9 +27,10 @@ pub use smma::Smma;
 pub use stoch::Stoch;
 
 pub trait MA: Send + Sync {
+    fn maturity(&self) -> u32;
+    fn mature(&self) -> bool;
     fn update(&mut self, price: f64);
     fn value(&self) -> f64;
-    fn maturity(&self) -> u32;
 }
 
 pub mod adler32 {
@@ -62,6 +63,6 @@ pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA + Send + Sync> {
         adler32::SMMA => Box::new(Smma::new(period)),
         adler32::DEMA => Box::new(Dema::new(period)),
         adler32::KAMA => Box::new(Kama::new(period)),
-        _ => panic!("indicator not supported"),
+        _ => panic!(format!("indicator {} not supported", code)),
     }
 }

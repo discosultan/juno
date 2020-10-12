@@ -1,10 +1,9 @@
 use super::{Chromosome, Individual, TradingChromosome};
 use crate::{
-    SymbolExt,
     common::{BorrowInfo, Candle, Fees, Filters},
     fill_missing_candles, statistics, storages,
-    strategies::Strategy,
-    time, traders,
+    strategies::Signal,
+    time, traders, SymbolExt,
 };
 use rayon::prelude::*;
 use std::{error::Error, marker::PhantomData};
@@ -23,7 +22,7 @@ struct SymbolCtx {
     stats_base_prices: Vec<f64>,
 }
 
-pub struct BasicEvaluation<T: Strategy> {
+pub struct BasicEvaluation<T: Signal> {
     symbol_ctxs: Vec<SymbolCtx>,
     interval: u64,
     quote: f64,
@@ -31,7 +30,7 @@ pub struct BasicEvaluation<T: Strategy> {
     phantom: PhantomData<T>,
 }
 
-impl<T: Strategy> BasicEvaluation<T> {
+impl<T: Signal> BasicEvaluation<T> {
     pub fn new(
         exchange: &str,
         symbols: &[&str],
@@ -80,9 +79,7 @@ impl<T: Strategy> BasicEvaluation<T> {
             .collect()
     }
 
-    fn evaluate_symbol(
-        &self, ctx: &SymbolCtx, chromosome: &TradingChromosome<T::Params>
-    ) -> f64 {
+    fn evaluate_symbol(&self, ctx: &SymbolCtx, chromosome: &TradingChromosome<T::Params>) -> f64 {
         let summary = traders::trade::<T>(
             &chromosome.strategy,
             &ctx.candles,
@@ -111,7 +108,7 @@ impl<T: Strategy> BasicEvaluation<T> {
     }
 }
 
-impl<T: Strategy> Evaluation for BasicEvaluation<T> {
+impl<T: Signal> Evaluation for BasicEvaluation<T> {
     type Chromosome = TradingChromosome<T::Params>;
 
     fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]) {
@@ -121,12 +118,13 @@ impl<T: Strategy> Evaluation for BasicEvaluation<T> {
         population
             // .iter_mut()
             .par_iter_mut()
-            .for_each(|ind| ind.fitness = self
-                .symbol_ctxs
-                .iter()
-                .map(|ctx| self.evaluate_symbol(ctx, &ind.chromosome))
-                .fold(0.0, sum_log)
-            );
+            .for_each(|ind| {
+                ind.fitness = self
+                    .symbol_ctxs
+                    .iter()
+                    .map(|ctx| self.evaluate_symbol(ctx, &ind.chromosome))
+                    .fold(0.0, sum_log)
+            });
     }
 }
 

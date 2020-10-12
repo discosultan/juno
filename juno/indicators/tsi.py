@@ -11,8 +11,8 @@ class Tsi:
     _abs_pc_ema_smoothed: Ema
     _abs_pc_ema_dbl_smoothed: Ema
     _last_price: Decimal = Decimal('0.0')
-    _t: int = -1
-    _t1: int = 1
+    _t: int = 0
+    _t1: int = 2
     _t2: int
     _t3: int
 
@@ -22,7 +22,7 @@ class Tsi:
         self._pc_ema_dbl_smoothed = Ema(short_period)
         self._abs_pc_ema_smoothed = Ema(long_period)
         self._abs_pc_ema_dbl_smoothed = Ema(short_period)
-        self._t2 = long_period
+        self._t2 = long_period + 1
         self._t3 = self._t2 + short_period - 1
 
     @property

@@ -153,7 +153,11 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
 
     // Sharpe ratio.
     let annualized_volatility = SQRT_365 * std_deviation(&g_returns);
-    let sharpe_ratio = annualized_return / annualized_volatility;
+    let sharpe_ratio = if annualized_volatility != 0.0 {
+        annualized_return / annualized_volatility
+    } else {
+        0.0
+    };
 
     // Sortino ratio.
     let neg_g_returns = g_returns
@@ -185,7 +189,7 @@ fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistic
     let matrix = Array::from_shape_vec((2, benchmark_g_returns.len()), combined)
         .expect("benchmark and portfolio geometric returns matrix");
 
-    let covariance_matrix = matrix.cov(1.0).expect("covariance matrix");
+    let covariance_matrix = matrix.cov(0.0).expect("covariance matrix");
 
     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
     let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));

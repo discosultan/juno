@@ -360,11 +360,14 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     ) -> None:
         if config.adjust_start and not symbol_state.start_adjusted:
             _log.info(
-                f'fetching {symbol_state.strategy.adjust_hint} {symbol_state.symbol} candle(s) '
+                f'fetching {symbol_state.strategy.maturity - 1} {symbol_state.symbol} candle(s) '
                 'before start time to warm-up strategy'
             )
             symbol_state.current = (
-                max(symbol_state.current - symbol_state.strategy.adjust_hint * config.interval, 0)
+                max(
+                    symbol_state.current - (symbol_state.strategy.maturity - 1) * config.interval,
+                    0,
+                )
             )
             symbol_state.start_adjusted = True
 

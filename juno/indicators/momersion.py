@@ -16,7 +16,7 @@ class Momersion:
     _prev_price: Decimal = Decimal('0.0')
     _returns: Deque[Decimal]
 
-    _t: int = -1
+    _t: int = 0
     _t1: int
 
     # Common period of 250.
@@ -26,7 +26,7 @@ class Momersion:
 
         self._returns = deque(maxlen=period - 1)
 
-        self._t1 = period - 1
+        self._t1 = period
 
     @property
     def maturity(self) -> int:
@@ -39,7 +39,7 @@ class Momersion:
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t1)
 
-        if self._t > 0:
+        if self._t > 1:
             self._returns.append(price - self._prev_price)
 
             if self.mature:

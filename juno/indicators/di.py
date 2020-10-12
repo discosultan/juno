@@ -15,8 +15,8 @@ class DI:
 
     _prev_close: Decimal = Decimal('0.0')
 
-    _t: int = -1
-    _t1: int = 1
+    _t: int = 0
+    _t1: int = 2
     _t2: int
     _t3: int
 
@@ -24,8 +24,8 @@ class DI:
         self._dm = DM(period)
         self._per = (period - 1) / Decimal(period)
 
-        self._t2 = period - 1
-        self._t3 = period
+        self._t2 = period
+        self._t3 = period + 1
 
     @property
     def maturity(self) -> int:
@@ -37,6 +37,7 @@ class DI:
 
     def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
         self._t = min(self._t + 1, self._t3)
+
         self._dm.update(high, low)
 
         if self._t >= self._t1 and self._t < self._t3:
@@ -45,7 +46,7 @@ class DI:
         if self._t == self._t2:
             self.plus_value = 100 * self._dm.plus_value / self._atr
             self.minus_value = 100 * self._dm.minus_value / self._atr
-        elif self._t == self._t3:
+        elif self._t >= self._t3:
             self._atr = self._atr * self._per + _calc_truerange(self._prev_close, high, low)
             self.plus_value = 100 * self._dm.plus_value / self._atr
             self.minus_value = 100 * self._dm.minus_value / self._atr
