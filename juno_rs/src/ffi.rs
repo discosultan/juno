@@ -98,19 +98,7 @@ pub unsafe extern "C" fn macd(
     strategy_info: *const strategies::MacdParams,
     analysis_info: *const AnalysisInfo,
 ) -> FitnessValues {
-    // run_test::<strategies::Macd>(trading_info, strategy_info, analysis_info)
-    // TODO: Temp.
-    let strategy_info = &*strategy_info;
-    let params = strategies::SigParams::<strategies::MacdParams> {
-        sig_params: strategies::MacdParams {
-            periods: strategy_info.periods,
-            signal_period: strategy_info.signal_period,
-            persistence: strategy_info.persistence,
-        },
-        persistence: strategy_info.persistence,
-    };
-    let strategy_info = &params;
-    run_test::<strategies::Sig<strategies::Macd>>(trading_info, strategy_info, analysis_info)
+    run_test::<strategies::Macd>(trading_info, strategy_info, analysis_info)
 }
 
 unsafe fn run_test<T: Signal>(
