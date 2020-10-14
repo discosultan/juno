@@ -1,18 +1,14 @@
-use super::{Chromosome, Individual, TradingChromosome};
+use super::TradingChromosome;
 use crate::{
     common::{BorrowInfo, Candle, Fees, Filters},
-    fill_missing_candles, statistics, storages,
+    fill_missing_candles,
+    genetics::{Evaluation, Individual},
+    statistics, storages,
     strategies::Signal,
-    time, traders, SymbolExt,
+    time, trading, SymbolExt,
 };
 use rayon::prelude::*;
 use std::{error::Error, marker::PhantomData};
-
-pub trait Evaluation {
-    type Chromosome: Chromosome;
-
-    fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]);
-}
 
 struct SymbolCtx {
     candles: Vec<Candle>,
@@ -80,7 +76,7 @@ impl<T: Signal> BasicEvaluation<T> {
     }
 
     fn evaluate_symbol(&self, ctx: &SymbolCtx, chromosome: &TradingChromosome<T::Params>) -> f64 {
-        let summary = traders::trade::<T>(
+        let summary = trading::trade::<T>(
             &chromosome.strategy,
             &ctx.candles,
             &ctx.fees,

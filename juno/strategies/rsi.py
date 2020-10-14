@@ -1,28 +1,23 @@
 from decimal import Decimal
+from typing import Dict
 
-from juno import Advice, Candle, indicators
-from juno.constraints import Int, Uniform
-
-from .strategy import Meta, StrategyBase
+from juno import Candle, indicators
+from juno.constraints import Constraint, Int, Uniform
 
 
-# RSI based strategy which signals buy when the indicator is coming out of an oversold area and
-# sell when coming out of an overbought area.
-class Rsi(StrategyBase):
+# TODO: For example, well-known market technician Constance Brown, CMT, has promoted the idea that
+# an oversold reading on the RSI in an uptrend is likely much higher than 30%, and an overbought
+# reading on the RSI during a downtrend is much lower than the 70% level.
+class Rsi:
     @staticmethod
-    def meta() -> Meta:
-        return Meta(
-            constraints={
-                'period': Int(1, 101),
-                'up_threshold': Uniform(Decimal('50.0'), Decimal('100.0')),
-                'down_threshold': Uniform(Decimal('0.0'), Decimal('50.0')),
-                'persistence': Int(0, 10),
-            }
-        )
+    class Meta:
+        constraints: Dict[str, Constraint] = {
+            'period': Int(1, 101),
+            'up_threshold': Uniform(Decimal('50.0'), Decimal('100.0')),
+            'down_threshold': Uniform(Decimal('0.0'), Decimal('50.0')),
+        }
 
     _rsi: indicators.Rsi
-    _previous_rsi_value: Decimal
-    _advice: Advice = Advice.NONE
     _up_threshold: Decimal
     _down_threshold: Decimal
 
@@ -31,28 +26,29 @@ class Rsi(StrategyBase):
         period: int = 14,
         up_threshold: Decimal = Decimal('70.0'),
         down_threshold: Decimal = Decimal('30.0'),
-        persistence: int = 0,
     ) -> None:
+        assert period > 0
+        assert up_threshold > down_threshold
+
         self._rsi = indicators.Rsi(period)
-        super().__init__(maturity=self._rsi.maturity, persistence=persistence)
-        self.validate(period, up_threshold, down_threshold, persistence)
         self._up_threshold = up_threshold
         self._down_threshold = down_threshold
 
-    def tick(self, candle: Candle) -> Advice:
+    @property
+    def maturity(self) -> int:
+        return self._rsi.maturity
+
+    @property
+    def mature(self) -> bool:
+        return self._rsi.mature
+
+    @property
+    def overbought(self) -> bool:
+        return self._rsi.mature and self._rsi.value >= self._up_threshold
+
+    @property
+    def oversold(self) -> bool:
+        return self._rsi.mature and self._rsi.value <= self._down_threshold
+
+    def tick(self, candle: Candle) -> None:
         self._rsi.update(candle.close)
-
-        if self.mature:
-            if (
-                self._previous_rsi_value <= self._down_threshold
-                and self._rsi.value > self._down_threshold
-            ):
-                self._advice = Advice.LONG
-            elif (
-                self._previous_rsi_value >= self._up_threshold
-                and self._rsi.value < self._up_threshold
-            ):
-                self._advice = Advice.SHORT
-
-        self._previous_rsi_value = self._rsi.value
-        return self._advice

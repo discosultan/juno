@@ -4,13 +4,16 @@ use crate::{
     strategies::{combine, MidTrend, Persistence},
     Advice, Candle,
 };
+use juno_derive_rs::*;
 use rand::prelude::*;
-use std::cmp::max;
+use std::cmp::{max, min};
 
 #[derive(Clone, Debug)]
-pub struct SigOscParams<C: Chromosome, O: Chromosome> {
-    pub cx_params: C,
+pub struct SigOscParams<S: Chromosome, O: Chromosome> {
+    pub sig_params: S,
     pub osc_params: O,
+    pub persistence: u32,
+    pub mid_trend_policy: u32,
 }
 
 impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
@@ -20,14 +23,16 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
 
     fn generate(rng: &mut StdRng) -> Self {
         Self {
-            cx_params: S::generate(rng),
+            sig_params: S::generate(rng),
             osc_params: O::generate(rng),
+            persistence: rng.gen_range(0, 10),
+            mid_trend_policy: rng.gen_range(0, MidTrend::POLICIES_LEN),
         }
     }
 
     fn cross(&mut self, other: &mut Self, i: usize) {
         if i < S::len() {
-            self.cx_params.cross(&mut other.cx_params, i);
+            self.sig_params.cross(&mut other.sig_params, i);
         } else {
             self.osc_params.cross(&mut other.osc_params, i - S::len());
         }
@@ -35,98 +40,61 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
 
     fn mutate(&mut self, rng: &mut StdRng, i: usize) {
         if i < S::len() {
-            self.cx_params.mutate(rng, i);
+            self.sig_params.mutate(rng, i);
         } else {
             self.osc_params.mutate(rng, i - S::len());
         }
     }
 }
 
-pub struct SigOsc<C: Signal, O: Oscillator> {
-    cx: C,
+#[derive(Signal)]
+pub struct SigOsc<S: Signal, O: Oscillator> {
+    sig: S,
     osc: O,
-    // short_ma: Box<dyn MA>,
-    // medium_ma: Box<dyn MA>,
-    // long_ma: Box<dyn MA>,
-    // advice: Advice,
-    // mid_trend: MidTrend,
-    // persistence: Persistence,
-    // t: u32,
-    // t1: u32,
+    advice: Advice,
+    mid_trend: MidTrend,
+    persistence: Persistence,
+    t: u32,
+    t1: u32,
 }
 
 impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
     type Params = SigOscParams<S::Params, O::Params>;
 
     fn new(params: &Self::Params) -> Self {
+        let sig = S::new(&params.sig_params);
+        let osc = O::new(&params.osc_params);
+        let mid_trend = MidTrend::new(params.mid_trend_policy);
+        let persistence = Persistence::new(params.persistence, false);
         Self {
-            cx: S::new(&params.cx_params),
-            osc: O::new(&params.osc_params),
-            // short_ma: ma_from_adler32(params.short_ma, short_period),
-            // medium_ma: ma_from_adler32(params.medium_ma, medium_period),
-            // long_ma: ma_from_adler32(params.long_ma, long_period),
-            // advice: Advice::None,
-            // mid_trend: MidTrend::new(MidTrend::POLICY_IGNORE),
-            // persistence: Persistence::new(0, false),
-            // t: 0,
-            // t1: long_period - 1,
+            advice: Advice::None,
+            t: 0,
+            t1: max(sig.maturity(), osc.maturity())
+                + max(mid_trend.maturity(), persistence.maturity())
+                - 1,
+            sig,
+            osc,
+            mid_trend,
+            persistence,
         }
     }
 
     fn maturity(&self) -> u32 {
-        max(self.cx.maturity(), self.osc.maturity())
+        self.t1
     }
 
     fn mature(&self) -> bool {
-        self.cx.mature() && self.osc.mature()
+        self.t >= self.t1
     }
 
     fn update(&mut self, candle: &Candle) {
-        self.cx.update(candle);
+        self.t = min(self.t + 1, self.t1);
+
+        self.sig.update(candle);
         self.osc.update(candle);
 
-        // Advice::None
-        // self.short_ma.update(candle.close);
-        // self.medium_ma.update(candle.close);
-        // self.long_ma.update(candle.close);
-
-        // let mut advice = Advice::None;
-        // if self.t == self.t1 {
-        //     if self.short_ma.value() > self.medium_ma.value()
-        //         && self.medium_ma.value() > self.long_ma.value()
-        //     {
-        //         self.advice = Advice::Long;
-        //     } else if self.short_ma.value() < self.medium_ma.value()
-        //         && self.medium_ma.value() < self.long_ma.value()
-        //     {
-        //         self.advice = Advice::Short;
-        //     } else if self.advice == Advice::Short
-        //         && self.short_ma.value() > self.medium_ma.value()
-        //         && self.short_ma.value() > self.long_ma.value()
-        //     {
-        //         self.advice = Advice::Liquidate
-        //     } else if self.advice == Advice::Long
-        //         && self.short_ma.value() < self.medium_ma.value()
-        //         && self.short_ma.value() < self.long_ma.value()
-        //     {
-        //         self.advice = Advice::Liquidate;
-        //     }
-
-        //     advice = combine(
-        //         self.mid_trend.update(self.advice),
-        //         self.persistence.update(self.advice),
-        //     );
-        // }
-
-        // self.t = min(self.t + 1, self.t1);
-        // advice
-    }
-}
-
-impl<S: Signal, O: Oscillator> Signal for SigOsc<S, O> {
-    fn advice(&self) -> Advice {
-        if self.mature() {
-            match self.cx.advice() {
+        if self.sig.mature() && self.osc.mature() {
+            let advice = match self.sig.advice() {
                 Advice::None => Advice::None,
                 Advice::Liquidate => Advice::Liquidate,
                 Advice::Long => {
@@ -143,9 +111,11 @@ impl<S: Signal, O: Oscillator> Signal for SigOsc<S, O> {
                         Advice::Liquidate
                     }
                 }
-            }
-        } else {
-            Advice::None
+            };
+            self.advice = combine(
+                self.mid_trend.update(advice),
+                self.persistence.update(advice),
+            );
         }
     }
 }

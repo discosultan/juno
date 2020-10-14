@@ -1,6 +1,6 @@
 use crate::genetics::{
-    crossover::Crossover, evaluation::Evaluation, mutation::Mutation, reinsertion::Reinsertion,
-    selection::Selection, Individual,
+    crossover::Crossover, mutation::Mutation, reinsertion::Reinsertion, selection::Selection,
+    Evaluation, Individual,
 };
 use rand::prelude::*;
 use std::time;

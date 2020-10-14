@@ -1,33 +1,31 @@
 import operator
+from typing import Dict, Tuple, Union
 
 from juno import Advice, Candle, indicators
-from juno.constraints import Int, Triple
+from juno.constraints import Constraint, Int, Triple
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import Meta, MidTrendPolicy, StrategyBase, ma_choices
+from .strategy import ma_choices
 
 
 # Signals long when shorter average crosses above the longer.
 # Signals short when shorter average crosses below the longer.
 # J. Murphy 204
-class TripleMA(StrategyBase):
-    @staticmethod
-    def meta() -> Meta:
-        return Meta(
-            constraints={
-                'short_ma': ma_choices,
-                'medium_ma': ma_choices,
-                'long_ma': ma_choices,
-                ('short_period', 'medium_period', 'long_period'): Triple(
-                    Int(1, 99),
-                    operator.lt,
-                    Int(2, 100),
-                    operator.lt,
-                    Int(3, 101),
-                ),
-            }
-        )
+class TripleMA:
+    class Meta:
+        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {
+            'short_ma': ma_choices,
+            'medium_ma': ma_choices,
+            'long_ma': ma_choices,
+            ('short_period', 'medium_period', 'long_period'): Triple(
+                Int(1, 99),
+                operator.lt,
+                Int(2, 100),
+                operator.lt,
+                Int(3, 101),
+            ),
+        }
 
     _short_ma: MA
     _medium_ma: MA
@@ -43,22 +41,27 @@ class TripleMA(StrategyBase):
         medium_period: int = 9,  # Common 9 or 10.
         long_period: int = 18,  # Common 18 or 20.
     ) -> None:
-        assert short_period < long_period
+        assert short_period > 0
+        assert short_period < medium_period < long_period
+
         self._short_ma = get_module_type(indicators, short_ma)(short_period)
         self._medium_ma = get_module_type(indicators, medium_ma)(medium_period)
         self._long_ma = get_module_type(indicators, long_ma)(long_period)
-        super().__init__(
-            maturity=max(self._short_ma.maturity, self._medium_ma.maturity, self._long_ma.maturity),
-            persistence=0,
-            mid_trend_policy=MidTrendPolicy.IGNORE,
-        )
 
-    def tick(self, candle: Candle) -> Advice:
+    @property
+    def maturity(self) -> int:
+        return max(self._long_ma.maturity, self._medium_ma.maturity, self._short_ma.maturity)
+
+    @property
+    def mature(self) -> bool:
+        return self._long_ma.mature and self._medium_ma.mature and self._short_ma.mature
+
+    def update(self, candle: Candle) -> Advice:
         self._short_ma.update(candle.close)
         self._medium_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
-        if self.mature:
+        if self._long_ma.mature:
             if (
                 self._short_ma.value > self._medium_ma.value
                 and self._medium_ma.value > self._long_ma.value

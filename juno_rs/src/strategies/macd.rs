@@ -8,8 +8,6 @@ use rand::prelude::*;
 pub struct MacdParams {
     pub periods: (u32, u32),
     pub signal_period: u32,
-    // TODO: Remove
-    pub persistence: u32,
 }
 
 impl Default for MacdParams {
@@ -17,7 +15,6 @@ impl Default for MacdParams {
         Self {
             periods: (12, 26),
             signal_period: 9,
-            persistence: 0,
         }
     }
 }
@@ -32,10 +29,6 @@ fn periods(rng: &mut StdRng) -> (u32, u32) {
 }
 fn signal_period(rng: &mut StdRng) -> u32 {
     rng.gen_range(1, 100)
-}
-// TODO: Remove
-fn persistence(rng: &mut StdRng) -> u32 {
-    rng.gen_range(0, 10)
 }
 
 #[derive(Signal)]

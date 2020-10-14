@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use juno_rs::{
     filters::{Filters, Price, Size},
     strategies::{FourWeekRule, FourWeekRuleParams},
-    traders, BorrowInfo, Candle, Fees,
+    trading, BorrowInfo, Candle, Fees,
 };
 
 const MIN_MS: u64 = 60000;
@@ -45,7 +45,7 @@ fn trade_benchmark(c: &mut Criterion) {
     };
     c.bench_function("trade", |b| {
         b.iter(|| {
-            traders::trade::<FourWeekRule>(
+            trading::trade::<FourWeekRule>(
                 &strategy_params,
                 &candles,
                 &fees,
@@ -54,7 +54,7 @@ fn trade_benchmark(c: &mut Criterion) {
                 2,
                 60000,
                 1.0,
-                traders::MISSED_CANDLE_POLICY_IGNORE,
+                trading::MISSED_CANDLE_POLICY_IGNORE,
                 0.0,
                 false,
                 0.0,
