@@ -2,15 +2,10 @@ use crate::{
     math::{ceil_multiple, round_down, round_half_up},
     strategies::Changed,
     strategies::Signal,
+    time,
     trading::{LongPosition, Position, ShortPosition, StopLoss, TakeProfit, TradingContext},
     Advice, BorrowInfo, Candle, Fees, Filters,
 };
-
-pub const MISSED_CANDLE_POLICY_IGNORE: u32 = 0;
-pub const MISSED_CANDLE_POLICY_RESTART: u32 = 1;
-pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
-
-const HOUR_MS: u64 = 3_600_000;
 
 struct State<T: Signal> {
     pub strategy: T,
@@ -353,7 +348,7 @@ fn close_short_position<T: Signal>(
     if let Some(Position::Short(mut pos)) = state.open_position.take() {
         let borrowed = pos.borrowed;
 
-        let duration = ceil_multiple(time - pos.time, HOUR_MS) / HOUR_MS;
+        let duration = ceil_multiple(time - pos.time, time::HOUR_MS) / time::HOUR_MS;
         let hourly_interest_rate = borrow_info.daily_interest_rate / 24.0;
         let interest = borrowed * duration as f64 * hourly_interest_rate;
 

@@ -13,7 +13,6 @@ pub mod statistics;
 pub mod storages;
 pub mod strategies;
 pub mod time;
-pub mod traders;
 pub mod trading;
 
 use crate::math::floor_multiple;

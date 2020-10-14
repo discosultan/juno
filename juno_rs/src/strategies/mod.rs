@@ -51,6 +51,8 @@ impl MidTrend {
     pub const POLICY_PREVIOUS: u32 = 1;
     pub const POLICY_IGNORE: u32 = 2;
 
+    pub const POLICIES_LEN: u32 = 3;
+
     pub fn new(policy: u32) -> Self {
         Self {
             policy,

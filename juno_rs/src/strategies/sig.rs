@@ -12,7 +12,7 @@ use std::cmp::{max, min};
 pub struct SigParams<S: Chromosome> {
     pub sig_params: S,
     pub persistence: u32,
-    // TODO: Add midtrendpolicy
+    pub mid_trend_policy: u32,
 }
 
 impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
@@ -24,6 +24,7 @@ impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
         Self {
             sig_params: Sig::generate(rng),
             persistence: rng.gen_range(0, 10),
+            mid_trend_policy: rng.gen_range(0, MidTrend::POLICIES_LEN),
         }
     }
 
@@ -51,7 +52,7 @@ impl<S: Signal> Strategy for Sig<S> {
 
     fn new(params: &Self::Params) -> Self {
         let sig = S::new(&params.sig_params);
-        let mid_trend = MidTrend::new(MidTrend::POLICY_IGNORE);
+        let mid_trend = MidTrend::new(params.mid_trend_policy);
         let persistence = Persistence::new(params.persistence, false);
         Self {
             advice: Advice::None,
