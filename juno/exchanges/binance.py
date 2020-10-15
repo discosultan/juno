@@ -1155,7 +1155,7 @@ def _from_symbol(symbol: str) -> str:
     # since there is no separator used. We simply map based on known quote assets.
     known_quote_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
-        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD', 'DAI'
+        'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD', 'DAI', 'BRL'
     ]
     for asset in known_quote_assets:
         if symbol.endswith(asset):
