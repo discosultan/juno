@@ -1,7 +1,7 @@
-use super::{Signal, Strategy};
+use super::{Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
-    indicators::{ma_from_adler32, MA, MA_CHOICES},
+    indicators::{ma_from_adler32, MA},
     Advice, Candle,
 };
 use juno_derive_rs::*;
@@ -18,13 +18,13 @@ pub struct TripleMAParams {
 }
 
 fn short_ma(rng: &mut StdRng) -> u32 {
-    MA_CHOICES[rng.gen_range(0, MA_CHOICES.len())]
+    rng.gen_ma()
 }
 fn medium_ma(rng: &mut StdRng) -> u32 {
-    MA_CHOICES[rng.gen_range(0, MA_CHOICES.len())]
+    rng.gen_ma()
 }
 fn long_ma(rng: &mut StdRng) -> u32 {
-    MA_CHOICES[rng.gen_range(0, MA_CHOICES.len())]
+    rng.gen_ma()
 }
 fn periods(rng: &mut StdRng) -> (u32, u32, u32) {
     loop {

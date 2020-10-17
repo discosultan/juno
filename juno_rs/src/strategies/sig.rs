@@ -1,4 +1,4 @@
-use super::{Signal, Strategy};
+use super::{Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
     strategies::{combine, MidTrend, Persistence},
@@ -24,7 +24,7 @@ impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
         Self {
             sig_params: Sig::generate(rng),
             persistence: rng.gen_range(0, 10),
-            mid_trend_policy: rng.gen_range(0, MidTrend::POLICIES_LEN),
+            mid_trend_policy: rng.gen_mid_trend_policy(),
         }
     }
 

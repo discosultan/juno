@@ -1,4 +1,4 @@
-use super::{Signal, Strategy};
+use super::{Signal, StdRngExt, Strategy};
 use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Candle};
 use bounded_vec_deque::BoundedVecDeque;
 use juno_derive_rs::*;
@@ -27,7 +27,7 @@ fn period(rng: &mut StdRng) -> u32 {
     rng.gen_range(2, 100)
 }
 fn ma(rng: &mut StdRng) -> u32 {
-    indicators::MA_CHOICES[rng.gen_range(0, indicators::MA_CHOICES.len())]
+    rng.gen_ma()
 }
 fn ma_period(rng: &mut StdRng) -> u32 {
     rng.gen_range(2, 100)

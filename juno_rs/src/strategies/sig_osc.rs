@@ -1,4 +1,4 @@
-use super::{Oscillator, Signal, Strategy};
+use super::{Oscillator, Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
     strategies::{combine, MidTrend, Persistence},
@@ -26,7 +26,7 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
             sig_params: S::generate(rng),
             osc_params: O::generate(rng),
             persistence: rng.gen_range(0, 10),
-            mid_trend_policy: rng.gen_range(0, MidTrend::POLICIES_LEN),
+            mid_trend_policy: rng.gen_mid_trend_policy(),
         }
     }
 

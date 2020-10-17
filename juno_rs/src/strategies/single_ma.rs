@@ -1,7 +1,7 @@
-use super::{Signal, Strategy};
+use super::{Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
-    indicators::{ma_from_adler32, MA, MA_CHOICES},
+    indicators::{ma_from_adler32, MA},
     Advice, Candle,
 };
 use juno_derive_rs::*;
@@ -16,7 +16,7 @@ pub struct SingleMAParams {
 }
 
 fn ma(rng: &mut StdRng) -> u32 {
-    MA_CHOICES[rng.gen_range(0, MA_CHOICES.len())]
+    rng.gen_ma()
 }
 fn period(rng: &mut StdRng) -> u32 {
     rng.gen_range(1, 100)

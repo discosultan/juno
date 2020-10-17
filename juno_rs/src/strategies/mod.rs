@@ -19,7 +19,9 @@ pub use triple_ma::{TripleMA, TripleMAParams};
 use crate::{
     common::{Advice, Candle},
     genetics::Chromosome,
+    indicators::MA_CHOICES,
 };
+use rand::prelude::*;
 use std::cmp::min;
 
 pub trait Strategy: Send + Sync {
@@ -171,5 +173,20 @@ pub fn combine(advice1: Advice, advice2: Advice) -> Advice {
         advice1
     } else {
         Advice::Liquidate
+    }
+}
+
+pub trait StdRngExt {
+    fn gen_mid_trend_policy(&mut self) -> u32;
+    fn gen_ma(&mut self) -> u32;
+}
+
+impl StdRngExt for StdRng {
+    fn gen_mid_trend_policy(&mut self) -> u32 {
+        self.gen_range(0, MidTrend::POLICIES_LEN)
+    }
+
+    fn gen_ma(&mut self) -> u32 {
+        MA_CHOICES[self.gen_range(0, MA_CHOICES.len())]
     }
 }
