@@ -8,7 +8,7 @@ import math
 import urllib.parse
 import uuid
 from collections import defaultdict
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
 
@@ -771,7 +771,7 @@ class Binance(Exchange):
             data=data,
             security=security,
         )
-        if not res.data['success']:
+        if not res.data.get('success'):
             # There's no error code in this response to figure out whether it's a timestamp issue.
             # We could look it up from the message, but currently just assume that is the case
             # always.
@@ -943,7 +943,7 @@ class Clock:
     async def _periodic_sync(self) -> None:
         while True:
             await self._sync_clock()
-            sleep_task: asyncio.Task[None] = asyncio.create_task(asyncio.sleep(HOUR_SEC * 12))
+            sleep_task: asyncio.Task[None] = asyncio.create_task(asyncio.sleep(HOUR_SEC * 6))
             try:
                 await asyncio.wait(
                     [sleep_task, self._reset_periodic_sync.wait()],
@@ -951,8 +951,7 @@ class Clock:
                 )
             finally:
                 if not sleep_task.done():
-                    with suppress(asyncio.CancelledError):
-                        await cancel(sleep_task)
+                    await cancel(sleep_task)
 
     @retry(
         stop=stop_after_attempt(10),
