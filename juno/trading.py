@@ -785,11 +785,23 @@ class PositionMixin(ABC):
     async def close_short_position(
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Short:
+        # NB! Only works with margin where accounts are NOT SHARED!
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f'closing {position.symbol} {mode.name} short position')
 
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
+
+        # Use entire position quote balance to buy back base asset.
+        # TODO: This can be improved by only buying back what we need to repay. However, we want
+        # to keep it simple for now.
+        res = await self.broker.buy(
+            exchange=position.exchange,
+            symbol=position.symbol,
+            quote=position.quote_delta(),
+            account=position.symbol if mode is TradingMode.LIVE else 'spot',
+            test=mode is TradingMode.PAPER,
+        )
 
         # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
         if mode is TradingMode.PAPER:
@@ -803,75 +815,61 @@ class PositionMixin(ABC):
                 end=time_ms(),
             )
         else:
-            interest = (await self.user.get_balance(
-                exchange=position.exchange,
-                account=position.symbol,
-                asset=base_asset,
-            )).interest
+            repaid = Decimal('0.0')
+            while True:
+                balance = await self.user.get_balance(
+                    exchange=position.exchange,
+                    account=position.symbol,
+                    asset=base_asset,
+                )
+                repaid += balance.repay
+                _log.info(
+                    f'repaying {balance.borrowed} + {balance.interest} {base_asset} to '
+                    f'{position.exchange}'
+                )
+                await self.user.repay(
+                    exchange=position.exchange,
+                    asset=base_asset,
+                    size=balance.repay,
+                    account=position.symbol,
+                )
+                # It can be that there was an interest tick right before repaying. This means there
+                # may still be borrowed funds on the account. Double check and repay more if that
+                # is the case.
+                new_balance = await self.user.get_balance(
+                    exchange=position.exchange,
+                    account=position.symbol,
+                    asset=base_asset,
+                )
+                if new_balance.repay > 0:
+                    _log.warning(
+                        f'did not repay enough; still {new_balance.repay} {base_asset} to be paid'
+                    )
+                    if new_balance.available >= new_balance.repay:
+                        _log.info(
+                            f'can repay {new_balance.repay} {base_asset} without requiring more '
+                            'funds'
+                        )
+                    else:
+                        _log.error(
+                            f'need to buy {new_balance.repay - new_balance.available} more '
+                            f'{base_asset} to repay {new_balance.repay}'
+                        )
+                        raise Exception(
+                            f'Did not repay enough {base_asset}; balance {new_balance}'
+                        )
+                else:
+                    interest = position.borrowed - repaid
+                    break
 
-        size = position.borrowed + interest
-        fee = round_half_up(size * fees.taker, filters.base_precision)
-        size = filters.size.round_up(size + fee)
-        res = await self.broker.buy(
-            exchange=position.exchange,
-            symbol=position.symbol,
-            size=size,
-            account=position.symbol if mode is TradingMode.LIVE else 'spot',
-            test=mode is TradingMode.PAPER,
-        )
         closed_position = position.close(
             interest=interest,
             time=res.time,
             fills=res.fills,
             reason=reason,
         )
+
         if mode is TradingMode.LIVE:
-            _log.info(
-                f'repaying {position.borrowed} + {interest} {base_asset} to {position.exchange}'
-            )
-            await self.user.repay(
-                exchange=position.exchange,
-                asset=base_asset,
-                size=position.borrowed + interest,
-                account=position.symbol,
-            )
-
-            # It can be that there was an interest tick right before repaying. This means there may
-            # still be borrowed funds on the account. Double check and repay more if that is the
-            # case.
-            # Careful with this check! We may have another position still open.
-            new_balance = await self.user.get_balance(
-                exchange=position.exchange,
-                account=position.symbol,
-                asset=base_asset,
-            )
-            if new_balance.repay > 0:
-                _log.warning(
-                    f'did not repay enough; still {new_balance.repay} {base_asset} to be repaid'
-                )
-                if new_balance.available >= new_balance.repay:
-                    _log.info(
-                        f'can repay {new_balance.repay} {base_asset} without requiring more funds'
-                    )
-                else:
-                    # TODO: Implement
-                    _log.error(
-                        f'need to buy more {base_asset} to repay {new_balance.repay} but not '
-                        'implemented'
-                    )
-                    raise Exception(f'Did not repay enough {base_asset}; balance {new_balance}')
-                await self.user.repay(
-                    exchange=position.exchange,
-                    asset=base_asset,
-                    size=new_balance.repay,
-                    account=position.symbol,
-                )
-                assert (await self.user.get_balance(
-                    exchange=position.exchange,
-                    account=position.symbol,
-                    asset=base_asset,
-                )).repay == 0
-
             transfer = closed_position.collateral + closed_position.profit
             _log.info(
                 f'transferring {transfer} {quote_asset} from {position.symbol} to spot account'

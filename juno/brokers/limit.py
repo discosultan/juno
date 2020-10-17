@@ -263,6 +263,10 @@ class Limit(Broker):
                         filters.size.validate(size)
                         filters.min_notional.validate_limit(price=price, size=size)
                     except OrderException as e:
+                        # TODO: Support different policies:
+                        # 1. either we try to fill as much as requested but no more
+                        # 2. we try to fill at least as much as requested
+                        # Currently we only support case nr 1.
                         _log.info(f'{symbol} {side.name} price / size no longer valid: {e}')
                         raise _Filled()
 
