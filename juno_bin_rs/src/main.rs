@@ -23,7 +23,7 @@ struct Params {
 fn main() -> Result<()> {
     let args = Params {
         exchange: "binance",
-        interval: HOUR_MS * 8,
+        interval: DAY_MS,
         start: "2017-12-08".to_timestamp(),
         end: "2020-09-30".to_timestamp(),
         quote: 1.0,
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
     // TODO: Print out trading summaries.
-    optimize_validate_print::<SigOsc<TripleMA, Rsi>>(&args, &symbols, &validation_symbols)?;
+    optimize_validate_print::<FourWeekRule>(&args, &symbols, &validation_symbols)?;
 
     // let chromosome = TradingChromosome {
     //     trader: TraderParams {
@@ -167,25 +167,30 @@ fn print_all_generations<T: Signal>(
         }
 
         // Gen number.
-        let mut cells = vec![Cell::new(&i.to_string())];
+        let mut cells = vec![Cell::new(&format!("gen {}", i.to_string()))];
 
         // TODO: temp
-        if i == 47 {
-            println!("ind {:?}", ind);
-        }
+        const PRINT_GEN: usize = 15;
+        let mut temp_results: Vec<(&str, TradingSummary, f64)> = Vec::new();
+
         // Training + validation symbol results.
         symbols
             .iter()
             .chain(validation_symbols)
-            .map(|symbol| backtest::<T>(args, symbol, &ind.chromosome).unwrap())
-            .for_each(|(sharpe, summary)| {
+            .map(|symbol| (symbol, backtest::<T>(args, symbol, &ind.chromosome).unwrap()))
+            .for_each(|(symbol, (sharpe, summary))| {
                 cells.push(Cell::new(&sharpe.to_string()));
                 // TODO: temp
-                if i == 47 {
-                    println!("summary {:?}", summary);
-                    println!("sharpe {}", sharpe);
+                if i == PRINT_GEN {
+                    temp_results.push((symbol, summary, sharpe));
                 }
             });
+
+        // TODO: temp
+        if i == PRINT_GEN {
+            print_summary_table(i, &temp_results);
+            println!("ind {:?}", ind);
+        }
 
         // Fitness.
         cells.push(Cell::new(&ind.fitness.to_string()));
@@ -197,6 +202,50 @@ fn print_all_generations<T: Signal>(
 
     println!("strategy {}", std::any::type_name::<T>());
     println!("interval {}", args.interval.to_interval_str());
+    table.printstd();
+}
+
+fn print_summary_table(gen: usize, data: &Vec<(&str, TradingSummary, f64)>) {
+    let mut table = Table::new();
+
+    // Header.
+    let mut cells = vec![Cell::new(&format!("gen {}", gen))];
+    data
+        .iter()
+        .for_each(|(symbol, _, _)| cells.push(Cell::new(symbol)));
+    table.add_row(Row::new(cells));
+
+    // Body.
+    let mut cells = vec![Cell::new("sharpe")];
+    data
+        .iter()
+        .for_each(|(_, _, sharpe)| cells.push(Cell::new(&sharpe.to_string())));
+    table.add_row(Row::new(cells));
+
+    let mut cells = vec![Cell::new("profit")];
+    data
+        .iter()
+        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.profit.to_string())));
+    table.add_row(Row::new(cells));
+
+    let mut cells = vec![Cell::new("annualized roi")];
+    data
+        .iter()
+        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.annualized_roi.to_string())));
+    table.add_row(Row::new(cells));
+
+    let mut cells = vec![Cell::new("positions in profit")];
+    data
+        .iter()
+        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.num_positions_in_profit.to_string())));
+    table.add_row(Row::new(cells));
+
+    let mut cells = vec![Cell::new("positions in loss")];
+    data
+        .iter()
+        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.num_positions_in_loss.to_string())));
+    table.add_row(Row::new(cells));
+
     table.printstd();
 }
 
