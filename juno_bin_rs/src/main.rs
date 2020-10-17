@@ -114,7 +114,7 @@ fn optimize<T: Signal>(
         reinsertion::EliteReinsertion::new(0.75),
     );
     let population_size = 512;
-    let generations = 512;
+    let generations = 128;
     let seed = Some(1);
     let gens = algo.evolve(population_size, generations, seed);
     Ok(gens)

@@ -105,7 +105,7 @@ impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
                     }
                 }
                 Advice::Short => {
-                    if self.osc.oversold() {
+                    if self.osc.overbought() {
                         Advice::Short
                     } else {
                         Advice::Liquidate
