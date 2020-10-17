@@ -359,19 +359,29 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    # TODO: Use account param; adjust script
-    async def list_orders(self, symbol: Optional[str], margin: bool = False) -> List[Order]:
+    async def list_orders(self, account: str, symbol: Optional[str] = None) -> List[Order]:
+        if account not in ['spot', 'margin']:
+            if symbol is None:
+                symbol = account
+            elif symbol != account:
+                raise ValueError(f'Invalid isolated margin symbol {symbol} for account {account}')
+
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#current-open-orders-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/margin-api.md#query-margin-accounts-open-order-user_data
-        url = '/sapi/v1/margin/openOrders' if margin else '/api/v3/openOrders'
+        # https://binance-docs.github.io/apidocs/spot/en/#query-margin-account-39-s-order-user_data
+        url = '/api/v3/openOrders' if account == 'spot' else '/sapi/v1/margin/openOrders'
         # For margin:
         # > When all symbols are returned, the number of requests counted against the rate limiter
         # > is equal to the number of symbols currently trading on the exchange.
+        # TODO: For margin accounts, if symbol specified, the weight in GitHub docs states 10 but
+        # in binance-docs 1. Clarify!
         # TODO: Make the margin no-symbol weight calc dynamic.
-        weight = (10 if symbol else 29) if margin else (1 if symbol else 40)
+        weight = (1 if symbol else 40) if account == 'spot' else (10 if symbol else 40)
         data = {}
         if symbol is not None:
             data['symbol'] = _to_http_symbol(symbol)
+        if account not in ['spot', 'margin']:
+            data['isIsolated'] = 'TRUE'
         res = await self._api_request(
             'GET',
             url,

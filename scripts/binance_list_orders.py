@@ -6,19 +6,14 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
 parser = argparse.ArgumentParser()
-parser.add_argument('symbol', nargs='?', default=None)
-parser.add_argument(
-    '-m', '--margin',
-    action='store_true',
-    default=False,
-    help='if set, use margin; otherwise spot account',
-)
+parser.add_argument('-a', '--account', default='spot')
+parser.add_argument('-s', '--symbol', default=None)
 args = parser.parse_args()
 
 
 async def main() -> None:
     async with init_instance(Binance, from_env()) as client:
-        orders = await client.list_orders(symbol=args.symbol, margin=args.margin)
+        orders = await client.list_orders(account=args.account, symbol=args.symbol)
         logging.info(orders)
 
 asyncio.run(main())
