@@ -8,6 +8,8 @@ struct OptimizeParams {
     start: String,
     end: String,
     quote: f64,
+    training_symbols: Vec<String>,
+    validation_symbols: Vec<String>,
 }
 
 #[tokio::main]
