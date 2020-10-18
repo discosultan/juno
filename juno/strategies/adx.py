@@ -1,16 +1,20 @@
 from decimal import Decimal
-from typing import Dict
 
 from juno import Candle, indicators
-from juno.constraints import Constraint, Int, Uniform
+from juno.constraints import Int, Uniform
+
+from .strategy import Strategy
 
 
-class Adx:
-    class Meta:
-        constraints: Dict[str, Constraint] = {
-            'period': Int(1, 365),
-            'threshold': Uniform(Decimal('0.01'), Decimal('99.99')),
-        }
+class Adx(Strategy):
+    @staticmethod
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
+            constraints={
+                'period': Int(1, 365),
+                'threshold': Uniform(Decimal('0.01'), Decimal('99.99')),
+            }
+        )
 
     _adx: indicators.Adx
     _threshold: Decimal

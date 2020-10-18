@@ -4,20 +4,23 @@ from typing import List
 
 from juno import Advice, Candle
 
-from .strategy import MidTrend, MidTrendPolicy, Persistence
+from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
 
 _log = logging.getLogger(__name__)
 
 
-class Fixed:
+class Fixed(Signal):
     advices: List[Advice]
     updates: List[Candle]
     cancel: bool
 
+    _advice: Advice = Advice.NONE
     _maturity: int
     _mid_trend: MidTrend
     _persistence: Persistence
     _t: int = 0
+    _t1: int
+    _t2: int
 
     def __init__(
         self,
@@ -34,26 +37,38 @@ class Fixed:
         self._maturity = maturity
         self._mid_trend = MidTrend(mid_trend_policy)
         self._persistence = Persistence(level=persistence, return_previous=False)
+        self._t1 = maturity
+        self._t2 = maturity + max(self._mid_trend.maturity, self._persistence.maturity) - 1
+
+    @property
+    def advice(self) -> Advice:
+        return self._advice
 
     @property
     def maturity(self) -> int:
-        return self._maturity
+        return self._t2
 
     @property
     def mature(self) -> bool:
-        return self._t >= self._maturity
+        return self._t >= self._t2
 
-    def tick(self, candle: Candle) -> Advice:
-        self._t = min(self._t + 1, self._maturity)
+    def update(self, candle: Candle):
+        self._t = min(self._t + 1, self._t2)
 
         self.updates.append(candle)
         if len(self.advices) > 0:
-            return self.advices.pop(0)
-        if self.cancel:
-            _log.info('cancelling as no more advice defined')
-            current_task = asyncio.current_task()
-            assert current_task
-            current_task.cancel()
+            self._advice = self.advices.pop(0)
+            if self._t >= self._t1:
+                self._advice = Advice.combine(
+                    self._mid_trend.update(self._advice),
+                    self._persistence.update(self._advice),
+                )
         else:
-            _log.warning('ran out of predetermined advices; no more advice given')
-        return Advice.NONE
+            if self.cancel:
+                _log.info('cancelling as no more advice defined')
+                current_task = asyncio.current_task()
+                assert current_task
+                current_task.cancel()
+            else:
+                _log.warning('ran out of predetermined advices; no more advice given')
+            self._advice = Advice.NONE

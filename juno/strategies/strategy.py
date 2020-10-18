@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from enum import IntEnum
-from typing import Any, Dict, NamedTuple, Optional, Tuple, Union
+from typing import Any, Dict, NamedTuple, Optional, Tuple, Type, Union
 
 from juno import Advice, Candle
 from juno.constraints import Choice, Constraint
@@ -141,95 +143,33 @@ class Changed:
         return result
 
 
-class Meta(NamedTuple):
-    constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {}
-
-
 class Strategy(ABC):
-    meta: Any
-    advice: Advice
-
-    @property
-    @abstractmethod
-    def maturity(self) -> int:
-        pass
-
-    @abstractmethod
-    def update(self, candle: Candle) -> Advice:
-        pass
-
-
-class StrategyBase(Strategy):
-    advice: Advice = Advice.NONE
-    _maturity: int
-
-    _t: int = 0
-
-    # _maturity_filter: Maturity
-    _mid_trend_filter: MidTrend
-    _persistence_filter: Persistence
-
-    _last_candle_time: int = -1
+    class Meta(NamedTuple):
+        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {}
 
     @staticmethod
-    def meta() -> Meta:
-        return Meta()
-
-    def __init__(
-        self,
-        maturity: int = 1,
-        mid_trend_policy: MidTrendPolicy = MidTrendPolicy.IGNORE,
-        persistence: int = 0,
-    ) -> None:
-        assert maturity >= 1
-        self._maturity = maturity
-
-        # self._maturity_filter = Maturity(maturity=maturity)
-        self._mid_trend_filter = MidTrend(policy=mid_trend_policy)
-        self._persistence_filter = Persistence(level=persistence)
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta()
 
     @property
-    def mature(self) -> bool:
-        return self._t >= self.maturity
-
-    @property
+    @abstractmethod
     def maturity(self) -> int:
-        return (
-            self._maturity
-            + max(self._mid_trend_filter.maturity, self._persistence_filter.maturity)
-            - 1
-        )
+        pass
 
     @property
-    def mature2(self) -> int:
-        return self._t >= self._maturity
+    @abstractmethod
+    def mature(self) -> bool:
+        pass
 
-    def update(self, candle: Candle) -> Advice:
-        assert candle.time > self._last_candle_time
+    @abstractmethod
+    def update(self, candle: Candle):
+        pass
 
-        self._t = min(self._t + 1, self.maturity)
-
-        advice = self.tick(candle)
-
-        if self._t >= self._maturity:
-            advice = Advice.combine(
-                self._mid_trend_filter.update(advice),
-                self._persistence_filter.update(advice),
-            )
-        else:
-            assert advice is Advice.NONE
-
-        self.advice = advice
-        self._last_candle_time = candle.time
-        return advice
-
-    def tick(self, candle: Candle) -> Advice:
-        return Advice.NONE
-
-    def validate(self, *args: Any) -> None:
+    @staticmethod
+    def validate_constraints(type_: Type[Strategy], *args: Any) -> None:
         # Assumes ordered.
         from_index = 0
-        for names, constraint in type(self).meta().constraints.items():
+        for names, constraint in type_.meta().constraints.items():
             # Normalize scalars into a single element tuples.
             if not isinstance(names, tuple):
                 names = names,
@@ -244,3 +184,22 @@ class StrategyBase(Strategy):
                 )
 
             from_index = to_index
+
+
+class Signal(Strategy):
+    @property
+    @abstractmethod
+    def advice(self) -> Advice:
+        pass
+
+
+class Oscillator(Strategy):
+    @property
+    @abstractmethod
+    def overbought(self) -> bool:
+        pass
+
+    @property
+    @abstractmethod
+    def oversold(self) -> bool:
+        pass

@@ -1,16 +1,20 @@
 from decimal import Decimal
-from typing import Dict
 
 from juno import Candle, indicators
-from juno.constraints import Constraint, Int, Uniform
+from juno.constraints import Int, Uniform
+
+from .strategy import Strategy
 
 
-class Momersion:
-    class Meta:
-        constraints: Dict[str, Constraint] = {
-            'period': Int(100, 500),
-            'threshold': Uniform(Decimal('0.01'), Decimal('99.99')),
-        }
+class Momersion(Strategy):
+    @staticmethod
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
+            constraints={
+                'period': Int(100, 500),
+                'threshold': Uniform(Decimal('0.01'), Decimal('99.99')),
+            }
+        )
 
     _momersion: indicators.Momersion
     _threshold: Decimal

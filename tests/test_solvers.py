@@ -34,7 +34,7 @@ async def test_solver_works_with_default_fees_filters(loop, solver_type) -> None
         'eth': [c1.close * c2.close for c1, c2 in zip(statistics_candles, statistics_fiat_candles)]
     }
     benchmark_stats = analyse_benchmark(fiat_prices['btc'])
-    strategy_args = (28, 'ema', 14, MidTrendPolicy.IGNORE)
+    strategy_args = (28, 'ema', 14)
 
     async with solver_type(informant=fakes.Informant()) as solver:
         result = solver.solve(

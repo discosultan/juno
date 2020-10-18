@@ -1,21 +1,24 @@
 from decimal import Decimal
-from typing import Dict
 
 from juno import Candle, indicators
-from juno.constraints import Constraint, Int, Uniform
+from juno.constraints import Int, Uniform
+
+from .strategy import Oscillator, Strategy
 
 
 # TODO: For example, well-known market technician Constance Brown, CMT, has promoted the idea that
 # an oversold reading on the RSI in an uptrend is likely much higher than 30%, and an overbought
 # reading on the RSI during a downtrend is much lower than the 70% level.
-class Rsi:
+class Rsi(Oscillator):
     @staticmethod
-    class Meta:
-        constraints: Dict[str, Constraint] = {
-            'period': Int(1, 101),
-            'up_threshold': Uniform(Decimal('50.0'), Decimal('100.0')),
-            'down_threshold': Uniform(Decimal('0.0'), Decimal('50.0')),
-        }
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
+            constraints={
+                'period': Int(1, 101),
+                'up_threshold': Uniform(Decimal('50.0'), Decimal('100.0')),
+                'down_threshold': Uniform(Decimal('0.0'), Decimal('50.0')),
+            }
+        )
 
     _rsi: indicators.Rsi
     _up_threshold: Decimal
@@ -50,5 +53,5 @@ class Rsi:
     def oversold(self) -> bool:
         return self._rsi.mature and self._rsi.value <= self._down_threshold
 
-    def tick(self, candle: Candle) -> None:
+    def update(self, candle: Candle) -> None:
         self._rsi.update(candle.close)

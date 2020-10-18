@@ -1,24 +1,26 @@
 from decimal import Decimal
-from typing import Dict
 
 from juno import Advice, Candle, indicators
-from juno.constraints import Constraint, Int
+from juno.constraints import Int
 from juno.indicators import MA, Ema2
 from juno.utils import get_module_type
 
-from .strategy import ma_choices
+from .strategy import Signal, Strategy, ma_choices
 
 
 # Signals long when a candle close price goes above moving average and moving average is ascending.
 # Signals short when a candle close price goes below moving average and moving average is
 # descending.
 # J. Murphy 201
-class SingleMA:
-    class Meta:
-        constraints: Dict[str, Constraint] = {
-            'ma': ma_choices,
-            'period': Int(1, 100),
-        }
+class SingleMA(Signal):
+    @staticmethod
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
+            constraints={
+                'ma': ma_choices,
+                'period': Int(1, 100),
+            }
+        )
 
     _ma: MA
     _previous_ma_value: Decimal = Decimal('0.0')
@@ -35,6 +37,10 @@ class SingleMA:
         self._t1 = self._ma.maturity + 1
 
     @property
+    def advice(self) -> Advice:
+        return self._advice
+
+    @property
     def maturity(self) -> int:
         return self._t1
 
@@ -42,7 +48,7 @@ class SingleMA:
     def mature(self) -> bool:
         return self._t >= self._t1
 
-    def update(self, candle: Candle) -> Advice:
+    def update(self, candle: Candle) -> None:
         self._t = min(self._t + 1, self._t1)
 
         self._ma.update(candle.close)
@@ -54,4 +60,3 @@ class SingleMA:
                 self._advice = Advice.SHORT
 
         self._previous_ma_value = self._ma.value
-        return self._advice

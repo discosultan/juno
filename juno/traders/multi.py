@@ -14,7 +14,7 @@ from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
-from juno.strategies import Changed, Strategy
+from juno.strategies import Changed, Signal
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
@@ -32,7 +32,7 @@ SYMBOL_PATTERN = '*-btc'
 @dataclass
 class _SymbolState:
     symbol: str
-    strategy: Strategy
+    strategy: Signal
     changed: Changed
     override_changed: Changed
     current: Timestamp
@@ -77,8 +77,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         exchange: str
         interval: Interval
         end: Timestamp
-        strategy: TypeConstructor[Strategy]
-        symbol_strategies: Dict[str, TypeConstructor[Strategy]] = {}  # Overrides default strategy.
+        strategy: TypeConstructor[Signal]
+        symbol_strategies: Dict[str, TypeConstructor[Signal]] = {}  # Overrides default strategy.
         start: Optional[Timestamp] = None  # None means max earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -401,7 +401,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
     ) -> Tuple[Advice, Advice]:
         symbol_state.stop_loss.update(candle)
         symbol_state.take_profit.update(candle)
-        advice = symbol_state.strategy.update(candle)
+        symbol_state.strategy.update(candle)
+        advice = symbol_state.strategy.advice
         override_advice = Advice.NONE
         if (
             isinstance(symbol_state.open_position, Position.OpenLong)

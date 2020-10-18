@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
     // TODO: Print out trading summaries.
-    optimize_validate_print::<FourWeekRule>(&args, &symbols, &validation_symbols)?;
+    optimize_validate_print::<Sig<FourWeekRule>>(&args, &symbols, &validation_symbols)?;
 
     // let chromosome = TradingChromosome {
     //     trader: TraderParams {

@@ -1,21 +1,26 @@
 import operator
-from typing import Dict, Tuple, Union
 
 from juno import Advice, Candle, indicators
-from juno.constraints import Constraint, Int, Pair
+from juno.constraints import Int, Pair
+
+from .strategy import Signal, Strategy
 
 
 # Simple MACD based strategy which signals buy when MACD value above the signal line and sell if
 # below.
-class Macd:
-    class Meta:
-        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {
-            ('short_period', 'long_period'): Pair(Int(1, 100), operator.lt, Int(2, 101)),
-            'signal_period': Int(1, 101),
-            'persistence': Int(0, 10),
-        }
+class Macd(Signal):
+    @staticmethod
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
+            constraints={
+                ('short_period', 'long_period'): Pair(Int(1, 100), operator.lt, Int(2, 101)),
+                'signal_period': Int(1, 101),
+                'persistence': Int(0, 10),
+            }
+        )
 
     _macd: indicators.Macd
+    _advice: Advice = Advice.NONE
 
     def __init__(
         self,
@@ -26,6 +31,10 @@ class Macd:
         self._macd = indicators.Macd(short_period, long_period, signal_period)
 
     @property
+    def advice(self) -> Advice:
+        return self._advice
+
+    @property
     def maturity(self) -> int:
         return self._macd.maturity
 
@@ -33,13 +42,11 @@ class Macd:
     def mature(self) -> bool:
         return self._macd.mature
 
-    def update(self, candle: Candle) -> Advice:
+    def update(self, candle: Candle) -> None:
         self._macd.update(candle.close)
 
-        if self.mature:
+        if self._macd.mature:
             if self._macd.value > self._macd.signal:
-                return Advice.LONG
+                self._advice = Advice.LONG
             else:
-                return Advice.SHORT
-
-        return Advice.NONE
+                self._advice = Advice.SHORT

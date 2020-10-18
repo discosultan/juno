@@ -1,31 +1,33 @@
 import operator
-from typing import Dict, Tuple, Union
 
 from juno import Advice, Candle, indicators
-from juno.constraints import Constraint, Int, Triple
+from juno.constraints import Int, Triple
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import ma_choices
+from .strategy import Signal, Strategy, ma_choices
 
 
 # Signals long when shorter average crosses above the longer.
 # Signals short when shorter average crosses below the longer.
 # J. Murphy 204
-class TripleMA:
-    class Meta:
-        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {
-            'short_ma': ma_choices,
-            'medium_ma': ma_choices,
-            'long_ma': ma_choices,
-            ('short_period', 'medium_period', 'long_period'): Triple(
-                Int(1, 99),
-                operator.lt,
-                Int(2, 100),
-                operator.lt,
-                Int(3, 101),
-            ),
-        }
+class TripleMA(Signal):
+    @staticmethod
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
+            constraints={
+                'short_ma': ma_choices,
+                'medium_ma': ma_choices,
+                'long_ma': ma_choices,
+                ('short_period', 'medium_period', 'long_period'): Triple(
+                    Int(1, 99),
+                    operator.lt,
+                    Int(2, 100),
+                    operator.lt,
+                    Int(3, 101),
+                ),
+            }
+        )
 
     _short_ma: MA
     _medium_ma: MA
@@ -49,6 +51,10 @@ class TripleMA:
         self._long_ma = get_module_type(indicators, long_ma)(long_period)
 
     @property
+    def advice(self) -> Advice:
+        return self._advice
+
+    @property
     def maturity(self) -> int:
         return max(self._long_ma.maturity, self._medium_ma.maturity, self._short_ma.maturity)
 
@@ -56,7 +62,7 @@ class TripleMA:
     def mature(self) -> bool:
         return self._long_ma.mature and self._medium_ma.mature and self._short_ma.mature
 
-    def update(self, candle: Candle) -> Advice:
+    def update(self, candle: Candle) -> None:
         self._short_ma.update(candle.close)
         self._medium_ma.update(candle.close)
         self._long_ma.update(candle.close)
@@ -84,5 +90,3 @@ class TripleMA:
                 and self._short_ma.value < self._long_ma.value
             ):
                 self._advice = Advice.LIQUIDATE
-
-        return self._advice

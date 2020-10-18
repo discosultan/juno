@@ -1,19 +1,12 @@
-from typing import Any, Dict, Tuple, Union
+from typing import Any
 
 from juno import Advice, Candle
-from juno.constraints import Constraint, Int
 
-from .strategy import MidTrend, MidTrendPolicy, Persistence, mid_trend_policy_choices
+from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
 
 
 # Generic signal + oscillator with additional persistence and mid trend filters.
-class SigOsc:
-    class Meta:
-        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {
-            'persistence': Int(0, 10),
-            'mid_trend_policy': mid_trend_policy_choices,
-        }
-
+class SigOsc(Signal):
     _advice: Advice = Advice.NONE
     _sig: Any
     _osc: Any
@@ -43,13 +36,14 @@ class SigOsc:
     def mature(self) -> bool:
         return self._t >= self._t1
 
-    def update(self, candle: Candle) -> Advice:
+    def update(self, candle: Candle) -> None:
         self._t = min(self._t + 1, self._t1)
 
-        advice = self._sig.update(candle)
+        self._sig.update(candle)
         self._osc.update(candle)
 
         if self._sig.mature and self._osc.mature:
+            advice = self._sig.advice
             if (
                 advice is Advice.LONG and not self._osc.oversold
                 or advice is Advice.SHORT and not self._osc.overbought
@@ -60,5 +54,3 @@ class SigOsc:
                 self._mid_trend.update(advice),
                 self._persistence.update(advice),
             )
-
-        return self._advice

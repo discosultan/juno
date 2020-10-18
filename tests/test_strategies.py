@@ -4,40 +4,28 @@ import pytest
 
 from juno import Advice, Candle, strategies
 from juno.constraints import Int, Pair
-from juno.strategies import Meta, MidTrendPolicy
+from juno.strategies import MidTrendPolicy, Strategy
 
 
-def test_strategy_meta():
-    strategy = DummyStrategy()
-
-    strategy.validate(5, 15)
-    with pytest.raises(ValueError):
-        strategy.validate(-5, 15)
-        strategy.validate(5, 25)
-        strategy.validate(11, 9)
-
-
-class DummyStrategy(strategies.StrategyBase):
+class DummyStrategy(Strategy):
     @staticmethod
-    def meta() -> Meta:
-        return Meta(
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
             constraints={
                 ('foo', 'bar'): Pair(Int(0, 15), operator.lt, Int(10, 20)),
             }
         )
 
-    def update(self, candle):
+    def update(self, candle: Candle) -> None:
         pass
 
 
-@pytest.mark.parametrize('maturity', [1, 2, 3])
-def test_mature(maturity: int) -> None:
-    strategy = strategies.StrategyBase(maturity=maturity, mid_trend_policy=MidTrendPolicy.CURRENT)
-    assert not strategy.mature
-
-    for i in range(1, maturity + 1):
-        strategy.update(Candle(time=i))
-        assert strategy.mature == (i == maturity)
+def test_validate_strategy_constraints():
+    Strategy.validate_constraints(DummyStrategy, 5, 15)
+    with pytest.raises(ValueError):
+        Strategy.validate_constraints(DummyStrategy, -5, 15)
+        Strategy.validate_constraints(DummyStrategy, 5, 25)
+        Strategy.validate_constraints(DummyStrategy, 11, 9)
 
 
 def test_mid_trend_current() -> None:

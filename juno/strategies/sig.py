@@ -1,19 +1,12 @@
-from typing import Any, Dict, Tuple, Union
+from typing import Any
 
 from juno import Advice, Candle
-from juno.constraints import Constraint, Int
 
-from .strategy import MidTrend, MidTrendPolicy, Persistence, mid_trend_policy_choices
+from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
 
 
 # Generic signal with additional persistence and mid trend filters.
-class Sig:
-    class Meta:
-        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {
-            'persistence': Int(0, 10),
-            'mid_trend_policy': mid_trend_policy_choices,
-        }
-
+class Sig(Signal):
     _advice: Advice = Advice.NONE
     _sig: Any
     _mid_trend: MidTrend
@@ -35,6 +28,10 @@ class Sig:
         )
 
     @property
+    def advice(self) -> Advice:
+        return self._advice
+
+    @property
     def maturity(self) -> int:
         return self._t1
 
@@ -42,15 +39,13 @@ class Sig:
     def mature(self) -> bool:
         return self._t >= self._t1
 
-    def update(self, candle: Candle) -> Advice:
+    def update(self, candle: Candle) -> None:
         self._t = min(self._t + 1, self._t1)
 
-        advice = self._sig.update(candle)
+        self._sig.update(candle)
 
         if self._sig.mature:
             self._advice = Advice.combine(
-                self._mid_trend.update(advice),
-                self._persistence.update(advice),
+                self._mid_trend.update(self._sig.advice),
+                self._persistence.update(self._sig.advice),
             )
-
-        return self._advice

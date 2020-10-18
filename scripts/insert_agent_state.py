@@ -73,7 +73,7 @@ async def main() -> None:
         )
     )
     trader_state = Basic.State(
-        strategy=DoubleMA2(84, 92, Decimal('-0.172'), Decimal('0.377'), 0, 'sma', 'ema2'),
+        strategy=DoubleMA2(84, 92, Decimal('-0.172'), Decimal('0.377'), 'sma', 'ema2'),
         quote=Decimal('0.0205325200000000'),
         summary=trading_summary,
     )

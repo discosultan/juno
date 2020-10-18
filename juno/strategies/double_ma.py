@@ -6,16 +6,16 @@ from juno.constraints import Int, Pair, Uniform
 from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
-from .strategy import Meta, ma_choices
+from .strategy import Signal, Strategy, ma_choices
 
 
 # Signals long when shorter average crosses above the longer.
 # Signals short when shorter average crosses below the longer.
 # J. Murphy 203
-class DoubleMA:
+class DoubleMA(Signal):
     @staticmethod
-    def meta() -> Meta:
-        return Meta(
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
             constraints={
                 'short_ma': ma_choices,
                 'long_ma': ma_choices,
@@ -41,6 +41,10 @@ class DoubleMA:
         self._long_ma = get_module_type(indicators, long_ma)(long_period)
 
     @property
+    def advice(self) -> Advice:
+        return self._advice
+
+    @property
     def maturity(self) -> int:
         return max(self._long_ma.maturity, self._short_ma.maturity)
 
@@ -52,7 +56,7 @@ class DoubleMA:
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
-        if self.mature:
+        if self._long_ma.mature and self._short_ma.mature:
             if self._short_ma.value > self._long_ma.value:
                 self._advice = Advice.LONG
             elif self._short_ma.value < self._long_ma.value:
@@ -60,10 +64,10 @@ class DoubleMA:
 
 
 # Moving average moving average crossover.
-class DoubleMA2:
+class DoubleMA2(Signal):
     @staticmethod
-    def meta() -> Meta:
-        return Meta(
+    def meta() -> Strategy.Meta:
+        return Strategy.Meta(
             constraints={
                 ('short_period', 'long_period'): Pair(Int(1, 100), operator.lt, Int(2, 101)),
                 'neg_threshold': Uniform(Decimal('-1.000'), Decimal('-0.100')),
@@ -97,6 +101,10 @@ class DoubleMA2:
         self._pos_threshold = pos_threshold
 
     @property
+    def advice(self) -> Advice:
+        return self._advice
+
+    @property
     def maturity(self) -> int:
         return self._long_ma.maturity
 
@@ -104,11 +112,7 @@ class DoubleMA2:
     def mature(self) -> bool:
         return self._long_ma.mature
 
-    @property
-    def advice(self) -> Advice:
-        return self._advice
-
-    def update(self, candle: Candle) -> Advice:
+    def update(self, candle: Candle) -> None:
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
@@ -123,5 +127,3 @@ class DoubleMA2:
                 self._advice = Advice.LONG
             elif diff < self._neg_threshold:
                 self._advice = Advice.SHORT
-
-        return self._advice

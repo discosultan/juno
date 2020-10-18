@@ -7,7 +7,7 @@ from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
-from juno.strategies import Changed, Strategy
+from juno.strategies import Changed, Signal
 from juno.time import time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
@@ -27,7 +27,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbol: str
         interval: Interval
         end: Timestamp
-        strategy: TypeConstructor[Strategy]
+        strategy: TypeConstructor[Signal]
         start: Optional[Timestamp] = None  # None means earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -51,7 +51,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
 
     @dataclass
     class State:
-        strategy: Optional[Strategy] = None
+        strategy: Optional[Signal] = None
         changed: Changed = field(default_factory=lambda: Changed(True))
         quote: Decimal = Decimal('-1.0')
         summary: Optional[TradingSummary] = None
@@ -235,7 +235,8 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         assert state.summary
         state.stop_loss.update(candle)
         state.take_profit.update(candle)
-        advice = state.changed.update(state.strategy.update(candle))
+        state.strategy.update(candle)
+        advice = state.changed.update(state.strategy.advice)
         _log.debug(f'received advice: {advice.name}')
         # Make sure strategy doesn't give advice during "adjusted start" period.
         if state.current < state.summary.start:

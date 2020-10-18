@@ -8,7 +8,7 @@ from .momersion import Momersion
 from .sig import Sig
 from .sig_osc import SigOsc
 from .single_ma import SingleMA
-from .strategy import Changed, MidTrend, MidTrendPolicy, Persistence, Strategy
+from .strategy import Changed, MidTrend, MidTrendPolicy, Oscillator, Persistence, Signal, Strategy
 from .triple_ma import TripleMA
 
 __all__ = [
@@ -23,9 +23,11 @@ __all__ = [
     'MidTrendPolicy',
     'Mmi',
     'Momersion',
+    'Oscillator',
     'Persistence',
     'Sig',
     'SigOsc',
+    'Signal',
     'SingleMA',
     'Strategy',
     'TripleMA',
