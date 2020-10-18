@@ -46,9 +46,22 @@ pub fn round_half_up(value: f64, precision: u32) -> f64 {
     (value * factor).round() / factor
 }
 
+pub fn adler32(value: &str) -> u32 {
+    const MODADLER: u32 = 65521;
+    let mut a: u32 = 1;
+    let mut b: u32 = 0;
+
+    for c in value.chars() {
+        a = a.wrapping_add(c as u32) % MODADLER;
+        b = b.wrapping_add(a) % MODADLER;
+    }
+
+    b.wrapping_shl(16) | a
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{ceil_multiple, floor_multiple, mean, round_down, round_half_up};
+    use super::{adler32, ceil_multiple, floor_multiple, mean, round_down, round_half_up};
 
     #[test]
     fn test_ceil_multiple() {
@@ -79,5 +92,11 @@ mod tests {
         assert_eq!(round_half_up(0.123, 2), 0.12);
         assert_eq!(round_half_up(0.120, 2), 0.12);
         assert_eq!(round_half_up(0.115, 2), 0.12);
+    }
+
+    #[test]
+    fn test_adler32() {
+        assert_eq!(adler32("sma"), 43_450_690);
+        assert_eq!(adler32("ema"), 40_698_164);
     }
 }
