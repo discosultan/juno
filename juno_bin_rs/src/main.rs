@@ -23,7 +23,7 @@ struct Params {
 fn main() -> Result<()> {
     let args = Params {
         exchange: "binance",
-        interval: DAY_MS,
+        interval: HOUR_MS,
         start: "2017-12-08".to_timestamp(),
         end: "2020-09-30".to_timestamp(),
         quote: 1.0,
@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
     // TODO: Print out trading summaries.
-    optimize_validate_print::<Sig<FourWeekRule>>(&args, &symbols, &validation_symbols)?;
+    optimize_validate_print::<SigOsc<TripleMA, Rsi>>(&args, &symbols, &validation_symbols)?;
 
     // let chromosome = TradingChromosome {
     //     trader: TraderParams {
@@ -85,8 +85,8 @@ fn optimize_validate_print<T: Signal>(
     // Optimize.
     let gens = optimize::<T>(&args, &symbols)?;
 
-    // print_individual::<T>(args, symbols, &gens[gens.len() - 1]);  // Best.
     print_all_generations::<T>(&args, &symbols, &validation_symbols, &gens);
+    print_individual::<T>(args, symbols, &gens[gens.len() - 1]);  // Best.
 
     Ok(())
 }
@@ -113,7 +113,7 @@ fn optimize<T: Signal>(
         // reinsertion::EliteReinsertion::default(),
         reinsertion::EliteReinsertion::new(0.75),
     );
-    let population_size = 512;
+    let population_size = 128;
     let generations = 128;
     let seed = Some(1);
     let gens = algo.evolve(population_size, generations, seed);

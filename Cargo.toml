@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "juno_bin_rs",
-    "juno_rs",
     "juno_derive_rs",
+    "juno_rs",
+    "juno_warp_rs",
 ]
 default-members = ["juno_bin_rs"]
