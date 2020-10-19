@@ -1,6 +1,5 @@
 use crate::{
     math::{annualized_roi, floor_multiple, mean, std_deviation},
-    time,
     trading::{Position, TradingSummary},
 };
 use ndarray::prelude::*;
@@ -22,11 +21,11 @@ enum Asset {
 pub struct Statistics {
     // performance: Vec<f64>,
     // a_returns: Vec<f64>,
-    g_returns: Vec<f64>,
+    pub g_returns: Vec<f64>,
     // neg_g_returns: Vec<f64>,
 
     // total_return: f64,
-    annualized_return: f64,
+    pub annualized_return: f64,
     // annualized_volatility: f64,
     // annualized_downside_risk: f64,
     pub sharpe_ratio: f64,
@@ -180,24 +179,24 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
     }
 }
 
-fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistics) -> (f64, f64) {
-    assert!(benchmark_g_returns.len() == portfolio_stats.g_returns.len());
+// fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistics) -> (f64, f64) {
+//     assert!(benchmark_g_returns.len() == portfolio_stats.g_returns.len());
 
-    // TODO: Inefficient making this copy.
-    let mut combined: Vec<f64> = Vec::with_capacity(benchmark_g_returns.len() * 2);
-    combined.extend(portfolio_stats.g_returns.iter());
-    combined.extend(benchmark_g_returns.iter());
+//     // TODO: Inefficient making this copy.
+//     let mut combined: Vec<f64> = Vec::with_capacity(benchmark_g_returns.len() * 2);
+//     combined.extend(portfolio_stats.g_returns.iter());
+//     combined.extend(benchmark_g_returns.iter());
 
-    let matrix = Array::from_shape_vec((2, benchmark_g_returns.len()), combined)
-        .expect("benchmark and portfolio geometric returns matrix");
+//     let matrix = Array::from_shape_vec((2, benchmark_g_returns.len()), combined)
+//         .expect("benchmark and portfolio geometric returns matrix");
 
-    let covariance_matrix = matrix.cov(0.0).expect("covariance matrix");
+//     let covariance_matrix = matrix.cov(0.0).expect("covariance matrix");
 
-    let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
+//     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
+//     let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
 
-    (alpha, beta)
-}
+//     (alpha, beta)
+// }
 
 pub fn get_sharpe_ratio(
     summary: &TradingSummary,

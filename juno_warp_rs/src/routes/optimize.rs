@@ -5,9 +5,9 @@ use juno_rs::{
     statistics::TradingStats,
     storages,
     strategies::*,
-    trading::{self, TradingChromosome, TradingSummary},
+    trading::{self, TradingChromosome},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use warp::{Filter, Rejection};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -59,9 +59,11 @@ impl From<UserParams> for Params {
     }
 }
 
-struct OptimizeResult<T: Chromosome> {
+#[derive(Serialize)]
+struct GenStats<T: Chromosome> {
+    nr: usize,
     ind: Individual<TradingChromosome<T>>,
-    stats: TradingStats,
+    symbol_stats: Vec<TradingStats>,
 }
 
 pub fn route() -> impl Filter<
@@ -72,8 +74,32 @@ pub fn route() -> impl Filter<
         .and(warp::path("optimize"))
         .and(warp::body::json())
         .map(|args: UserParams| {
-            let gens = optimize::<FourWeekRule>(&args.into()).unwrap();
-            warp::reply::json(&gens)
+            let args = args.into();
+            let gens = optimize::<FourWeekRule>(&args).unwrap();
+            let mut last_fitness = f64::NAN;
+            let gen_stats = gens
+                .into_iter()
+                .enumerate()
+                .filter(|(_, ind)| {
+                    let pass = ind.fitness > last_fitness;
+                    last_fitness = ind.fitness;
+                    pass
+                })
+                .map(|(i, ind)| {
+                    let symbol_stats = args.training_symbols
+                        .iter()
+                        .chain(&args.validation_symbols)
+                        .map(|symbol| backtest::<FourWeekRule>(&args, symbol, &ind.chromosome).unwrap())
+                        .collect::<Vec<TradingStats>>();
+                    GenStats {
+                        nr: i,
+                        ind,
+                        symbol_stats,
+                    }
+                })
+                .collect::<Vec<GenStats<FourWeekRuleParams>>>();
+            
+            warp::reply::json(&gen_stats)
         })
 }
 
@@ -136,9 +162,6 @@ fn backtest<T: Signal>(
         .iter()
         .map(|candle| candle.close)
         .collect();
-
-    // let stats = statistics::analyse(&base_prices, None, &[], &result, args.interval);
-    // let sharpe = stats.sharpe_ratio;
 
     let stats = TradingStats::from_summary(&summary, &base_prices, stats_interval);
 

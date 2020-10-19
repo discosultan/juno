@@ -19,21 +19,26 @@ async function fetchJson(method, url, body) {
     return await response.json();
 }
 
+const trainingSymbols = ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"];
+const validationSymbols = ["ada-btc"];
+
 export default function Optimize() {
-    const trainingSymbols = ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"];
-    const validationSymbols = ["ada-btc"];
     const [gens, setGens] = useState([]);
     useEffect(() => {
         (async () => setGens(await fetchJson('POST', '/optimize', {
+            "population_size": 32,
+            "generations": 32,
+
             "exchange": "binance",
             "interval": "1d",
             "start": "2017-12-08",
             "end": "2020-09-30",
             "quote": 1.0,
             "training_symbols": trainingSymbols,
+
             "validation_symbols": validationSymbols,
         })))();
-    }, [trainingSymbols, validationSymbols]);
+    }, []);
 
     return (
         <Container>
@@ -42,20 +47,23 @@ export default function Optimize() {
                     <TableHead>
                         <TableRow>
                             <TableCell>gen</TableCell>
-                            {/* {trainingSymbols.map(symbol => (
-                                <TableCell align="right">{symbol}</TableCell>
+                            {trainingSymbols.map(symbol => (
+                                <TableCell key={symbol} align="right">{symbol}</TableCell>
                             ))}
                             {validationSymbols.map(symbol => (
-                                <TableCell align="right">{symbol} (v)</TableCell>
-                            ))} */}
+                                <TableCell key={symbol} align="right">{symbol} (v)</TableCell>
+                            ))}
                             <TableCell align="right">fitness</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                    {gens.map((gen, i) => (
-                        <TableRow key={i}>
-                            <TableCell component="th" scope="row">{i}</TableCell>
-                            <TableCell align="right">{gen.fitness}</TableCell>
+                    {gens.map(gen => (
+                        <TableRow key={gen.nr} hover={true}>
+                            <TableCell component="th" scope="row">{gen.nr}</TableCell>
+                            {gen.symbol_stats.map((stats, i) => (
+                                <TableCell key={i} align="right">{stats.sharpe_ratio}</TableCell>
+                            ))}
+                            <TableCell align="right">{gen.ind.fitness}</TableCell>
                         </TableRow>
                     ))}
                     </TableBody>
