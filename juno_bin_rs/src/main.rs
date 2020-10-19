@@ -4,7 +4,8 @@ use juno_rs::{
     fill_missing_candles,
     genetics::{crossover, mutation, reinsertion, selection, GeneticAlgorithm, Individual},
     prelude::*,
-    statistics::{TradingStats}, storages,
+    statistics::TradingStats,
+    storages,
     strategies::*,
     trading::{self, TradingChromosome},
 };
@@ -34,9 +35,7 @@ fn main() -> Result<()> {
         "xrp-btc".into(),
         "xmr-btc".into(),
     ];
-    let validation_symbols = vec![
-        "ada-btc".into(),
-    ];
+    let validation_symbols = vec!["ada-btc".into()];
 
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
@@ -93,7 +92,7 @@ fn optimize_validate_print<T: Signal>(
     let gens = optimize::<T>(&args, &symbols)?;
 
     print_all_generations::<T>(&args, symbols, validation_symbols, &gens);
-    print_individual::<T>(args, symbols, &gens[gens.len() - 1]);  // Best.
+    print_individual::<T>(args, symbols, &gens[gens.len() - 1]); // Best.
 
     Ok(())
 }
@@ -184,7 +183,12 @@ fn print_all_generations<T: Signal>(
         symbols
             .iter()
             .chain(validation_symbols)
-            .map(|symbol| (symbol, backtest::<T>(args, symbol, &ind.chromosome).unwrap()))
+            .map(|symbol| {
+                (
+                    symbol,
+                    backtest::<T>(args, symbol, &ind.chromosome).unwrap(),
+                )
+            })
             .for_each(|(symbol, stats)| {
                 cells.push(Cell::new(&stats.sharpe_ratio.to_string()));
                 // TODO: temp
@@ -217,39 +221,33 @@ fn print_summary_table(gen: usize, data: &Vec<(&str, TradingStats)>) {
 
     // Header.
     let mut cells = vec![Cell::new(&format!("gen {}", gen))];
-    data
-        .iter()
+    data.iter()
         .for_each(|(symbol, _)| cells.push(Cell::new(symbol)));
     table.add_row(Row::new(cells));
 
     // Body.
     let mut cells = vec![Cell::new("sharpe")];
-    data
-        .iter()
+    data.iter()
         .for_each(|(_, stats)| cells.push(Cell::new(&stats.sharpe_ratio.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("profit")];
-    data
-        .iter()
+    data.iter()
         .for_each(|(_, stats)| cells.push(Cell::new(&stats.profit.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("annualized roi")];
-    data
-        .iter()
+    data.iter()
         .for_each(|(_, stats)| cells.push(Cell::new(&stats.annualized_roi.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("positions in profit")];
-    data
-        .iter()
+    data.iter()
         .for_each(|(_, stats)| cells.push(Cell::new(&stats.num_positions_in_profit.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("positions in loss")];
-    data
-        .iter()
+    data.iter()
         .for_each(|(_, stats)| cells.push(Cell::new(&stats.num_positions_in_loss.to_string())));
     table.add_row(Row::new(cells));
 

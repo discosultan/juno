@@ -11,7 +11,5 @@ async fn main() {
     let port = 3030;
 
     println!("listening on port {}", port);
-    warp::serve(routes)
-        .run(([127, 0, 0, 1], port))
-        .await;
+    warp::serve(routes).run(([127, 0, 0, 1], port)).await;
 }

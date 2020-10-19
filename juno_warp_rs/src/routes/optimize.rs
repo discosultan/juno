@@ -1,6 +1,8 @@
 use juno_rs::{
     fill_missing_candles,
-    genetics::{crossover, mutation, reinsertion, selection, Chromosome, GeneticAlgorithm, Individual},
+    genetics::{
+        crossover, mutation, reinsertion, selection, Chromosome, GeneticAlgorithm, Individual,
+    },
     prelude::*,
     statistics::TradingStats,
     storages,
@@ -66,10 +68,7 @@ struct GenStats<T: Chromosome> {
     symbol_stats: Vec<TradingStats>,
 }
 
-pub fn route() -> impl Filter<
-    Extract = (warp::reply::Json,),
-    Error = Rejection
-> + Clone {
+pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path("optimize"))
         .and(warp::body::json())
@@ -86,10 +85,13 @@ pub fn route() -> impl Filter<
                     pass
                 })
                 .map(|(i, ind)| {
-                    let symbol_stats = args.training_symbols
+                    let symbol_stats = args
+                        .training_symbols
                         .iter()
                         .chain(&args.validation_symbols)
-                        .map(|symbol| backtest::<FourWeekRule>(&args, symbol, &ind.chromosome).unwrap())
+                        .map(|symbol| {
+                            backtest::<FourWeekRule>(&args, symbol, &ind.chromosome).unwrap()
+                        })
                         .collect::<Vec<TradingStats>>();
                     GenStats {
                         nr: i,
@@ -98,7 +100,7 @@ pub fn route() -> impl Filter<
                     }
                 })
                 .collect::<Vec<GenStats<FourWeekRuleParams>>>();
-            
+
             warp::reply::json(&gen_stats)
         })
 }

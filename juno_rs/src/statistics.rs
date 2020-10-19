@@ -2,8 +2,8 @@ use crate::{
     math::{annualized_roi, floor_multiple, mean, std_deviation},
     trading::{Position, TradingSummary},
 };
-use ndarray::prelude::*;
-use ndarray_stats::CorrelationExt;
+// use ndarray::prelude::*;
+// use ndarray_stats::CorrelationExt;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -298,31 +298,31 @@ impl TradingStats {
         let mut quote = summary.quote;
         let mut max_quote = quote;
         let mut profit = 0.0;
-    
+
         let mut num_positions_in_profit = 0;
         let mut num_positions_in_loss = 0;
-    
+
         // let mut drawdowns = Vec::with_capacity(self.positions.len());
         let mut max_drawdown = 0.0;
         let mut total_drawdown = 0.0;
-    
+
         let mut total_position_duration = 0;
-    
+
         for pos in summary.positions.iter() {
             let (pos_profit, pos_duration) = match pos {
                 Position::Long(pos) => (pos.profit, pos.duration),
                 Position::Short(pos) => (pos.profit, pos.duration),
             };
-    
+
             profit += pos_profit;
             total_position_duration += pos_duration;
-    
+
             if pos_profit >= 0.0 {
                 num_positions_in_profit += 1;
             } else {
                 num_positions_in_loss += 1;
             }
-    
+
             quote += pos_profit;
             max_quote = f64::max(max_quote, quote);
             let drawdown = 1.0 - quote / max_quote;
@@ -330,7 +330,7 @@ impl TradingStats {
             total_drawdown += drawdown;
             max_drawdown = f64::max(max_drawdown, drawdown);
         }
-    
+
         let (mean_position_profit, mean_position_duration, mean_drawdown) =
             if summary.positions.len() > 0 {
                 (
@@ -341,7 +341,7 @@ impl TradingStats {
             } else {
                 (0.0, 0, 0.0)
             };
-    
+
         let duration = summary.end - summary.start;
         let cost = summary.quote;
         let gain = cost + profit;
@@ -349,7 +349,7 @@ impl TradingStats {
         let annualized_roi = annualized_roi(duration, roi);
 
         let sharpe_ratio = get_sharpe_ratio(&summary, &base_prices, None, stats_interval);
-    
+
         Self {
             start: summary.start,
             end: summary.end,

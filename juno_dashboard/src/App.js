@@ -2,7 +2,7 @@ import React from 'react';
 import useMediaQuery from '@material-ui/core/useMediaQuery';
 import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';
 import CssBaseline from '@material-ui/core/CssBaseline';
-import Optimize from './components/Optimize';
+import Dashboard from './components/Dashboard';
 
 export default function App() {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -20,7 +20,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline/>
-      <Optimize />
+      <Dashboard />
     </ThemeProvider>
   );
 }
