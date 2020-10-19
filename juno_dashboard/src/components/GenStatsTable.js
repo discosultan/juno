@@ -37,12 +37,12 @@ export default function GenStatsTable(props) {
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                    {gen.symbol_stats.length && Object.keys(gen.symbol_stats[0]).map(key => (
+                    {gen.symbolStats.length && Object.keys(gen.symbolStats[0]).map(key => (
                         <TableRow key={key}>
                             <TableCell component="th" scope="row">{key}</TableCell>
                             {Array.from(range(totalSymbols), (i) => (
                                 <TableCell key={i} align="right">
-                                    {gen.symbol_stats[i][key]}
+                                    {gen.symbolStats[i][key]}
                                 </TableCell>
                             ))}
                         </TableRow>

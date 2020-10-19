@@ -8,7 +8,7 @@ import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 import { makeStyles } from '@material-ui/core';
 
-const useStyles = makeStyles((theme) => ({
+const useStyles = makeStyles(_theme => ({
     row: {
         'cursor': 'pointer'
     },
@@ -41,8 +41,8 @@ export default function GensTable(props) {
                             onClick={() => props.onSelect(gen)}
                         >
                             <TableCell component="th" scope="row">{gen.nr}</TableCell>
-                            {gen.symbol_stats.map((stats, i) => (
-                                <TableCell key={i} align="right">{stats.sharpe_ratio}</TableCell>
+                            {gen.symbolStats.map((stats, i) => (
+                                <TableCell key={i} align="right">{stats.sharpeRatio}</TableCell>
                             ))}
                             <TableCell align="right">{gen.ind.fitness}</TableCell>
                         </TableRow>
