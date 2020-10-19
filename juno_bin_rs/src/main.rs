@@ -4,9 +4,9 @@ use juno_rs::{
     fill_missing_candles,
     genetics::{crossover, mutation, reinsertion, selection, GeneticAlgorithm, Individual},
     prelude::*,
-    statistics, storages,
+    statistics::{TradingStats}, storages,
     strategies::*,
-    trading::{self, TradingChromosome, TradingSummary},
+    trading::{self, TradingChromosome},
 };
 use prettytable::{Cell, Row, Table};
 
@@ -137,7 +137,7 @@ fn print_individual<T: Signal>(
         .map(|symbol| {
             backtest::<T>(args, symbol, &individual.chromosome)
                 .unwrap()
-                .0
+                .sharpe_ratio
         })
         .collect();
 
@@ -178,18 +178,18 @@ fn print_all_generations<T: Signal>(
 
         // TODO: temp
         const PRINT_GEN: usize = 15;
-        let mut temp_results: Vec<(&str, TradingSummary, f64)> = Vec::new();
+        let mut temp_results: Vec<(&str, TradingStats)> = Vec::new();
 
         // Training + validation symbol results.
         symbols
             .iter()
             .chain(validation_symbols)
             .map(|symbol| (symbol, backtest::<T>(args, symbol, &ind.chromosome).unwrap()))
-            .for_each(|(symbol, (sharpe, summary))| {
-                cells.push(Cell::new(&sharpe.to_string()));
+            .for_each(|(symbol, stats)| {
+                cells.push(Cell::new(&stats.sharpe_ratio.to_string()));
                 // TODO: temp
                 if i == PRINT_GEN {
-                    temp_results.push((symbol, summary, sharpe));
+                    temp_results.push((symbol, stats));
                 }
             });
 
@@ -212,45 +212,45 @@ fn print_all_generations<T: Signal>(
     table.printstd();
 }
 
-fn print_summary_table(gen: usize, data: &Vec<(&str, TradingSummary, f64)>) {
+fn print_summary_table(gen: usize, data: &Vec<(&str, TradingStats)>) {
     let mut table = Table::new();
 
     // Header.
     let mut cells = vec![Cell::new(&format!("gen {}", gen))];
     data
         .iter()
-        .for_each(|(symbol, _, _)| cells.push(Cell::new(symbol)));
+        .for_each(|(symbol, _)| cells.push(Cell::new(symbol)));
     table.add_row(Row::new(cells));
 
     // Body.
     let mut cells = vec![Cell::new("sharpe")];
     data
         .iter()
-        .for_each(|(_, _, sharpe)| cells.push(Cell::new(&sharpe.to_string())));
+        .for_each(|(_, stats)| cells.push(Cell::new(&stats.sharpe_ratio.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("profit")];
     data
         .iter()
-        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.profit.to_string())));
+        .for_each(|(_, stats)| cells.push(Cell::new(&stats.profit.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("annualized roi")];
     data
         .iter()
-        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.annualized_roi.to_string())));
+        .for_each(|(_, stats)| cells.push(Cell::new(&stats.annualized_roi.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("positions in profit")];
     data
         .iter()
-        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.num_positions_in_profit.to_string())));
+        .for_each(|(_, stats)| cells.push(Cell::new(&stats.num_positions_in_profit.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("positions in loss")];
     data
         .iter()
-        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.num_positions_in_loss.to_string())));
+        .for_each(|(_, stats)| cells.push(Cell::new(&stats.num_positions_in_loss.to_string())));
     table.add_row(Row::new(cells));
 
     table.printstd();
@@ -260,12 +260,12 @@ fn backtest<T: Signal>(
     args: &Params,
     symbol: &str,
     chrom: &TradingChromosome<T::Params>,
-) -> Result<(f64, TradingSummary)> {
+) -> Result<TradingStats> {
     let candles =
         storages::list_candles(args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(args.exchange)?;
 
-    let result = trading::trade::<T>(
+    let summary = trading::trade::<T>(
         &chrom.strategy,
         &candles,
         &exchange_info.fees[symbol],
@@ -295,8 +295,7 @@ fn backtest<T: Signal>(
     // let stats = statistics::analyse(&base_prices, None, &[], &result, args.interval);
     // let sharpe = stats.sharpe_ratio;
 
-    let summary = result.get_summary();
-    let sharpe = statistics::get_sharpe_ratio(&result, &base_prices, None, stats_interval);
+    let stats = TradingStats::from_summary(&summary, &base_prices, stats_interval);
 
-    Ok((sharpe, summary))
+    Ok(stats)
 }

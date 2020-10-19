@@ -3,7 +3,7 @@ use crate::{
     strategies::Changed,
     strategies::Signal,
     time,
-    trading::{LongPosition, Position, ShortPosition, StopLoss, TakeProfit, TradingContext},
+    trading::{LongPosition, Position, ShortPosition, StopLoss, TakeProfit, TradingSummary},
     Advice, BorrowInfo, Candle, Fees, Filters,
 };
 
@@ -52,7 +52,7 @@ pub fn trade<T: Signal>(
     take_profit: f64,
     long: bool,
     short: bool,
-) -> TradingContext {
+) -> TradingSummary {
     let two_interval = interval * 2;
 
     let candles_len = candles.len();
@@ -62,7 +62,7 @@ pub fn trade<T: Signal>(
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
 
-    let mut summary = TradingContext::new(start, end, quote);
+    let mut summary = TradingSummary::new(start, end, quote);
     let mut state = State::new(
         T::new(strategy_params),
         quote,
@@ -175,7 +175,7 @@ pub fn trade<T: Signal>(
 
 fn tick<T: Signal>(
     mut state: &mut State<T>,
-    mut summary: &mut TradingContext,
+    mut summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
@@ -278,7 +278,7 @@ fn try_open_long_position<T: Signal>(
 
 fn close_long_position<T: Signal>(
     state: &mut State<T>,
-    summary: &mut TradingContext,
+    summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
     time: u64,
@@ -338,7 +338,7 @@ fn try_open_short_position<T: Signal>(
 
 fn close_short_position<T: Signal>(
     state: &mut State<T>,
-    summary: &mut TradingContext,
+    summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,

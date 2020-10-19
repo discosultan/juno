@@ -59,6 +59,17 @@ pub fn adler32(value: &str) -> u32 {
     b.wrapping_shl(16) | a
 }
 
+pub fn annualized_roi(duration: u64, roi: f64) -> f64 {
+    const YEAR_MS: f64 = 31_556_952_000.0;
+
+    let n = duration as f64 / YEAR_MS;
+    if n == 0.0 {
+        0.0
+    } else {
+        (1.0 + roi).powf(1.0 / n) - 1.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{adler32, ceil_multiple, floor_multiple, mean, round_down, round_half_up};
