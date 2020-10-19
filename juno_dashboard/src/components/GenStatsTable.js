@@ -18,7 +18,7 @@ function* range(stop) {
 export default function GenStatsTable(props) {
     const { args, gen } = props;
     const totalSymbols = args.trainingSymbols.length + args.validationSymbols.length;
-    console.log(gen, totalSymbols);
+
     return (
         <>
             <Button onClick={props.onClose}>Back</Button>
