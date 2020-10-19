@@ -3,9 +3,10 @@ use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Ca
 use bounded_vec_deque::BoundedVecDeque;
 use juno_derive_rs::*;
 use rand::prelude::*;
+use serde::Serialize;
 use std::cmp::min;
 
-#[derive(Chromosome, Clone, Debug)]
+#[derive(Chromosome, Clone, Debug, Serialize)]
 #[repr(C)]
 pub struct FourWeekRuleParams {
     pub period: u32,

@@ -1,6 +1,3 @@
-#![allow(dead_code)]
-// TODO: Get rid of this.
-
 pub mod common;
 pub mod ffi;
 pub mod filters;

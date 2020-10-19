@@ -5,4 +5,3 @@ members = [
     "juno_rs",
     "juno_warp_rs",
 ]
-default-members = ["juno_bin_rs"]

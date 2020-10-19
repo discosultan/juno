@@ -7,6 +7,7 @@ pub use traders::*;
 use crate::{genetics::Chromosome, time, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
+use serde::Serialize;
 
 pub const MISSED_CANDLE_POLICY_IGNORE: u32 = 0;
 pub const MISSED_CANDLE_POLICY_RESTART: u32 = 1;
@@ -16,7 +17,7 @@ pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
 const YEAR_MS: f64 = time::YEAR_MS as f64;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TradingChromosome<T: Chromosome> {
     pub trader: TraderParams,
     pub strategy: T,
@@ -52,7 +53,7 @@ impl<T: Chromosome> Chromosome for TradingChromosome<T> {
     }
 }
 
-#[derive(Chromosome, Clone, Debug)]
+#[derive(Chromosome, Clone, Debug, Serialize)]
 pub struct TraderParams {
     pub missed_candle_policy: u32,
     pub stop_loss: f64,

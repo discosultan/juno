@@ -6,9 +6,10 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
+use serde::Serialize;
 use std::cmp::min;
 
-#[derive(Chromosome, Clone, Debug)]
+#[derive(Chromosome, Clone, Debug, Serialize)]
 #[repr(C)]
 pub struct SingleMAParams {
     pub ma: u32,

@@ -6,9 +6,10 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
+use serde::Serialize;
 use std::cmp::{max, min};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SigParams<S: Chromosome> {
     pub sig_params: S,
     pub persistence: u32,

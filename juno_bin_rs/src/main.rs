@@ -28,8 +28,15 @@ fn main() -> Result<()> {
         end: "2020-09-30".to_timestamp(),
         quote: 1.0,
     };
-    let symbols = vec!["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"];
-    let validation_symbols = vec!["ada-btc"];
+    let symbols = vec![
+        "eth-btc".into(),
+        "ltc-btc".into(),
+        "xrp-btc".into(),
+        "xmr-btc".into(),
+    ];
+    let validation_symbols = vec![
+        "ada-btc".into(),
+    ];
 
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
@@ -79,13 +86,13 @@ fn main() -> Result<()> {
 
 fn optimize_validate_print<T: Signal>(
     args: &Params,
-    symbols: &[&str],
-    validation_symbols: &[&str],
+    symbols: &[String],
+    validation_symbols: &[String],
 ) -> Result<()> {
     // Optimize.
     let gens = optimize::<T>(&args, &symbols)?;
 
-    print_all_generations::<T>(&args, &symbols, &validation_symbols, &gens);
+    print_all_generations::<T>(&args, symbols, validation_symbols, &gens);
     print_individual::<T>(args, symbols, &gens[gens.len() - 1]);  // Best.
 
     Ok(())
@@ -93,7 +100,7 @@ fn optimize_validate_print<T: Signal>(
 
 fn optimize<T: Signal>(
     args: &Params,
-    symbols: &[&str],
+    symbols: &[String],
 ) -> Result<Vec<Individual<TradingChromosome<T::Params>>>> {
     let algo = GeneticAlgorithm::new(
         trading::BasicEvaluation::<T>::new(
@@ -122,7 +129,7 @@ fn optimize<T: Signal>(
 
 fn print_individual<T: Signal>(
     args: &Params,
-    symbols: &[&str],
+    symbols: &[String],
     individual: &Individual<TradingChromosome<T::Params>>,
 ) {
     let symbol_fitnesses: Vec<f64> = symbols
@@ -145,8 +152,8 @@ fn print_individual<T: Signal>(
 
 fn print_all_generations<T: Signal>(
     args: &Params,
-    symbols: &[&str],
-    validation_symbols: &[&str],
+    symbols: &[String],
+    validation_symbols: &[String],
     gens: &[Individual<TradingChromosome<T::Params>>],
 ) {
     let mut table = Table::new();
