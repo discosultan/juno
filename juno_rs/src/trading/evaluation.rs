@@ -29,7 +29,7 @@ pub struct BasicEvaluation<T: Signal> {
 impl<T: Signal> BasicEvaluation<T> {
     pub fn new(
         exchange: &str,
-        symbols: &[&str],
+        symbols: &[String],
         interval: u64,
         start: u64,
         end: u64,
@@ -39,12 +39,12 @@ impl<T: Signal> BasicEvaluation<T> {
         let stats_interval = time::DAY_MS;
         let symbol_ctxs = symbols
             .iter()
-            .map(|&symbol| {
+            .map(|symbol| {
                 let candles =
-                    storages::list_candles(exchange, symbol, interval, start, end).unwrap();
+                    storages::list_candles(exchange, &symbol, interval, start, end).unwrap();
                 // TODO: Do listing and filling of missing candles in one go?
                 let stats_candles =
-                    storages::list_candles(exchange, symbol, stats_interval, start, end).unwrap();
+                    storages::list_candles(exchange, &symbol, stats_interval, start, end).unwrap();
                 let stats_candles =
                     fill_missing_candles(stats_interval, start, end, &stats_candles);
                 let stats_prices: Vec<f64> =
@@ -124,9 +124,9 @@ impl<T: Signal> Evaluation for BasicEvaluation<T> {
     }
 }
 
-fn sum_linear(acc: f64, val: f64) -> f64 {
-    acc + val
-}
+// fn sum_linear(acc: f64, val: f64) -> f64 {
+//     acc + val
+// }
 fn sum_log(acc: f64, val: f64) -> f64 {
     acc + if val > 0.0 {
         (val + 1.0).log10()

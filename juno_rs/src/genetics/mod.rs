@@ -8,9 +8,10 @@ pub use algorithm::GeneticAlgorithm;
 
 use juno_derive_rs::*;
 use rand::prelude::*;
+use serde::Serialize;
 use std::{cmp::Ordering, fmt::Debug};
 
-pub trait Chromosome: Clone + Debug + Send + Sync {
+pub trait Chromosome: Clone + Debug + Send + Serialize + Sync {
     fn len() -> usize;
     fn generate(rng: &mut StdRng) -> Self;
     fn cross(&mut self, other: &mut Self, i: usize);
@@ -23,20 +24,13 @@ pub trait Evaluation {
     fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]);
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Individual<T: Chromosome> {
     pub chromosome: T,
     pub fitness: f64,
 }
 
 impl<T: Chromosome> Individual<T> {
-    fn new(chromosome: T) -> Self {
-        Self {
-            chromosome,
-            fitness: f64::MIN,
-        }
-    }
-
     fn generate(rng: &mut StdRng) -> Self {
         Self {
             chromosome: T::generate(rng),

@@ -24,10 +24,11 @@ use crate::{
     indicators::MA_CHOICES,
 };
 use rand::prelude::*;
+use serde::Serialize;
 use std::cmp::min;
 
 pub trait Strategy: Send + Sync {
-    type Params: Chromosome;
+    type Params: Chromosome + Serialize;
 
     fn new(params: &Self::Params) -> Self;
     fn maturity(&self) -> u32;

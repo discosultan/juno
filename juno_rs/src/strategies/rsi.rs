@@ -2,9 +2,10 @@ use super::{Oscillator, Strategy};
 use crate::{genetics::Chromosome, indicators, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
+use serde::Serialize;
 
 #[repr(C)]
-#[derive(Chromosome, Clone, Debug)]
+#[derive(Chromosome, Clone, Debug, Serialize)]
 pub struct RsiParams {
     pub period: u32,
     pub up_threshold: f64,

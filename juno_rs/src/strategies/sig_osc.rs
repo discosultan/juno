@@ -6,9 +6,10 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
+use serde::Serialize;
 use std::cmp::{max, min};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SigOscParams<S: Chromosome, O: Chromosome> {
     pub sig_params: S,
     pub osc_params: O,

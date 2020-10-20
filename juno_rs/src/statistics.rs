@@ -1,9 +1,10 @@
 use crate::{
-    math::{floor_multiple, mean, std_deviation},
-    trading::{Position, TradingContext},
+    math::{annualized_roi, floor_multiple, mean, std_deviation},
+    trading::{Position, TradingSummary},
 };
-use ndarray::prelude::*;
-use ndarray_stats::CorrelationExt;
+// use ndarray::prelude::*;
+// use ndarray_stats::CorrelationExt;
+use serde::Serialize;
 use std::collections::HashMap;
 
 pub type AnalysisResult = (f64,);
@@ -20,11 +21,11 @@ enum Asset {
 pub struct Statistics {
     // performance: Vec<f64>,
     // a_returns: Vec<f64>,
-    g_returns: Vec<f64>,
+    pub g_returns: Vec<f64>,
     // neg_g_returns: Vec<f64>,
 
     // total_return: f64,
-    annualized_return: f64,
+    pub annualized_return: f64,
     // annualized_volatility: f64,
     // annualized_downside_risk: f64,
     pub sharpe_ratio: f64,
@@ -36,7 +37,7 @@ pub fn analyse(
     base_prices: &[f64],
     quote_prices: Option<&[f64]>,
     _benchmark_g_returns: &[f64],
-    summary: &TradingContext,
+    summary: &TradingSummary,
     interval: u64,
 ) -> Statistics {
     let asset_performance = get_asset_performance(summary, base_prices, quote_prices, interval);
@@ -52,7 +53,7 @@ pub fn analyse(
 }
 
 fn map_period_deltas_from_summary(
-    summary: &TradingContext,
+    summary: &TradingSummary,
     interval: u64,
 ) -> HashMap<u64, Vec<(Asset, f64)>> {
     let mut period_deltas = HashMap::new();
@@ -94,7 +95,7 @@ fn map_period_deltas_from_summary(
 }
 
 fn get_asset_performance(
-    summary: &TradingContext,
+    summary: &TradingSummary,
     base_prices: &[f64],
     quote_prices: Option<&[f64]>,
     interval: u64,
@@ -178,27 +179,27 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
     }
 }
 
-fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistics) -> (f64, f64) {
-    assert!(benchmark_g_returns.len() == portfolio_stats.g_returns.len());
+// fn calculate_alpha_beta(benchmark_g_returns: &[f64], portfolio_stats: &Statistics) -> (f64, f64) {
+//     assert!(benchmark_g_returns.len() == portfolio_stats.g_returns.len());
 
-    // TODO: Inefficient making this copy.
-    let mut combined: Vec<f64> = Vec::with_capacity(benchmark_g_returns.len() * 2);
-    combined.extend(portfolio_stats.g_returns.iter());
-    combined.extend(benchmark_g_returns.iter());
+//     // TODO: Inefficient making this copy.
+//     let mut combined: Vec<f64> = Vec::with_capacity(benchmark_g_returns.len() * 2);
+//     combined.extend(portfolio_stats.g_returns.iter());
+//     combined.extend(benchmark_g_returns.iter());
 
-    let matrix = Array::from_shape_vec((2, benchmark_g_returns.len()), combined)
-        .expect("benchmark and portfolio geometric returns matrix");
+//     let matrix = Array::from_shape_vec((2, benchmark_g_returns.len()), combined)
+//         .expect("benchmark and portfolio geometric returns matrix");
 
-    let covariance_matrix = matrix.cov(0.0).expect("covariance matrix");
+//     let covariance_matrix = matrix.cov(0.0).expect("covariance matrix");
 
-    let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
-    let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
+//     let beta = covariance_matrix[[0, 1]] / covariance_matrix[[1, 1]];
+//     let alpha = portfolio_stats.annualized_return - (beta * 365.0 * mean(&benchmark_g_returns));
 
-    (alpha, beta)
-}
+//     (alpha, beta)
+// }
 
 pub fn get_sharpe_ratio(
-    summary: &TradingContext,
+    summary: &TradingSummary,
     base_prices: &[f64],
     quote_prices: Option<&[f64]>,
     interval: u64,
@@ -265,4 +266,108 @@ pub fn get_sharpe_ratio(
     };
 
     sharpe_ratio
+}
+
+#[derive(Debug, Serialize)]
+pub struct TradingStats {
+    pub start: u64,
+    pub end: u64,
+    pub duration: u64,
+    pub cost: f64,
+    pub gain: f64,
+    pub profit: f64,
+    pub roi: f64,
+    pub annualized_roi: f64,
+    pub mean_position_profit: f64,
+    pub mean_position_duration: u64,
+    // pub drawdowns: Vec<f64>,
+    pub max_drawdown: f64,
+    pub mean_drawdown: f64,
+    pub num_positions: u32,
+    pub num_positions_in_profit: u32,
+    pub num_positions_in_loss: u32,
+    pub sharpe_ratio: f64,
+}
+
+impl TradingStats {
+    pub fn from_summary(
+        summary: &TradingSummary,
+        base_prices: &[f64],
+        stats_interval: u64,
+    ) -> Self {
+        let mut quote = summary.quote;
+        let mut max_quote = quote;
+        let mut profit = 0.0;
+
+        let mut num_positions_in_profit = 0;
+        let mut num_positions_in_loss = 0;
+
+        // let mut drawdowns = Vec::with_capacity(self.positions.len());
+        let mut max_drawdown = 0.0;
+        let mut total_drawdown = 0.0;
+
+        let mut total_position_duration = 0;
+
+        for pos in summary.positions.iter() {
+            let (pos_profit, pos_duration) = match pos {
+                Position::Long(pos) => (pos.profit, pos.duration),
+                Position::Short(pos) => (pos.profit, pos.duration),
+            };
+
+            profit += pos_profit;
+            total_position_duration += pos_duration;
+
+            if pos_profit >= 0.0 {
+                num_positions_in_profit += 1;
+            } else {
+                num_positions_in_loss += 1;
+            }
+
+            quote += pos_profit;
+            max_quote = f64::max(max_quote, quote);
+            let drawdown = 1.0 - quote / max_quote;
+            // drawdowns.push(drawdown);
+            total_drawdown += drawdown;
+            max_drawdown = f64::max(max_drawdown, drawdown);
+        }
+
+        let (mean_position_profit, mean_position_duration, mean_drawdown) =
+            if summary.positions.len() > 0 {
+                (
+                    profit / summary.positions.len() as f64,
+                    total_position_duration / summary.positions.len() as u64,
+                    total_drawdown / summary.positions.len() as f64,
+                )
+            } else {
+                (0.0, 0, 0.0)
+            };
+
+        let duration = summary.end - summary.start;
+        let cost = summary.quote;
+        let gain = cost + profit;
+        let roi = profit / cost;
+        let annualized_roi = annualized_roi(duration, roi);
+
+        let sharpe_ratio = get_sharpe_ratio(&summary, &base_prices, None, stats_interval);
+
+        Self {
+            start: summary.start,
+            end: summary.end,
+            duration,
+            cost,
+            gain,
+            profit,
+            roi,
+            annualized_roi,
+            mean_position_profit,
+            mean_position_duration,
+            // drawdowns,
+            max_drawdown,
+            mean_drawdown,
+            num_positions: summary.positions.len() as u32,
+            num_positions_in_profit,
+            num_positions_in_loss,
+            sharpe_ratio,
+        }
+    }
 }

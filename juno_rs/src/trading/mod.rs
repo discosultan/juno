@@ -4,9 +4,10 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, time, Candle};
+use crate::{genetics::Chromosome, math::annualized_roi, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
+use serde::Serialize;
 
 pub const MISSED_CANDLE_POLICY_IGNORE: u32 = 0;
 pub const MISSED_CANDLE_POLICY_RESTART: u32 = 1;
@@ -14,9 +15,7 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 
 pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
-const YEAR_MS: f64 = time::YEAR_MS as f64;
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TradingChromosome<T: Chromosome> {
     pub trader: TraderParams,
     pub strategy: T,
@@ -52,7 +51,7 @@ impl<T: Chromosome> Chromosome for TradingChromosome<T> {
     }
 }
 
-#[derive(Chromosome, Clone, Debug)]
+#[derive(Chromosome, Clone, Debug, Serialize)]
 pub struct TraderParams {
     pub missed_candle_policy: u32,
     pub stop_loss: f64,
@@ -291,14 +290,14 @@ impl ShortPosition {
 }
 
 #[derive(Debug)]
-pub struct TradingContext {
+pub struct TradingSummary {
     pub positions: Vec<Position>,
     pub start: u64,
     pub end: u64,
     pub quote: f64,
 }
 
-impl TradingContext {
+impl TradingSummary {
     pub fn new(start: u64, end: u64, quote: f64) -> Self {
         Self {
             positions: Vec::new(),
@@ -306,176 +305,5 @@ impl TradingContext {
             end,
             quote,
         }
-    }
-
-    pub fn get_summary(&self) -> TradingSummary {
-        let mut quote = self.quote;
-        let mut max_quote = quote;
-        let mut profit = 0.0;
-
-        let mut num_positions_in_profit = 0;
-        let mut num_positions_in_loss = 0;
-
-        // let mut drawdowns = Vec::with_capacity(self.positions.len());
-        let mut max_drawdown = 0.0;
-        let mut total_drawdown = 0.0;
-
-        let mut total_position_duration = 0;
-
-        for pos in self.positions.iter() {
-            let (pos_profit, pos_duration) = match pos {
-                Position::Long(pos) => (pos.profit, pos.duration),
-                Position::Short(pos) => (pos.profit, pos.duration),
-            };
-
-            profit += pos_profit;
-            total_position_duration += pos_duration;
-
-            if pos_profit >= 0.0 {
-                num_positions_in_profit += 1;
-            } else {
-                num_positions_in_loss += 1;
-            }
-
-            quote += pos_profit;
-            max_quote = f64::max(max_quote, quote);
-            let drawdown = 1.0 - quote / max_quote;
-            // drawdowns.push(drawdown);
-            total_drawdown += drawdown;
-            max_drawdown = f64::max(max_drawdown, drawdown);
-        }
-
-        let (mean_position_profit, mean_position_duration, mean_drawdown) =
-            if self.positions.len() > 0 {
-                (
-                    profit / self.positions.len() as f64,
-                    total_position_duration / self.positions.len() as u64,
-                    total_drawdown / self.positions.len() as f64,
-                )
-            } else {
-                (0.0, 0, 0.0)
-            };
-
-        let duration = self.end - self.start;
-        let cost = self.quote;
-        let gain = cost + profit;
-        let roi = profit / cost;
-        let annualized_roi = annualized_roi(duration, roi);
-
-        TradingSummary {
-            start: self.start,
-            end: self.end,
-            duration,
-            cost,
-            gain,
-            profit,
-            roi,
-            annualized_roi,
-            mean_position_profit,
-            mean_position_duration,
-            // drawdowns,
-            max_drawdown,
-            mean_drawdown,
-            num_positions: self.positions.len() as u32,
-            num_positions_in_profit,
-            num_positions_in_loss,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct TradingSummary {
-    pub start: u64,
-    pub end: u64,
-    pub duration: u64,
-    pub cost: f64,
-    pub gain: f64,
-    pub profit: f64,
-    pub roi: f64,
-    pub annualized_roi: f64,
-    pub mean_position_profit: f64,
-    pub mean_position_duration: u64,
-    // pub drawdowns: Vec<f64>,
-    pub max_drawdown: f64,
-    pub mean_drawdown: f64,
-    pub num_positions: u32,
-    pub num_positions_in_profit: u32,
-    pub num_positions_in_loss: u32,
-}
-
-// impl TradingContext {
-//     pub fn new(start: u64, end: u64, quote: f64) -> Self {
-//         Self {
-//             positions: Vec::new(),
-//             start,
-//             end,
-//             duration: end - start,
-//             cost: quote,
-//             gain: 0.0,
-//             profit: 0.0,
-//             roi: 0.0,
-//             annualized_roi: 0.0,
-//             mean_position_profit: 0.0,
-//             mean_position_duration: 0,
-//             drawdowns: Vec::new(),
-//             max_drawdown: 0.0,
-//             mean_drawdown: 0.0,
-//             num_positions: 0,
-//             num_positions_in_profit: 0,
-//             num_positions_in_loss: 0,
-//         }
-//     }
-
-//     pub fn calculate(&mut self) {
-//         let mut quote = self.cost;
-//         let mut max_quote = quote;
-//         self.num_positions = self.positions.len() as u32;
-//         self.max_drawdown = 0.0;
-//         self.drawdowns.resize(self.num_positions as usize + 1, 0.0);
-//         self.drawdowns[0] = 0.0;
-
-//         for (i, pos) in self.positions.iter().enumerate() {
-//             let (profit, duration) = match pos {
-//                 Position::Long(pos) => (pos.profit, pos.duration),
-//                 Position::Short(pos) => (pos.profit, pos.duration),
-//             };
-
-//             self.profit += profit;
-
-//             if profit >= 0.0 {
-//                 self.num_positions_in_profit += 1;
-//             } else {
-//                 self.num_positions_in_loss += 1;
-//             }
-
-//             self.mean_position_profit += profit;
-//             self.mean_position_duration += duration;
-
-//             quote += profit;
-//             max_quote = f64::max(max_quote, quote);
-//             let drawdown = 1.0 - quote / max_quote;
-//             self.drawdowns[i + 1] = drawdown;
-//             self.mean_drawdown += drawdown;
-//             self.max_drawdown = f64::max(self.max_drawdown, drawdown);
-//         }
-
-//         if self.num_positions > 0 {
-//             self.mean_position_profit /= self.num_positions as f64;
-//             self.mean_position_duration /= self.num_positions as u64;
-//             self.mean_drawdown /= self.drawdowns.len() as f64;
-//         }
-
-//         self.gain = self.cost + self.profit;
-//         self.roi = self.profit / self.cost;
-//         self.annualized_roi = annualized_roi(self.duration, self.roi);
-//     }
-// }
-
-fn annualized_roi(duration: u64, roi: f64) -> f64 {
-    let n = duration as f64 / YEAR_MS;
-    if n == 0.0 {
-        0.0
-    } else {
-        (1.0 + roi).powf(1.0 / n) - 1.0
     }
 }
