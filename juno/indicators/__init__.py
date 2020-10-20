@@ -14,7 +14,8 @@ from .dema import Dema
 from .di import DI
 from .dm import DM
 from .dx import DX
-from .ema import Ema, Ema2
+from .ema import Ema
+from .ema2 import Ema2
 from .kama import Kama
 from .kvo import Kvo
 from .macd import Macd

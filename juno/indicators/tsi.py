@@ -1,15 +1,15 @@
 from decimal import Decimal
 
-from .ema import Ema2 as Ema
+from .ema2 import Ema2
 
 
 # True Strength Index
 class Tsi:
     value: Decimal = Decimal('0.0')
-    _pc_ema_smoothed: Ema
-    _pc_ema_dbl_smoothed: Ema
-    _abs_pc_ema_smoothed: Ema
-    _abs_pc_ema_dbl_smoothed: Ema
+    _pc_ema_smoothed: Ema2
+    _pc_ema_dbl_smoothed: Ema2
+    _abs_pc_ema_smoothed: Ema2
+    _abs_pc_ema_dbl_smoothed: Ema2
     _last_price: Decimal = Decimal('0.0')
     _t: int = 0
     _t1: int = 2
@@ -18,10 +18,10 @@ class Tsi:
 
     # Common long: 25, short: 13
     def __init__(self, long_period: int, short_period: int) -> None:
-        self._pc_ema_smoothed = Ema(long_period)
-        self._pc_ema_dbl_smoothed = Ema(short_period)
-        self._abs_pc_ema_smoothed = Ema(long_period)
-        self._abs_pc_ema_dbl_smoothed = Ema(short_period)
+        self._pc_ema_smoothed = Ema2(long_period)
+        self._pc_ema_dbl_smoothed = Ema2(short_period)
+        self._abs_pc_ema_smoothed = Ema2(long_period)
+        self._abs_pc_ema_dbl_smoothed = Ema2(short_period)
         self._t2 = long_period + 1
         self._t3 = self._t2 + short_period - 1
 

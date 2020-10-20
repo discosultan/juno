@@ -177,7 +177,12 @@ fn print_all_generations<T: Signal>(
         symbols
             .iter()
             .chain(validation_symbols)
-            .map(|symbol| (symbol, backtest::<T>(args, symbol, &ind.chromosome).unwrap()))
+            .map(|symbol| {
+                (
+                    symbol,
+                    backtest::<T>(args, symbol, &ind.chromosome).unwrap(),
+                )
+            })
             .for_each(|(symbol, (sharpe, summary))| {
                 cells.push(Cell::new(&sharpe.to_string()));
                 // TODO: temp
@@ -210,40 +215,36 @@ fn print_summary_table(gen: usize, data: &Vec<(&str, TradingSummary, f64)>) {
 
     // Header.
     let mut cells = vec![Cell::new(&format!("gen {}", gen))];
-    data
-        .iter()
+    data.iter()
         .for_each(|(symbol, _, _)| cells.push(Cell::new(symbol)));
     table.add_row(Row::new(cells));
 
     // Body.
     let mut cells = vec![Cell::new("sharpe")];
-    data
-        .iter()
+    data.iter()
         .for_each(|(_, _, sharpe)| cells.push(Cell::new(&sharpe.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("profit")];
-    data
-        .iter()
+    data.iter()
         .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.profit.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("annualized roi")];
-    data
-        .iter()
+    data.iter()
         .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.annualized_roi.to_string())));
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("positions in profit")];
-    data
-        .iter()
-        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.num_positions_in_profit.to_string())));
+    data.iter().for_each(|(_, summary, _)| {
+        cells.push(Cell::new(&summary.num_positions_in_profit.to_string()))
+    });
     table.add_row(Row::new(cells));
 
     let mut cells = vec![Cell::new("positions in loss")];
-    data
-        .iter()
-        .for_each(|(_, summary, _)| cells.push(Cell::new(&summary.num_positions_in_loss.to_string())));
+    data.iter().for_each(|(_, summary, _)| {
+        cells.push(Cell::new(&summary.num_positions_in_loss.to_string()))
+    });
     table.add_row(Row::new(cells));
 
     table.printstd();

@@ -9,13 +9,12 @@ import pytest
 from juno import (
     Depth, ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus, OrderUpdate
 )
-from juno.brokers import Limit, Market, Market2
+from juno.brokers import Limit
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
 from juno.filters import Filters, MinNotional, Price, Size
 from juno.storages import Memory
-
-from . import fakes
+from tests import fakes
 
 filters = Filters(
     price=Price(min=Decimal('0.2'), max=Decimal('10.0'), step=Decimal('0.1')),
@@ -28,93 +27,7 @@ exchange_info = ExchangeInfo(
 order_client_id = str(uuid4())
 
 
-async def test_market_insufficient_balance() -> None:
-    snapshot = Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
-    exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
-    exchange.can_stream_depth_snapshot = False
-    async with init_market_broker(exchange) as broker:
-        # Should raise because size filter min is 0.2.
-        with pytest.raises(OrderException):
-            await broker.buy(
-                exchange='exchange',
-                account='spot',
-                symbol='eth-btc',
-                quote=Decimal('0.1'),
-                test=True,
-            )
-
-
-async def test_market_buy() -> None:
-    snapshot = Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
-    order_result = OrderResult(time=0, status=OrderStatus.FILLED, fills=[
-        Fill.with_computed_quote(
-            price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
-        ),
-    ])
-    exchange = fakes.Exchange(
-        depth=snapshot,
-        exchange_info=exchange_info,
-        place_order_result=order_result,
-    )
-    exchange.can_stream_depth_snapshot = False
-    async with init_market_broker(exchange) as broker:
-        res = await broker.buy(
-            exchange='exchange',
-            account='spot',
-            symbol='eth-btc',
-            size=Decimal('0.25'),
-            test=False,
-        )
-    assert res == order_result
-    assert len(exchange.place_order_calls) == 1
-    assert exchange.place_order_calls[0]['size'] == Decimal('0.2')
-
-
-async def test_market2_buy() -> None:
-    snapshot = Depth.Snapshot(asks=[(Decimal('1.0'), Decimal('1.0'))], bids=[])
-    exchange = fakes.Exchange(
-        depth=snapshot,
-        exchange_info=exchange_info,
-    )
-    exchange.can_stream_depth_snapshot = False
-    async with init_market2_broker(exchange) as broker:
-        task = asyncio.create_task(broker.buy(
-            exchange='exchange',
-            account='spot',
-            symbol='eth-btc',
-            size=Decimal('0.25'),
-            test=False,
-        ))
-        exchange.orders_queue.put_nowait(OrderUpdate.New(
-            client_id=order_client_id,
-        ))
-        exchange.orders_queue.put_nowait(OrderUpdate.Match(
-            client_id=order_client_id,
-            fill=Fill(
-                price=Decimal('1.0'),
-                size=Decimal('0.2'),
-                quote=Decimal('0.2'),
-                fee=Decimal('0.02'),
-                fee_asset='eth',
-            ),
-        ))
-        exchange.orders_queue.put_nowait(OrderUpdate.Done(
-            time=1,
-            client_id=order_client_id,
-        ))
-        res = await task
-    assert res == OrderResult(
-        time=1,
-        status=OrderStatus.FILLED,
-        fills=[Fill.with_computed_quote(
-            price=Decimal('1.0'), size=Decimal('0.2'), fee=Decimal('0.02'), fee_asset='eth'
-        )]
-    )
-    assert len(exchange.place_order_calls) == 1
-    assert exchange.place_order_calls[0]['size'] == Decimal('0.2')
-
-
-async def test_limit_fill() -> None:
+async def test_fill() -> None:
     snapshot = Depth.Snapshot(
         asks=[],
         bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
@@ -154,7 +67,7 @@ async def test_limit_fill() -> None:
         ]
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_limit_broker(exchange) as broker:
+    async with init_broker(exchange) as broker:
         await broker.buy(
             exchange='exchange',
             account='spot',
@@ -164,11 +77,11 @@ async def test_limit_fill() -> None:
         )
 
 
-async def test_limit_insufficient_balance() -> None:
+async def test_insufficient_balance() -> None:
     snapshot = Depth.Snapshot(asks=[], bids=[(Decimal('1.0'), Decimal('1.0'))])
     exchange = fakes.Exchange(depth=snapshot, exchange_info=exchange_info)
     exchange.can_stream_depth_snapshot = False
-    async with init_limit_broker(exchange) as broker:
+    async with init_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
         with pytest.raises(OrderException):
             await broker.buy(
@@ -180,7 +93,7 @@ async def test_limit_insufficient_balance() -> None:
             )
 
 
-async def test_limit_partial_fill_adjust_fill() -> None:
+async def test_partial_fill_adjust_fill() -> None:
     snapshot = Depth.Snapshot(
         asks=[(Decimal('5.0'), Decimal('1.0'))],
         bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
@@ -205,7 +118,7 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         ]
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_limit_broker(exchange) as broker:
+    async with init_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy(
             exchange='exchange',
             account='spot',
@@ -262,7 +175,7 @@ async def test_limit_partial_fill_adjust_fill() -> None:
         assert len(exchange.cancel_order_calls) == 1
 
 
-async def test_limit_multiple_cancels() -> None:
+async def test_multiple_cancels() -> None:
     snapshot = Depth.Snapshot(
         asks=[(Decimal('10.0'), Decimal('1.0'))],
         bids=[(Decimal('1.0') - filters.price.step, Decimal('1.0'))],
@@ -272,7 +185,7 @@ async def test_limit_multiple_cancels() -> None:
         exchange_info=exchange_info,
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_limit_broker(exchange) as broker:
+    async with init_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy(
             exchange='exchange',
             account='spot',
@@ -360,7 +273,7 @@ async def test_limit_multiple_cancels() -> None:
         assert len(exchange.cancel_order_calls) == 2
 
 
-async def test_limit_partial_fill_cancel_min_notional() -> None:
+async def test_partial_fill_cancel_min_notional() -> None:
     snapshot = Depth.Snapshot(
         bids=[(Decimal('99.0'), Decimal('1.0'))],
     )
@@ -377,7 +290,7 @@ async def test_limit_partial_fill_cancel_min_notional() -> None:
         exchange_info=exchange_info,
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_limit_broker(exchange) as broker:
+    async with init_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy(
             exchange='exchange',
             account='spot',
@@ -424,7 +337,7 @@ async def test_limit_partial_fill_cancel_min_notional() -> None:
         assert len(exchange.cancel_order_calls) == 1
 
 
-async def test_limit_buy_places_at_highest_bid_if_no_spread() -> None:
+async def test_buy_places_at_highest_bid_if_no_spread() -> None:
     # Min step is 0.1.
     snapshot = Depth.Snapshot(
         asks=[(Decimal('1.0'), Decimal('1.0'))],
@@ -435,7 +348,7 @@ async def test_limit_buy_places_at_highest_bid_if_no_spread() -> None:
         exchange_info=exchange_info,
     )
     exchange.can_stream_depth_snapshot = False
-    async with init_limit_broker(exchange) as broker:
+    async with init_broker(exchange) as broker:
         task = asyncio.create_task(broker.buy(
             exchange='exchange',
             account='spot',
@@ -480,29 +393,7 @@ async def test_limit_buy_places_at_highest_bid_if_no_spread() -> None:
 
 
 @asynccontextmanager
-async def init_market_broker(exchange: Exchange) -> AsyncIterator[Market]:
-    memory = Memory()
-    informant = Informant(memory, [exchange])
-    orderbook = Orderbook([exchange])
-    user = User([exchange])
-    async with memory, informant, orderbook, user:
-        broker = Market(informant, orderbook, user)
-        yield broker
-
-
-@asynccontextmanager
-async def init_market2_broker(exchange: Exchange) -> AsyncIterator[Market2]:
-    memory = Memory()
-    informant = Informant(memory, [exchange])
-    orderbook = Orderbook([exchange])
-    user = User([exchange])
-    async with memory, informant, orderbook, user:
-        broker = Market2(informant, orderbook, user, get_client_id=lambda: order_client_id)
-        yield broker
-
-
-@asynccontextmanager
-async def init_limit_broker(exchange: Exchange) -> AsyncIterator[Limit]:
+async def init_broker(exchange: Exchange) -> AsyncIterator[Limit]:
     memory = Memory()
     informant = Informant(memory, [exchange])
     orderbook = Orderbook([exchange])

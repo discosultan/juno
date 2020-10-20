@@ -1,5 +1,6 @@
 from .adx import Adx
-from .double_ma import DoubleMA, DoubleMA2
+from .double_ma import DoubleMA
+from .double_ma_2 import DoubleMA2
 from .fixed import Fixed
 from .four_week_rule import FourWeekRule
 from .macd import Macd
