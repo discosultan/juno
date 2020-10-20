@@ -1,4 +1,5 @@
 mod double_ma;
+mod double_ma_2;
 mod four_week_rule;
 mod macd;
 mod rsi;
@@ -7,7 +8,8 @@ mod sig_osc;
 mod single_ma;
 mod triple_ma;
 
-pub use double_ma::{DoubleMA, DoubleMA2, DoubleMA2Params, DoubleMAParams};
+pub use double_ma::{DoubleMA, DoubleMAParams};
+pub use double_ma_2::{DoubleMA2, DoubleMA2Params};
 pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
 pub use macd::{Macd, MacdParams};
 pub use rsi::{Rsi, RsiParams};

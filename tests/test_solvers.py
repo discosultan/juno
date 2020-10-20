@@ -7,7 +7,7 @@ import pytest
 from juno import Candle, MissedCandlePolicy
 from juno.solvers import Python, Rust
 from juno.statistics import analyse_benchmark
-from juno.strategies import FourWeekRule, MidTrendPolicy
+from juno.strategies import FourWeekRule
 from juno.time import HOUR_MS
 from juno.typing import raw_to_type
 from juno.utils import load_json_file

@@ -46,12 +46,3 @@ def spans_overlap(span1: Tuple[int, int], span2: Tuple[int, int]) -> bool:
     for _ in range(max(span1[0], span2[0]), min(span1[-1], span2[-1])):
         return True
     return False
-
-fn annualized_roi(duration: u64, roi: f64) -> f64 {
-    let n = duration as f64 / YEAR_MS;
-    if n == 0.0 {
-        0.0
-    } else {
-        (1.0 + roi).powf(1.0 / n) - 1.0
-    }
-}

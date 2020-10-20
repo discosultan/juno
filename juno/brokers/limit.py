@@ -24,6 +24,13 @@ class _Context:
         self.cancelled_event: Event[List[Fill]] = Event(autoclear=True)
         self.fills: List[Fill] = []  # Fills from aggregated trades.
         self.time: int = -1
+        self.active_order: Optional[_ActiveOrder] = None
+
+
+class _ActiveOrder:
+    def __init__(self, price: Decimal, size: Decimal) -> None:
+        self.price = price
+        self.size = size
 
 
 class _Filled(Exception):
@@ -36,12 +43,14 @@ class Limit(Broker):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
+        get_client_id: Callable[[], str] = lambda: str(uuid.uuid4()),
+        cancel_order_on_error: bool = True,
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._user = user
         self._get_client_id = get_client_id
+        self._cancel_order_on_error = cancel_order_on_error
 
     async def buy(
         self,
@@ -167,6 +176,16 @@ class Limit(Broker):
                 raise
             except _Filled:
                 await cancel(keep_limit_order_best_task, track_fills_task)
+            finally:
+                if self._cancel_order_on_error and ctx.active_order:
+                    # Cancel active order.
+                    _log.info(
+                        f'cancelling active {symbol} {side.name} order {ctx.client_id} at price '
+                        f'{ctx.active_order.price}'
+                    )
+                    await self._cancel_order(
+                        exchange=exchange, account=account, symbol=symbol, client_id=ctx.client_id
+                    )
 
         assert ctx.time >= 0
         return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
@@ -175,8 +194,6 @@ class Limit(Broker):
         self, exchange: str, account: str, symbol: str, side: Side, ctx: _Context
     ) -> None:
         _, filters = self._informant.get_fees_filters(exchange, symbol)
-        last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
-        last_order_size = Decimal('0.0')
         is_first = True
         async with self._orderbook.sync(exchange, symbol) as orderbook:
             while True:
@@ -207,46 +224,37 @@ class Limit(Broker):
                     else:
                         price = op_step(ob_side[0][0], filters.price.step)
 
-                if op_last_price_cmp(price, last_order_price):
-                    continue
-
                 # If we have an order in the orderbook.
-                if last_order_size > 0:
-                    # Cancel prev Order.
+                if ctx.active_order:
+                    if op_last_price_cmp(price, ctx.active_order.price):
+                        continue
+
+                    # Cancel prev order.
                     _log.info(
                         f'cancelling previous {symbol} {side.name} order {ctx.client_id} at price '
-                        f'{last_order_price}'
+                        f'{ctx.active_order.price}'
                     )
-                    try:
-                        await self._user.cancel_order(
-                            exchange=exchange,
-                            symbol=symbol,
-                            client_id=ctx.client_id,
-                            account=account,
-                        )
-                    except OrderException as exc:
-                        _log.warning(
-                            f'failed to cancel {symbol} {side.name} order {ctx.client_id}; '
-                            f'probably got filled; {exc}'
-                        )
+                    if not await self._cancel_order(
+                        exchange=exchange, account=account, symbol=symbol, client_id=ctx.client_id
+                    ):
                         break
                     _log.info(
                         f'waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled'
                     )
                     fills_since_last_order = await ctx.cancelled_event.wait()
                     filled_size_since_last_order = Fill.total_size(fills_since_last_order)
-                    add_back_size = last_order_size - filled_size_since_last_order
-                    add_back = add_back_size * last_order_price if ctx.use_quote else add_back_size
+                    add_back_size = ctx.active_order.size - filled_size_since_last_order
+                    add_back = (
+                        add_back_size * ctx.active_order.price if ctx.use_quote else add_back_size
+                    )
                     _log.info(
-                        f'last {symbol} {side.name} order size {last_order_size} but filled '
+                        f'last {symbol} {side.name} order size {ctx.active_order.size} but filled '
                         f'{filled_size_since_last_order}; {add_back_size} still to be filled'
                     )
                     ctx.available += add_back
                     # Use a new client ID for new order.
                     ctx.client_id = self._get_client_id()
-                    # Reset last order info because we currently have no order active.
-                    last_order_price = Decimal('0.0') if side is Side.BUY else Decimal('Inf')
-                    last_order_size = Decimal('0.0')
+                    ctx.active_order = None
 
                 # No need to round price as we take it from existing orders.
                 size = ctx.available / price if ctx.use_quote else ctx.available
@@ -286,9 +294,7 @@ class Limit(Broker):
                 await ctx.new_event.wait()
                 deduct = price * size if ctx.use_quote else size
                 ctx.available -= deduct
-
-                last_order_price = price
-                last_order_size = size
+                ctx.active_order = _ActiveOrder(price=price, size=size)
 
     async def _track_fills(
         self, symbol: str, stream: AsyncIterable[OrderUpdate.Any], side: Side, ctx: _Context
@@ -304,20 +310,38 @@ class Limit(Broker):
 
             if isinstance(order, OrderUpdate.New):
                 _log.info(f'new {symbol} {side.name} order {ctx.client_id} confirmed')
-                ctx.new_event.set()
                 fills_since_last_order.clear()
+                ctx.new_event.set()
             elif isinstance(order, OrderUpdate.Match):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} matched')
                 fills_since_last_order.append(order.fill)
             elif isinstance(order, OrderUpdate.Canceled):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} cancelled')
-                ctx.cancelled_event.set(fills_since_last_order)
                 ctx.fills.extend(fills_since_last_order)
                 ctx.time = order.time
+                ctx.cancelled_event.set(fills_since_last_order)
             elif isinstance(order, OrderUpdate.Done):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} filled')
                 ctx.fills.extend(fills_since_last_order)
                 ctx.time = order.time
+                ctx.active_order = None
                 raise _Filled()
             else:
                 raise NotImplementedError(order)
+
+    async def _cancel_order(
+        self, exchange: str, account: str, symbol: str, client_id: str
+    ) -> bool:
+        try:
+            await self._user.cancel_order(
+                exchange=exchange,
+                symbol=symbol,
+                client_id=client_id,
+                account=account,
+            )
+            return True
+        except OrderException as exc:
+            _log.warning(
+                f'failed to cancel {symbol} order {client_id}; probably got filled; {exc}'
+            )
+            return False
