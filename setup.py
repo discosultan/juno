@@ -5,7 +5,7 @@ setup(
     version='0.5.0',
     packages=find_packages(),
     include_package_data=True,
-    python_requires='>= 3.8',
+    python_requires='>= 3.9',
     install_requires=[
         'aiohttp',
         'aiolimiter',
@@ -14,7 +14,7 @@ setup(
         'deap',
         'mergedeep',
         'more-itertools',
-        'multidict<5',  # TODO: Constraint can be removed after aiohttp update.
+        'multidict < 5',  # TODO: Constraint can be removed after aiohttp update.
         'numpy',
         'pandas',
         'python-dateutil',
