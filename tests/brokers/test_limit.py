@@ -9,6 +9,7 @@ import pytest
 from juno import (
     Depth, ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus, OrderUpdate
 )
+from juno.asyncio import Event, stream_queue
 from juno.brokers import Limit
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
@@ -390,6 +391,57 @@ async def test_buy_places_at_highest_bid_if_no_spread() -> None:
         assert len(exchange.place_order_calls) == 1
         assert len(exchange.cancel_order_calls) == 0
         assert exchange.place_order_calls[0]['price'] == Decimal('0.9')
+
+
+async def test_cancels_open_order_on_error(mocker) -> None:
+    client_id = str(uuid4())
+
+    informant = mocker.patch('juno.components.Informant', autospec=True)
+    informant.get_fees_filters.return_value = (Fees(), Filters())
+
+    orderbook_sync = mocker.patch('juno.components.Orderbook.SyncContext')
+    # orderbook_sync.list_asks.return_value = [(Decimal('2.0'), Decimal('1.0'))]
+    orderbook_sync.list_bids.return_value = [(Decimal('1.0'), Decimal('1.0'))]
+    orderbook_sync.updated = Event(autoclear=True)
+    orderbook_sync.updated.set()
+
+    orderbook = mocker.patch('juno.components.Orderbook', autospec=True)
+    orderbook.sync.return_value.__aenter__.return_value = orderbook_sync
+
+    orders: asyncio.Queue[OrderUpdate.Any] = asyncio.Queue()
+    orders.put_nowait(OrderUpdate.New(client_id=client_id))
+    user = mocker.patch('juno.components.User', autospec=True)
+    user.connect_stream_orders.return_value.__aenter__.return_value = stream_queue(orders)
+
+    broker = Limit(
+        informant=informant,
+        orderbook=orderbook,
+        user=user,
+        get_client_id=lambda: client_id,
+        cancel_order_on_error=True,
+    )
+
+    task = asyncio.create_task(broker.buy(
+        exchange='exchange',
+        account='spot',
+        symbol='eth-btc',
+        quote=Decimal('1.0'),
+        test=False,
+    ))
+    await yield_control()
+
+    try:
+        task.cancel()
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    place_order_calls = user.place_order.mock_calls
+    assert len(place_order_calls) == 1
+    assert place_order_calls[0].kwargs['client_id'] == client_id
+    cancel_order_calls = user.cancel_order.mock_calls
+    assert len(cancel_order_calls) == 1
+    assert cancel_order_calls[0].kwargs['client_id'] == client_id
 
 
 @asynccontextmanager
