@@ -1,5 +1,5 @@
 {
-    "log_format": "json",
+    "log_format": "color",
     "log_level": "debug",
     "storage": "sqlite",
     "broker": "market",

@@ -20,7 +20,7 @@ from juno import (
     Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters, OrderException,
     OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel, create_task_cancel_on_exc, merge_async, stream_queue
+from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size
 from juno.http import ClientJsonResponse, ClientSession, ClientWebSocketResponse
 from juno.itertools import page
@@ -481,7 +481,7 @@ class CoinbaseFeed:
                 return
             self.ws_ctx = self.session.ws_connect(_BASE_WS_URL)
             self.ws = await self.ws_ctx.__aenter__()
-            self.process_task = create_task_cancel_on_exc(self._stream_messages())
+            self.process_task = create_task_sigint_on_exception(self._stream_messages())
 
     async def _stream_messages(self) -> None:
         assert self.ws

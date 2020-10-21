@@ -1,6 +1,8 @@
 import asyncio
 import itertools
 import logging
+import os
+import signal
 import traceback
 from dataclasses import dataclass, field
 from typing import (
@@ -135,11 +137,10 @@ async def _cancel(task: asyncio.Task) -> None:
         _log.info(f'{qualname} task cancelled')
 
 
-def create_task_cancel_on_exc(coro):
+def create_task_sigint_on_exception(coro):
     """ Creates a new task.
-        Cancels the parent task in case the child task raises an unhandled exception.
+        Sends a SIGINT on unhandled exception.
     """
-    current_task = asyncio.current_task()
 
     def callback(task):
         task_name = task.get_coro().__qualname__
@@ -149,8 +150,7 @@ def create_task_cancel_on_exc(coro):
             if exc := task.exception():
                 msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
                 _log.error(f'unhandled exception in {task_name} task ({msg})')
-                # current_task.set_exception(exc)  # Not allowed for a task.
-                current_task.cancel()
+                os.kill(os.getpid(), signal.SIGINT)
 
     child_task = asyncio.create_task(coro)
     child_task.add_done_callback(callback)

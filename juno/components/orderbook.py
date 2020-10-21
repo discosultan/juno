@@ -11,7 +11,7 @@ from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Depth, ExchangeException, Fill, Filters, Side
-from juno.asyncio import Event, cancel, create_task_cancel_on_exc
+from juno.asyncio import Event, cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.math import round_half_up
 from juno.tenacity import stop_after_attempt_with_reset
@@ -160,7 +160,7 @@ class Orderbook:
             ctx = Orderbook.SyncContext(symbol)
             ctxs[id_] = ctx
             synced = asyncio.Event()
-            self._sync_tasks[key] = create_task_cancel_on_exc(
+            self._sync_tasks[key] = create_task_sigint_on_exception(
                 self._sync_orderbook(exchange, symbol, synced)
             )
             await synced.wait()

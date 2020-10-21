@@ -15,7 +15,7 @@ from juno import (
     Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType, OrderUpdate, Side,
     Ticker, TimeInForce, Trade, json
 )
-from juno.asyncio import Event, cancel, create_task_cancel_on_exc, stream_queue
+from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import MIN_MS, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
@@ -408,7 +408,7 @@ class KrakenPublicFeed:
     async def _connect(self) -> None:
         self.ws_ctx = self.session.ws_connect(self.url)
         self.ws = await self.ws_ctx.__aenter__()
-        self.process_task = create_task_cancel_on_exc(self._stream_messages())
+        self.process_task = create_task_sigint_on_exception(self._stream_messages())
 
     async def _stream_messages(self) -> None:
         assert self.ws

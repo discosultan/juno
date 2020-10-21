@@ -10,7 +10,7 @@ from discord.ext import commands
 from more_itertools import sliced
 
 from juno import Advice
-from juno.asyncio import cancel, create_task_cancel_on_exc
+from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
 from juno.config import format_as_config
 from juno.time import MIN_MS, time_ms
@@ -44,7 +44,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         return self._informant
 
     async def __aenter__(self) -> Discord:
-        self._start_task = create_task_cancel_on_exc(self.start(self._token))
+        self._start_task = create_task_sigint_on_exception(self.start(self._token))
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:

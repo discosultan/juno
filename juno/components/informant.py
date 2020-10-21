@@ -11,7 +11,7 @@ from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tupl
 from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
 
 from juno import BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
-from juno.asyncio import cancel, create_task_cancel_on_exc
+from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.storages import Storage
 from juno.time import HOUR_MS, strfinterval, time_ms
@@ -50,7 +50,7 @@ class Informant:
         exchange_info_synced_evt = asyncio.Event()
         tickers_synced_evt = asyncio.Event()
 
-        self._exchange_info_sync_task = create_task_cancel_on_exc(
+        self._exchange_info_sync_task = create_task_sigint_on_exception(
             self._periodic_sync_for_exchanges(
                 'exchange_info',
                 _Timestamped[ExchangeInfo],
@@ -62,7 +62,7 @@ class Informant:
         # TODO: Do we want to always kick this sync off? Maybe extract to a different component.
         # TODO: Exchanges which don't support listing all tickers, we can do `list_symbols` first
         #       and then get tickers by symbols.
-        self._tickers_sync_task = create_task_cancel_on_exc(
+        self._tickers_sync_task = create_task_sigint_on_exception(
             self._periodic_sync_for_exchanges(
                 'tickers',
                 _Timestamped[Dict[str, Ticker]],
@@ -228,6 +228,10 @@ class Informant:
             )
             if not initial_sync_event.is_set():
                 initial_sync_event.set()
+            # TODO: TEMP
+            if key == 'exchange_info':
+                await asyncio.sleep(10)
+                raise ValueError('kana')
             await asyncio.sleep(period / 1000.0)
 
     @retry(

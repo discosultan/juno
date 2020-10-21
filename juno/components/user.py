@@ -11,7 +11,7 @@ from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tupl
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Balance, ExchangeException, OrderResult, OrderType, OrderUpdate, Side, TimeInForce
-from juno.asyncio import Event, cancel, create_task_cancel_on_exc
+from juno.asyncio import Event, cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
@@ -61,7 +61,7 @@ class User:
             ctx = User.WalletSyncContext()
             ctxs[id_] = ctx
             synced = asyncio.Event()
-            self._wallet_sync_tasks[key] = create_task_cancel_on_exc(
+            self._wallet_sync_tasks[key] = create_task_sigint_on_exception(
                 self._sync_balances(exchange, account, synced)
             )
             await synced.wait()
