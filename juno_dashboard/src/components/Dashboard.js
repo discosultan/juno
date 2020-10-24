@@ -30,7 +30,7 @@ function snakeToCamelReviver(_key, value) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
         const replacement = {};
         for (const [objKey, objValue] of Object.entries(value)) {
-            replacement[objKey.replace(/(\_\w)/g, k => k[1].toUpperCase())] = objValue;
+            replacement[objKey.replace(/(_\w)/g, k => k[1].toUpperCase())] = objValue;
         }
         return replacement;
     }
