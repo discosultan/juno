@@ -14,7 +14,7 @@ setup(
         'deap',
         'mergedeep',
         'more-itertools',
-        'multidict < 5',  # TODO: Constraint can be removed after aiohttp update.
+        'multidict',
         'numpy',
         'pandas',
         'python-dateutil',
