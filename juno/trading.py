@@ -809,9 +809,10 @@ class PositionMixin(ABC):
                 asset=base_asset,
             )).interest
 
-        size = position.borrowed + interest
-        fee = round_half_up(size * fees.taker, filters.base_precision)
-        size = filters.size.round_up(size + fee)
+        # Add an extra interest tick in case it is about the get ticked.
+        interest_per_tick = borrow_info.hourly_interest_rate * position.borrowed
+        size = position.borrowed + interest + interest_per_tick
+
         res = await self.broker.buy(
             exchange=position.exchange,
             symbol=position.symbol,
