@@ -218,7 +218,6 @@ class Kraken(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True,
     ) -> OrderResult:
         # TODO: use order placing limiter instead of default.
         pass

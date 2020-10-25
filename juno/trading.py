@@ -818,6 +818,7 @@ class PositionMixin(ABC):
             size=size,
             account=position.symbol if mode is TradingMode.LIVE else 'spot',
             test=mode is TradingMode.PAPER,
+            ensure_size=True,
         )
         closed_position = position.close(
             interest=interest,

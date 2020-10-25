@@ -6,8 +6,8 @@ from juno import OrderResult
 
 
 class Broker(ABC):
-    # TODO: Support order types. In some cases we want to fill as much possible; in other cases
-    # we want to fail of not enough available on orderbook, for example.
+    # TODO: Support order types. In some cases we want to fill as much as possible; in other cases
+    # we want to fail if not enough available on orderbook, for example.
     @abstractmethod
     async def buy(
         self,
@@ -17,6 +17,7 @@ class Broker(ABC):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
+        ensure_size: bool = False,  # Only if buying by size.
     ) -> OrderResult:
         pass
 

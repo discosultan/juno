@@ -200,11 +200,11 @@ async def test_paper(mocker) -> None:
 
     summary = task.result().summary
     assert summary
-    assert summary.num_positions == 1
     assert summary.num_long_positions == 1
     pos = summary.list_positions()[0]
-    assert pos.open_time == 2
-    assert pos.close_time == 4
+    assert Fill.total_size(pos.open_fills) == 6
+    assert Fill.total_size(pos.close_fills) == 6
+    assert pos.profit == 0
 
 
 async def test_live(mocker) -> None:

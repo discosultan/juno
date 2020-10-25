@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 
 from .errors import OrderException
+from .math import round_half_up
 
 
 @dataclass
@@ -119,3 +120,14 @@ class Filters:
     spot: bool = True
     cross_margin: bool = False
     isolated_margin: bool = False
+
+    def with_fee(self, size: Decimal, fee_rate: Decimal) -> Decimal:
+        fee = round_half_up(size * fee_rate, self.base_precision)
+        return self.size.round_up(size + fee)
+
+    def min_size(self, price: Decimal) -> Decimal:
+        size = self.min_notional.min_size_for_price(price)
+        return (
+            self.size.round_down(size) if size > self.size.min
+            else self.size.round_up(size)
+        )

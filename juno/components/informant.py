@@ -228,10 +228,6 @@ class Informant:
             )
             if not initial_sync_event.is_set():
                 initial_sync_event.set()
-            # TODO: TEMP
-            if key == 'exchange_info':
-                await asyncio.sleep(10)
-                raise ValueError('kana')
             await asyncio.sleep(period / 1000.0)
 
     @retry(

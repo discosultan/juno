@@ -16,7 +16,6 @@ _log = logging.getLogger(__name__)
 # logic into market broker an support differentiating between filling modes by capability or
 # setting.
 class Market2(Broker):
-    # TODO: Get rid of using exchange directly.
     def __init__(
         self,
         informant: Informant,
@@ -37,14 +36,21 @@ class Market2(Broker):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
+        ensure_size: bool = False,
     ) -> OrderResult:
         assert not test
         Broker.validate_funds(size, quote)
 
         base_asset, quote_asset = unpack_symbol(symbol)
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         if size is not None:
-            _log.info(f'buying {size} {symbol} with market order ({account} account)')
+            _log.info(
+                f'buying {size} (ensured: {ensure_size}) {symbol} with market order ({account} '
+                'account)'
+            )
+            if ensure_size:
+                size = filters.with_fee(size, fees.taker)
             return await self._fill(exchange, account, symbol, Side.BUY, size=size)
         elif quote is not None:
             _log.info(
@@ -52,7 +58,6 @@ class Market2(Broker):
                 f'({account} account)'
             )
             if not self._orderbook.can_place_order_market_quote(exchange):
-                fees, filters = self._informant.get_fees_filters(exchange, symbol)
                 async with self._orderbook.sync(exchange, symbol) as orderbook:
                     fills = orderbook.find_order_asks(
                         quote=quote, fee_rate=fees.taker, filters=filters
@@ -108,7 +113,6 @@ class Market2(Broker):
                 size=size,
                 quote=quote,
                 client_id=client_id,
-                test=False,
             )
 
             fills = []  # Fills from aggregated trades.
