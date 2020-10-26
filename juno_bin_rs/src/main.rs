@@ -141,7 +141,7 @@ fn print_individual<T: Signal>(
         .collect();
 
     println!("strategy {}", std::any::type_name::<T>());
-    println!("interval {}", args.interval.to_interval_str());
+    println!("interval {}", args.interval.to_interval_repr());
     println!("individual {:?}", individual);
     symbols
         .iter()
@@ -212,7 +212,7 @@ fn print_all_generations<T: Signal>(
     }
 
     println!("strategy {}", std::any::type_name::<T>());
-    println!("interval {}", args.interval.to_interval_str());
+    println!("interval {}", args.interval.to_interval_repr());
     table.printstd();
 }
 

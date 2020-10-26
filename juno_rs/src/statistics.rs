@@ -1,5 +1,5 @@
 use crate::{
-    math::{annualized_roi, floor_multiple, mean, std_deviation},
+    math::{annualized, floor_multiple, mean, std_deviation},
     trading::{Position, TradingSummary},
 };
 // use ndarray::prelude::*;
@@ -346,7 +346,7 @@ impl TradingStats {
         let cost = summary.quote;
         let gain = cost + profit;
         let roi = profit / cost;
-        let annualized_roi = annualized_roi(duration, roi);
+        let annualized_roi = annualized(duration, roi);
 
         let sharpe_ratio = get_sharpe_ratio(&summary, &base_prices, None, stats_interval);
 

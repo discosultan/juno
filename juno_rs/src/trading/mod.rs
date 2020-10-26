@@ -4,7 +4,7 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, math::annualized_roi, Candle};
+use crate::{genetics::Chromosome, math::annualized, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::Serialize;
@@ -214,7 +214,7 @@ impl LongPosition {
         self.gain = quote - fee;
         self.profit = self.gain - self.cost;
         self.roi = self.profit / self.cost;
-        self.annualized_roi = annualized_roi(self.duration, self.roi);
+        self.annualized_roi = annualized(self.duration, self.roi);
     }
 }
 
@@ -285,7 +285,7 @@ impl ShortPosition {
         self.gain = self.quote - self.fee + self.collateral - quote;
         self.profit = self.gain - self.cost;
         self.roi = self.profit / self.cost;
-        self.annualized_roi = annualized_roi(self.duration, self.roi);
+        self.annualized_roi = annualized(self.duration, self.roi);
     }
 }
 

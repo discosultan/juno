@@ -1,3 +1,5 @@
+mod serde;
+
 pub mod common;
 pub mod ffi;
 pub mod filters;

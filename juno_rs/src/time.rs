@@ -39,11 +39,11 @@ impl IntervalStrExt for str {
 }
 
 pub trait IntervalIntExt {
-    fn to_interval_str(self) -> &'static str;
+    fn to_interval_repr(self) -> &'static str;
 }
 
 impl IntervalIntExt for u64 {
-    fn to_interval_str(self) -> &'static str {
+    fn to_interval_repr(self) -> &'static str {
         match self {
             60_000 => "1m",
             180_000 => "3m",
@@ -95,5 +95,16 @@ impl TimestampStrExt for str {
                     .map(|x| x.and_hms(0, 0, 0).timestamp() as u64 * 1000)
             })
             .expect("parsed timestamp")
+    }
+}
+
+pub trait TimestampIntExt {
+    fn to_timestamp_repr(&self) -> String;
+}
+
+impl TimestampIntExt for u64 {
+    fn to_timestamp_repr(&self) -> String {
+        let datetime = Utc.timestamp_millis(*self as i64);
+        datetime.to_rfc3339()
     }
 }
