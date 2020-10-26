@@ -9,10 +9,10 @@ from juno.config import from_env, init_instance
 from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
+parser.add_argument('account', nargs='?', default='margin')
 parser.add_argument('asset', nargs='?', default='eth')
 parser.add_argument('size', nargs='?', type=Decimal, default=None)
 parser.add_argument('-e', '--exchange', default='binance')
-parser.add_argument('-a', '--account', default='margin')
 args = parser.parse_args()
 
 

@@ -790,12 +790,12 @@ class PositionMixin(ABC):
 
         base_asset, quote_asset = unpack_symbol(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
+        borrow_info = self.informant.get_borrow_info(
+            exchange=position.exchange, asset=base_asset, account=position.symbol
+        )
 
         # TODO: Take interest from wallet (if Binance supports streaming it for margin account)
         if mode is TradingMode.PAPER:
-            borrow_info = self.informant.get_borrow_info(
-                exchange=position.exchange, asset=base_asset, account=position.symbol
-            )
             interest = _calculate_interest(
                 borrowed=position.borrowed,
                 hourly_rate=borrow_info.hourly_interest_rate,
@@ -868,24 +868,39 @@ class PositionMixin(ABC):
                     size=new_balance.repay,
                     account=position.symbol,
                 )
-                assert (await self.user.get_balance(
+                new_balance = await self.user.get_balance(
                     exchange=position.exchange,
                     account=position.symbol,
                     asset=base_asset,
-                )).repay == 0
+                )
+                assert new_balance.repay == 0
 
             transfer = closed_position.collateral + closed_position.profit
             _log.info(
                 f'transferring {transfer} {quote_asset} from {position.symbol} to spot account'
             )
-            await self.user.transfer(
-                exchange=position.exchange,
-                asset=quote_asset,
-                size=transfer,
-                from_account=position.symbol,
-                to_account='spot',
-            )
-            # TODO: Also transfer base asset dust back?
+            transfer_tasks = [
+                self.user.transfer(
+                    exchange=position.exchange,
+                    asset=quote_asset,
+                    size=transfer,
+                    from_account=position.symbol,
+                    to_account='spot',
+                ),
+            ]
+            if new_balance.available > 0:
+                _log.info(
+                    f'transferring {new_balance.available} {base_asset} from {position.symbol} to '
+                    'spot account'
+                )
+                transfer_tasks.append(self.user.transfer(
+                    exchange=position.exchange,
+                    asset=base_asset,
+                    size=new_balance.available,
+                    from_account=position.symbol,
+                    to_account='spot',
+                ))
+            await asyncio.gather(*transfer_tasks)
 
         _log.info(f'{closed_position.symbol} {mode.name} short position closed')
         _log.debug(extract_public(closed_position))
