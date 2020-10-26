@@ -17,6 +17,7 @@ _log = logging.getLogger(__name__)
 
 class _Context:
     def __init__(self, available: Decimal, use_quote: bool, client_id: str) -> None:
+        self.original = available
         self.available = available
         self.use_quote = use_quote
         self.client_id = client_id
@@ -60,16 +61,21 @@ class Limit(Broker):
         size: Optional[Decimal] = None,
         quote: Optional[Decimal] = None,
         test: bool = True,
+        ensure_size: bool = False,
     ) -> OrderResult:
         assert not test
         Broker.validate_funds(size, quote)
 
         base_asset, quote_asset = unpack_symbol(symbol)
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         if size is not None:
             _log.info(
-                f'buying {size} {base_asset} with limit orders at spread ({account} account)'
+                f'buying {size} (ensured {ensure_size} fee) {base_asset} with limit orders at '
+                f'spread ({account} account)'
             )
+            if ensure_size:
+                size = filters.with_fee(size, fees.maker)
         elif quote is not None:
             _log.info(
                 f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread '
@@ -78,10 +84,11 @@ class Limit(Broker):
         else:
             raise NotImplementedError()
 
-        res = await self._fill(exchange, account, symbol, Side.BUY, size=size, quote=quote)
+        res = await self._fill(
+            exchange, account, symbol, Side.BUY, ensure_size, size=size, quote=quote
+        )
 
         # Validate fee and quote expectation.
-        fees, filters = self._informant.get_fees_filters(exchange, symbol)
         expected_fee = Fill.expected_base_fee(res.fills, fees.maker, filters.base_precision)
         expected_quote = Fill.expected_quote(res.fills, filters.quote_precision)
         if Fill.total_fee(res.fills) != expected_fee:
@@ -112,7 +119,7 @@ class Limit(Broker):
         _log.info(
             f'selling {size} {base_asset} with limit orders at spread ({account} account)'
         )
-        res = await self._fill(exchange, account, symbol, Side.SELL, size=size)
+        res = await self._fill(exchange, account, symbol, Side.SELL, False, size=size)
 
         # Validate fee and quote expectation.
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -130,7 +137,7 @@ class Limit(Broker):
         return res
 
     async def _fill(
-        self, exchange: str, account: str, symbol: str, side: Side,
+        self, exchange: str, account: str, symbol: str, side: Side, ensure_size: bool,
         size: Optional[Decimal] = None, quote: Optional[Decimal] = None
     ) -> OrderResult:
         client_id = self._get_client_id()
@@ -155,6 +162,7 @@ class Limit(Broker):
                     account=account,
                     symbol=symbol,
                     side=side,
+                    ensure_size=ensure_size,
                     ctx=ctx,
                 )
             )
@@ -191,7 +199,8 @@ class Limit(Broker):
         return OrderResult(time=ctx.time, status=OrderStatus.FILLED, fills=ctx.fills)
 
     async def _keep_limit_order_best(
-        self, exchange: str, account: str, symbol: str, side: Side, ctx: _Context
+        self, exchange: str, account: str, symbol: str, side: Side, ensure_size: bool,
+        ctx: _Context
     ) -> None:
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         is_first = True
@@ -272,7 +281,11 @@ class Limit(Broker):
                         filters.min_notional.validate_limit(price=price, size=size)
                     except OrderException as e:
                         _log.info(f'{symbol} {side.name} price / size no longer valid: {e}')
-                        raise _Filled()
+                        if ensure_size and Fill.total_size(ctx.fills) < ctx.original:
+                            size = filters.min_size(price)
+                            _log.info(f'increased size to {size}')
+                        else:
+                            raise _Filled()
 
                 _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
                 try:
@@ -285,7 +298,6 @@ class Limit(Broker):
                         price=price,
                         size=size,
                         client_id=ctx.client_id,
-                        test=False,
                     )
                 except OrderException:
                     # Order would immediately match and take. Retry.

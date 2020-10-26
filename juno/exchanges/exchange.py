@@ -85,7 +85,6 @@ class Exchange(ABC):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True,
     ) -> OrderResult:
         pass
 

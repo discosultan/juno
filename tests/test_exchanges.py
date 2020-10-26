@@ -7,7 +7,7 @@ import pytest
 from pytest_lazyfixture import lazy_fixture
 
 import juno
-from juno import Balance, Candle, Depth, ExchangeInfo, OrderType, Side, Ticker, Trade
+from juno import Balance, Candle, Depth, ExchangeInfo, Ticker, Trade
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
@@ -198,23 +198,6 @@ async def test_connect_stream_depth(loop, request, exchange: Exchange) -> None:
     async with exchange.connect_stream_depth('eth-btc') as stream:
         async for depth, expected_type in zip_async(stream, resolved_stream(*expected_types)):
             assert types_match(depth, expected_type)
-
-
-@pytest.mark.exchange
-@pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
-async def test_place_order(loop, request, exchange: Exchange) -> None:
-    skip_not_configured(request, exchange)
-    skip_exchange(exchange, Coinbase, Kraken)
-
-    await exchange.place_order(
-        account='spot',
-        symbol='eth-btc',
-        side=Side.BUY,
-        type_=OrderType.MARKET,
-        size=Decimal('1.0'),
-        test=True,
-    )
 
 
 @pytest.mark.exchange

@@ -464,11 +464,7 @@ class Binance(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True,
     ) -> OrderResult:
-        if test and account != 'spot':
-            raise ValueError('Binance does not support placing test orders on margin accounts')
-
         data: Dict[str, Any] = {
             'symbol': _to_http_symbol(symbol),
             'side': _to_side(side),
@@ -487,13 +483,9 @@ class Binance(Exchange):
         if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
         url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
-        if test:
-            url += '/test'
         res = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
 
-        if test:
-            return OrderResult(time=time_ms(), status=OrderStatus.NEW)
-        # In case of LIMIT_MARKET order, the following are not present in the resposne:
+        # In case of LIMIT_MARKET order, the following are not present in the response:
         # - status
         # - cummulativeQuoteQty
         # - fills

@@ -139,10 +139,10 @@ class User:
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True,
     ) -> OrderResult:
         await self._ensure_account(exchange, account)
         return await self._exchanges[exchange].place_order(
+            account=account,
             symbol=symbol,
             side=side,
             type_=type_,
@@ -151,8 +151,6 @@ class User:
             price=price,
             time_in_force=time_in_force,
             client_id=client_id,
-            account=account,
-            test=test,
         )
 
     async def cancel_order(
@@ -164,9 +162,9 @@ class User:
     ) -> None:
         await self._ensure_account(exchange, account)
         await self._exchanges[exchange].cancel_order(
+            account=account,
             symbol=symbol,
             client_id=client_id,
-            account=account,
         )
 
     async def transfer(

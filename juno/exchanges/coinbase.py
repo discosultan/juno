@@ -275,10 +275,9 @@ class Coinbase(Exchange):
         price: Optional[Decimal] = None,
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
-        test: bool = True,
     ) -> OrderResult:
         # https://docs.pro.coinbase.com/#place-a-new-order
-        if test or account != 'spot':
+        if account != 'spot':
             raise NotImplementedError()
         if type_ not in [OrderType.MARKET, OrderType.LIMIT, OrderType.LIMIT_MAKER]:
             # Supports stop orders through params.
