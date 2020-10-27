@@ -1,4 +1,4 @@
-use crate::common::{Candle, ExchangeInfo};
+use crate::{Candle, ExchangeInfo};
 use rusqlite::{params, Connection, NO_PARAMS};
 use serde::{Deserialize, Serialize};
 use std::error::Error;

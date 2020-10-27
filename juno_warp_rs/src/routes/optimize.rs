@@ -8,6 +8,7 @@ use juno_rs::{
     storages,
     strategies::*,
     trading::{self, TradingChromosome},
+    Candle,
 };
 use serde::{Deserialize, Serialize};
 use warp::{Filter, Rejection};
@@ -59,6 +60,12 @@ impl From<UserParams> for Params {
             validation_symbols: input.validation_symbols,
         }
     }
+}
+
+#[derive(Serialize)]
+struct OptimizeResult<T: Chromosome> {
+    gen_stats: Vec<GenStats<T>>,
+    symbol_candles: Vec<Vec<Candle>>,
 }
 
 #[derive(Serialize)]

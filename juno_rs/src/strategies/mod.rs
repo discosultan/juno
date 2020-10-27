@@ -19,9 +19,9 @@ pub use single_ma::{SingleMA, SingleMAParams};
 pub use triple_ma::{TripleMA, TripleMAParams};
 
 use crate::{
-    common::{Advice, Candle},
     genetics::Chromosome,
     indicators::{adler32, MA_CHOICES},
+    Advice, Candle,
 };
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
