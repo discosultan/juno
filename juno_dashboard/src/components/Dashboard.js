@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Container from '@material-ui/core/Container';
-import GensTable from './GensTable';
-import GenStatsTable from './GenStatsTable';
+import Generations from './Generations';
+import Generation from './Generation';
 
 async function fetchJson(method, url, body) {
     const response = await fetch(url, {
@@ -61,9 +61,9 @@ export default function Dashboard() {
     return (
         <Container>
             {selectedGen ? (
-                <GenStatsTable args={args} gen={selectedGen} onClose={() => setSelectedGen(null)} />
+                <Generation args={args} gen={selectedGen} onClose={() => setSelectedGen(null)} />
             ) : (
-                    <GensTable args={args} gens={gens} onSelect={setSelectedGen} />
+                    <Generations args={args} gens={gens} onSelect={setSelectedGen} />
                 )}
         </Container>
     );

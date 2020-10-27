@@ -14,7 +14,7 @@ const useStyles = makeStyles(_theme => ({
     },
 }));
 
-export default function GensTable(props) {
+export default function Generations(props) {
     const classes = useStyles();
 
     return (

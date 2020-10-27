@@ -7,6 +7,7 @@ import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
+import Chart from './Chart';
 
 function* range(stop) {
     let i = 0;
@@ -15,13 +16,15 @@ function* range(stop) {
     }
 }
 
-export default function GenStatsTable(props) {
+export default function Generation(props) {
     const { args, gen } = props;
     const totalSymbols = args.trainingSymbols.length + args.validationSymbols.length;
 
     return (
         <>
             <Button onClick={props.onClose}>Back</Button>
+
+            <Chart />
 
             <TableContainer component={Paper}>
                 <Table size="small" aria-label="a dense table">
