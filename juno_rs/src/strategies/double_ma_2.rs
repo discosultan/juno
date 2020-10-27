@@ -1,4 +1,4 @@
-use super::{Signal, StdRngExt, Strategy};
+use super::{serialize_ma, Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
     indicators::{ma_from_adler32, MA},
@@ -15,7 +15,9 @@ pub struct DoubleMA2Params {
     pub periods: (u32, u32),
     pub neg_threshold: f64,
     pub pos_threshold: f64,
+    #[serde(serialize_with = "serialize_ma")]
     pub short_ma: u32,
+    #[serde(serialize_with = "serialize_ma")]
     pub long_ma: u32,
 }
 

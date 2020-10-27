@@ -1,4 +1,4 @@
-use super::{Signal, StdRngExt, Strategy};
+use super::{serialize_ma, Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
     indicators::{ma_from_adler32, MA},
@@ -12,7 +12,9 @@ use std::cmp::max;
 #[derive(Chromosome, Clone, Debug, Serialize)]
 #[repr(C)]
 pub struct DoubleMAParams {
+    #[serde(serialize_with = "serialize_ma")]
     pub short_ma: u32,
+    #[serde(serialize_with = "serialize_ma")]
     pub long_ma: u32,
     pub periods: (u32, u32),
 }

@@ -1,4 +1,4 @@
-use super::{Oscillator, Signal, StdRngExt, Strategy};
+use super::{serialize_mid_trend_policy, Oscillator, Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
     strategies::{combine, MidTrend, Persistence},
@@ -14,6 +14,7 @@ pub struct SigOscParams<S: Chromosome, O: Chromosome> {
     pub sig_params: S,
     pub osc_params: O,
     pub persistence: u32,
+    #[serde(serialize_with = "serialize_mid_trend_policy")]
     pub mid_trend_policy: u32,
 }
 
