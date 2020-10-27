@@ -21,10 +21,10 @@ pub use triple_ma::{TripleMA, TripleMAParams};
 use crate::{
     common::{Advice, Candle},
     genetics::Chromosome,
-    indicators::MA_CHOICES,
+    indicators::{adler32, MA_CHOICES},
 };
 use rand::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::min;
 
 pub trait Strategy: Send + Sync {
@@ -192,4 +192,67 @@ impl StdRngExt for StdRng {
     fn gen_ma(&mut self) -> u32 {
         MA_CHOICES[self.gen_range(0, MA_CHOICES.len())]
     }
+}
+
+pub fn serialize_mid_trend_policy<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let representation = match *value {
+        MidTrend::POLICY_CURRENT => "current",
+        MidTrend::POLICY_IGNORE => "ignore",
+        MidTrend::POLICY_PREVIOUS => "previous",
+        _ => panic!("unknown mid trend policy value: {}", value),
+    };
+    serializer.serialize_str(representation)
+}
+
+pub fn deserialize_mid_trend_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: &str = Deserialize::deserialize(deserializer)?;
+    Ok(match representation {
+        "current" => MidTrend::POLICY_CURRENT,
+        "ignore" => MidTrend::POLICY_IGNORE,
+        "previous" => MidTrend::POLICY_PREVIOUS,
+        _ => panic!(
+            "unknown mid trend policy representation: {}",
+            representation
+        ),
+    })
+}
+
+pub fn serialize_ma<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let representation = match *value {
+        adler32::ALMA => "alma",
+        adler32::DEMA => "dema",
+        adler32::EMA => "ema",
+        adler32::EMA2 => "ema2",
+        adler32::KAMA => "kama",
+        adler32::SMA => "sma",
+        adler32::SMMA => "smma",
+        _ => panic!("unknown ma value: {}", value),
+    };
+    serializer.serialize_str(representation)
+}
+
+pub fn deserialize_ma<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: &str = Deserialize::deserialize(deserializer)?;
+    Ok(match representation {
+        "alma" => adler32::ALMA,
+        "dema" => adler32::DEMA,
+        "ema" => adler32::EMA,
+        "ema2" => adler32::EMA2,
+        "kama" => adler32::KAMA,
+        "sma" => adler32::SMA,
+        "smma" => adler32::SMMA,
+        _ => panic!("unknown ma representation: {}", representation),
+    })
 }

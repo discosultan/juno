@@ -44,7 +44,7 @@ _INTERVAL_FACTORS = {
     'h': HOUR_MS,
     'm': MIN_MS,
     's': SEC_MS,
-    'ms': 1,
+    '': 1,
 }
 
 
@@ -57,7 +57,7 @@ def strfinterval(interval: int) -> str:
             result += f'{quotient}{letter}'
         if remainder == 0:
             break
-    return result if result else '0ms'
+    return result if result else '0'
 
 
 def strpinterval(interval: str) -> int:

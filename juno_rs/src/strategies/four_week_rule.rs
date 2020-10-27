@@ -1,4 +1,4 @@
-use super::{Signal, StdRngExt, Strategy};
+use super::{serialize_ma, Signal, StdRngExt, Strategy};
 use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Candle};
 use bounded_vec_deque::BoundedVecDeque;
 use juno_derive_rs::*;
@@ -10,6 +10,7 @@ use std::cmp::min;
 #[repr(C)]
 pub struct FourWeekRuleParams {
     pub period: u32,
+    #[serde(serialize_with = "serialize_ma")]
     pub ma: u32,
     pub ma_period: u32,
 }

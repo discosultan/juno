@@ -4,10 +4,10 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, math::annualized_roi, Candle};
+use crate::{genetics::Chromosome, math::annualized, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 pub const MISSED_CANDLE_POLICY_IGNORE: u32 = 0;
 pub const MISSED_CANDLE_POLICY_RESTART: u32 = 1;
@@ -53,6 +53,8 @@ impl<T: Chromosome> Chromosome for TradingChromosome<T> {
 
 #[derive(Chromosome, Clone, Debug, Serialize)]
 pub struct TraderParams {
+    #[serde(serialize_with = "serialize_missed_candle_policy")]
+    #[serde(deserialize_with = "deerialize_missed_candle_policy")]
     pub missed_candle_policy: u32,
     pub stop_loss: f64,
     pub trail_stop_loss: bool,
@@ -214,7 +216,7 @@ impl LongPosition {
         self.gain = quote - fee;
         self.profit = self.gain - self.cost;
         self.roi = self.profit / self.cost;
-        self.annualized_roi = annualized_roi(self.duration, self.roi);
+        self.annualized_roi = annualized(self.duration, self.roi);
     }
 }
 
@@ -285,7 +287,7 @@ impl ShortPosition {
         self.gain = self.quote - self.fee + self.collateral - quote;
         self.profit = self.gain - self.cost;
         self.roi = self.profit / self.cost;
-        self.annualized_roi = annualized_roi(self.duration, self.roi);
+        self.annualized_roi = annualized(self.duration, self.roi);
     }
 }
 
@@ -306,4 +308,34 @@ impl TradingSummary {
             quote,
         }
     }
+}
+
+fn serialize_missed_candle_policy<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let representation = match *value {
+        MISSED_CANDLE_POLICY_IGNORE => "ignore",
+        MISSED_CANDLE_POLICY_LAST => "last",
+        MISSED_CANDLE_POLICY_RESTART => "restart",
+        _ => panic!("unknown missed candle policy value: {}", value),
+    };
+    serializer.serialize_str(representation)
+}
+
+#[allow(dead_code)]
+fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: &str = Deserialize::deserialize(deserializer)?;
+    Ok(match representation {
+        "ignore" => MISSED_CANDLE_POLICY_IGNORE,
+        "last" => MISSED_CANDLE_POLICY_LAST,
+        "restart" => MISSED_CANDLE_POLICY_RESTART,
+        _ => panic!(
+            "unknown missed candle policy representation: {}",
+            representation
+        ),
+    })
 }

@@ -1,5 +1,6 @@
 use crate::{
-    math::{annualized_roi, floor_multiple, mean, std_deviation},
+    math::{annualized, floor_multiple, mean, std_deviation},
+    time::{serialize_interval, serialize_timestamp},
     trading::{Position, TradingSummary},
 };
 // use ndarray::prelude::*;
@@ -270,8 +271,11 @@ pub fn get_sharpe_ratio(
 
 #[derive(Debug, Serialize)]
 pub struct TradingStats {
+    #[serde(serialize_with = "serialize_timestamp")]
     pub start: u64,
+    #[serde(serialize_with = "serialize_timestamp")]
     pub end: u64,
+    #[serde(serialize_with = "serialize_interval")]
     pub duration: u64,
     pub cost: f64,
     pub gain: f64,
@@ -279,6 +283,7 @@ pub struct TradingStats {
     pub roi: f64,
     pub annualized_roi: f64,
     pub mean_position_profit: f64,
+    #[serde(serialize_with = "serialize_interval")]
     pub mean_position_duration: u64,
     // pub drawdowns: Vec<f64>,
     pub max_drawdown: f64,
@@ -346,7 +351,7 @@ impl TradingStats {
         let cost = summary.quote;
         let gain = cost + profit;
         let roi = profit / cost;
-        let annualized_roi = annualized_roi(duration, roi);
+        let annualized_roi = annualized(duration, roi);
 
         let sharpe_ratio = get_sharpe_ratio(&summary, &base_prices, None, stats_interval);
 
