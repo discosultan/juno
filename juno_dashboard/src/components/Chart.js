@@ -1,33 +1,46 @@
 import React, { useEffect, useRef } from 'react';
 import { createChart } from 'lightweight-charts';
 
-export default function Chart(props) {
+export default function Chart({ symbol, candles }) {
     const container = useRef(null);
 
     // let chart;
     // let candlestickSeries;
 
     useEffect(() => {
-        if (container.current.hasChildNodes()) return;
-
-        const options = {
+        container.current.innerHTML = '';
+        console.log(symbol);
+        const chart = createChart(container.current, {
             // width: 1000,
             height: 320,
-        };
-        const chart = createChart(container.current, options);
-        const lineSeries = chart.addLineSeries();
-        lineSeries.setData([
-            { time: '2019-04-11', value: 80.01 },
-            { time: '2019-04-12', value: 96.63 },
-            { time: '2019-04-13', value: 76.64 },
-            { time: '2019-04-14', value: 81.89 },
-            { time: '2019-04-15', value: 74.43 },
-            { time: '2019-04-16', value: 80.01 },
-            { time: '2019-04-17', value: 96.63 },
-            { time: '2019-04-18', value: 76.64 },
-            { time: '2019-04-19', value: 81.89 },
-            { time: '2019-04-20', value: 74.43 },
-        ]);
+            watermark: {
+                visible: true,
+                text: symbol,
+                vertAlign: 'top',
+                horzAlign: 'left',
+                color: 'rgba(11, 94, 29, 0.4)',
+                fontSize: 20,
+            },
+        });
+        const candleSeries = chart.addCandlestickSeries();
+        candleSeries.setData(candles);
+        // const lineSeries = chart.addLineSeries();
+        // lineSeries.setData(candles.map(candle => ({
+        //     time: candle.time,
+        //     value: candle.close,
+        // })));
+
+        //  [
+        //     { time: '2019-04-12', value: 96.63 },
+        //     { time: '2019-04-13', value: 76.64 },
+        //     { time: '2019-04-14', value: 81.89 },
+        //     { time: '2019-04-15', value: 74.43 },
+        //     { time: '2019-04-16', value: 80.01 },
+        //     { time: '2019-04-17', value: 96.63 },
+        //     { time: '2019-04-18', value: 76.64 },
+        //     { time: '2019-04-19', value: 81.89 },
+        //     { time: '2019-04-20', value: 74.43 },
+        // ]);
         // chart.applyOptions({
         //     timeScale: {
         //         rightOffset: 45,
@@ -91,7 +104,7 @@ export default function Chart(props) {
         //     wickUpColor: "#4682B4",
         //     wickDownColor: "#A52A2A",
         // });
-    }, []);
+    }, [symbol, candles]);
 
     // useEffect(() => {
     //     candlestickSeries.update(lastCandle);

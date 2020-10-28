@@ -211,8 +211,8 @@ pub fn deserialize_mid_trend_policy<'de, D>(deserializer: D) -> Result<u32, D::E
 where
     D: Deserializer<'de>,
 {
-    let representation: &str = Deserialize::deserialize(deserializer)?;
-    Ok(match representation {
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(match representation.as_ref() {
         "current" => MidTrend::POLICY_CURRENT,
         "ignore" => MidTrend::POLICY_IGNORE,
         "previous" => MidTrend::POLICY_PREVIOUS,
@@ -244,8 +244,8 @@ pub fn deserialize_ma<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let representation: &str = Deserialize::deserialize(deserializer)?;
-    Ok(match representation {
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(match representation.as_ref() {
         "alma" => adler32::ALMA,
         "dema" => adler32::DEMA,
         "ema" => adler32::EMA,

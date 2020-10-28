@@ -57,14 +57,24 @@ pub fn fill_missing_candles(
         for i in 1..=diff {
             match prev_candle {
                 None => panic!("missing candle(s) from start of period; cannot fill"),
-                Some(ref c) => candles_filled.push(Candle {
-                    time: c.time + i as u64 * interval,
-                    open: c.open,
-                    high: c.high,
-                    low: c.low,
-                    close: c.close,
-                    volume: c.volume,
-                }),
+                Some(ref c) => candles_filled.push(
+                    // Candle {
+                    //     time: c.time + i as u64 * interval,
+                    //     open: c.open,
+                    //     high: c.high,
+                    //     low: c.low,
+                    //     close: c.close,
+                    //     volume: c.volume,
+                    // }
+                    Candle {
+                        time: c.time + i as u64 * interval,
+                        open: c.close,
+                        high: c.close,
+                        low: c.close,
+                        close: c.close,
+                        volume: 0.0,
+                    },
+                ),
             }
             current += interval;
         }
@@ -101,6 +111,7 @@ pub struct BorrowInfo {
 #[derive(Clone, Copy, Debug, Serialize)]
 #[repr(C)]
 pub struct Candle {
+    #[serde(deserialize_with = "deserialize_timestamp")]
     pub time: u64,
     pub open: f64,
     pub high: f64,

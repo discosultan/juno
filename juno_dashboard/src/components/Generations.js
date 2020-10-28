@@ -14,8 +14,9 @@ const useStyles = makeStyles(_theme => ({
     },
 }));
 
-export default function Generations(props) {
+export default function Generations({ args, gens, onSelect }) {
     const classes = useStyles();
+    const symbols = args.trainingSymbols.concat(args.validationSymbols);
 
     return (
         <TableContainer component={Paper}>
@@ -23,26 +24,28 @@ export default function Generations(props) {
                 <TableHead>
                     <TableRow>
                         <TableCell>gen</TableCell>
-                        {props.args.trainingSymbols.map(symbol => (
+                        {args.trainingSymbols.map(symbol => (
                             <TableCell key={symbol} align="right">{symbol}</TableCell>
                         ))}
-                        {props.args.validationSymbols.map(symbol => (
+                        {args.validationSymbols.map(symbol => (
                             <TableCell key={symbol} align="right">{symbol} (v)</TableCell>
                         ))}
                         <TableCell align="right">fitness</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {props.gens.map(gen => (
+                    {gens.map(gen => (
                         <TableRow
                             key={gen.nr}
                             hover
                             className={classes.row}
-                            onClick={() => props.onSelect(gen)}
+                            onClick={() => onSelect(gen)}
                         >
                             <TableCell component="th" scope="row">{gen.nr}</TableCell>
-                            {gen.symbolStats.map((stats, i) => (
-                                <TableCell key={i} align="right">{stats.sharpeRatio}</TableCell>
+                            {symbols.map(symbol => (
+                                <TableCell key={symbol} align="right">
+                                    {gen.symbolStats[symbol].sharpeRatio}
+                                </TableCell>
                             ))}
                             <TableCell align="right">{gen.ind.fitness}</TableCell>
                         </TableRow>

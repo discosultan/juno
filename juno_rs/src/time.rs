@@ -131,7 +131,7 @@ pub fn deserialize_interval<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let representation: &str = Deserialize::deserialize(deserializer)?;
+    let representation: String = Deserialize::deserialize(deserializer)?;
     Ok(representation.to_interval())
 }
 
@@ -146,7 +146,7 @@ pub fn deserialize_timestamp<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let representation: &str = Deserialize::deserialize(deserializer)?;
+    let representation: String = Deserialize::deserialize(deserializer)?;
     Ok(representation.to_timestamp())
 }
 
