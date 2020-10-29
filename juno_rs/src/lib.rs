@@ -12,6 +12,8 @@ pub mod time;
 pub mod trading;
 
 pub use crate::{ffi::*, filters::Filters, math::floor_multiple};
+
+use crate::time::serialize_timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -111,7 +113,7 @@ pub struct BorrowInfo {
 #[derive(Clone, Copy, Debug, Serialize)]
 #[repr(C)]
 pub struct Candle {
-    #[serde(deserialize_with = "deserialize_timestamp")]
+    #[serde(serialize_with = "serialize_timestamp")]
     pub time: u64,
     pub open: f64,
     pub high: f64,

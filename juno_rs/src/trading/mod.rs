@@ -4,7 +4,7 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, math::annualized, Candle};
+use crate::{genetics::Chromosome, math::annualized, time::serialize_timestamp, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -169,14 +169,16 @@ impl TakeProfit {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
 pub enum Position {
     Long(LongPosition),
     Short(ShortPosition),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct LongPosition {
+    #[serde(serialize_with = "serialize_timestamp")]
     pub time: u64,
     pub price: f64,
     pub cost: f64,
@@ -220,8 +222,9 @@ impl LongPosition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ShortPosition {
+    #[serde(serialize_with = "serialize_timestamp")]
     pub time: u64,
     pub collateral: f64,
     pub borrowed: f64,
@@ -291,7 +294,7 @@ impl ShortPosition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct TradingSummary {
     pub positions: Vec<Position>,
     pub start: u64,

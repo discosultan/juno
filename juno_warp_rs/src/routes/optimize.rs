@@ -7,7 +7,7 @@ use juno_rs::{
     statistics::TradingStats,
     storages,
     strategies::*,
-    trading::{self, TradingChromosome},
+    trading::{self, TradingChromosome, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -43,6 +43,7 @@ impl Params {
 struct Generation<T: Chromosome> {
     nr: usize,
     ind: Individual<TradingChromosome<T>>,
+    symbol_summaries: HashMap<String, TradingSummary>,
     symbol_stats: HashMap<String, TradingStats>,
 }
 
@@ -62,16 +63,25 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
                     pass
                 })
                 .map(|(i, ind)| {
-                    let symbol_stats = args
+                    let symbol_summaries = args
                         .iter_symbols()
                         .map(|symbol| {
-                            let stats = backtest::<FourWeekRule>(&args, symbol, &ind.chromosome).unwrap();
-                            (symbol.to_owned(), stats)  // TODO: Return &String instead.
+                            let summary =
+                                backtest::<FourWeekRule>(&args, symbol, &ind.chromosome).unwrap();
+                            (symbol.to_owned(), summary) // TODO: Return &String instead.
+                        })
+                        .collect::<HashMap<String, TradingSummary>>();
+                    let symbol_stats = symbol_summaries
+                        .iter()
+                        .map(|(symbol, summary)| {
+                            let stats = get_stats(&args, symbol, summary).unwrap();
+                            (symbol.to_owned(), stats) // TODO: Return &String instead.
                         })
                         .collect::<HashMap<String, TradingStats>>();
                     Generation {
                         nr: i,
                         ind,
+                        symbol_summaries,
                         symbol_stats,
                     }
                 })
@@ -109,12 +119,12 @@ fn backtest<T: Signal>(
     args: &Params,
     symbol: &str,
     chrom: &TradingChromosome<T::Params>,
-) -> Result<TradingStats> {
+) -> Result<TradingSummary> {
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    let summary = trading::trade::<T>(
+    Ok(trading::trade::<T>(
         &chrom.strategy,
         &candles,
         &exchange_info.fees[symbol],
@@ -129,8 +139,10 @@ fn backtest<T: Signal>(
         chrom.trader.take_profit,
         true,
         true,
-    );
+    ))
+}
 
+fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<TradingStats> {
     let stats_interval = DAY_MS;
     let stats_candles =
         storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;
