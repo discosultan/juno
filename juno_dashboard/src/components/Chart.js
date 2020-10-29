@@ -18,6 +18,7 @@ export default function Chart({ symbol, candles, summary }) {
                 text: symbol,
                 vertAlign: 'top',
                 horzAlign: 'left',
+                // TODO: Use a color from palette.
                 color: 'rgba(11, 94, 29, 0.4)',
                 fontSize: 20,
             },
@@ -60,13 +61,23 @@ export default function Chart({ symbol, candles, summary }) {
                 bottom: 0,
             },
         });
-        const volume = candles.map(candle => ({
-            time: candle.time,
-            value: candle.volume,
-            // Set colors similar to:
-            // https://jsfiddle.net/TradingView/cnbamtuh/
-            // color: 
-        }));
+        const volume = candles
+            .reduce(([prevClose, volume], candle) => {
+                const color = candle.close >= prevClose ? '#26a69a80' : '#ef535080';
+                volume.push({
+                    time: candle.time,
+                    value: candle.volume,
+                    color,
+                });
+                return [candle.close, volume];
+            }, [0, []])[1];
+            // .map(candle => ({
+            //     time: candle.time,
+            //     value: candle.volume,
+            //     // Set colors similar to:
+            //     // https://jsfiddle.net/TradingView/cnbamtuh/
+            //     // color: 
+            // }));
         volumeSeries.setData(volume);
         // const lineSeries = chart.addLineSeries();
         // lineSeries.setData(candles.map(candle => ({
