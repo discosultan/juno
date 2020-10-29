@@ -52,11 +52,19 @@ export default function Generation({ args, gen, symbolCandles, onClose }) {
             </TableContainer>
 
             {args.trainingSymbols.map(symbol => (
-                <Chart key={symbol} symbol={symbol} candles={symbolCandles[symbol]} />
+                <Chart
+                    key={symbol}
+                    symbol={symbol}
+                    candles={symbolCandles[symbol]}
+                    summary={gen.symbolSummaries[symbol]} />
             ))}
 
             {args.validationSymbols.map(symbol => (
-                <Chart key={symbol} symbol={`${symbol} (v)`} candles={symbolCandles[symbol]} />
+                <Chart
+                    key={symbol}
+                    symbol={`${symbol} (v)`}
+                    candles={symbolCandles[symbol]}
+                    summary={gen.symbolSummaries[symbol]} />
             ))}
         </>
     );

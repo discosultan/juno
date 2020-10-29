@@ -1,18 +1,18 @@
 import React, { useEffect, useRef } from 'react';
-import { createChart } from 'lightweight-charts';
+import { PriceScaleMode, createChart } from 'lightweight-charts';
 
-export default function Chart({ symbol, candles }) {
+export default function Chart({ symbol, candles, summary }) {
     const container = useRef(null);
-
-    // let chart;
-    // let candlestickSeries;
 
     useEffect(() => {
         container.current.innerHTML = '';
-        console.log(symbol);
+        // TODO: Theme with Material UI palette colors.
         const chart = createChart(container.current, {
             // width: 1000,
             height: 320,
+            rightPriceScale: {
+                mode: PriceScaleMode.Logarithmic,
+            },
             watermark: {
                 visible: true,
                 text: symbol,
@@ -22,25 +22,58 @@ export default function Chart({ symbol, candles }) {
                 fontSize: 20,
             },
         });
-        const candleSeries = chart.addCandlestickSeries();
+        const candleSeries = chart.addCandlestickSeries({
+            // TODO: Calculate dynamically.
+            priceFormat: {
+                type: 'price',
+                precision: 8,
+                minMove: 0.0000001,
+            },
+        });
         candleSeries.setData(candles);
+        const markers = summary.positions
+            .flatMap(pos => {
+                const shape = pos.type === 'Long' ? 'arrowUp' : 'arrowDown';
+                return [
+                    {
+                        time: pos.time,
+                        position: 'aboveBar',
+                        shape,
+                        color: 'blue',
+                    },
+                    {
+                        time: pos.closeTime,
+                        position: 'aboveBar',
+                        shape,
+                        color: 'orange',
+                    }
+                ];
+            });
+        candleSeries.setMarkers(markers);
+        const volumeSeries = chart.addHistogramSeries({
+            priceFormat: {
+                type: 'volume',
+            },
+            priceScaleId: '',
+            scaleMargins: {
+                top: 0.8,
+                bottom: 0,
+            },
+        });
+        const volume = candles.map(candle => ({
+            time: candle.time,
+            value: candle.volume,
+            // Set colors similar to:
+            // https://jsfiddle.net/TradingView/cnbamtuh/
+            // color: 
+        }));
+        volumeSeries.setData(volume);
         // const lineSeries = chart.addLineSeries();
         // lineSeries.setData(candles.map(candle => ({
         //     time: candle.time,
         //     value: candle.close,
         // })));
 
-        //  [
-        //     { time: '2019-04-12', value: 96.63 },
-        //     { time: '2019-04-13', value: 76.64 },
-        //     { time: '2019-04-14', value: 81.89 },
-        //     { time: '2019-04-15', value: 74.43 },
-        //     { time: '2019-04-16', value: 80.01 },
-        //     { time: '2019-04-17', value: 96.63 },
-        //     { time: '2019-04-18', value: 76.64 },
-        //     { time: '2019-04-19', value: 81.89 },
-        //     { time: '2019-04-20', value: 74.43 },
-        // ]);
         // chart.applyOptions({
         //     timeScale: {
         //         rightOffset: 45,
@@ -104,7 +137,7 @@ export default function Chart({ symbol, candles }) {
         //     wickUpColor: "#4682B4",
         //     wickDownColor: "#A52A2A",
         // });
-    }, [symbol, candles]);
+    }, [symbol, candles, summary]);
 
     // useEffect(() => {
     //     candlestickSeries.update(lastCandle);

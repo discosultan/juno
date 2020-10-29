@@ -185,6 +185,7 @@ pub struct LongPosition {
     pub base_gain: f64,
     pub base_cost: f64,
 
+    #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
     pub duration: u64,
     pub gain: f64,
@@ -235,6 +236,7 @@ pub struct ShortPosition {
     pub base_gain: f64,
     pub base_cost: f64,
 
+    #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
     pub interest: f64,
     pub duration: u64,
