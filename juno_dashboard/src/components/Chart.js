@@ -3,6 +3,17 @@ import { PriceScaleMode, createChart } from 'lightweight-charts';
 
 export default function Chart({ symbol, candles, summary }) {
     const container = useRef(null);
+    const tooltip = useRef(null);
+
+    const tooltipWidthPx = 96;
+    const tooltipStyle = {
+        width: `${tooltipWidthPx}px`,
+        height: '80px',
+        position: 'absolute',
+        display: 'none',
+        padding: '8px',
+        zIndex: 1000,
+    };
 
     useEffect(() => {
         container.current.innerHTML = '';
@@ -33,21 +44,25 @@ export default function Chart({ symbol, candles, summary }) {
         });
         candleSeries.setData(candles);
         const markers = summary.positions
-            .flatMap(pos => {
+            .flatMap((pos, i) => {
                 const shape = pos.type === 'Long' ? 'arrowUp' : 'arrowDown';
+                const id = i + 1;
                 return [
                     {
+                        // We keep the id 1-based to distinguish between open and pos (neg and pos).
+                        id: -id,
                         time: pos.time,
                         position: 'aboveBar',
                         shape,
                         color: 'blue',
                     },
                     {
+                        id: +id,
                         time: pos.closeTime,
                         position: 'aboveBar',
                         shape,
                         color: 'orange',
-                    }
+                    },
                 ];
             });
         candleSeries.setMarkers(markers);
@@ -79,6 +94,26 @@ export default function Chart({ symbol, candles, summary }) {
             //     // color: 
             // }));
         volumeSeries.setData(volume);
+        function onCrosshairMove({ hoveredMarkerId, point }) {
+            if (typeof hoveredMarkerId === 'number') {
+                const x = point.x - tooltipWidthPx / 2;
+                const y = point.y;
+
+                tooltip.current.style.display = 'block';
+                tooltip.current.style.left = `${x}px`;
+                tooltip.current.style.top = `${y}px`;
+                if (hoveredMarkerId < 0) { // open
+                    const pos = summary.positions[-hoveredMarkerId - 1];
+
+                } else { // close
+                    const pos = summary.positions[hoveredMarkerId - 1];
+                }
+                console.log(tooltip.current.style.display);
+            } else {
+                tooltip.current.style.display = 'none';
+            }
+        }
+        chart.subscribeCrosshairMove(onCrosshairMove);
         // const lineSeries = chart.addLineSeries();
         // lineSeries.setData(candles.map(candle => ({
         //     time: candle.time,
@@ -148,11 +183,17 @@ export default function Chart({ symbol, candles, summary }) {
         //     wickUpColor: "#4682B4",
         //     wickDownColor: "#A52A2A",
         // });
+        return () => chart.unsubscribeCrosshairMove(onCrosshairMove);
     }, [symbol, candles, summary]);
 
     // useEffect(() => {
     //     candlestickSeries.update(lastCandle);
     // }, [lastCandle]);
 
-    return <div ref={container} />;
+    return (
+        <>
+            <div ref={container} />
+            <div ref={tooltip} style={tooltipStyle} />
+        </>
+    );
 }
