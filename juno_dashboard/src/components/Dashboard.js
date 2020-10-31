@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import Container from '@material-ui/core/Container';
+import Grid from '@material-ui/core/Grid';
+import ControlPanel from './ControlPanel';
 import Generations from './Generations';
 import Generation from './Generation';
 
@@ -74,19 +75,24 @@ export default function Dashboard() {
     }, []);
 
     return (
-        <Container>
-            {selectedGen ? (
-                <Generation
-                    args={args}
-                    gen={selectedGen}
-                    symbolCandles={symbolCandles}
-                    onClose={() => setSelectedGen(null)} />
-            ) : (
-                <Generations
-                    args={args}
-                    gens={gens}
-                    onSelect={setSelectedGen} />
-            )}
-        </Container>
+        <Grid container spacing={1}>
+            <Grid item sm={3}>
+                <ControlPanel />
+            </Grid>
+            <Grid item sm={9}>
+                {selectedGen ? (
+                    <Generation
+                        args={args}
+                        gen={selectedGen}
+                        symbolCandles={symbolCandles}
+                        onClose={() => setSelectedGen(null)} />
+                ) : (
+                    <Generations
+                        args={args}
+                        gens={gens}
+                        onSelect={setSelectedGen} />
+                )}
+            </Grid>
+        </Grid>
     );
 }

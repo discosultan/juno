@@ -14,12 +14,11 @@ export default function Chart({ symbol, candles, summary }) {
     const container = useRef(null);
     const tooltip = useRef(null);
 
-    // The width and height also include border size.
-    const halfTooltipWidth = 64;
-    const tooltipHeight = 118;
+    // const halfTooltipWidth = 70;
+    // const tooltipHeight = 125;
     const [tooltipStyle, setTooltipStyle] = useState({
-        width: `${halfTooltipWidth * 2}px`,
-        height: `${tooltipHeight}px`,
+        // width: `${halfTooltipWidth * 2}px`,
+        // height: `${tooltipHeight}px`,
         boxSizing: 'border-box',
         position: 'absolute',
         display: 'none',
@@ -57,6 +56,8 @@ export default function Chart({ symbol, candles, summary }) {
                 fontSize: 20,
             },
         });
+
+        // Candles.
         const candleSeries = chart.addCandlestickSeries({
             // TODO: Calculate dynamically.
             priceFormat: {
@@ -90,6 +91,8 @@ export default function Chart({ symbol, candles, summary }) {
                 ];
             });
         candleSeries.setMarkers(markers);
+
+        // Volume.
         const volumeSeries = chart.addHistogramSeries({
             priceFormat: {
                 type: 'volume',
@@ -111,11 +114,14 @@ export default function Chart({ symbol, candles, summary }) {
                 return [candle.close, volume];
             }, [0, []])[1];
         volumeSeries.setData(volume);
+
+        // Tooltip on markers.
         function onCrosshairMove(event) {
             const { hoveredMarkerId, point } = event;
             if (typeof hoveredMarkerId === 'number') {
                 const yOffset = 5;
-                const x = Math.round(point.x) - halfTooltipWidth;
+                const x = Math.round(point.x);
+                // const x = Math.round(point.x) - halfTooltipWidth;
                 const y = Math.round(point.y) + yOffset;
                 // const x = clamp(
                 //     Math.round(point.x) - halfTooltipWidth,
@@ -157,8 +163,12 @@ export default function Chart({ symbol, candles, summary }) {
         }
         chart.subscribeCrosshairMove(onCrosshairMove);
 
+        // Line graph for running balance.
         chart
-            .addLineSeries({ priceScaleId: 'left' })
+            .addLineSeries({
+                priceScaleId: 'left',
+                lineWidth: 1.2,
+            })
             .setData(summary.positions
                 .reduce(([quote, points], pos) => {
                     const newQuote = quote + pos.profit;
