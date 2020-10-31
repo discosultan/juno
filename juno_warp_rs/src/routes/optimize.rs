@@ -7,35 +7,25 @@ use juno_rs::{
     statistics::TradingStats,
     storages,
     strategies::*,
-    trading::{self, TradingChromosome},
+    trading::{self, TradingChromosome, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use warp::{Filter, Rejection};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Debug, Deserialize)]
-struct UserParams {
-    population_size: usize,
-    generations: usize,
-
-    exchange: String,
-    interval: String,
-    start: String,
-    end: String,
-    quote: f64,
-    training_symbols: Vec<String>,
-
-    validation_symbols: Vec<String>,
-}
-
 struct Params {
     population_size: usize,
     generations: usize,
 
     exchange: String,
+    #[serde(deserialize_with = "deserialize_interval")]
     interval: u64,
+    #[serde(deserialize_with = "deserialize_timestamp")]
     start: u64,
+    #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
     training_symbols: Vec<String>,
@@ -43,37 +33,25 @@ struct Params {
     validation_symbols: Vec<String>,
 }
 
-impl From<UserParams> for Params {
-    fn from(input: UserParams) -> Self {
-        Self {
-            population_size: input.population_size,
-            generations: input.generations,
-
-            exchange: input.exchange,
-            interval: input.interval.to_interval(),
-            start: input.start.to_timestamp(),
-            end: input.end.to_timestamp(),
-            quote: input.quote,
-            training_symbols: input.training_symbols,
-
-            validation_symbols: input.validation_symbols,
-        }
+impl Params {
+    fn iter_symbols(&self) -> impl Iterator<Item = &String> {
+        self.training_symbols.iter().chain(&self.validation_symbols)
     }
 }
 
 #[derive(Serialize)]
-struct GenStats<T: Chromosome> {
+struct Generation<T: Chromosome> {
     nr: usize,
     ind: Individual<TradingChromosome<T>>,
-    symbol_stats: Vec<TradingStats>,
+    symbol_summaries: HashMap<String, TradingSummary>,
+    symbol_stats: HashMap<String, TradingStats>,
 }
 
 pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path("optimize"))
         .and(warp::body::json())
-        .map(|args: UserParams| {
-            let args = args.into();
+        .map(|args: Params| {
             let gens = optimize::<FourWeekRule>(&args).unwrap();
             let mut last_fitness = f64::NAN;
             let gen_stats = gens
@@ -85,21 +63,29 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
                     pass
                 })
                 .map(|(i, ind)| {
-                    let symbol_stats = args
-                        .training_symbols
-                        .iter()
-                        .chain(&args.validation_symbols)
+                    let symbol_summaries = args
+                        .iter_symbols()
                         .map(|symbol| {
-                            backtest::<FourWeekRule>(&args, symbol, &ind.chromosome).unwrap()
+                            let summary =
+                                backtest::<FourWeekRule>(&args, symbol, &ind.chromosome).unwrap();
+                            (symbol.to_owned(), summary) // TODO: Return &String instead.
                         })
-                        .collect::<Vec<TradingStats>>();
-                    GenStats {
+                        .collect::<HashMap<String, TradingSummary>>();
+                    let symbol_stats = symbol_summaries
+                        .iter()
+                        .map(|(symbol, summary)| {
+                            let stats = get_stats(&args, symbol, summary).unwrap();
+                            (symbol.to_owned(), stats) // TODO: Return &String instead.
+                        })
+                        .collect::<HashMap<String, TradingStats>>();
+                    Generation {
                         nr: i,
                         ind,
+                        symbol_summaries,
                         symbol_stats,
                     }
                 })
-                .collect::<Vec<GenStats<FourWeekRuleParams>>>();
+                .collect::<Vec<Generation<FourWeekRuleParams>>>();
 
             warp::reply::json(&gen_stats)
         })
@@ -133,12 +119,12 @@ fn backtest<T: Signal>(
     args: &Params,
     symbol: &str,
     chrom: &TradingChromosome<T::Params>,
-) -> Result<TradingStats> {
+) -> Result<TradingSummary> {
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    let summary = trading::trade::<T>(
+    Ok(trading::trade::<T>(
         &chrom.strategy,
         &candles,
         &exchange_info.fees[symbol],
@@ -153,8 +139,10 @@ fn backtest<T: Signal>(
         chrom.trader.take_profit,
         true,
         true,
-    );
+    ))
+}
 
+fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<TradingStats> {
     let stats_interval = DAY_MS;
     let stats_candles =
         storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;

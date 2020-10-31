@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Container from '@material-ui/core/Container';
-import GensTable from './GensTable';
-import GenStatsTable from './GenStatsTable';
+import Generations from './Generations';
+import Generation from './Generation';
 
 async function fetchJson(method, url, body) {
     const response = await fetch(url, {
@@ -54,17 +54,39 @@ const args = {
 export default function Dashboard() {
     const [gens, setGens] = useState([]);
     const [selectedGen, setSelectedGen] = useState(null);
+    const [symbolCandles, setSymbolCandles] = useState({});
+
     useEffect(() => {
-        (async () => setGens(await fetchJson('POST', '/optimize', args)))()
+        (async () => {
+            const [gens, symbolCandles] = await Promise.all([
+                fetchJson('POST', '/optimize', args),
+                fetchJson('POST', '/candles', {
+                    exchange: args.exchange,
+                    interval: args.interval,
+                    start: args.start,
+                    end: args.end,
+                    symbols: args.trainingSymbols.concat(args.validationSymbols),
+                }),
+            ]);
+            setGens(gens);
+            setSymbolCandles(symbolCandles);
+        })();
     }, []);
 
     return (
         <Container>
             {selectedGen ? (
-                <GenStatsTable args={args} gen={selectedGen} onClose={() => setSelectedGen(null)} />
+                <Generation
+                    args={args}
+                    gen={selectedGen}
+                    symbolCandles={symbolCandles}
+                    onClose={() => setSelectedGen(null)} />
             ) : (
-                    <GensTable args={args} gens={gens} onSelect={setSelectedGen} />
-                )}
+                <Generations
+                    args={args}
+                    gens={gens}
+                    onSelect={setSelectedGen} />
+            )}
         </Container>
     );
 }

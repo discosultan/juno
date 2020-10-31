@@ -1,11 +1,10 @@
 use super::TradingChromosome;
 use crate::{
-    common::{BorrowInfo, Candle, Fees, Filters},
     fill_missing_candles,
     genetics::{Evaluation, Individual},
     statistics, storages,
     strategies::Signal,
-    time, trading, SymbolExt,
+    time, trading, BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
 use rayon::prelude::*;
 use std::{error::Error, marker::PhantomData};

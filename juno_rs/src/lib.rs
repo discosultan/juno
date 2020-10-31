@@ -1,4 +1,3 @@
-pub mod common;
 pub mod ffi;
 pub mod filters;
 pub mod genetics;
@@ -12,12 +11,11 @@ pub mod strategies;
 pub mod time;
 pub mod trading;
 
-use crate::math::floor_multiple;
-pub use crate::{
-    common::{Advice, BorrowInfo, Candle, Fees},
-    ffi::*,
-    filters::Filters,
-};
+pub use crate::{ffi::*, filters::Filters, math::floor_multiple};
+
+use crate::time::serialize_timestamp;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub trait SymbolExt {
     fn assets(&self) -> (&str, &str);
@@ -61,14 +59,24 @@ pub fn fill_missing_candles(
         for i in 1..=diff {
             match prev_candle {
                 None => panic!("missing candle(s) from start of period; cannot fill"),
-                Some(ref c) => candles_filled.push(Candle {
-                    time: c.time + i as u64 * interval,
-                    open: c.open,
-                    high: c.high,
-                    low: c.low,
-                    close: c.close,
-                    volume: c.volume,
-                }),
+                Some(ref c) => candles_filled.push(
+                    // Candle {
+                    //     time: c.time + i as u64 * interval,
+                    //     open: c.open,
+                    //     high: c.high,
+                    //     low: c.low,
+                    //     close: c.close,
+                    //     volume: c.volume,
+                    // }
+                    Candle {
+                        time: c.time + i as u64 * interval,
+                        open: c.close,
+                        high: c.close,
+                        low: c.close,
+                        close: c.close,
+                        volume: 0.0,
+                    },
+                ),
             }
             current += interval;
         }
@@ -85,4 +93,45 @@ pub fn fill_missing_candles(
     assert_eq!(candles_filled.len(), length);
 
     candles_filled
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Advice {
+    None,
+    Long,
+    Short,
+    Liquidate,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[repr(C)]
+pub struct BorrowInfo {
+    pub daily_interest_rate: f64,
+    pub limit: f64,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+#[repr(C)]
+pub struct Candle {
+    #[serde(serialize_with = "serialize_timestamp")]
+    pub time: u64,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[repr(C)]
+pub struct Fees {
+    pub maker: f64,
+    pub taker: f64,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ExchangeInfo {
+    pub fees: HashMap<String, Fees>,
+    pub filters: HashMap<String, Filters>,
+    pub borrow_info: HashMap<String, HashMap<String, BorrowInfo>>,
 }

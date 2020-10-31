@@ -6,7 +6,7 @@ use warp::Filter;
 async fn main() {
     let hello = warp::path::end().map(|| "hello world");
 
-    let routes = hello.or(routes::optimize());
+    let routes = hello.or(routes::optimize()).or(routes::candles());
 
     let port = 3030;
 

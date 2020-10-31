@@ -4,7 +4,12 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, math::annualized, Candle};
+use crate::{
+    genetics::Chromosome,
+    math::annualized,
+    time::{serialize_interval, serialize_timestamp},
+    Candle,
+};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -169,21 +174,25 @@ impl TakeProfit {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
+#[serde(tag = "type")]
 pub enum Position {
     Long(LongPosition),
     Short(ShortPosition),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct LongPosition {
+    #[serde(serialize_with = "serialize_timestamp")]
     pub time: u64,
     pub price: f64,
     pub cost: f64,
     pub base_gain: f64,
     pub base_cost: f64,
 
+    #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
+    #[serde(serialize_with = "serialize_interval")]
     pub duration: u64,
     pub gain: f64,
     pub profit: f64,
@@ -220,8 +229,9 @@ impl LongPosition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct ShortPosition {
+    #[serde(serialize_with = "serialize_timestamp")]
     pub time: u64,
     pub collateral: f64,
     pub borrowed: f64,
@@ -232,8 +242,10 @@ pub struct ShortPosition {
     pub base_gain: f64,
     pub base_cost: f64,
 
+    #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
     pub interest: f64,
+    #[serde(serialize_with = "serialize_interval")]
     pub duration: u64,
     pub gain: f64,
     pub profit: f64,
@@ -291,10 +303,13 @@ impl ShortPosition {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct TradingSummary {
     pub positions: Vec<Position>,
+
+    #[serde(serialize_with = "serialize_timestamp")]
     pub start: u64,
+    #[serde(serialize_with = "serialize_timestamp")]
     pub end: u64,
     pub quote: f64,
 }
