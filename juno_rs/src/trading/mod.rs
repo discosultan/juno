@@ -306,7 +306,10 @@ impl ShortPosition {
 #[derive(Debug, Serialize)]
 pub struct TradingSummary {
     pub positions: Vec<Position>,
+
+    #[serde(serialize_with = "serialize_timestamp")]
     pub start: u64,
+    #[serde(serialize_with = "serialize_timestamp")]
     pub end: u64,
     pub quote: f64,
 }

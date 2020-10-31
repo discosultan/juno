@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { PriceScaleMode, createChart } from 'lightweight-charts';
+import Box from '@material-ui/core/Box';
 import Typography from '@material-ui/core/Typography';
 import { useTheme } from '@material-ui/core/styles';
 // import { clamp } from '../math';
@@ -10,7 +11,6 @@ function fmtPct(value) {
 
 export default function Chart({ symbol, candles, summary }) {
     const { palette } = useTheme();
-    console.log(palette);
     const container = useRef(null);
     const tooltip = useRef(null);
 
@@ -41,7 +41,11 @@ export default function Chart({ symbol, candles, summary }) {
                 backgroundColor: palette.background.paper,
                 textColor: palette.text.primary,
             },
+            leftPriceScale: {
+                visible: true,
+            },
             rightPriceScale: {
+                visible: true,
                 mode: PriceScaleMode.Logarithmic,
             },
             watermark: {
@@ -152,84 +156,32 @@ export default function Chart({ symbol, candles, summary }) {
             }
         }
         chart.subscribeCrosshairMove(onCrosshairMove);
-        // const lineSeries = chart.addLineSeries();
-        // lineSeries.setData(candles.map(candle => ({
-        //     time: candle.time,
-        //     value: candle.close,
-        // })));
 
-        // chart.applyOptions({
-        //     timeScale: {
-        //         rightOffset: 45,
-        //         barSpacing: 15,
-        //         lockVisibleTimeRangeOnResize: true,
-        //         rightBarStaysOnScroll: true,
-        //     },
-        //     priceScale: {
-        //         position: 'right',
-        //         // mode: 1,
-        //         autoScale: false,
-        //         // invertScale: true,
-        //         alignLabels: true,
-        //         borderVisible: false,
-        //         borderColor: '#555ffd',
-        //         scaleMargins: {
-        //             top: 0.65,
-        //             bottom: 0.25,
-        //         },
-        //         crosshair: {
-        //             vertLine: {
-        //                 color: '#6A5ACD',
-        //                 width: 0.5,
-        //                 style: 1,
-        //                 visible: true,
-        //                 labelVisible: false,
-        //             },
-        //             horzLine: {
-        //                 color: '#6A5ACD',
-        //                 width: 0.5,
-        //                 style: 0,
-        //                 visible: true,
-        //                 labelVisible: true,
-        //             },
-        //             mode: 1,
-        //         },
-        //         grid: {
-        //             vertLines: {
-        //                 color: 'rgba(70, 130, 180, 0.5)',
-        //                 style: 1,
-        //                 visible: true,
-        //             },
-        //             horzLines: {
-        //                 color: 'rgba(70, 130, 180, 0.5)',
-        //                 style: 1,
-        //                 visible: true,
-        //             },
-        //         },
+        chart
+            .addLineSeries({ priceScaleId: 'left' })
+            .setData(summary.positions
+                .reduce(([quote, points], pos) => {
+                    const newQuote = quote + pos.profit;
+                    points.push({
+                        time: pos.closeTime,
+                        value: newQuote,
+                    });
+                    return [newQuote, points];
+                }, [summary.quote, [{ time: summary.start, value: summary.quote }]])[1]
+            );
 
-        //     },
-        // });
-        // candlestickSeries = chart.addCandlestickSeries({
-        //     upColor: '#0B6623',
-        //     downColor: '#FF6347',
-        //     borderVisible: false,
-        //     wickVisible: true,
-        //     borderColor: '#000000',
-        //     wickColor: '#000000',
-        //     borderUpColor: '#4682B4',
-        //     borderDownColor: '#A52A2A',
-        //     wickUpColor: "#4682B4",
-        //     wickDownColor: "#A52A2A",
-        // });
+        // Fit everything into view.
+        chart.timeScale().fitContent();
+
         return () => chart.unsubscribeCrosshairMove(onCrosshairMove);
     }, [symbol, candles, summary, palette]);
 
     return (
-        <div style={{ position: 'relative' }}>
+        <Box my={1} style={{ position: 'relative' }}>
             <div ref={container} />
             <div ref={tooltip} style={tooltipStyle}>
                 <Typography variant="caption">{tooltipText}</Typography>
             </div>
-        </div>
+        </Box>
     );
 }
