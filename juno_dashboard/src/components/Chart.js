@@ -1,19 +1,35 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { PriceScaleMode, createChart } from 'lightweight-charts';
+import Typography from '@material-ui/core/Typography';
+import { useTheme } from '@material-ui/core/styles';
+// import { clamp } from '../math';
+
+function fmtPct(value) {
+    return value.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2 });
+}
 
 export default function Chart({ symbol, candles, summary }) {
+    const { palette } = useTheme();
+    console.log(palette);
     const container = useRef(null);
     const tooltip = useRef(null);
 
-    const tooltipWidthPx = 96;
-    const tooltipStyle = {
-        width: `${tooltipWidthPx}px`,
-        height: '80px',
+    // The width and height also include border size.
+    const halfTooltipWidth = 64;
+    const tooltipHeight = 118;
+    const [tooltipStyle, setTooltipStyle] = useState({
+        width: `${halfTooltipWidth * 2}px`,
+        height: `${tooltipHeight}px`,
+        boxSizing: 'border-box',
         position: 'absolute',
         display: 'none',
         padding: '8px',
         zIndex: 1000,
-    };
+        border: '1px solid',
+        backgroundColor: palette.background.paper,
+        whiteSpace: 'pre-line',
+    });
+    const [tooltipText, setTooltipText] = useState('');
 
     useEffect(() => {
         container.current.innerHTML = '';
@@ -21,6 +37,10 @@ export default function Chart({ symbol, candles, summary }) {
         const chart = createChart(container.current, {
             // width: 1000,
             height: 320,
+            layout: {
+                backgroundColor: palette.background.paper,
+                textColor: palette.text.primary,
+            },
             rightPriceScale: {
                 mode: PriceScaleMode.Logarithmic,
             },
@@ -29,8 +49,7 @@ export default function Chart({ symbol, candles, summary }) {
                 text: symbol,
                 vertAlign: 'top',
                 horzAlign: 'left',
-                // TODO: Use a color from palette.
-                color: 'rgba(11, 94, 29, 0.4)',
+                color: palette.text.primary,
                 fontSize: 20,
             },
         });
@@ -54,14 +73,15 @@ export default function Chart({ symbol, candles, summary }) {
                         time: pos.time,
                         position: 'aboveBar',
                         shape,
-                        color: 'blue',
+                        color: palette.info[palette.type],
                     },
                     {
                         id: +id,
                         time: pos.closeTime,
                         position: 'aboveBar',
                         shape,
-                        color: 'orange',
+                        color: palette.warning[palette.type],
+                        // text: `profit ${pos.profit}\nroi ${pos.roi}\naroi ${pos.annualizedRoi}`,
                     },
                 ];
             });
@@ -86,31 +106,49 @@ export default function Chart({ symbol, candles, summary }) {
                 });
                 return [candle.close, volume];
             }, [0, []])[1];
-            // .map(candle => ({
-            //     time: candle.time,
-            //     value: candle.volume,
-            //     // Set colors similar to:
-            //     // https://jsfiddle.net/TradingView/cnbamtuh/
-            //     // color: 
-            // }));
         volumeSeries.setData(volume);
-        function onCrosshairMove({ hoveredMarkerId, point }) {
+        function onCrosshairMove(event) {
+            const { hoveredMarkerId, point } = event;
             if (typeof hoveredMarkerId === 'number') {
-                const x = point.x - tooltipWidthPx / 2;
-                const y = point.y;
+                const yOffset = 5;
+                const x = Math.round(point.x) - halfTooltipWidth;
+                const y = Math.round(point.y) + yOffset;
+                // const x = clamp(
+                //     Math.round(point.x) - halfTooltipWidth,
+                //     0,
+                //     container.current.clientWidth,
+                // );
+                // const y = clamp(
+                //     Math.round(point.y) + yOffset,
+                //     0,
+                //     container.current.clientHeight - tooltipHeight,
+                // );
 
-                tooltip.current.style.display = 'block';
-                tooltip.current.style.left = `${x}px`;
-                tooltip.current.style.top = `${y}px`;
+                const newStyle = {
+                    display: 'block',
+                    left: `${x}px`,
+                    top: `${y}px`,
+                    borderColor: '#26a69a',
+                };
                 if (hoveredMarkerId < 0) { // open
                     const pos = summary.positions[-hoveredMarkerId - 1];
-
+                    setTooltipText(`cost: ${pos.cost}`);
                 } else { // close
                     const pos = summary.positions[hoveredMarkerId - 1];
+                    if (pos.roi < 0) {
+                        newStyle.borderColor = '#ef5350';
+                    }
+                    setTooltipText(''
+                        + `gain: ${pos.gain.toFixed(8)}\n`
+                        + `profit: ${pos.profit.toFixed(8)}\n`
+                        + `duration: ${pos.duration}\n`
+                        + `roi: ${fmtPct(pos.roi)}\n`
+                        + `aroi: ${fmtPct(pos.annualizedRoi)}`
+                    );
                 }
-                console.log(tooltip.current.style.display);
-            } else {
-                tooltip.current.style.display = 'none';
+                setTooltipStyle(style => ({...style, ...newStyle}));
+            } else if (tooltip.current.style.display !== 'none') {
+                setTooltipStyle(style => ({...style, display: 'none'}));
             }
         }
         chart.subscribeCrosshairMove(onCrosshairMove);
@@ -184,16 +222,14 @@ export default function Chart({ symbol, candles, summary }) {
         //     wickDownColor: "#A52A2A",
         // });
         return () => chart.unsubscribeCrosshairMove(onCrosshairMove);
-    }, [symbol, candles, summary]);
-
-    // useEffect(() => {
-    //     candlestickSeries.update(lastCandle);
-    // }, [lastCandle]);
+    }, [symbol, candles, summary, palette]);
 
     return (
-        <>
+        <div style={{ position: 'relative' }}>
             <div ref={container} />
-            <div ref={tooltip} style={tooltipStyle} />
-        </>
+            <div ref={tooltip} style={tooltipStyle}>
+                <Typography variant="caption">{tooltipText}</Typography>
+            </div>
+        </div>
     );
 }

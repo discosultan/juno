@@ -4,7 +4,12 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, math::annualized, time::serialize_timestamp, Candle};
+use crate::{
+    genetics::Chromosome,
+    math::annualized,
+    time::{serialize_interval, serialize_timestamp},
+    Candle,
+};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -187,6 +192,7 @@ pub struct LongPosition {
 
     #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
+    #[serde(serialize_with = "serialize_interval")]
     pub duration: u64,
     pub gain: f64,
     pub profit: f64,
@@ -239,6 +245,7 @@ pub struct ShortPosition {
     #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
     pub interest: f64,
+    #[serde(serialize_with = "serialize_interval")]
     pub duration: u64,
     pub gain: f64,
     pub profit: f64,
