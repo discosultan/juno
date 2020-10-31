@@ -136,7 +136,7 @@ export default function Chart({ symbol, candles, summary }) {
                 };
                 if (hoveredMarkerId < 0) { // open
                     const pos = summary.positions[-hoveredMarkerId - 1];
-                    setTooltipText(`cost: ${pos.cost}`);
+                    setTooltipText(`cost: ${pos.cost.toFixed(8)}`);
                 } else { // close
                     const pos = summary.positions[hoveredMarkerId - 1];
                     if (pos.roi < 0) {
