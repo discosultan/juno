@@ -3,7 +3,7 @@ import { PriceScaleMode, createChart } from 'lightweight-charts';
 import Box from '@material-ui/core/Box';
 import Typography from '@material-ui/core/Typography';
 import { useTheme } from '@material-ui/core/styles';
-// import { clamp } from '../math';
+import useResizeObserver from "use-resize-observer";
 
 function fmtPct(value) {
     return value.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2 });
@@ -11,15 +11,11 @@ function fmtPct(value) {
 
 export default function Chart({ symbol, candles, summary }) {
     const { palette } = useTheme();
-    const container = useRef(null);
-    const tooltip = useRef(null);
+    const chartRef = useRef(null);
+    const containerRef = useRef(null);
+    const tooltipRef = useRef(null);
 
-    // const halfTooltipWidth = 70;
-    // const tooltipHeight = 125;
     const [tooltipStyle, setTooltipStyle] = useState({
-        // width: `${halfTooltipWidth * 2}px`,
-        // height: `${tooltipHeight}px`,
-        boxSizing: 'border-box',
         position: 'absolute',
         display: 'none',
         padding: '8px',
@@ -30,11 +26,19 @@ export default function Chart({ symbol, candles, summary }) {
     });
     const [tooltipText, setTooltipText] = useState('');
 
+    useResizeObserver({
+        ref: containerRef,
+        onResize: ({ width }) => {
+            chartRef.current && chartRef.current.applyOptions({ width });
+        },
+    });
+
     useEffect(() => {
-        container.current.innerHTML = '';
-        // TODO: Theme with Material UI palette colors.
-        const chart = createChart(container.current, {
-            // width: 1000,
+        // Delete existing chart from container if any.
+        chartRef.current && chartRef.current.remove();
+
+        const chart = createChart(containerRef.current, {
+            width: containerRef.current.clientWidth,
             height: 320,
             layout: {
                 backgroundColor: palette.background.paper,
@@ -56,6 +60,7 @@ export default function Chart({ symbol, candles, summary }) {
                 fontSize: 20,
             },
         });
+        chartRef.current = chart;
 
         // Candles.
         const candleSeries = chart.addCandlestickSeries({
@@ -86,7 +91,6 @@ export default function Chart({ symbol, candles, summary }) {
                         position: 'aboveBar',
                         shape,
                         color: palette.warning[palette.type],
-                        // text: `profit ${pos.profit}\nroi ${pos.roi}\naroi ${pos.annualizedRoi}`,
                     },
                 ];
             });
@@ -121,18 +125,7 @@ export default function Chart({ symbol, candles, summary }) {
             if (typeof hoveredMarkerId === 'number') {
                 const yOffset = 5;
                 const x = Math.round(point.x);
-                // const x = Math.round(point.x) - halfTooltipWidth;
                 const y = Math.round(point.y) + yOffset;
-                // const x = clamp(
-                //     Math.round(point.x) - halfTooltipWidth,
-                //     0,
-                //     container.current.clientWidth,
-                // );
-                // const y = clamp(
-                //     Math.round(point.y) + yOffset,
-                //     0,
-                //     container.current.clientHeight - tooltipHeight,
-                // );
 
                 const newStyle = {
                     display: 'block',
@@ -157,7 +150,7 @@ export default function Chart({ symbol, candles, summary }) {
                     );
                 }
                 setTooltipStyle(style => ({...style, ...newStyle}));
-            } else if (tooltip.current.style.display !== 'none') {
+            } else if (tooltipRef.current.style.display !== 'none') {
                 setTooltipStyle(style => ({...style, display: 'none'}));
             }
         }
@@ -188,8 +181,8 @@ export default function Chart({ symbol, candles, summary }) {
 
     return (
         <Box my={1} style={{ position: 'relative' }}>
-            <div ref={container} />
-            <div ref={tooltip} style={tooltipStyle}>
+            <div ref={containerRef} style={{ width: '100%' }} />
+            <div ref={tooltipRef} style={tooltipStyle}>
                 <Typography variant="caption">{tooltipText}</Typography>
             </div>
         </Box>

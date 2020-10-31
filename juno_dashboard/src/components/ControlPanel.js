@@ -5,21 +5,39 @@ import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
 import { KeyboardDatePicker } from '@material-ui/pickers';
 
-const SYMBOLS = ['eth-btc', 'ltc-btc', 'xrp-btc', 'xmr-btc', 'ada-btc'];
+const Symbols = ['eth-btc', 'ltc-btc', 'xrp-btc', 'xmr-btc', 'ada-btc'];
 
-export default function ControlPanel() {
+function fmtTimestamp(date) {
+    return date.toISOString();
+}
+
+export default function ControlPanel({ onOptimize }) {
+    const [strategy, setStrategy] = useState('fourweekrule');
     const [exchange, setExchange] = useState('binance');
-    const [trainingSymbols, setTrainingSymbols] = useState(['eth-btc']);
+    const [trainingSymbols, setTrainingSymbols] = useState(
+        ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"]
+    );
     const [validationSymbols, setValidationSymbols] = useState(['ada-btc']);
     const [interval, setInterval] = useState('1d');
     const [start, setStart] = useState('2017-12-08');
     const [end, setEnd] = useState('2020-09-30');
     const [generations, setGenerations] = useState(32);
-    const [population, setPopulation] = useState(32);
+    const [populationSize, setPopulationSize] = useState(32);
 
     return (
         <Box p={1}>
             <form noValidate autoComplete="off">
+                <TextField
+                    id="strategy"
+                    label="Strategy"
+                    fullWidth
+                    select
+                    value={strategy}
+                    onChange={e => setStrategy(e.target.value)}
+                >
+                    <MenuItem value={'fourweekrule'}>Four Week Rule</MenuItem>
+                </TextField>
+
                 <TextField
                     id="exchange"
                     fullWidth
@@ -42,8 +60,8 @@ export default function ControlPanel() {
                         onChange: e => setTrainingSymbols(e.target.value),
                     }}
                 >
-                     {SYMBOLS.map(symbol =>
-                         <MenuItem value={symbol}>{symbol}</MenuItem>
+                     {Symbols.map(symbol =>
+                         <MenuItem key={symbol} value={symbol}>{symbol}</MenuItem>
                      )}
                 </TextField>
                 <TextField
@@ -57,8 +75,8 @@ export default function ControlPanel() {
                         onChange: e => setValidationSymbols(e.target.value),
                     }}
                 >
-                     {SYMBOLS.map(symbol =>
-                         <MenuItem value={symbol}>{symbol}</MenuItem>
+                     {Symbols.map(symbol =>
+                         <MenuItem key={symbol} value={symbol}>{symbol}</MenuItem>
                      )}
                 </TextField>
 
@@ -92,7 +110,7 @@ export default function ControlPanel() {
                     fullWidth
                     autoOk={true}
                     value={start}
-                    onChange={setStart}
+                    onChange={d => setStart(fmtTimestamp(d))}
                     KeyboardButtonProps={{
                         'aria-label': 'change date',
                     }}
@@ -106,7 +124,7 @@ export default function ControlPanel() {
                     fullWidth
                     autoOk={true}
                     value={end}
-                    onChange={setEnd}
+                    onChange={d => setEnd(fmtTimestamp(d))}
                     KeyboardButtonProps={{
                         'aria-label': 'change date',
                     }}
@@ -125,13 +143,26 @@ export default function ControlPanel() {
                     fullWidth
                     label="Population Size"
                     type="number"
-                    value={population}
-                    onChange={e => setPopulation(e.target.valueAsNumber)}
+                    value={populationSize}
+                    onChange={e => setPopulationSize(e.target.valueAsNumber)}
                 />
 
                 <br />
                 <br />
-                <Button fullWidth variant="contained">Optimize</Button>
+                <Button fullWidth variant="contained" onClick={() => onOptimize({
+                    strategy,
+                    exchange,
+                    trainingSymbols,
+                    validationSymbols,
+                    interval,
+                    start,
+                    end,
+                    quote: 1.0,
+                    populationSize,
+                    generations,
+                })}>
+                    Optimize
+                </Button>
             </form>
         </Box>
     );
