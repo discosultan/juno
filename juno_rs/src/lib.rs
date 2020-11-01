@@ -110,7 +110,7 @@ pub struct BorrowInfo {
     pub limit: f64,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, PartialEq)]
 #[repr(C)]
 pub struct Candle {
     #[serde(serialize_with = "serialize_timestamp")]
@@ -134,4 +134,62 @@ pub struct ExchangeInfo {
     pub fees: HashMap<String, Fees>,
     pub filters: HashMap<String, Filters>,
     pub borrow_info: HashMap<String, HashMap<String, BorrowInfo>>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fill_missing_candles() {
+        let input = vec![
+            Candle {
+                time: 0,
+                open: 2.0,
+                high: 4.0,
+                low: 1.0,
+                close: 3.0,
+                volume: 1.0,
+            },
+            Candle {
+                time: 2,
+                open: 1.0,
+                high: 1.0,
+                low: 1.0,
+                close: 1.0,
+                volume: 1.0,
+            },
+        ];
+        let expected_output = vec![
+            Candle {
+                time: 0,
+                open: 2.0,
+                high: 4.0,
+                low: 1.0,
+                close: 3.0,
+                volume: 1.0,
+            },
+            Candle {
+                time: 1,
+                open: 3.0,
+                high: 3.0,
+                low: 3.0,
+                close: 3.0,
+                volume: 0.0,
+            },
+            Candle {
+                time: 2,
+                open: 1.0,
+                high: 1.0,
+                low: 1.0,
+                close: 1.0,
+                volume: 1.0,
+            },
+        ];
+
+        let output = fill_missing_candles(1, 0, 3, &input);
+
+        assert_eq!(output, expected_output);
+        assert!(output.iter().zip(expected_output.iter()).all(|(c1, c2)| c1.eq(c2)))
+    }
 }
