@@ -3,24 +3,25 @@ import { PriceScaleMode, createChart } from 'lightweight-charts';
 import Box from '@material-ui/core/Box';
 import Typography from '@material-ui/core/Typography';
 import { useTheme } from '@material-ui/core/styles';
-// import { clamp } from '../math';
+import useResizeObserver from "use-resize-observer";
 
 function fmtPct(value) {
     return value.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2 });
 }
 
+function timestamp(value) {
+    const date = new Date(value);
+    const offset = date.getTimezoneOffset() * 60;
+    return date.getTime() - offset;
+}
+
 export default function Chart({ symbol, candles, summary }) {
     const { palette } = useTheme();
-    const container = useRef(null);
-    const tooltip = useRef(null);
+    const chartRef = useRef(null);
+    const containerRef = useRef(null);
+    const tooltipRef = useRef(null);
 
-    // The width and height also include border size.
-    const halfTooltipWidth = 64;
-    const tooltipHeight = 118;
     const [tooltipStyle, setTooltipStyle] = useState({
-        width: `${halfTooltipWidth * 2}px`,
-        height: `${tooltipHeight}px`,
-        boxSizing: 'border-box',
         position: 'absolute',
         display: 'none',
         padding: '8px',
@@ -31,11 +32,19 @@ export default function Chart({ symbol, candles, summary }) {
     });
     const [tooltipText, setTooltipText] = useState('');
 
+    useResizeObserver({
+        ref: containerRef,
+        onResize: ({ width }) => {
+            chartRef.current && chartRef.current.applyOptions({ width });
+        },
+    });
+
     useEffect(() => {
-        container.current.innerHTML = '';
-        // TODO: Theme with Material UI palette colors.
-        const chart = createChart(container.current, {
-            // width: 1000,
+        // Delete existing chart from container if any.
+        chartRef.current && chartRef.current.remove();
+
+        const chart = createChart(containerRef.current, {
+            width: containerRef.current.clientWidth,
             height: 320,
             layout: {
                 backgroundColor: palette.background.paper,
@@ -57,6 +66,9 @@ export default function Chart({ symbol, candles, summary }) {
                 fontSize: 20,
             },
         });
+        chartRef.current = chart;
+
+        // Candles.
         const candleSeries = chart.addCandlestickSeries({
             // TODO: Calculate dynamically.
             priceFormat: {
@@ -65,7 +77,14 @@ export default function Chart({ symbol, candles, summary }) {
                 minMove: 0.0000001,
             },
         });
-        candleSeries.setData(candles);
+        candleSeries.setData(candles.map(candle => ({
+            time: timestamp(candle.time),
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            volume: candle.volume,
+        })));
         const markers = summary.positions
             .flatMap((pos, i) => {
                 const shape = pos.type === 'Long' ? 'arrowUp' : 'arrowDown';
@@ -74,22 +93,23 @@ export default function Chart({ symbol, candles, summary }) {
                     {
                         // We keep the id 1-based to distinguish between open and pos (neg and pos).
                         id: -id,
-                        time: pos.time,
+                        time: timestamp(pos.time),
                         position: 'aboveBar',
                         shape,
                         color: palette.info[palette.type],
                     },
                     {
                         id: +id,
-                        time: pos.closeTime,
+                        time: timestamp(pos.closeTime),
                         position: 'aboveBar',
                         shape,
                         color: palette.warning[palette.type],
-                        // text: `profit ${pos.profit}\nroi ${pos.roi}\naroi ${pos.annualizedRoi}`,
                     },
                 ];
             });
         candleSeries.setMarkers(markers);
+
+        // Volume.
         const volumeSeries = chart.addHistogramSeries({
             priceFormat: {
                 type: 'volume',
@@ -104,29 +124,21 @@ export default function Chart({ symbol, candles, summary }) {
             .reduce(([prevClose, volume], candle) => {
                 const color = candle.close >= prevClose ? '#26a69a80' : '#ef535080';
                 volume.push({
-                    time: candle.time,
+                    time: timestamp(candle.time),
                     value: candle.volume,
                     color,
                 });
                 return [candle.close, volume];
             }, [0, []])[1];
         volumeSeries.setData(volume);
+
+        // Tooltip on markers.
         function onCrosshairMove(event) {
             const { hoveredMarkerId, point } = event;
             if (typeof hoveredMarkerId === 'number') {
                 const yOffset = 5;
-                const x = Math.round(point.x) - halfTooltipWidth;
+                const x = Math.round(point.x);
                 const y = Math.round(point.y) + yOffset;
-                // const x = clamp(
-                //     Math.round(point.x) - halfTooltipWidth,
-                //     0,
-                //     container.current.clientWidth,
-                // );
-                // const y = clamp(
-                //     Math.round(point.y) + yOffset,
-                //     0,
-                //     container.current.clientHeight - tooltipHeight,
-                // );
 
                 const newStyle = {
                     display: 'block',
@@ -151,23 +163,33 @@ export default function Chart({ symbol, candles, summary }) {
                     );
                 }
                 setTooltipStyle(style => ({...style, ...newStyle}));
-            } else if (tooltip.current.style.display !== 'none') {
+            } else if (tooltipRef.current.style.display !== 'none') {
                 setTooltipStyle(style => ({...style, display: 'none'}));
             }
         }
         chart.subscribeCrosshairMove(onCrosshairMove);
 
+        // Line graph for running balance.
         chart
-            .addLineSeries({ priceScaleId: 'left' })
+            .addLineSeries({
+                priceScaleId: 'left',
+                lineWidth: 1.2,
+            })
             .setData(summary.positions
                 .reduce(([quote, points], pos) => {
                     const newQuote = quote + pos.profit;
                     points.push({
-                        time: pos.closeTime,
+                        time: timestamp(pos.closeTime),
                         value: newQuote,
                     });
                     return [newQuote, points];
-                }, [summary.quote, [{ time: summary.start, value: summary.quote }]])[1]
+                }, [
+                    summary.quote,
+                    [{
+                        time: timestamp(summary.start),
+                        value: summary.quote,
+                    }],
+                ])[1]
             );
 
         // Fit everything into view.
@@ -178,8 +200,8 @@ export default function Chart({ symbol, candles, summary }) {
 
     return (
         <Box my={1} style={{ position: 'relative' }}>
-            <div ref={container} />
-            <div ref={tooltip} style={tooltipStyle}>
+            <div ref={containerRef} style={{ width: '100%' }} />
+            <div ref={tooltipRef} style={tooltipStyle}>
                 <Typography variant="caption">{tooltipText}</Typography>
             </div>
         </Box>

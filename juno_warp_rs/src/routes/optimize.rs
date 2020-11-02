@@ -58,7 +58,7 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
                 .into_iter()
                 .enumerate()
                 .filter(|(_, ind)| {
-                    let pass = ind.fitness > last_fitness;
+                    let pass = last_fitness.is_nan() || ind.fitness > last_fitness;
                     last_fitness = ind.fitness;
                     pass
                 })

@@ -1,92 +1,70 @@
-import React, { useEffect, useState } from 'react';
-import Container from '@material-ui/core/Container';
+import React, { useState } from 'react';
+import Drawer from '@material-ui/core/Drawer';
+import { makeStyles } from '@material-ui/core/styles';
+import ControlPanel from './ControlPanel';
 import Generations from './Generations';
 import Generation from './Generation';
+import { fetchJson } from '../fetch';
 
-async function fetchJson(method, url, body) {
-    const response = await fetch(url, {
-        method,
-        headers: {
-            'content-type': 'application/json',
-        },
-        body: JSON.stringify(body, camelToSnakeReplacer),
-    });
-    const text = await response.text();
-    return JSON.parse(text, snakeToCamelReviver);
-}
-
-function camelToSnakeReplacer(_key, value) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-        const replacement = {};
-        for (const [objKey, objValue] of Object.entries(value)) {
-            replacement[objKey.replace(/([A-Z])/g, "_$1").toLowerCase()] = objValue;
-        }
-        return replacement;
+const drawerWidth = '20%';
+const useStyles = makeStyles((_theme) => ({
+    drawer: {
+      width: drawerWidth,
+    },
+    main: {
+        marginLeft: drawerWidth,
     }
-    return value;
-}
-
-function snakeToCamelReviver(_key, value) {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-        const replacement = {};
-        for (const [objKey, objValue] of Object.entries(value)) {
-            replacement[objKey.replace(/(_\w)/g, k => k[1].toUpperCase())] = objValue;
-        }
-        return replacement;
-    }
-    return value;
-}
-
-const args = {
-    populationSize: 32,
-    generations: 32,
-
-    exchange: "binance",
-    interval: "1d",
-    start: "2017-12-08",
-    end: "2020-09-30",
-    quote: 1.0,
-    trainingSymbols: ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"],
-
-    validationSymbols: ["ada-btc"],
-};
+}));
 
 export default function Dashboard() {
+    const classes = useStyles();
+    const [args, setArgs] = useState();
     const [gens, setGens] = useState([]);
     const [selectedGen, setSelectedGen] = useState(null);
     const [symbolCandles, setSymbolCandles] = useState({});
 
-    useEffect(() => {
-        (async () => {
-            const [gens, symbolCandles] = await Promise.all([
-                fetchJson('POST', '/optimize', args),
-                fetchJson('POST', '/candles', {
-                    exchange: args.exchange,
-                    interval: args.interval,
-                    start: args.start,
-                    end: args.end,
-                    symbols: args.trainingSymbols.concat(args.validationSymbols),
-                }),
-            ]);
-            setGens(gens);
-            setSymbolCandles(symbolCandles);
-        })();
-    }, []);
+    async function optimize(args) {
+        const [gens, symbolCandles] = await Promise.all([
+            fetchJson('POST', '/optimize', args),
+            fetchJson('POST', '/candles', {
+                exchange: args.exchange,
+                interval: args.interval,
+                start: args.start,
+                end: args.end,
+                symbols: args.trainingSymbols.concat(args.validationSymbols),
+            }),
+        ]);
+        setArgs(args);
+        setGens(gens);
+        setSymbolCandles(symbolCandles);
+        setSelectedGen(null);
+    }
 
     return (
-        <Container>
-            {selectedGen ? (
-                <Generation
-                    args={args}
-                    gen={selectedGen}
-                    symbolCandles={symbolCandles}
-                    onClose={() => setSelectedGen(null)} />
-            ) : (
-                <Generations
-                    args={args}
-                    gens={gens}
-                    onSelect={setSelectedGen} />
-            )}
-        </Container>
+        <>
+            <Drawer 
+                variant="permanent"
+                anchor="left"
+                className={classes.drawer}
+                classes={{ paper: classes.drawer }}
+            >
+                <ControlPanel onOptimize={optimize} />
+            </Drawer>
+            <main className={classes.main}>
+                {args && (
+                    selectedGen ?
+                        <Generation
+                            args={args}
+                            gen={selectedGen}
+                            symbolCandles={symbolCandles}
+                            onClose={() => setSelectedGen(null)} />
+                    :
+                        <Generations
+                            args={args}
+                            gens={gens}
+                            onSelect={setSelectedGen} />
+                )}
+            </main>
+        </>
     );
 }

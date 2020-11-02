@@ -208,11 +208,11 @@ def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
     for col_name, type_ in type_hints.items():
         if type_ is Timestamp:
             view_cols.append(
-                f"strftime('%Y-%m-%d %H:%M:%S', {col_name} / 1000, 'unixepoch') AS {col_name}"
+                f"strftime('%Y-%m-%d %H:%M:%S', {col_name} / 1000, 'unixepoch') AS "
+                f'{col_name}_representation'
             )
             create_view = True
-        else:
-            view_cols.append(col_name)
+        view_cols.append(col_name)
     if create_view:
         c.execute(
             f'CREATE VIEW IF NOT EXISTS {name}View AS '

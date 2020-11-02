@@ -13,6 +13,9 @@ export default function Generation({ args, gen, symbolCandles, onClose }) {
     const symbols = args.trainingSymbols.concat(args.validationSymbols);
     const stats = Object.values(gen.symbolStats);
 
+    // TODO: Ensure args + gen + symbolsCandles refer to the same optimization run. Group them into
+    // an object perhaps.
+
     return (
         <>
             <Button onClick={onClose}>Back</Button>
