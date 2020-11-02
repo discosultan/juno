@@ -37,6 +37,7 @@ export default function Dashboard() {
         setArgs(args);
         setGens(gens);
         setSymbolCandles(symbolCandles);
+        setSelectedGen(null);
     }
 
     // useEffect(() => {
