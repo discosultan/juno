@@ -40,23 +40,6 @@ export default function Dashboard() {
         setSelectedGen(null);
     }
 
-    // useEffect(() => {
-    //     (async () => {
-    //         const [gens, symbolCandles] = await Promise.all([
-    //             fetchJson('POST', '/optimize', args),
-    //             fetchJson('POST', '/candles', {
-    //                 exchange: args.exchange,
-    //                 interval: args.interval,
-    //                 start: args.start,
-    //                 end: args.end,
-    //                 symbols: args.trainingSymbols.concat(args.validationSymbols),
-    //             }),
-    //         ]);
-    //         setGens(gens);
-    //         setSymbolCandles(symbolCandles);
-    //     })();
-    // }, []);
-
     return (
         <>
             <Drawer 
