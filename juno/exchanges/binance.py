@@ -75,7 +75,15 @@ class Binance(Exchange):
         self._secret_key_bytes = secret_key.encode('utf-8')
         self._high_precision = high_precision
 
-        self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
+        self._session = ClientSession(
+            raise_for_status=False,
+            name=type(self).__name__,
+            # Optionally, if we don't want to handle ServerDisconnectedError due to keep-alive
+            # expiring, we can set this header. We will lose some perf tho, because a new SSL
+            # handshake is performed for every request.
+            # https://github.com/aio-libs/aiohttp/issues/850
+            # headers={'Connection': 'close'},
+        )
 
         # Rate limiters.
         x = 1.5  # We use this factor to be on the safe side and not use up the entire bucket.
@@ -827,6 +835,11 @@ class Binance(Exchange):
         res.raise_for_status()
         return res
 
+    @retry(
+        stop=stop_after_attempt(2),
+        retry=retry_if_exception_type(aiohttp.ServerDisconnectedError),
+        before_sleep=before_sleep_log(_log, logging.WARNING)
+    )
     async def _request(
         self,
         method: str,

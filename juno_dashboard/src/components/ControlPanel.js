@@ -6,7 +6,29 @@ import TextField from '@material-ui/core/TextField';
 import useLocalStorageStateImpl from 'use-local-storage-state'
 import DatePicker from './DatePicker';
 
+const Strategies = [
+    'fourweekrule',
+    'triplema',
+    'doublema',
+    'singlema',
+    'sig<fourweekrule>',
+    'sig<triplema>',
+    'sigosc<triplema,rsi>',
+    'sigosc<doublema,rsi>',
+];
 const Symbols = ['eth-btc', 'ltc-btc', 'xrp-btc', 'xmr-btc', 'ada-btc'];
+const Intervals = ['1m',
+    '5m',
+    '15m',
+    '30m',
+    '1h',
+    '2h',
+    '4h',
+    '6h',
+    '8h',
+    '12h',
+    '1d',
+];
 
 function useLocalStorageState(key, defaultValue) {
     return useLocalStorageStateImpl(`ControlPanel_${key}`, defaultValue);
@@ -38,7 +60,9 @@ export default function ControlPanel({ onOptimize }) {
                     value={strategy}
                     onChange={e => setStrategy(e.target.value)}
                 >
-                    <MenuItem value={'fourweekrule'}>Four Week Rule</MenuItem>
+                    {Strategies.map(strategy =>
+                        <MenuItem value={strategy}>{strategy}</MenuItem>
+                    )}
                 </TextField>
 
                 <TextField
@@ -63,9 +87,9 @@ export default function ControlPanel({ onOptimize }) {
                         onChange: e => setTrainingSymbols(e.target.value),
                     }}
                 >
-                     {Symbols.map(symbol =>
-                         <MenuItem key={symbol} value={symbol}>{symbol}</MenuItem>
-                     )}
+                    {Symbols.map(symbol =>
+                        <MenuItem key={symbol} value={symbol}>{symbol}</MenuItem>
+                    )}
                 </TextField>
                 <TextField
                     id="validation-symbols"
@@ -78,9 +102,9 @@ export default function ControlPanel({ onOptimize }) {
                         onChange: e => setValidationSymbols(e.target.value),
                     }}
                 >
-                     {Symbols.map(symbol =>
-                         <MenuItem key={symbol} value={symbol}>{symbol}</MenuItem>
-                     )}
+                    {Symbols.map(symbol =>
+                        <MenuItem key={symbol} value={symbol}>{symbol}</MenuItem>
+                    )}
                 </TextField>
 
                 <TextField
@@ -91,17 +115,9 @@ export default function ControlPanel({ onOptimize }) {
                     value={interval}
                     onChange={e => setInterval(e.target.value)}
                 >
-                    <MenuItem value={'1m'}>1m</MenuItem>
-                    <MenuItem value={'5m'}>5m</MenuItem>
-                    <MenuItem value={'15m'}>15m</MenuItem>
-                    <MenuItem value={'30m'}>30m</MenuItem>
-                    <MenuItem value={'1h'}>1h</MenuItem>
-                    <MenuItem value={'2h'}>2h</MenuItem>
-                    <MenuItem value={'4h'}>4h</MenuItem>
-                    <MenuItem value={'6h'}>6h</MenuItem>
-                    <MenuItem value={'8h'}>8h</MenuItem>
-                    <MenuItem value={'12h'}>12h</MenuItem>
-                    <MenuItem value={'1d'}>1d</MenuItem>
+                    {Intervals.map(interval =>
+                        <MenuItem key={interval} value={interval}>{interval}</MenuItem>
+                    )}
                 </TextField>
 
                 <DatePicker

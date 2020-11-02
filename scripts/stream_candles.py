@@ -58,7 +58,8 @@ async def stream_candles(chandler: Chandler, symbol: str, interval: int) -> None
         assert not FILL_MISSING_WITH_LAST or candle.time == args.start + i * interval
         assert not CLOSED or candle.closed
 
-        candles.append(candle)
+        if DUMP_AS_JSON:
+            candles.append(candle)
 
         if LOG_CANDLES:
             historical_or_future = 'future' if candle.time >= CURRENT else 'historical'

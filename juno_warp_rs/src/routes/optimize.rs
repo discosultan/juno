@@ -20,6 +20,7 @@ struct Params {
     population_size: usize,
     generations: usize,
 
+    strategy: String,
     exchange: String,
     #[serde(deserialize_with = "deserialize_interval")]
     interval: u64,
@@ -52,43 +53,57 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
         .and(warp::path("optimize"))
         .and(warp::body::json())
         .map(|args: Params| {
-            let gens = optimize::<FourWeekRule>(&args).unwrap();
-            let mut last_fitness = f64::NAN;
-            let gen_stats = gens
-                .into_iter()
-                .enumerate()
-                .filter(|(_, ind)| {
-                    let pass = last_fitness.is_nan() || ind.fitness > last_fitness;
-                    last_fitness = ind.fitness;
-                    pass
-                })
-                .map(|(i, ind)| {
-                    let symbol_summaries = args
-                        .iter_symbols()
-                        .map(|symbol| {
-                            let summary =
-                                backtest::<FourWeekRule>(&args, symbol, &ind.chromosome).unwrap();
-                            (symbol.to_owned(), summary) // TODO: Return &String instead.
-                        })
-                        .collect::<HashMap<String, TradingSummary>>();
-                    let symbol_stats = symbol_summaries
-                        .iter()
-                        .map(|(symbol, summary)| {
-                            let stats = get_stats(&args, symbol, summary).unwrap();
-                            (symbol.to_owned(), stats) // TODO: Return &String instead.
-                        })
-                        .collect::<HashMap<String, TradingStats>>();
-                    Generation {
-                        nr: i,
-                        ind,
-                        symbol_summaries,
-                        symbol_stats,
-                    }
-                })
-                .collect::<Vec<Generation<FourWeekRuleParams>>>();
-
-            warp::reply::json(&gen_stats)
+            match args.strategy.as_ref() {
+                "fourweekrule" => process::<FourWeekRule>(args),
+                "triplema" => process::<TripleMA>(args),
+                "doublema" => process::<DoubleMA>(args),
+                "singlema" => process::<SingleMA>(args),
+                "sig<fourweekrule>" => process::<Sig<FourWeekRule>>(args),
+                "sig<triplema>" => process::<Sig<TripleMA>>(args),
+                "sigosc<triplema,rsi>" => process::<SigOsc<TripleMA, Rsi>>(args),
+                "sigosc<doublema,rsi>" => process::<SigOsc<DoubleMA, Rsi>>(args),
+                strategy => panic!("unsupported strategy {}", strategy),  // TODO: return 400
+            }
         })
+}
+
+fn process<T: Signal>(args: Params) -> warp::reply::Json {
+    let gens = optimize::<T>(&args).unwrap();
+    let mut last_fitness = f64::NAN;
+    let gen_stats = gens
+        .into_iter()
+        .enumerate()
+        .filter(|(_, ind)| {
+            let pass = last_fitness.is_nan() || ind.fitness > last_fitness;
+            last_fitness = ind.fitness;
+            pass
+        })
+        .map(|(i, ind)| {
+            let symbol_summaries = args
+                .iter_symbols()
+                .map(|symbol| {
+                    let summary =
+                        backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
+                    (symbol.to_owned(), summary) // TODO: Return &String instead.
+                })
+                .collect::<HashMap<String, TradingSummary>>();
+            let symbol_stats = symbol_summaries
+                .iter()
+                .map(|(symbol, summary)| {
+                    let stats = get_stats(&args, symbol, summary).unwrap();
+                    (symbol.to_owned(), stats) // TODO: Return &String instead.
+                })
+                .collect::<HashMap<String, TradingStats>>();
+            Generation {
+                nr: i,
+                ind,
+                symbol_summaries,
+                symbol_stats,
+            }
+        })
+        .collect::<Vec<Generation<T::Params>>>();
+
+    warp::reply::json(&gen_stats)
 }
 
 fn optimize<T: Signal>(args: &Params) -> Result<Vec<Individual<TradingChromosome<T::Params>>>> {
