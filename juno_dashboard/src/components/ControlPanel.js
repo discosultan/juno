@@ -1,28 +1,31 @@
-import React, { useState } from 'react';
+import React from 'react';
 import MenuItem from '@material-ui/core/MenuItem';
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
-import { KeyboardDatePicker } from '@material-ui/pickers';
+import useLocalStorageStateImpl from 'use-local-storage-state'
+import DatePicker from './DatePicker';
 
 const Symbols = ['eth-btc', 'ltc-btc', 'xrp-btc', 'xmr-btc', 'ada-btc'];
 
-function fmtTimestamp(date) {
-    return date.toISOString();
+function useLocalStorageState(key, defaultValue) {
+    return useLocalStorageStateImpl(`ControlPanel_${key}`, defaultValue);
 }
 
 export default function ControlPanel({ onOptimize }) {
-    const [strategy, setStrategy] = useState('fourweekrule');
-    const [exchange, setExchange] = useState('binance');
-    const [trainingSymbols, setTrainingSymbols] = useState(
-        ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"]
+    const [strategy, setStrategy] = useLocalStorageState('strategy', 'fourweekrule');
+    const [exchange, setExchange] = useLocalStorageState('exchange', 'binance');
+    const [trainingSymbols, setTrainingSymbols] = useLocalStorageState(
+        'trainingSymbols', ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"]
     );
-    const [validationSymbols, setValidationSymbols] = useState(['ada-btc']);
-    const [interval, setInterval] = useState('1d');
-    const [start, setStart] = useState('2017-12-08');
-    const [end, setEnd] = useState('2020-09-30');
-    const [generations, setGenerations] = useState(32);
-    const [populationSize, setPopulationSize] = useState(32);
+    const [validationSymbols, setValidationSymbols] = useLocalStorageState(
+        'validationSymbols', ['ada-btc']
+    );
+    const [interval, setInterval] = useLocalStorageState('interval', '1d');
+    const [start, setStart] = useLocalStorageState('start', '2017-12-08');
+    const [end, setEnd] = useLocalStorageState('end', '2020-09-30');
+    const [generations, setGenerations] = useLocalStorageState('generations', 32);
+    const [populationSize, setPopulationSize] = useLocalStorageState('populationSize', 32);
 
     return (
         <Box p={1}>
@@ -101,33 +104,15 @@ export default function ControlPanel({ onOptimize }) {
                     <MenuItem value={'1d'}>1d</MenuItem>
                 </TextField>
 
-                <KeyboardDatePicker
-                    disableToolbar
-                    variant="inline"
-                    format="yyyy-MM-dd"
-                    id="start"
+                <DatePicker
                     label="Start"
-                    fullWidth
-                    autoOk={true}
                     value={start}
-                    onChange={d => setStart(fmtTimestamp(d))}
-                    KeyboardButtonProps={{
-                        'aria-label': 'change date',
-                    }}
+                    onChange={e => setStart(e.target.value)}
                 />
-                <KeyboardDatePicker
-                    disableToolbar
-                    variant="inline"
-                    format="yyyy-MM-dd"
-                    id="end"
+                <DatePicker
                     label="End"
-                    fullWidth
-                    autoOk={true}
                     value={end}
-                    onChange={d => setEnd(fmtTimestamp(d))}
-                    KeyboardButtonProps={{
-                        'aria-label': 'change date',
-                    }}
+                    onChange={e => setEnd(e.target.value)}
                 />
 
                 <TextField
