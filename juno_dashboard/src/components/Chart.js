@@ -9,6 +9,12 @@ function fmtPct(value) {
     return value.toLocaleString(undefined, { style: 'percent', minimumFractionDigits: 2 });
 }
 
+function timestamp(value) {
+    const date = new Date(value);
+    const offset = date.getTimezoneOffset() * 60;
+    return date.getTime() - offset;
+}
+
 export default function Chart({ symbol, candles, summary }) {
     const { palette } = useTheme();
     const chartRef = useRef(null);
@@ -71,7 +77,14 @@ export default function Chart({ symbol, candles, summary }) {
                 minMove: 0.0000001,
             },
         });
-        candleSeries.setData(candles);
+        candleSeries.setData(candles.map(candle => ({
+            time: timestamp(candle.time),
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            volume: candle.volume,
+        })));
         const markers = summary.positions
             .flatMap((pos, i) => {
                 const shape = pos.type === 'Long' ? 'arrowUp' : 'arrowDown';
@@ -80,14 +93,14 @@ export default function Chart({ symbol, candles, summary }) {
                     {
                         // We keep the id 1-based to distinguish between open and pos (neg and pos).
                         id: -id,
-                        time: pos.time,
+                        time: timestamp(pos.time),
                         position: 'aboveBar',
                         shape,
                         color: palette.info[palette.type],
                     },
                     {
                         id: +id,
-                        time: pos.closeTime,
+                        time: timestamp(pos.closeTime),
                         position: 'aboveBar',
                         shape,
                         color: palette.warning[palette.type],
@@ -111,7 +124,7 @@ export default function Chart({ symbol, candles, summary }) {
             .reduce(([prevClose, volume], candle) => {
                 const color = candle.close >= prevClose ? '#26a69a80' : '#ef535080';
                 volume.push({
-                    time: candle.time,
+                    time: timestamp(candle.time),
                     value: candle.volume,
                     color,
                 });
@@ -166,11 +179,17 @@ export default function Chart({ symbol, candles, summary }) {
                 .reduce(([quote, points], pos) => {
                     const newQuote = quote + pos.profit;
                     points.push({
-                        time: pos.closeTime,
+                        time: timestamp(pos.closeTime),
                         value: newQuote,
                     });
                     return [newQuote, points];
-                }, [summary.quote, [{ time: summary.start, value: summary.quote }]])[1]
+                }, [
+                    summary.quote,
+                    [{
+                        time: timestamp(summary.start),
+                        value: summary.quote,
+                    }],
+                ])[1]
             );
 
         // Fit everything into view.
