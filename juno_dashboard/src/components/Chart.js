@@ -10,9 +10,7 @@ function fmtPct(value) {
 }
 
 function timestamp(value) {
-    const date = new Date(value);
-    const offset = date.getTimezoneOffset() * 60;
-    return date.getTime() - offset;
+    return new Date(value).getTime() / 1000;
 }
 
 export default function Chart({ symbol, candles, summary }) {
@@ -49,6 +47,13 @@ export default function Chart({ symbol, candles, summary }) {
             layout: {
                 backgroundColor: palette.background.paper,
                 textColor: palette.text.primary,
+            },
+            localization: {
+                dateFormat: 'yyyy-MM-dd',
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
             },
             leftPriceScale: {
                 visible: true,
