@@ -61,7 +61,7 @@ export default function ControlPanel({ onOptimize }) {
                     onChange={e => setStrategy(e.target.value)}
                 >
                     {Strategies.map(strategy =>
-                        <MenuItem value={strategy}>{strategy}</MenuItem>
+                        <MenuItem key={strategy} value={strategy}>{strategy}</MenuItem>
                     )}
                 </TextField>
 

@@ -14,44 +14,52 @@ const useStyles = makeStyles(_theme => ({
     },
 }));
 
-export default function Generations({ args, gens, onSelect }) {
+export default function Generations({ info, onSelect }) {
+    const { args, gens } = info;
     const classes = useStyles();
     const symbols = args.trainingSymbols.concat(args.validationSymbols);
 
     return (
-        <TableContainer component={Paper}>
-            <Table size="small" aria-label="a dense table">
-                <TableHead>
-                    <TableRow>
-                        <TableCell>gen</TableCell>
-                        {args.trainingSymbols.map(symbol => (
-                            <TableCell key={symbol} align="right">{symbol}</TableCell>
-                        ))}
-                        {args.validationSymbols.map(symbol => (
-                            <TableCell key={symbol} align="right">{symbol} (v)</TableCell>
-                        ))}
-                        <TableCell align="right">fitness</TableCell>
-                    </TableRow>
-                </TableHead>
-                <TableBody>
-                    {gens.map(gen => (
-                        <TableRow
-                            key={gen.nr}
-                            hover
-                            className={classes.row}
-                            onClick={() => onSelect(gen)}
-                        >
-                            <TableCell component="th" scope="row">{gen.nr}</TableCell>
-                            {symbols.map(symbol => (
-                                <TableCell key={symbol} align="right">
-                                    {gen.symbolStats[symbol].sharpeRatio}
-                                </TableCell>
+        <>
+            <Paper>
+                <pre>
+                    {JSON.stringify(args, null, 4)}
+                </pre>
+            </Paper>
+            <TableContainer component={Paper}>
+                <Table size="small" aria-label="a dense table">
+                    <TableHead>
+                        <TableRow>
+                            <TableCell>gen</TableCell>
+                            {args.trainingSymbols.map(symbol => (
+                                <TableCell key={symbol} align="right">{symbol}</TableCell>
                             ))}
-                            <TableCell align="right">{gen.ind.fitness}</TableCell>
+                            {args.validationSymbols.map(symbol => (
+                                <TableCell key={symbol} align="right">{symbol} (v)</TableCell>
+                            ))}
+                            <TableCell align="right">fitness</TableCell>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-        </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                        {gens.map(gen => (
+                            <TableRow
+                                key={gen.nr}
+                                hover
+                                className={classes.row}
+                                onClick={() => onSelect(info, gen)}
+                            >
+                                <TableCell component="th" scope="row">{gen.nr}</TableCell>
+                                {symbols.map(symbol => (
+                                    <TableCell key={symbol} align="right">
+                                        {gen.symbolStats[symbol].sharpeRatio}
+                                    </TableCell>
+                                ))}
+                                <TableCell align="right">{gen.ind.fitness}</TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </TableContainer>
+        </>
     );
 }

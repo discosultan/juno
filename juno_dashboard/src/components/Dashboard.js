@@ -18,10 +18,8 @@ const useStyles = makeStyles((_theme) => ({
 
 export default function Dashboard() {
     const classes = useStyles();
-    const [args, setArgs] = useState();
-    const [gens, setGens] = useState([]);
-    const [selectedGen, setSelectedGen] = useState(null);
-    const [symbolCandles, setSymbolCandles] = useState({});
+    const [gensInfo, setGensInfo] = useState(null);
+    const [selectedGenInfo, setSelectedGenInfo] = useState(null);
 
     async function optimize(args) {
         const [gens, symbolCandles] = await Promise.all([
@@ -34,10 +32,12 @@ export default function Dashboard() {
                 symbols: args.trainingSymbols.concat(args.validationSymbols),
             }),
         ]);
-        setArgs(args);
-        setGens(gens);
-        setSymbolCandles(symbolCandles);
-        setSelectedGen(null);
+        setGensInfo({
+            args,
+            symbolCandles,
+            gens,
+        });
+        setSelectedGenInfo(null);
     }
 
     return (
@@ -51,19 +51,21 @@ export default function Dashboard() {
                 <ControlPanel onOptimize={optimize} />
             </Drawer>
             <main className={classes.main}>
-                {args && (
-                    selectedGen ?
-                        <Generation
-                            args={args}
-                            gen={selectedGen}
-                            symbolCandles={symbolCandles}
-                            onClose={() => setSelectedGen(null)} />
-                    :
-                        <Generations
-                            args={args}
-                            gens={gens}
-                            onSelect={setSelectedGen} />
-                )}
+                {selectedGenInfo ?
+                    <Generation
+                        info={selectedGenInfo}
+                        onClose={() => setSelectedGenInfo(null)}
+                    />
+                : gensInfo &&
+                    <Generations
+                        info={gensInfo}
+                        onSelect={(gensInfo, gen) => setSelectedGenInfo({
+                            args: gensInfo.args,
+                            symbolCandles: gensInfo.symbolCandles,
+                            gen,
+                        })}
+                    />
+                }
             </main>
         </>
     );

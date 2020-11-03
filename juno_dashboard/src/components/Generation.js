@@ -9,7 +9,8 @@ import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
 import Chart from './Chart';
 
-export default function Generation({ args, gen, symbolCandles, onClose }) {
+export default function Generation({ info, onClose }) {
+    const { args, gen, symbolCandles } = info;
     const symbols = args.trainingSymbols.concat(args.validationSymbols);
     const stats = Object.values(gen.symbolStats);
 
