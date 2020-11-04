@@ -43,7 +43,7 @@ export default function Chart({ symbol, candles, summary }) {
 
         const chart = createChart(containerRef.current, {
             width: containerRef.current.clientWidth,
-            height: 320,
+            height: 360,
             layout: {
                 backgroundColor: palette.background.paper,
                 textColor: palette.text.primary,

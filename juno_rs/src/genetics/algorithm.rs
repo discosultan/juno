@@ -51,8 +51,6 @@ where
         seed: Option<u64>,
     ) -> Vec<Individual<TE::Chromosome>> {
         assert!(population_size >= 2);
-        // TODO: Get rid of this assertion.
-        assert_eq!(population_size % 2, 0);
 
         let seed = match seed {
             Some(seed) => seed,
@@ -102,8 +100,10 @@ where
         // crossover & mutation
         let start = time::Instant::now();
         for i in (0..offsprings.len()).step_by(2) {
+            let j = if i == offsprings.len() - 1 { 0 } else { i + 1 };
+
             // TODO: Ugly.
-            let (a, b) = offsprings.split_at_mut(i + 1);
+            let (a, b) = offsprings.split_at_mut(j);
             let chromosome1 = &mut a[a.len() - 1].chromosome;
             let chromosome2 = &mut b[0].chromosome;
             // TODO: Support using more than two parents.

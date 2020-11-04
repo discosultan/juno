@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
+import Box from '@material-ui/core/Box';
+import Divider from '@material-ui/core/Divider';
 import Drawer from '@material-ui/core/Drawer';
 import { makeStyles } from '@material-ui/core/styles';
 import ControlPanel from './ControlPanel';
+import History from './History';
 import Generations from './Generations';
 import Generation from './Generation';
 import { fetchJson } from '../fetch';
@@ -13,13 +16,21 @@ const useStyles = makeStyles((_theme) => ({
     },
     main: {
         marginLeft: drawerWidth,
-    }
+    },
 }));
 
 export default function Dashboard() {
     const classes = useStyles();
     const [gensInfo, setGensInfo] = useState(null);
     const [selectedGenInfo, setSelectedGenInfo] = useState(null);
+    // TODO: It would be nice to store the state in local storage. However, it is limited to only
+    // 5MB. If we didn't store candle data with it, we could hold more.
+    const [history, setHistory] = useState([]);
+
+    function processNewGensInfo(gensInfo) {
+        setGensInfo(gensInfo);
+        setSelectedGenInfo(null);
+    }
 
     async function optimize(args) {
         const [gens, symbolCandles] = await Promise.all([
@@ -32,23 +43,43 @@ export default function Dashboard() {
                 symbols: args.trainingSymbols.concat(args.validationSymbols),
             }),
         ]);
-        setGensInfo({
+        const gensInfo = {
             args,
             symbolCandles,
             gens,
-        });
-        setSelectedGenInfo(null);
+        };
+
+        const historyItem = {
+            time: new Date().toISOString(),
+            gensInfo,
+        };
+        if (history.length === 10) {
+            setHistory([historyItem, ...history.slice(0, history.length - 1)]);
+        } else {
+            setHistory([historyItem, ...history]);
+        }
+
+        processNewGensInfo(gensInfo);
     }
 
     return (
         <>
-            <Drawer 
+            <Drawer
                 variant="permanent"
                 anchor="left"
                 className={classes.drawer}
                 classes={{ paper: classes.drawer }}
             >
-                <ControlPanel onOptimize={optimize} />
+                <Box p={1}>
+                    <History
+                        gensInfo={gensInfo}
+                        history={history}
+                        onChange={gensInfo => processNewGensInfo(gensInfo)} />
+                </Box>
+                <Divider />
+                <Box p={1}>
+                    <ControlPanel onOptimize={optimize} />
+                </Box>
             </Drawer>
             <main className={classes.main}>
                 {selectedGenInfo ?
