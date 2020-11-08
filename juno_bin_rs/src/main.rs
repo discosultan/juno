@@ -284,7 +284,7 @@ fn backtest<T: Signal>(
     let stats_candles =
         storages::list_candles(args.exchange, symbol, stats_interval, args.start, args.end)?;
     let candles_missing_filled =
-        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles);
+        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles)?;
     let base_prices: Vec<f64> = candles_missing_filled
         .iter()
         .map(|candle| candle.close)

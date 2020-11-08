@@ -1,13 +1,13 @@
 use super::TradingChromosome;
 use crate::{
-    fill_missing_candles,
+    chandler::fill_missing_candles,
     genetics::{Evaluation, Individual},
     statistics, storages,
     strategies::Signal,
     time, trading, BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
 use rayon::prelude::*;
-use std::{error::Error, marker::PhantomData};
+use std::marker::PhantomData;
 
 struct SymbolCtx {
     candles: Vec<Candle>,
@@ -33,7 +33,7 @@ impl<T: Signal> BasicEvaluation<T> {
         start: u64,
         end: u64,
         quote: f64,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, storages::StorageError> {
         let exchange_info = storages::get_exchange_info(exchange)?;
         let stats_interval = time::DAY_MS;
         let symbol_ctxs = symbols
@@ -45,7 +45,7 @@ impl<T: Signal> BasicEvaluation<T> {
                 let stats_candles =
                     storages::list_candles(exchange, &symbol, stats_interval, start, end).unwrap();
                 let stats_candles =
-                    fill_missing_candles(stats_interval, start, end, &stats_candles);
+                    fill_missing_candles(stats_interval, start, end, &stats_candles).unwrap();
                 let stats_prices: Vec<f64> =
                     stats_candles.iter().map(|candle| candle.close).collect();
                 SymbolCtx {

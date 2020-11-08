@@ -1,5 +1,6 @@
+use anyhow::Result;
 use juno_rs::{
-    fill_missing_candles,
+    chandler::fill_missing_candles,
     genetics::{
         crossover, mutation, reinsertion, selection, Chromosome, GeneticAlgorithm, Individual,
     },
@@ -12,8 +13,6 @@ use juno_rs::{
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use warp::{Filter, Rejection};
-
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Debug, Deserialize)]
 struct Params {
@@ -62,7 +61,7 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
                 "sig<triplema>" => process::<Sig<TripleMA>>(args),
                 "sigosc<triplema,rsi>" => process::<SigOsc<TripleMA, Rsi>>(args),
                 "sigosc<doublema,rsi>" => process::<SigOsc<DoubleMA, Rsi>>(args),
-                strategy => panic!("unsupported strategy {}", strategy),  // TODO: return 400
+                strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
             }
         })
 }
@@ -82,8 +81,7 @@ fn process<T: Signal>(args: Params) -> warp::reply::Json {
             let symbol_summaries = args
                 .iter_symbols()
                 .map(|symbol| {
-                    let summary =
-                        backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
+                    let summary = backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
                     (symbol.to_owned(), summary) // TODO: Return &String instead.
                 })
                 .collect::<HashMap<String, TradingSummary>>();
@@ -162,7 +160,7 @@ fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Tr
     let stats_candles =
         storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;
     let candles_missing_filled =
-        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles);
+        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles)?;
     let base_prices: Vec<f64> = candles_missing_filled
         .iter()
         .map(|candle| candle.close)

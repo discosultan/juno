@@ -1,7 +1,9 @@
-use juno_rs::{fill_missing_candles, prelude::*, storages, Candle};
-use serde::Deserialize;
+use super::custom_reject;
+use anyhow::Result;
+use juno_rs::{chandler::fill_missing_candles, prelude::*, storages, Candle};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use warp::{Filter, Rejection};
+use warp::{reject::Reject, reply::Json, Filter, Rejection};
 
 #[derive(Debug, Deserialize)]
 struct Params {
@@ -15,12 +17,19 @@ struct Params {
     symbols: Vec<String>,
 }
 
-pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
+#[derive(Debug, Serialize)]
+struct MissingCandles {
+    message: String,
+}
+
+impl Reject for MissingCandles {}
+
+pub fn route() -> impl Filter<Extract = (Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path("candles"))
         .and(warp::body::json())
-        .map(|args: Params| {
-            let symbol_candles = args
+        .and_then(|args: Params| async move {
+            let symbol_candles_result = args
                 .symbols
                 .iter()
                 .map(|symbol| {
@@ -30,14 +39,28 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
                         args.interval,
                         args.start,
                         args.end,
-                    )
-                    .unwrap();
+                    )?;
                     let candles =
-                        fill_missing_candles(args.interval, args.start, args.end, &candles);
-                    (symbol, candles)
+                        fill_missing_candles(args.interval, args.start, args.end, &candles)?;
+                    Ok((symbol, candles))
                 })
-                .collect::<HashMap<&String, Vec<Candle>>>();
+                .collect::<Result<HashMap<&String, Vec<Candle>>>>();
 
-            warp::reply::json(&symbol_candles)
+            match symbol_candles_result {
+                Ok(symbol_candles) => Ok(warp::reply::json(&symbol_candles)),
+                Err(msg) => Err(custom_reject(msg)),
+                // Err(msg) => Err(warp::reply::with_status(msg.to_string(), StatusCode::BAD_REQUEST)),// Err(warp::reject::custom(msg)),
+            }
         })
+    // .recover(|err| {
+    //     if let Some(msg) = err.find::<MissingCandles>() {
+
+    //     }
+
+    //     let json = warp::reply::json(&ErrorMessage {
+    //         code: code.as_u16(),
+    //         message: message.into(),
+    //     });
+    //     Ok(warp::reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR))
+    // })
 }

@@ -1,9 +1,29 @@
 use crate::{Candle, ExchangeInfo};
 use rusqlite::{params, Connection, NO_PARAMS};
 use serde::{Deserialize, Serialize};
-use std::error::Error;
+use thiserror::Error;
+
+type Result<T> = std::result::Result<T, StorageError>;
 
 const VERSION: &str = "v48";
+
+#[derive(Error, Debug)]
+pub enum StorageError {
+    #[error("unknown storage error")]
+    Unknown(String),
+}
+
+impl From<rusqlite::Error> for StorageError {
+    fn from(err: rusqlite::Error) -> Self {
+        StorageError::Unknown(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for StorageError {
+    fn from(err: serde_json::Error) -> Self {
+        StorageError::Unknown(err.to_string())
+    }
+}
 
 #[derive(Deserialize, Serialize)]
 struct Timestamped<T> {
@@ -11,7 +31,7 @@ struct Timestamped<T> {
     pub item: T,
 }
 
-fn blob_to_f64(blob: Vec<u8>) -> Result<f64, rusqlite::Error> {
+fn blob_to_f64(blob: Vec<u8>) -> std::result::Result<f64, rusqlite::Error> {
     let s = std::str::from_utf8(&blob).map_err(rusqlite::Error::Utf8Error)?;
     s.parse::<f64>()
         .map_err(|_| rusqlite::Error::ExecuteReturnedResults {})
@@ -23,7 +43,7 @@ pub fn list_candles(
     interval: u64,
     start: u64,
     end: u64,
-) -> Result<Vec<Candle>, Box<dyn Error>> {
+) -> Result<Vec<Candle>> {
     let shard = format!("{}_{}_{}", exchange, symbol, interval);
     let conn = Connection::open(format!(
         "/home/discosultan/.juno/data/{}_{}.db",
@@ -46,7 +66,7 @@ pub fn list_candles(
     res.map(|r| r.map_err(|e| e.into())).collect()
 }
 
-pub fn get_exchange_info(exchange: &str) -> Result<ExchangeInfo, Box<dyn Error>> {
+pub fn get_exchange_info(exchange: &str) -> Result<ExchangeInfo> {
     let shard = exchange;
     let conn = Connection::open(format!(
         "/home/discosultan/.juno/data/{}_{}.db",
