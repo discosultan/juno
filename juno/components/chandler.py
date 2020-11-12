@@ -4,6 +4,7 @@ import asyncio
 import itertools
 import logging
 import sys
+from contextlib import AsyncExitStack
 from decimal import Decimal
 from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tuple
 
@@ -205,12 +206,17 @@ class Chandler:
                         for i in range(1, num_missed + 1):
                             yield Candle(
                                 time=last_closed_candle.time + i * interval,
-                                open=last_closed_candle.open,
-                                high=last_closed_candle.high,
-                                low=last_closed_candle.low,
+                                # open=last_closed_candle.open,
+                                # high=last_closed_candle.high,
+                                # low=last_closed_candle.low,
+                                # close=last_closed_candle.close,
+                                # volume=last_closed_candle.volume,
+                                open=last_closed_candle.close,
+                                high=last_closed_candle.close,
+                                low=last_closed_candle.close,
                                 close=last_closed_candle.close,
-                                volume=last_closed_candle.volume,
-                                closed=True
+                                volume=Decimal('0.0'),
+                                closed=True,
                             )
                 if not closed or candle.closed:
                     yield candle
@@ -310,6 +316,7 @@ class Chandler:
                     async for candle in exchange_instance.stream_historical_candles(
                         symbol, interval, start, historical_end
                     ):
+                        # TODO: check interval integrity
                         yield candle
                 else:
                     async for candle in self._stream_construct_candles(
@@ -332,17 +339,20 @@ class Chandler:
                     if candle.closed and candle.time == end - interval:
                         break
 
-        if end > current:
-            if exchange_instance.can_stream_candles and is_candle_interval_supported:
-                async with exchange_instance.connect_stream_candles(symbol, interval) as stream:
-                    async for candle in inner(stream):
-                        yield candle
-            else:
-                stream = self._stream_construct_candles(exchange, symbol, interval, current, end)
-                async for candle in inner(stream):
-                    yield candle
-        else:
-            async for candle in inner(None):
+        async with AsyncExitStack() as stack:
+            stream = None
+            if end > current:
+                if exchange_instance.can_stream_candles and is_candle_interval_supported:
+                    stream = await stack.enter_async_context(
+                        exchange_instance.connect_stream_candles(symbol, interval)
+                    )
+                else:
+                    stream = self._stream_construct_candles(
+                        exchange, symbol, interval, current, end
+                    )
+
+            async for candle in inner(stream):
+                _validate_candle_time(candle, symbol, interval)
                 yield candle
 
     async def _stream_construct_candles(
@@ -517,3 +527,23 @@ class Chandler:
               for s, i in itertools.product(symbols, intervals))
         )
         return {(s, i): c for (s, i), c in zip(itertools.product(symbols, intervals), candles)}
+
+
+def _validate_candle_time(candle: Candle, symbol: str, interval: int) -> None:
+    # Candles coming from an exchange can have bad time. We raise in such circumstance.
+    if candle.time % interval != 0:
+        # # In case the candle has no trades, we simply ignore. Otherwise raise.
+        # if candle.volume == 0:
+        #     _log.warning(
+        #         f'received {symbol} {interval} empty candle with a time that does not '
+        #         f'fall into the interval {candle}; skipping'
+        #     )
+        # else:
+        #     raise RuntimeError(
+        #         f'Received {symbol} {interval} non-empty candle with a time that does not '
+        #         f'fall into the interval {candle}'
+        #     )
+        raise RuntimeError(
+            f'Received {symbol} {interval} candle with a time that does not fall into the '
+            f'interval {candle}'
+        )

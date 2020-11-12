@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from juno import Candle, ExchangeException, Trade
-from juno.asyncio import cancel, list_async
+from juno.asyncio import cancel, list_async, resolved_stream
 from juno.components import Chandler
 from juno.storages import Storage
 from juno.utils import key
@@ -229,13 +229,27 @@ async def test_stream_candles_on_exchange_exception_and_cancelled(storage: fakes
 
 
 async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> None:
+    first_candle = Candle(
+        time=1,
+        open=Decimal('1.0'),
+        high=Decimal('3.0'),
+        low=Decimal('0.0'),
+        close=Decimal('2.0'),
+    )
+    third_candle = Candle(
+        time=3,
+        open=Decimal('2.0'),
+        high=Decimal('4.0'),
+        low=Decimal('1.0'),
+        close=Decimal('3.0'),
+    )
     exchange = fakes.Exchange(
         candle_intervals=[1],
         historical_candles=[
             # Missed candle should NOT get filled.
-            Candle(time=1, close=Decimal('1.0')),
-            # Missed candle should get filled with previous.
-            Candle(time=3, close=Decimal('2.0')),
+            first_candle,
+            # Missed candle should get filled.
+            third_candle,
         ],
     )
     chandler = Chandler(storage=storage, exchanges=[exchange])
@@ -250,9 +264,19 @@ async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> 
         )
     )
     assert output == [
-        Candle(time=1, close=Decimal('1.0')),
-        Candle(time=2, close=Decimal('1.0')),
-        Candle(time=3, close=Decimal('2.0')),
+        first_candle,
+        Candle(
+            time=2,
+            # open=Decimal('1.0'),
+            # high=Decimal('3.0'),
+            # low=Decimal('0.0'),
+            # close=Decimal('2.0'),
+            open=Decimal('2.0'),
+            high=Decimal('2.0'),
+            low=Decimal('2.0'),
+            close=Decimal('2.0'),
+        ),
+        third_candle,
     ]
 
 
@@ -305,6 +329,18 @@ async def test_stream_candles_no_duplicates_if_same_candle_from_rest_and_websock
         time.time = candle.time + 1
         count += 1
     assert count == 2
+
+
+async def test_stream_historical_candles_error_on_bad_time(storage) -> None:
+    exchange = fakes.Exchange(
+        candle_intervals=[2],
+        historical_candles=[Candle(time=0), Candle(time=1)],
+    )
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+
+    with pytest.raises(RuntimeError):
+        async for candle in chandler.stream_candles('exchange', 'eth-btc', 2, 0, 4):
+            pass
 
 
 @pytest.mark.parametrize('earliest_exchange_start,time', [
@@ -399,15 +435,21 @@ async def test_list_candles(storage) -> None:
     assert len(candles) == 2
 
 
-async def test_map_symbol_interval_candles(storage) -> None:
-    exchange = fakes.Exchange(
-        candle_intervals=[1, 2],
-        historical_candles=[Candle(time=0), Candle(time=1)],
-    )
+async def test_map_symbol_interval_candles(storage, mocker) -> None:
+    exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
+    exchange.list_candle_intervals.return_value = [1, 2]
+
+    def stream_historical_candles_side_effect(symbol, interval, start, end):
+        if interval == 1:
+            return resolved_stream(*[Candle(time=0), Candle(time=1)])
+        else:  # 2
+            return resolved_stream(*[Candle(time=0)])
+
+    exchange.stream_historical_candles.side_effect = stream_historical_candles_side_effect
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
     candles = await chandler.map_symbol_interval_candles(
-        'exchange', ['eth-btc', 'ltc-btc'], [1, 2], 0, 2
+        'magicmock', ['eth-btc', 'ltc-btc'], [1, 2], 0, 2
     )
 
     assert len(candles) == 4

@@ -30,16 +30,13 @@ pub fn fill_missing_candles(
             match prev_candle {
                 None => return Err(ChandlerError::MissingStartCandles),
                 Some(ref c) => candles_filled.push(
-                    // Candle {
-                    //     time: c.time + i as u64 * interval,
-                    //     open: c.open,
-                    //     high: c.high,
-                    //     low: c.low,
-                    //     close: c.close,
-                    //     volume: c.volume,
-                    // }
                     Candle {
                         time: c.time + i as u64 * interval,
+                        // open: c.open,
+                        // high: c.high,
+                        // low: c.low,
+                        // close: c.close,
+                        // volume: c.volume,
                         open: c.close,
                         high: c.close,
                         low: c.close,

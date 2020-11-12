@@ -553,24 +553,11 @@ class Binance(Exchange):
                 }
             )
             for c in res.data:
-                time = c[0]
                 # Binance can return bad candles where the time does not fall within the requested
-                # interval. In case the candle has no trades, we simply ignore. Otherwise raise.
-                if time % interval != 0:
-                    if c[8] == 0:  # Number of trades.
-                        # For example, the second candle of the following query has bad time:
-                        # https://api.binance.com/api/v1/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
-                        _log.warning(
-                            f'received {symbol} {interval} empty candle with a time that does not '
-                            f'fall into the interval {c}; skipping'
-                        )
-                        continue
-                    raise NotImplementedError(
-                        f'Received {symbol} {interval} non-empty candle with a time that does not '
-                        f'fall into the interval {c}'
-                    )
+                # interval. For example, the second candle of the following query has bad time:
+                # https://api.binance.com/api/v1/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
                 yield Candle(
-                    time, Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
+                    c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
                     Decimal(c[5]), True
                 )
 
