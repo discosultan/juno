@@ -534,6 +534,8 @@ class Binance(Exchange):
         self, symbol: str, interval: int, start: int, end: int
     ) -> AsyncIterable[Candle]:
         limit = 1000  # Max possible candles per request.
+        binance_interval = strfinterval(interval)
+        binance_symbol = _to_http_symbol(symbol)
         # Start 0 is a special value indicating that we try to find the earliest available candle.
         pagination_interval = interval
         if start == 0:
@@ -543,16 +545,32 @@ class Binance(Exchange):
                 'GET',
                 '/api/v3/klines',
                 data={
-                    'symbol': _to_http_symbol(symbol),
-                    'interval': strfinterval(interval),
+                    'symbol': binance_symbol,
+                    'interval': binance_interval,
                     'startTime': page_start,
                     'endTime': page_end - 1,
                     'limit': limit
                 }
             )
             for c in res.data:
+                time = c[0]
+                # Binance can return bad candles where the time does not fall within the requested
+                # interval. In case the candle has no trades, we simply ignore. Otherwise raise.
+                if time % interval != 0:
+                    if c[8] == 0:  # Number of trades.
+                        # For example, the second candle of the following query has bad time:
+                        # https://api.binance.com/api/v1/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
+                        _log.warning(
+                            f'received {symbol} {interval} empty candle with a time that does not '
+                            f'fall into the interval {c}; skipping'
+                        )
+                        continue
+                    raise NotImplementedError(
+                        f'Received {symbol} {interval} non-empty candle with a time that does not '
+                        f'fall into the interval {c}'
+                    )
                 yield Candle(
-                    c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
+                    time, Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
                     Decimal(c[5]), True
                 )
 

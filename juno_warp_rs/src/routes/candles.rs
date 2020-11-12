@@ -49,18 +49,6 @@ pub fn route() -> impl Filter<Extract = (Json,), Error = Rejection> + Clone {
             match symbol_candles_result {
                 Ok(symbol_candles) => Ok(warp::reply::json(&symbol_candles)),
                 Err(msg) => Err(custom_reject(msg)),
-                // Err(msg) => Err(warp::reply::with_status(msg.to_string(), StatusCode::BAD_REQUEST)),// Err(warp::reject::custom(msg)),
             }
         })
-    // .recover(|err| {
-    //     if let Some(msg) = err.find::<MissingCandles>() {
-
-    //     }
-
-    //     let json = warp::reply::json(&ErrorMessage {
-    //         code: code.as_u16(),
-    //         message: message.into(),
-    //     });
-    //     Ok(warp::reply::with_status(json, StatusCode::INTERNAL_SERVER_ERROR))
-    // })
 }

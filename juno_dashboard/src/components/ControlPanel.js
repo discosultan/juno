@@ -23,7 +23,7 @@ const Intervals = ['1m',
     '30m',
     '1h',
     '2h',
-    '4h',
+    // '4h',  // Binance is giving faulty eth-btc candles for this period.
     '6h',
     '8h',
     '12h',
