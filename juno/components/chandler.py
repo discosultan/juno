@@ -352,7 +352,13 @@ class Chandler:
                     )
 
             async for candle in inner(stream):
-                _validate_candle_time(candle, symbol, interval)
+                if not candle.is_valid(interval):
+                    # In case the candle has no volume, we could simply ignore, but we don't at the
+                    # moment.
+                    raise RuntimeError(
+                        f'Received {symbol} {interval} candle with a time that does not fall into '
+                        f'the interval {candle}'
+                    )
                 yield candle
 
     async def _stream_construct_candles(
@@ -527,23 +533,3 @@ class Chandler:
               for s, i in itertools.product(symbols, intervals))
         )
         return {(s, i): c for (s, i), c in zip(itertools.product(symbols, intervals), candles)}
-
-
-def _validate_candle_time(candle: Candle, symbol: str, interval: int) -> None:
-    # Candles coming from an exchange can have bad time. We raise in such circumstance.
-    if candle.time % interval != 0:
-        # # In case the candle has no trades, we simply ignore. Otherwise raise.
-        # if candle.volume == 0:
-        #     _log.warning(
-        #         f'received {symbol} {interval} empty candle with a time that does not '
-        #         f'fall into the interval {candle}; skipping'
-        #     )
-        # else:
-        #     raise RuntimeError(
-        #         f'Received {symbol} {interval} non-empty candle with a time that does not '
-        #         f'fall into the interval {candle}'
-        #     )
-        raise RuntimeError(
-            f'Received {symbol} {interval} candle with a time that does not fall into the '
-            f'interval {candle}'
-        )

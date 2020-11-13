@@ -809,7 +809,7 @@ class PositionMixin(ABC):
                 asset=base_asset,
             )).interest
 
-        # Add an extra interest tick in case it is about the get ticked.
+        # Add an extra interest tick in case it is about to get ticked.
         interest_per_tick = borrow_info.hourly_interest_rate * position.borrowed
         size = position.borrowed + interest + interest_per_tick
 

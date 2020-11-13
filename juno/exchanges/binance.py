@@ -147,12 +147,60 @@ class Binance(Exchange):
             )
         )
 
+        # Process fees.
         fees = {
             _from_symbol(fee['symbol']):
             Fees(maker=Decimal(fee['maker']), taker=Decimal(fee['taker']))
             for fee in fees_res.data['tradeFee']
         }
 
+        # Process borrow info.
+        # The data below is not available through official Binance API. We can get borrow limit but
+        # there is no way to get interest rate.
+        borrow_info = {
+            'margin': {
+                a['assetName'].lower(): BorrowInfo(
+                    daily_interest_rate=Decimal(s['dailyInterestRate']),
+                    limit=Decimal(s['borrowLimit']),
+                ) for a, s in ((a, a['specs'][0]) for a in margin_res.data['data'])
+            },
+        }
+        for p in isolated_res.data['data']:
+            base = p['base']
+            base_asset = base['assetName'].lower()
+            quote = p['quote']
+            quote_asset = quote['assetName'].lower()
+
+            base_levels = base['levelDetails']
+            if len(base_levels) == 0:
+                _log.warning(
+                    f'no isolated margin borrow info for {base_asset}-{quote_asset} '
+                    f'{base_asset} asset'
+                )
+                continue
+            base_details = base_levels[0]
+
+            quote_levels = quote['levelDetails']
+            if len(quote_levels) == 0:
+                _log.warning(
+                    f'no isolated margin borrow info for {base_asset}-{quote_asset} '
+                    f'{quote_asset} asset'
+                )
+                continue
+            quote_details = quote_levels[0]
+
+            borrow_info[f'{base_asset}-{quote_asset}'] = {
+                base_asset: BorrowInfo(
+                    daily_interest_rate=Decimal(base_details['interestRate']),
+                    limit=Decimal(base_details['maxBorrowable']),
+                ),
+                quote_asset: BorrowInfo(
+                    daily_interest_rate=Decimal(quote_details['interestRate']),
+                    limit=Decimal(quote_details['maxBorrowable']),
+                ),
+            }
+
+        # Process symbol info.
         isolated_pairs_set = set(isolated_pairs)
         filters = {}
         for symbol_info in filters_res.data['symbols']:
@@ -194,35 +242,8 @@ class Binance(Exchange):
                 quote_precision=symbol_info['quoteAssetPrecision'],
                 spot='SPOT' in symbol_info['permissions'],
                 cross_margin='MARGIN' in symbol_info['permissions'],
-                isolated_margin=symbol in isolated_pairs_set,
+                isolated_margin=(symbol in isolated_pairs_set) and (symbol in borrow_info),
             )
-
-        # The data below is not available through official Binance API.
-        borrow_info = {
-            'margin': {
-                a['assetName'].lower(): BorrowInfo(
-                    daily_interest_rate=Decimal(s['dailyInterestRate']),
-                    limit=Decimal(s['borrowLimit'])
-                ) for a, s in ((a, a['specs'][0]) for a in margin_res.data['data'])
-            },
-        }
-        for p in isolated_res.data['data']:
-            base = p['base']
-            base_asset = base['assetName'].lower()
-            base_details = base['levelDetails'][0]
-            quote = p['quote']
-            quote_asset = quote['assetName'].lower()
-            quote_details = quote['levelDetails'][0]
-            borrow_info[f'{base_asset}-{quote_asset}'] = {
-                base_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(base_details['interestRate']),
-                    limit=Decimal(base_details['maxBorrowable']),
-                ),
-                quote_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(quote_details['interestRate']),
-                    limit=Decimal(quote_details['maxBorrowable']),
-                ),
-            }
 
         return ExchangeInfo(
             fees=fees,
