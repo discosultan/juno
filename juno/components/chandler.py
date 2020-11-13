@@ -351,15 +351,37 @@ class Chandler:
                         exchange, symbol, interval, current, end
                     )
 
+            last_candle_time = -1
             async for candle in inner(stream):
-                if not candle.is_valid(interval):
-                    # In case the candle has no volume, we could simply ignore, but we don't at the
-                    # moment.
-                    raise RuntimeError(
-                        f'Received {symbol} {interval} candle with a time that does not fall into '
-                        f'the interval {candle}'
+                if candle.time % interval != 0:
+                    _log.warning(
+                        f'candle with bad time {candle} for interval {strfinterval(interval)}; '
+                        'trying to adjusting back in time or skip if volume zero'
                     )
+                    adjusted_time = floor_multiple(candle.time, interval)
+                    if last_candle_time == adjusted_time:
+                        if candle.volume > 0:
+                            raise RuntimeError(
+                                f'Received {symbol} {strfinterval(interval)} candle {candle} with '
+                                'a time that does not fall into the interval. Cannot adjust back '
+                                'in time because time coincides with last candle time '
+                                f'{strftimestamp(last_candle_time)}. Cannot skip because volume '
+                                'not zero'
+                            )
+                        else:
+                            continue
+                    candle = Candle(
+                        time=adjusted_time,
+                        open=candle.open,
+                        high=candle.high,
+                        low=candle.low,
+                        close=candle.close,
+                        volume=candle.volume,
+                        closed=candle.closed,
+                    )
+
                 yield candle
+                last_candle_time = candle.time
 
     async def _stream_construct_candles(
         self, exchange: str, symbol: str, interval: int, start: int, end: int

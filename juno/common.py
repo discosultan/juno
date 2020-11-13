@@ -80,16 +80,6 @@ class Candle(NamedTuple):
     def mean_hlc(self) -> Decimal:
         return (self.high + self.low + self.close) / 3
 
-    def is_valid(self, interval: int) -> bool:
-        return (
-            self.time % interval == 0
-            and self.open >= 0
-            and self.high >= 0
-            and self.low >= 0
-            and self.close >= 0
-            and self.volume >= 0
-        )
-
     def __repr__(self) -> str:
         return (
             f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '

@@ -331,10 +331,34 @@ async def test_stream_candles_no_duplicates_if_same_candle_from_rest_and_websock
     assert count == 2
 
 
-async def test_stream_historical_candles_error_on_bad_time(storage) -> None:
+async def test_stream_historical_candles_bad_time_adjust_to_previous(storage) -> None:
     exchange = fakes.Exchange(
         candle_intervals=[2],
-        historical_candles=[Candle(time=0), Candle(time=1)],
+        historical_candles=[Candle(time=0), Candle(time=3)],
+    )
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+
+    candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 2, 0, 4))
+
+    assert candles == [Candle(time=0), Candle(time=2)]
+
+
+async def test_stream_historical_candles_bad_time_skip_when_no_volume(storage) -> None:
+    exchange = fakes.Exchange(
+        candle_intervals=[2],
+        historical_candles=[Candle(time=0), Candle(time=1, volume=Decimal('0.0'))],
+    )
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+
+    candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 2, 0, 4))
+
+    assert candles == [Candle(time=0)]
+
+
+async def test_stream_historical_candles_bad_time_error_when_unadjustable(storage) -> None:
+    exchange = fakes.Exchange(
+        candle_intervals=[2],
+        historical_candles=[Candle(time=0), Candle(time=1, volume=Decimal('1.0'))],
     )
     chandler = Chandler(storage=storage, exchanges=[exchange])
 

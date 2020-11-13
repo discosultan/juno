@@ -1,4 +1,4 @@
-use crate::{Candle, math::floor_multiple};
+use crate::{math::floor_multiple, Candle};
 use thiserror::Error;
 
 type Result<T> = std::result::Result<T, ChandlerError>;
@@ -6,7 +6,7 @@ type Result<T> = std::result::Result<T, ChandlerError>;
 #[derive(Error, Debug)]
 pub enum ChandlerError {
     #[error("missing candle(s) from start of period; cannot fill")]
-    MissingStartCandles
+    MissingStartCandles,
 }
 
 pub fn fill_missing_candles(
@@ -29,21 +29,19 @@ pub fn fill_missing_candles(
         for i in 1..=diff {
             match prev_candle {
                 None => return Err(ChandlerError::MissingStartCandles),
-                Some(ref c) => candles_filled.push(
-                    Candle {
-                        time: c.time + i as u64 * interval,
-                        // open: c.open,
-                        // high: c.high,
-                        // low: c.low,
-                        // close: c.close,
-                        // volume: c.volume,
-                        open: c.close,
-                        high: c.close,
-                        low: c.close,
-                        close: c.close,
-                        volume: 0.0,
-                    },
-                ),
+                Some(ref c) => candles_filled.push(Candle {
+                    time: c.time + i as u64 * interval,
+                    // open: c.open,
+                    // high: c.high,
+                    // low: c.low,
+                    // close: c.close,
+                    // volume: c.volume,
+                    open: c.close,
+                    high: c.close,
+                    low: c.close,
+                    close: c.close,
+                    volume: 0.0,
+                }),
             }
             current += interval;
         }
@@ -119,6 +117,9 @@ mod tests {
         let output = output.unwrap();
 
         assert_eq!(output, expected_output);
-        assert!(output.iter().zip(expected_output.iter()).all(|(c1, c2)| c1.eq(c2)));
+        assert!(output
+            .iter()
+            .zip(expected_output.iter())
+            .all(|(c1, c2)| c1.eq(c2)));
     }
 }
