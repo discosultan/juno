@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Box from '@material-ui/core/Box';
 import Divider from '@material-ui/core/Divider';
 import Drawer from '@material-ui/core/Drawer';
+import Toolbar from '@material-ui/core/Toolbar';
 import { makeStyles } from '@material-ui/core/styles';
 import ControlPanel from './ControlPanel';
 import History from './History';
@@ -70,6 +71,9 @@ export default function Dashboard() {
                 className={classes.drawer}
                 classes={{ paper: classes.drawer }}
             >
+                {/* Dummy toolbar to add toolbar's worth of space to the top. Otherwise the
+                component will run under app bar. Same for the main section below. */}
+                <Toolbar />
                 <Box p={1}>
                     <History
                         gensInfo={gensInfo}
@@ -82,6 +86,7 @@ export default function Dashboard() {
                 </Box>
             </Drawer>
             <main className={classes.main}>
+                <Toolbar />
                 {selectedGenInfo ?
                     <Generation
                         info={selectedGenInfo}
