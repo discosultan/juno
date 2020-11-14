@@ -1,4 +1,4 @@
-use super::{serialize_ma, Signal, StdRngExt, Strategy};
+use super::{deserialize_ma, serialize_ma, Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
     indicators::{ma_from_adler32, MA},
@@ -6,18 +6,20 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::cmp::max;
 
-#[derive(Chromosome, Clone, Debug, Serialize)]
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 #[repr(C)]
 pub struct DoubleMA2Params {
     pub periods: (u32, u32),
     pub neg_threshold: f64,
     pub pos_threshold: f64,
     #[serde(serialize_with = "serialize_ma")]
+    #[serde(deserialize_with = "deserialize_ma")]
     pub short_ma: u32,
     #[serde(serialize_with = "serialize_ma")]
+    #[serde(deserialize_with = "deserialize_ma")]
     pub long_ma: u32,
 }
 

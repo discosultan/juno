@@ -15,6 +15,9 @@
     "use-local-storage-state": "^6.0.0",
     "use-resize-observer": "^7.0.0"
   },
+  "devDependencies": {
+    "prettier": "^2.1.2"
+  },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",

@@ -1,6 +1,8 @@
+mod backtest;
 mod candles;
 mod optimize;
 
+pub use backtest::route as backtest;
 pub use candles::route as candles;
 pub use optimize::route as optimize;
 

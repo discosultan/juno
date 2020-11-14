@@ -1,4 +1,4 @@
-use super::{serialize_mid_trend_policy, Oscillator, Signal, StdRngExt, Strategy};
+use super::{deserialize_mid_trend_policy, serialize_mid_trend_policy, Oscillator, Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
     strategies::{combine, MidTrend, Persistence},
@@ -6,15 +6,16 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::cmp::{max, min};
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SigOscParams<S: Chromosome, O: Chromosome> {
     pub sig_params: S,
     pub osc_params: O,
     pub persistence: u32,
     #[serde(serialize_with = "serialize_mid_trend_policy")]
+    #[serde(deserialize_with = "deserialize_mid_trend_policy")]
     pub mid_trend_policy: u32,
 }
 

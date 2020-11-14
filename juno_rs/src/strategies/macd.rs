@@ -2,9 +2,9 @@ use super::{Signal, Strategy};
 use crate::{genetics::Chromosome, indicators, Advice, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Serialize)]
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 #[repr(C)]
 pub struct MacdParams {
     pub periods: (u32, u32),

@@ -25,7 +25,10 @@ export default function Dashboard() {
         trainingSymbols: [],
         validationSymbols: args.symbols,
       },
-      config: args.config,
+      config: {
+        trader: args.traderParams,
+        strategy: args.strategyParams,
+      },
       symbolCandles,
       symbolStats: result.symbolStats,
       symbolSummaries: result.symbolSummaries,

@@ -14,8 +14,8 @@ const useStyles = makeStyles((_theme) => ({
   },
 }));
 
-export default function Generations({ info, onSelect }) {
-  const { args, gens } = info;
+export default function Generations({ value, onSelect }) {
+  const { args, gens } = value;
   const classes = useStyles();
   const symbols = args.trainingSymbols.concat(args.validationSymbols);
 
@@ -48,7 +48,7 @@ export default function Generations({ info, onSelect }) {
                 key={gen.nr}
                 hover
                 className={classes.row}
-                onClick={() => onSelect(info, gen)}
+                onClick={() => onSelect(value, gen)}
               >
                 <TableCell component="th" scope="row">
                   {gen.nr}

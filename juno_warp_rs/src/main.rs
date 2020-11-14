@@ -15,6 +15,7 @@ async fn main() {
     let hello = warp::path::end().map(|| "hello world");
 
     let routes = hello
+        .or(routes::backtest())
         .or(routes::optimize())
         .or(routes::candles())
         .recover(handle_rejection);
