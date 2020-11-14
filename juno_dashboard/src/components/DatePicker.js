@@ -23,33 +23,36 @@ import DateFnsUtils from '@date-io/date-fns';
  * convert to String; but if we convert to UTC, that changes the date.
  */
 function jsDateToLocalISO8601DateString(date) {
-    return [
-        String(date.getFullYear()),
-        String(101 + date.getMonth()).substring(1),
-        String(100 + date.getDate()).substring(1),
-    ].join('-');
+  return [
+    String(date.getFullYear()),
+    String(101 + date.getMonth()).substring(1),
+    String(100 + date.getDate()).substring(1),
+  ].join('-');
 }
 
 function dateStringToLocalDate(s) {
-    if (!s) return null;
-    return new DateFnsUtils().parse(s, 'yyyy-MM-dd');
+  if (!s) return null;
+  return new DateFnsUtils().parse(s, 'yyyy-MM-dd');
 }
 
 export default function DatePicker({ label, value, onChange }) {
-    const handleChange = React.useCallback(date => {
-        onChange({ target: { value: date ? jsDateToLocalISO8601DateString(date) : null } });
-    }, [onChange]);
+  const handleChange = React.useCallback(
+    (date) => {
+      onChange({ target: { value: date ? jsDateToLocalISO8601DateString(date) : null } });
+    },
+    [onChange],
+  );
 
-    return (
-        <MuiDatePicker
-            variant="inline"
-            format="yyyy-MM-dd"
-            label={label}
-            fullWidth
-            disableFuture
-            autoOk={true}
-            value={dateStringToLocalDate(value)}
-            onChange={handleChange}
-        />
-    );
+  return (
+    <MuiDatePicker
+      variant="inline"
+      format="yyyy-MM-dd"
+      label={label}
+      fullWidth
+      disableFuture
+      autoOk={true}
+      value={dateStringToLocalDate(value)}
+      onChange={handleChange}
+    />
+  );
 }
