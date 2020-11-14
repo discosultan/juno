@@ -73,7 +73,7 @@ export default function Dashboard() {
             >
                 {/* Dummy toolbar to add toolbar's worth of space to the top. Otherwise the
                 component will run under app bar. Same for the main section below. */}
-                <Toolbar />
+                <Toolbar variant="dense" />
                 <Box p={1}>
                     <History
                         gensInfo={gensInfo}
@@ -86,7 +86,7 @@ export default function Dashboard() {
                 </Box>
             </Drawer>
             <main className={classes.main}>
-                <Toolbar />
+                <Toolbar variant="dense" />
                 {selectedGenInfo ?
                     <Generation
                         info={selectedGenInfo}

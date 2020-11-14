@@ -46,7 +46,7 @@ export default function App() {
       <MuiPickersUtilsProvider utils={DateFnsUtils}>
         <Router>
           <AppBar className={classes.appBar}>
-            <Toolbar>
+            <Toolbar variant="dense">
               <Link component={RouterLink} to="/backtest" className={classes.appBarItem}>
                 <Typography color="textPrimary" variant="h6">Backtest</Typography>
               </Link>
