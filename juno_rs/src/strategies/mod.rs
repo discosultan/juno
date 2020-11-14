@@ -24,11 +24,11 @@ use crate::{
     Advice, Candle,
 };
 use rand::prelude::*;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::min;
 
 pub trait Strategy: Send + Sync {
-    type Params: Chromosome + Serialize;
+    type Params: Chromosome + DeserializeOwned + Serialize;
 
     fn new(params: &Self::Params) -> Self;
     fn maturity(&self) -> u32;

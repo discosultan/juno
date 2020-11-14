@@ -7,12 +7,16 @@
     "@material-ui/core": "^4.11.0",
     "@material-ui/pickers": "^3.2.10",
     "date-fns": "^2.16.1",
-    "lightweight-charts": "^3.1.5",
+    "lightweight-charts": "^3.2.0",
     "react": "^17.0.1",
     "react-dom": "^17.0.1",
+    "react-router-dom": "^5.2.0",
     "react-scripts": "4.0.0",
     "use-local-storage-state": "^6.0.0",
     "use-resize-observer": "^7.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^2.1.2"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -22,6 +26,11 @@
   },
   "eslintConfig": {
     "extends": "react-app"
+  },
+  "prettier": {
+    "singleQuote": true,
+    "trailingComma": "all",
+    "printWidth": 100
   },
   "browserslist": {
     "production": [
