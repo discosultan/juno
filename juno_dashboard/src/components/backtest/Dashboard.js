@@ -10,7 +10,7 @@ export default function Dashboard() {
 
   async function backtest(args) {
     const [result, symbolCandles] = await Promise.all([
-      fetchJson('POST', '/backtest', args),
+      fetchJson('POST', `/backtest/${args.strategy}`, args),
       fetchJson('POST', '/candles', {
         exchange: args.exchange,
         interval: args.interval,
@@ -22,8 +22,8 @@ export default function Dashboard() {
 
     setTradingResult({
       args: {
-        trainingSymbols: [],
-        validationSymbols: args.symbols,
+        trainingSymbols: args.symbols,
+        validationSymbols: [],
       },
       config: {
         trader: args.traderParams,

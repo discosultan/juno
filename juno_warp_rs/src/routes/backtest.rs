@@ -1,23 +1,22 @@
+use super::custom_reject;
 use anyhow::Result;
+use bytes::buf::Buf;
 use juno_rs::{
     chandler::fill_missing_candles,
-    genetics::{
-        crossover, mutation, reinsertion, selection, Chromosome, GeneticAlgorithm, Individual,
-    },
     prelude::*,
     statistics::TradingStats,
     storages,
     strategies::*,
-    trading::{self, TradingChromosome, TradingSummary},
+    trading::{self, TraderParams, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use warp::{Filter, Rejection};
+use warp::{hyper::body::Bytes, reply::Json, Filter, Rejection};
 
 #[derive(Debug, Deserialize)]
-struct Params {
-    strategy: String,
+struct Params<T: Signal> {
     exchange: String,
+    symbols: Vec<String>,
     #[serde(deserialize_with = "deserialize_interval")]
     interval: u64,
     #[serde(deserialize_with = "deserialize_timestamp")]
@@ -25,14 +24,12 @@ struct Params {
     #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
-    symbols: Vec<String>,
-    strategy_params: String,
+    strategy_params: T::Params,
+    trader_params: TraderParams,
 }
 
 #[derive(Serialize)]
-struct Generation<T: Chromosome> {
-    nr: usize,
-    ind: Individual<TradingChromosome<T>>,
+struct TradingResult {
     symbol_summaries: HashMap<String, TradingSummary>,
     symbol_stats: HashMap<String, TradingStats>,
 }
@@ -40,54 +37,56 @@ struct Generation<T: Chromosome> {
 pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path("backtest"))
-        .and(warp::body::json())
-        .map(|args: Params| {
-            match args.strategy.as_ref() {
-                "fourweekrule" => process::<FourWeekRule>(args),
-                "triplema" => process::<TripleMA>(args),
-                "doublema" => process::<DoubleMA>(args),
-                "singlema" => process::<SingleMA>(args),
-                "sig<fourweekrule>" => process::<Sig<FourWeekRule>>(args),
-                "sig<triplema>" => process::<Sig<TripleMA>>(args),
-                "sigosc<triplema,rsi>" => process::<SigOsc<TripleMA, Rsi>>(args),
-                "sigosc<doublema,rsi>" => process::<SigOsc<DoubleMA, Rsi>>(args),
+        .and(warp::path::param())
+        .and(warp::body::bytes())
+        .and_then(|strategy: String, bytes: Bytes| async move {
+            match strategy.as_ref() {
+                "fourweekrule" => process::<FourWeekRule>(bytes),
+                "triplema" => process::<TripleMA>(bytes),
+                "doublema" => process::<DoubleMA>(bytes),
+                "singlema" => process::<SingleMA>(bytes),
+                "sig_fourweekrule" => process::<Sig<FourWeekRule>>(bytes),
+                "sig_triplema" => process::<Sig<TripleMA>>(bytes),
+                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>>(bytes),
+                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>>(bytes),
                 strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
             }
+            .map_err(|error| custom_reject(error))
         })
 }
 
-fn process<T: Signal>(args: Params) -> warp::reply::Json {
-    let strategyParams: T::Params = serde_json::from_str(&args.strategyParams).unwrap();
-    // let symbol_summaries = args.symbols
-    //     .iter()
-    //     .map(|symbol| {
-    //         let summary = backtest::<T>(&args, symbol, &strategyParams).unwrap();
-    //         (symbol.to_owned(), summary) // TODO: Return &String instead.
-    //     })
-    //     .collect::<HashMap<String, TradingSummary>>();
-    // let symbol_stats = symbol_summaries
-    //     .iter()
-    //     .map(|(symbol, summary)| {
-    //         let stats = get_stats(&args, symbol, summary).unwrap();
-    //         (symbol.to_owned(), stats) // TODO: Return &String instead.
-    //     })
-    //     .collect::<HashMap<String, TradingStats>>();
+fn process<T: Signal>(bytes: Bytes) -> Result<Json> {
+    let args: Params<T> = serde_json::from_reader(bytes.reader())?;
 
-    warp::reply::json(&1)
+    let symbol_summaries = args
+        .symbols
+        .iter()
+        .map(|symbol| {
+            let summary = backtest::<T>(&args, symbol).expect("backtest");
+            (symbol.to_owned(), summary) // TODO: Return &String instead.
+        })
+        .collect::<HashMap<String, TradingSummary>>();
+    let symbol_stats = symbol_summaries
+        .iter()
+        .map(|(symbol, summary)| {
+            let stats = get_stats(&args, symbol, summary).expect("get stats");
+            (symbol.to_owned(), stats) // TODO: Return &String instead.
+        })
+        .collect::<HashMap<String, TradingStats>>();
+
+    Ok(warp::reply::json(&TradingResult {
+        symbol_summaries,
+        symbol_stats,
+    }))
 }
 
-fn backtest<T: Signal>(
-    strategy_arams: &T::Params,
-    args: &Params,
-    symbol: &str,
-    chrom: &TradingChromosome<T::Params>,
-) -> Result<TradingSummary> {
+fn backtest<T: Signal>(args: &Params<T>, symbol: &str) -> Result<TradingSummary> {
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
     Ok(trading::trade::<T>(
-        &strategy_arams,
+        &args.strategy_params,
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
@@ -95,16 +94,20 @@ fn backtest<T: Signal>(
         2,
         args.interval,
         args.quote,
-        chrom.trader.missed_candle_policy,
-        chrom.trader.stop_loss,
-        chrom.trader.trail_stop_loss,
-        chrom.trader.take_profit,
+        args.trader_params.missed_candle_policy,
+        args.trader_params.stop_loss,
+        args.trader_params.trail_stop_loss,
+        args.trader_params.take_profit,
         true,
         true,
     ))
 }
 
-fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<TradingStats> {
+fn get_stats<T: Signal>(
+    args: &Params<T>,
+    symbol: &str,
+    summary: &TradingSummary,
+) -> Result<TradingStats> {
     let stats_interval = DAY_MS;
     let stats_candles =
         storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;

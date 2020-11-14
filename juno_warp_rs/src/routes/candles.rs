@@ -1,9 +1,9 @@
 use super::custom_reject;
 use anyhow::Result;
 use juno_rs::{chandler::fill_missing_candles, prelude::*, storages, Candle};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::collections::HashMap;
-use warp::{reject::Reject, reply::Json, Filter, Rejection};
+use warp::{reply::Json, Filter, Rejection};
 
 #[derive(Debug, Deserialize)]
 struct Params {
@@ -16,13 +16,6 @@ struct Params {
     end: u64,
     symbols: Vec<String>,
 }
-
-#[derive(Debug, Serialize)]
-struct MissingCandles {
-    message: String,
-}
-
-impl Reject for MissingCandles {}
 
 pub fn route() -> impl Filter<Extract = (Json,), Error = Rejection> + Clone {
     warp::post()
@@ -48,7 +41,7 @@ pub fn route() -> impl Filter<Extract = (Json,), Error = Rejection> + Clone {
 
             match symbol_candles_result {
                 Ok(symbol_candles) => Ok(warp::reply::json(&symbol_candles)),
-                Err(msg) => Err(custom_reject(msg)),
+                Err(error) => Err(custom_reject(error)),
             }
         })
 }

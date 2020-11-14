@@ -1,6 +1,5 @@
 mod routes;
 
-use crate::routes::CustomReject;
 use serde::Serialize;
 use std::{convert::Infallible, result::Result};
 use warp::{http::StatusCode, Filter, Rejection, Reply};
@@ -27,14 +26,13 @@ async fn main() {
 }
 
 async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
-    let message = err.find::<CustomReject>().unwrap();
+    let (status, message) = if err.is_not_found() {
+        (StatusCode::NOT_FOUND, "Not found".to_owned())
+    } else {
+        (StatusCode::INTERNAL_SERVER_ERROR, format!("{:?}", err))
+    };
 
-    let json = warp::reply::json(&ErrorResponse {
-        message: message.to_string(),
-    });
+    let json = warp::reply::json(&ErrorResponse { message: message });
 
-    Ok(warp::reply::with_status(
-        json,
-        StatusCode::INTERNAL_SERVER_ERROR,
-    ))
+    Ok(warp::reply::with_status(json, status))
 }

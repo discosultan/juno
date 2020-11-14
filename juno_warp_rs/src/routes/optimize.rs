@@ -1,3 +1,4 @@
+use super::custom_reject;
 use anyhow::Result;
 use juno_rs::{
     chandler::fill_missing_candles,
@@ -12,14 +13,14 @@ use juno_rs::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use warp::{Filter, Rejection};
+use warp::{reply::Json, Filter, Rejection};
 
 #[derive(Debug, Deserialize)]
 struct Params {
     population_size: usize,
     generations: usize,
 
-    strategy: String,
+    strategy: String, // TODO: Move to path param.
     exchange: String,
     #[serde(deserialize_with = "deserialize_interval")]
     interval: u64,
@@ -51,23 +52,24 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
     warp::post()
         .and(warp::path("optimize"))
         .and(warp::body::json())
-        .map(|args: Params| {
+        .and_then(|args: Params| async move {
             match args.strategy.as_ref() {
                 "fourweekrule" => process::<FourWeekRule>(args),
                 "triplema" => process::<TripleMA>(args),
                 "doublema" => process::<DoubleMA>(args),
                 "singlema" => process::<SingleMA>(args),
-                "sig<fourweekrule>" => process::<Sig<FourWeekRule>>(args),
-                "sig<triplema>" => process::<Sig<TripleMA>>(args),
-                "sigosc<triplema,rsi>" => process::<SigOsc<TripleMA, Rsi>>(args),
-                "sigosc<doublema,rsi>" => process::<SigOsc<DoubleMA, Rsi>>(args),
+                "sig_fourweekrule" => process::<Sig<FourWeekRule>>(args),
+                "sig_triplema" => process::<Sig<TripleMA>>(args),
+                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>>(args),
+                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>>(args),
                 strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
             }
+            .map_err(|error| custom_reject(error))
         })
 }
 
-fn process<T: Signal>(args: Params) -> warp::reply::Json {
-    let gens = optimize::<T>(&args).unwrap();
+fn process<T: Signal>(args: Params) -> Result<Json> {
+    let gens = optimize::<T>(&args)?;
     let mut last_fitness = f64::NAN;
     let gen_stats = gens
         .into_iter()
@@ -100,8 +102,7 @@ fn process<T: Signal>(args: Params) -> warp::reply::Json {
             }
         })
         .collect::<Vec<Generation<T::Params>>>();
-
-    warp::reply::json(&gen_stats)
+    Ok(warp::reply::json(&gen_stats))
 }
 
 fn optimize<T: Signal>(args: &Params) -> Result<Vec<Individual<TradingChromosome<T::Params>>>> {

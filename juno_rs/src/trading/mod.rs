@@ -56,10 +56,10 @@ impl<T: Chromosome> Chromosome for TradingChromosome<T> {
     }
 }
 
-#[derive(Chromosome, Clone, Debug, Serialize)]
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 pub struct TraderParams {
     #[serde(serialize_with = "serialize_missed_candle_policy")]
-    #[serde(deserialize_with = "deerialize_missed_candle_policy")]
+    #[serde(deserialize_with = "deserialize_missed_candle_policy")]
     pub missed_candle_policy: u32,
     pub stop_loss: f64,
     pub trail_stop_loss: bool,
@@ -343,8 +343,8 @@ fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::E
 where
     D: Deserializer<'de>,
 {
-    let representation: &str = Deserialize::deserialize(deserializer)?;
-    Ok(match representation {
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(match representation.as_ref() {
         "ignore" => MISSED_CANDLE_POLICY_IGNORE,
         "last" => MISSED_CANDLE_POLICY_LAST,
         "restart" => MISSED_CANDLE_POLICY_RESTART,
