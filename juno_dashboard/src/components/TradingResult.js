@@ -9,21 +9,17 @@ import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
 import Chart from './Chart';
 
-export default function Generation({ info, onClose }) {
-    const { args, gen, symbolCandles } = info;
-    const symbols = args.trainingSymbols.concat(args.validationSymbols);
-    const stats = Object.values(gen.symbolStats);
-
-    // TODO: Ensure args + gen + symbolsCandles refer to the same optimization run. Group them into
-    // an object perhaps.
+export default function TradingResult({ value, onClose }) {
+    const { args, config, symbolCandles, symbolStats, symbolSummaries, title } = value;
+    const stats = Object.values(symbolStats);
 
     return (
         <>
-            <Button onClick={onClose}>Back</Button>
+            {onClose && <Button onClick={onClose}>&lt; Back</Button>}
 
             <Paper>
                 <pre>
-                    {JSON.stringify(gen.ind.chromosome, null, 4)}
+                    {JSON.stringify(config, null, 4)}
                 </pre>
             </Paper>
 
@@ -31,7 +27,7 @@ export default function Generation({ info, onClose }) {
                 <Table size="small" aria-label="a dense table">
                     <TableHead>
                         <TableRow>
-                            <TableCell>gen {gen.nr}</TableCell>
+                            <TableCell>{title}</TableCell>
                             {args.trainingSymbols.map(symbol => (
                                 <TableCell key={symbol} align="right">{symbol}</TableCell>
                             ))}
@@ -44,9 +40,9 @@ export default function Generation({ info, onClose }) {
                     {stats.length && Object.keys(stats[0]).map(key => (
                         <TableRow key={key}>
                             <TableCell component="th" scope="row">{key}</TableCell>
-                            {symbols.map(symbol => (
+                            {args.trainingSymbols.concat(args.validationSymbols).map(symbol => (
                                 <TableCell key={symbol} align="right">
-                                    {gen.symbolStats[symbol][key]}
+                                    {symbolStats[symbol][key]}
                                 </TableCell>
                             ))}
                         </TableRow>
@@ -60,7 +56,7 @@ export default function Generation({ info, onClose }) {
                     key={symbol}
                     symbol={symbol}
                     candles={symbolCandles[symbol]}
-                    summary={gen.symbolSummaries[symbol]} />
+                    summary={symbolSummaries[symbol]} />
             ))}
 
             {args.validationSymbols.map(symbol => (
@@ -68,7 +64,7 @@ export default function Generation({ info, onClose }) {
                     key={symbol}
                     symbol={`${symbol} (v)`}
                     candles={symbolCandles[symbol]}
-                    summary={gen.symbolSummaries[symbol]} />
+                    summary={symbolSummaries[symbol]} />
             ))}
         </>
     );

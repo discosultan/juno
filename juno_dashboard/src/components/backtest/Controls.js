@@ -4,54 +4,26 @@ import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 import useLocalStorageStateImpl from 'use-local-storage-state';
-import DatePicker from './DatePicker';
-
-const Strategies = [
-    'fourweekrule',
-    'triplema',
-    'doublema',
-    'singlema',
-    'sig<fourweekrule>',
-    'sig<triplema>',
-    'sigosc<triplema,rsi>',
-    'sigosc<doublema,rsi>',
-];
-const Symbols = ['eth-btc', 'ltc-btc', 'xrp-btc', 'xmr-btc', 'ada-btc'];
-const Intervals = ['1m',
-    '5m',
-    '15m',
-    '30m',
-    '1h',
-    '2h',
-    '4h',
-    '6h',
-    '8h',
-    '12h',
-    '1d',
-];
+import DatePicker from '../DatePicker';
+import { Strategies, Symbols, Intervals } from '../info';
 
 function useLocalStorageState(key, defaultValue) {
-    return useLocalStorageStateImpl(`ControlPanel_${key}`, defaultValue);
+    return useLocalStorageStateImpl(`backtest_controls_${key}`, defaultValue);
 }
 
-export default function ControlPanel({ onOptimize }) {
+export default function ControlPanel({ onBacktest }) {
     const [strategy, setStrategy] = useLocalStorageState('strategy', 'fourweekrule');
     const [exchange, setExchange] = useLocalStorageState('exchange', 'binance');
-    const [trainingSymbols, setTrainingSymbols] = useLocalStorageState(
-        'trainingSymbols', ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc"]
-    );
-    const [validationSymbols, setValidationSymbols] = useLocalStorageState(
-        'validationSymbols', ['ada-btc']
+    const [symbols, setSymbols] = useLocalStorageState(
+        'symbols', ['eth-btc', 'ltc-btc', 'xrp-btc', 'xmr-btc', 'ada-btc']
     );
     const [interval, setInterval] = useLocalStorageState('interval', '1d');
     const [start, setStart] = useLocalStorageState('start', '2017-12-08');
     const [end, setEnd] = useLocalStorageState('end', '2020-09-30');
-    const [generations, setGenerations] = useLocalStorageState('generations', 32);
-    const [populationSize, setPopulationSize] = useLocalStorageState('populationSize', 32);
 
     return (
         <form noValidate autoComplete="off">
-            <Typography variant="h6" gutterBottom>Configure Optimization Args</Typography>
+            <Typography variant="h6" gutterBottom>Configure Backtest Args</Typography>
 
             <TextField
                 id="strategy"
@@ -78,29 +50,14 @@ export default function ControlPanel({ onOptimize }) {
             </TextField>
 
             <TextField
-                id="training-symbols"
-                label="Training Symbols"
+                id="symbols"
+                label="Symbols"
                 fullWidth
                 select
                 SelectProps={{
                     multiple: true,
-                    value: trainingSymbols,
-                    onChange: e => setTrainingSymbols(e.target.value),
-                }}
-            >
-                {Symbols.map(symbol =>
-                    <MenuItem key={symbol} value={symbol}>{symbol}</MenuItem>
-                )}
-            </TextField>
-            <TextField
-                id="validation-symbols"
-                label="Validation Symbols"
-                fullWidth
-                select
-                SelectProps={{
-                    multiple: true,
-                    value: validationSymbols,
-                    onChange: e => setValidationSymbols(e.target.value),
+                    value: symbols,
+                    onChange: e => setSymbols(e.target.value),
                 }}
             >
                 {Symbols.map(symbol =>
@@ -132,41 +89,19 @@ export default function ControlPanel({ onOptimize }) {
                 onChange={e => setEnd(e.target.value)}
             />
 
-            <TextField
-                id="generations"
-                fullWidth
-                label="Number Of Generations"
-                type="number"
-                inputProps={{ min: 0 }}
-                value={generations}
-                onChange={e => setGenerations(e.target.valueAsNumber)}
-            />
-            <TextField
-                id="population"
-                fullWidth
-                label="Population Size"
-                type="number"
-                inputProps={{ min: 2 }}
-                value={populationSize}
-                onChange={e => setPopulationSize(e.target.valueAsNumber)}
-            />
-
             <br />
             <br />
-            <Button fullWidth variant="contained" onClick={() => onOptimize({
+            <Button fullWidth variant="contained" onClick={() => onBacktest({
                 strategy,
                 exchange,
-                trainingSymbols,
-                validationSymbols,
+                symbols,
                 interval,
                 start,
                 end,
                 quote: 1.0,
-                populationSize,
-                generations,
             })}>
-                Optimize
-                </Button>
+                Backtest
+            </Button>
         </form>
     );
 }

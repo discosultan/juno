@@ -24,6 +24,11 @@
   "eslintConfig": {
     "extends": "react-app"
   },
+  "prettier": {
+    "singleQuote": true,
+    "trailingComma": "all",
+    "printWidth": 100
+  },
   "browserslist": {
     "production": [
       ">0.2%",
