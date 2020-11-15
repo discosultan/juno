@@ -95,6 +95,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
         position_count: int = 2
+        exchange_candle_timeout: Optional[Interval] = None
 
     @dataclass
     class State:
@@ -378,6 +379,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             start=symbol_state.current,
             end=config.end,
             fill_missing_with_last=True,
+            exchange_timeout=config.exchange_candle_timeout,
         ):
             # Perform empty ticks when missing initial candles.
             initial_missed = False

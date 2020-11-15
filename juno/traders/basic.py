@@ -40,6 +40,8 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
         close_on_exit: bool = True  # Whether to close open position on exit.
+        # Timeout in case no candle (including open) from exchange.
+        exchange_candle_timeout: Optional[Interval] = None
 
         @property
         def base_asset(self) -> str:
@@ -177,6 +179,7 @@ class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                     interval=config.interval,
                     start=state.current,
                     end=config.end,
+                    exchange_timeout=config.exchange_candle_timeout,
                 ):
                     # Check if we have missed a candle.
                     if (

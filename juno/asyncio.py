@@ -27,6 +27,17 @@ async def resolved_stream(*results: T) -> AsyncIterable[T]:
         yield result
 
 
+async def stream_with_timeout(
+    async_iter: AsyncIterable[T], timeout: Optional[float]
+) -> AsyncIterable[T]:
+    iterator = async_iter.__aiter__()
+    try:
+        while True:
+            yield await asyncio.wait_for(iterator.__anext__(), timeout=timeout)
+    except StopAsyncIteration:
+        pass
+
+
 async def repeat_async(value: T) -> AsyncIterable[T]:
     for val in itertools.repeat(value):
         yield val

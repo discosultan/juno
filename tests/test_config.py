@@ -121,6 +121,7 @@ def test_list_names() -> None:
         }],
         'dummy_bar': 'f',
         'dummy_bars': ['g'],
+        'bar_baz': 'h',  # Shouldn't be included.
     }
     expected_output = {'a', 'b', 'c', 'e', 'f', 'g'}
     output = config.list_names(input_, 'bar')

@@ -151,7 +151,7 @@ class Chandler(components.Chandler):
 
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False,
-        simulate_open_from_interval=None,
+        simulate_open_from_interval=None, exchange_timeout=None
     ):
         # TODO: Get rid of this!
         if candles := self.candles.get((exchange, symbol, interval)):

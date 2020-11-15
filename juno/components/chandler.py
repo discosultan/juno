@@ -11,7 +11,7 @@ from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tupl
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, ExchangeException
-from juno.asyncio import first_async, list_async
+from juno.asyncio import first_async, list_async, stream_with_timeout
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.math import ceil_multiple, floor_multiple
@@ -57,10 +57,11 @@ class Chandler:
         closed: bool = True,
         fill_missing_with_last: bool = False,
         simulate_open_from_interval: Optional[int] = None,
+        exchange_timeout: Optional[float] = None,
     ) -> List[Candle]:
         return await list_async(self.stream_candles(
             exchange, symbol, interval, start, end, closed, fill_missing_with_last,
-            simulate_open_from_interval
+            simulate_open_from_interval, exchange_timeout
         ))
 
     async def stream_candles(
@@ -73,10 +74,12 @@ class Chandler:
         closed: bool = True,
         fill_missing_with_last: bool = False,
         simulate_open_from_interval: Optional[int] = None,
+        exchange_timeout: Optional[float] = None,
     ) -> AsyncIterable[Candle]:
         if simulate_open_from_interval is None:
             async for candle in self._stream_candles(
-                exchange, symbol, interval, start, end, closed, fill_missing_with_last
+                exchange, symbol, interval, start, end, closed, fill_missing_with_last,
+                exchange_timeout
             ):
                 yield candle
         else:
@@ -86,10 +89,11 @@ class Chandler:
             assert fill_missing_with_last
 
             main_stream = self._stream_candles(
-                exchange, symbol, interval, start, end, True, True
+                exchange, symbol, interval, start, end, True, True, exchange_timeout
             ).__aiter__()
             side_stream = self._stream_candles(
-                exchange, symbol, simulate_open_from_interval, start, end, True, True
+                exchange, symbol, simulate_open_from_interval, start, end, True, True,
+                exchange_timeout
             ).__aiter__()
             side_current = start
             side_end = start + interval
@@ -136,9 +140,10 @@ class Chandler:
         symbol: str,
         interval: int,
         start: int,
-        end: int = MAX_TIME_MS,
-        closed: bool = True,
-        fill_missing_with_last: bool = False,
+        end: int,
+        closed: bool,
+        fill_missing_with_last: bool,
+        exchange_timeout: Optional[float],
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
         exist, streams them from an exchange and stores to local storage."""
@@ -179,7 +184,7 @@ class Chandler:
             else:
                 _log.info(f'missing {candle_msg} between {period_msg}')
                 stream = self._stream_and_store_exchange_candles(
-                    exchange, symbol, interval, span_start, span_end
+                    exchange, symbol, interval, span_start, span_end, exchange_timeout
                 )
             async for candle in stream:
                 if (
@@ -233,7 +238,8 @@ class Chandler:
             _log.warning(f'missed all {candle_msg} between {strfspan(start, end)}')
 
     async def _stream_and_store_exchange_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int
+        self, exchange: str, symbol: str, interval: int, start: int, end: int,
+        exchange_timeout: Optional[float]
     ) -> AsyncIterable[Candle]:
         shard = key(exchange, symbol, interval)
         # Note that we need to use a context manager based retrying because retry decorators do not
@@ -259,7 +265,8 @@ class Chandler:
                         interval=interval,
                         start=start,
                         end=end,
-                        current=current
+                        current=current,
+                        timeout=exchange_timeout,
                     ):
                         if candle.closed:
                             batch.append(candle)
@@ -301,7 +308,8 @@ class Chandler:
                     )
 
     async def _stream_exchange_candles(
-        self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int
+        self, exchange: str, symbol: str, interval: int, start: int, end: int, current: int,
+        timeout: Optional[float]
     ) -> AsyncIterable[Candle]:
         exchange_instance = self._exchanges[exchange]
         is_candle_interval_supported = interval in exchange_instance.list_candle_intervals()
@@ -316,7 +324,6 @@ class Chandler:
                     async for candle in exchange_instance.stream_historical_candles(
                         symbol, interval, start, historical_end
                     ):
-                        # TODO: check interval integrity
                         yield candle
                 else:
                     async for candle in self._stream_construct_candles(
@@ -352,7 +359,10 @@ class Chandler:
                     )
 
             last_candle_time = -1
-            async for candle in inner(stream):
+            async for candle in stream_with_timeout(
+                inner(stream),
+                timeout if timeout is None else timeout / 1000,
+            ):
                 if candle.time % interval != 0:
                     _log.warning(
                         f'candle with bad time {candle} for interval {strfinterval(interval)}; '

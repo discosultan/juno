@@ -52,17 +52,21 @@ def list_names(config: Dict[str, Any], name: str) -> Set[str]:
     for keys, v in recursive_iter(config):
         # Check for key value: `exchange: "binance"`.
         last_key = keys[-1]
-        if isinstance(last_key, str) and any(n == name for n in last_key.split('_')):
+        if isinstance(last_key, str) and _matches_name(last_key, name):
             result.add(v)
         # Check for key list: `exchanges: ["binance", "coinbase"]`
         elif len(keys) >= 2:
             second_to_last_key = keys[-2]
             if (
                 isinstance(second_to_last_key, str)
-                and any(n == name_plural for n in second_to_last_key.split('_'))
+                and _matches_name(second_to_last_key, name_plural)
             ):
                 result.add(v)
     return result
+
+
+def _matches_name(key: str, name: str) -> bool:
+    return key.split('_')[-1] == name
 
 
 def _ensure_list(existing: Optional[List[Any]], length: int) -> List[Any]:
