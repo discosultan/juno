@@ -100,12 +100,16 @@ where
         // crossover & mutation
         let start = time::Instant::now();
         for i in (0..offsprings.len()).step_by(2) {
-            let j = if i == offsprings.len() - 1 { 0 } else { i + 1 };
-
             // TODO: Ugly.
-            let (a, b) = offsprings.split_at_mut(j);
-            let chromosome1 = &mut a[a.len() - 1].chromosome;
-            let chromosome2 = &mut b[0].chromosome;
+            // If is last, we wrap around and take the first offspring to pair.
+            let is_last = i == offsprings.len() - 1;
+            let (chromosome1, chromosome2) = if is_last {
+                let (a, b) = offsprings.split_at_mut(i);
+                (&mut b[0].chromosome, &mut a[0].chromosome)
+            } else {
+                let (a, b) = offsprings.split_at_mut(i + 1);
+                (&mut a[a.len() - 1].chromosome, &mut b[0].chromosome)
+            };
             // TODO: Support using more than two parents.
             // let (mut child1, mut child2) = self.crossover.cross(
             //     rng,

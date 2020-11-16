@@ -35,10 +35,10 @@ pub struct Statistics {
 }
 
 pub fn analyse(
+    summary: &TradingSummary,
     base_prices: &[f64],
     quote_prices: Option<&[f64]>,
-    _benchmark_g_returns: &[f64],
-    summary: &TradingSummary,
+    // _benchmark_g_returns: &[f64],
     interval: u64,
 ) -> Statistics {
     let asset_performance = get_asset_performance(summary, base_prices, quote_prices, interval);
@@ -154,21 +154,32 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
     let annualized_return = 365.0 * mean(&g_returns);
 
     // Sharpe ratio.
-    let annualized_volatility = SQRT_365 * std_deviation(&g_returns);
-    let sharpe_ratio = if annualized_volatility != 0.0 {
-        annualized_return / annualized_volatility
-    } else {
+    let sharpe_ratio = if annualized_return.is_nan() || annualized_return == 0.0 {
         0.0
+    } else {
+        let annualized_volatility = SQRT_365 * std_deviation(&g_returns);
+        annualized_return / annualized_volatility
     };
 
     // Sortino ratio.
-    let neg_g_returns = g_returns
-        .iter()
-        .cloned()
-        .filter(|&v| v < 0.0)
-        .collect::<Vec<f64>>();
-    let annualized_downside_risk = SQRT_365 * std_deviation(&neg_g_returns);
-    let sortino_ratio = annualized_return / annualized_downside_risk;
+    let sortino_ratio = if annualized_return.is_nan() || annualized_return == 0.0 {
+        0.0
+    } else {
+        let neg_g_returns = g_returns
+            .iter()
+            .cloned()
+            .filter(|&v| v < 0.0)
+            .collect::<Vec<f64>>();
+        let annualized_downside_risk = SQRT_365 * std_deviation(&neg_g_returns);
+        // If there are no neg returns, sortino ratio becomes infinite. We will consider it to be
+        // 0.0 instead because that is usually a bad run anyway.
+        if annualized_downside_risk == 0.0 { 0.0 } else { annualized_return / annualized_downside_risk }
+    };
+
+    assert!(!sharpe_ratio.is_nan());
+    assert!(!sortino_ratio.is_nan());
+    assert!(sharpe_ratio.is_finite());
+    assert!(sortino_ratio.is_finite());
 
     Statistics {
         // a_returns,
@@ -292,6 +303,7 @@ pub struct TradingStats {
     pub num_positions_in_profit: u32,
     pub num_positions_in_loss: u32,
     pub sharpe_ratio: f64,
+    pub sortino_ratio: f64,
 }
 
 impl TradingStats {
@@ -353,7 +365,7 @@ impl TradingStats {
         let roi = profit / cost;
         let annualized_roi = annualized(duration, roi);
 
-        let sharpe_ratio = get_sharpe_ratio(&summary, &base_prices, None, stats_interval);
+        let stats = analyse(&summary, &base_prices, None, stats_interval);
 
         Self {
             start: summary.start,
@@ -372,7 +384,8 @@ impl TradingStats {
             num_positions: summary.positions.len() as u32,
             num_positions_in_profit,
             num_positions_in_loss,
-            sharpe_ratio,
+            sharpe_ratio: stats.sharpe_ratio,
+            sortino_ratio: stats.sortino_ratio,
         }
     }
 }

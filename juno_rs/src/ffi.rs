@@ -74,7 +74,7 @@ unsafe fn run_test<T: Signal>(
     let fees = &*trading_info.fees;
     let filters = &*trading_info.filters;
     let borrow_info = &*trading_info.borrow_info;
-    let trading_result = trade::<T>(
+    let trading_summary = trade::<T>(
         strategy_params,
         candles,
         fees,
@@ -101,16 +101,16 @@ unsafe fn run_test<T: Signal>(
         analysis_info.base_fiat_prices,
         analysis_info.base_fiat_prices_length as usize,
     );
-    let benchmark_g_returns = slice::from_raw_parts(
-        analysis_info.benchmark_g_returns,
-        analysis_info.benchmark_g_returns_length as usize,
-    );
+    // let benchmark_g_returns = slice::from_raw_parts(
+    //     analysis_info.benchmark_g_returns,
+    //     analysis_info.benchmark_g_returns_length as usize,
+    // );
 
     let stats = statistics::analyse(
+        &trading_summary,
         &base_fiat_prices,
         Some(&quote_fiat_prices),
-        benchmark_g_returns,
-        &trading_result,
+        // benchmark_g_returns,
         DAY_MS,
     );
 
@@ -118,13 +118,13 @@ unsafe fn run_test<T: Signal>(
     FitnessValues(
         stats.sharpe_ratio,
         // stats.sortino_ratio,
-        // trading_result.profit,
-        // trading_result.mean_drawdown,
-        // trading_result.max_drawdown,
-        // trading_result.mean_position_profit,
-        // trading_result.mean_position_duration,
-        // trading_result.num_positions_in_profit,
-        // trading_result.num_positions_in_loss,
+        // trading_summary.profit,
+        // trading_summary.mean_drawdown,
+        // trading_summary.max_drawdown,
+        // trading_summary.mean_position_profit,
+        // trading_summary.mean_position_duration,
+        // trading_summary.num_positions_in_profit,
+        // trading_summary.num_positions_in_loss,
     )
 }
 

@@ -290,7 +290,7 @@ fn backtest<T: Signal>(
         .map(|candle| candle.close)
         .collect();
 
-    // let stats = statistics::analyse(&base_prices, None, &[], &result, args.interval);
+    // let stats = statistics::analyse(&summary, &base_prices, None, &[], args.interval);
     // let sharpe = stats.sharpe_ratio;
 
     let stats = TradingStats::from_summary(&summary, &base_prices, stats_interval);
