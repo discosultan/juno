@@ -148,7 +148,7 @@ fn get_asset_performances_from_holdings(
         let entry = asset_performances.entry(*asset).or_insert(0.0);
         *entry = match asset {
             Asset::Base => asset_holdings[asset] * base_price,
-            Asset::Quote => asset_holdings[asset] * quote_price.unwrap_or(0.0),
+            Asset::Quote => asset_holdings[asset] * quote_price.unwrap_or(1.0),
         }
     }
     asset_performances

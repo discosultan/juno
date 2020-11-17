@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use juno_rs::{
-    fill_missing_candles,
+    chandler::fill_missing_candles,
     genetics::{crossover, mutation, reinsertion, selection, GeneticAlgorithm, Individual},
     prelude::*,
     statistics::TradingStats,

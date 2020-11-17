@@ -25,6 +25,15 @@ pub struct BasicEvaluation<T: Signal> {
     phantom: PhantomData<T>,
 }
 
+fn candles_to_prices(candles: &[Candle], multipliers: Option<&[f64]>) -> Vec<f64> {
+    let mut prices = Vec::with_capacity(candles.len() + 1);
+    prices.push(candles[0].open * multipliers.map_or(1.0, |m| m[0]));
+    for i in 1..candles.len() + 1 {
+        prices.push(candles[i].close);
+    }
+    prices
+}
+
 impl<T: Signal> BasicEvaluation<T> {
     pub fn new(
         exchange: &str,
@@ -46,14 +55,13 @@ impl<T: Signal> BasicEvaluation<T> {
                     storages::list_candles(exchange, &symbol, stats_interval, start, end).unwrap();
                 let stats_candles =
                     fill_missing_candles(stats_interval, start, end, &stats_candles).unwrap();
-                let stats_prices: Vec<f64> =
-                    stats_candles.iter().map(|candle| candle.close).collect();
+                let stats_base_prices = candles_to_prices(&stats_candles, None);
                 SymbolCtx {
                     candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
                     borrow_info: exchange_info.borrow_info[symbol][symbol.base_asset()],
-                    stats_base_prices: stats_prices,
+                    stats_base_prices,
                 }
             })
             .collect();
