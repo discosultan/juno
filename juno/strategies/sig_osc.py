@@ -1,15 +1,13 @@
-from typing import Any
-
 from juno import Advice, Candle
 
-from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
+from .strategy import MidTrend, MidTrendPolicy, Oscillator, Persistence, Signal
 
 
 # Generic signal + oscillator with additional persistence and mid trend filters.
 class SigOsc(Signal):
     _advice: Advice = Advice.NONE
-    _sig: Any
-    _osc: Any
+    _sig: Signal
+    _osc: Oscillator
     _mid_trend: MidTrend
     _persistence: Persistence
     _t: int = 0

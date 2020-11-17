@@ -112,17 +112,14 @@ fn get_stats<T: Signal>(
 
     // Stats base.
     let stats_candles =
-        storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)
-            .unwrap();
-    let stats_candles =
-        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles).unwrap();
+        storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;
+    let stats_candles = fill_missing_candles(stats_interval, args.start, args.end, &stats_candles)?;
 
     // Stats quote (optional).
     let stats_fiat_candles =
-        storages::list_candles("coinbase", "btc-eur", stats_interval, args.start, args.end)
-            .unwrap();
+        storages::list_candles("coinbase", "btc-eur", stats_interval, args.start, args.end)?;
     let stats_fiat_candles =
-        fill_missing_candles(stats_interval, args.start, args.end, &stats_fiat_candles).unwrap();
+        fill_missing_candles(stats_interval, args.start, args.end, &stats_fiat_candles)?;
 
     // let stats_quote_prices = None;
     let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));

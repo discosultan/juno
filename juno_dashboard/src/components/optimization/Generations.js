@@ -55,7 +55,7 @@ export default function Generations({ value, onSelect }) {
                 </TableCell>
                 {symbols.map((symbol) => (
                   <TableCell key={symbol} align="right">
-                    {gen.symbolStats[symbol].sharpeRatio}
+                    {gen.symbolStats[symbol].sortinoRatio}
                   </TableCell>
                 ))}
                 <TableCell align="right">{gen.ind.fitness}</TableCell>

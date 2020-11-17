@@ -118,7 +118,8 @@ impl<T: Signal> BasicEvaluation<T> {
             &ctx.stats_base_prices,
             ctx.stats_quote_prices.as_deref(),
             self.stats_interval,
-        ).sortino_ratio
+        )
+        .sortino_ratio
     }
 }
 
@@ -137,7 +138,7 @@ impl<T: Signal> Evaluation for BasicEvaluation<T> {
                     .symbol_ctxs
                     .iter()
                     .map(|ctx| self.evaluate_symbol(ctx, &ind.chromosome))
-                    .fold(0.0, sum_log)
+                    .fold(0.0, sum_log10_factored)
             });
     }
 }
@@ -145,10 +146,15 @@ impl<T: Signal> Evaluation for BasicEvaluation<T> {
 // fn sum_linear(acc: f64, val: f64) -> f64 {
 //     acc + val
 // }
-fn sum_log(acc: f64, val: f64) -> f64 {
-    acc + if val > 0.0 {
-        (val + 1.0).log10()
+fn sum_log10(acc: f64, val: f64) -> f64 {
+    const LOG_SHIFT_FACTOR: f64 = 1.0;
+    acc + if val >= 0.0 {
+        (val + LOG_SHIFT_FACTOR).log10()
     } else {
-        -(-val + 1.0).log10()
+        -(-val + LOG_SHIFT_FACTOR).log10()
     }
+}
+fn sum_log10_factored(acc: f64, val: f64) -> f64 {
+    const FACTOR: f64 = 10.0;
+    sum_log10(acc, val * FACTOR)
 }

@@ -122,8 +122,8 @@ fn optimize<T: Signal>(
     let population_size = 128;
     let generations = 128;
     let seed = Some(1);
-    let gens = algo.evolve(population_size, generations, seed);
-    Ok(gens)
+    let evolution = algo.evolve(population_size, generations, seed);
+    Ok(evolution.hall_of_fame)
 }
 
 fn print_individual<T: Signal>(

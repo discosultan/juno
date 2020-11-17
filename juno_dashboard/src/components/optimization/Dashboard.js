@@ -21,7 +21,7 @@ export default function Dashboard() {
   }
 
   async function optimize(args) {
-    const [gens, symbolCandles] = await Promise.all([
+    const [evolution, symbolCandles] = await Promise.all([
       fetchJson('POST', '/optimize', args),
       fetchJson('POST', '/candles', {
         exchange: args.exchange,
@@ -32,9 +32,12 @@ export default function Dashboard() {
       }),
     ]);
     const gensInfo = {
-      args,
+      args: {
+        ...args,
+        seed: evolution.seed,
+      },
       symbolCandles,
-      gens,
+      gens: evolution.generations,
     };
 
     const historyItem = {

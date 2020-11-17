@@ -42,3 +42,9 @@ impl<T: Chromosome> Individual<T> {
         ind2.fitness.partial_cmp(&ind1.fitness).unwrap()
     }
 }
+
+#[derive(Serialize)]
+pub struct Evolution<T: Chromosome> {
+    pub hall_of_fame: Vec<Individual<T>>,
+    pub seed: u64,
+}

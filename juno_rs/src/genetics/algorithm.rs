@@ -1,6 +1,6 @@
 use crate::genetics::{
     crossover::Crossover, mutation::Mutation, reinsertion::Reinsertion, selection::Selection,
-    Evaluation, Individual,
+    Evaluation, Evolution, Individual,
 };
 use rand::prelude::*;
 use std::time;
@@ -49,7 +49,7 @@ where
         population_size: usize,
         generations: usize,
         seed: Option<u64>,
-    ) -> Vec<Individual<TE::Chromosome>> {
+    ) -> Evolution<TE::Chromosome> {
         assert!(population_size >= 2);
 
         let seed = match seed {
@@ -60,13 +60,13 @@ where
 
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let mut gens = Vec::with_capacity(generations);
+        let mut hall_of_fame = Vec::with_capacity(generations);
 
         let mut parents = (0..population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
         self.evaluate_and_sort_by_fitness_desc(&mut parents);
-        gens.push(parents[0].clone());
+        hall_of_fame.push(parents[0].clone());
         println!("gen 0 best fitness {}", parents[0].fitness);
 
         let mut offsprings = Vec::with_capacity(population_size as usize);
@@ -77,11 +77,11 @@ where
             std::mem::swap(&mut parents, &mut offsprings);
             offsprings.clear();
 
-            gens.push(parents[0].clone());
+            hall_of_fame.push(parents[0].clone());
             println!("gen {} best fitness {}", i, parents[0].fitness);
         }
 
-        gens
+        Evolution { hall_of_fame, seed }
     }
 
     fn run_generation(

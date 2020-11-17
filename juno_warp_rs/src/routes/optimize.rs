@@ -3,7 +3,8 @@ use anyhow::Result;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::{
-        crossover, mutation, reinsertion, selection, Chromosome, GeneticAlgorithm, Individual,
+        crossover, mutation, reinsertion, selection, Chromosome, Evolution, GeneticAlgorithm,
+        Individual,
     },
     prelude::*,
     statistics::TradingStats,
@@ -49,6 +50,12 @@ struct Generation<T: Chromosome> {
     symbol_stats: HashMap<String, TradingStats>,
 }
 
+#[derive(Serialize)]
+struct EvolutionStats<T: Chromosome> {
+    generations: Vec<Generation<T>>,
+    seed: u64,
+}
+
 pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path("optimize"))
@@ -70,9 +77,10 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
 }
 
 fn process<T: Signal>(args: Params) -> Result<Json> {
-    let gens = optimize::<T>(&args)?;
+    let evolution = optimize::<T>(&args)?;
     let mut last_fitness = f64::NAN;
-    let gen_stats = gens
+    let gen_stats = evolution
+        .hall_of_fame
         .into_iter()
         .enumerate()
         .filter(|(_, ind)| {
@@ -103,10 +111,13 @@ fn process<T: Signal>(args: Params) -> Result<Json> {
             }
         })
         .collect::<Vec<Generation<T::Params>>>();
-    Ok(warp::reply::json(&gen_stats))
+    Ok(warp::reply::json(&EvolutionStats {
+        generations: gen_stats,
+        seed: evolution.seed,
+    }))
 }
 
-fn optimize<T: Signal>(args: &Params) -> Result<Vec<Individual<TradingChromosome<T::Params>>>> {
+fn optimize<T: Signal>(args: &Params) -> Result<Evolution<TradingChromosome<T::Params>>> {
     let algo = GeneticAlgorithm::new(
         trading::BasicEvaluation::<T>::new(
             &args.exchange,
@@ -125,8 +136,8 @@ fn optimize<T: Signal>(args: &Params) -> Result<Vec<Individual<TradingChromosome
         // reinsertion::EliteReinsertion::default(),
         reinsertion::EliteReinsertion::new(0.75),
     );
-    let gens = algo.evolve(args.population_size, args.generations, args.seed);
-    Ok(gens)
+    let evolution = algo.evolve(args.population_size, args.generations, args.seed);
+    Ok(evolution)
 }
 
 fn backtest<T: Signal>(
@@ -161,17 +172,14 @@ fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Tr
 
     // Stats base.
     let stats_candles =
-        storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)
-            .unwrap();
-    let stats_candles =
-        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles).unwrap();
+        storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;
+    let stats_candles = fill_missing_candles(stats_interval, args.start, args.end, &stats_candles)?;
 
     // Stats quote (optional).
     let stats_fiat_candles =
-        storages::list_candles("coinbase", "btc-eur", stats_interval, args.start, args.end)
-            .unwrap();
+        storages::list_candles("coinbase", "btc-eur", stats_interval, args.start, args.end)?;
     let stats_fiat_candles =
-        fill_missing_candles(stats_interval, args.start, args.end, &stats_fiat_candles).unwrap();
+        fill_missing_candles(stats_interval, args.start, args.end, &stats_fiat_candles)?;
 
     // let stats_quote_prices = None;
     let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));

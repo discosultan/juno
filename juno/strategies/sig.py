@@ -1,5 +1,3 @@
-from typing import Any
-
 from juno import Advice, Candle
 
 from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
@@ -8,7 +6,7 @@ from .strategy import MidTrend, MidTrendPolicy, Persistence, Signal
 # Generic signal with additional persistence and mid trend filters.
 class Sig(Signal):
     _advice: Advice = Advice.NONE
-    _sig: Any
+    _sig: Signal
     _mid_trend: MidTrend
     _persistence: Persistence
     _t: int = 0
