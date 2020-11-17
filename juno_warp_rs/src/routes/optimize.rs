@@ -19,6 +19,7 @@ use warp::{reply::Json, Filter, Rejection};
 struct Params {
     population_size: usize,
     generations: usize,
+    seed: Option<u64>,
 
     strategy: String, // TODO: Move to path param.
     exchange: String,
@@ -124,8 +125,7 @@ fn optimize<T: Signal>(args: &Params) -> Result<Vec<Individual<TradingChromosome
         // reinsertion::EliteReinsertion::default(),
         reinsertion::EliteReinsertion::new(0.75),
     );
-    let seed = Some(1);
-    let gens = algo.evolve(args.population_size, args.generations, seed);
+    let gens = algo.evolve(args.population_size, args.generations, args.seed);
     Ok(gens)
 }
 

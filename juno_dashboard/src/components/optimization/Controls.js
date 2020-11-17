@@ -1,4 +1,6 @@
 import React from 'react';
+import Checkbox from '@material-ui/core/Checkbox';
+import FormControlLabel from '@material-ui/core/FormControlLabel';
 import MenuItem from '@material-ui/core/MenuItem';
 import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
@@ -28,6 +30,8 @@ export default function Controls({ onOptimize }) {
   const [end, setEnd] = useLocalStorageState('end', '2020-11-01');
   const [generations, setGenerations] = useLocalStorageState('generations', 32);
   const [populationSize, setPopulationSize] = useLocalStorageState('populationSize', 32);
+  const [randomizeSeed, setRandomizeSeed] = useLocalStorageState('randomizeSeed', true);
+  const [seed, setSeed] = useLocalStorageState('seed', 0);
 
   return (
     <form noValidate autoComplete="off">
@@ -133,6 +137,28 @@ export default function Controls({ onOptimize }) {
         onChange={(e) => setPopulationSize(e.target.valueAsNumber)}
       />
 
+      <FormControlLabel
+        control={
+          <Checkbox
+            checked={randomizeSeed}
+            onChange={(e) => setRandomizeSeed(e.target.checked)}
+            name="randomizeSeed"
+            color="primary"
+          />
+        }
+        label="Randomize Seed"
+      />
+      <TextField
+        id="seed"
+        disabled={randomizeSeed}
+        fullWidth
+        label="Seed"
+        type="number"
+        inputProps={{ min: 0 }}
+        value={seed}
+        onChange={(e) => setSeed(e.target.valueAsNumber)}
+      />
+
       <br />
       <br />
       <Button
@@ -150,6 +176,7 @@ export default function Controls({ onOptimize }) {
             quote: 1.0,
             populationSize,
             generations,
+            seed: randomizeSeed ? null : seed,
           })
         }
       >
