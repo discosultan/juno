@@ -2,7 +2,7 @@ use super::custom_reject;
 use anyhow::Result;
 use bytes::buf::Buf;
 use juno_rs::{
-    chandler::fill_missing_candles,
+    chandler::{candles_to_prices, fill_missing_candles},
     prelude::*,
     statistics::TradingStats,
     storages,
@@ -109,16 +109,31 @@ fn get_stats<T: Signal>(
     summary: &TradingSummary,
 ) -> Result<TradingStats> {
     let stats_interval = DAY_MS;
-    let stats_candles =
-        storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;
-    let candles_missing_filled =
-        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles)?;
-    let base_prices: Vec<f64> = candles_missing_filled
-        .iter()
-        .map(|candle| candle.close)
-        .collect();
 
-    let stats = TradingStats::from_summary(&summary, &base_prices, stats_interval);
+    // Stats base.
+    let stats_candles =
+        storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)
+            .unwrap();
+    let stats_candles =
+        fill_missing_candles(stats_interval, args.start, args.end, &stats_candles).unwrap();
+
+    // Stats quote (optional).
+    let stats_fiat_candles =
+        storages::list_candles("coinbase", "btc-eur", stats_interval, args.start, args.end)
+            .unwrap();
+    let stats_fiat_candles =
+        fill_missing_candles(stats_interval, args.start, args.end, &stats_fiat_candles).unwrap();
+
+    // let stats_quote_prices = None;
+    let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));
+    let stats_base_prices = candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
+
+    let stats = TradingStats::from_summary(
+        &summary,
+        &stats_base_prices,
+        stats_quote_prices.as_deref(),
+        stats_interval,
+    );
 
     Ok(stats)
 }

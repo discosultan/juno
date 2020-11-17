@@ -1,4 +1,7 @@
-use super::{deserialize_mid_trend_policy, serialize_mid_trend_policy, Oscillator, Signal, StdRngExt, Strategy};
+use super::{
+    deserialize_mid_trend_policy, serialize_mid_trend_policy, Oscillator, Signal, StdRngExt,
+    Strategy,
+};
 use crate::{
     genetics::Chromosome,
     strategies::{combine, MidTrend, Persistence},

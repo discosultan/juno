@@ -1,6 +1,6 @@
 use super::TradingChromosome;
 use crate::{
-    chandler::fill_missing_candles,
+    chandler::{candles_to_prices, fill_missing_candles},
     genetics::{Evaluation, Individual},
     statistics, storages,
     strategies::Signal,
@@ -15,6 +15,7 @@ struct SymbolCtx {
     filters: Filters,
     borrow_info: BorrowInfo,
     stats_base_prices: Vec<f64>,
+    stats_quote_prices: Option<Vec<f64>>,
 }
 
 pub struct BasicEvaluation<T: Signal> {
@@ -23,15 +24,6 @@ pub struct BasicEvaluation<T: Signal> {
     quote: f64,
     stats_interval: u64,
     phantom: PhantomData<T>,
-}
-
-fn candles_to_prices(candles: &[Candle], multipliers: Option<&[f64]>) -> Vec<f64> {
-    let mut prices = Vec::with_capacity(candles.len() + 1);
-    prices.push(candles[0].open * multipliers.map_or(1.0, |m| m[0]));
-    for i in 1..candles.len() + 1 {
-        prices.push(candles[i].close);
-    }
-    prices
 }
 
 impl<T: Signal> BasicEvaluation<T> {
@@ -51,17 +43,33 @@ impl<T: Signal> BasicEvaluation<T> {
                 let candles =
                     storages::list_candles(exchange, &symbol, interval, start, end).unwrap();
                 // TODO: Do listing and filling of missing candles in one go?
+
+                // Stats base.
                 let stats_candles =
                     storages::list_candles(exchange, &symbol, stats_interval, start, end).unwrap();
                 let stats_candles =
                     fill_missing_candles(stats_interval, start, end, &stats_candles).unwrap();
-                let stats_base_prices = candles_to_prices(&stats_candles, None);
+
+                // Stats quote (optional).
+                let stats_fiat_candles =
+                    storages::list_candles("coinbase", "btc-eur", stats_interval, start, end)
+                        .unwrap();
+                let stats_fiat_candles =
+                    fill_missing_candles(stats_interval, start, end, &stats_fiat_candles).unwrap();
+
+                // let stats_quote_prices = None;
+                let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));
+                let stats_base_prices =
+                    candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
+
+                // Store context variables.
                 SymbolCtx {
                     candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
                     borrow_info: exchange_info.borrow_info[symbol][symbol.base_asset()],
                     stats_base_prices,
+                    stats_quote_prices,
                 }
             })
             .collect();
@@ -99,13 +107,18 @@ impl<T: Signal> BasicEvaluation<T> {
             true,
             true,
         );
-        statistics::get_sharpe_ratio(
+        // statistics::get_sharpe_ratio(
+        //     &summary,
+        //     &ctx.stats_base_prices,
+        //     ctx.stats_quote_prices.as_deref(),
+        //     self.stats_interval,
+        // )
+        statistics::analyse(
             &summary,
             &ctx.stats_base_prices,
-            None,
+            ctx.stats_quote_prices.as_deref(),
             self.stats_interval,
-        )
-        // statistics::analyse(&summary, &ctx.stats_base_prices, None, self.stats_interval).sortino_ratio
+        ).sortino_ratio
     }
 }
 

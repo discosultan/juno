@@ -114,7 +114,9 @@ fn get_asset_performance(
     let mut period_asset_performances = Vec::with_capacity(length + 1);
 
     period_asset_performances.push(get_asset_performances_from_holdings(
-        &asset_holdings, base_prices[0], quote_prices.map(|p| p[0])
+        &asset_holdings,
+        base_prices[0],
+        quote_prices.map(|p| p[0]),
     ));
 
     for i in 0..length {
@@ -130,7 +132,9 @@ fn get_asset_performance(
         // Update asset performance (mark-to-market portfolio).
         let price_i = i + 1; // Offset the open price.
         period_asset_performances.push(get_asset_performances_from_holdings(
-            &asset_holdings, base_prices[price_i], quote_prices.map(|p| p[price_i])
+            &asset_holdings,
+            base_prices[price_i],
+            quote_prices.map(|p| p[price_i]),
         ));
     }
 
@@ -186,7 +190,11 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         let annualized_downside_risk = SQRT_365 * std_deviation(&neg_g_returns);
         // If there are no neg returns, sortino ratio becomes infinite. We will consider it to be
         // 0.0 instead because that is usually a bad run anyway.
-        if annualized_downside_risk == 0.0 { 0.0 } else { annualized_return / annualized_downside_risk }
+        if annualized_downside_risk == 0.0 {
+            0.0
+        } else {
+            annualized_return / annualized_downside_risk
+        }
     };
 
     assert!(sharpe_ratio.is_finite());
@@ -324,6 +332,7 @@ impl TradingStats {
     pub fn from_summary(
         summary: &TradingSummary,
         base_prices: &[f64],
+        quote_prices: Option<&[f64]>,
         stats_interval: u64,
     ) -> Self {
         let mut quote = summary.quote;
@@ -379,7 +388,7 @@ impl TradingStats {
         let roi = profit / cost;
         let annualized_roi = annualized(duration, roi);
 
-        let stats = analyse(&summary, &base_prices, None, stats_interval);
+        let stats = analyse(&summary, &base_prices, quote_prices, stats_interval);
 
         Self {
             start: summary.start,

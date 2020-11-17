@@ -293,7 +293,7 @@ fn backtest<T: Signal>(
     // let stats = statistics::analyse(&summary, &base_prices, None, &[], args.interval);
     // let sharpe = stats.sharpe_ratio;
 
-    let stats = TradingStats::from_summary(&summary, &base_prices, stats_interval);
+    let stats = TradingStats::from_summary(&summary, &base_prices, None, stats_interval);
 
     Ok(stats)
 }

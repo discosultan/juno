@@ -57,6 +57,7 @@ export default function Chart({ symbol, candles, summary }) {
       },
       leftPriceScale: {
         visible: true,
+        mode: PriceScaleMode.Logarithmic,
       },
       rightPriceScale: {
         visible: true,
