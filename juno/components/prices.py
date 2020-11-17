@@ -2,7 +2,7 @@ import asyncio
 from decimal import Decimal
 from typing import Dict, Iterable, List, Optional
 
-from juno.asyncio import repeat_async, resolved_stream, zip_async
+from juno.asyncio import enumerate_async
 from juno.components import Chandler
 from juno.math import floor_multiple
 from juno.time import DAY_MS, strftimestamp
@@ -13,6 +13,8 @@ class Prices:
     def __init__(self, chandler: Chandler) -> None:
         self._chandler = chandler
 
+    # In the returned prices, the first price is always the opening price of the first candle.
+    # When matching with end of period results, don't forget to offset price index by one.
     async def map_asset_prices(
         self,
         exchange: str,
@@ -45,11 +47,16 @@ class Prices:
         # Gather prices.
         async def assign(symbol: str) -> None:
             assert fiat_exchange
-            q, _ = unpack_symbol(symbol)
-            assert q not in result
-            result[q] = [c.close async for c in self._chandler.stream_candles(
+            quote_asset, _fiat_asset = unpack_symbol(symbol)
+            assert quote_asset not in result
+            quote_prices: List[Decimal] = []
+            async for candle in self._chandler.stream_candles(
                 fiat_exchange, symbol, interval, start, end, fill_missing_with_last=True
-            )]
+            ):
+                if len(quote_prices) == 0:
+                    quote_prices.append(candle.open)
+                quote_prices.append(candle.close)
+            result[quote_asset] = quote_prices
         await asyncio.gather(*(assign(s) for s in quote_fiat_symbols))
 
         # Base -> fiat.
@@ -62,20 +69,26 @@ class Prices:
 
         # Gather prices.
         async def assign_with_prices(symbol: str) -> None:
-            b, q = unpack_symbol(symbol)
-            assert b not in result
-            result[b] = [c.close * p async for c, p in zip_async(
-                self._chandler.stream_candles(
-                    exchange, symbol, interval, start, end, fill_missing_with_last=True
-                ),
-                resolved_stream(*(result[q]))
-                if q != fiat_asset else repeat_async(Decimal('1.0')),
-            )]
+            base_asset, quote_asset = unpack_symbol(symbol)
+            assert base_asset not in result
+            base_prices: List[Decimal] = []
+            quote_prices = result[quote_asset]
+            async for price_i, candle in enumerate_async(self._chandler.stream_candles(
+                exchange, symbol, interval, start, end, fill_missing_with_last=True
+            ), 1):
+                if len(base_prices) == 0:
+                    base_prices.append(
+                        candle.open * (quote_prices[0] if quote_asset != fiat_asset else Decimal('1.0'))
+                    )
+                base_prices.append(
+                    candle.close * (quote_prices[price_i] if quote_asset != fiat_asset else Decimal('1.0'))
+                )
+            result[base_asset] = base_prices
         await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))
 
         # Add fiat currency itself to prices if it's specified as a quote of any symbol.
         if fiat_asset in (q for _, q in map(unpack_symbol, symbols)):
-            result[fiat_asset] = [Decimal('1.0')] * ((end - start) // interval)
+            result[fiat_asset] = [Decimal('1.0')] * (((end - start) // interval) + 1)
 
         # # Validate we have enough data points.
         # num_points = (end - start) // interval

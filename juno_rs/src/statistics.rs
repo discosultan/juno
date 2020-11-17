@@ -101,7 +101,7 @@ fn get_asset_performance(
     quote_prices: Option<&[f64]>,
     interval: u64,
 ) -> Vec<HashMap<Asset, f64>> {
-    let period_deltas = map_period_deltas_from_summary(summary, interval);
+    let summary_period_deltas = map_period_deltas_from_summary(summary, interval);
 
     let start = floor_multiple(summary.start, interval);
     let end = floor_multiple(summary.end, interval);
@@ -111,12 +111,16 @@ fn get_asset_performance(
     asset_holdings.insert(Asset::Base, 0.0);
     asset_holdings.insert(Asset::Quote, summary.quote);
 
-    let mut period_asset_performances = Vec::with_capacity(length);
+    let mut period_asset_performances = Vec::with_capacity(length + 1);
+
+    period_asset_performances.push(get_asset_performances_from_holdings(
+        &asset_holdings, base_prices[0], quote_prices.map(|p| p[0])
+    ));
 
     for i in 0..length {
         let time = start + i as u64 * interval;
         // Update holdings.
-        let deltas = period_deltas.get(&time);
+        let deltas = summary_period_deltas.get(&time);
         if let Some(deltas) = deltas {
             for (asset, size) in deltas {
                 *asset_holdings.entry(*asset).or_insert(0.0) += size;
@@ -124,21 +128,30 @@ fn get_asset_performance(
         }
 
         // Update asset performance (mark-to-market portfolio).
-        let mut asset_performances = HashMap::new();
-        for asset in [Asset::Base, Asset::Quote].iter() {
-            let entry = asset_performances.entry(*asset).or_insert(0.0);
-            *entry = match asset {
-                Asset::Base => asset_holdings[asset] * base_prices[i],
-                Asset::Quote => match quote_prices {
-                    Some(prices) => asset_holdings[asset] * prices[i],
-                    None => asset_holdings[asset],
-                },
-            }
-        }
-        period_asset_performances.push(asset_performances);
+        let price_i = i + 1; // Offset the open price.
+        period_asset_performances.push(get_asset_performances_from_holdings(
+            &asset_holdings, base_prices[price_i], quote_prices.map(|p| p[price_i])
+        ));
     }
 
     period_asset_performances
+}
+
+fn get_asset_performances_from_holdings(
+    asset_holdings: &HashMap<Asset, f64>,
+    base_price: f64,
+    quote_price: Option<f64>,
+) -> HashMap<Asset, f64> {
+    // Update asset performance (mark-to-market portfolio).
+    let mut asset_performances = HashMap::new();
+    for asset in [Asset::Base, Asset::Quote].iter() {
+        let entry = asset_performances.entry(*asset).or_insert(0.0);
+        *entry = match asset {
+            Asset::Base => asset_holdings[asset] * base_price,
+            Asset::Quote => asset_holdings[asset] * quote_price.unwrap_or(0.0),
+        }
+    }
+    asset_performances
 }
 
 fn calculate_statistics(performance: &[f64]) -> Statistics {
@@ -176,8 +189,6 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
         if annualized_downside_risk == 0.0 { 0.0 } else { annualized_return / annualized_downside_risk }
     };
 
-    assert!(!sharpe_ratio.is_nan());
-    assert!(!sortino_ratio.is_nan());
     assert!(sharpe_ratio.is_finite());
     assert!(sortino_ratio.is_finite());
 
@@ -212,6 +223,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
 
 pub fn get_sharpe_ratio(
     summary: &TradingSummary,
+    // Prices have one extra price in the beginning which is the opening price of the first candle.
     base_prices: &[f64],
     quote_prices: Option<&[f64]>,
     interval: u64,
@@ -226,7 +238,7 @@ pub fn get_sharpe_ratio(
     let mut quote_holding = summary.quote;
 
     let mut prev_performance = match quote_prices {
-        Some(quote_prices) => quote_holding * quote_prices[0], // TODO: Use candle open price here?
+        Some(quote_prices) => quote_holding * quote_prices[0], // 0 is open price.
         None => quote_holding,
     };
 
@@ -243,9 +255,10 @@ pub fn get_sharpe_ratio(
                 }
             }
         }
-        let performance = base_holding * base_prices[i]
+        let price_i = i + 1; // Offset the open price.
+        let performance = base_holding * base_prices[price_i]
             + match quote_prices {
-                Some(quote_prices) => quote_holding * quote_prices[i],
+                Some(quote_prices) => quote_holding * quote_prices[price_i],
                 None => quote_holding,
             };
 
@@ -277,6 +290,7 @@ pub fn get_sharpe_ratio(
         annualized_return / annualized_volatility
     };
 
+    debug_assert!(sharpe_ratio.is_finite());
     sharpe_ratio
 }
 

@@ -103,10 +103,14 @@ def _get_asset_performance(
     asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
     asset_holdings[summary.quote_asset] = summary.quote
 
-    asset_performance: List[Dict[str, Decimal]] = []
+    asset_performances: List[Dict[str, Decimal]] = []
 
-    i = 0
-    for time_day in range(start_day, end_day, interval):
+    asset_performances.append(
+        _get_asset_performances_from_holdings(asset_holdings, asset_prices, 0)
+    )
+
+    # Offset the open price, hence enumrate starting from 1.
+    for price_i, time_day in enumerate(range(start_day, end_day, interval), 1):
         # Update holdings.
         day_trades = trades.get(time_day)
         if day_trades:
@@ -114,13 +118,19 @@ def _get_asset_performance(
                 asset_holdings[asset] = asset_holdings[asset] + size
 
         # Update asset performance (mark-to-market portfolio).
-        asset_performance_day = {k: Decimal('0.0') for k in asset_prices.keys()}
-        for asset, prices in asset_prices.items():
-            asset_performance_day[asset] = asset_holdings[asset] * prices[i]
+        asset_performances.append(
+            _get_asset_performances_from_holdings(asset_holdings, asset_prices, price_i)
+        )
 
-        asset_performance.append(asset_performance_day)
-        i += 1
+    return asset_performances
 
+
+def _get_asset_performances_from_holdings(
+    asset_holdings: Dict[str, Decimal], asset_prices: Dict[str, List[Decimal]], price_i: int
+) -> Dict[str, Decimal]:
+    asset_performance = {k: Decimal('0.0') for k in asset_prices.keys()}
+    for asset, prices in asset_prices.items():
+        asset_performance[asset] = asset_holdings[asset] * prices[price_i]
     return asset_performance
 
 

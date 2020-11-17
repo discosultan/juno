@@ -30,8 +30,11 @@ async def test_solver_works_with_default_fees_filters(loop, solver_type) -> None
         List[Candle]
     )
     fiat_prices = {
-        'btc': [c.close for c in statistics_fiat_candles],
-        'eth': [c1.close * c2.close for c1, c2 in zip(statistics_candles, statistics_fiat_candles)]
+        'btc': [statistics_fiat_candles[0].open] + [c.close for c in statistics_fiat_candles],
+        'eth': (
+            [statistics_candles[0].open * statistics_fiat_candles[0].open]
+            + [c1.close * c2.close for c1, c2 in zip(statistics_candles, statistics_fiat_candles)]
+        ),
     }
     benchmark_stats = analyse_benchmark(fiat_prices['btc'])
     strategy_args = (28, 'ema', 14)

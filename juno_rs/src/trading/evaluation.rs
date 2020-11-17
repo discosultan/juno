@@ -91,15 +91,13 @@ impl<T: Signal> BasicEvaluation<T> {
             true,
             true,
         );
-        let sharpe_ratio = statistics::get_sharpe_ratio(
+        statistics::get_sharpe_ratio(
             &summary,
             &ctx.stats_base_prices,
             None,
             self.stats_interval,
-        );
-        // TODO: get rid of this as well
-        assert!(!sharpe_ratio.is_nan());
-        sharpe_ratio
+        )
+        // statistics::analyse(&summary, &ctx.stats_base_prices, None, self.stats_interval).sortino_ratio
     }
 }
 
