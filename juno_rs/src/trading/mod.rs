@@ -175,6 +175,13 @@ impl TakeProfit {
 }
 
 #[derive(Debug, Serialize)]
+pub enum CloseReason {
+    Strategy,
+    StopLoss,
+    TakeProfit,
+}
+
+#[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum Position {
     Long(LongPosition),
