@@ -31,7 +31,6 @@ export default function Dashboard() {
       },
       symbolCandles,
       symbolStats: result.symbolStats,
-      symbolSummaries: result.symbolSummaries,
       title: args.strategy,
     });
   }

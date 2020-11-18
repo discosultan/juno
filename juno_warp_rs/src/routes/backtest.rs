@@ -30,7 +30,6 @@ struct Params<T: Signal> {
 
 #[derive(Serialize)]
 struct TradingResult {
-    symbol_summaries: HashMap<String, TradingSummary>,
     symbol_stats: HashMap<String, TradingStats>,
 }
 
@@ -75,7 +74,6 @@ fn process<T: Signal>(bytes: Bytes) -> Result<Json> {
         .collect::<HashMap<String, TradingStats>>();
 
     Ok(warp::reply::json(&TradingResult {
-        symbol_summaries,
         symbol_stats,
     }))
 }

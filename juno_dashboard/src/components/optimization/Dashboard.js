@@ -84,7 +84,6 @@ export default function Dashboard() {
                     config: gen.ind.chromosome,
                     symbolCandles: gensInfo.symbolCandles,
                     symbolStats: gen.symbolStats,
-                    symbolSummaries: gen.symbolSummaries,
                     title: `gen ${gen.nr}`,
                   })
                 }

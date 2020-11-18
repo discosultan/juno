@@ -60,11 +60,8 @@ class CDefBuilder:
             return f'const {self._map_type(get_args(type_)[0])}*'
 
         for k, v in _DEFAULT_MAPPINGS.items():
-            try:
-                if issubclass(type_, k):
-                    return v
-            except Exception as e:
-                breakpoint()
+            if issubclass(type_, k):
+                return v
 
         # raise NotImplementedError(f'Type mapping for CFFI not implemented ({type_})')
         return type_.__name__
