@@ -61,20 +61,20 @@ fn map_period_deltas_from_summary(
     for pos in summary.positions.iter() {
         let (time, cost, base_gain, close_time, base_cost, gain) = match pos {
             Position::Long(pos) => (
-                pos.time,
-                pos.cost,
-                pos.base_gain,
+                pos.open_time,
+                pos.open_quote,
+                pos.base_gain(),
                 pos.close_time,
-                pos.base_cost,
-                pos.gain,
+                pos.close_size,
+                pos.gain(),
             ),
             Position::Short(pos) => (
-                pos.time,
-                pos.cost,
-                pos.base_gain,
+                pos.open_time,
+                pos.cost(),
+                pos.base_gain(),
                 pos.close_time,
-                pos.base_cost,
-                pos.gain,
+                pos.base_cost(),
+                pos.gain(),
             ),
         };
         // Open.
@@ -350,8 +350,8 @@ impl TradingStats {
 
         for pos in summary.positions.iter() {
             let (pos_profit, pos_duration) = match pos {
-                Position::Long(pos) => (pos.profit, pos.duration),
-                Position::Short(pos) => (pos.profit, pos.duration),
+                Position::Long(pos) => (pos.profit(), pos.duration()),
+                Position::Short(pos) => (pos.profit(), pos.duration()),
             };
 
             profit += pos_profit;

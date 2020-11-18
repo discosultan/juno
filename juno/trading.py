@@ -630,9 +630,9 @@ class SimulatedPositionMixin(ABC):
             end=time,
         )
         size = position.borrowed + interest
-        quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(size * fees.taker, filters.base_precision)
         size += fee
+        quote = round_down(price * size, filters.quote_precision)
 
         closed_position = position.close(
             time=time,
