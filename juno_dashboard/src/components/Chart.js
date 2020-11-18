@@ -13,7 +13,7 @@ function timestamp(value) {
   return new Date(value).getTime() / 1000;
 }
 
-export default function Chart({ symbol, candles, summary }) {
+export default function Chart({ symbol, candles, stats }) {
   const { palette } = useTheme();
   const chartRef = useRef(null);
   const containerRef = useRef(null);
@@ -93,14 +93,14 @@ export default function Chart({ symbol, candles, summary }) {
         volume: candle.volume,
       })),
     );
-    const markers = summary.positions.flatMap((pos, i) => {
-      const shape = pos.type === 'Long' ? 'arrowUp' : 'arrowDown';
+    const markers = stats.positions.flatMap((pos, i) => {
+      const shape = pos.type === 'long' ? 'arrowUp' : 'arrowDown';
       const id = i + 1;
       return [
         {
           // We keep the id 1-based to distinguish between open and pos (neg and pos).
           id: -id,
-          time: timestamp(pos.time),
+          time: timestamp(pos.openTime),
           position: 'aboveBar',
           shape,
           color: palette.info[palette.type],
@@ -157,11 +157,11 @@ export default function Chart({ symbol, candles, summary }) {
         };
         if (hoveredMarkerId < 0) {
           // open
-          const pos = summary.positions[-hoveredMarkerId - 1];
+          const pos = stats.positions[-hoveredMarkerId - 1];
           setTooltipText(`cost: ${pos.cost.toFixed(8)}`);
         } else {
           // close
-          const pos = summary.positions[hoveredMarkerId - 1];
+          const pos = stats.positions[hoveredMarkerId - 1];
           if (pos.roi < 0) {
             newStyle.borderColor = '#ef5350';
           }
@@ -171,7 +171,8 @@ export default function Chart({ symbol, candles, summary }) {
               `profit: ${pos.profit.toFixed(8)}\n` +
               `duration: ${pos.duration}\n` +
               `roi: ${fmtPct(pos.roi)}\n` +
-              `aroi: ${fmtPct(pos.annualizedRoi)}`,
+              `aroi: ${fmtPct(pos.annualizedRoi)}\n` +
+              `reason: ${pos.closeReason}`,
           );
         }
         setTooltipStyle((style) => ({ ...style, ...newStyle }));
@@ -188,7 +189,7 @@ export default function Chart({ symbol, candles, summary }) {
         lineWidth: 1.2,
       })
       .setData(
-        summary.positions.reduce(
+        stats.positions.reduce(
           ([quote, points], pos) => {
             const newQuote = quote + pos.profit;
             points.push({
@@ -198,11 +199,11 @@ export default function Chart({ symbol, candles, summary }) {
             return [newQuote, points];
           },
           [
-            summary.quote,
+            stats.cost,
             [
               {
-                time: timestamp(summary.start),
-                value: summary.quote,
+                time: timestamp(stats.start),
+                value: stats.cost,
               },
             ],
           ],
@@ -213,7 +214,7 @@ export default function Chart({ symbol, candles, summary }) {
     chart.timeScale().fitContent();
 
     return () => chart.unsubscribeCrosshairMove(onCrosshairMove);
-  }, [symbol, candles, summary, palette]);
+  }, [symbol, candles, stats, palette]);
 
   return (
     <Box my={1} style={{ position: 'relative' }}>

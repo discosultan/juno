@@ -6,8 +6,7 @@ pub use traders::*;
 
 use crate::{
     genetics::Chromosome,
-    math::annualized,
-    time::{serialize_interval, serialize_timestamp},
+    time::serialize_timestamp,
     Candle,
 };
 use juno_derive_rs::*;
@@ -174,6 +173,93 @@ impl TakeProfit {
     }
 }
 
+#[derive(Clone, Copy, Debug, Serialize)]
+pub enum CloseReason {
+    Strategy,
+    Cancelled,
+    StopLoss,
+    TakeProfit,
+}
+
+pub enum OpenPosition {
+    Long(OpenLongPosition),
+    Short(OpenShortPosition),
+}
+
+pub struct OpenLongPosition {
+    pub time: u64,
+    pub quote: f64,
+    pub size: f64,
+    pub fee: f64,
+}
+
+impl OpenLongPosition {
+    pub fn close(
+        &self,
+        time: u64,
+        size: f64,
+        quote: f64,
+        fee: f64,
+        reason: CloseReason,
+    ) -> LongPosition {
+        LongPosition {
+            open_time: self.time,
+            open_quote: self.quote,
+            open_size: self.size,
+            open_fee: self.fee,
+
+            close_time: time,
+            close_size: size,
+            close_quote: quote,
+            close_fee: fee,
+            close_reason: reason,
+        }
+    }
+
+    #[inline]
+    pub fn cost(&self) -> f64 {
+        self.quote
+    }
+
+    pub fn base_gain(&self) -> f64 {
+        self.size - self.fee
+    }
+}
+
+pub struct OpenShortPosition {
+    pub time: u64,
+    pub collateral: f64,
+    pub borrowed: f64,
+    pub quote: f64,
+    pub fee: f64,
+}
+
+impl OpenShortPosition {
+    pub fn close(
+        &self,
+        time: u64,
+        quote: f64,
+        reason: CloseReason,
+    ) -> ShortPosition {
+        ShortPosition {
+            open_time: self.time,
+            collateral: self.collateral,
+            borrowed: self.borrowed,
+            open_quote: self.quote,
+            open_fee: self.fee,
+
+            close_time: time,
+            close_quote: quote,
+            close_reason: reason,
+        }
+    }
+
+    #[inline]
+    pub fn collateral(&self) -> f64 {
+        self.quote
+    }
+}
+
 #[derive(Debug, Serialize)]
 #[serde(tag = "type")]
 pub enum Position {
@@ -184,122 +270,87 @@ pub enum Position {
 #[derive(Debug, Serialize)]
 pub struct LongPosition {
     #[serde(serialize_with = "serialize_timestamp")]
-    pub time: u64,
-    pub price: f64,
-    pub cost: f64,
-    pub base_gain: f64,
-    pub base_cost: f64,
+    pub open_time: u64,
+    pub open_quote: f64,
+    pub open_size: f64,
+    pub open_fee: f64,
 
     #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
-    #[serde(serialize_with = "serialize_interval")]
-    pub duration: u64,
-    pub gain: f64,
-    pub profit: f64,
-    pub roi: f64,
-    pub annualized_roi: f64,
+    pub close_size: f64,
+    pub close_quote: f64,
+    pub close_fee: f64,
+    pub close_reason: CloseReason,
 }
 
 impl LongPosition {
-    pub fn new(time: u64, price: f64, size: f64, quote: f64, fee: f64) -> Self {
-        Self {
-            time,
-            price,
-            cost: quote,
-            base_gain: size - fee,
-
-            base_cost: 0.0,
-            close_time: 0,
-            duration: 0,
-            gain: 0.0,
-            profit: 0.0,
-            roi: 0.0,
-            annualized_roi: 0.0,
-        }
+    #[inline]
+    pub fn cost(&self) -> f64 {
+        self.open_quote
     }
 
-    pub fn close(&mut self, time: u64, _price: f64, size: f64, quote: f64, fee: f64) {
-        self.close_time = time;
-        self.duration = time - self.time;
-        self.base_cost = size;
-        self.gain = quote - fee;
-        self.profit = self.gain - self.cost;
-        self.roi = self.profit / self.cost;
-        self.annualized_roi = annualized(self.duration, self.roi);
+    pub fn base_gain(&self) -> f64 {
+        self.open_size - self.open_fee
+    }
+
+    #[inline]
+    pub fn base_cost(&self) -> f64 {
+        self.close_size
+    }
+
+    pub fn gain(&self) -> f64 {
+        self.close_quote - self.close_fee
+    }
+
+    pub fn profit(&self) -> f64 {
+        self.gain() - self.cost()
+    }
+
+    pub fn duration(&self) -> u64 {
+        self.close_time - self.open_time
     }
 }
 
 #[derive(Debug, Serialize)]
 pub struct ShortPosition {
     #[serde(serialize_with = "serialize_timestamp")]
-    pub time: u64,
+    pub open_time: u64,
     pub collateral: f64,
     pub borrowed: f64,
-    pub price: f64,
-    pub quote: f64,
-    pub fee: f64,
-    pub cost: f64,
-    pub base_gain: f64,
-    pub base_cost: f64,
-
+    pub open_quote: f64,
+    pub open_fee: f64,
     #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
-    pub interest: f64,
-    #[serde(serialize_with = "serialize_interval")]
-    pub duration: u64,
-    pub gain: f64,
-    pub profit: f64,
-    pub roi: f64,
-    pub annualized_roi: f64,
+    pub close_quote: f64,
+    pub close_reason: CloseReason,
 }
 
 impl ShortPosition {
-    pub fn new(
-        time: u64,
-        collateral: f64,
-        borrowed: f64,
-        price: f64,
-        _size: f64,
-        quote: f64,
-        fee: f64,
-    ) -> Self {
-        Self {
-            time,
-            collateral,
-            borrowed,
-            price,
-            quote,
-            fee,
-            cost: collateral,
-            base_gain: borrowed,
-
-            base_cost: borrowed,
-            close_time: 0,
-            interest: 0.0,
-            duration: 0,
-            gain: 0.0,
-            profit: 0.0,
-            roi: 0.0,
-            annualized_roi: 0.0,
-        }
+    #[inline]
+    pub fn cost(&self) -> f64 {
+        self.collateral
     }
 
-    pub fn close(
-        &mut self,
-        interest: f64,
-        time: u64,
-        _price: f64,
-        _size: f64,
-        quote: f64,
-        _fee: f64,
-    ) {
-        self.interest = interest;
-        self.close_time = time;
-        self.duration = time - self.time;
-        self.gain = self.quote - self.fee + self.collateral - quote;
-        self.profit = self.gain - self.cost;
-        self.roi = self.profit / self.cost;
-        self.annualized_roi = annualized(self.duration, self.roi);
+    #[inline]
+    pub fn base_gain(&self) -> f64 {
+        self.borrowed
+    }
+
+    #[inline]
+    pub fn base_cost(&self) -> f64 {
+        self.borrowed
+    }
+
+    pub fn gain(&self) -> f64 {
+        self.open_quote - self.open_fee + self.collateral - self.close_quote
+    }
+
+    pub fn duration(&self) -> u64 {
+        self.close_time - self.open_time
+    }
+
+    pub fn profit(&self) -> f64 {
+        self.gain() - self.cost()
     }
 }
 

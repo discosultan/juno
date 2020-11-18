@@ -10,7 +10,7 @@ import Button from '@material-ui/core/Button';
 import Chart from './Chart';
 
 export default function TradingResult({ value, onClose }) {
-  const { args, config, symbolCandles, symbolStats, symbolSummaries, title } = value;
+  const { args, config, symbolCandles, symbolStats, title } = value;
   const stats = Object.values(symbolStats);
 
   return (
@@ -40,7 +40,7 @@ export default function TradingResult({ value, onClose }) {
           </TableHead>
           <TableBody>
             {stats.length &&
-              Object.keys(stats[0]).map((key) => (
+              Object.keys(stats[0]).filter((key) => key !== 'positions').map((key) => (
                 <TableRow key={key}>
                   <TableCell component="th" scope="row">
                     {key}
@@ -61,7 +61,7 @@ export default function TradingResult({ value, onClose }) {
           key={symbol}
           symbol={symbol}
           candles={symbolCandles[symbol]}
-          summary={symbolSummaries[symbol]}
+          stats={symbolStats[symbol]}
         />
       ))}
 
@@ -70,7 +70,7 @@ export default function TradingResult({ value, onClose }) {
           key={symbol}
           symbol={`${symbol} (v)`}
           candles={symbolCandles[symbol]}
-          summary={symbolSummaries[symbol]}
+          stats={symbolStats[symbol]}
         />
       ))}
     </>

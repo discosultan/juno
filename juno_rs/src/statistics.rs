@@ -1,7 +1,7 @@
 use crate::{
     math::{annualized, floor_multiple, mean, std_deviation},
     time::{serialize_interval, serialize_timestamp},
-    trading::{Position, TradingSummary},
+    trading::{CloseReason, Position, TradingSummary},
 };
 // use ndarray::prelude::*;
 // use ndarray_stats::CorrelationExt;
@@ -61,20 +61,20 @@ fn map_period_deltas_from_summary(
     for pos in summary.positions.iter() {
         let (time, cost, base_gain, close_time, base_cost, gain) = match pos {
             Position::Long(pos) => (
-                pos.time,
-                pos.cost,
-                pos.base_gain,
+                pos.open_time,
+                pos.open_quote,
+                pos.base_gain(),
                 pos.close_time,
-                pos.base_cost,
-                pos.gain,
+                pos.close_size,
+                pos.gain(),
             ),
             Position::Short(pos) => (
-                pos.time,
-                pos.cost,
-                pos.base_gain,
+                pos.open_time,
+                pos.cost(),
+                pos.base_gain(),
                 pos.close_time,
-                pos.base_cost,
-                pos.gain,
+                pos.base_cost(),
+                pos.gain(),
             ),
         };
         // Open.
@@ -229,6 +229,7 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
 //     (alpha, beta)
 // }
 
+// Optimized.
 pub fn get_sharpe_ratio(
     summary: &TradingSummary,
     // Prices have one extra price in the beginning which is the opening price of the first candle.
@@ -303,6 +304,65 @@ pub fn get_sharpe_ratio(
 }
 
 #[derive(Debug, Serialize)]
+pub struct PositionStats {
+    #[serde(rename = "type")]
+    pub type_: &'static str,
+    #[serde(serialize_with = "serialize_timestamp")]
+    pub open_time: u64,
+    #[serde(serialize_with = "serialize_timestamp")]
+    pub close_time: u64,
+    pub cost: f64,
+    pub gain: f64,
+    pub profit: f64,
+    #[serde(serialize_with = "serialize_interval")]
+    pub duration: u64,
+    pub roi: f64,
+    pub annualized_roi: f64,
+    pub close_reason: CloseReason,
+}
+
+impl PositionStats {
+    pub fn from_position(pos: &Position) -> Self {
+        match pos {
+            Position::Long(pos) => {
+                let duration = pos.duration();
+                let profit = pos.profit();
+                let roi = profit / pos.cost();
+                Self {
+                    type_: "long",
+                    open_time: pos.open_time,
+                    close_time: pos.close_time,
+                    cost: pos.cost(),
+                    gain: pos.gain(),
+                    profit: profit,
+                    duration: duration,
+                    roi: roi,
+                    annualized_roi: annualized(duration, roi),
+                    close_reason: pos.close_reason,
+                }
+            },
+            Position::Short(pos) => {
+                let duration = pos.duration();
+                let profit = pos.profit();
+                let roi = profit / pos.cost();
+                Self {
+                    type_: "short",
+                    open_time: pos.open_time,
+                    close_time: pos.close_time,
+                    cost: pos.cost(),
+                    gain: pos.gain(),
+                    profit: profit,
+                    duration: duration,
+                    roi: roi,
+                    annualized_roi: annualized(duration, roi),
+                    close_reason: pos.close_reason,
+                }
+            },
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct TradingStats {
     #[serde(serialize_with = "serialize_timestamp")]
     pub start: u64,
@@ -326,6 +386,8 @@ pub struct TradingStats {
     pub num_positions_in_loss: u32,
     pub sharpe_ratio: f64,
     pub sortino_ratio: f64,
+
+    pub positions: Vec<PositionStats>,
 }
 
 impl TradingStats {
@@ -350,8 +412,8 @@ impl TradingStats {
 
         for pos in summary.positions.iter() {
             let (pos_profit, pos_duration) = match pos {
-                Position::Long(pos) => (pos.profit, pos.duration),
-                Position::Short(pos) => (pos.profit, pos.duration),
+                Position::Long(pos) => (pos.profit(), pos.duration()),
+                Position::Short(pos) => (pos.profit(), pos.duration()),
             };
 
             profit += pos_profit;
@@ -409,6 +471,8 @@ impl TradingStats {
             num_positions_in_loss,
             sharpe_ratio: stats.sharpe_ratio,
             sortino_ratio: stats.sortino_ratio,
+
+            positions: summary.positions.iter().map(PositionStats::from_position).collect(),
         }
     }
 }

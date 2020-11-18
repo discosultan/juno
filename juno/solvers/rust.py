@@ -20,10 +20,9 @@ from juno import (
 from juno.cffi import CDefBuilder
 from juno.components import Informant
 from juno.filters import Price, Size
-from juno.strategies import Strategy
 from juno.time import DAY_MS
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path, list_concretes_from_module, unpack_symbol
+from juno.utils import home_path, unpack_symbol
 
 from .solver import FitnessValues, Solver
 
@@ -35,7 +34,18 @@ _cdef_builder = CDefBuilder({
     str: 'uint32_t',  # Will be Adler32 checksum of the string.
 })
 
-_strategy_types = list_concretes_from_module(strategies, Strategy)
+# We don't support mapping all strategies anymore because Sig and SigOsc for example, take
+# `Dict[str, Any]` as args. That is not supported. Therefore, we provide a list of enabled
+# strategies instead.
+# _strategy_types = list_concretes_from_module(strategies, Strategy)
+_strategy_types = [
+    strategies.SingleMA,
+    strategies.DoubleMA,
+    strategies.DoubleMA2,
+    strategies.TripleMA,
+    strategies.FourWeekRule,
+    strategies.Macd,
+]
 
 # (symbol, interval, start, end)
 TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]

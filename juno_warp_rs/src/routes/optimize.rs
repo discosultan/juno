@@ -46,7 +46,6 @@ impl Params {
 struct Generation<T: Chromosome> {
     nr: usize,
     ind: Individual<TradingChromosome<T>>,
-    symbol_summaries: HashMap<String, TradingSummary>,
     symbol_stats: HashMap<String, TradingStats>,
 }
 
@@ -106,7 +105,6 @@ fn process<T: Signal>(args: Params) -> Result<Json> {
             Generation {
                 nr: i,
                 ind,
-                symbol_summaries,
                 symbol_stats,
             }
         })
