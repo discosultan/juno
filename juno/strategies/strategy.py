@@ -10,9 +10,9 @@ from juno.indicators import Alma, Dema, Ema, Ema2, Kama, Sma, Smma
 
 
 class MidTrendPolicy(IntEnum):
-    CURRENT = 0
-    PREVIOUS = 1
-    IGNORE = 2
+    CURRENT = 0  # Will not skip on-going trend. Advice effective immediately.
+    PREVIOUS = 1  # ?
+    IGNORE = 2  # Will skip advice for on-going trend. Needs to see a new trend starting.
 
 
 ma_choices = Choice([i.__name__.lower() for i in [Alma, Dema, Ema, Ema2, Kama, Sma, Smma]])

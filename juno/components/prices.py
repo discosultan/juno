@@ -78,10 +78,12 @@ class Prices:
             ), 1):
                 if len(base_prices) == 0:
                     base_prices.append(
-                        candle.open * (quote_prices[0] if quote_asset != fiat_asset else Decimal('1.0'))
+                        candle.open
+                        * (quote_prices[0] if quote_asset != fiat_asset else Decimal('1.0'))
                     )
                 base_prices.append(
-                    candle.close * (quote_prices[price_i] if quote_asset != fiat_asset else Decimal('1.0'))
+                    candle.close
+                    * (quote_prices[price_i] if quote_asset != fiat_asset else Decimal('1.0'))
                 )
             result[base_asset] = base_prices
         await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))
