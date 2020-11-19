@@ -17,50 +17,68 @@ async def test_discord(request, config: Dict[str, Any], mocker) -> None:
 
     from juno.plugins.discord import Discord
 
-    trading_summary = TradingSummary(start=0, quote=Decimal('1.0'), quote_asset='btc')
     events = Events()
     async with Discord(
         chandler=mocker.patch('juno.components.chandler.Chandler'),
-        informant=mocker.patch('juno.components.informant.Informant'),
         events=events,
         config=config,
     ) as discord:
         await discord.activate('agent', 'test')
 
-        candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
-        open_pos = Position.OpenLong(
-            exchange='exchange',
-            symbol='eth-btc',
-            time=candle.time,
-            fills=[
-                Fill(
-                    price=Decimal('1.0'), size=Decimal('1.0'), quote=Decimal('1.0'),
-                    fee=Decimal('0.0'), fee_asset='btc'
-                )
-            ],
-        )
-        await events.emit('agent', 'positions_opened', [open_pos], trading_summary)
-        candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
-        pos = open_pos.close(
-            time=candle.time,
-            fills=[
-                Fill(
-                    price=Decimal('2.0'), size=Decimal('1.0'), quote=Decimal('2.0'),
-                    fee=Decimal('0.0'), fee_asset='eth'
-                )
-            ],
-            reason=CloseReason.STRATEGY,
-        )
-        trading_summary.append_position(pos)
-        trading_summary.finish(pos.close_time + DAY_MS)
-        await events.emit('agent', 'positions_closed', [pos], trading_summary)
-        await events.emit('agent', 'finished', trading_summary)
-        await events.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
-        await events.emit('agent', 'advice', Advice.LIQUIDATE)
-        try:
-            raise Exception('Expected error.')
-        except Exception as exc:
-            await events.emit('agent', 'errored', exc)
+        await send_test_events(events)
+
+
+@pytest.mark.manual
+@pytest.mark.plugin
+async def test_slack(request, config: Dict[str, Any]) -> None:
+    skip_non_configured(request, config)
+
+    from juno.plugins.slack import Slack
+
+    events = Events()
+    slack = Slack(events=events, config=config)
+    await slack.activate('agent', 'test')
+
+    await send_test_events(events)
+
+
+async def send_test_events(events: Events):
+    trading_summary = TradingSummary(start=0, quote=Decimal('1.0'), quote_asset='btc')
+
+    candle = Candle(time=0, close=Decimal('1.0'), volume=Decimal('10.0'))
+    open_pos = Position.OpenLong(
+        exchange='exchange',
+        symbol='eth-btc',
+        time=candle.time,
+        fills=[
+            Fill(
+                price=Decimal('1.0'), size=Decimal('1.0'), quote=Decimal('1.0'),
+                fee=Decimal('0.0'), fee_asset='btc'
+            )
+        ],
+    )
+    await events.emit('agent', 'positions_opened', [open_pos], trading_summary)
+    candle = Candle(time=DAY_MS, close=Decimal('2.0'), volume=Decimal('10.0'))
+    pos = open_pos.close(
+        time=candle.time,
+        fills=[
+            Fill(
+                price=Decimal('2.0'), size=Decimal('1.0'), quote=Decimal('2.0'),
+                fee=Decimal('0.0'), fee_asset='eth'
+            )
+        ],
+        reason=CloseReason.STRATEGY,
+    )
+    trading_summary.append_position(pos)
+    trading_summary.finish(pos.close_time + DAY_MS)
+    await events.emit('agent', 'positions_closed', [pos], trading_summary)
+    await events.emit('agent', 'finished', trading_summary)
+    await events.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
+    await events.emit('agent', 'advice', Advice.LIQUIDATE)
+    try:
+        raise Exception('Expected error.')
+    except Exception as exc:
+        await events.emit('agent', 'errored', exc)
 
 
 def skip_non_configured(request, config):

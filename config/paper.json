@@ -23,7 +23,8 @@
                 "persistence": 0
             },
             "plugins": [
-                "discord"
+                "discord",
+                "slack"
             ]
         }
     ]

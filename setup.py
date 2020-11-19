@@ -46,5 +46,8 @@ setup(
         'plotly': [
             'plotly',
         ],
+        'slack': [
+            'slack_sdk',
+        ],
     }
 )
