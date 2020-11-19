@@ -4,11 +4,7 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{
-    genetics::Chromosome,
-    time::serialize_timestamp,
-    Candle,
-};
+use crate::{genetics::Chromosome, time::serialize_timestamp, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -235,12 +231,7 @@ pub struct OpenShortPosition {
 }
 
 impl OpenShortPosition {
-    pub fn close(
-        &self,
-        time: u64,
-        quote: f64,
-        reason: CloseReason,
-    ) -> ShortPosition {
+    pub fn close(&self, time: u64, quote: f64, reason: CloseReason) -> ShortPosition {
         ShortPosition {
             open_time: self.time,
             collateral: self.collateral,

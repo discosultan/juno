@@ -73,9 +73,7 @@ fn process<T: Signal>(bytes: Bytes) -> Result<Json> {
         })
         .collect::<HashMap<String, TradingStats>>();
 
-    Ok(warp::reply::json(&TradingResult {
-        symbol_stats,
-    }))
+    Ok(warp::reply::json(&TradingResult { symbol_stats }))
 }
 
 fn backtest<T: Signal>(args: &Params<T>, symbol: &str) -> Result<TradingSummary> {

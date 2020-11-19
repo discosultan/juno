@@ -1,3 +1,6 @@
+mod optimized;
+pub use optimized::*;
+
 use crate::{
     math::{annualized, floor_multiple, mean, std_deviation},
     time::{serialize_interval, serialize_timestamp},
@@ -11,10 +14,10 @@ use std::collections::HashMap;
 pub type AnalysisResult = (f64,);
 
 // TODO: Use const fn when `365.0.sqrt()` is supported.
-const SQRT_365: f64 = 19.10497317454279908588432590477168560028076171875;
+pub(crate) const SQRT_365: f64 = 19.10497317454279908588432590477168560028076171875;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum Asset {
+pub(crate) enum Asset {
     Base,
     Quote,
 }
@@ -62,10 +65,10 @@ fn map_period_deltas_from_summary(
         let (time, cost, base_gain, close_time, base_cost, gain) = match pos {
             Position::Long(pos) => (
                 pos.open_time,
-                pos.open_quote,
+                pos.cost(),
                 pos.base_gain(),
                 pos.close_time,
-                pos.close_size,
+                pos.base_cost(),
                 pos.gain(),
             ),
             Position::Short(pos) => (
@@ -229,80 +232,6 @@ fn calculate_statistics(performance: &[f64]) -> Statistics {
 //     (alpha, beta)
 // }
 
-// Optimized.
-pub fn get_sharpe_ratio(
-    summary: &TradingSummary,
-    // Prices have one extra price in the beginning which is the opening price of the first candle.
-    base_prices: &[f64],
-    quote_prices: Option<&[f64]>,
-    interval: u64,
-) -> f64 {
-    let period_deltas = map_period_deltas_from_summary(summary, interval);
-
-    let start = floor_multiple(summary.start, interval);
-    let end = floor_multiple(summary.end, interval);
-    let length = ((end - start) / interval) as usize;
-
-    let mut base_holding = 0.0;
-    let mut quote_holding = summary.quote;
-
-    let mut prev_performance = match quote_prices {
-        Some(quote_prices) => quote_holding * quote_prices[0], // 0 is open price.
-        None => quote_holding,
-    };
-
-    let mut g_returns = Vec::with_capacity(length);
-    let mut sum_g_returns = 0.0;
-
-    for (i, time) in (start..end).step_by(interval as usize).enumerate() {
-        let deltas = period_deltas.get(&time);
-        if let Some(deltas) = deltas {
-            for (asset, size) in deltas {
-                match asset {
-                    Asset::Base => base_holding += size,
-                    Asset::Quote => quote_holding += size,
-                }
-            }
-        }
-        let price_i = i + 1; // Offset the open price.
-        let performance = base_holding * base_prices[price_i]
-            + match quote_prices {
-                Some(quote_prices) => quote_holding * quote_prices[price_i],
-                None => quote_holding,
-            };
-
-        let a_return = performance / prev_performance - 1.0;
-
-        let g_return = (a_return + 1.0).ln();
-        g_returns.push(g_return);
-        sum_g_returns += g_return;
-
-        prev_performance = performance;
-    }
-
-    let mean_g_returns = sum_g_returns / length as f64;
-    let annualized_return = 365.0 * mean_g_returns;
-
-    let sharpe_ratio = if annualized_return.is_nan() || annualized_return == 0.0 {
-        0.0
-    } else {
-        let variance = g_returns
-            .iter()
-            .map(|value| {
-                let diff = mean_g_returns - value;
-                diff * diff
-            })
-            .sum::<f64>()
-            / length as f64;
-        let std_dev = variance.sqrt();
-        let annualized_volatility = SQRT_365 * std_dev;
-        annualized_return / annualized_volatility
-    };
-
-    debug_assert!(sharpe_ratio.is_finite());
-    sharpe_ratio
-}
-
 #[derive(Debug, Serialize)]
 pub struct PositionStats {
     #[serde(rename = "type")]
@@ -340,7 +269,7 @@ impl PositionStats {
                     annualized_roi: annualized(duration, roi),
                     close_reason: pos.close_reason,
                 }
-            },
+            }
             Position::Short(pos) => {
                 let duration = pos.duration();
                 let profit = pos.profit();
@@ -357,7 +286,7 @@ impl PositionStats {
                     annualized_roi: annualized(duration, roi),
                     close_reason: pos.close_reason,
                 }
-            },
+            }
         }
     }
 }
@@ -472,7 +401,55 @@ impl TradingStats {
             sharpe_ratio: stats.sharpe_ratio,
             sortino_ratio: stats.sortino_ratio,
 
-            positions: summary.positions.iter().map(PositionStats::from_position).collect(),
+            positions: summary
+                .positions
+                .iter()
+                .map(PositionStats::from_position)
+                .collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::trading::LongPosition;
+
+    #[test]
+    fn test_sharpe_sortino_nonoptimized_same_as_optimized() {
+        let mut summary = TradingSummary::new(0, 10, 1.0);
+        summary.positions.push(Position::Long(LongPosition {
+            open_time: 2,
+            open_quote: 1.0,
+            open_size: 2.0,
+            open_fee: 0.2,
+
+            close_time: 4,
+            close_size: 1.8,
+            close_quote: 0.9,
+            close_fee: 0.09,
+            close_reason: CloseReason::Strategy,
+        }));
+        summary.positions.push(Position::Long(LongPosition {
+            open_time: 6,
+            open_quote: 0.81,
+            open_size: 1.62,
+            open_fee: 0.02,
+
+            close_time: 8,
+            close_size: 1.6,
+            close_quote: 1.2,
+            close_fee: 0.1,
+            close_reason: CloseReason::Strategy,
+        }));
+        let base_prices = vec![1.0; 11];
+
+        let stats = analyse(&summary, &base_prices, None, 1);
+
+        let opt_sharpe = get_sharpe_ratio(&summary, &base_prices, None, 1);
+        let opt_sortino = get_sortino_ratio(&summary, &base_prices, None, 1);
+
+        assert_eq!(stats.sharpe_ratio, opt_sharpe);
+        assert_eq!(stats.sortino_ratio, opt_sortino);
     }
 }

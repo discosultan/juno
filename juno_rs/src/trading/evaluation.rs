@@ -113,13 +113,12 @@ impl<T: Signal> BasicEvaluation<T> {
         //     ctx.stats_quote_prices.as_deref(),
         //     self.stats_interval,
         // )
-        statistics::analyse(
+        statistics::get_sortino_ratio(
             &summary,
             &ctx.stats_base_prices,
             ctx.stats_quote_prices.as_deref(),
             self.stats_interval,
         )
-        .sortino_ratio
     }
 }
 
