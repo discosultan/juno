@@ -8,7 +8,7 @@ from contextlib import AsyncExitStack
 from decimal import Decimal
 from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tuple
 
-from tenacity import Retrying, before_sleep_log, retry_if_exception_type
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
 
 from juno import Candle, ExchangeException
 from juno.asyncio import first_async, list_async, stream_with_timeout
@@ -245,7 +245,8 @@ class Chandler:
         # Note that we need to use a context manager based retrying because retry decorators do not
         # work with async generator functions.
         for attempt in Retrying(
-            stop=stop_after_attempt_with_reset(3, 300),
+            stop=stop_after_attempt_with_reset(8, 300),
+            wait=wait_exponential(),
             retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):

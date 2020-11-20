@@ -750,10 +750,21 @@ class PositionMixin(ABC):
                 )
                 await wallet.updated.wait()
 
-            limit = await self.user.get_max_borrowable(
-                exchange=exchange, asset=base_asset, account=symbol
+            # Even when waiting for wallet update, Binance can still return 0 as borrow amount
+            # for base asset. We retry a couple of times as we have nothing else to await on.
+            for _ in range(5):
+                borrowable = await self.user.get_max_borrowable(
+                    exchange=exchange, asset=base_asset, account=symbol
+                )
+                if borrowable > 0:
+                    break
+                _log.warning(f'max borrowable 0 for account {symbol} asset {base_asset}; retrying')
+            else:
+                raise RuntimeError(f'Borrowable amount 0 for account {symbol} asset {base_asset}')
+
+            borrowed = _calculate_borrowed(
+                filters, margin_multiplier, borrowable, collateral, price
             )
-            borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
             _log.info(f'borrowing {borrowed} {base_asset} from {exchange}')
             await self.user.borrow(
                 exchange=exchange,

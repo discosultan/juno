@@ -8,7 +8,9 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
-from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt
+from tenacity import (
+    before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+)
 
 from juno import BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
 from juno.asyncio import cancel, create_task_sigint_on_exception
@@ -231,7 +233,8 @@ class Informant:
             await asyncio.sleep(period / 1000.0)
 
     @retry(
-        stop=stop_after_attempt(3),
+        stop=stop_after_attempt(8),
+        wait=wait_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING)
     )

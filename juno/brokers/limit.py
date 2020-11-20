@@ -71,7 +71,7 @@ class Limit(Broker):
 
         if size is not None:
             _log.info(
-                f'buying {size} (ensured {ensure_size} fee) {base_asset} with limit orders at '
+                f'buying {size} (ensure size: {ensure_size}) {base_asset} with limit orders at '
                 f'spread ({account} account)'
             )
             if ensure_size:

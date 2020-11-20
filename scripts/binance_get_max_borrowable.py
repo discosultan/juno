@@ -6,8 +6,8 @@ from juno.config import from_env, init_instance
 from juno.exchanges import Binance
 
 parser = argparse.ArgumentParser()
+parser.add_argument('account', nargs='?', default='margin')
 parser.add_argument('asset', nargs='?', default='eth')
-parser.add_argument('-a', '--account', default='margin')
 args = parser.parse_args()
 
 

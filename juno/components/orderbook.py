@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 
-from tenacity import Retrying, before_sleep_log, retry_if_exception_type
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
 
 from juno import Depth, ExchangeException, Fill, Filters, Side
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception
@@ -179,7 +179,8 @@ class Orderbook:
         ctxs = self._sync_ctxs[(exchange, symbol)]
         is_first = True
         for attempt in Retrying(
-            stop=stop_after_attempt_with_reset(3, 300),
+            stop=stop_after_attempt_with_reset(8, 300),
+            wait=wait_exponential(),
             retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):

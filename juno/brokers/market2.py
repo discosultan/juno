@@ -46,8 +46,8 @@ class Market2(Broker):
 
         if size is not None:
             _log.info(
-                f'buying {size} (ensured: {ensure_size}) {symbol} with market order ({account} '
-                'account)'
+                f'buying {size} (ensure size: {ensure_size}) {symbol} with market order '
+                f'({account} account)'
             )
             if ensure_size:
                 size = filters.with_fee(size, fees.taker)
