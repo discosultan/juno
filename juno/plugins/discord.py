@@ -11,10 +11,10 @@ from more_itertools import sliced
 
 from juno import Advice
 from juno.asyncio import cancel, create_task_sigint_on_exception
-from juno.components import Chandler, Events
+from juno.components import Chandler, Events, Informant
 from juno.config import format_as_config
 from juno.time import MIN_MS, time_ms
-from juno.trading import CloseReason, Position, TradingSummary
+from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, extract_public
 
@@ -23,8 +23,11 @@ from .plugin import Plugin
 _log = logging.getLogger(__name__)
 
 
-class Discord(commands.Bot, Plugin):
-    def __init__(self, chandler: Chandler, events: Events, config: Dict[str, Any]) -> None:
+# We use simulated position mixin to provide info for the `.status` command.
+class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
+    def __init__(
+        self, chandler: Chandler, informant: Informant, events: Events, config: Dict[str, Any]
+    ) -> None:
         super().__init__(command_prefix='.')
 
         discord_config = config.get(type(self).__name__.lower(), {})
@@ -32,6 +35,7 @@ class Discord(commands.Bot, Plugin):
             raise ValueError('Missing token from config')
 
         self._chandler = chandler
+        self._informant = informant
         self._events = events
         self._token = token
         self._channel_ids = discord_config.get('channel_id', {})
@@ -43,6 +47,10 @@ class Discord(commands.Bot, Plugin):
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(self._start_task)
         await self.close()
+
+    @property
+    def informant(self) -> Informant:
+        return self._informant
 
     async def activate(self, agent_name: str, agent_type: str) -> None:
         channel_name = agent_type
