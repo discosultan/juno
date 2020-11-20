@@ -20,6 +20,7 @@ async def test_discord(request, config: Dict[str, Any], mocker) -> None:
     events = Events()
     async with Discord(
         chandler=mocker.patch('juno.components.chandler.Chandler'),
+        informant=mocker.patch('juno.components.informant.Informant'),
         events=events,
         config=config,
     ) as discord:
