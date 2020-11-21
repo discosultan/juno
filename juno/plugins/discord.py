@@ -126,25 +126,43 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         async def on_advice(advice: Advice) -> None:
             await send_message(format_message('received advice', advice.name))
 
-        @self.command(help='Make trader not open new positions')
-        async def cordon(ctx: commands.Context) -> None:
+        @self.command(help='Set whether trader closes positions on exit')
+        async def close_on_exit(ctx: commands.Context, value: str):
             if ctx.channel.name != channel_name:
                 return
-
+            if value not in ['true', 'false']:
+                await send_message(
+                    'please pass true/false to set whether trader will close positions on exit'
+                )
+                return
             assert agent_state
-            agent_state.result.open_new_positions = False
-            msg = f'agent {agent_name} ({agent_type}) will no longer open new positions'
+
+            close_on_exit = True if value == 'true' else False
+            agent_state.result.close_on_exit = close_on_exit
+            msg = (
+                f'agent {agent_name} ({agent_type}) will{"" if close_on_exit else " not"} close '
+                'positions on exit'
+            )
             _log.info(msg)
             await send_message(msg)
 
-        @self.command(help='Make trader open new positions')
-        async def uncordon(ctx: commands.Context) -> None:
+        @self.command(help='Set whether trader opens new positions')
+        async def open_new_positions(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
-
+            if value not in ['true', 'false']:
+                await send_message(
+                    'please pass true/false to set whether trader will open new positions'
+                )
+                return
             assert agent_state
-            agent_state.result.open_new_positions = True
-            msg = f'agent {agent_name} ({agent_type}) will open new positions'
+
+            open_new_positions = True if value == 'true' else False
+            agent_state.result.open_new_positions = open_new_positions
+            msg = (
+                f'agent {agent_name} ({agent_type}) will{"" if open_new_positions else " not"} '
+                'open new positions'
+            )
             _log.info(msg)
             await send_message(msg)
 
