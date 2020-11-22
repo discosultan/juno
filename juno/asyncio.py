@@ -155,13 +155,10 @@ def create_task_sigint_on_exception(coro):
 
     def callback(task):
         task_name = task.get_coro().__qualname__
-        if task.cancelled():
-            _log.info(f'{task_name} task cancelled')
-        else:
-            if exc := task.exception():
-                msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
-                _log.error(f'unhandled exception in {task_name} task ({msg})')
-                os.kill(os.getpid(), signal.SIGINT)
+        if not task.cancelled() and (exc := task.exception()):
+            msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            _log.error(f'unhandled exception in {task_name} task ({msg})')
+            os.kill(os.getpid(), signal.SIGINT)
 
     child_task = asyncio.create_task(coro)
     child_task.add_done_callback(callback)

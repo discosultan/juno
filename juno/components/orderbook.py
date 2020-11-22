@@ -8,17 +8,21 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
 
-from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Depth, ExchangeException, Fill, Filters, Side
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.math import round_half_up
-from juno.tenacity import stop_after_attempt_with_reset
+from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import unpack_symbol
 
 _log = logging.getLogger(__name__)
+
+
+class _MissingDepth(Exception):
+    pass
 
 
 class Orderbook:
@@ -143,7 +147,8 @@ class Orderbook:
         return self
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
-        await cancel(*self._sync_tasks.values())
+        # await cancel(*self._sync_tasks.values())
+        pass
 
     def can_place_order_market_quote(self, exchange: str) -> bool:
         if exchange == '__all__':
@@ -163,6 +168,8 @@ class Orderbook:
             self._sync_tasks[key] = create_task_sigint_on_exception(
                 self._sync_orderbook(exchange, symbol, synced)
             )
+            # TODO: Synced also needs to set in the else clause. Otherwise can run into
+            # concurrency issues.
             await synced.wait()
         else:
             ctx = Orderbook.SyncContext(symbol, next(iter(ctxs.values())).sides)
@@ -173,15 +180,18 @@ class Orderbook:
         finally:
             del ctxs[id_]
             if len(ctxs) == 0:
-                await cancel(self._sync_tasks[key])
+                task = self._sync_tasks[key]
+                del self._sync_tasks[key]
+                del self._sync_ctxs[key]
+                await cancel(task)
 
     async def _sync_orderbook(self, exchange: str, symbol: str, synced: asyncio.Event) -> None:
         ctxs = self._sync_ctxs[(exchange, symbol)]
         is_first = True
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(8, 300),
-            wait=wait_exponential(),
-            retry=retry_if_exception_type(ExchangeException),
+            wait=wait_none_then_exponential(),
+            retry=retry_if_exception_type((ExchangeException, _MissingDepth)),
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):
             with attempt:
@@ -213,52 +223,44 @@ class Orderbook:
     async def _stream_depth(self, exchange: str, symbol: str) -> AsyncIterable[Depth.Any]:
         exchange_instance = self._exchanges[exchange]
 
-        while True:
-            restart = False
+        async with exchange_instance.connect_stream_depth(symbol) as stream:
+            if exchange_instance.can_stream_depth_snapshot:
+                async for depth in stream:
+                    yield depth
+            else:
+                snapshot = await exchange_instance.get_depth(symbol)
+                yield snapshot
 
-            async with exchange_instance.connect_stream_depth(symbol) as stream:
-                if exchange_instance.can_stream_depth_snapshot:
-                    async for depth in stream:
-                        yield depth
-                else:
-                    snapshot = await exchange_instance.get_depth(symbol)
-                    yield snapshot
+                last_update_id = snapshot.last_id
+                async for update in stream:
+                    assert isinstance(update, Depth.Update)
 
-                    last_update_id = snapshot.last_id
-                    is_first_update = True
-                    async for update in stream:
-                        assert isinstance(update, Depth.Update)
-
-                        if last_update_id == 0 and update.first_id == 0 and update.last_id == 0:
-                            yield update
-                            continue
-
-                        if update.last_id <= last_update_id:
-                            _log.debug(
-                                f'skipping depth update; {update.last_id=} <= '
-                                f'{last_update_id=}'
-                            )
-                            continue
-
-                        if is_first_update:
-                            assert (
-                                update.first_id <= last_update_id + 1
-                                and update.last_id >= last_update_id + 1
-                            )
-                            is_first_update = False
-                        elif update.first_id != last_update_id + 1:
-                            _log.warning(
-                                f'orderbook out of sync: {update.first_id=} != {last_update_id=} '
-                                '+ 1; refetching snapshot'
-                            )
-                            restart = True
-                            break
-
+                    if last_update_id == 0 and update.first_id == 0 and update.last_id == 0:
                         yield update
-                        last_update_id = update.last_id
+                        continue
 
-            if not restart:
-                break
+                    assert update.last_id >= update.first_id
+
+                    if update.last_id <= last_update_id:
+                        _log.debug(
+                            f'skipping {symbol} depth update; {update.last_id=} <= '
+                            f'{last_update_id=}'
+                        )
+                        continue
+
+                    # Normally `update.first_id` is `last_update_id + 1`. However, during the
+                    # initial update, it can be less than that because the snapeshot we received
+                    # partially covers the same update region as our update. In case there's a
+                    # missing depth update, we retry.
+                    if update.first_id > last_update_id + 1:
+                        _log.warning(
+                            f'{symbol} orderbook out of sync: {update.first_id=} != '
+                            f'{last_update_id=} + 1; refetching snapshot'
+                        )
+                        raise _MissingDepth()
+
+                    yield update
+                    last_update_id = update.last_id
 
 
 def _set_orderbook_side(

@@ -8,14 +8,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar
 
-from tenacity import (
-    before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
-)
+from tenacity import before_sleep_log, retry, retry_if_exception_type
 
 from juno import BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.storages import Storage
+from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import HOUR_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
 from juno.utils import unpack_symbol
@@ -233,8 +232,8 @@ class Informant:
             await asyncio.sleep(period / 1000.0)
 
     @retry(
-        stop=stop_after_attempt(8),
-        wait=wait_exponential(),
+        stop=stop_after_attempt_with_reset(8, 300),
+        wait=wait_none_then_exponential(),
         retry=retry_if_exception_type(ExchangeException),
         before_sleep=before_sleep_log(_log, logging.WARNING)
     )

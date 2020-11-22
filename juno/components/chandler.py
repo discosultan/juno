@@ -8,7 +8,7 @@ from contextlib import AsyncExitStack
 from decimal import Decimal
 from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tuple
 
-from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, ExchangeException
 from juno.asyncio import first_async, list_async, stream_with_timeout
@@ -16,7 +16,7 @@ from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import Storage
-from juno.tenacity import stop_after_attempt_with_reset
+from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
 from juno.utils import key, unpack_symbol
 
@@ -246,7 +246,7 @@ class Chandler:
         # work with async generator functions.
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(8, 300),
-            wait=wait_exponential(),
+            wait=wait_none_then_exponential(),
             retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):

@@ -5,14 +5,14 @@ import logging
 from collections import deque
 from typing import AsyncIterable, Callable, Deque, List, Optional
 
-from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
+from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import ExchangeException, Trade
 from juno.asyncio import list_async
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.storages import Storage
-from juno.tenacity import stop_after_attempt_with_reset
+from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import strfspan, time_ms
 from juno.utils import key
 
@@ -84,7 +84,7 @@ class Trades:
         shard = key(exchange, symbol)
         for attempt in Retrying(
             stop=stop_after_attempt_with_reset(8, 300),
-            wait=wait_exponential(),
+            wait=wait_none_then_exponential(),
             retry=retry_if_exception_type(ExchangeException),
             before_sleep=before_sleep_log(_log, logging.WARNING)
         ):

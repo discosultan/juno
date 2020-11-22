@@ -1,6 +1,7 @@
 from time import time
 from typing import Any, Callable
 
+from tenacity import wait_chain, wait_exponential, wait_none
 from tenacity.stop import stop_base
 
 
@@ -27,3 +28,7 @@ class stop_after_attempt_with_reset(stop_base):
             self._attempt_offset = retry_state.attempt_number - 1
         self._last_attempt_at = now
         return retry_state.attempt_number - self._attempt_offset >= self._max_attempt_number
+
+
+def wait_none_then_exponential():
+    return wait_chain(wait_none(), wait_exponential())
