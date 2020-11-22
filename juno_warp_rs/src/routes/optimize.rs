@@ -67,8 +67,15 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
                 "singlema" => process::<SingleMA>(args),
                 "sig_fourweekrule" => process::<Sig<FourWeekRule>>(args),
                 "sig_triplema" => process::<Sig<TripleMA>>(args),
-                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>>(args),
-                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>>(args),
+                "sigosc_triplema_rsi" => {
+                    process::<SigOsc<TripleMA, Rsi, EnforceOscillatorFilter>>(args)
+                }
+                "sigosc_doublema_rsi" => {
+                    process::<SigOsc<DoubleMA, Rsi, EnforceOscillatorFilter>>(args)
+                }
+                "sigosc_fourweekrule_rsi_prevent" => {
+                    process::<SigOsc<FourWeekRule, Rsi, PreventOscillatorFilter>>(args)
+                }
                 strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
             }
             .map_err(|error| custom_reject(error))

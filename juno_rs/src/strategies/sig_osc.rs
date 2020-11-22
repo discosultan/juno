@@ -10,7 +10,10 @@ use crate::{
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    marker::PhantomData,
+};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SigOscParams<S: Chromosome, O: Chromosome> {
@@ -54,7 +57,7 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
 }
 
 #[derive(Signal)]
-pub struct SigOsc<S: Signal, O: Oscillator> {
+pub struct SigOsc<S: Signal, O: Oscillator, F: OscillatorFilter> {
     sig: S,
     osc: O,
     advice: Advice,
@@ -62,9 +65,10 @@ pub struct SigOsc<S: Signal, O: Oscillator> {
     persistence: Persistence,
     t: u32,
     t1: u32,
+    phantom: PhantomData<F>,
 }
 
-impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
+impl<S: Signal, O: Oscillator, F: OscillatorFilter> Strategy for SigOsc<S, O, F> {
     type Params = SigOscParams<S::Params, O::Params>;
 
     fn new(params: &Self::Params) -> Self {
@@ -82,6 +86,7 @@ impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
             osc,
             mid_trend,
             persistence,
+            phantom: PhantomData,
         }
     }
 
@@ -100,28 +105,74 @@ impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
         self.osc.update(candle);
 
         if self.sig.mature() && self.osc.mature() {
-            let advice = match self.sig.advice() {
-                Advice::None => Advice::None,
-                Advice::Liquidate => Advice::Liquidate,
-                Advice::Long => {
-                    if self.osc.oversold() {
-                        Advice::Long
-                    } else {
-                        Advice::Liquidate
-                    }
-                }
-                Advice::Short => {
-                    if self.osc.overbought() {
-                        Advice::Short
-                    } else {
-                        Advice::Liquidate
-                    }
-                }
-            };
+            let advice = F::filter(self.sig.advice(), &self.osc);
             self.advice = combine(
                 self.mid_trend.update(advice),
                 self.persistence.update(advice),
             );
+        }
+    }
+}
+
+pub trait OscillatorFilter: Send + Sync {
+    fn new() -> Self;
+    fn filter<T: Oscillator>(advice: Advice, oscillator: &T) -> Advice;
+}
+
+pub struct EnforceOscillatorFilter;
+
+impl OscillatorFilter for EnforceOscillatorFilter {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn filter<T: Oscillator>(advice: Advice, oscillator: &T) -> Advice {
+        match advice {
+            Advice::None => Advice::None,
+            Advice::Liquidate => Advice::Liquidate,
+            Advice::Long => {
+                if oscillator.oversold() {
+                    Advice::Long
+                } else {
+                    Advice::Liquidate
+                }
+            }
+            Advice::Short => {
+                if oscillator.overbought() {
+                    Advice::Short
+                } else {
+                    Advice::Liquidate
+                }
+            }
+        }
+    }
+}
+
+pub struct PreventOscillatorFilter;
+
+impl OscillatorFilter for PreventOscillatorFilter {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn filter<T: Oscillator>(advice: Advice, oscillator: &T) -> Advice {
+        match advice {
+            Advice::None => Advice::None,
+            Advice::Liquidate => Advice::Liquidate,
+            Advice::Long => {
+                if oscillator.overbought() {
+                    Advice::Liquidate
+                } else {
+                    Advice::Long
+                }
+            }
+            Advice::Short => {
+                if oscillator.oversold() {
+                    Advice::Liquidate
+                } else {
+                    Advice::Short
+                }
+            }
         }
     }
 }

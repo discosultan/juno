@@ -40,7 +40,11 @@ fn main() -> Result<()> {
     // TODO: support validating against arbitrary threshold.
     // TODO: Test out sortino ratio and impl sterling ratio calc.
     // TODO: Print out trading summaries.
-    optimize_validate_print::<SigOsc<TripleMA, Rsi>>(&args, &symbols, &validation_symbols)?;
+    optimize_validate_print::<SigOsc<TripleMA, Rsi, EnforceOscillatorFilter>>(
+        &args,
+        &symbols,
+        &validation_symbols,
+    )?;
 
     // let chromosome = TradingChromosome {
     //     trader: TraderParams {

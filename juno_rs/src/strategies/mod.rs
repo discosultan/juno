@@ -14,7 +14,7 @@ pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
 pub use macd::{Macd, MacdParams};
 pub use rsi::{Rsi, RsiParams};
 pub use sig::{Sig, SigParams};
-pub use sig_osc::{SigOsc, SigOscParams};
+pub use sig_osc::{EnforceOscillatorFilter, PreventOscillatorFilter, SigOsc, SigOscParams};
 pub use single_ma::{SingleMA, SingleMAParams};
 pub use triple_ma::{TripleMA, TripleMAParams};
 

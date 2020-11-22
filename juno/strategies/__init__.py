@@ -6,6 +6,7 @@ from .four_week_rule import FourWeekRule
 from .macd import Macd
 from .mmi import Mmi
 from .momersion import Momersion
+from .rsi import Rsi
 from .sig import Sig
 from .sig_osc import SigOsc
 from .single_ma import SingleMA
@@ -26,6 +27,7 @@ __all__ = [
     'Momersion',
     'Oscillator',
     'Persistence',
+    'Rsi',
     'Sig',
     'SigOsc',
     'Signal',
