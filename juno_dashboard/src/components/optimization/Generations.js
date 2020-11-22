@@ -43,24 +43,25 @@ export default function Generations({ value, onSelect }) {
             </TableRow>
           </TableHead>
           <TableBody>
-            {gens.map((gen) => (
+            {/* We reverse gens to show the latest on top */}
+            {gens.slice(0).reverse().map((gen, i) => gen.hallOfFame.map((ind, j) => (
               <TableRow
-                key={gen.nr}
+                key={i * args.hallOfFameSize + j}
                 hover
                 className={classes.row}
-                onClick={() => onSelect(value, gen)}
+                onClick={() => onSelect(value, gen, ind)}
               >
                 <TableCell component="th" scope="row">
                   {gen.nr}
                 </TableCell>
                 {symbols.map((symbol) => (
                   <TableCell key={symbol} align="right">
-                    {gen.symbolStats[symbol].sortinoRatio}
+                    {ind.symbolStats[symbol].sortinoRatio.toFixed(8)}
                   </TableCell>
                 ))}
-                <TableCell align="right">{gen.ind.fitness}</TableCell>
+                <TableCell align="right">{ind.ind.fitness.toFixed(8)}</TableCell>
               </TableRow>
-            ))}
+            )))}
           </TableBody>
         </Table>
       </TableContainer>

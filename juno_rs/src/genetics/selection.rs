@@ -13,7 +13,7 @@ pub trait Selection {
 
 #[derive(Default)]
 pub struct EliteSelection {
-    shuffle: bool, // TODO: Does it make sense?
+    pub shuffle: bool, // TODO: Does it make sense?
 }
 
 impl EliteSelection {

@@ -78,12 +78,12 @@ export default function Dashboard() {
             gensInfo && (
               <Generations
                 value={gensInfo}
-                onSelect={(gensInfo, gen) =>
+                onSelect={(gensInfo, gen, ind) =>
                   setSelectedGenInfo({
                     args: gensInfo.args,
-                    config: gen.ind.chromosome,
+                    config: ind.ind.chromosome,
                     symbolCandles: gensInfo.symbolCandles,
-                    symbolStats: gen.symbolStats,
+                    symbolStats: ind.symbolStats,
                     title: `gen ${gen.nr}`,
                   })
                 }

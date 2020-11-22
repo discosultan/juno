@@ -47,7 +47,7 @@ export default function TradingResult({ value, onClose }) {
                   </TableCell>
                   {args.trainingSymbols.concat(args.validationSymbols).map((symbol) => (
                     <TableCell key={symbol} align="right">
-                      {symbolStats[symbol][key]}
+                      {fmtUnknown(symbolStats[symbol][key])}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -75,4 +75,11 @@ export default function TradingResult({ value, onClose }) {
       ))}
     </>
   );
+}
+
+function fmtUnknown(value) {
+  if (typeof value === 'number' && !Number.isInteger(value)) {
+    return value.toFixed(8);
+  }
+  return value;
 }

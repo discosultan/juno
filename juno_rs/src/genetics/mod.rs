@@ -45,6 +45,11 @@ impl<T: Chromosome> Individual<T> {
 
 #[derive(Serialize)]
 pub struct Evolution<T: Chromosome> {
-    pub hall_of_fame: Vec<Individual<T>>,
+    pub generations: Vec<Generation<T>>,
     pub seed: u64,
+}
+
+#[derive(Serialize)]
+pub struct Generation<T: Chromosome> {
+    pub hall_of_fame: Vec<Individual<T>>,
 }

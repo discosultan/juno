@@ -1,6 +1,6 @@
 use crate::genetics::{
     crossover::Crossover, mutation::Mutation, reinsertion::Reinsertion, selection::Selection,
-    Evaluation, Evolution, Individual,
+    Evaluation, Evolution, Generation, Individual,
 };
 use rand::prelude::*;
 use std::time;
@@ -48,9 +48,11 @@ where
         &self,
         population_size: usize,
         generations: usize,
+        hall_of_fame_size: usize,
         seed: Option<u64>,
     ) -> Evolution<TE::Chromosome> {
         assert!(population_size >= 2);
+        assert!(hall_of_fame_size >= 1);
 
         let seed = match seed {
             Some(seed) => seed,
@@ -60,28 +62,32 @@ where
 
         let mut rng = StdRng::seed_from_u64(seed);
 
-        let mut hall_of_fame = Vec::with_capacity(generations);
+        let mut generations: Vec<Generation<TE::Chromosome>> = Vec::with_capacity(generations);
 
         let mut parents = (0..population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
         self.evaluate_and_sort_by_fitness_desc(&mut parents);
-        hall_of_fame.push(parents[0].clone());
+        generations.push(Generation {
+            hall_of_fame: parents.iter().cloned().take(hall_of_fame_size).collect(),
+        });
         println!("gen 0 best fitness {}", parents[0].fitness);
 
         let mut offsprings = Vec::with_capacity(population_size as usize);
 
-        for i in 1..=generations {
+        for i in 1..=generations.capacity() {
             self.run_generation(&mut rng, &mut parents, &mut offsprings, population_size);
 
             std::mem::swap(&mut parents, &mut offsprings);
             offsprings.clear();
 
-            hall_of_fame.push(parents[0].clone());
+            generations.push(Generation {
+                hall_of_fame: parents.iter().cloned().take(hall_of_fame_size).collect()
+            });
             println!("gen {} best fitness {}", i, parents[0].fitness);
         }
 
-        Evolution { hall_of_fame, seed }
+        Evolution { generations, seed }
     }
 
     fn run_generation(

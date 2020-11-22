@@ -20,6 +20,7 @@ use warp::{reply::Json, Filter, Rejection};
 struct Params {
     population_size: usize,
     generations: usize,
+    hall_of_fame_size: usize,
     seed: Option<u64>,
 
     strategy: String, // TODO: Move to path param.
@@ -44,7 +45,14 @@ impl Params {
 
 #[derive(Serialize)]
 struct Generation<T: Chromosome> {
+    // We need to store generation number because we are filtering out generations with not change
+    // in top.
     nr: usize,
+    hall_of_fame: Vec<IndividualStats<T>>,
+}
+
+#[derive(Serialize)]
+struct IndividualStats<T: Chromosome> {
     ind: Individual<TradingChromosome<T>>,
     symbol_stats: HashMap<String, TradingStats>,
 }
@@ -86,33 +94,36 @@ fn process<T: Signal>(args: Params) -> Result<Json> {
     let evolution = optimize::<T>(&args)?;
     let mut last_fitness = f64::NAN;
     let gen_stats = evolution
-        .hall_of_fame
+        .generations
         .into_iter()
         .enumerate()
-        .filter(|(_, ind)| {
-            let pass = last_fitness.is_nan() || ind.fitness > last_fitness;
-            last_fitness = ind.fitness;
+        .filter(|(_, gen)| {
+            let best_ind = &gen.hall_of_fame[0];
+            let pass = last_fitness.is_nan() || best_ind.fitness > last_fitness;
+            last_fitness = best_ind.fitness;
             pass
         })
-        .map(|(i, ind)| {
-            let symbol_summaries = args
-                .iter_symbols()
-                .map(|symbol| {
-                    let summary = backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
-                    (symbol.to_owned(), summary) // TODO: Return &String instead.
+        .map(|(i, gen)| {
+            let hall_of_fame = gen
+                .hall_of_fame
+                .into_iter()
+                .map(|ind| {
+                    let symbol_stats = args
+                        .iter_symbols()
+                        .map(|symbol| {
+                            let summary = backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
+                            let stats = get_stats(&args, symbol, &summary).unwrap();
+                            (symbol.to_owned(), stats) // TODO: Return &String instead.
+                        })
+                        .collect::<HashMap<String, TradingStats>>();
+
+                    IndividualStats { ind, symbol_stats }
                 })
-                .collect::<HashMap<String, TradingSummary>>();
-            let symbol_stats = symbol_summaries
-                .iter()
-                .map(|(symbol, summary)| {
-                    let stats = get_stats(&args, symbol, summary).unwrap();
-                    (symbol.to_owned(), stats) // TODO: Return &String instead.
-                })
-                .collect::<HashMap<String, TradingStats>>();
+                .collect();
+
             Generation {
                 nr: i,
-                ind,
-                symbol_stats,
+                hall_of_fame,
             }
         })
         .collect::<Vec<Generation<T::Params>>>();
@@ -132,7 +143,9 @@ fn optimize<T: Signal>(args: &Params) -> Result<Evolution<TradingChromosome<T::P
             args.end,
             args.quote,
         )?,
-        selection::EliteSelection::default(),
+        selection::EliteSelection {
+            shuffle: false,
+        },
         // selection::TournamentSelection::default(),
         // crossover::UniformCrossover::default(),
         crossover::UniformCrossover::new(0.75),
@@ -141,7 +154,12 @@ fn optimize<T: Signal>(args: &Params) -> Result<Evolution<TradingChromosome<T::P
         // reinsertion::EliteReinsertion::default(),
         reinsertion::EliteReinsertion::new(0.75),
     );
-    let evolution = algo.evolve(args.population_size, args.generations, args.seed);
+    let evolution = algo.evolve(
+        args.population_size,
+        args.generations,
+        args.hall_of_fame_size,
+        args.seed,
+    );
     Ok(evolution)
 }
 

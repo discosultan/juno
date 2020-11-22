@@ -2,7 +2,9 @@
 
 use juno_rs::{
     chandler::fill_missing_candles,
-    genetics::{crossover, mutation, reinsertion, selection, GeneticAlgorithm, Individual},
+    genetics::{
+        crossover, mutation, reinsertion, selection, Generation, GeneticAlgorithm, Individual,
+    },
     prelude::*,
     statistics::TradingStats,
     storages,
@@ -96,7 +98,7 @@ fn optimize_validate_print<T: Signal>(
     let gens = optimize::<T>(&args, &symbols)?;
 
     print_all_generations::<T>(&args, symbols, validation_symbols, &gens);
-    print_individual::<T>(args, symbols, &gens[gens.len() - 1]); // Best.
+    print_individual::<T>(args, symbols, &gens[gens.len() - 1].hall_of_fame[0]); // Best.
 
     Ok(())
 }
@@ -104,7 +106,7 @@ fn optimize_validate_print<T: Signal>(
 fn optimize<T: Signal>(
     args: &Params,
     symbols: &[String],
-) -> Result<Vec<Individual<TradingChromosome<T::Params>>>> {
+) -> Result<Vec<Generation<TradingChromosome<T::Params>>>> {
     let algo = GeneticAlgorithm::new(
         trading::BasicEvaluation::<T>::new(
             args.exchange,
@@ -125,9 +127,10 @@ fn optimize<T: Signal>(
     );
     let population_size = 128;
     let generations = 128;
+    let hall_of_fame_size = 1;
     let seed = Some(1);
-    let evolution = algo.evolve(population_size, generations, seed);
-    Ok(evolution.hall_of_fame)
+    let evolution = algo.evolve(population_size, generations, hall_of_fame_size, seed);
+    Ok(evolution.generations)
 }
 
 fn print_individual<T: Signal>(
@@ -157,7 +160,7 @@ fn print_all_generations<T: Signal>(
     args: &Params,
     symbols: &[String],
     validation_symbols: &[String],
-    gens: &[Individual<TradingChromosome<T::Params>>],
+    gens: &[Generation<TradingChromosome<T::Params>>],
 ) {
     let mut table = Table::new();
     let mut cells = vec![Cell::new("")];
@@ -171,7 +174,9 @@ fn print_all_generations<T: Signal>(
     table.add_row(Row::new(cells));
 
     let mut last_fitness = f64::NAN;
-    for (i, ind) in gens.iter().enumerate() {
+    for (i, gen) in gens.iter().enumerate() {
+        let ind = &gen.hall_of_fame[0];
+
         if ind.fitness == last_fitness {
             continue;
         }

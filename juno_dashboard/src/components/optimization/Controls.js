@@ -30,6 +30,7 @@ export default function Controls({ onOptimize }) {
   const [end, setEnd] = useLocalStorageState('end', '2020-11-01');
   const [generations, setGenerations] = useLocalStorageState('generations', 32);
   const [populationSize, setPopulationSize] = useLocalStorageState('populationSize', 32);
+  const [hallOfFameSize, setHallOfFameSize] = useLocalStorageState('hallOfFameSize', 1);
   const [randomizeSeed, setRandomizeSeed] = useLocalStorageState('randomizeSeed', true);
   const [seed, setSeed] = useLocalStorageState('seed', 0);
 
@@ -128,13 +129,22 @@ export default function Controls({ onOptimize }) {
         onChange={(e) => setGenerations(e.target.valueAsNumber)}
       />
       <TextField
-        id="population"
+        id="populationSize"
         fullWidth
         label="Population Size"
         type="number"
         inputProps={{ min: 2 }}
         value={populationSize}
         onChange={(e) => setPopulationSize(e.target.valueAsNumber)}
+      />
+      <TextField
+        id="hallOfFameSize"
+        fullWidth
+        label="Hall of Fame Size"
+        type="number"
+        inputProps={{ min: 1}}
+        value={hallOfFameSize}
+        onChange={(e) => setHallOfFameSize(e.target.valueAsNumber)}
       />
 
       <FormControlLabel
@@ -176,6 +186,7 @@ export default function Controls({ onOptimize }) {
             quote: 1.0,
             populationSize,
             generations,
+            hallOfFameSize,
             seed: randomizeSeed ? null : seed,
           })
         }

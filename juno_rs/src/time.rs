@@ -116,7 +116,8 @@ pub trait TimestampIntExt {
 impl TimestampIntExt for u64 {
     fn to_timestamp_repr(&self) -> String {
         let datetime = Utc.timestamp_millis(*self as i64);
-        datetime.to_rfc3339()
+        // datetime.to_rfc3339()
+        datetime.format("%Y-%m-%dT%H:%M:%S").to_string()
     }
 }
 
