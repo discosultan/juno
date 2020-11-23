@@ -27,13 +27,13 @@ impl Default for FourWeekRuleParams {
 }
 
 fn period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(2, 100)
+    rng.gen_range(2, 200)
 }
 fn ma(rng: &mut StdRng) -> u32 {
     rng.gen_ma()
 }
 fn ma_period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(2, 100)
+    rng.gen_range(2, 200)
 }
 
 // We can use https://github.com/dtolnay/typetag to serialize a Box<dyn trait> if needed. Otherwise,

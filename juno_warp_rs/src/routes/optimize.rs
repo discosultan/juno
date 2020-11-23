@@ -150,7 +150,7 @@ fn optimize<T: Signal>(args: &Params) -> Result<Evolution<TradingChromosome<T::P
         // crossover::UniformCrossover::default(),
         crossover::UniformCrossover::new(0.75),
         // mutation::UniformMutation::default(),
-        mutation::UniformMutation::new(0.25),
+        mutation::UniformMutation::new(0.33),
         // reinsertion::EliteReinsertion::default(),
         reinsertion::EliteReinsertion::new(0.75),
     );
