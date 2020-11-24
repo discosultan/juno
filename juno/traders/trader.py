@@ -28,6 +28,14 @@ class Trader(ABC):
     async def run(self, config: Any, state: Optional[Any] = None) -> TradingSummary:
         pass
 
+    # @abstractmethod
+    # async def run(self, config: Any) -> TradingSummary:
+    #     pass
+
+    # @abstractmethod
+    # async def resume(self, state: Any) -> TradingSummary:
+    #     pass
+
     async def request_quote(
         self, quote: Optional[Decimal], exchange: str, asset: str, mode: TradingMode
     ) -> Decimal:

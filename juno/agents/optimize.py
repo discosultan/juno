@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Any, Dict, List, NamedTuple, Optional, get_type_hints
 
@@ -97,7 +97,7 @@ class Optimize(Agent):
         trading_config_typings = get_type_hints(Basic.Config)
         trading_config_typings['strategy'] = type_constructor_type
         trading_config_type = NamedTuple('_', trading_config_typings.items())  # type: ignore
-        cfg_dict = cfg._asdict()
+        cfg_dict = asdict(cfg)
         cfg_dict['strategy'] = type_constructor_instance
         trading_config_instance = trading_config_type(**cfg_dict)  # type: ignore
 

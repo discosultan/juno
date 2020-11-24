@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Coroutine, Dict, List, NamedTuple, Optional, Tuple
+from typing import Callable, Coroutine, Dict, List, Optional, Tuple
 
 from more_itertools import take
 
@@ -74,12 +74,14 @@ class _SymbolState:
 
 
 class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
-    class Config(NamedTuple):
+    @dataclass(frozen=True)
+    class Config:
         exchange: str
         interval: Interval
         end: Timestamp
         strategy: TypeConstructor[Signal]
-        symbol_strategies: Dict[str, TypeConstructor[Signal]] = {}  # Overrides default strategy.
+        # Overrides default strategy.
+        symbol_strategies: Dict[str, TypeConstructor[Signal]] = field(default_factory=dict)
         start: Optional[Timestamp] = None  # None means max earliest is found.
         quote: Optional[Decimal] = None  # None means exchange wallet is queried.
         stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -91,8 +93,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         long: bool = True  # Take long positions.
         short: bool = False  # Take short positions.
         close_on_exit: bool = True  # Whether to close open positions on exit.
-        track: List[str] = []
-        track_exclude: List[str] = []  # Symbols to ignore.
+        track: List[str] = field(default_factory=list)
+        track_exclude: List[str] = field(default_factory=list)  # Symbols to ignore.
         track_count: int = 4
         track_required_start: Optional[Timestamp] = None
         position_count: int = 2

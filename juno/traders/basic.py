@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Dict, List, NamedTuple, Optional
+from typing import Callable, Dict, List, Optional
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
@@ -22,7 +22,8 @@ _log = logging.getLogger(__name__)
 
 
 class Basic(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
-    class Config(NamedTuple):
+    @dataclass(frozen=True)
+    class Config:
         exchange: str
         symbol: str
         interval: Interval
