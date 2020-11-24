@@ -495,3 +495,41 @@ async def test_open_new_positions():
     summary = await trader.run(config, state)
 
     assert len(summary.list_positions()) == 0
+
+
+async def test_take_profit():
+    informant = fakes.Informant(tickers={
+        'eth-btc': Ticker(
+            volume=Decimal('1.0'),
+            quote_volume=Decimal('1.0'),
+            price=Decimal('1.0'),
+        ),
+    })
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1): [
+            Candle(time=0, close=Decimal('1.0')),
+            Candle(time=1, close=Decimal('2.0')),
+        ],
+    })
+    trader = traders.Multi(chandler=chandler, informant=informant)
+
+    config = traders.Multi.Config(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=2,
+        quote=Decimal('1.0'),
+        strategy=TypeConstructor.from_type(
+            Fixed,
+            advices=[Advice.LONG],
+        ),
+        long=True,
+        track_count=1,
+        position_count=1,
+        take_profit=Decimal('0.5'),
+    )
+    summary = await trader.run(config)
+
+    positions = summary.list_positions()
+    assert len(positions) == 1
+    assert positions[0].close_reason is CloseReason.TAKE_PROFIT

@@ -43,6 +43,7 @@ class _SymbolState:
     allocated_quote: Decimal = Decimal('0.0')
     first_candle: Optional[Candle] = None
     last_candle: Optional[Candle] = None
+    override_reason: Optional[CloseReason] = None
 
     @property
     def ready(self) -> bool:
@@ -66,10 +67,10 @@ class _SymbolState:
 
     @property
     def reason(self) -> CloseReason:
-        return (
-            CloseReason.STRATEGY if self.override_changed.prevailing_advice is Advice.NONE
-            else CloseReason.STOP_LOSS
-        )
+        if self.override_changed.prevailing_advice is Advice.NONE:
+            return CloseReason.STRATEGY
+        assert self.override_reason is not None
+        return self.override_reason
 
 
 class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
@@ -202,8 +203,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=state.start,
-                    stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
-                    take_profit=TakeProfit(config.take_profit),
+                    stop_loss=StopLoss(threshold=config.stop_loss, trail=config.trail_stop_loss),
+                    take_profit=TakeProfit(threshold=config.take_profit),
                 ) for s in state.symbols
             }
 
@@ -390,54 +391,61 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                 num_missed = time_diff // config.interval
                 for _ in range(num_missed):
                     await self._process_advice(
-                        symbol_state, candles_updated, ready, Advice.NONE, Advice.NONE
+                        symbol_state, candles_updated, ready, Advice.NONE, Advice.NONE, None
                     )
 
-            advice, override_advice = self._process_candle(config, symbol_state, candle)
+            advice, override_advice, override_reason = self._process_candle(
+                config, symbol_state, candle
+            )
             await self._process_advice(
-                symbol_state, candles_updated, ready, advice, override_advice
+                symbol_state, candles_updated, ready, advice, override_advice, override_reason
             )
 
     def _process_candle(
         self, config: Config, symbol_state: _SymbolState, candle: Candle
-    ) -> Tuple[Advice, Advice]:
+    ) -> Tuple[Advice, Advice, Optional[CloseReason]]:
         symbol_state.stop_loss.update(candle)
         symbol_state.take_profit.update(candle)
         symbol_state.strategy.update(candle)
         advice = symbol_state.strategy.advice
         override_advice = Advice.NONE
+        override_reason = None
         if (
             isinstance(symbol_state.open_position, Position.OpenLong)
             and advice not in [Advice.SHORT, Advice.LIQUIDATE]
         ):
             if symbol_state.stop_loss.upside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} upside trailing stop hit at {config.stop_loss}; '
-                    'liquidating'
+                    f'{symbol_state.symbol} upside stop loss hit at {config.stop_loss} (trailing: '
+                    f'{config.trail_stop_loss}); liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
+                override_reason = CloseReason.STOP_LOSS
             elif symbol_state.take_profit.upside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} upside take profit hit at {config.stop_loss}; '
+                    f'{symbol_state.symbol} upside take profit hit at {config.take_profit}; '
                     'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
+                override_reason = CloseReason.TAKE_PROFIT
         elif (
             isinstance(symbol_state.open_position, Position.OpenShort)
             and advice not in [Advice.LONG, Advice.LIQUIDATE]
         ):
             if symbol_state.stop_loss.downside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} downside trailing stop hit at {config.stop_loss}; '
-                    'liquidating'
+                    f'{symbol_state.symbol} downside stop loss hit at {config.stop_loss} '
+                    f'(trailing: {config.trail_stop_loss}); liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
+                override_reason = CloseReason.STOP_LOSS
             elif symbol_state.take_profit.downside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} downside take profit hit at {config.stop_loss}; '
+                    f'{symbol_state.symbol} downside take profit hit at {config.take_profit}; '
                     'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
+                override_reason = CloseReason.TAKE_PROFIT
 
         if not symbol_state.open_position:
             if (config.long and advice is Advice.LONG or config.short and advice is Advice.SHORT):
@@ -450,11 +458,11 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         symbol_state.last_candle = candle
         symbol_state.current = candle.time + config.interval
 
-        return advice, override_advice
+        return advice, override_advice, override_reason
 
     async def _process_advice(
         self, symbol_state: _SymbolState, candles_updated: SlotBarrier, ready: Event,
-        advice: Advice, override_advice: Advice
+        advice: Advice, override_advice: Advice, override_reason: Optional[CloseReason]
     ) -> None:
         _log.debug(f'{symbol_state.symbol} received advice: {advice.name} {override_advice.name}')
 
@@ -464,6 +472,7 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
             symbol_state.override_changed.update(Advice.NONE)
         else:
             symbol_state.override_changed.update(symbol_state.override_changed.prevailing_advice)
+        symbol_state.override_reason = override_reason
 
         symbol_state.changed.update(advice)
 
