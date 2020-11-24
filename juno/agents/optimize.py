@@ -8,7 +8,7 @@ from juno.components import Events
 from juno.config import format_as_config, get_module_type_constructor
 from juno.optimizer import Optimizer
 from juno.storages import Memory, Storage
-from juno.traders import Basic
+from juno.traders import BasicConfig
 from juno.typing import TypeConstructor, get_input_type_hints
 from juno.utils import construct, extract_public
 
@@ -94,7 +94,7 @@ class Optimize(Agent):
             kwargs=strategy_kwargs_instance,
         )
 
-        trading_config_typings = get_type_hints(Basic.Config)
+        trading_config_typings = get_type_hints(BasicConfig)
         trading_config_typings['strategy'] = type_constructor_type
         trading_config_type = NamedTuple('_', trading_config_typings.items())  # type: ignore
         cfg_dict = asdict(cfg)

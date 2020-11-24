@@ -24,8 +24,7 @@ async def test_upside_stop_loss() -> None:
         ]
     })
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -42,7 +41,9 @@ async def test_upside_stop_loss() -> None:
         long=True,
         short=False,
     )
-    summary = await trader.run(config)
+    state = await trader.initialize(config)
+
+    summary = await trader.run(state)
 
     assert summary.profit == -2
 
@@ -62,8 +63,7 @@ async def test_upside_trailing_stop_loss() -> None:
         ]
     })
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -80,7 +80,9 @@ async def test_upside_trailing_stop_loss() -> None:
         long=True,
         short=False,
     )
-    summary = await trader.run(config)
+    state = await trader.initialize(config)
+
+    summary = await trader.run(state)
 
     assert summary.profit == 8
 
@@ -105,8 +107,7 @@ async def test_downside_trailing_stop_loss() -> None:
         margin_multiplier=2,
     )
     trader = traders.Basic(chandler=chandler, informant=informant)
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -123,7 +124,9 @@ async def test_downside_trailing_stop_loss() -> None:
         long=False,
         short=True,
     )
-    summary = await trader.run(config)
+    state = await trader.initialize(config)
+
+    summary = await trader.run(state)
 
     assert summary.profit == 4
 
@@ -143,8 +146,7 @@ async def test_upside_take_profit() -> None:
         ]
     })
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -160,7 +162,9 @@ async def test_upside_take_profit() -> None:
         long=True,
         short=False,
     )
-    summary = await trader.run(config)
+    state = await trader.initialize(config)
+
+    summary = await trader.run(state)
 
     assert summary.profit == 10
 
@@ -185,8 +189,7 @@ async def test_downside_take_profit() -> None:
         margin_multiplier=2,
     )
     trader = traders.Basic(chandler=chandler, informant=informant)
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -202,7 +205,9 @@ async def test_downside_take_profit() -> None:
         long=False,
         short=True,
     )
-    summary = await trader.run(config)
+    state = await trader.initialize(config)
+
+    summary = await trader.run(state)
 
     assert summary.profit == 6
 
@@ -225,7 +230,7 @@ async def test_restart_on_missed_candle() -> None:
     })
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
 
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -235,9 +240,10 @@ async def test_restart_on_missed_candle() -> None:
         strategy=TypeConstructor.from_type(Fixed),
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
-    initial_strategy = cast(strategies.Fixed, config.strategy.construct())
-    state = traders.Basic.State(strategy=initial_strategy)
-    await trader.run(config, state)
+    state = await trader.initialize(config)
+    initial_strategy = cast(strategies.Fixed, state.strategy)
+
+    await trader.run(state)
 
     assert state.strategy != initial_strategy
 
@@ -263,8 +269,7 @@ async def test_assume_same_as_last_on_missed_candle() -> None:
         ]
     })
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -274,10 +279,9 @@ async def test_assume_same_as_last_on_missed_candle() -> None:
         strategy=TypeConstructor.from_type(Fixed),
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
-    state = traders.Basic.State()
-    await trader.run(config, state)
+    state = await trader.initialize(config)
 
-    assert state.strategy
+    await trader.run(state)
 
     candle_times = [c.time for c in state.strategy.updates]  # type: ignore
     assert len(candle_times) == 5
@@ -299,7 +303,7 @@ async def test_adjust_start_ignore_mid_trend() -> None:
         ]
     })
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -315,8 +319,9 @@ async def test_adjust_start_ignore_mid_trend() -> None:
         ),
         adjust_start=True,
     )
+    state = await trader.initialize(config)
 
-    summary = await trader.run(config)
+    summary = await trader.run(state)
 
     assert len(summary.list_positions()) == 0
 
@@ -332,7 +337,7 @@ async def test_adjust_start_persistence() -> None:
         ]
     })
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -348,8 +353,9 @@ async def test_adjust_start_persistence() -> None:
         ),
         adjust_start=True,
     )
+    state = await trader.initialize(config)
 
-    summary = await trader.run(config)
+    summary = await trader.run(state)
 
     long_positions = summary.list_positions(type_=Position.Long)
     assert len(long_positions) == 1
@@ -375,8 +381,7 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         }
     )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -389,20 +394,19 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         ),
         adjust_start=True,
     )
-    state = traders.Basic.State()
+    state = await trader.initialize(config)
 
-    trader_run_task = asyncio.create_task(trader.run(config, state))
+    trader_run_task = asyncio.create_task(trader.run(state))
 
     future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
     await future_candle_queue.join()
     await cancel(trader_run_task)
     await storage.set('shard', 'key', state)
     future_candle_queue.put_nowait(Candle(time=5))
-    state = await storage.get('shard', 'key', traders.Basic.State)
+    state = await storage.get('shard', 'key', traders.BasicState)
 
-    await trader.run(config, state)
+    await trader.run(state)
 
-    assert state.strategy
     candle_times = [c.time for c in state.strategy.updates]  # type: ignore
     assert len(candle_times) == 6
     for i in range(6):
@@ -416,7 +420,7 @@ async def test_summary_end_on_cancel() -> None:
         chandler=chandler, informant=fakes.Informant(), get_time_ms=time.get_time
     )
 
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -425,9 +429,9 @@ async def test_summary_end_on_cancel() -> None:
         quote=Decimal('1.0'),
         strategy=TypeConstructor.from_type(Fixed),
     )
-    state = traders.Basic.State()
+    state = await trader.initialize(config)
 
-    trader_run_task = asyncio.create_task(trader.run(config, state))
+    trader_run_task = asyncio.create_task(trader.run(state))
 
     future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
     await future_candle_queue.join()
@@ -449,7 +453,7 @@ async def test_summary_end_on_historical_cancel() -> None:
         chandler=chandler, informant=fakes.Informant(), get_time_ms=time.get_time
     )
 
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -458,9 +462,9 @@ async def test_summary_end_on_historical_cancel() -> None:
         quote=Decimal('1.0'),
         strategy=TypeConstructor.from_type(Fixed),
     )
-    state = traders.Basic.State()
+    state = await trader.initialize(config)
 
-    trader_run_task = asyncio.create_task(trader.run(config, state))
+    trader_run_task = asyncio.create_task(trader.run(state))
 
     future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
     await future_candle_queue.join()
@@ -496,8 +500,7 @@ async def test_close_on_exit(
         }
     )
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -510,9 +513,9 @@ async def test_close_on_exit(
         ),
         close_on_exit=close_on_exit,
     )
-    state = traders.Basic.State()
+    state = await trader.initialize(config)
 
-    trader_run_task = asyncio.create_task(trader.run(config, state))
+    trader_run_task = asyncio.create_task(trader.run(state))
 
     future_candle_queue = chandler.future_candle_queues[('dummy', 'eth-btc', 1)]
     await future_candle_queue.join()
@@ -522,9 +525,9 @@ async def test_close_on_exit(
     future_candle_queue.put_nowait(Candle(time=2, close=Decimal('3.0')))
     # Liquidate if not close on exit.
     future_candle_queue.put_nowait(Candle(time=3, close=Decimal('4.0')))
-    state = await storage.get('shard', 'key', traders.Basic.State)
+    state = await storage.get('shard', 'key', traders.BasicState)
 
-    summary = await trader.run(config, state)
+    summary = await trader.run(state)
     assert summary.start == 0
     assert summary.end == 4
 
@@ -539,13 +542,12 @@ async def test_close_on_exit(
     assert position.profit == expected_profit
 
 
-async def test_open_new_positions():
+async def test_open_new_positions() -> None:
     chandler = fakes.Chandler(candles={
         ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]
     })
     trader = traders.Basic(chandler=chandler, informant=fakes.Informant())
-
-    config = traders.Basic.Config(
+    config = traders.BasicConfig(
         exchange='dummy',
         symbol='eth-btc',
         interval=1,
@@ -558,7 +560,9 @@ async def test_open_new_positions():
         ),
         long=True,
     )
-    state = traders.Basic.State(open_new_positions=False)
-    summary = await trader.run(config, state)
+    state = await trader.initialize(config)
+    state.open_new_positions = False
+
+    summary = await trader.run(state)
 
     assert len(summary.list_positions()) == 0

@@ -148,10 +148,16 @@ def exc_traceback(exc: Exception) -> str:
     return ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
 
 
-def map_concrete_module_types(module: ModuleType) -> Dict[str, Type[Any]]:
+def map_concrete_module_types(
+    module: ModuleType, abstract: Optional[Type[Any]] = None
+) -> Dict[str, Type[Any]]:
     return {n.lower(): t for n, t in inspect.getmembers(
         module,
-        lambda c: inspect.isclass(c) and not inspect.isabstract(c)
+        lambda c: (
+            inspect.isclass(c)
+            and not inspect.isabstract(c)
+            and (True if abstract is None else issubclass(c, abstract))
+        )
     )}
 
 

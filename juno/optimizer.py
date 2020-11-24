@@ -20,7 +20,7 @@ from juno.solvers import FitnessValues, Individual, Solver
 from juno.statistics import AnalysisSummary, Statistics, analyse_benchmark, analyse_portfolio
 from juno.strategies import Strategy
 from juno.time import strfinterval, strfspan, time_ms
-from juno.traders import Basic
+from juno.traders import Basic, BasicConfig
 from juno.trading import StartMixin, TradingSummary
 from juno.typing import TypeConstructor, map_input_args
 
@@ -43,7 +43,7 @@ _boolean_constraint = Choice([True, False])
 
 
 class OptimizationSummary(NamedTuple):
-    trading_config: Basic.Config
+    trading_config: BasicConfig
     trading_summary: TradingSummary
     portfolio_stats: Statistics
 
@@ -294,7 +294,7 @@ class Optimizer(StartMixin):
 
         start = floor_multiple(state.start, ind.interval)
         end = floor_multiple(state.end, ind.interval)
-        trading_config = Basic.Config(
+        trading_config = BasicConfig(
             exchange=config.exchange,
             symbol=ind.symbol,
             interval=ind.interval,
@@ -314,9 +314,9 @@ class Optimizer(StartMixin):
             ),
         )
 
-        trader_state = Basic.State()
+        trader_state = await self._trader.initialize(trading_config)
         try:
-            await self._trader.run(trading_config, trader_state)
+            await self._trader.run(trader_state)
         except OrderException as e:
             _log.warning(f'trader stopped with exception: {e}')
         assert trader_state.summary

@@ -7,7 +7,7 @@ from juno.config import format_as_config, from_env, init_instance
 from juno.math import floor_multiple
 from juno.solvers import Python, Rust, Solver
 from juno.statistics import analyse_benchmark, analyse_portfolio
-from juno.traders import Basic
+from juno.traders import Basic, BasicConfig
 from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
 
@@ -80,7 +80,7 @@ async def main() -> None:
         rust_result = rust_solver.solve(solver_config)
         python_result = python_solver.solve(solver_config)
 
-        trading_summary = await trader.run(Basic.Config(
+        trader_state = await trader.initialize(BasicConfig(
             exchange='binance',
             symbol=SYMBOL,
             interval=INTERVAL,
@@ -95,6 +95,7 @@ async def main() -> None:
             long=LONG,
             short=SHORT,
         ))
+        trading_summary = await trader.run(trader_state)
         portfolio = analyse_portfolio(
             benchmark_g_returns=benchmark.g_returns,
             asset_prices=fiat_prices,

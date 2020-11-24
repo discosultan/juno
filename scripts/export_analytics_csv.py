@@ -10,7 +10,7 @@ from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
-from juno.traders import Basic
+from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
 from juno.utils import unpack_symbol
 
@@ -31,7 +31,7 @@ async def main() -> None:
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     async with binance, coinbase, informant:
-        trader_config = Basic.Config(
+        trader_config = BasicConfig(
             exchange='binance',
             symbol=SYMBOL,
             interval=INTERVAL,
@@ -54,7 +54,9 @@ async def main() -> None:
             stop_loss=Decimal('0.0827'),
             missed_candle_policy=MissedCandlePolicy.LAST
         )
-        trading_summary = await trader.run(trader_config)
+        trader_state = await trader.initialize(trader_config)
+
+        trading_summary = await trader.run(trader_state)
 
         _, filters = informant.get_fees_filters('binance', SYMBOL)
 

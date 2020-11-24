@@ -1,18 +1,28 @@
 import logging
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Generic, Optional, Type, TypeVar
 
 from juno.brokers import Broker
 from juno.components import User
 from juno.trading import TradingMode, TradingSummary
 
+TC = TypeVar('TC')
+TS = TypeVar('TS')
+
 _log = logging.getLogger(__name__)
 
 
-class Trader(ABC):
-    Config: Any
-    State: Any
+class Trader(ABC, Generic[TC, TS]):
+    @staticmethod
+    @abstractmethod
+    def config() -> Type[TC]:
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def state() -> Type[TS]:
+        pass
 
     @property
     @abstractmethod
@@ -25,16 +35,12 @@ class Trader(ABC):
         pass
 
     @abstractmethod
-    async def run(self, config: Any, state: Optional[Any] = None) -> TradingSummary:
+    async def initialize(self, config: TC) -> TS:
         pass
 
-    # @abstractmethod
-    # async def run(self, config: Any) -> TradingSummary:
-    #     pass
-
-    # @abstractmethod
-    # async def resume(self, state: Any) -> TradingSummary:
-    #     pass
+    @abstractmethod
+    async def run(self, state: TS) -> TradingSummary:
+        pass
 
     async def request_quote(
         self, quote: Optional[Decimal], exchange: str, asset: str, mode: TradingMode

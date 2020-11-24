@@ -34,7 +34,7 @@ async def test_simple() -> None:
         ),
     })
     trader = traders.Multi(chandler=chandler, informant=informant)
-    config = traders.Multi.Config(
+    config = traders.MultiConfig(
         exchange='dummy',
         interval=1,
         start=0,
@@ -55,8 +55,9 @@ async def test_simple() -> None:
         track_count=3,
         position_count=2,
     )
+    state = await trader.initialize(config)
 
-    trader_task = asyncio.create_task(trader.run(config))
+    trader_task = asyncio.create_task(trader.run(state))
 
     for i in range(1, 4):
         await asyncio.gather(
@@ -119,7 +120,7 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         ),
     })
     trader = traders.Multi(chandler=chandler, informant=informant)
-    config = traders.Multi.Config(
+    config = traders.MultiConfig(
         exchange='dummy',
         interval=1,
         start=0,
@@ -141,9 +142,9 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         position_count=1,
     )
 
-    trader_state = traders.Multi.State()
+    trader_state = await trader.initialize(config)
     for i in range(0, 4):
-        trader_task = asyncio.create_task(trader.run(config, trader_state))
+        trader_task = asyncio.create_task(trader.run(trader_state))
 
         for s in symbols:
             chandler.future_candle_queues[('dummy', s, 1)].put_nowait(
@@ -158,7 +159,7 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         if i < 3:  # If not last iteration, cancel, store and retrieve from storage.
             await cancel(trader_task)
             await storage.set('shard', 'key', trader_state)
-            trader_state = await storage.get('shard', 'key', traders.Multi.State)
+            trader_state = await storage.get('shard', 'key', traders.MultiState)
 
             # Change tickers for informant. This shouldn't crash the trader.
             informant.tickers['xmr-btc'] = Ticker(
@@ -221,7 +222,7 @@ async def test_historical() -> None:
         ),
     })
     trader = traders.Multi(chandler=chandler, informant=informant)
-    config = trader.Config(
+    config = traders.MultiConfig(
         exchange='dummy',
         interval=1,
         start=0,
@@ -236,8 +237,9 @@ async def test_historical() -> None:
         track_count=2,
         position_count=2,
     )
+    state = await trader.initialize(config)
 
-    summary = await trader.run(config)
+    summary = await trader.run(state)
 
     long_positions = summary.list_positions(type_=Position.Long)
     assert len(long_positions) == 2
@@ -274,7 +276,7 @@ async def test_trailing_stop_loss() -> None:
         ),
     })
     trader = traders.Multi(chandler=chandler, informant=informant)
-    config = trader.Config(
+    config = traders.MultiConfig(
         exchange='dummy',
         interval=1,
         start=0,
@@ -297,8 +299,9 @@ async def test_trailing_stop_loss() -> None:
         track_count=1,
         position_count=1,
     )
+    state = await trader.initialize(config)
 
-    summary = await trader.run(config)
+    summary = await trader.run(state)
 
     long_positions = summary.list_positions(type_=Position.Long)
     assert len(long_positions) == 2
@@ -352,7 +355,7 @@ async def test_close_on_exit(
         ),
     })
     trader = traders.Multi(chandler=chandler, informant=informant)
-    config = traders.Multi.Config(
+    config = traders.MultiConfig(
         exchange='dummy',
         interval=1,
         start=0,
@@ -368,9 +371,9 @@ async def test_close_on_exit(
         position_count=1,
         close_on_exit=close_on_exit,
     )
+    state = await trader.initialize(config)
 
-    state = traders.Multi.State()
-    trader_task = asyncio.create_task(trader.run(config, state))
+    trader_task = asyncio.create_task(trader.run(state))
 
     await asyncio.gather(
         *(chandler.future_candle_queues[('dummy', s, 1)].join() for s in symbols)
@@ -380,14 +383,14 @@ async def test_close_on_exit(
 
     await cancel(trader_task)
     await storage.set('shard', 'key', state)
-    state = await storage.get('shard', 'key', traders.Multi.State)
+    state = await storage.get('shard', 'key', traders.MultiState)
     chandler.future_candle_queues[('dummy', 'eth-btc', 1)].put_nowait(
         Candle(time=2, close=Decimal('30.0'))
     )
     chandler.future_candle_queues[('dummy', 'ltc-btc', 1)].put_nowait(
         Candle(time=2, close=Decimal('3.0'))
     )
-    summary = await trader.run(config, state)
+    summary = await trader.run(state)
 
     # close_on_exit = True
     #     L L -
@@ -432,7 +435,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
         ),
     })
     trader = traders.Multi(chandler=chandler, informant=informant, user=user, broker=broker)
-    config = traders.Multi.Config(
+    config = traders.MultiConfig(
         exchange='dummy',
         interval=1,
         start=0,
@@ -448,9 +451,9 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
         close_on_exit=False,
         mode=TradingMode.LIVE,
     )
+    state = await trader.initialize(config)
 
-    state = traders.Multi.State()
-    trader_task = asyncio.create_task(trader.run(config, state))
+    trader_task = asyncio.create_task(trader.run(state))
     await chandler.future_candle_queues[('dummy', 'eth-btc', 1)].join()
     # Sleep to give control back to position manager.
     await asyncio.sleep(0)
@@ -461,10 +464,10 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
     )
 
     user.get_balance.return_value = Balance(Decimal('0.0'))
-    await trader.run(config, state)
+    await trader.run(state)
 
 
-async def test_open_new_positions():
+async def test_open_new_positions() -> None:
     informant = fakes.Informant(tickers={
         'eth-btc': Ticker(
             volume=Decimal('1.0'),
@@ -476,8 +479,7 @@ async def test_open_new_positions():
         ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('1.0'))]
     })
     trader = traders.Multi(chandler=chandler, informant=informant)
-
-    config = traders.Multi.Config(
+    config = traders.MultiConfig(
         exchange='dummy',
         interval=1,
         start=0,
@@ -491,13 +493,15 @@ async def test_open_new_positions():
         track_count=1,
         position_count=1,
     )
-    state = traders.Multi.State(open_new_positions=False)
-    summary = await trader.run(config, state)
+    state = await trader.initialize(config)
+    state.open_new_positions = False
+
+    summary = await trader.run(state)
 
     assert len(summary.list_positions()) == 0
 
 
-async def test_take_profit():
+async def test_take_profit() -> None:
     informant = fakes.Informant(tickers={
         'eth-btc': Ticker(
             volume=Decimal('1.0'),
@@ -513,7 +517,7 @@ async def test_take_profit():
     })
     trader = traders.Multi(chandler=chandler, informant=informant)
 
-    config = traders.Multi.Config(
+    config = traders.MultiConfig(
         exchange='dummy',
         interval=1,
         start=0,
@@ -528,7 +532,9 @@ async def test_take_profit():
         position_count=1,
         take_profit=Decimal('0.5'),
     )
-    summary = await trader.run(config)
+    state = await trader.initialize(config)
+
+    summary = await trader.run(state)
 
     positions = summary.list_positions()
     assert len(positions) == 1

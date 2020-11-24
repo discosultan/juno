@@ -74,10 +74,11 @@ class Backtest(Agent):
 
         trader_name, trader_kwargs = get_type_name_and_kwargs(config.trader)
         trader = self._traders[trader_name]
+        trader_config_type = type(trader).config()
         trader_config = construct(
-            trader.Config,
+            trader_config_type,
             config,
-            **kwargs_for(trader.Config, trader_kwargs),
+            **kwargs_for(trader_config_type, trader_kwargs),
             start=start,
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
@@ -85,9 +86,9 @@ class Backtest(Agent):
             mode=TradingMode.BACKTEST,
         )
         if not state.result:
-            state.result = trader.State()
+            state.result = await trader.initialize(trader_config)
 
-        await trader.run(trader_config, state.result)
+        await trader.run(state.result)
         assert (summary := state.result.summary)
 
         if not self._prices:

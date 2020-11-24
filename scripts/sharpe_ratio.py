@@ -14,7 +14,7 @@ from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
-from juno.traders import Basic
+from juno.traders import Basic, BasicConfig
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -40,31 +40,30 @@ async def main() -> None:
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     base_asset, quote_asset = unpack_symbol(SYMBOL)
     async with binance, coinbase, informant:
-        trading_summary = await trader.run(
-            config=Basic.Config(
-                exchange='binance',
-                symbol=SYMBOL,
-                interval=INTERVAL,
-                start=start,
-                end=end,
-                quote=Decimal('1.0'),
-                strategy=get_module_type_constructor(
-                    strategies,
-                    {
-                        'type': 'doublema2',
-                        'short_period': 3,
-                        'long_period': 73,
-                        'neg_threshold': Decimal('-0.102'),
-                        'pos_threshold': Decimal('0.239'),
-                        'persistence': 4,
-                        'short_ma': 'sma',
-                        'long_ma': 'smma',
-                    },
-                ),
-                stop_loss=Decimal('0.0827'),
-                missed_candle_policy=MissedCandlePolicy.LAST,
+        trader_state = await trader.initialize(BasicConfig(
+            exchange='binance',
+            symbol=SYMBOL,
+            interval=INTERVAL,
+            start=start,
+            end=end,
+            quote=Decimal('1.0'),
+            strategy=get_module_type_constructor(
+                strategies,
+                {
+                    'type': 'doublema2',
+                    'short_period': 3,
+                    'long_period': 73,
+                    'neg_threshold': Decimal('-0.102'),
+                    'pos_threshold': Decimal('0.239'),
+                    'persistence': 4,
+                    'short_ma': 'sma',
+                    'long_ma': 'smma',
+                },
             ),
-        )
+            stop_loss=Decimal('0.0827'),
+            missed_candle_policy=MissedCandlePolicy.LAST,
+        ))
+        trading_summary = await trader.run(trader_state)
 
         start_day = floor_multiple(start, DAY_MS)
         end_day = floor_multiple(end, DAY_MS)

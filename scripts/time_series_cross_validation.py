@@ -11,7 +11,7 @@ from juno.optimizer import Optimizer
 from juno.solvers import Rust
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
-from juno.traders import Basic
+from juno.traders import Basic, BasicConfig
 from juno.typing import TypeConstructor
 from juno.utils import construct, extract_public, get_module_type, unpack_symbol
 
@@ -69,12 +69,13 @@ async def main() -> None:
         )
         logging.info(f'training portfolio stats: {optimization_summary.portfolio_stats}')
 
-        trading_summary = await trader.run(construct(
-            Basic.Config,
+        trader_state = await trader.initialize(construct(
+            BasicConfig,
             optimization_summary.trading_config,
             start=validation_start,
             end=validation_end,
         ))
+        trading_summary = await trader.run(trader_state)
 
         base_asset, quote_asset = unpack_symbol(SYMBOL)
         fiat_prices = await prices.map_asset_prices(

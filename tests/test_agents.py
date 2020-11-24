@@ -16,7 +16,7 @@ from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
 from juno.storages import Memory, Storage
 from juno.time import HOUR_MS
-from juno.traders import Basic, Trader
+from juno.traders import Basic, BasicState, Trader
 from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
@@ -310,7 +310,7 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
         await asyncio.wait_for(candles.join(), 1)
         await cancel(agent_run_task)
 
-    state: Basic.State = agent_run_task.result()
+    state: BasicState = agent_run_task.result()
     assert state.first_candle and state.last_candle
     assert state.first_candle.time == 0
     assert state.last_candle.time == 1

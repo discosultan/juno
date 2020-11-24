@@ -67,10 +67,11 @@ class Paper(Agent):
         strategy_name, strategy_kwargs = get_type_name_and_kwargs(config.strategy)
         trader = self._traders[trader_name]
 
+        trader_config_type = type(trader).config()
         trader_config = construct(
-            trader.Config,
+            trader_config_type,
             config,
-            **kwargs_for(trader.Config, trader_kwargs),
+            **kwargs_for(trader_config_type, trader_kwargs),
             start=start,
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
@@ -78,8 +79,8 @@ class Paper(Agent):
             channel=state.name,
         )
         if not state.result:
-            state.result = trader.State()
-        await trader.run(trader_config, state.result)
+            state.result = await trader.initialize(trader_config)
+        await trader.run(state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:
         assert state.result
