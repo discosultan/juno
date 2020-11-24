@@ -68,7 +68,7 @@ class _SymbolState:
     def reason(self) -> CloseReason:
         return (
             CloseReason.STRATEGY if self.override_changed.prevailing_advice is Advice.NONE
-            else CloseReason.STOP_LOSS
+            else CloseReason.STOP_LOSS  # TODO: incorrect! fix!
         )
 
 
@@ -202,8 +202,8 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=state.start,
-                    stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
-                    take_profit=TakeProfit(config.take_profit),
+                    stop_loss=StopLoss(threshold=config.stop_loss, trail=config.trail_stop_loss),
+                    take_profit=TakeProfit(threshold=config.take_profit),
                 ) for s in state.symbols
             }
 
@@ -412,13 +412,13 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         ):
             if symbol_state.stop_loss.upside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} upside trailing stop hit at {config.stop_loss}; '
-                    'liquidating'
+                    f'{symbol_state.symbol} upside stop loss hit at {config.stop_loss} (trailing: '
+                    f'{config.trail_stop_loss}); liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
             elif symbol_state.take_profit.upside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} upside take profit hit at {config.stop_loss}; '
+                    f'{symbol_state.symbol} upside take profit hit at {config.take_profit}; '
                     'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
@@ -428,13 +428,13 @@ class Multi(Trader, PositionMixin, SimulatedPositionMixin, StartMixin):
         ):
             if symbol_state.stop_loss.downside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} downside trailing stop hit at {config.stop_loss}; '
-                    'liquidating'
+                    f'{symbol_state.symbol} downside stop loss hit at {config.stop_loss} '
+                    f'(trailing: {config.trail_stop_loss}); liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
             elif symbol_state.take_profit.downside_hit:
                 _log.info(
-                    f'{symbol_state.symbol} downside take profit hit at {config.stop_loss}; '
+                    f'{symbol_state.symbol} downside take profit hit at {config.take_profit}; '
                     'liquidating'
                 )
                 override_advice = Advice.LIQUIDATE
