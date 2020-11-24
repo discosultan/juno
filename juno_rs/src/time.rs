@@ -173,7 +173,8 @@ mod tests {
     fn test_timestamp_to_repr() {
         assert_eq!(
             1546300800000.to_timestamp_repr(),
-            "2019-01-01T00:00:00+00:00"
+            // "2019-01-01T00:00:00+00:00"
+            "2019-01-01T00:00:00"
         );
     }
 

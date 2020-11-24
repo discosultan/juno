@@ -1,6 +1,6 @@
 use crate::genetics::{
     crossover::Crossover, mutation::Mutation, reinsertion::Reinsertion, selection::Selection,
-    Evaluation, Evolution, Generation, Individual,
+    Evaluation, Evolution, Generation, Individual, Timings,
 };
 use rand::prelude::*;
 use std::time;
@@ -50,6 +50,7 @@ where
         generations: usize,
         hall_of_fame_size: usize,
         seed: Option<u64>,
+        on_generation: fn(usize, &Generation<TE::Chromosome>) -> (),
     ) -> Evolution<TE::Chromosome> {
         assert!(population_size >= 2);
         assert!(hall_of_fame_size >= 1);
@@ -58,33 +59,46 @@ where
             Some(seed) => seed,
             None => rand::thread_rng().gen_range(0, u64::MAX),
         };
-        println!("using seed {}", seed);
 
         let mut rng = StdRng::seed_from_u64(seed);
 
         let mut generations: Vec<Generation<TE::Chromosome>> = Vec::with_capacity(generations);
 
+        let mut timings = Timings::default();
+
         let mut parents = (0..population_size)
             .map(|_| Individual::generate(&mut rng))
             .collect();
-        self.evaluate_and_sort_by_fitness_desc(&mut parents);
-        generations.push(Generation {
+        self.evaluate_and_sort_by_fitness_desc(&mut parents, &mut timings);
+        let generation = Generation {
             hall_of_fame: parents.iter().cloned().take(hall_of_fame_size).collect(),
-        });
-        println!("gen 0 best fitness {}", parents[0].fitness);
+            timings,
+        };
+        on_generation(0, &generation);
+        generations.push(generation);
 
         let mut offsprings = Vec::with_capacity(population_size as usize);
 
         for i in 1..=generations.capacity() {
-            self.run_generation(&mut rng, &mut parents, &mut offsprings, population_size);
+            let mut timings = Timings::default();
+
+            self.run_generation(
+                &mut rng,
+                &mut parents,
+                &mut offsprings,
+                population_size,
+                &mut timings,
+            );
 
             std::mem::swap(&mut parents, &mut offsprings);
             offsprings.clear();
 
-            generations.push(Generation {
-                hall_of_fame: parents.iter().cloned().take(hall_of_fame_size).collect()
-            });
-            println!("gen {} best fitness {}", i, parents[0].fitness);
+            let generation = Generation {
+                hall_of_fame: parents.iter().cloned().take(hall_of_fame_size).collect(),
+                timings,
+            };
+            on_generation(i, &generation);
+            generations.push(generation);
         }
 
         Evolution { generations, seed }
@@ -96,12 +110,13 @@ where
         parents: &mut Vec<Individual<TE::Chromosome>>,
         offsprings: &mut Vec<Individual<TE::Chromosome>>,
         population_size: usize,
+        timings: &mut Timings,
     ) {
         // select
         let start = time::Instant::now();
         self.selection
             .select(rng, parents, offsprings, self.reinsertion.selection_rate());
-        println!("select {:?}", start.elapsed());
+        timings.selection = start.elapsed();
 
         // crossover & mutation
         let start = time::Instant::now();
@@ -130,22 +145,26 @@ where
             // offspring.push(child1);
             // offspring.push(child2);
         }
-        println!("cx & mutation {:?}", start.elapsed());
+        timings.crossover_mutation = start.elapsed();
 
         // evaluate
-        self.evaluate_and_sort_by_fitness_desc(offsprings);
+        self.evaluate_and_sort_by_fitness_desc(offsprings, timings);
         // reinsert
         self.reinsertion
             .reinsert(parents, offsprings, population_size)
     }
 
-    fn evaluate_and_sort_by_fitness_desc(&self, population: &mut Vec<Individual<TE::Chromosome>>) {
+    fn evaluate_and_sort_by_fitness_desc(
+        &self,
+        population: &mut Vec<Individual<TE::Chromosome>>,
+        timings: &mut Timings,
+    ) {
         let start = time::Instant::now();
         self.evaluation.evaluate(population);
-        println!("evaluation {:?}", start.elapsed());
+        timings.evaluation = start.elapsed();
 
         let start = time::Instant::now();
         population.sort_by(Individual::fitness_desc);
-        println!("sorting {:?}", start.elapsed());
+        timings.sorting = start.elapsed();
     }
 }

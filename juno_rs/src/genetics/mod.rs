@@ -9,7 +9,7 @@ pub use algorithm::GeneticAlgorithm;
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::Serialize;
-use std::{cmp::Ordering, fmt::Debug};
+use std::{cmp::Ordering, fmt::Debug, time::Duration};
 
 pub trait Chromosome: Clone + Debug + Send + Serialize + Sync {
     fn len() -> usize;
@@ -43,13 +43,20 @@ impl<T: Chromosome> Individual<T> {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Default)]
+pub struct Timings {
+    pub selection: Duration,
+    pub crossover_mutation: Duration,
+    pub evaluation: Duration,
+    pub sorting: Duration,
+}
+
 pub struct Evolution<T: Chromosome> {
     pub generations: Vec<Generation<T>>,
     pub seed: u64,
 }
 
-#[derive(Serialize)]
 pub struct Generation<T: Chromosome> {
     pub hall_of_fame: Vec<Individual<T>>,
+    pub timings: Timings,
 }

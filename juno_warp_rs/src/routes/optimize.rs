@@ -143,9 +143,7 @@ fn optimize<T: Signal>(args: &Params) -> Result<Evolution<TradingChromosome<T::P
             args.end,
             args.quote,
         )?,
-        selection::EliteSelection {
-            shuffle: false,
-        },
+        selection::EliteSelection { shuffle: false },
         // selection::TournamentSelection::default(),
         // crossover::UniformCrossover::default(),
         crossover::UniformCrossover::new(0.75),
@@ -159,8 +157,14 @@ fn optimize<T: Signal>(args: &Params) -> Result<Evolution<TradingChromosome<T::P
         args.generations,
         args.hall_of_fame_size,
         args.seed,
+        on_generation,
     );
     Ok(evolution)
+}
+
+fn on_generation<T: Chromosome>(nr: usize, gen: &juno_rs::genetics::Generation<T>) {
+    println!("gen {} best fitness {}", nr, gen.hall_of_fame[0].fitness);
+    println!("{:?}", gen.timings);
 }
 
 fn backtest<T: Signal>(
