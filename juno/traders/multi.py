@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, Optional, Tuple, Type
@@ -14,11 +15,13 @@ from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
+from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
+from juno.take_profit import TakeProfit
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
-    TradingMode, TradingSummary
+    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingMode,
+    TradingSummary
 )
 from juno.typing import TypeConstructor
 
@@ -35,13 +38,13 @@ class MultiConfig:
     interval: Interval
     end: Timestamp
     strategy: TypeConstructor[Signal]
+    stop_loss: StopLoss
+    take_profit: TakeProfit
     # Overrides default strategy.
     symbol_strategies: Dict[str, TypeConstructor[Signal]] = field(default_factory=dict)
     start: Optional[Timestamp] = None  # None means max earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
-    stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
     trail_stop_loss: bool = True
-    take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
     adjust_start: bool = True
     mode: TradingMode = TradingMode.BACKTEST
     channel: str = 'default'
@@ -172,8 +175,6 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.start is None or config.end > config.start
-        assert StopLoss.is_valid(config.stop_loss)
-        assert TakeProfit.is_valid(config.take_profit)
         assert config.position_count > 0
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
@@ -207,8 +208,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=start,
-                    stop_loss=StopLoss(threshold=config.stop_loss, trail=config.trail_stop_loss),
-                    take_profit=TakeProfit(threshold=config.take_profit),
+                    stop_loss=deepcopy(config.stop_loss),
+                    take_profit=deepcopy(config.take_profit),
                 ) for s in symbols
             }
         )
