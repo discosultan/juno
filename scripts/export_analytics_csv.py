@@ -46,7 +46,6 @@ async def main() -> None:
                     'long_period': 73,
                     'neg_threshold': Decimal('-0.102'),
                     'pos_threshold': Decimal('0.239'),
-                    'persistence': 4,
                     'short_ma': 'sma',
                     'long_ma': 'smma',
                 },

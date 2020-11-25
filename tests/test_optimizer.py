@@ -5,7 +5,7 @@ import pytest
 
 from juno import Candle, Fees, Filters
 from juno.components import Prices
-from juno.optimizer import Optimizer
+from juno.optimizer import Optimizer, OptimizerConfig
 from juno.solvers import Rust
 from juno.strategies import FourWeekRule
 from juno.time import DAY_MS, HOUR_MS
@@ -64,20 +64,19 @@ async def test_optimizer_same_result_with_predefined_seed(
 
     async with rust_solver:
         for _ in range(0, 2):
-            summary = await optimizer.run(
-                Optimizer.Config(
-                    exchange='binance',
-                    start=portfolio_candles[0].time,
-                    end=portfolio_candles[-1].time + HOUR_MS,
-                    strategy=TypeConstructor.from_type(FourWeekRule),
-                    quote=Decimal('1.0'),
-                    population_size=5,
-                    max_generations=10,
-                    seed=1,
-                    long=long,
-                    short=short,
-                ),
-            )
+            state = await optimizer.initialize(OptimizerConfig(
+                exchange='binance',
+                start=portfolio_candles[0].time,
+                end=portfolio_candles[-1].time + HOUR_MS,
+                strategy=TypeConstructor.from_type(FourWeekRule),
+                quote=Decimal('1.0'),
+                population_size=5,
+                max_generations=10,
+                seed=1,
+                long=long,
+                short=short,
+            ))
+            summary = await optimizer.run(state)
             results.append(summary.portfolio_stats)
 
     assert results[0].alpha == results[1].alpha

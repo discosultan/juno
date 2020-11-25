@@ -7,7 +7,7 @@ from juno.components import Chandler, Informant, Prices, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
-from juno.optimizer import Optimizer
+from juno.optimizer import Optimizer, OptimizerConfig
 from juno.solvers import Rust
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
@@ -49,8 +49,7 @@ async def main() -> None:
             training_start + int((validation_end - training_start) * TRAINING_VALIDATION_SPLIT),
             INTERVAL
         )
-
-        optimization_summary = await optimizer.run(Optimizer.Config(
+        state = await optimizer.initialize(OptimizerConfig(
             exchange=exchange_name,
             start=training_start,
             end=validation_start,
@@ -63,6 +62,8 @@ async def main() -> None:
             mutation_probability=Decimal('0.2'),
             verbose=True,
         ))
+
+        optimization_summary = await optimizer.run(state)
 
         logging.info(
             f'training trading summary: {extract_public(optimization_summary.trading_summary)}'

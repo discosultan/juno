@@ -48,41 +48,47 @@ class OptimizationSummary(NamedTuple):
     portfolio_stats: Statistics
 
 
+@dataclass(frozen=True)
+class OptimizerConfig:
+    exchange: str
+    quote: Decimal
+    strategy: TypeConstructor[Strategy]
+    symbols: Optional[List[str]] = None
+    intervals: Optional[List[Interval]] = None
+    start: Optional[Timestamp] = None
+    end: Optional[Timestamp] = None
+    missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
+    stop_loss: Optional[Decimal] = Decimal('0.0')
+    trail_stop_loss: Optional[bool] = True
+    take_profit: Optional[Decimal] = Decimal('0.0')
+    long: Optional[bool] = True
+    short: Optional[bool] = False
+    population_size: int = 50
+    max_generations: int = 1000
+    mutation_probability: Decimal = Decimal('0.2')
+    seed: Optional[int] = None
+    verbose: bool = False
+    fiat_exchange: Optional[str] = None
+    fiat_asset: str = 'usdt'
+
+
+@dataclass
+class OptimizerState:
+    config: OptimizerConfig
+    start: Timestamp
+    end: Timestamp
+    seed: int
+    symbols: List[str]
+    intervals: List[int]
+    generation: int = 0
+    summary: Optional[OptimizationSummary] = None
+    random_state: Optional[Tuple[int, Tuple[int, ...], None]] = None
+    population: Optional[List[Any]] = None
+
+
 # TODO: Does not support persist/resume. Population not stored/restored properly. Need to store
 # fitness + convert raw values to their respective types.
 class Optimizer(StartMixin):
-    class Config(NamedTuple):
-        exchange: str
-        quote: Decimal
-        strategy: TypeConstructor[Strategy]
-        symbols: Optional[List[str]] = None
-        intervals: Optional[List[Interval]] = None
-        start: Optional[Timestamp] = None
-        end: Optional[Timestamp] = None
-        missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
-        stop_loss: Optional[Decimal] = Decimal('0.0')
-        trail_stop_loss: Optional[bool] = True
-        take_profit: Optional[Decimal] = Decimal('0.0')
-        long: Optional[bool] = True
-        short: Optional[bool] = False
-        population_size: int = 50
-        max_generations: int = 1000
-        mutation_probability: Decimal = Decimal('0.2')
-        seed: Optional[int] = None
-        verbose: bool = False
-        fiat_exchange: Optional[str] = None
-        fiat_asset: str = 'usdt'
-
-    @dataclass
-    class State:
-        start: Timestamp = -1
-        end: Timestamp = -1
-        seed: int = -1
-        generation: int = 0
-        summary: Optional[OptimizationSummary] = None
-        random_state: Optional[Tuple[int, Tuple[int, ...], None]] = None
-        population: Optional[List[Any]] = None
-
     def __init__(
         self,
         solver: Solver,
@@ -101,7 +107,7 @@ class Optimizer(StartMixin):
     def chandler(self) -> Chandler:
         return self._chandler
 
-    async def run(self, config: Config, state: Optional[State] = None) -> OptimizationSummary:
+    async def initialize(self, config: OptimizerConfig) -> OptimizerState:
         now = time_ms()
 
         assert not config.end or config.end <= now
@@ -115,24 +121,26 @@ class Optimizer(StartMixin):
         symbols = self._informant.list_symbols(config.exchange, config.symbols)
         intervals = self._informant.list_candle_intervals(config.exchange, config.intervals)
 
-        state = state or Optimizer.State()
-
-        if state.start == -1:
-            state.start = await self.request_start(
-                config.start, config.exchange, symbols, intervals
-            )
-        if state.end == -1:
-            state.end = now if config.end is None else config.end
         # We normalize `start` and `end` later to take all potential intervals into account.
+        return OptimizerState(
+            config=config,
+            start=await self.request_start(
+                config.start, config.exchange, symbols, intervals
+            ),
+            end=now if config.end is None else config.end,
+            seed=randrange(sys.maxsize) if config.seed is None else config.seed,
+            symbols=symbols,
+            intervals=intervals,
+        )
 
-        if state.seed == -1:
-            state.seed = randrange(sys.maxsize) if config.seed is None else config.seed
-
+    async def run(self, state: OptimizerState) -> OptimizationSummary:
+        config = state.config
         _log.info(f'randomizer seed ({state.seed})')
 
         fiat_prices = await self._prices.map_asset_prices(
             exchange=config.exchange,
-            symbols=symbols + [f'btc-{config.fiat_asset}'],  # We need BTC prices for benchmark.
+            # We need BTC prices for benchmark.
+            symbols=state.symbols + [f'btc-{config.fiat_asset}'],
             start=state.start,
             end=state.end,
             fiat_asset=config.fiat_asset,
@@ -141,7 +149,7 @@ class Optimizer(StartMixin):
 
         # Fetch candles for backtesting.
         candles = await self.chandler.map_symbol_interval_candles(
-            config.exchange, symbols, intervals, state.start, state.end
+            config.exchange, state.symbols, state.intervals, state.start, state.end
         )
 
         for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
@@ -166,8 +174,8 @@ class Optimizer(StartMixin):
 
         # Initialization.
         attrs = [
-            _build_attr(symbols, Choice(symbols), random),
-            _build_attr(intervals, Choice(intervals), random),
+            _build_attr(state.symbols, Choice(state.symbols), random),
+            _build_attr(state.intervals, Choice(state.intervals), random),
             _build_attr(config.missed_candle_policy, _missed_candle_policy_constraint, random),
             _build_attr(config.stop_loss, _stop_loss_constraint, random),
             _build_attr(config.trail_stop_loss, _boolean_constraint, random),
@@ -275,8 +283,8 @@ class Optimizer(StartMixin):
             state.random_state = random.getstate()  # type: ignore
 
         best_ind = hall_of_fame[0]
-        state.summary = await self._build_summary(config, state, fiat_prices, benchmark, best_ind)
-        self._validate(config, state, fiat_prices, benchmark, candles, best_ind)
+        state.summary = await self._build_summary(state, fiat_prices, benchmark, best_ind)
+        self._validate(state, fiat_prices, benchmark, candles, best_ind)
 
         if cancelled_exc:
             raise cancelled_exc
@@ -284,12 +292,12 @@ class Optimizer(StartMixin):
 
     async def _build_summary(
         self,
-        config: Config,
-        state: State,
+        state: OptimizerState,
         fiat_prices: Dict[str, List[Decimal]],
         benchmark: AnalysisSummary,
         ind: Individual,
     ) -> OptimizationSummary:
+        config = state.config
         _log.info('building trading summary from best result')
 
         start = floor_multiple(state.start, ind.interval)
@@ -332,8 +340,7 @@ class Optimizer(StartMixin):
 
     def _validate(
         self,
-        config: Config,
-        state: State,
+        state: OptimizerState,
         fiat_prices: Dict[str, List[Decimal]],
         benchmark: AnalysisSummary,
         candles: Dict[Tuple[str, int], List[Candle]],

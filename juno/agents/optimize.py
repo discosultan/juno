@@ -6,7 +6,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, get_type_hints
 from juno import Interval, MissedCandlePolicy, Timestamp, strategies
 from juno.components import Events
 from juno.config import format_as_config, get_module_type_constructor
-from juno.optimizer import Optimizer
+from juno.optimizer import Optimizer, OptimizerConfig, OptimizerState
 from juno.storages import Memory, Storage
 from juno.traders import BasicConfig
 from juno.typing import TypeConstructor, get_input_type_hints
@@ -46,7 +46,7 @@ class Optimize(Agent):
     class State:
         name: str
         status: AgentStatus
-        result: Optional[Optimizer.State] = None
+        result: Optional[OptimizerState] = None
 
     def __init__(
         self, optimizer: Optimizer, events: Events = Events(), storage: Storage = Memory()
@@ -58,15 +58,13 @@ class Optimize(Agent):
     async def on_running(self, config: Config, state: State) -> None:
         await super().on_running(config, state)
         if not state.result:
-            state.result = Optimizer.State()
-        await self._optimizer.run(
-            construct(
-                Optimizer.Config,
+            optimizer_config = construct(
+                OptimizerConfig,
                 config,
                 strategy=get_module_type_constructor(strategies, config.strategy),
-            ),
-            state.result
-        )
+            )
+            state.result = await self._optimizer.initialize(optimizer_config)
+        await self._optimizer.run(state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:
         assert state
