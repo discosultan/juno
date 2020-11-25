@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Dict, List, Optional, Type
@@ -13,7 +14,6 @@ from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
     TradingMode, TradingSummary
 )
-from juno.typing import TypeConstructor
 from juno.utils import unpack_symbol
 
 from .trader import Trader
@@ -27,7 +27,7 @@ class BasicConfig:
     symbol: str
     interval: Interval
     end: Timestamp
-    strategy: TypeConstructor[Signal]
+    strategy: Signal
     start: Optional[Timestamp] = None  # None means earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -146,7 +146,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         )
         assert quote > filters.price.min
 
-        strategy = config.strategy.construct()
+        strategy = deepcopy(config.strategy)
 
         current = start
         if config.adjust_start:
@@ -197,7 +197,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                         if config.missed_candle_policy is MissedCandlePolicy.RESTART:
                             _log.info('restarting strategy due to missed candle(s)')
                             restart = True
-                            state.strategy = config.strategy.construct()
+                            state.strategy = deepcopy(config.strategy)
                             state.current = candle.time + config.interval
                         elif config.missed_candle_policy is MissedCandlePolicy.LAST:
                             num_missed = time_diff // config.interval - 1

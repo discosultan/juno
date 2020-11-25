@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from copy import deepcopy
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, Optional, Tuple, Type
@@ -20,7 +21,6 @@ from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
     TradingMode, TradingSummary
 )
-from juno.typing import TypeConstructor
 
 from .trader import Trader
 
@@ -34,9 +34,9 @@ class MultiConfig:
     exchange: str
     interval: Interval
     end: Timestamp
-    strategy: TypeConstructor[Signal]
+    strategy: Signal
     # Overrides default strategy.
-    symbol_strategies: Dict[str, TypeConstructor[Signal]] = field(default_factory=dict)
+    symbol_strategies: Dict[str, Signal] = field(default_factory=dict)
     start: Optional[Timestamp] = None  # None means max earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
@@ -203,7 +203,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             symbol_states={
                 s: _SymbolState(
                     symbol=s,
-                    strategy=config.symbol_strategies.get(s, config.strategy).construct(),
+                    strategy=deepcopy(config.symbol_strategies.get(s, config.strategy)),
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=start,

@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional
 from juno import Interval, Timestamp, strategies
 from juno.components import Events, Informant
 from juno.config import (
-    format_as_config, get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
+    format_as_config, get_type_name_and_kwargs, init_module_instance, kwargs_for
 )
 from juno.storages import Memory, Storage
 from juno.time import MAX_TIME_MS, time_ms
@@ -74,7 +74,7 @@ class Paper(Agent):
             **kwargs_for(trader_config_type, trader_kwargs),
             start=start,
             end=end,
-            strategy=get_module_type_constructor(strategies, config.strategy),
+            strategy=init_module_instance(strategies, config.strategy),
             mode=TradingMode.PAPER,
             channel=state.name,
         )

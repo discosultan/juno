@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional
 from juno import Interval, Timestamp, strategies
 from juno.components import Chandler, Events, Prices
 from juno.config import (
-    format_as_config, get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
+    format_as_config, get_type_name_and_kwargs, init_module_instance, kwargs_for
 )
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import Memory, Storage
@@ -81,7 +81,7 @@ class Backtest(Agent):
             **kwargs_for(trader_config_type, trader_kwargs),
             start=start,
             end=end,
-            strategy=get_module_type_constructor(strategies, config.strategy),
+            strategy=init_module_instance(strategies, config.strategy),
             channel=state.name,
             mode=TradingMode.BACKTEST,
         )

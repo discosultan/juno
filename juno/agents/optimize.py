@@ -5,7 +5,7 @@ from typing import Any, Dict, List, NamedTuple, Optional, get_type_hints
 
 from juno import Interval, MissedCandlePolicy, Timestamp, strategies
 from juno.components import Events
-from juno.config import format_as_config, get_module_type_constructor
+from juno.config import format_as_config, init_module_instance
 from juno.optimizer import Optimizer
 from juno.storages import Memory, Storage
 from juno.traders import BasicConfig
@@ -63,7 +63,7 @@ class Optimize(Agent):
             construct(
                 Optimizer.Config,
                 config,
-                strategy=get_module_type_constructor(strategies, config.strategy),
+                strategy=init_module_instance(strategies, config.strategy),
             ),
             state.result
         )
@@ -79,19 +79,14 @@ class Optimize(Agent):
         summary = state.result.summary
         cfg = summary.trading_config
 
-        strategy_kwargs_typings = get_input_type_hints(cfg.strategy.type_.__init__)
+        strategy_kwargs_typings = get_input_type_hints(type(cfg.strategy).__init__)
         strategy_kwargs_type = NamedTuple('_', strategy_kwargs_typings.items())  # type: ignore
-        strategy_kwargs_instance = strategy_kwargs_type(*cfg.strategy.kwargs.values())
+        strategy_kwargs_instance = strategy_kwargs_type(*summary.strategy_kwargs.values())
 
         type_constructor_typings = get_type_hints(TypeConstructor)
         type_constructor_typings['kwargs'] = strategy_kwargs_type
         type_constructor_type = NamedTuple(  # type: ignore
             '_', type_constructor_typings.items()
-        )
-        type_constructor_instance = type_constructor_type(  # type: ignore
-            name=cfg.strategy.name,
-            args=cfg.strategy.args,
-            kwargs=strategy_kwargs_instance,
         )
 
         trading_config_typings = get_type_hints(BasicConfig)

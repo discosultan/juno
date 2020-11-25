@@ -10,7 +10,7 @@ from juno.solvers import Rust
 from juno.strategies import FourWeekRule
 from juno.time import DAY_MS, HOUR_MS
 from juno.traders import Basic
-from juno.typing import TypeConstructor, raw_to_type
+from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
 from . import fakes
@@ -69,7 +69,7 @@ async def test_optimizer_same_result_with_predefined_seed(
                     exchange='binance',
                     start=portfolio_candles[0].time,
                     end=portfolio_candles[-1].time + HOUR_MS,
-                    strategy=TypeConstructor.from_type(FourWeekRule),
+                    strategy_type=FourWeekRule,
                     quote=Decimal('1.0'),
                     population_size=5,
                     max_generations=10,

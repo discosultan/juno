@@ -7,7 +7,6 @@ from juno import Advice, Balance, Candle, Fill, OrderResult, OrderStatus, Ticker
 from juno.asyncio import cancel
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
-from juno.typing import TypeConstructor
 from tests import fakes
 
 
@@ -40,15 +39,9 @@ async def test_simple() -> None:
         start=0,
         end=4,
         quote=Decimal('1'),  # Deliberately 1 and not 1.0. Shouldn't screw up splitting.
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG, Advice.LIQUIDATE, Advice.SHORT, Advice.SHORT],
-        ),
+        strategy=Fixed(advices=[Advice.LONG, Advice.LIQUIDATE, Advice.SHORT, Advice.SHORT]),
         symbol_strategies={
-            'xmr-btc': TypeConstructor.from_type(
-                Fixed,
-                advices=[Advice.LIQUIDATE, Advice.LONG, Advice.LONG, Advice.LONG],
-            ),
+            'xmr-btc': Fixed(advices=[Advice.LIQUIDATE, Advice.LONG, Advice.LONG, Advice.LONG]),
         },
         long=True,
         short=True,
@@ -126,13 +119,9 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         start=0,
         end=4,
         quote=Decimal('2.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG, Advice.LIQUIDATE, Advice.SHORT, Advice.SHORT],
-        ),
+        strategy=Fixed(advices=[Advice.LONG, Advice.LIQUIDATE, Advice.SHORT, Advice.SHORT]),
         symbol_strategies={
-            'ltc-btc': TypeConstructor.from_type(
-                Fixed,
+            'ltc-btc': Fixed(
                 advices=[Advice.LIQUIDATE, Advice.LONG, Advice.LIQUIDATE, Advice.SHORT],
             ),
         },
@@ -228,10 +217,7 @@ async def test_historical() -> None:
         start=0,
         end=10,
         quote=Decimal('2.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG] * 10,
-        ),
+        strategy=Fixed(advices=[Advice.LONG] * 10),
         long=True,
         short=True,
         track_count=2,
@@ -283,8 +269,7 @@ async def test_trailing_stop_loss() -> None:
         end=6,
         quote=Decimal('3.0'),
         stop_loss=Decimal('0.5'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
+        strategy=Fixed(
             advices=[
                 Advice.LONG,
                 Advice.LONG,
@@ -361,10 +346,7 @@ async def test_close_on_exit(
         start=0,
         end=3,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
-        ),
+        strategy=Fixed(advices=[Advice.LONG, Advice.LONG, Advice.LIQUIDATE]),
         long=True,
         short=True,
         track_count=2,
@@ -441,10 +423,7 @@ async def test_quote_not_requested_when_resumed_in_live_mode(mocker) -> None:
         start=0,
         end=2,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG, Advice.LONG],
-        ),
+        strategy=Fixed(advices=[Advice.LONG, Advice.LONG]),
         long=True,
         track_count=1,
         position_count=1,
@@ -485,10 +464,7 @@ async def test_open_new_positions() -> None:
         start=0,
         end=1,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG],
-        ),
+        strategy=Fixed(advices=[Advice.LONG]),
         long=True,
         track_count=1,
         position_count=1,
@@ -523,10 +499,7 @@ async def test_take_profit() -> None:
         start=0,
         end=2,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG],
-        ),
+        strategy=Fixed(advices=[Advice.LONG]),
         long=True,
         track_count=1,
         position_count=1,

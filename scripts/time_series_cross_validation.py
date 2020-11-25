@@ -12,7 +12,6 @@ from juno.solvers import Rust
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
 from juno.traders import Basic, BasicConfig
-from juno.typing import TypeConstructor
 from juno.utils import construct, extract_public, get_module_type, unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -55,7 +54,7 @@ async def main() -> None:
             start=training_start,
             end=validation_start,
             quote=QUOTE,
-            strategy=TypeConstructor.from_type(get_module_type(strategies, STRATEGY_TYPE)),
+            strategy_type=get_module_type(strategies, STRATEGY_TYPE),
             symbols=[SYMBOL],
             intervals=[INTERVAL],
             population_size=50,

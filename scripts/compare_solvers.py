@@ -8,7 +8,6 @@ from juno.math import floor_multiple
 from juno.solvers import Python, Rust, Solver
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.traders import Basic, BasicConfig
-from juno.typing import TypeConstructor
 from juno.utils import extract_public, unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -87,7 +86,7 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy=TypeConstructor.from_type(STRATEGY_TYPE, **STRATEGY_KWARGS),
+            strategy=STRATEGY_TYPE(**STRATEGY_KWARGS),
             missed_candle_policy=MISSED_CANDLE_POLICY,
             stop_loss=STOP_LOSS,
             take_profit=TAKE_PROFIT,

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import partial
 from random import Random, randrange
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, Type
 
 from deap import base, tools
 
@@ -18,11 +18,11 @@ from juno.deap import cx_uniform, ea_mu_plus_lambda, mut_individual
 from juno.math import floor_multiple
 from juno.solvers import FitnessValues, Individual, Solver
 from juno.statistics import AnalysisSummary, Statistics, analyse_benchmark, analyse_portfolio
-from juno.strategies import Strategy
+from juno.strategies import Signal
 from juno.time import strfinterval, strfspan, time_ms
 from juno.traders import Basic, BasicConfig
 from juno.trading import StartMixin, TradingSummary
-from juno.typing import TypeConstructor, map_input_args
+from juno.typing import map_input_args
 
 _log = logging.getLogger(__name__)
 
@@ -46,6 +46,7 @@ class OptimizationSummary(NamedTuple):
     trading_config: BasicConfig
     trading_summary: TradingSummary
     portfolio_stats: Statistics
+    strategy_kwargs: Dict[str, Any]
 
 
 # TODO: Does not support persist/resume. Population not stored/restored properly. Need to store
@@ -54,7 +55,9 @@ class Optimizer(StartMixin):
     class Config(NamedTuple):
         exchange: str
         quote: Decimal
-        strategy: TypeConstructor[Strategy]
+        strategy_type: Type[Signal]
+        # Fixed arguments for a strategy (will not be optimized).
+        strategy_kwargs: Dict[str, Any] = {}
         symbols: Optional[List[str]] = None
         intervals: Optional[List[Interval]] = None
         start: Optional[Timestamp] = None
@@ -175,11 +178,11 @@ class Optimizer(StartMixin):
             _build_attr(config.long, _boolean_constraint, random),
             _build_attr(config.short, _boolean_constraint, random),
         ]
-        for key, constraint in config.strategy.type_.meta().constraints.items():
+        for key, constraint in config.strategy_type.meta().constraints.items():
             if isinstance(key, str):
-                attrs.append(_build_attr(config.strategy.kwargs.get(key), constraint, random))
+                attrs.append(_build_attr(config.strategy_kwargs.get(key), constraint, random))
             else:
-                vals = [config.strategy.kwargs.get(sk) for sk in key]
+                vals = [config.strategy_kwargs.get(sk) for sk in key]
                 if all(vals):
                     for val in vals:
                         attrs.append(Constant(val).get)
@@ -208,7 +211,7 @@ class Optimizer(StartMixin):
                     fiat_prices=fiat_prices,
                     benchmark_g_returns=benchmark.g_returns,
                     candles=candles[(ind.symbol, ind.interval)],
-                    strategy_type=config.strategy.type_,
+                    strategy_type=config.strategy_type,
                     exchange=config.exchange,
                     start=state.start,
                     end=state.end,
@@ -294,6 +297,7 @@ class Optimizer(StartMixin):
 
         start = floor_multiple(state.start, ind.interval)
         end = floor_multiple(state.end, ind.interval)
+        strategy_kwargs = map_input_args(config.strategy_type.__init__, ind.strategy_args)
         trading_config = BasicConfig(
             exchange=config.exchange,
             symbol=ind.symbol,
@@ -308,10 +312,7 @@ class Optimizer(StartMixin):
             long=ind.long,
             short=ind.short,
             adjust_start=False,
-            strategy=TypeConstructor.from_type(
-                config.strategy.type_,
-                **map_input_args(config.strategy.type_.__init__, ind.strategy_args),
-            ),
+            strategy=config.strategy_type(**strategy_kwargs),  # type: ignore
         )
 
         trader_state = await self._trader.initialize(trading_config)
@@ -328,6 +329,7 @@ class Optimizer(StartMixin):
             trading_config=trading_config,
             trading_summary=trader_state.summary,
             portfolio_stats=portfolio_summary.stats,
+            strategy_kwargs=strategy_kwargs,
         )
 
     def _validate(

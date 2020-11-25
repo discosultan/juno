@@ -8,7 +8,6 @@ from juno import Advice, BorrowInfo, Candle, Filters, MissedCandlePolicy, strate
 from juno.asyncio import cancel
 from juno.strategies import Fixed, MidTrendPolicy
 from juno.trading import CloseReason, Position
-from juno.typing import TypeConstructor
 from tests import fakes
 
 
@@ -31,8 +30,7 @@ async def test_upside_stop_loss() -> None:
         start=0,
         end=5,
         quote=Decimal('10.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
+        strategy=Fixed(
             advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
@@ -70,8 +68,7 @@ async def test_upside_trailing_stop_loss() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
+        strategy=Fixed(
             advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
@@ -114,8 +111,7 @@ async def test_downside_trailing_stop_loss() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
+        strategy=Fixed(
             advices=[Advice.SHORT, Advice.SHORT, Advice.SHORT, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
@@ -153,8 +149,7 @@ async def test_upside_take_profit() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
+        strategy=Fixed(
             advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
@@ -196,8 +191,7 @@ async def test_downside_take_profit() -> None:
         start=0,
         end=4,
         quote=Decimal('10.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
+        strategy=Fixed(
             advices=[Advice.SHORT, Advice.SHORT, Advice.SHORT, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
@@ -237,7 +231,7 @@ async def test_restart_on_missed_candle() -> None:
         start=0,
         end=6,
         quote=Decimal('10.0'),
-        strategy=TypeConstructor.from_type(Fixed),
+        strategy=Fixed(),
         missed_candle_policy=MissedCandlePolicy.RESTART,
     )
     state = await trader.initialize(config)
@@ -276,7 +270,7 @@ async def test_assume_same_as_last_on_missed_candle() -> None:
         start=0,
         end=5,
         quote=Decimal('10.0'),
-        strategy=TypeConstructor.from_type(Fixed),
+        strategy=Fixed(),
         missed_candle_policy=MissedCandlePolicy.LAST,
     )
     state = await trader.initialize(config)
@@ -310,8 +304,7 @@ async def test_adjust_start_ignore_mid_trend() -> None:
         start=2,
         end=4,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
+        strategy=Fixed(
             advices=[Advice.NONE, Advice.LONG, Advice.LONG, Advice.NONE],
             maturity=2,
             mid_trend_policy=MidTrendPolicy.IGNORE,
@@ -344,8 +337,7 @@ async def test_adjust_start_persistence() -> None:
         start=3,
         end=4,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
+        strategy=Fixed(
             advices=[Advice.NONE, Advice.LONG, Advice.LONG, Advice.LONG],
             maturity=2,
             mid_trend_policy=MidTrendPolicy.CURRENT,
@@ -388,10 +380,7 @@ async def test_persist_and_resume(storage: fakes.Storage) -> None:
         start=2,
         end=6,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            maturity=3,
-        ),
+        strategy=Fixed(maturity=3),
         adjust_start=True,
     )
     state = await trader.initialize(config)
@@ -427,7 +416,7 @@ async def test_summary_end_on_cancel() -> None:
         start=0,
         end=10,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(Fixed),
+        strategy=Fixed(),
     )
     state = await trader.initialize(config)
 
@@ -460,7 +449,7 @@ async def test_summary_end_on_historical_cancel() -> None:
         start=0,
         end=2,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(Fixed),
+        strategy=Fixed(),
     )
     state = await trader.initialize(config)
 
@@ -507,10 +496,7 @@ async def test_close_on_exit(
         start=0,
         end=4,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG, Advice.LONG, Advice.SHORT, Advice.SHORT],
-        ),
+        strategy=Fixed(advices=[Advice.LONG, Advice.LONG, Advice.SHORT, Advice.SHORT]),
         close_on_exit=close_on_exit,
     )
     state = await trader.initialize(config)
@@ -554,10 +540,7 @@ async def test_open_new_positions() -> None:
         start=0,
         end=1,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(
-            Fixed,
-            advices=[Advice.LONG],
-        ),
+        strategy=Fixed(advices=[Advice.LONG]),
         long=True,
     )
     state = await trader.initialize(config)
