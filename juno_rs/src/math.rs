@@ -70,9 +70,13 @@ pub fn annualized(duration: u64, value: f64) -> f64 {
     }
 }
 
+pub fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    t * a + (1.0 - t) * b
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{adler32, ceil_multiple, floor_multiple, mean, round_down, round_half_up};
+    use super::*;
 
     #[test]
     fn test_ceil_multiple() {
@@ -109,5 +113,10 @@ mod tests {
     fn test_adler32() {
         assert_eq!(adler32("sma"), 43_450_690);
         assert_eq!(adler32("ema"), 40_698_164);
+    }
+
+    #[test]
+    fn test_lerp() {
+        assert_eq!(lerp(-1.0, 3.0, 0.5), 1.0);
     }
 }
