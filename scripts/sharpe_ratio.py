@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from juno import MissedCandlePolicy, strategies
+from juno import MissedCandlePolicy, stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase

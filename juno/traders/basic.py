@@ -3,11 +3,15 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Dict, List, Optional, Type
 
-from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp, stop_loss, take_profit
+from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
+from juno.stop_loss import Noop as NoopStopLoss
+from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
+from juno.take_profit import Noop as NoopTakeProfit
+from juno.take_profit import TakeProfit
 from juno.time import time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingMode,
@@ -28,8 +32,8 @@ class BasicConfig:
     interval: Interval
     end: Timestamp
     strategy: TypeConstructor[Signal]
-    stop_loss: Optional[TypeConstructor[stop_loss.StopLoss]] = None
-    take_profit: Optional[TypeConstructor[take_profit.TakeProfit]] = None
+    stop_loss: Optional[TypeConstructor[StopLoss]] = None
+    take_profit: Optional[TypeConstructor[TakeProfit]] = None
     start: Optional[Timestamp] = None  # None means earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     mode: TradingMode = TradingMode.BACKTEST
@@ -61,8 +65,8 @@ class BasicState:
     current: Timestamp  # Candle time.
     start: Timestamp  # Candle time.
     real_start: Timestamp
-    stop_loss: stop_loss.StopLoss
-    take_profit: take_profit.TakeProfit
+    stop_loss: StopLoss
+    take_profit: TakeProfit
 
     changed: Changed = field(default_factory=lambda: Changed(True))
     open_new_positions: bool = True  # Whether new positions can be opened.
@@ -169,10 +173,10 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             strategy=strategy,
             current=current,
             stop_loss=(
-                stop_loss.Noop() if config.stop_loss is None else config.stop_loss.construct()
+                NoopStopLoss() if config.stop_loss is None else config.stop_loss.construct()
             ),
             take_profit=(
-                take_profit.Noop() if config.take_profit is None
+                NoopTakeProfit() if config.take_profit is None
                 else config.take_profit.construct()
             ),
         )

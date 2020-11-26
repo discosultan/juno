@@ -3,15 +3,16 @@ import csv
 from decimal import Decimal
 from typing import Any, Dict, List
 
-from juno import Candle, Filters, MissedCandlePolicy, strategies
+from juno import Candle, Filters, MissedCandlePolicy, stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
-from juno.config import from_env, get_module_type_constructor, init_instance
+from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
+from juno.typing import TypeConstructor
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -38,10 +39,9 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy=get_module_type_constructor(
-                strategies,
+            strategy=TypeConstructor.from_type(
+                strategies.DoubleMA2,
                 {
-                    'type': 'doublema2',
                     'short_period': 3,
                     'long_period': 73,
                     'neg_threshold': Decimal('-0.102'),
@@ -50,7 +50,7 @@ async def main() -> None:
                     'long_ma': 'smma',
                 },
             ),
-            stop_loss=Decimal('0.0827'),
+            stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal('0.0827')),
             missed_candle_policy=MissedCandlePolicy.LAST
         )
         trader_state = await trader.initialize(trader_config)
