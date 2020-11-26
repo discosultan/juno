@@ -20,7 +20,6 @@
                 "long_period": 29,
                 "neg_threshold": -0.1,
                 "pos_threshold": 0.1,
-                "persistence": 0
             },
             "plugins": [
                 "discord"
