@@ -2,13 +2,11 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Optional
 
-from juno import Advice, Candle, MissedCandlePolicy, OrderException
+from juno import Advice, Candle, MissedCandlePolicy, OrderException, stop_loss, take_profit
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
-from juno.trading import (
-    CloseReason, Position, SimulatedPositionMixin, StopLoss, TakeProfit, TradingSummary
-)
+from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
 from juno.utils import unpack_symbol
 
 from .solver import FitnessValues, Solver
@@ -19,8 +17,8 @@ class _State:
     summary: TradingSummary
     strategy: Strategy
     quote: Decimal
-    stop_loss: StopLoss
-    take_profit: TakeProfit
+    stop_loss: stop_loss.StopLoss
+    take_profit: take_profit.TakeProfit
     changed: Changed = field(default_factory=lambda: Changed(True))
     open_position: Optional[Position.Open] = None
     first_candle: Optional[Candle] = None
@@ -56,8 +54,8 @@ class Python(Solver, SimulatedPositionMixin):
             ),
             strategy=config.new_strategy(),
             quote=config.quote,
-            stop_loss=StopLoss(config.stop_loss, trail=config.trail_stop_loss),
-            take_profit=TakeProfit(config.take_profit),
+            stop_loss=_stop_loss_from_config(config),
+            take_profit=_take_profit_from_config(config),
         )
         try:
             i = 0
@@ -206,3 +204,17 @@ class Python(Solver, SimulatedPositionMixin):
         state.quote += position.quote_delta()
         state.open_position = None
         state.summary.append_position(position)
+
+
+def _stop_loss_from_config(cfg: Solver.Config) -> stop_loss.StopLoss:
+    if cfg.stop_loss == 0:
+        return stop_loss.Noop()
+    if cfg.trail_stop_loss:
+        return stop_loss.Trailing(cfg.stop_loss)
+    return stop_loss.Basic(cfg.stop_loss)
+
+
+def _take_profit_from_config(cfg: Solver.Config) -> take_profit.TakeProfit:
+    if cfg.take_profit == 0:
+        return take_profit.Noop()
+    return take_profit.Basic(cfg.take_profit)

@@ -12,13 +12,15 @@
                 "type": "basic",
                 "symbol": "eth-btc",
                 "long": true,
-                "short": true,
-                "stop_loss": 0.1,
-                "trail_stop_loss": true
+                "short": true
             },
             "strategy": {
                 "type": "fourweekrule",
                 "ma": "kama"
+            },
+            "stop_loss": {
+                "type": "trailing",
+                "threshold": 0.1
             },
             "fiat_asset": "eur",
             "fiat_exchange": "coinbase"

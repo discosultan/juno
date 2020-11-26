@@ -24,7 +24,7 @@ class StopLoss(ABC):
         pass
 
 
-class NoopStopLoss(StopLoss):
+class Noop(StopLoss):
     @property
     def upside_hit(self) -> bool:
         return False
@@ -40,7 +40,7 @@ class NoopStopLoss(StopLoss):
         pass
 
 
-class BasicStopLoss(StopLoss):
+class Basic(StopLoss):
     threshold: Decimal = Decimal('0.0')  # 0 means disabled.
     _close_at_position: Decimal = Decimal('0.0')
     _close: Decimal = Decimal('0.0')
@@ -70,7 +70,7 @@ class BasicStopLoss(StopLoss):
         self._close = candle.close
 
 
-class TrailingStopLoss(StopLoss):
+class Trailing(StopLoss):
     threshold: Decimal = Decimal('0.0')  # 0 means disabled.
     _highest_close_since_position = Decimal('0.0')
     _lowest_close_since_position = Decimal('Inf')

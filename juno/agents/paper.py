@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
-from juno import Interval, Timestamp, strategies
+from juno import Interval, Timestamp, stop_loss, strategies, take_profit
 from juno.components import Events, Informant
 from juno.config import (
     format_as_config, get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
@@ -26,6 +26,8 @@ class Paper(Agent):
         quote: Decimal
         trader: Dict[str, Any]
         strategy: Dict[str, Any]
+        stop_loss: Optional[Dict[str, Any]] = None
+        take_profit: Optional[Dict[str, Any]] = None
         name: Optional[str] = None
         persist: bool = False
         end: Optional[Timestamp] = None
@@ -75,6 +77,14 @@ class Paper(Agent):
             start=start,
             end=end,
             strategy=get_module_type_constructor(strategies, config.strategy),
+            stop_loss=(
+                None if config.stop_loss is None
+                else get_module_type_constructor(stop_loss, config.stop_loss)
+            ),
+            take_profit=(
+                None if config.take_profit is None
+                else get_module_type_constructor(take_profit, config.take_profit)
+            ),
             mode=TradingMode.PAPER,
             channel=state.name,
         )

@@ -11,7 +11,9 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from deap import base, tools
 
-from juno import Candle, Interval, MissedCandlePolicy, OrderException, Timestamp
+from juno import (
+    Candle, Interval, MissedCandlePolicy, OrderException, Timestamp, stop_loss, take_profit
+)
 from juno.components import Chandler, Informant, Prices
 from juno.constraints import Choice, Constant, Constraint, ConstraintChoice, Uniform
 from juno.deap import cx_uniform, ea_mu_plus_lambda, mut_individual
@@ -310,9 +312,8 @@ class Optimizer(StartMixin):
             end=end,
             quote=config.quote,
             missed_candle_policy=ind.missed_candle_policy,
-            stop_loss=ind.stop_loss,
-            trail_stop_loss=ind.trail_stop_loss,
-            take_profit=ind.take_profit,
+            stop_loss=_stop_loss_from_individual(ind),
+            take_profit=_take_profit_from_individual(ind),
             long=ind.long,
             short=ind.short,
             adjust_start=False,
@@ -381,3 +382,28 @@ def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
         else:
             isclose = isclose and aval == bval
     return isclose
+
+
+def _stop_loss_from_individual(ind: Individual) -> Optional[TypeConstructor[stop_loss.StopLoss]]:
+    if ind.stop_loss == 0:
+        return None
+    if ind.trail_stop_loss:
+        return TypeConstructor.from_type(
+            stop_loss.Trailing,
+            kwargs={'threshold': ind.stop_loss},
+        )
+    return TypeConstructor.from_type(
+        stop_loss.Basic,
+        kwargs={'threshold': ind.stop_loss},
+    )
+
+
+def _take_profit_from_individual(
+    ind: Individual
+) -> Optional[TypeConstructor[take_profit.TakeProfit]]:
+    if ind.take_profit == 0:
+        return None
+    return TypeConstructor.from_type(
+        take_profit.Basic,
+        kwargs={'threshold': ind.take_profit},
+    )

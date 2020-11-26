@@ -9,12 +9,13 @@ import pandas as pd
 
 from juno import MissedCandlePolicy, strategies
 from juno.components import Chandler, Informant, Trades
-from juno.config import from_env, get_module_type_constructor, init_instance
+from juno.config import from_env, init_instance
 from juno.exchanges import Binance, Coinbase
 from juno.math import floor_multiple
 from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
+from juno.typing import TypeConstructor
 from juno.utils import unpack_symbol
 
 SYMBOL = 'eth-btc'
@@ -47,20 +48,18 @@ async def main() -> None:
             start=start,
             end=end,
             quote=Decimal('1.0'),
-            strategy=get_module_type_constructor(
-                strategies,
+            strategy=TypeConstructor.from_type(
+                strategies.DoubleMA2,
                 {
-                    'type': 'doublema2',
                     'short_period': 3,
                     'long_period': 73,
                     'neg_threshold': Decimal('-0.102'),
                     'pos_threshold': Decimal('0.239'),
-                    'persistence': 4,
                     'short_ma': 'sma',
                     'long_ma': 'smma',
                 },
             ),
-            stop_loss=Decimal('0.0827'),
+            stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal('0.0827')),
             missed_candle_policy=MissedCandlePolicy.LAST,
         ))
         trading_summary = await trader.run(trader_state)

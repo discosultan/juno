@@ -2,22 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from copy import deepcopy
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Coroutine, Dict, List, Optional, Tuple, Type
 
 from more_itertools import take
 
-from juno import Advice, Candle, Interval, Timestamp
+from juno import Advice, Candle, Interval, Timestamp, stop_loss, take_profit
 from juno.asyncio import Event, SlotBarrier
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
 from juno.math import floor_multiple
-from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
-from juno.take_profit import TakeProfit
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
     CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingMode,
@@ -38,10 +35,10 @@ class MultiConfig:
     interval: Interval
     end: Timestamp
     strategy: TypeConstructor[Signal]
-    stop_loss: StopLoss
-    take_profit: TakeProfit
     # Overrides default strategy.
     symbol_strategies: Dict[str, TypeConstructor[Signal]] = field(default_factory=dict)
+    stop_loss: Optional[TypeConstructor[stop_loss.StopLoss]] = None
+    take_profit: Optional[TypeConstructor[take_profit.TakeProfit]] = None
     start: Optional[Timestamp] = None  # None means max earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
     trail_stop_loss: bool = True
@@ -84,8 +81,8 @@ class _SymbolState:
     changed: Changed
     override_changed: Changed
     current: Timestamp
-    stop_loss: StopLoss
-    take_profit: TakeProfit
+    stop_loss: stop_loss.StopLoss
+    take_profit: take_profit.TakeProfit
     start_adjusted: bool = False
     open_position: Optional[Position.Open] = None
     allocated_quote: Decimal = Decimal('0.0')
@@ -208,8 +205,14 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     changed=Changed(True),
                     override_changed=Changed(True),
                     current=start,
-                    stop_loss=deepcopy(config.stop_loss),
-                    take_profit=deepcopy(config.take_profit),
+                    stop_loss=(
+                        stop_loss.Noop() if config.stop_loss is None
+                        else config.stop_loss.construct()
+                    ),
+                    take_profit=(
+                        take_profit.Noop() if config.take_profit is None
+                        else config.take_profit.construct()
+                    ),
                 ) for s in symbols
             }
         )

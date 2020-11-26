@@ -24,7 +24,7 @@ class TakeProfit(ABC):
         pass
 
 
-class NoopTakeProfit(TakeProfit):
+class Noop(TakeProfit):
     @property
     def upside_hit(self) -> bool:
         return False
@@ -40,7 +40,7 @@ class NoopTakeProfit(TakeProfit):
         pass
 
 
-class BasicTakeProfit(TakeProfit):
+class Basic(TakeProfit):
     threshold: Decimal = Decimal('0.0')  # 0 means disabled.
     _close_at_position: Decimal = Decimal('0.0')
     _close: Decimal = Decimal('0.0')
