@@ -10,7 +10,7 @@ use juno_rs::{
     statistics::TradingStats,
     storages,
     strategies::*,
-    trading::{self, TradingChromosome, TradingSummary},
+    trading::{self, StopLoss, TakeProfit, TradingChromosome, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -44,22 +44,22 @@ impl Params {
 }
 
 #[derive(Serialize)]
-struct Generation<T: Chromosome> {
+struct Generation<T: Chromosome, U: Chromosome, V: Chromosome> {
     // We need to store generation number because we are filtering out generations with not change
     // in top.
     nr: usize,
-    hall_of_fame: Vec<IndividualStats<T>>,
+    hall_of_fame: Vec<IndividualStats<T, U, V>>,
 }
 
 #[derive(Serialize)]
-struct IndividualStats<T: Chromosome> {
-    ind: Individual<TradingChromosome<T>>,
+struct IndividualStats<T: Chromosome, U: Chromosome, V: Chromosome> {
+    ind: Individual<TradingChromosome<T, U, V>>,
     symbol_stats: HashMap<String, TradingStats>,
 }
 
 #[derive(Serialize)]
-struct EvolutionStats<T: Chromosome> {
-    generations: Vec<Generation<T>>,
+struct EvolutionStats<T: Chromosome, U: Chromosome, V: Chromosome> {
+    generations: Vec<Generation<T, U, V>>,
     seed: u64,
 }
 
@@ -90,8 +90,8 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
         })
 }
 
-fn process<T: Signal>(args: Params) -> Result<Json> {
-    let evolution = optimize::<T>(&args)?;
+fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> {
+    let evolution = optimize::<T, U, V>(&args)?;
     let mut last_fitness = f64::NAN;
     let gen_stats = evolution
         .generations
@@ -111,7 +111,8 @@ fn process<T: Signal>(args: Params) -> Result<Json> {
                     let symbol_stats = args
                         .iter_symbols()
                         .map(|symbol| {
-                            let summary = backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
+                            let summary =
+                                backtest::<T, U, V>(&args, symbol, &ind.chromosome).unwrap();
                             let stats = get_stats(&args, symbol, &summary).unwrap();
                             (symbol.to_owned(), stats) // TODO: Return &String instead.
                         })
@@ -126,16 +127,18 @@ fn process<T: Signal>(args: Params) -> Result<Json> {
                 hall_of_fame,
             }
         })
-        .collect::<Vec<Generation<T::Params>>>();
+        .collect::<Vec<Generation<T::Params, U::Params, V::Params>>>();
     Ok(warp::reply::json(&EvolutionStats {
         generations: gen_stats,
         seed: evolution.seed,
     }))
 }
 
-fn optimize<T: Signal>(args: &Params) -> Result<Evolution<TradingChromosome<T::Params>>> {
+fn optimize<T: Signal, U: StopLoss, V: TakeProfit>(
+    args: &Params,
+) -> Result<Evolution<TradingChromosome<T::Params, U::Params, V::Params>>> {
     let algo = GeneticAlgorithm::new(
-        trading::BasicEvaluation::<T>::new(
+        trading::BasicEvaluation::<T, U, V>::new(
             &args.exchange,
             &args.training_symbols,
             args.interval,
@@ -167,17 +170,19 @@ fn on_generation<T: Chromosome>(nr: usize, gen: &juno_rs::genetics::Generation<T
     println!("{:?}", gen.timings);
 }
 
-fn backtest<T: Signal>(
+fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
     args: &Params,
     symbol: &str,
-    chrom: &TradingChromosome<T::Params>,
+    chrom: &TradingChromosome<T::Params, U::Params, V::Params>,
 ) -> Result<TradingSummary> {
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    Ok(trading::trade::<T>(
+    Ok(trading::trade::<T, U, V>(
         &chrom.strategy,
+        &chrom.stop_loss,
+        &chrom.take_profit,
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
@@ -186,9 +191,6 @@ fn backtest<T: Signal>(
         args.interval,
         args.quote,
         chrom.trader.missed_candle_policy,
-        chrom.trader.stop_loss,
-        chrom.trader.trail_stop_loss,
-        chrom.trader.take_profit,
         true,
         true,
     ))

@@ -4,7 +4,9 @@ use crate::{
     genetics::{Evaluation, Individual},
     statistics, storages,
     strategies::Signal,
-    time, trading, BorrowInfo, Candle, Fees, Filters, SymbolExt,
+    time,
+    trading::{trade, StopLoss, TakeProfit},
+    BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
 use rayon::prelude::*;
 use std::marker::PhantomData;
@@ -18,15 +20,17 @@ struct SymbolCtx {
     stats_quote_prices: Option<Vec<f64>>,
 }
 
-pub struct BasicEvaluation<T: Signal> {
+pub struct BasicEvaluation<T: Signal, U: StopLoss, V: TakeProfit> {
     symbol_ctxs: Vec<SymbolCtx>,
     interval: u64,
     quote: f64,
     stats_interval: u64,
-    phantom: PhantomData<T>,
+    signal_phantom: PhantomData<T>,
+    stop_loss_phantom: PhantomData<U>,
+    take_profit_phantom: PhantomData<V>,
 }
 
-impl<T: Signal> BasicEvaluation<T> {
+impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
     pub fn new(
         exchange: &str,
         symbols: &[String],
@@ -79,20 +83,31 @@ impl<T: Signal> BasicEvaluation<T> {
             interval,
             stats_interval,
             quote,
-            phantom: PhantomData,
+            signal_phantom: PhantomData,
+            stop_loss_phantom: PhantomData,
+            take_profit_phantom: PhantomData,
         })
     }
 
-    pub fn evaluate_symbols(&self, chromosome: &TradingChromosome<T::Params>) -> Vec<f64> {
+    pub fn evaluate_symbols(
+        &self,
+        chromosome: &TradingChromosome<T::Params, U::Params, V::Params>,
+    ) -> Vec<f64> {
         self.symbol_ctxs
             .par_iter()
             .map(|ctx| self.evaluate_symbol(ctx, chromosome))
             .collect()
     }
 
-    fn evaluate_symbol(&self, ctx: &SymbolCtx, chromosome: &TradingChromosome<T::Params>) -> f64 {
-        let summary = trading::trade::<T>(
+    fn evaluate_symbol(
+        &self,
+        ctx: &SymbolCtx,
+        chromosome: &TradingChromosome<T::Params, U::Params, V::Params>,
+    ) -> f64 {
+        let summary = trade::<T, U, V>(
             &chromosome.strategy,
+            &chromosome.stop_loss,
+            &chromosome.take_profit,
             &ctx.candles,
             &ctx.fees,
             &ctx.filters,
@@ -101,9 +116,6 @@ impl<T: Signal> BasicEvaluation<T> {
             self.interval,
             self.quote,
             chromosome.trader.missed_candle_policy,
-            chromosome.trader.stop_loss,
-            chromosome.trader.trail_stop_loss,
-            chromosome.trader.take_profit,
             true,
             true,
         );
@@ -122,8 +134,8 @@ impl<T: Signal> BasicEvaluation<T> {
     }
 }
 
-impl<T: Signal> Evaluation for BasicEvaluation<T> {
-    type Chromosome = TradingChromosome<T::Params>;
+impl<T: Signal, U: StopLoss, V: TakeProfit> Evaluation for BasicEvaluation<T, U, V> {
+    type Chromosome = TradingChromosome<T::Params, U::Params, V::Params>;
 
     fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]) {
         // TODO: Support different strategies here. A la parallel cpu or gpu, for example.

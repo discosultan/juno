@@ -20,12 +20,14 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
 #[derive(Clone, Debug, Serialize)]
-pub struct TradingChromosome<T: Chromosome> {
+pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
     pub trader: TraderParams,
     pub strategy: T,
+    pub stop_loss: U,
+    pub take_profit: V,
 }
 
-impl<T: Chromosome> Chromosome for TradingChromosome<T> {
+impl<T: Chromosome, U: Chromosome, V: Chromosome> Chromosome for TradingChromosome<T, U, V> {
     fn len() -> usize {
         TraderParams::len() + T::len()
     }
@@ -34,6 +36,8 @@ impl<T: Chromosome> Chromosome for TradingChromosome<T> {
         Self {
             trader: TraderParams::generate(rng),
             strategy: T::generate(rng),
+            stop_loss: U::generate(rng),
+            take_profit: V::generate(rng),
         }
     }
 
@@ -60,30 +64,10 @@ pub struct TraderParams {
     #[serde(serialize_with = "serialize_missed_candle_policy")]
     #[serde(deserialize_with = "deserialize_missed_candle_policy")]
     pub missed_candle_policy: u32,
-    pub stop_loss: f64,
-    pub trail_stop_loss: bool,
-    pub take_profit: f64,
 }
 
 fn missed_candle_policy(rng: &mut StdRng) -> u32 {
     rng.gen_range(0, MISSED_CANDLE_POLICIES_LEN)
-}
-fn stop_loss(rng: &mut StdRng) -> f64 {
-    if rng.gen_bool(0.5) {
-        0.0
-    } else {
-        rng.gen_range(0.0001, 0.9999)
-    }
-}
-fn trail_stop_loss(rng: &mut StdRng) -> bool {
-    rng.gen_bool(0.5)
-}
-fn take_profit(rng: &mut StdRng) -> f64 {
-    if rng.gen_bool(0.5) {
-        0.0
-    } else {
-        rng.gen_range(0.0001, 9.9999)
-    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
