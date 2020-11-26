@@ -72,6 +72,8 @@ class Trending(TakeProfit):
     lock_threshold: bool
     _threshold: Decimal = Decimal('0.0')
     _adx: Adx
+    _close_at_position: Decimal = Decimal('0.0')
+    _close: Decimal = Decimal('0.0')
 
     def __init__(
         self, min_threshold: Decimal, max_threshold: Decimal, period: int,
