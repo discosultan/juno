@@ -67,3 +67,7 @@ def test_spans_overlap(
 ) -> None:
     output = math.spans_overlap(span1, span2)
     assert output == expected_output
+
+
+def test_lerp() -> None:
+    assert math.lerp(Decimal('-1.0'), Decimal('3.0'), Decimal('0.5')) == Decimal('1.0')

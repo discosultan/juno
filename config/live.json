@@ -16,8 +16,7 @@
             "trader": {
                 "type": "basic",
                 "symbol": "eth-btc",
-                "missed_candle_policy": "restart",
-                "stop_loss": 0.1832
+                "missed_candle_policy": "restart"
             },
             "strategy": {
                 "type": "doublema2",
@@ -28,6 +27,10 @@
                 "persistence": 1,
                 "short_ma": "smma",
                 "long_ma": "ema"
+            },
+            "stop_loss": {
+                "type": "basic",
+                "threshold": 0.1832
             },
             "plugins": [
                 "discord"

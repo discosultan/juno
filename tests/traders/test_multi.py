@@ -3,7 +3,10 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Advice, Balance, Candle, Fill, OrderResult, OrderStatus, Ticker, traders
+from juno import (
+    Advice, Balance, Candle, Fill, OrderResult, OrderStatus, Ticker, stop_loss, take_profit,
+    traders
+)
 from juno.asyncio import cancel
 from juno.strategies import Fixed
 from juno.trading import CloseReason, Position, TradingMode
@@ -282,7 +285,7 @@ async def test_trailing_stop_loss() -> None:
         start=0,
         end=6,
         quote=Decimal('3.0'),
-        stop_loss=Decimal('0.5'),
+        stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal('0.5')),
         strategy=TypeConstructor.from_type(
             Fixed,
             advices=[
@@ -530,7 +533,7 @@ async def test_take_profit() -> None:
         long=True,
         track_count=1,
         position_count=1,
-        take_profit=Decimal('0.5'),
+        take_profit=TypeConstructor.from_type(take_profit.Basic, Decimal('0.5')),
     )
     state = await trader.initialize(config)
 

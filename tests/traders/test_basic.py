@@ -4,7 +4,10 @@ from typing import cast
 
 import pytest
 
-from juno import Advice, BorrowInfo, Candle, Filters, MissedCandlePolicy, strategies, traders
+from juno import (
+    Advice, BorrowInfo, Candle, Filters, MissedCandlePolicy, stop_loss, strategies, take_profit,
+    traders
+)
 from juno.asyncio import cancel
 from juno.strategies import Fixed, MidTrendPolicy
 from juno.trading import CloseReason, Position
@@ -36,8 +39,7 @@ async def test_upside_stop_loss() -> None:
             advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
-        stop_loss=Decimal('0.1'),
-        trail_stop_loss=False,
+        stop_loss=TypeConstructor.from_type(stop_loss.Basic, Decimal('0.1')),
         long=True,
         short=False,
     )
@@ -75,8 +77,7 @@ async def test_upside_trailing_stop_loss() -> None:
             advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
-        stop_loss=Decimal('0.1'),
-        trail_stop_loss=True,
+        stop_loss=TypeConstructor.from_type(stop_loss.Trailing, Decimal('0.1')),
         long=True,
         short=False,
     )
@@ -119,8 +120,7 @@ async def test_downside_trailing_stop_loss() -> None:
             advices=[Advice.SHORT, Advice.SHORT, Advice.SHORT, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
-        stop_loss=Decimal('0.1'),
-        trail_stop_loss=True,
+        stop_loss=TypeConstructor.from_type(stop_loss.Trailing, Decimal('0.1')),
         long=False,
         short=True,
     )
@@ -158,7 +158,7 @@ async def test_upside_take_profit() -> None:
             advices=[Advice.LONG, Advice.LONG, Advice.LONG, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
-        take_profit=Decimal('0.5'),
+        take_profit=TypeConstructor.from_type(take_profit.Basic, Decimal('0.5')),
         long=True,
         short=False,
     )
@@ -201,7 +201,7 @@ async def test_downside_take_profit() -> None:
             advices=[Advice.SHORT, Advice.SHORT, Advice.SHORT, Advice.LIQUIDATE],
             mid_trend_policy=MidTrendPolicy.CURRENT,
         ),
-        take_profit=Decimal('0.5'),
+        take_profit=TypeConstructor.from_type(take_profit.Basic, Decimal('0.5')),
         long=False,
         short=True,
     )

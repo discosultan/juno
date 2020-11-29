@@ -1,8 +1,11 @@
 import asyncio
 import logging
 from decimal import Decimal
+from typing import Optional
 
-from juno import MissedCandlePolicy, components, exchanges, storages, strategies, time
+from juno import (
+    MissedCandlePolicy, components, exchanges, stop_loss, storages, strategies, take_profit, time
+)
 from juno.config import format_as_config, from_env, init_instance
 from juno.math import floor_multiple
 from juno.solvers import Python, Rust, Solver
@@ -29,6 +32,24 @@ STRATEGY_KWARGS = {
     'signal_period': 23,
     'persistence': 0,
 }
+
+
+def _stop_loss(
+    threshold: Decimal, trail: bool
+) -> Optional[TypeConstructor[stop_loss.StopLoss]]:
+    if threshold == 0:
+        return None
+    if trail:
+        return TypeConstructor.from_type(stop_loss.Trailing, threshold=threshold)
+    return TypeConstructor.from_type(stop_loss.Basic, threshold=threshold)
+
+
+def _take_profit(
+    threshold: Decimal
+) -> Optional[TypeConstructor[take_profit.TakeProfit]]:
+    if threshold == 0:
+        return None
+    return TypeConstructor.from_type(take_profit.Basic, threshold=threshold)
 
 
 async def main() -> None:
@@ -89,8 +110,8 @@ async def main() -> None:
             quote=Decimal('1.0'),
             strategy=TypeConstructor.from_type(STRATEGY_TYPE, **STRATEGY_KWARGS),
             missed_candle_policy=MISSED_CANDLE_POLICY,
-            stop_loss=STOP_LOSS,
-            take_profit=TAKE_PROFIT,
+            stop_loss=_stop_loss(STOP_LOSS, TRAIL_STOP_LOSS),
+            take_profit=_take_profit(TAKE_PROFIT),
             adjust_start=False,
             long=LONG,
             short=SHORT,

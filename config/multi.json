@@ -14,12 +14,15 @@
             },
             "trader": {
                 "type": "multi",
-                "stop_loss": 0.10,
                 "position_count": 4,
                 "track_count": 5,
                 "track": ["eth-btc", "ltc-btc", "xrp-btc", "xmr-btc", "ada-btc"],
                 "long": true,
                 "short": true
+            },
+            "stop_loss": {
+                "type": "basic",
+                "threshold": 0.10
             },
             "fiat_asset": "eur",
             "fiat_exchange": "coinbase"

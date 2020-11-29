@@ -1,10 +1,14 @@
 mod evaluation;
+mod stop_loss;
+mod take_profit;
 mod traders;
 
 pub use evaluation::*;
+pub use stop_loss::*;
+pub use take_profit::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, time::serialize_timestamp, Candle};
+use crate::{genetics::Chromosome, time::serialize_timestamp};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -79,93 +83,6 @@ fn take_profit(rng: &mut StdRng) -> f64 {
         0.0
     } else {
         rng.gen_range(0.0001, 9.9999)
-    }
-}
-
-pub struct StopLoss {
-    pub threshold: f64,
-    trail: bool,
-    close_at_position: f64,
-    highest_close_since_position: f64,
-    lowest_close_since_position: f64,
-    close: f64,
-}
-
-impl StopLoss {
-    pub fn new(threshold: f64, trail: bool) -> Self {
-        Self {
-            threshold,
-            trail,
-            close_at_position: 0.0,
-            highest_close_since_position: 0.0,
-            lowest_close_since_position: f64::MAX,
-            close: 0.0,
-        }
-    }
-
-    pub fn upside_hit(&self) -> bool {
-        self.threshold > 0.0
-            && self.close
-                <= if self.trail {
-                    self.highest_close_since_position
-                } else {
-                    self.close_at_position
-                } * (1.0 - self.threshold)
-    }
-
-    pub fn downside_hit(&self) -> bool {
-        self.threshold > 0.0
-            && self.close
-                >= if self.trail {
-                    self.lowest_close_since_position
-                } else {
-                    self.close_at_position
-                } * (1.0 + self.threshold)
-    }
-
-    pub fn clear(&mut self, candle: &Candle) {
-        self.close_at_position = candle.close;
-        self.highest_close_since_position = candle.close;
-        self.lowest_close_since_position = candle.close;
-    }
-
-    pub fn update(&mut self, candle: &Candle) {
-        self.close = candle.close;
-        self.highest_close_since_position =
-            f64::max(self.highest_close_since_position, candle.close);
-        self.lowest_close_since_position = f64::min(self.lowest_close_since_position, candle.close);
-    }
-}
-
-pub struct TakeProfit {
-    pub threshold: f64,
-    close_at_position: f64,
-    close: f64,
-}
-
-impl TakeProfit {
-    pub fn new(threshold: f64) -> Self {
-        Self {
-            threshold,
-            close_at_position: 0.0,
-            close: 0.0,
-        }
-    }
-
-    pub fn upside_hit(&self) -> bool {
-        self.threshold > 0.0 && self.close >= self.close_at_position * (1.0 + self.threshold)
-    }
-
-    pub fn downside_hit(&self) -> bool {
-        self.threshold > 0.0 && self.close <= self.close_at_position * (1.0 - self.threshold)
-    }
-
-    pub fn clear(&mut self, candle: &Candle) {
-        self.close_at_position = candle.close;
-    }
-
-    pub fn update(&mut self, candle: &Candle) {
-        self.close = candle.close;
     }
 }
 

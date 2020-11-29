@@ -21,6 +21,10 @@ def round_down(value: Decimal, precision: int) -> Decimal:
     return value.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_DOWN)
 
 
+def lerp(a: Decimal, b: Decimal, t: Decimal) -> Decimal:
+    return t * a + (1 - t) * b
+
+
 def minmax(values: Iterable[Decimal]) -> Tuple[Decimal, Decimal]:
     min_ = Decimal('Inf')
     max_ = Decimal('-Inf')

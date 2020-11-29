@@ -7,11 +7,15 @@ from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
+from juno.stop_loss import Noop as NoopStopLoss
+from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
+from juno.take_profit import Noop as NoopTakeProfit
+from juno.take_profit import TakeProfit
 from juno.time import time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, StopLoss, TakeProfit,
-    TradingMode, TradingSummary
+    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingMode,
+    TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import unpack_symbol
@@ -28,11 +32,10 @@ class BasicConfig:
     interval: Interval
     end: Timestamp
     strategy: TypeConstructor[Signal]
+    stop_loss: Optional[TypeConstructor[StopLoss]] = None
+    take_profit: Optional[TypeConstructor[TakeProfit]] = None
     start: Optional[Timestamp] = None  # None means earliest is found.
     quote: Optional[Decimal] = None  # None means exchange wallet is queried.
-    stop_loss: Decimal = Decimal('0.0')  # 0 means disabled.
-    trail_stop_loss: bool = True
-    take_profit: Decimal = Decimal('0.0')  # 0 means disabled.
     mode: TradingMode = TradingMode.BACKTEST
     channel: str = 'default'
     missed_candle_policy: MissedCandlePolicy = MissedCandlePolicy.IGNORE
@@ -130,8 +133,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         assert config.start is None or config.start >= 0
         assert config.end > 0
         assert config.start is None or config.end > config.start
-        assert StopLoss.is_valid(config.stop_loss)
-        assert TakeProfit.is_valid(config.take_profit)
 
         _, filters = self._informant.get_fees_filters(config.exchange, config.symbol)
         assert filters.spot
@@ -171,8 +172,13 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             ),
             strategy=strategy,
             current=current,
-            stop_loss=StopLoss(threshold=config.stop_loss, trail=config.trail_stop_loss),
-            take_profit=TakeProfit(threshold=config.take_profit),
+            stop_loss=(
+                NoopStopLoss() if config.stop_loss is None else config.stop_loss.construct()
+            ),
+            take_profit=(
+                NoopTakeProfit() if config.take_profit is None
+                else config.take_profit.construct()
+            ),
         )
 
     async def run(self, state: BasicState) -> TradingSummary:
