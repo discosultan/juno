@@ -1,13 +1,9 @@
 use crate::{genetics::Chromosome, indicators::Adx, math::lerp, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 pub trait TakeProfit: Send + Sync {
-    type Params: Chromosome + DeserializeOwned + Serialize;
-
-    fn new(params: &Self::Params) -> Self;
-
     fn upside_hit(&self) -> bool {
         false
     }
@@ -26,13 +22,13 @@ pub struct NoopTakeProfitParams {}
 
 pub struct NoopTakeProfit {}
 
-impl TakeProfit for NoopTakeProfit {
-    type Params = NoopTakeProfitParams;
-
-    fn new(_params: &Self::Params) -> Self {
+impl NoopTakeProfit {
+    pub fn new(_params: &NoopTakeProfitParams) -> Self {
         Self {}
     }
 }
+
+impl TakeProfit for NoopTakeProfit {}
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 pub struct BasicTakeProfitParams {
@@ -49,17 +45,17 @@ pub struct BasicTakeProfit {
     close: f64,
 }
 
-impl TakeProfit for BasicTakeProfit {
-    type Params = BasicTakeProfitParams;
-
-    fn new(params: &BasicTakeProfitParams) -> Self {
+impl BasicTakeProfit {
+    pub fn new(params: &BasicTakeProfitParams) -> Self {
         Self {
             threshold: params.threshold,
             close_at_position: 0.0,
             close: 0.0,
         }
     }
+}
 
+impl TakeProfit for BasicTakeProfit {
     fn upside_hit(&self) -> bool {
         self.close >= self.close_at_position * (1.0 + self.threshold)
     }
@@ -116,10 +112,8 @@ impl TrendingTakeProfit {
     }
 }
 
-impl TakeProfit for TrendingTakeProfit {
-    type Params = TrendingTakeProfitParams;
-
-    fn new(params: &TrendingTakeProfitParams) -> Self {
+impl TrendingTakeProfit {
+    pub fn new(params: &TrendingTakeProfitParams) -> Self {
         Self {
             min_threshold: params.thresholds.0,
             max_threshold: params.thresholds.1,
@@ -130,7 +124,9 @@ impl TakeProfit for TrendingTakeProfit {
             close: 0.0,
         }
     }
+}
 
+impl TakeProfit for TrendingTakeProfit {
     fn upside_hit(&self) -> bool {
         self.close >= self.close_at_position * (1.0 + self.threshold)
     }

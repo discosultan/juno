@@ -9,7 +9,6 @@ use crate::{
     BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
 use rayon::prelude::*;
-use std::marker::PhantomData;
 
 struct SymbolCtx {
     candles: Vec<Candle>,
@@ -20,17 +19,14 @@ struct SymbolCtx {
     stats_quote_prices: Option<Vec<f64>>,
 }
 
-pub struct BasicEvaluation<T: Signal, U: StopLoss, V: TakeProfit> {
+pub struct BasicEvaluation {
     symbol_ctxs: Vec<SymbolCtx>,
     interval: u64,
     quote: f64,
     stats_interval: u64,
-    signal_phantom: PhantomData<T>,
-    stop_loss_phantom: PhantomData<U>,
-    take_profit_phantom: PhantomData<V>,
 }
 
-impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
+impl BasicEvaluation {
     pub fn new(
         exchange: &str,
         symbols: &[String],
@@ -83,15 +79,12 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
             interval,
             stats_interval,
             quote,
-            signal_phantom: PhantomData,
-            stop_loss_phantom: PhantomData,
-            take_profit_phantom: PhantomData,
         })
     }
 
     pub fn evaluate_symbols(
         &self,
-        chromosome: &TradingChromosome<T::Params, U::Params, V::Params>,
+        chromosome: &TradingChromosome,
     ) -> Vec<f64> {
         self.symbol_ctxs
             .par_iter()
@@ -102,9 +95,9 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
     fn evaluate_symbol(
         &self,
         ctx: &SymbolCtx,
-        chromosome: &TradingChromosome<T::Params, U::Params, V::Params>,
+        chromosome: &TradingChromosome,
     ) -> f64 {
-        let summary = trade::<T, U, V>(
+        let summary = trade(
             &chromosome.strategy,
             &chromosome.stop_loss,
             &chromosome.take_profit,
@@ -134,8 +127,8 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
     }
 }
 
-impl<T: Signal, U: StopLoss, V: TakeProfit> Evaluation for BasicEvaluation<T, U, V> {
-    type Chromosome = TradingChromosome<T::Params, U::Params, V::Params>;
+impl Evaluation for BasicEvaluation {
+    type Chromosome = TradingChromosome;
 
     fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]) {
         // TODO: Support different strategies here. A la parallel cpu or gpu, for example.

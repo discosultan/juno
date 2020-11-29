@@ -24,6 +24,8 @@ struct Params {
     seed: Option<u64>,
 
     strategy: String, // TODO: Move to path param.
+    stop_loss: String,
+    take_profit: String,
     exchange: String,
     #[serde(deserialize_with = "deserialize_interval")]
     interval: u64,
@@ -90,7 +92,7 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
         })
 }
 
-fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> {
+fn process(args: Params) -> Result<Json> {
     let evolution = optimize::<T, U, V>(&args)?;
     let mut last_fitness = f64::NAN;
     let gen_stats = evolution

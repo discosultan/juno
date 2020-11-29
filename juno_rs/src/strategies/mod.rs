@@ -27,10 +27,7 @@ use rand::prelude::*;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::min;
 
-pub trait Strategy: Send + Sync {
-    type Params: Chromosome + DeserializeOwned + Serialize;
-
-    fn new(params: &Self::Params) -> Self;
+pub trait Strategy: Clone + Send + Sync {
     fn maturity(&self) -> u32;
     fn mature(&self) -> bool;
     fn update(&mut self, candle: &Candle);

@@ -1,13 +1,11 @@
 use crate::{genetics::Chromosome, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
+
+pub fn from_
 
 pub trait StopLoss: Send + Sync {
-    type Params: Chromosome + DeserializeOwned + Serialize;
-
-    fn new(params: &Self::Params) -> Self;
-
     fn upside_hit(&self) -> bool {
         false
     }
@@ -26,13 +24,13 @@ pub struct NoopTakeProfitParams {}
 
 pub struct NoopStopLoss {}
 
-impl StopLoss for NoopStopLoss {
-    type Params = NoopTakeProfitParams;
-
-    fn new(_params: &Self::Params) -> Self {
+impl NoopStopLoss {
+    pub fn new(_params: &NoopTakeProfitParams) -> Self {
         Self {}
     }
 }
+
+impl StopLoss for NoopStopLoss {}
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 pub struct BasicStopLossParams {
@@ -49,17 +47,17 @@ pub struct BasicStopLoss {
     close: f64,
 }
 
-impl StopLoss for BasicStopLoss {
-    type Params = BasicStopLossParams;
-
-    fn new(params: &BasicStopLossParams) -> Self {
+impl BasicStopLoss {
+    pub fn new(params: &BasicStopLossParams) -> Self {
         Self {
             threshold: params.threshold,
             close_at_position: 0.0,
             close: 0.0,
         }
     }
+}
 
+impl StopLoss for BasicStopLoss {
     fn upside_hit(&self) -> bool {
         self.close <= self.close_at_position * (1.0 - self.threshold)
     }
@@ -89,10 +87,8 @@ pub struct TrailingStopLoss {
     close: f64,
 }
 
-impl StopLoss for TrailingStopLoss {
-    type Params = TrailingStopLossParams;
-
-    fn new(params: &TrailingStopLossParams) -> Self {
+impl TrailingStopLoss {
+    pub fn new(params: &TrailingStopLossParams) -> Self {
         Self {
             threshold: params.threshold,
             highest_close_since_position: 0.0,
@@ -100,7 +96,9 @@ impl StopLoss for TrailingStopLoss {
             close: 0.0,
         }
     }
+}
 
+impl StopLoss for TrailingStopLoss {
     fn upside_hit(&self) -> bool {
         self.close <= self.highest_close_since_position * (1.0 - self.threshold)
     }

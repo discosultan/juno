@@ -8,7 +8,7 @@ pub use stop_loss::*;
 pub use take_profit::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, time::serialize_timestamp};
+use crate::{genetics::Chromosome, time::serialize_timestamp, strategies::Signal};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -20,42 +20,63 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
 #[derive(Clone, Debug, Serialize)]
-pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
+pub struct TradingChromosome {
     pub trader: TraderParams,
-    pub strategy: T,
-    pub stop_loss: U,
-    pub take_profit: V,
+    pub strategy: Box<dyn Signal>,
+    pub stop_loss: Box<dyn StopLoss>,
+    pub take_profit: Box<dyn TakeProfit>,
 }
 
-impl<T: Chromosome, U: Chromosome, V: Chromosome> Chromosome for TradingChromosome<T, U, V> {
-    fn len() -> usize {
-        TraderParams::len() + T::len()
+impl Chromosome for TradingChromosome {
+    fn len(&self) -> usize {
+        TraderParams::len() + self.strategy.len() + self.stop_loss.len() + self.take_profit.len()
     }
 
-    fn generate(rng: &mut StdRng) -> Self {
+    fn generate(&mut self, rng: &mut StdRng) -> Self {
         Self {
             trader: TraderParams::generate(rng),
-            strategy: T::generate(rng),
-            stop_loss: U::generate(rng),
-            take_profit: V::generate(rng),
+            strategy: self.strategy.generate(rng),
+            stop_loss: self.stop_loss.generate(rng),
+            take_profit: self.take_profit.generate(rng),
         }
     }
 
-    fn cross(&mut self, other: &mut Self, i: usize) {
+    fn cross(&mut self, other: &mut Self, mut i: usize) {
         if i < TraderParams::len() {
             self.trader.cross(&mut other.trader, i);
-        } else {
-            self.strategy
-                .cross(&mut other.strategy, i - TraderParams::len());
+            return;
         }
+        i -= TraderParams::len();
+        if i < self.strategy.len() {
+            self.strategy.cross(&mut other.strategy, i);
+            return;
+        }
+        i -= self.strategy.len();
+        if i < self.stop_loss.len() {
+            self.stop_loss.cross(&mut other.stop_loss, i);
+            return;
+        }
+        i -= self.stop_loss.len();
+        self.take_profit.cross(&mut other.take_profit, i);
     }
 
-    fn mutate(&mut self, rng: &mut StdRng, i: usize) {
+    fn mutate(&mut self, rng: &mut StdRng, mut i: usize) {
         if i < TraderParams::len() {
             self.trader.mutate(rng, i);
-        } else {
-            self.strategy.mutate(rng, i - TraderParams::len());
+            return;
         }
+        i -= TraderParams::len();
+        if i < self.strategy.len() {
+            self.strategy.mutate(rng, i);
+            return;
+        }
+        i -= self.strategy.len();
+        if i < self.stop_loss.len() {
+            self.stop_loss.mutate(rng, i);
+            return;
+        }
+        i -= self.stop_loss.len();
+        self.take_profit.mutate(rng, i);
     }
 }
 
