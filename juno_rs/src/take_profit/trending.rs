@@ -27,19 +27,22 @@ fn lock_threshold(rng: &mut StdRng) -> bool {
 }
 
 pub struct Trending {
-    pub min_threshold: f64,
-    pub max_threshold: f64,
-    pub lock_threshold: bool,
-    threshold: f64,
+    min_threshold: f64,
+    max_threshold: f64,
+    lock_threshold: bool,
+    up_threshold_factor: f64,
+    down_threshold_factor: f64,
     adx: Adx,
     close_at_position: f64,
     close: f64,
 }
 
 impl Trending {
-    fn get_threshold(&self) -> f64 {
+    fn set_threshold_factors(&mut self) {
         let adx_value = self.adx.value / 100.0;
-        lerp(self.min_threshold, self.max_threshold, adx_value)
+        let threshold = lerp(self.min_threshold, self.max_threshold, adx_value);
+        self.up_threshold_factor = 1.0 + threshold;
+        self.down_threshold_factor = 1.0 - threshold;
     }
 }
 
@@ -51,7 +54,8 @@ impl TakeProfit for Trending {
             min_threshold: params.thresholds.0,
             max_threshold: params.thresholds.1,
             lock_threshold: params.lock_threshold,
-            threshold: 0.0,
+            up_threshold_factor: 0.0,
+            down_threshold_factor: 0.0,
             adx: Adx::new(params.period),
             close_at_position: 0.0,
             close: 0.0,
@@ -59,17 +63,17 @@ impl TakeProfit for Trending {
     }
 
     fn upside_hit(&self) -> bool {
-        self.close >= self.close_at_position * (1.0 + self.threshold)
+        self.close >= self.close_at_position * self.up_threshold_factor
     }
 
     fn downside_hit(&self) -> bool {
-        self.close <= self.close_at_position * (1.0 - self.threshold)
+        self.close <= self.close_at_position * self.down_threshold_factor
     }
 
     fn clear(&mut self, candle: &Candle) {
         self.close_at_position = candle.close;
         if self.lock_threshold {
-            self.threshold = self.get_threshold();
+            self.set_threshold_factors();
         }
     }
 
@@ -77,7 +81,7 @@ impl TakeProfit for Trending {
         self.close = candle.close;
         self.adx.update(candle.high, candle.low);
         if !self.lock_threshold {
-            self.threshold = self.get_threshold();
+            self.set_threshold_factors();
         }
     }
 }
