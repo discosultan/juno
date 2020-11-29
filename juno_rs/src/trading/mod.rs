@@ -1,11 +1,7 @@
 mod evaluation;
-mod stop_loss;
-mod take_profit;
 mod traders;
 
 pub use evaluation::*;
-pub use stop_loss::*;
-pub use take_profit::*;
 pub use traders::*;
 
 use crate::{genetics::Chromosome, time::serialize_timestamp};
@@ -19,40 +15,12 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 
 pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
-#[derive(Clone, Debug, Serialize)]
-pub struct TradingChromosome<T: Chromosome> {
+#[derive(AggregateChromosome, Clone, Debug, Serialize)]
+pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
     pub trader: TraderParams,
     pub strategy: T,
-}
-
-impl<T: Chromosome> Chromosome for TradingChromosome<T> {
-    fn len() -> usize {
-        TraderParams::len() + T::len()
-    }
-
-    fn generate(rng: &mut StdRng) -> Self {
-        Self {
-            trader: TraderParams::generate(rng),
-            strategy: T::generate(rng),
-        }
-    }
-
-    fn cross(&mut self, other: &mut Self, i: usize) {
-        if i < TraderParams::len() {
-            self.trader.cross(&mut other.trader, i);
-        } else {
-            self.strategy
-                .cross(&mut other.strategy, i - TraderParams::len());
-        }
-    }
-
-    fn mutate(&mut self, rng: &mut StdRng, i: usize) {
-        if i < TraderParams::len() {
-            self.trader.mutate(rng, i);
-        } else {
-            self.strategy.mutate(rng, i - TraderParams::len());
-        }
-    }
+    pub stop_loss: U,
+    pub take_profit: V,
 }
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
@@ -60,30 +28,10 @@ pub struct TraderParams {
     #[serde(serialize_with = "serialize_missed_candle_policy")]
     #[serde(deserialize_with = "deserialize_missed_candle_policy")]
     pub missed_candle_policy: u32,
-    pub stop_loss: f64,
-    pub trail_stop_loss: bool,
-    pub take_profit: f64,
 }
 
 fn missed_candle_policy(rng: &mut StdRng) -> u32 {
     rng.gen_range(0, MISSED_CANDLE_POLICIES_LEN)
-}
-fn stop_loss(rng: &mut StdRng) -> f64 {
-    if rng.gen_bool(0.5) {
-        0.0
-    } else {
-        rng.gen_range(0.0001, 0.9999)
-    }
-}
-fn trail_stop_loss(rng: &mut StdRng) -> bool {
-    rng.gen_bool(0.5)
-}
-fn take_profit(rng: &mut StdRng) -> f64 {
-    if rng.gen_bool(0.5) {
-        0.0
-    } else {
-        rng.gen_range(0.0001, 9.9999)
-    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]

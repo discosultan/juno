@@ -1,20 +1,23 @@
 use super::custom_reject;
 use anyhow::Result;
 use bytes::buf::Buf;
+use juno_derive_rs::*;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
     prelude::*,
     statistics::TradingStats,
+    stop_loss::StopLoss,
     storages,
     strategies::*,
-    trading::{self, TraderParams, TradingSummary},
+    take_profit::TakeProfit,
+    trading::*,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use warp::{hyper::body::Bytes, reply::Json, Filter, Rejection};
 
 #[derive(Debug, Deserialize)]
-struct Params<T: Signal> {
+struct Params<T: Signal, U: StopLoss, V: TakeProfit> {
     exchange: String,
     symbols: Vec<String>,
     #[serde(deserialize_with = "deserialize_interval")]
@@ -25,6 +28,8 @@ struct Params<T: Signal> {
     end: u64,
     quote: f64,
     strategy_params: T::Params,
+    stop_loss_params: U::Params,
+    take_profit_params: V::Params,
     trader_params: TraderParams,
 }
 
@@ -36,39 +41,26 @@ struct TradingResult {
 pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path("backtest"))
-        .and(warp::path::param())
+        .and(warp::path::param()) // strategy
+        .and(warp::path::param()) // stop_loss
+        .and(warp::path::param()) // take_profit
         .and(warp::body::bytes())
-        .and_then(|strategy: String, bytes: Bytes| async move {
-            match strategy.as_ref() {
-                "fourweekrule" => process::<FourWeekRule>(bytes),
-                "triplema" => process::<TripleMA>(bytes),
-                "doublema" => process::<DoubleMA>(bytes),
-                "singlema" => process::<SingleMA>(bytes),
-                "sig_fourweekrule" => process::<Sig<FourWeekRule>>(bytes),
-                "sig_triplema" => process::<Sig<TripleMA>>(bytes),
-                "sigosc_triplema_rsi" => {
-                    process::<SigOsc<TripleMA, Rsi, EnforceOscillatorFilter>>(bytes)
-                }
-                "sigosc_doublema_rsi" => {
-                    process::<SigOsc<DoubleMA, Rsi, EnforceOscillatorFilter>>(bytes)
-                }
-                "sigosc_fourweekrule_rsi_prevent" => {
-                    process::<SigOsc<FourWeekRule, Rsi, PreventOscillatorFilter>>(bytes)
-                }
-                strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
-            }
-            .map_err(|error| custom_reject(error))
-        })
+        .and_then(
+            |strategy: String, stop_loss: String, take_profit: String, bytes: Bytes| async move {
+                route_strategy!(process, strategy, stop_loss, take_profit, bytes)
+                    .map_err(|error| custom_reject(error))
+            },
+        )
 }
 
-fn process<T: Signal>(bytes: Bytes) -> Result<Json> {
-    let args: Params<T> = serde_json::from_reader(bytes.reader())?;
+fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: Bytes) -> Result<Json> {
+    let args: Params<T, U, V> = serde_json::from_reader(bytes.reader())?;
 
     let symbol_summaries = args
         .symbols
         .iter()
         .map(|symbol| {
-            let summary = backtest::<T>(&args, symbol).expect("backtest");
+            let summary = backtest::<T, U, V>(&args, symbol).expect("backtest");
             (symbol.to_owned(), summary) // TODO: Return &String instead.
         })
         .collect::<HashMap<String, TradingSummary>>();
@@ -83,13 +75,18 @@ fn process<T: Signal>(bytes: Bytes) -> Result<Json> {
     Ok(warp::reply::json(&TradingResult { symbol_stats }))
 }
 
-fn backtest<T: Signal>(args: &Params<T>, symbol: &str) -> Result<TradingSummary> {
+fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
+    args: &Params<T, U, V>,
+    symbol: &str,
+) -> Result<TradingSummary> {
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    Ok(trading::trade::<T>(
+    Ok(trade::<T, U, V>(
         &args.strategy_params,
+        &args.stop_loss_params,
+        &args.take_profit_params,
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
@@ -98,16 +95,13 @@ fn backtest<T: Signal>(args: &Params<T>, symbol: &str) -> Result<TradingSummary>
         args.interval,
         args.quote,
         args.trader_params.missed_candle_policy,
-        args.trader_params.stop_loss,
-        args.trader_params.trail_stop_loss,
-        args.trader_params.take_profit,
         true,
         true,
     ))
 }
 
-fn get_stats<T: Signal>(
-    args: &Params<T>,
+fn get_stats<T: Signal, U: StopLoss, V: TakeProfit>(
+    args: &Params<T, U, V>,
     symbol: &str,
     summary: &TradingSummary,
 ) -> Result<TradingStats> {

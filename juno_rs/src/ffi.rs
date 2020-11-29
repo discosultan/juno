@@ -1,6 +1,7 @@
 use crate::{
-    statistics,
+    statistics, stop_loss,
     strategies::{self, Signal},
+    take_profit,
     time::DAY_MS,
     trading::trade,
     BorrowInfo, Candle, Fees, Filters,
@@ -74,8 +75,15 @@ unsafe fn run_test<T: Signal>(
     let fees = &*trading_info.fees;
     let filters = &*trading_info.filters;
     let borrow_info = &*trading_info.borrow_info;
-    let trading_summary = trade::<T>(
+    let trading_summary = trade::<T, stop_loss::Legacy, take_profit::Legacy>(
         strategy_params,
+        &stop_loss::LegacyParams {
+            threshold: trading_info.stop_loss,
+            trail: trading_info.trail_stop_loss,
+        },
+        &take_profit::LegacyParams {
+            threshold: trading_info.take_profit,
+        },
         candles,
         fees,
         filters,
@@ -84,9 +92,6 @@ unsafe fn run_test<T: Signal>(
         trading_info.interval,
         trading_info.quote,
         trading_info.missed_candle_policy,
-        trading_info.stop_loss,
-        trading_info.trail_stop_loss,
-        trading_info.take_profit,
         trading_info.long,
         trading_info.short,
     );

@@ -54,8 +54,8 @@ class Python(Solver, SimulatedPositionMixin):
             ),
             strategy=config.new_strategy(),
             quote=config.quote,
-            stop_loss=_stop_loss_from_config(config),
-            take_profit=_take_profit_from_config(config),
+            stop_loss=stop_loss.Legacy(config.stop_loss, config.trail_stop_loss),
+            take_profit=take_profit.Legacy(config.take_profit),
         )
         try:
             i = 0
@@ -204,17 +204,3 @@ class Python(Solver, SimulatedPositionMixin):
         state.quote += position.quote_delta()
         state.open_position = None
         state.summary.append_position(position)
-
-
-def _stop_loss_from_config(cfg: Solver.Config) -> stop_loss.StopLoss:
-    if cfg.stop_loss == 0:
-        return stop_loss.Noop()
-    if cfg.trail_stop_loss:
-        return stop_loss.Trailing(cfg.stop_loss)
-    return stop_loss.Basic(cfg.stop_loss)
-
-
-def _take_profit_from_config(cfg: Solver.Config) -> take_profit.TakeProfit:
-    if cfg.take_profit == 0:
-        return take_profit.Noop()
-    return take_profit.Basic(cfg.take_profit)

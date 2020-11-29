@@ -1,5 +1,6 @@
 use super::custom_reject;
 use anyhow::Result;
+use juno_derive_rs::*;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::{
@@ -8,9 +9,11 @@ use juno_rs::{
     },
     prelude::*,
     statistics::TradingStats,
+    stop_loss::StopLoss,
     storages,
     strategies::*,
-    trading::{self, TradingChromosome, TradingSummary},
+    take_profit::TakeProfit,
+    trading::{trade, BasicEvaluation, TradingChromosome, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -23,7 +26,11 @@ struct Params {
     hall_of_fame_size: usize,
     seed: Option<u64>,
 
-    strategy: String, // TODO: Move to path param.
+    // TODO: Move to path params similar to backtest route?
+    strategy: String,
+    stop_loss: String,
+    take_profit: String,
+
     exchange: String,
     #[serde(deserialize_with = "deserialize_interval")]
     interval: u64,
@@ -44,22 +51,22 @@ impl Params {
 }
 
 #[derive(Serialize)]
-struct Generation<T: Chromosome> {
+struct Generation<T: Chromosome, U: Chromosome, V: Chromosome> {
     // We need to store generation number because we are filtering out generations with not change
     // in top.
     nr: usize,
-    hall_of_fame: Vec<IndividualStats<T>>,
+    hall_of_fame: Vec<IndividualStats<T, U, V>>,
 }
 
 #[derive(Serialize)]
-struct IndividualStats<T: Chromosome> {
-    ind: Individual<TradingChromosome<T>>,
+struct IndividualStats<T: Chromosome, U: Chromosome, V: Chromosome> {
+    ind: Individual<TradingChromosome<T, U, V>>,
     symbol_stats: HashMap<String, TradingStats>,
 }
 
 #[derive(Serialize)]
-struct EvolutionStats<T: Chromosome> {
-    generations: Vec<Generation<T>>,
+struct EvolutionStats<T: Chromosome, U: Chromosome, V: Chromosome> {
+    generations: Vec<Generation<T, U, V>>,
     seed: u64,
 }
 
@@ -68,30 +75,17 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
         .and(warp::path("optimize"))
         .and(warp::body::json())
         .and_then(|args: Params| async move {
-            match args.strategy.as_ref() {
-                "fourweekrule" => process::<FourWeekRule>(args),
-                "triplema" => process::<TripleMA>(args),
-                "doublema" => process::<DoubleMA>(args),
-                "singlema" => process::<SingleMA>(args),
-                "sig_fourweekrule" => process::<Sig<FourWeekRule>>(args),
-                "sig_triplema" => process::<Sig<TripleMA>>(args),
-                "sigosc_triplema_rsi" => {
-                    process::<SigOsc<TripleMA, Rsi, EnforceOscillatorFilter>>(args)
-                }
-                "sigosc_doublema_rsi" => {
-                    process::<SigOsc<DoubleMA, Rsi, EnforceOscillatorFilter>>(args)
-                }
-                "sigosc_fourweekrule_rsi_prevent" => {
-                    process::<SigOsc<FourWeekRule, Rsi, PreventOscillatorFilter>>(args)
-                }
-                strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
-            }
-            .map_err(|error| custom_reject(error))
+            // TODO: Improve the macro so we don't need to extract variables like this.
+            let strategy = &args.strategy;
+            let stop_loss = &args.stop_loss;
+            let take_profit = &args.take_profit;
+            route_strategy!(process, strategy, stop_loss, take_profit, args)
+                .map_err(|error| custom_reject(error)) // TODO: return 400
         })
 }
 
-fn process<T: Signal>(args: Params) -> Result<Json> {
-    let evolution = optimize::<T>(&args)?;
+fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> {
+    let evolution = optimize::<T, U, V>(&args)?;
     let mut last_fitness = f64::NAN;
     let gen_stats = evolution
         .generations
@@ -111,7 +105,8 @@ fn process<T: Signal>(args: Params) -> Result<Json> {
                     let symbol_stats = args
                         .iter_symbols()
                         .map(|symbol| {
-                            let summary = backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
+                            let summary =
+                                backtest::<T, U, V>(&args, symbol, &ind.chromosome).unwrap();
                             let stats = get_stats(&args, symbol, &summary).unwrap();
                             (symbol.to_owned(), stats) // TODO: Return &String instead.
                         })
@@ -126,16 +121,18 @@ fn process<T: Signal>(args: Params) -> Result<Json> {
                 hall_of_fame,
             }
         })
-        .collect::<Vec<Generation<T::Params>>>();
+        .collect::<Vec<Generation<_, _, _>>>();
     Ok(warp::reply::json(&EvolutionStats {
         generations: gen_stats,
         seed: evolution.seed,
     }))
 }
 
-fn optimize<T: Signal>(args: &Params) -> Result<Evolution<TradingChromosome<T::Params>>> {
+fn optimize<T: Signal, U: StopLoss, V: TakeProfit>(
+    args: &Params,
+) -> Result<Evolution<TradingChromosome<T::Params, U::Params, V::Params>>> {
     let algo = GeneticAlgorithm::new(
-        trading::BasicEvaluation::<T>::new(
+        BasicEvaluation::<T, U, V>::new(
             &args.exchange,
             &args.training_symbols,
             args.interval,
@@ -167,17 +164,19 @@ fn on_generation<T: Chromosome>(nr: usize, gen: &juno_rs::genetics::Generation<T
     println!("{:?}", gen.timings);
 }
 
-fn backtest<T: Signal>(
+fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
     args: &Params,
     symbol: &str,
-    chrom: &TradingChromosome<T::Params>,
+    chrom: &TradingChromosome<T::Params, U::Params, V::Params>,
 ) -> Result<TradingSummary> {
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    Ok(trading::trade::<T>(
+    Ok(trade::<T, U, V>(
         &chrom.strategy,
+        &chrom.stop_loss,
+        &chrom.take_profit,
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
@@ -186,9 +185,6 @@ fn backtest<T: Signal>(
         args.interval,
         args.quote,
         chrom.trader.missed_candle_policy,
-        chrom.trader.stop_loss,
-        chrom.trader.trail_stop_loss,
-        chrom.trader.take_profit,
         true,
         true,
     ))

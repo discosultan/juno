@@ -1,36 +1,39 @@
-use crate::Candle;
+use super::TakeProfit;
+use crate::{genetics::Chromosome, Candle};
+use juno_derive_rs::*;
+use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 
-pub trait TakeProfitRenameMe {
-    fn upside_hit(&self) -> bool {
-        false
-    }
-
-    fn downside_hit(&self) -> bool {
-        false
-    }
-
-    fn clear(&mut self, _candle: &Candle) {}
-
-    fn update(&mut self, _candle: &Candle) {}
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+pub struct LegacyParams {
+    pub threshold: f64,
 }
 
-pub struct TakeProfit {
+fn threshold(rng: &mut StdRng) -> f64 {
+    if rng.gen_bool(0.5) {
+        rng.gen_range(0.01, 1.00)
+    } else {
+        0.0
+    }
+}
+
+pub struct Legacy {
     pub threshold: f64,
     close_at_position: f64,
     close: f64,
 }
 
-impl TakeProfit {
-    pub fn new(threshold: f64) -> Self {
+impl TakeProfit for Legacy {
+    type Params = LegacyParams;
+
+    fn new(params: &Self::Params) -> Self {
         Self {
-            threshold,
+            threshold: params.threshold,
             close_at_position: 0.0,
             close: 0.0,
         }
     }
-}
 
-impl TakeProfitRenameMe for TakeProfit {
     fn upside_hit(&self) -> bool {
         self.threshold > 0.0 && self.close >= self.close_at_position * (1.0 + self.threshold)
     }

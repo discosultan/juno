@@ -81,7 +81,21 @@ export default function Dashboard() {
                 onSelect={(gensInfo, gen, ind) =>
                   setSelectedGenInfo({
                     args: gensInfo.args,
-                    config: ind.ind.chromosome,
+                    config: {
+                      trader: ind.ind.chromosome.trader,
+                      strategy: {
+                        type: gensInfo.args.strategy,
+                        ...ind.ind.chromosome.strategy,
+                      },
+                      stopLoss: {
+                        type: gensInfo.args.stopLoss,
+                        ...ind.ind.chromosome.stopLoss,
+                      },
+                      takeProfit: {
+                        type: gensInfo.args.takeProfit,
+                        ...ind.ind.chromosome.takeProfit,
+                      },
+                    },
                     symbolCandles: gensInfo.symbolCandles,
                     symbolStats: ind.symbolStats,
                     title: `gen ${gen.nr}`,

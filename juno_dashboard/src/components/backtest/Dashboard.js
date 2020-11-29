@@ -27,7 +27,18 @@ export default function Dashboard() {
       },
       config: {
         trader: args.traderParams,
-        strategy: args.strategyParams,
+        strategy: {
+          type: args.strategy,
+          ...args.strategyParams,
+        },
+        stopLoss: {
+          type: args.stopLoss,
+          ...args.stopLossParams,
+        },
+        takeProfit: {
+          type: args.takeProfit,
+          ...args.takeProfitParams,
+        },
       },
       symbolCandles,
       symbolStats: result.symbolStats,

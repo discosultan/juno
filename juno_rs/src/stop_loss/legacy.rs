@@ -1,20 +1,28 @@
-use crate::Candle;
+use super::StopLoss;
+use crate::{genetics::Chromosome, Candle};
+use juno_derive_rs::*;
+use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 
-pub trait StopLossRenameMe {
-    fn upside_hit(&self) -> bool {
-        false
-    }
-
-    fn downside_hit(&self) -> bool {
-        false
-    }
-
-    fn clear(&mut self, _candle: &Candle) {}
-
-    fn update(&mut self, _candle: &Candle) {}
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+pub struct LegacyParams {
+    pub threshold: f64,
+    pub trail: bool,
 }
 
-pub struct StopLoss {
+fn threshold(rng: &mut StdRng) -> f64 {
+    if rng.gen_bool(0.5) {
+        rng.gen_range(0.01, 1.00)
+    } else {
+        0.0
+    }
+}
+
+fn trail(rng: &mut StdRng) -> bool {
+    rng.gen_bool(0.5)
+}
+
+pub struct Legacy {
     pub threshold: f64,
     trail: bool,
     close_at_position: f64,
@@ -23,20 +31,20 @@ pub struct StopLoss {
     close: f64,
 }
 
-impl StopLoss {
-    pub fn new(threshold: f64, trail: bool) -> Self {
+impl StopLoss for Legacy {
+    type Params = LegacyParams;
+
+    fn new(params: &Self::Params) -> Self {
         Self {
-            threshold,
-            trail,
+            threshold: params.threshold,
+            trail: params.trail,
             close_at_position: 0.0,
             highest_close_since_position: 0.0,
             lowest_close_since_position: f64::MAX,
             close: 0.0,
         }
     }
-}
 
-impl StopLossRenameMe for StopLoss {
     fn upside_hit(&self) -> bool {
         self.threshold > 0.0
             && self.close
