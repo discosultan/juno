@@ -5,7 +5,7 @@ use crate::{
     time,
     trading::{
         CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position, StopLoss,
-        TakeProfit, TradingSummary,
+        StopLossRenameMe, TakeProfit, TakeProfitRenameMe, TradingSummary,
     },
     Advice, BorrowInfo, Candle, Fees, Filters,
 };

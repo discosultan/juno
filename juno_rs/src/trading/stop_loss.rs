@@ -29,7 +29,7 @@ pub struct NoopStopLoss {}
 impl StopLoss for NoopStopLoss {
     type Params = NoopTakeProfitParams;
 
-    fn new(params: &Self::Params) -> Self {
+    fn new(_params: &Self::Params) -> Self {
         Self {}
     }
 }
