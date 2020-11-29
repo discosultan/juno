@@ -40,33 +40,34 @@ struct TradingResult {
 pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path("backtest"))
-        .and(warp::path::param())
+        .and(warp::path::param()) // strategy
+        .and(warp::path::param()) // stop_loss
+        .and(warp::path::param()) // take_profit
         .and(warp::body::bytes())
-        .and_then(|strategy: String, bytes: Bytes| async move {
+        .and_then(|strategy: String, stop_loss: String, take_profit: String, bytes: Bytes| async move {
             match strategy.as_ref() {
-                "fourweekrule" => process::<FourWeekRule>(bytes),
-                "triplema" => process::<TripleMA>(bytes),
-                "doublema" => process::<DoubleMA>(bytes),
-                "singlema" => process::<SingleMA>(bytes),
-                "sig_fourweekrule" => process::<Sig<FourWeekRule>>(bytes),
-                "sig_triplema" => process::<Sig<TripleMA>>(bytes),
-                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>>(bytes),
-                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>>(bytes),
-                strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
+                "fourweekrule" => process::<FourWeekRule, stop_loss::Legacy, take_profit::Legacy>(bytes),
+                "triplema" => process::<TripleMA, stop_loss::Legacy, take_profit::Legacy>(bytes),
+                "doublema" => process::<DoubleMA, stop_loss::Legacy, take_profit::Legacy>(bytes),
+                "singlema" => process::<SingleMA, stop_loss::Legacy, take_profit::Legacy>(bytes),
+                "sig_fourweekrule" => process::<Sig<FourWeekRule>, stop_loss::Legacy, take_profit::Legacy>(bytes),
+                "sig_triplema" => process::<Sig<TripleMA>, stop_loss::Legacy, take_profit::Legacy>(bytes),
+                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>, stop_loss::Legacy, take_profit::Legacy>(bytes),
+                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>, stop_loss::Legacy, take_profit::Legacy>(bytes),
+                _ => panic!("unsupported combination: {}, {}, {}", strategy, stop_loss, take_profit), // TODO: return 400
             }
             .map_err(|error| custom_reject(error))
         })
 }
 
-fn process<T: Signal>(bytes: Bytes) -> Result<Json> {
-    let args: Params<T, stop_loss::Legacy, take_profit::Legacy> =
-        serde_json::from_reader(bytes.reader())?;
+fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: Bytes) -> Result<Json> {
+    let args: Params<T, U, V> = serde_json::from_reader(bytes.reader())?;
 
     let symbol_summaries = args
         .symbols
         .iter()
         .map(|symbol| {
-            let summary = backtest::<T, stop_loss::Legacy, take_profit::Legacy>(&args, symbol)
+            let summary = backtest::<T, U, V>(&args, symbol)
                 .expect("backtest");
             (symbol.to_owned(), summary) // TODO: Return &String instead.
         })

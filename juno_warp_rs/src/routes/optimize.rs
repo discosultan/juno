@@ -25,7 +25,11 @@ struct Params {
     hall_of_fame_size: usize,
     seed: Option<u64>,
 
-    strategy: String, // TODO: Move to path param.
+    // TODO: Move to path params similar to backtest route?
+    strategy: String,
+    stop_loss: String,
+    take_profit: String,
+
     exchange: String,
     #[serde(deserialize_with = "deserialize_interval")]
     interval: u64,
@@ -71,22 +75,22 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
         .and(warp::body::json())
         .and_then(|args: Params| async move {
             match args.strategy.as_ref() {
-                "fourweekrule" => process::<FourWeekRule>(args),
-                "triplema" => process::<TripleMA>(args),
-                "doublema" => process::<DoubleMA>(args),
-                "singlema" => process::<SingleMA>(args),
-                "sig_fourweekrule" => process::<Sig<FourWeekRule>>(args),
-                "sig_triplema" => process::<Sig<TripleMA>>(args),
-                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>>(args),
-                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>>(args),
-                strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
+                "fourweekrule" => process::<FourWeekRule, stop_loss::Legacy, take_profit::Legacy>(args),
+                "triplema" => process::<TripleMA, stop_loss::Legacy, take_profit::Legacy>(args),
+                "doublema" => process::<DoubleMA, stop_loss::Legacy, take_profit::Legacy>(args),
+                "singlema" => process::<SingleMA, stop_loss::Legacy, take_profit::Legacy>(args),
+                "sig_fourweekrule" => process::<Sig<FourWeekRule>, stop_loss::Legacy, take_profit::Legacy>(args),
+                "sig_triplema" => process::<Sig<TripleMA>, stop_loss::Legacy, take_profit::Legacy>(args),
+                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>, stop_loss::Legacy, take_profit::Legacy>(args),
+                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>, stop_loss::Legacy, take_profit::Legacy>(args),
+                _ => panic!("unsupported combination: {}, {}, {}", args.strategy, args.stop_loss, args.take_profit), // TODO: return 400
             }
             .map_err(|error| custom_reject(error))
         })
 }
 
-fn process<T: Signal>(args: Params) -> Result<Json> {
-    let evolution = optimize::<T, stop_loss::Legacy, take_profit::Legacy>(&args)?;
+fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> {
+    let evolution = optimize::<T, U, V>(&args)?;
     let mut last_fitness = f64::NAN;
     let gen_stats = evolution
         .generations
@@ -106,7 +110,7 @@ fn process<T: Signal>(args: Params) -> Result<Json> {
                     let symbol_stats = args
                         .iter_symbols()
                         .map(|symbol| {
-                            let summary = backtest::<T, stop_loss::Legacy, take_profit::Legacy>(
+                            let summary = backtest::<T, U, V>(
                                 &args,
                                 symbol,
                                 &ind.chromosome,
