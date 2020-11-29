@@ -10,9 +10,7 @@ use crate::{
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{
-    cmp::{max, min},
-};
+use std::cmp::{max, min};
 
 const OSC_FILTER_ENFORCE: u32 = 0;
 const OSC_FILTER_PREVENT: u32 = 1;
@@ -66,7 +64,11 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
         Self {
             sig_params: S::generate(rng),
             osc_params: O::generate(rng),
-            osc_filter: if rng.gen_bool(0.5) { OSC_FILTER_ENFORCE } else { OSC_FILTER_PREVENT },
+            osc_filter: if rng.gen_bool(0.5) {
+                OSC_FILTER_ENFORCE
+            } else {
+                OSC_FILTER_PREVENT
+            },
             persistence: rng.gen_range(0, 10),
             mid_trend_policy: rng.gen_mid_trend_policy(),
         }
@@ -130,8 +132,7 @@ impl<S: Signal, O: Oscillator> SigOsc<S, O> {
             }
         }
     }
-    
-    
+
     fn filter_prevent(&self, advice: Advice) -> Advice {
         match advice {
             Advice::None => Advice::None,

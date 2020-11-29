@@ -5,8 +5,7 @@ use crate::{
     take_profit::TakeProfit,
     time,
     trading::{
-        CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position,
-        TradingSummary,
+        CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position, TradingSummary,
     },
     Advice, BorrowInfo, Candle, Fees, Filters,
 };

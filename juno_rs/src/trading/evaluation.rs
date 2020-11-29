@@ -2,8 +2,9 @@ use super::TradingChromosome;
 use crate::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::{Evaluation, Individual},
-    statistics, storages,
+    statistics,
     stop_loss::StopLoss,
+    storages,
     strategies::Signal,
     take_profit::TakeProfit,
     time,

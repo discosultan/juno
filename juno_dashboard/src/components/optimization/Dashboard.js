@@ -88,11 +88,11 @@ export default function Dashboard() {
                         ...ind.ind.chromosome.strategy,
                       },
                       stopLoss: {
-                        type: 'legacy',
+                        type: gensInfo.args.stopLoss,
                         ...ind.ind.chromosome.stopLoss,
                       },
                       takeProfit: {
-                        type: 'legacy',
+                        type: gensInfo.args.takeProfit,
                         ...ind.ind.chromosome.takeProfit,
                       },
                     },

@@ -10,11 +10,12 @@ pub struct TrailingParams {
 }
 
 fn threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(0.01, 1.0)
+    rng.gen_range(0.001, 1.000)
 }
 
 pub struct Trailing {
-    pub threshold: f64,
+    up_threshold_factor: f64,
+    down_threshold_factor: f64,
     highest_close_since_position: f64,
     lowest_close_since_position: f64,
     close: f64,
@@ -25,7 +26,8 @@ impl StopLoss for Trailing {
 
     fn new(params: &Self::Params) -> Self {
         Self {
-            threshold: params.threshold,
+            up_threshold_factor: 1.0 - params.threshold,
+            down_threshold_factor: 1.0 + params.threshold,
             highest_close_since_position: 0.0,
             lowest_close_since_position: f64::MAX,
             close: 0.0,
@@ -33,11 +35,11 @@ impl StopLoss for Trailing {
     }
 
     fn upside_hit(&self) -> bool {
-        self.close <= self.highest_close_since_position * (1.0 - self.threshold)
+        self.close <= self.highest_close_since_position * self.up_threshold_factor
     }
 
     fn downside_hit(&self) -> bool {
-        self.close >= self.lowest_close_since_position * (1.0 + self.threshold)
+        self.close >= self.lowest_close_since_position * self.down_threshold_factor
     }
 
     fn clear(&mut self, candle: &Candle) {

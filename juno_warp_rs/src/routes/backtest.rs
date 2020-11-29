@@ -1,14 +1,15 @@
 use super::custom_reject;
 use anyhow::Result;
 use bytes::buf::Buf;
+use juno_derive_rs::*;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
     prelude::*,
     statistics::TradingStats,
-    stop_loss::{self, StopLoss},
+    stop_loss::StopLoss,
     storages,
     strategies::*,
-    take_profit::{self, TakeProfit},
+    take_profit::TakeProfit,
     trading::*,
 };
 use serde::{Deserialize, Serialize};
@@ -44,20 +45,12 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
         .and(warp::path::param()) // stop_loss
         .and(warp::path::param()) // take_profit
         .and(warp::body::bytes())
-        .and_then(|strategy: String, stop_loss: String, take_profit: String, bytes: Bytes| async move {
-            match strategy.as_ref() {
-                "fourweekrule" => process::<FourWeekRule, stop_loss::Legacy, take_profit::Legacy>(bytes),
-                "triplema" => process::<TripleMA, stop_loss::Legacy, take_profit::Legacy>(bytes),
-                "doublema" => process::<DoubleMA, stop_loss::Legacy, take_profit::Legacy>(bytes),
-                "singlema" => process::<SingleMA, stop_loss::Legacy, take_profit::Legacy>(bytes),
-                "sig_fourweekrule" => process::<Sig<FourWeekRule>, stop_loss::Legacy, take_profit::Legacy>(bytes),
-                "sig_triplema" => process::<Sig<TripleMA>, stop_loss::Legacy, take_profit::Legacy>(bytes),
-                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>, stop_loss::Legacy, take_profit::Legacy>(bytes),
-                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>, stop_loss::Legacy, take_profit::Legacy>(bytes),
-                _ => panic!("unsupported combination: {}, {}, {}", strategy, stop_loss, take_profit), // TODO: return 400
-            }
-            .map_err(|error| custom_reject(error))
-        })
+        .and_then(
+            |strategy: String, stop_loss: String, take_profit: String, bytes: Bytes| async move {
+                route_strategy!(process, strategy, stop_loss, take_profit, bytes)
+                    .map_err(|error| custom_reject(error))
+            },
+        )
 }
 
 fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: Bytes) -> Result<Json> {
@@ -67,8 +60,7 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: Bytes) -> Result<Json> 
         .symbols
         .iter()
         .map(|symbol| {
-            let summary = backtest::<T, U, V>(&args, symbol)
-                .expect("backtest");
+            let summary = backtest::<T, U, V>(&args, symbol).expect("backtest");
             (symbol.to_owned(), summary) // TODO: Return &String instead.
         })
         .collect::<HashMap<String, TradingSummary>>();

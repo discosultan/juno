@@ -10,11 +10,12 @@ pub struct BasicParams {
 }
 
 fn threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(0.01, 1.0)
+    rng.gen_range(0.001, 1.000)
 }
 
 pub struct Basic {
-    pub threshold: f64,
+    up_threshold_factor: f64,
+    down_threshold_factor: f64,
     close_at_position: f64,
     close: f64,
 }
@@ -24,18 +25,19 @@ impl StopLoss for Basic {
 
     fn new(params: &Self::Params) -> Self {
         Self {
-            threshold: params.threshold,
+            up_threshold_factor: 1.0 - params.threshold,
+            down_threshold_factor: 1.0 + params.threshold,
             close_at_position: 0.0,
             close: 0.0,
         }
     }
 
     fn upside_hit(&self) -> bool {
-        self.close <= self.close_at_position * (1.0 - self.threshold)
+        self.close <= self.close_at_position * self.up_threshold_factor
     }
 
     fn downside_hit(&self) -> bool {
-        self.close >= self.close_at_position * (1.0 + self.threshold)
+        self.close >= self.close_at_position * self.down_threshold_factor
     }
 
     fn clear(&mut self, candle: &Candle) {

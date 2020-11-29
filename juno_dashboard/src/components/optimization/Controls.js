@@ -7,7 +7,7 @@ import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 import useLocalStorageStateImpl from 'use-local-storage-state';
 import DatePicker from '../DatePicker';
-import { Strategies, Symbols, Intervals } from '../../info';
+import { Intervals, StopLosses, Strategies, Symbols, TakeProfits } from '../../info';
 
 function useLocalStorageState(key, defaultValue) {
   return useLocalStorageStateImpl(`optimization_controls_${key}`, defaultValue);
@@ -15,6 +15,8 @@ function useLocalStorageState(key, defaultValue) {
 
 export default function Controls({ onOptimize }) {
   const [strategy, setStrategy] = useLocalStorageState('strategy', 'fourweekrule');
+  const [stopLoss, setStopLoss] = useLocalStorageState('stopLoss', 'noop');
+  const [takeProfit, setTakeProfit] = useLocalStorageState('takeProfit', 'noop');
   const [exchange, setExchange] = useLocalStorageState('exchange', 'binance');
   const [trainingSymbols, setTrainingSymbols] = useLocalStorageState('trainingSymbols', [
     'eth-btc',
@@ -48,9 +50,37 @@ export default function Controls({ onOptimize }) {
         value={strategy}
         onChange={(e) => setStrategy(e.target.value)}
       >
-        {Strategies.map((strategy) => (
-          <MenuItem key={strategy} value={strategy}>
-            {strategy}
+        {Strategies.map((value) => (
+          <MenuItem key={value} value={value}>
+            {value}
+          </MenuItem>
+        ))}
+      </TextField>
+      <TextField
+        id="stopLoss"
+        label="Stop Loss"
+        fullWidth
+        select
+        value={stopLoss}
+        onChange={(e) => setStopLoss(e.target.value)}
+      >
+        {StopLosses.map((value) => (
+          <MenuItem key={value} value={value}>
+            {value}
+          </MenuItem>
+        ))}
+      </TextField>
+      <TextField
+        id="takeProfit"
+        label="Take Profit"
+        fullWidth
+        select
+        value={takeProfit}
+        onChange={(e) => setTakeProfit(e.target.value)}
+      >
+        {TakeProfits.map((value) => (
+          <MenuItem key={value} value={value}>
+            {value}
           </MenuItem>
         ))}
       </TextField>
@@ -142,7 +172,7 @@ export default function Controls({ onOptimize }) {
         fullWidth
         label="Hall of Fame Size"
         type="number"
-        inputProps={{ min: 1}}
+        inputProps={{ min: 1 }}
         value={hallOfFameSize}
         onChange={(e) => setHallOfFameSize(e.target.valueAsNumber)}
       />
@@ -177,6 +207,8 @@ export default function Controls({ onOptimize }) {
         onClick={() =>
           onOptimize({
             strategy,
+            stopLoss,
+            takeProfit,
             exchange,
             trainingSymbols,
             validationSymbols,

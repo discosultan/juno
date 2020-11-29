@@ -158,7 +158,10 @@ export default function Chart({ symbol, candles, stats }) {
         if (hoveredMarkerId < 0) {
           // open
           const pos = stats.positions[-hoveredMarkerId - 1];
-          setTooltipText(`cost: ${pos.cost.toFixed(8)}`);
+          setTooltipText(
+            `time: ${pos.openTime}\n` +
+            `cost: ${pos.cost.toFixed(8)}`
+          );
         } else {
           // close
           const pos = stats.positions[hoveredMarkerId - 1];
@@ -166,7 +169,7 @@ export default function Chart({ symbol, candles, stats }) {
             newStyle.borderColor = '#ef5350';
           }
           setTooltipText(
-            '' +
+              `time: ${pos.closeTime}\n` +
               `gain: ${pos.gain.toFixed(8)}\n` +
               `profit: ${pos.profit.toFixed(8)}\n` +
               `duration: ${pos.duration}\n` +

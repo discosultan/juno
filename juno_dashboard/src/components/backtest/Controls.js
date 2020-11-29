@@ -40,12 +40,12 @@ export default function Controls({ onBacktest }) {
     'strategyParams',
     '{\n  "period": 28,\n  "ma": "kama",\n  "maPeriod": 14\n}',
   );
-  const [stopLoss, setStopLoss] = useLocalStorageState('stopLoss', 'legacy');
+  const [stopLoss, setStopLoss] = useLocalStorageState('stopLoss', 'basic');
   const [stopLossParams, setStopLossParams] = useLocalStorageState(
     'stopLossParams',
-    '{\n  "threshold": 0,\n  "trail": false\n}',
+    '{\n  "threshold": 0\n}',
   );
-  const [takeProfit, setTakeProfit] = useLocalStorageState('takeProfit', 'legacy');
+  const [takeProfit, setTakeProfit] = useLocalStorageState('takeProfit', 'basic');
   const [takeProfitParams, setTakeProfitParams] = useLocalStorageState(
     'takeProfitParams',
     '{\n  "threshold": 0\n}',

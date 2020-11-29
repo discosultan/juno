@@ -1,6 +1,5 @@
 use crate::{
-    statistics,
-    stop_loss,
+    statistics, stop_loss,
     strategies::{self, Signal},
     take_profit,
     time::DAY_MS,

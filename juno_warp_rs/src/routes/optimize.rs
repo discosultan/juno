@@ -1,5 +1,6 @@
 use super::custom_reject;
 use anyhow::Result;
+use juno_derive_rs::*;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::{
@@ -8,10 +9,10 @@ use juno_rs::{
     },
     prelude::*,
     statistics::TradingStats,
-    stop_loss::{self, StopLoss},
+    stop_loss::StopLoss,
     storages,
     strategies::*,
-    take_profit::{self, TakeProfit},
+    take_profit::TakeProfit,
     trading::{trade, BasicEvaluation, TradingChromosome, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
@@ -74,18 +75,12 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
         .and(warp::path("optimize"))
         .and(warp::body::json())
         .and_then(|args: Params| async move {
-            match args.strategy.as_ref() {
-                "fourweekrule" => process::<FourWeekRule, stop_loss::Legacy, take_profit::Legacy>(args),
-                "triplema" => process::<TripleMA, stop_loss::Legacy, take_profit::Legacy>(args),
-                "doublema" => process::<DoubleMA, stop_loss::Legacy, take_profit::Legacy>(args),
-                "singlema" => process::<SingleMA, stop_loss::Legacy, take_profit::Legacy>(args),
-                "sig_fourweekrule" => process::<Sig<FourWeekRule>, stop_loss::Legacy, take_profit::Legacy>(args),
-                "sig_triplema" => process::<Sig<TripleMA>, stop_loss::Legacy, take_profit::Legacy>(args),
-                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>, stop_loss::Legacy, take_profit::Legacy>(args),
-                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>, stop_loss::Legacy, take_profit::Legacy>(args),
-                _ => panic!("unsupported combination: {}, {}, {}", args.strategy, args.stop_loss, args.take_profit), // TODO: return 400
-            }
-            .map_err(|error| custom_reject(error))
+            // TODO: Improve the macro so we don't need to extract variables like this.
+            let strategy = &args.strategy;
+            let stop_loss = &args.stop_loss;
+            let take_profit = &args.take_profit;
+            route_strategy!(process, strategy, stop_loss, take_profit, args)
+                .map_err(|error| custom_reject(error)) // TODO: return 400
         })
 }
 
@@ -110,12 +105,8 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> 
                     let symbol_stats = args
                         .iter_symbols()
                         .map(|symbol| {
-                            let summary = backtest::<T, U, V>(
-                                &args,
-                                symbol,
-                                &ind.chromosome,
-                            )
-                            .unwrap();
+                            let summary =
+                                backtest::<T, U, V>(&args, symbol, &ind.chromosome).unwrap();
                             let stats = get_stats(&args, symbol, &summary).unwrap();
                             (symbol.to_owned(), stats) // TODO: Return &String instead.
                         })
