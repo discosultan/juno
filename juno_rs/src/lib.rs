@@ -7,8 +7,10 @@ pub mod itertools;
 pub mod math;
 pub mod prelude;
 pub mod statistics;
+pub mod stop_loss;
 pub mod storages;
 pub mod strategies;
+pub mod take_profit;
 pub mod time;
 pub mod trading;
 

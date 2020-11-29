@@ -109,3 +109,33 @@ class Trending(TakeProfit):
         # TODO: Support other interpolation functions.
         adx_value = self._adx.value / 100
         return lerp(self.min_threshold, self.max_threshold, adx_value)
+
+
+class Legacy(TakeProfit):
+    threshold: Decimal  # 0 means disabled.
+    _close_at_position: Decimal = Decimal('0.0')
+    _close: Decimal = Decimal('0.0')
+
+    def __init__(self, threshold: Decimal = Decimal('0.0')) -> None:
+        assert 0 <= threshold
+        self.threshold = threshold
+
+    @property
+    def upside_hit(self) -> bool:
+        return (
+            self.threshold > 0
+            and self._close >= self._close_at_position * (1 + self.threshold)
+        )
+
+    @property
+    def downside_hit(self) -> bool:
+        return (
+            self.threshold > 0
+            and self._close <= self._close_at_position * (1 - self.threshold)
+        )
+
+    def clear(self, candle: Candle) -> None:
+        self._close_at_position = candle.close
+
+    def update(self, candle: Candle) -> None:
+        self._close = candle.close

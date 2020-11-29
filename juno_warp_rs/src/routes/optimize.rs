@@ -8,9 +8,11 @@ use juno_rs::{
     },
     prelude::*,
     statistics::TradingStats,
+    stop_loss::{self, StopLoss},
     storages,
     strategies::*,
-    trading::{self, StopLoss, TakeProfit, TradingChromosome, TradingSummary},
+    take_profit::{self, TakeProfit},
+    trading::{trade, BasicEvaluation, TradingChromosome, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -75,23 +77,16 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
                 "singlema" => process::<SingleMA>(args),
                 "sig_fourweekrule" => process::<Sig<FourWeekRule>>(args),
                 "sig_triplema" => process::<Sig<TripleMA>>(args),
-                "sigosc_triplema_rsi" => {
-                    process::<SigOsc<TripleMA, Rsi, EnforceOscillatorFilter>>(args)
-                }
-                "sigosc_doublema_rsi" => {
-                    process::<SigOsc<DoubleMA, Rsi, EnforceOscillatorFilter>>(args)
-                }
-                "sigosc_fourweekrule_rsi_prevent" => {
-                    process::<SigOsc<FourWeekRule, Rsi, PreventOscillatorFilter>>(args)
-                }
+                "sigosc_triplema_rsi" => process::<SigOsc<TripleMA, Rsi>>(args),
+                "sigosc_doublema_rsi" => process::<SigOsc<DoubleMA, Rsi>>(args),
                 strategy => panic!("unsupported strategy {}", strategy), // TODO: return 400
             }
             .map_err(|error| custom_reject(error))
         })
 }
 
-fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> {
-    let evolution = optimize::<T, U, V>(&args)?;
+fn process<T: Signal>(args: Params) -> Result<Json> {
+    let evolution = optimize::<T, stop_loss::Legacy, take_profit::Legacy>(&args)?;
     let mut last_fitness = f64::NAN;
     let gen_stats = evolution
         .generations
@@ -111,8 +106,12 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> 
                     let symbol_stats = args
                         .iter_symbols()
                         .map(|symbol| {
-                            let summary =
-                                backtest::<T, U, V>(&args, symbol, &ind.chromosome).unwrap();
+                            let summary = backtest::<T, stop_loss::Legacy, take_profit::Legacy>(
+                                &args,
+                                symbol,
+                                &ind.chromosome,
+                            )
+                            .unwrap();
                             let stats = get_stats(&args, symbol, &summary).unwrap();
                             (symbol.to_owned(), stats) // TODO: Return &String instead.
                         })
@@ -127,7 +126,7 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> 
                 hall_of_fame,
             }
         })
-        .collect::<Vec<Generation<T::Params, U::Params, V::Params>>>();
+        .collect::<Vec<Generation<_, _, _>>>();
     Ok(warp::reply::json(&EvolutionStats {
         generations: gen_stats,
         seed: evolution.seed,
@@ -138,7 +137,7 @@ fn optimize<T: Signal, U: StopLoss, V: TakeProfit>(
     args: &Params,
 ) -> Result<Evolution<TradingChromosome<T::Params, U::Params, V::Params>>> {
     let algo = GeneticAlgorithm::new(
-        trading::BasicEvaluation::<T, U, V>::new(
+        BasicEvaluation::<T, U, V>::new(
             &args.exchange,
             &args.training_symbols,
             args.interval,
@@ -179,7 +178,7 @@ fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    Ok(trading::trade::<T, U, V>(
+    Ok(trade::<T, U, V>(
         &chrom.strategy,
         &chrom.stop_loss,
         &chrom.take_profit,

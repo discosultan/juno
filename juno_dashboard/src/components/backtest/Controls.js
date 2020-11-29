@@ -1,32 +1,25 @@
 import React from 'react';
 import MenuItem from '@material-ui/core/MenuItem';
 import Button from '@material-ui/core/Button';
-import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
-import { makeStyles } from '@material-ui/core/styles';
 import useLocalStorageStateImpl from 'use-local-storage-state';
 import DatePicker from '../DatePicker';
-import { Strategies, Symbols, Intervals } from '../../info';
-
-const useStyles = makeStyles((_theme) => ({
-  textarea: {
-    resize: 'vertical',
-    width: '100%',
-  },
-  label: {
-    display: 'block',
-  },
-}));
+import DynamicParams from './DynamicParams';
+import {
+  Intervals,
+  MissedCandlePolicies,
+  Strategies,
+  StopLosses,
+  Symbols,
+  TakeProfits,
+} from '../../info';
 
 function useLocalStorageState(key, defaultValue) {
   return useLocalStorageStateImpl(`backtest_controls_${key}`, defaultValue);
 }
 
 export default function Controls({ onBacktest }) {
-  const classes = useStyles();
-
-  const [strategy, setStrategy] = useLocalStorageState('strategy', 'fourweekrule');
   const [exchange, setExchange] = useLocalStorageState('exchange', 'binance');
   const [symbols, setSymbols] = useLocalStorageState('symbols', [
     'eth-btc',
@@ -38,13 +31,24 @@ export default function Controls({ onBacktest }) {
   const [interval, setInterval] = useLocalStorageState('interval', '1d');
   const [start, setStart] = useLocalStorageState('start', '2017-12-08');
   const [end, setEnd] = useLocalStorageState('end', '2020-11-01');
-  const [traderParams, setTraderParams] = useLocalStorageState(
-    'traderParams',
-    '{\n  "missedCandlePolicy": "ignore",\n  "stopLoss": 0,\n  "trailStopLoss": false,\n  "takeProfit": 0\n}',
+  const [missedCandlePolicy, setMissedCandlePolicy] = useLocalStorageState(
+    'missedCandlePolicy',
+    'ignore',
   );
+  const [strategy, setStrategy] = useLocalStorageState('strategy', 'fourweekrule');
   const [strategyParams, setStrategyParams] = useLocalStorageState(
     'strategyParams',
     '{\n  "period": 28,\n  "ma": "kama",\n  "maPeriod": 14\n}',
+  );
+  const [stopLoss, setStopLoss] = useLocalStorageState('stopLoss', 'legacy');
+  const [stopLossParams, setStopLossParams] = useLocalStorageState(
+    'stopLossParams',
+    '{\n  "threshold": 0,\n  "trail": false\n}',
+  );
+  const [takeProfit, setTakeProfit] = useLocalStorageState('takeProfit', 'legacy');
+  const [takeProfitParams, setTakeProfitParams] = useLocalStorageState(
+    'takeProfitParams',
+    '{\n  "threshold": 0\n}',
   );
 
   return (
@@ -52,6 +56,48 @@ export default function Controls({ onBacktest }) {
       <Typography variant="h6" gutterBottom>
         Configure Backtest Args
       </Typography>
+
+      <DynamicParams
+        label="Strategy"
+        options={Strategies}
+        value={strategy}
+        onChange={(e) => setStrategy(e.target.value)}
+        paramsValue={strategyParams}
+        paramsOnChange={(e) => setStrategyParams(e.target.value)}
+      />
+
+      <DynamicParams
+        label="Stop Loss"
+        options={StopLosses}
+        value={stopLoss}
+        onChange={(e) => setStopLoss(e.target.value)}
+        paramsValue={stopLossParams}
+        paramsOnChange={(e) => setStopLossParams(e.target.value)}
+      />
+
+      <DynamicParams
+        label="Take Profit"
+        options={TakeProfits}
+        value={takeProfit}
+        onChange={(e) => setTakeProfit(e.target.value)}
+        paramsValue={takeProfitParams}
+        paramsOnChange={(e) => setTakeProfitParams(e.target.value)}
+      />
+
+      <TextField
+        id="missedCandlePolicy"
+        fullWidth
+        select
+        label="Missed Candle Policy"
+        value={missedCandlePolicy}
+        onChange={(e) => setMissedCandlePolicy(e.target.value)}
+      >
+        {MissedCandlePolicies.map((policy) => (
+          <MenuItem key={policy} value={policy}>
+            {policy}
+          </MenuItem>
+        ))}
+      </TextField>
 
       <TextField
         id="exchange"
@@ -100,50 +146,6 @@ export default function Controls({ onBacktest }) {
       <DatePicker label="Start" value={start} onChange={(e) => setStart(e.target.value)} />
       <DatePicker label="End" value={end} onChange={(e) => setEnd(e.target.value)} />
 
-      <label
-        className={classes.label + ' MuiFormLabel-root MuiInputLabel-shrink'}
-        htmlFor="traderParams"
-      >
-        Trader Parameters
-      </label>
-      <TextareaAutosize
-        id="traderParams"
-        className={classes.textarea}
-        aria-label="trader parameters"
-        rowsMin={3}
-        value={traderParams}
-        onChange={(e) => setTraderParams(e.target.value)}
-      />
-
-      <TextField
-        id="strategy"
-        label="Strategy"
-        fullWidth
-        select
-        value={strategy}
-        onChange={(e) => setStrategy(e.target.value)}
-      >
-        {Strategies.map((strategy) => (
-          <MenuItem key={strategy} value={strategy}>
-            {strategy}
-          </MenuItem>
-        ))}
-      </TextField>
-      <label
-        className={classes.label + ' MuiFormLabel-root MuiInputLabel-shrink'}
-        htmlFor="strategyParams"
-      >
-        Strategy Parameters
-      </label>
-      <TextareaAutosize
-        id="strategyParams"
-        className={classes.textarea}
-        aria-label="strategy parameters"
-        rowsMin={3}
-        value={strategyParams}
-        onChange={(e) => setStrategyParams(e.target.value)}
-      />
-
       <br />
       <br />
       <Button
@@ -151,9 +153,15 @@ export default function Controls({ onBacktest }) {
         variant="contained"
         onClick={() =>
           onBacktest({
+            traderParams: {
+              missedCandlePolicy,
+            },
             strategy,
-            traderParams: JSON.parse(traderParams),
             strategyParams: JSON.parse(strategyParams),
+            stopLoss,
+            stopLossParams: JSON.parse(stopLossParams),
+            takeProfit,
+            takeProfitParams: JSON.parse(takeProfitParams),
             exchange,
             symbols,
             interval,

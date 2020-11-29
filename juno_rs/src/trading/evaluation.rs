@@ -3,9 +3,11 @@ use crate::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::{Evaluation, Individual},
     statistics, storages,
+    stop_loss::StopLoss,
     strategies::Signal,
+    take_profit::TakeProfit,
     time,
-    trading::{trade, StopLoss, TakeProfit},
+    trading::trade,
     BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
 use rayon::prelude::*;

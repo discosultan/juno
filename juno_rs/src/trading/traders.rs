@@ -1,11 +1,12 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
-    strategies::Changed,
-    strategies::Signal,
+    stop_loss::StopLoss,
+    strategies::{Changed, Signal},
+    take_profit::TakeProfit,
     time,
     trading::{
-        CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position, StopLoss,
-        StopLossRenameMe, TakeProfit, TakeProfitRenameMe, TradingSummary,
+        CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position,
+        TradingSummary,
     },
     Advice, BorrowInfo, Candle, Fees, Filters,
 };

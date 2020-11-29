@@ -312,8 +312,10 @@ class Optimizer(StartMixin):
             end=end,
             quote=config.quote,
             missed_candle_policy=ind.missed_candle_policy,
-            stop_loss=_stop_loss(ind.stop_loss, ind.trail_stop_loss),
-            take_profit=_take_profit(ind.take_profit),
+            stop_loss=TypeConstructor.from_type(
+                stop_loss.Legacy, threshold=ind.stop_loss, trail=ind.trail_stop_loss
+            ),
+            take_profit=TypeConstructor.from_type(take_profit.Legacy, threshold=ind.take_profit),
             long=ind.long,
             short=ind.short,
             adjust_start=False,
@@ -382,21 +384,3 @@ def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
         else:
             isclose = isclose and aval == bval
     return isclose
-
-
-def _stop_loss(
-    threshold: Decimal, trail: bool
-) -> Optional[TypeConstructor[stop_loss.StopLoss]]:
-    if threshold == 0:
-        return None
-    if trail:
-        return TypeConstructor.from_type(stop_loss.Trailing, threshold=threshold)
-    return TypeConstructor.from_type(stop_loss.Basic, threshold=threshold)
-
-
-def _take_profit(
-    threshold: Decimal
-) -> Optional[TypeConstructor[take_profit.TakeProfit]]:
-    if threshold == 0:
-        return None
-    return TypeConstructor.from_type(take_profit.Basic, threshold=threshold)

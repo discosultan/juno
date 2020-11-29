@@ -1,11 +1,7 @@
 mod evaluation;
-mod stop_loss;
-mod take_profit;
 mod traders;
 
 pub use evaluation::*;
-pub use stop_loss::*;
-pub use take_profit::*;
 pub use traders::*;
 
 use crate::{genetics::Chromosome, time::serialize_timestamp};
@@ -19,44 +15,12 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 
 pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(AggregateChromosome, Clone, Debug, Serialize)]
 pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
     pub trader: TraderParams,
     pub strategy: T,
     pub stop_loss: U,
     pub take_profit: V,
-}
-
-impl<T: Chromosome, U: Chromosome, V: Chromosome> Chromosome for TradingChromosome<T, U, V> {
-    fn len() -> usize {
-        TraderParams::len() + T::len()
-    }
-
-    fn generate(rng: &mut StdRng) -> Self {
-        Self {
-            trader: TraderParams::generate(rng),
-            strategy: T::generate(rng),
-            stop_loss: U::generate(rng),
-            take_profit: V::generate(rng),
-        }
-    }
-
-    fn cross(&mut self, other: &mut Self, i: usize) {
-        if i < TraderParams::len() {
-            self.trader.cross(&mut other.trader, i);
-        } else {
-            self.strategy
-                .cross(&mut other.strategy, i - TraderParams::len());
-        }
-    }
-
-    fn mutate(&mut self, rng: &mut StdRng, i: usize) {
-        if i < TraderParams::len() {
-            self.trader.mutate(rng, i);
-        } else {
-            self.strategy.mutate(rng, i - TraderParams::len());
-        }
-    }
 }
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
