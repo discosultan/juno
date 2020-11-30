@@ -1,5 +1,11 @@
 use super::TakeProfit;
-use crate::{genetics::Chromosome, indicators::Adx, math::lerp, Candle};
+use crate::{
+    easing::{deserialize_easing, serialize_easing, tween, StdRngExt},
+    genetics::Chromosome,
+    indicators::Adx,
+    math::lerp,
+    Candle,
+};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -10,11 +16,14 @@ pub struct TrendingParams {
     pub down_thresholds: (f64, f64),
     pub period: u32,
     pub lock_threshold: bool,
+    #[serde(serialize_with = "serialize_easing")]
+    #[serde(deserialize_with = "deserialize_easing")]
+    pub easing: u32,
 }
 
 fn up_thresholds(rng: &mut StdRng) -> (f64, f64) {
     loop {
-        let (s, l) = (rng.gen_range(0.001, 0.999), rng.gen_range(0.002, 1.000));
+        let (s, l) = (rng.gen_range(0.001, 9.999), rng.gen_range(0.002, 10.000));
         if s < l {
             return (s, l);
         }
@@ -29,6 +38,9 @@ fn period(rng: &mut StdRng) -> u32 {
 fn lock_threshold(rng: &mut StdRng) -> bool {
     rng.gen_bool(0.5)
 }
+fn easing(rng: &mut StdRng) -> u32 {
+    rng.gen_easing()
+}
 
 pub struct Trending {
     up_min_threshold: f64,
@@ -36,6 +48,7 @@ pub struct Trending {
     down_min_threshold: f64,
     down_max_threshold: f64,
     lock_threshold: bool,
+    easing: u32,
     up_threshold_factor: f64,
     down_threshold_factor: f64,
     adx: Adx,
@@ -46,8 +59,9 @@ pub struct Trending {
 impl Trending {
     fn set_threshold_factors(&mut self) {
         let adx_value = self.adx.value / 100.0;
-        let up_threshold = lerp(self.up_min_threshold, self.up_max_threshold, adx_value);
-        let down_threshold = lerp(self.down_min_threshold, self.down_max_threshold, adx_value);
+        let progress = tween(adx_value, self.easing);
+        let up_threshold = lerp(self.up_min_threshold, self.up_max_threshold, progress);
+        let down_threshold = lerp(self.down_min_threshold, self.down_max_threshold, progress);
         self.up_threshold_factor = 1.0 + up_threshold;
         self.down_threshold_factor = 1.0 - down_threshold;
     }
@@ -63,6 +77,7 @@ impl TakeProfit for Trending {
             down_min_threshold: params.down_thresholds.0,
             down_max_threshold: params.down_thresholds.1,
             lock_threshold: params.lock_threshold,
+            easing: params.easing,
             up_threshold_factor: 0.0,
             down_threshold_factor: 0.0,
             adx: Adx::new(params.period),
