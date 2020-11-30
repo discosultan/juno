@@ -1,4 +1,5 @@
 pub mod chandler;
+pub mod easing;
 pub mod ffi;
 pub mod filters;
 pub mod genetics;

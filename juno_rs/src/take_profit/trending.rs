@@ -1,23 +1,36 @@
 use super::TakeProfit;
-use crate::{genetics::Chromosome, indicators::Adx, math::lerp, Candle};
+use crate::{
+    easing::{deserialize_easing, serialize_easing, tween, StdRngExt},
+    genetics::Chromosome,
+    indicators::Adx,
+    math::lerp,
+    Candle,
+};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 pub struct TrendingParams {
-    pub thresholds: (f64, f64),
+    pub up_thresholds: (f64, f64),
+    pub down_thresholds: (f64, f64),
     pub period: u32,
     pub lock_threshold: bool,
+    #[serde(serialize_with = "serialize_easing")]
+    #[serde(deserialize_with = "deserialize_easing")]
+    pub easing: u32,
 }
 
-fn thresholds(rng: &mut StdRng) -> (f64, f64) {
+fn up_thresholds(rng: &mut StdRng) -> (f64, f64) {
     loop {
-        let (s, l) = (rng.gen_range(0.001, 0.999), rng.gen_range(0.002, 1.000));
+        let (s, l) = (rng.gen_range(0.001, 9.999), rng.gen_range(0.002, 10.000));
         if s < l {
             return (s, l);
         }
     }
+}
+fn down_thresholds(rng: &mut StdRng) -> (f64, f64) {
+    up_thresholds(rng)
 }
 fn period(rng: &mut StdRng) -> u32 {
     rng.gen_range(1, 200)
@@ -25,11 +38,17 @@ fn period(rng: &mut StdRng) -> u32 {
 fn lock_threshold(rng: &mut StdRng) -> bool {
     rng.gen_bool(0.5)
 }
+fn easing(rng: &mut StdRng) -> u32 {
+    rng.gen_easing()
+}
 
 pub struct Trending {
-    min_threshold: f64,
-    max_threshold: f64,
+    up_min_threshold: f64,
+    up_max_threshold: f64,
+    down_min_threshold: f64,
+    down_max_threshold: f64,
     lock_threshold: bool,
+    easing: u32,
     up_threshold_factor: f64,
     down_threshold_factor: f64,
     adx: Adx,
@@ -40,9 +59,11 @@ pub struct Trending {
 impl Trending {
     fn set_threshold_factors(&mut self) {
         let adx_value = self.adx.value / 100.0;
-        let threshold = lerp(self.min_threshold, self.max_threshold, adx_value);
-        self.up_threshold_factor = 1.0 + threshold;
-        self.down_threshold_factor = 1.0 - threshold;
+        let progress = tween(adx_value, self.easing);
+        let up_threshold = lerp(self.up_min_threshold, self.up_max_threshold, progress);
+        let down_threshold = lerp(self.down_min_threshold, self.down_max_threshold, progress);
+        self.up_threshold_factor = 1.0 + up_threshold;
+        self.down_threshold_factor = 1.0 - down_threshold;
     }
 }
 
@@ -51,9 +72,12 @@ impl TakeProfit for Trending {
 
     fn new(params: &Self::Params) -> Self {
         Self {
-            min_threshold: params.thresholds.0,
-            max_threshold: params.thresholds.1,
+            up_min_threshold: params.up_thresholds.0,
+            up_max_threshold: params.up_thresholds.1,
+            down_min_threshold: params.down_thresholds.0,
+            down_max_threshold: params.down_thresholds.1,
             lock_threshold: params.lock_threshold,
+            easing: params.easing,
             up_threshold_factor: 0.0,
             down_threshold_factor: 0.0,
             adx: Adx::new(params.period),

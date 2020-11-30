@@ -18,6 +18,7 @@ setup(
         'numpy',
         'pandas',
         'python-dateutil',
+        'pytweening',
         'simplejson',
         'tenacity',
         'typing-inspect',

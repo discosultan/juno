@@ -7,7 +7,6 @@ export const Strategies = [
   'sig_triplema',
   'sigosc_triplema_rsi',
   'sigosc_doublema_rsi',
-  'sigosc_fourweekrule_rsi_prevent',
 ];
 export const StopLosses = [
   'noop',

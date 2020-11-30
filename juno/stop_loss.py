@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
+from typing import Optional
 
 from juno import Candle
 
@@ -41,21 +42,26 @@ class Noop(StopLoss):
 
 
 class Basic(StopLoss):
-    threshold: Decimal
+    _up_threshold_factor: Decimal
+    _down_threshold_factor: Decimal
     _close_at_position: Decimal = Decimal('0.0')
     _close: Decimal = Decimal('0.0')
 
-    def __init__(self, threshold: Decimal) -> None:
-        assert 0 <= threshold <= 1
-        self.threshold = threshold
+    def __init__(self, up_threshold: Decimal, down_threshold: Optional[Decimal] = None) -> None:
+        if down_threshold is None:
+            down_threshold = up_threshold
+        assert 0 <= up_threshold <= 1
+        assert 0 <= down_threshold <= 1
+        self._up_threshold_factor = 1 - up_threshold
+        self._down_threshold_factor = 1 + down_threshold
 
     @property
     def upside_hit(self) -> bool:
-        return self._close <= self._close_at_position * (1 - self.threshold)
+        return self._close <= self._close_at_position * self._up_threshold_factor
 
     @property
     def downside_hit(self) -> bool:
-        return self._close >= self._close_at_position * (1 + self.threshold)
+        return self._close >= self._close_at_position * self._down_threshold_factor
 
     def clear(self, candle: Candle) -> None:
         self._close_at_position = candle.close
@@ -65,22 +71,27 @@ class Basic(StopLoss):
 
 
 class Trailing(StopLoss):
-    threshold: Decimal
+    _up_threshold_factor: Decimal
+    _down_threshold_factor: Decimal
     _highest_close_since_position = Decimal('0.0')
     _lowest_close_since_position = Decimal('Inf')
     _close: Decimal = Decimal('0.0')
 
-    def __init__(self, threshold: Decimal) -> None:
-        assert 0 <= threshold <= 1
-        self.threshold = threshold
+    def __init__(self, up_threshold: Decimal, down_threshold: Optional[Decimal] = None) -> None:
+        if down_threshold is None:
+            down_threshold = up_threshold
+        assert 0 <= up_threshold <= 1
+        assert 0 <= down_threshold <= 1
+        self._up_threshold_factor = 1 - up_threshold
+        self._down_threshold_factor = 1 + down_threshold
 
     @property
     def upside_hit(self) -> bool:
-        return self._close <= self._highest_close_since_position * (1 - self.threshold)
+        return self._close <= self._highest_close_since_position * self._up_threshold_factor
 
     @property
     def downside_hit(self) -> bool:
-        return self._close >= self._lowest_close_since_position * (1 + self.threshold)
+        return self._close >= self._lowest_close_since_position * self._down_threshold_factor
 
     def clear(self, candle: Candle) -> None:
         self._highest_close_since_position = candle.close
@@ -93,8 +104,8 @@ class Trailing(StopLoss):
 
 
 class Legacy(StopLoss):
-    threshold: Decimal  # 0 means disabled.
-    trail: bool
+    _threshold: Decimal  # 0 means disabled.
+    _trail: bool
     _close_at_position: Decimal = Decimal('0.0')
     _highest_close_since_position = Decimal('0.0')
     _lowest_close_since_position = Decimal('Inf')
@@ -102,28 +113,28 @@ class Legacy(StopLoss):
 
     def __init__(self, threshold: Decimal = Decimal('0.0'), trail: bool = True) -> None:
         assert 0 <= threshold < 1
-        self.threshold = threshold
-        self.trail = trail
+        self._threshold = threshold
+        self._trail = trail
 
     @property
     def upside_hit(self) -> bool:
         return (
-            self.threshold > 0
+            self._threshold > 0
             and (
                 self._close
-                <= (self._highest_close_since_position if self.trail else self._close_at_position)
-                * (1 - self.threshold)
+                <= (self._highest_close_since_position if self._trail else self._close_at_position)
+                * (1 - self._threshold)
             )
         )
 
     @property
     def downside_hit(self) -> bool:
         return (
-            self.threshold > 0
+            self._threshold > 0
             and (
                 self._close
-                >= (self._lowest_close_since_position if self.trail else self._close_at_position)
-                * (1 + self.threshold)
+                >= (self._lowest_close_since_position if self._trail else self._close_at_position)
+                * (1 + self._threshold)
             )
         )
 
