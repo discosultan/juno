@@ -6,11 +6,15 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 pub struct BasicParams {
-    pub threshold: f64,
+    pub up_threshold: f64,
+    pub down_threshold: f64,
 }
 
-fn threshold(rng: &mut StdRng) -> f64 {
+fn up_threshold(rng: &mut StdRng) -> f64 {
     rng.gen_range(0.001, 1.000)
+}
+fn down_threshold(rng: &mut StdRng) -> f64 {
+    up_threshold(rng)
 }
 
 pub struct Basic {
@@ -25,8 +29,8 @@ impl StopLoss for Basic {
 
     fn new(params: &Self::Params) -> Self {
         Self {
-            up_threshold_factor: 1.0 - params.threshold,
-            down_threshold_factor: 1.0 + params.threshold,
+            up_threshold_factor: 1.0 - params.up_threshold,
+            down_threshold_factor: 1.0 + params.down_threshold,
             close_at_position: 0.0,
             close: 0.0,
         }

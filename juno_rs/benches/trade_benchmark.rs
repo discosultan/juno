@@ -1,7 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use juno_rs::{
     filters::{Filters, Price, Size},
+    stop_loss,
     strategies::{FourWeekRule, FourWeekRuleParams},
+    take_profit,
     trading, BorrowInfo, Candle, Fees,
 };
 
@@ -9,6 +11,7 @@ const MIN_MS: u64 = 60000;
 
 fn trade_benchmark(c: &mut Criterion) {
     let strategy_params = FourWeekRuleParams::default();
+    
     let num_candles = 525600;
     let mut candles = Vec::with_capacity(num_candles);
     for i in 0..num_candles {
@@ -45,8 +48,10 @@ fn trade_benchmark(c: &mut Criterion) {
     };
     c.bench_function("trade", |b| {
         b.iter(|| {
-            trading::trade::<FourWeekRule>(
+            trading::trade::<FourWeekRule, stop_loss::Noop, take_profit::Noop>(
                 &strategy_params,
+                &stop_loss::NoopParams {},
+                &take_profit::NoopParams {},
                 &candles,
                 &fees,
                 &filters,
@@ -55,9 +60,6 @@ fn trade_benchmark(c: &mut Criterion) {
                 60000,
                 1.0,
                 trading::MISSED_CANDLE_POLICY_IGNORE,
-                0.0,
-                false,
-                0.0,
                 true,
                 true,
             )

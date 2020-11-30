@@ -6,18 +6,22 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 pub struct TrendingParams {
-    pub thresholds: (f64, f64),
+    pub up_thresholds: (f64, f64),
+    pub down_thresholds: (f64, f64),
     pub period: u32,
     pub lock_threshold: bool,
 }
 
-fn thresholds(rng: &mut StdRng) -> (f64, f64) {
+fn up_thresholds(rng: &mut StdRng) -> (f64, f64) {
     loop {
         let (s, l) = (rng.gen_range(0.001, 0.999), rng.gen_range(0.002, 1.000));
         if s < l {
             return (s, l);
         }
     }
+}
+fn down_thresholds(rng: &mut StdRng) -> (f64, f64) {
+    up_thresholds(rng)
 }
 fn period(rng: &mut StdRng) -> u32 {
     rng.gen_range(1, 200)
@@ -27,8 +31,10 @@ fn lock_threshold(rng: &mut StdRng) -> bool {
 }
 
 pub struct Trending {
-    min_threshold: f64,
-    max_threshold: f64,
+    up_min_threshold: f64,
+    up_max_threshold: f64,
+    down_min_threshold: f64,
+    down_max_threshold: f64,
     lock_threshold: bool,
     up_threshold_factor: f64,
     down_threshold_factor: f64,
@@ -40,9 +46,10 @@ pub struct Trending {
 impl Trending {
     fn set_threshold_factors(&mut self) {
         let adx_value = self.adx.value / 100.0;
-        let threshold = lerp(self.min_threshold, self.max_threshold, adx_value);
-        self.up_threshold_factor = 1.0 + threshold;
-        self.down_threshold_factor = 1.0 - threshold;
+        let up_threshold = lerp(self.up_min_threshold, self.up_max_threshold, adx_value);
+        let down_threshold = lerp(self.down_min_threshold, self.down_max_threshold, adx_value);
+        self.up_threshold_factor = 1.0 + up_threshold;
+        self.down_threshold_factor = 1.0 - down_threshold;
     }
 }
 
@@ -51,8 +58,10 @@ impl TakeProfit for Trending {
 
     fn new(params: &Self::Params) -> Self {
         Self {
-            min_threshold: params.thresholds.0,
-            max_threshold: params.thresholds.1,
+            up_min_threshold: params.up_thresholds.0,
+            up_max_threshold: params.up_thresholds.1,
+            down_min_threshold: params.down_thresholds.0,
+            down_max_threshold: params.down_thresholds.1,
             lock_threshold: params.lock_threshold,
             up_threshold_factor: 0.0,
             down_threshold_factor: 0.0,
