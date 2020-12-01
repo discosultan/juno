@@ -23,7 +23,7 @@ fn down_threshold(rng: &mut StdRng) -> f64 {
 }
 
 pub struct Rsi {
-    rsi: indicators::Rsi,
+    indicator: indicators::Rsi,
     up_threshold: f64,
     down_threshold: f64,
 }
@@ -33,31 +33,31 @@ impl Strategy for Rsi {
 
     fn new(params: &Self::Params) -> Self {
         Self {
-            rsi: indicators::Rsi::new(params.period),
+            indicator: indicators::Rsi::new(params.period),
             up_threshold: params.up_threshold,
             down_threshold: params.down_threshold,
         }
     }
 
     fn maturity(&self) -> u32 {
-        self.rsi.maturity()
+        self.indicator.maturity()
     }
 
     fn mature(&self) -> bool {
-        self.rsi.mature()
+        self.indicator.mature()
     }
 
     fn update(&mut self, candle: &Candle) {
-        self.rsi.update(candle.close);
+        self.indicator.update(candle.close);
     }
 }
 
 impl Oscillator for Rsi {
     fn overbought(&self) -> bool {
-        self.rsi.mature() && self.rsi.value >= self.up_threshold
+        self.indicator.mature() && self.indicator.value >= self.up_threshold
     }
 
     fn oversold(&self) -> bool {
-        self.rsi.mature() && self.rsi.value <= self.down_threshold
+        self.indicator.mature() && self.indicator.value < self.down_threshold
     }
 }

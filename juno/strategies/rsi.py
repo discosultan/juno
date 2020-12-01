@@ -20,7 +20,7 @@ class Rsi(Oscillator):
             }
         )
 
-    _rsi: indicators.Rsi
+    indicator: indicators.Rsi
     _up_threshold: Decimal
     _down_threshold: Decimal
 
@@ -31,27 +31,27 @@ class Rsi(Oscillator):
         down_threshold: Decimal = Decimal('30.0'),
     ) -> None:
         assert period > 0
-        assert up_threshold > down_threshold
+        assert up_threshold >= down_threshold
 
-        self._rsi = indicators.Rsi(period)
+        self.indicator = indicators.Rsi(period)
         self._up_threshold = up_threshold
         self._down_threshold = down_threshold
 
     @property
     def maturity(self) -> int:
-        return self._rsi.maturity
+        return self.indicator.maturity
 
     @property
     def mature(self) -> bool:
-        return self._rsi.mature
+        return self.indicator.mature
 
     @property
     def overbought(self) -> bool:
-        return self._rsi.mature and self._rsi.value >= self._up_threshold
+        return self.indicator.mature and self.indicator.value >= self._up_threshold
 
     @property
     def oversold(self) -> bool:
-        return self._rsi.mature and self._rsi.value <= self._down_threshold
+        return self.indicator.mature and self.indicator.value < self._down_threshold
 
     def update(self, candle: Candle) -> None:
-        self._rsi.update(candle.close)
+        self.indicator.update(candle.close)

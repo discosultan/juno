@@ -51,12 +51,12 @@ class DoubleMA(Signal):
     def mature(self) -> bool:
         return self._long_ma.mature and self._short_ma.mature
 
-    def tick(self, candle: Candle):
+    def update(self, candle: Candle) -> None:
         self._short_ma.update(candle.close)
         self._long_ma.update(candle.close)
 
         if self._long_ma.mature and self._short_ma.mature:
-            if self._short_ma.value > self._long_ma.value:
+            if self._short_ma.value >= self._long_ma.value:
                 self._advice = Advice.LONG
             elif self._short_ma.value < self._long_ma.value:
                 self._advice = Advice.SHORT

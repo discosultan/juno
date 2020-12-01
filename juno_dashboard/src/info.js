@@ -2,6 +2,7 @@ export const Strategies = [
   'fourweekrule',
   'triplema',
   'doublema',
+  'doublemastoch',
   'singlema',
   'sig_fourweekrule',
   'sig_triplema',

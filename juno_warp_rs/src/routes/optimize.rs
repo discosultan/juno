@@ -143,9 +143,9 @@ fn optimize<T: Signal, U: StopLoss, V: TakeProfit>(
         selection::EliteSelection { shuffle: false },
         // selection::TournamentSelection::default(),
         // crossover::UniformCrossover::default(),
-        crossover::UniformCrossover::new(0.75),
+        crossover::UniformCrossover::new(0.5),
         // mutation::UniformMutation::default(),
-        mutation::UniformMutation::new(0.33),
+        mutation::UniformMutation::new(0.25),
         // reinsertion::EliteReinsertion::default(),
         reinsertion::EliteReinsertion::new(0.75),
     );

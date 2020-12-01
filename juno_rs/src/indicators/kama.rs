@@ -36,11 +36,11 @@ impl Kama {
 
 impl MA for Kama {
     fn maturity(&self) -> u32 {
-        self.t1
+        self.t2
     }
 
     fn mature(&self) -> bool {
-        self.t >= self.t1
+        self.t >= self.t2
     }
 
     fn update(&mut self, price: f64) {

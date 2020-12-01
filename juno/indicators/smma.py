@@ -20,11 +20,11 @@ class Smma:
 
     @property
     def maturity(self) -> int:
-        return self._t1
+        return self._t2
 
     @property
     def mature(self) -> bool:
-        return self._t >= self._t1
+        return self._t >= self._t2
 
     def update(self, price: Decimal) -> Decimal:
         self._t = min(self._t + 1, self._t2)

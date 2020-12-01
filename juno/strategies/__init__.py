@@ -1,6 +1,7 @@
 from .adx import Adx
 from .double_ma import DoubleMA
 from .double_ma_2 import DoubleMA2
+from .double_ma_stoch import DoubleMAStoch
 from .fixed import Fixed
 from .four_week_rule import FourWeekRule
 from .macd import Macd
@@ -10,6 +11,7 @@ from .rsi import Rsi
 from .sig import Sig
 from .sig_osc import SigOsc
 from .single_ma import SingleMA
+from .stoch import Stoch
 from .strategy import Changed, MidTrend, MidTrendPolicy, Oscillator, Persistence, Signal, Strategy
 from .triple_ma import TripleMA
 
@@ -18,6 +20,7 @@ __all__ = [
     'Changed',
     'DoubleMA',
     'DoubleMA2',
+    'DoubleMAStoch',
     'Fixed',
     'FourWeekRule',
     'Macd',
@@ -32,6 +35,7 @@ __all__ = [
     'SigOsc',
     'Signal',
     'SingleMA',
+    'Stoch',
     'Strategy',
     'TripleMA',
 ]

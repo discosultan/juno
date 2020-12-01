@@ -1,58 +1,75 @@
-// use crate::{
-//     genetics::Chromosome,
-//     indicators,
-//     Candle,
-// };
-// use juno_derive_rs::*;
-// use rand::prelude::*;
-// use super::{Oscillator, Tactic};
+use super::{Oscillator, Strategy};
+use crate::{genetics::Chromosome, indicators, Candle};
+use juno_derive_rs::*;
+use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 
-// #[repr(C)]
-// #[derive(Chromosome, Clone, Debug)]
-// pub struct RsiParams {
-//     pub period: u32,
-//     pub up_threshold: f64,
-//     pub down_threshold: f64,
-// }
+#[repr(C)]
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+pub struct StochParams {
+    pub k_period: u32,
+    pub k_sma_period: u32,
+    pub d_sma_period: u32,
+    pub up_threshold: f64,
+    pub down_threshold: f64,
+}
 
-// fn period(rng: &mut StdRng) -> u32 {
-//     rng.gen_range(1, 101)
-// }
-// fn up_threshold(rng: &mut StdRng) -> f64 {
-//     rng.gen_range(50.0, 100.0)
-// }
-// fn down_threshold(rng: &mut StdRng) -> f64 {
-//     rng.gen_range(0.0, 50.0)
-// }
+fn k_period(rng: &mut StdRng) -> u32 {
+    rng.gen_range(1, 101)
+}
+fn k_sma_period(rng: &mut StdRng) -> u32 {
+    rng.gen_range(1, 101)
+}
+fn d_sma_period(rng: &mut StdRng) -> u32 {
+    rng.gen_range(1, 101)
+}
+fn up_threshold(rng: &mut StdRng) -> f64 {
+    rng.gen_range(50.0, 100.0)
+}
+fn down_threshold(rng: &mut StdRng) -> f64 {
+    rng.gen_range(0.0, 50.0)
+}
 
-// pub struct Rsi {
-//     rsi: indicators::Rsi,
-//     up_threshold: f64,
-//     down_threshold: f64,
-// }
+pub struct Stoch {
+    pub indicator: indicators::Stoch,
+    up_threshold: f64,
+    down_threshold: f64,
+}
 
-// impl Tactic for Rsi {
-//     type Params = RsiParams;
+impl Strategy for Stoch {
+    type Params = StochParams;
 
-//     fn new(params: &Self::Params) -> Self {
-//         Self {
-//             rsi: indicators::Rsi::new(params.period),
-//             up_threshold: params.up_threshold,
-//             down_threshold: params.down_threshold,
-//         }
-//     }
+    fn new(params: &Self::Params) -> Self {
+        Self {
+            indicator: indicators::Stoch::new(
+                params.k_period,
+                params.k_sma_period,
+                params.d_sma_period,
+            ),
+            up_threshold: params.up_threshold,
+            down_threshold: params.down_threshold,
+        }
+    }
 
-//     fn update(&mut self, candle: &Candle) {
-//         self.rsi.update(candle.close);
-//     }
-// }
+    fn maturity(&self) -> u32 {
+        self.indicator.maturity()
+    }
 
-// impl Oscillator for Rsi {
-//     fn overbought(&self) -> bool {
-//         self.rsi.mature() && self.rsi.value >= self.up_threshold
-//     }
+    fn mature(&self) -> bool {
+        self.indicator.mature()
+    }
 
-//     fn oversold(&self) -> bool {
-//         self.rsi.mature() && self.rsi.value <= self.down_threshold
-//     }
-// }
+    fn update(&mut self, candle: &Candle) {
+        self.indicator.update(candle.high, candle.low, candle.close);
+    }
+}
+
+impl Oscillator for Stoch {
+    fn overbought(&self) -> bool {
+        self.indicator.mature() && self.indicator.k >= self.up_threshold
+    }
+
+    fn oversold(&self) -> bool {
+        self.indicator.mature() && self.indicator.k < self.down_threshold
+    }
+}

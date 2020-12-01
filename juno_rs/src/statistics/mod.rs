@@ -263,9 +263,9 @@ impl PositionStats {
                     close_time: pos.close_time,
                     cost: pos.cost(),
                     gain: pos.gain(),
-                    profit: profit,
-                    duration: duration,
-                    roi: roi,
+                    profit,
+                    duration,
+                    roi,
                     annualized_roi: annualized(duration, roi),
                     close_reason: pos.close_reason,
                 }
@@ -280,9 +280,9 @@ impl PositionStats {
                     close_time: pos.close_time,
                     cost: pos.cost(),
                     gain: pos.gain(),
-                    profit: profit,
-                    duration: duration,
-                    roi: roi,
+                    profit,
+                    duration,
+                    roi,
                     annualized_roi: annualized(duration, roi),
                     close_reason: pos.close_reason,
                 }
@@ -313,6 +313,8 @@ pub struct TradingStats {
     pub num_positions: u32,
     pub num_positions_in_profit: u32,
     pub num_positions_in_loss: u32,
+    pub num_stop_losses: u32,
+    pub num_take_profits: u32,
     pub sharpe_ratio: f64,
     pub sortino_ratio: f64,
 
@@ -332,6 +334,8 @@ impl TradingStats {
 
         let mut num_positions_in_profit = 0;
         let mut num_positions_in_loss = 0;
+        let mut num_stop_losses = 0;
+        let mut num_take_profits = 0;
 
         // let mut drawdowns = Vec::with_capacity(self.positions.len());
         let mut max_drawdown = 0.0;
@@ -340,9 +344,9 @@ impl TradingStats {
         let mut total_position_duration = 0;
 
         for pos in summary.positions.iter() {
-            let (pos_profit, pos_duration) = match pos {
-                Position::Long(pos) => (pos.profit(), pos.duration()),
-                Position::Short(pos) => (pos.profit(), pos.duration()),
+            let (pos_profit, pos_duration, close_reason) = match pos {
+                Position::Long(pos) => (pos.profit(), pos.duration(), pos.close_reason),
+                Position::Short(pos) => (pos.profit(), pos.duration(), pos.close_reason),
             };
 
             profit += pos_profit;
@@ -352,6 +356,12 @@ impl TradingStats {
                 num_positions_in_profit += 1;
             } else {
                 num_positions_in_loss += 1;
+            }
+
+            if close_reason == CloseReason::StopLoss {
+                num_stop_losses += 1;
+            } else if close_reason == CloseReason::TakeProfit {
+                num_take_profits += 1;
             }
 
             quote += pos_profit;
@@ -398,6 +408,8 @@ impl TradingStats {
             num_positions: summary.positions.len() as u32,
             num_positions_in_profit,
             num_positions_in_loss,
+            num_stop_losses,
+            num_take_profits,
             sharpe_ratio: stats.sharpe_ratio,
             sortino_ratio: stats.sortino_ratio,
 

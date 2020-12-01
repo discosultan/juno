@@ -53,7 +53,7 @@ impl TournamentSelection {
         // TODO: Implement.
         assert!(allow_winner_compete_next_tournament);
         Self {
-            tournament_size_rate: tournament_size_rate,
+            tournament_size_rate,
             allow_winner_compete_next_tournament,
         }
     }

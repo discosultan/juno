@@ -22,24 +22,46 @@ pub struct SigParams<S: Chromosome> {
 
 impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
     fn len() -> usize {
-        Sig::len()
+        Sig::len() + 2
     }
 
     fn generate(rng: &mut StdRng) -> Self {
         Self {
             sig_params: Sig::generate(rng),
-            persistence: rng.gen_range(0, 10),
+            persistence: gen_persistence(rng),
             mid_trend_policy: rng.gen_mid_trend_policy(),
         }
     }
 
-    fn cross(&mut self, other: &mut Self, i: usize) {
-        self.sig_params.cross(&mut other.sig_params, i);
+    fn cross(&mut self, other: &mut Self, mut i: usize) {
+        if i < Sig::len() {
+            self.sig_params.cross(&mut other.sig_params, i);
+            return;
+        }
+        i -= Sig::len();
+        match i {
+            0 => std::mem::swap(&mut self.persistence, &mut other.persistence),
+            1 => std::mem::swap(&mut self.mid_trend_policy, &mut other.mid_trend_policy),
+            _ => panic!("index out of bounds"),
+        }
     }
 
-    fn mutate(&mut self, rng: &mut StdRng, i: usize) {
-        self.sig_params.mutate(rng, i);
+    fn mutate(&mut self, rng: &mut StdRng, mut i: usize) {
+        if i < Sig::len() {
+            self.sig_params.mutate(rng, i);
+            return;
+        }
+        i -= Sig::len();
+        match i {
+            0 => self.persistence = gen_persistence(rng),
+            1 => self.mid_trend_policy = rng.gen_mid_trend_policy(),
+            _ => panic!("index out of bounds"),
+        }
     }
+}
+
+fn gen_persistence(rng: &mut StdRng) -> u32 {
+    rng.gen_range(0, 10)
 }
 
 #[derive(Signal)]
