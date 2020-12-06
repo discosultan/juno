@@ -79,7 +79,7 @@ where
 
         let mut offsprings = Vec::with_capacity(population_size as usize);
 
-        for i in 1..=generations.capacity() {
+        for gen in 1..=generations.capacity() {
             let mut timings = Timings::default();
 
             self.run_generation(
@@ -97,7 +97,7 @@ where
                 hall_of_fame: parents.iter().cloned().take(hall_of_fame_size).collect(),
                 timings,
             };
-            on_generation(i, &generation);
+            on_generation(gen, &generation);
             generations.push(generation);
         }
 

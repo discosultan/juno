@@ -86,15 +86,21 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
 
 fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> {
     let evolution = optimize::<T, U, V>(&args)?;
-    let mut last_fitness = f64::NAN;
+    let mut best_fitnesses = vec![f64::NAN; args.hall_of_fame_size];
     let gen_stats = evolution
         .generations
         .into_iter()
         .enumerate()
         .filter(|(_, gen)| {
-            let best_ind = &gen.hall_of_fame[0];
-            let pass = last_fitness.is_nan() || best_ind.fitness > last_fitness;
-            last_fitness = best_ind.fitness;
+            let mut pass = false;
+            for i in 0..args.hall_of_fame_size {
+                let best_ind = &gen.hall_of_fame[i];
+                let best_fitness = best_fitnesses[i];
+                if best_fitness.is_nan() || best_ind.fitness > best_fitness {
+                    best_fitnesses[i] = best_ind.fitness;
+                    pass = true;
+                }
+            }
             pass
         })
         .map(|(i, gen)| {
@@ -141,13 +147,11 @@ fn optimize<T: Signal, U: StopLoss, V: TakeProfit>(
             args.quote,
         )?,
         selection::EliteSelection { shuffle: false },
-        // selection::TournamentSelection::default(),
-        // crossover::UniformCrossover::default(),
+        // selection::GenerateRandomSelection {}, // For random search.
         crossover::UniformCrossover::new(0.5),
-        // mutation::UniformMutation::default(),
         mutation::UniformMutation::new(0.25),
-        // reinsertion::EliteReinsertion::default(),
         reinsertion::EliteReinsertion::new(0.75),
+        // reinsertion::PureReinsertion {}, // For random search.
     );
     let evolution = algo.evolve(
         args.population_size,

@@ -30,7 +30,7 @@ impl Selection for EliteSelection {
         offsprings: &mut Vec<Individual<T>>,
         rate: f32,
     ) {
-        assert!(rate <= 1.0);
+        debug_assert!(rate <= 1.0);
 
         // Assumes parents are ordered by fitness desc.
         let count = (parents.len() as f32 * rate) as usize;
@@ -76,7 +76,7 @@ impl Selection for TournamentSelection {
         offsprings: &mut Vec<Individual<T>>,
         rate: f32,
     ) {
-        assert!(self.allow_winner_compete_next_tournament || rate <= 1.0);
+        debug_assert!(self.allow_winner_compete_next_tournament || rate <= 1.0);
 
         let tournament_size = (parents.len() as f32 * self.tournament_size_rate) as usize;
 
@@ -87,6 +87,26 @@ impl Selection for TournamentSelection {
                 .max_by(|ind1, ind2| Individual::fitness_desc(ind1, ind2))
                 .unwrap();
             offsprings.push(winner.clone());
+        }
+    }
+}
+ 
+// Useful for random search.
+pub struct GenerateRandomSelection {}
+
+impl Selection for GenerateRandomSelection {
+    fn select<T: Chromosome>(
+        &self,
+        rng: &mut StdRng,
+        parents: &[Individual<T>],
+        offsprings: &mut Vec<Individual<T>>,
+        rate: f32,
+    ) {
+        debug_assert!(rate == 1.0);
+
+        let count = (parents.len() as f32 * rate) as usize;
+        for _ in 0..count {
+            offsprings.push(Individual::generate(rng))
         }
     }
 }
