@@ -345,12 +345,12 @@ class TradingSummary:
         return sum(1 for p in positions if p.profit < 0)
 
     @property
-    def num_take_profits(self) -> int:
-        return sum(1 for p in self._positions if p.close_reason is CloseReason.TAKE_PROFIT)
-
-    @property
     def num_stop_losses(self) -> int:
         return sum(1 for p in self._positions if p.close_reason is CloseReason.STOP_LOSS)
+
+    @property
+    def num_take_profits(self) -> int:
+        return sum(1 for p in self._positions if p.close_reason is CloseReason.TAKE_PROFIT)
 
     @property
     def mean_position_profit(self) -> Decimal:
