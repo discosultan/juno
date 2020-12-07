@@ -23,6 +23,11 @@ parser.add_argument(
     action='store_true',
     default=False,
 )
+parser.add_argument(
+    '--ensure-size',
+    action='store_true',
+    default=False,
+)
 args = parser.parse_args()
 
 
@@ -88,6 +93,7 @@ async def transact_symbol(
                 quote=quote,
                 size=size,
                 test=args.test,
+                ensure_size=args.ensure_size,
             )
         else:
             market_fills = book.find_order_bids(

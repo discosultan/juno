@@ -11,6 +11,10 @@ from enum import IntEnum
 from types import ModuleType
 from typing import Iterable, List, Optional, Type, Union
 
+from tenacity import (
+    before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+)
+
 from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
@@ -32,6 +36,10 @@ class TradingMode(IntEnum):
     BACKTEST = 0
     PAPER = 1
     LIVE = 2
+
+
+class _UnexpectedMaxBorrowable(Exception):
+    pass
 
 
 class Position(ModuleType):
@@ -673,18 +681,9 @@ class PositionMixin(ABC):
                 )
                 await wallet.updated.wait()
 
-            # Even when waiting for wallet update, Binance can still return 0 as borrow amount
-            # for base asset. We retry a couple of times as we have nothing else to await on.
-            for _ in range(5):
-                borrowable = await self.user.get_max_borrowable(
-                    exchange=exchange, asset=base_asset, account=symbol
-                )
-                if borrowable > 0:
-                    break
-                _log.warning(f'max borrowable 0 for account {symbol} asset {base_asset}; retrying')
-            else:
-                raise RuntimeError(f'Borrowable amount 0 for account {symbol} asset {base_asset}')
-
+            borrowable = await self._get_max_borrowable_with_retries(
+                exchange=exchange, account=symbol, asset=base_asset
+            )
             borrowed = _calculate_borrowed(
                 filters, margin_multiplier, borrowable, collateral, price
             )
@@ -715,6 +714,24 @@ class PositionMixin(ABC):
         _log.info(f'{open_position.symbol} {mode.name} short position opened')
         _log.debug(extract_public(open_position))
         return open_position
+
+    # Even when waiting for wallet update, Binance can still return 0 as borrow amount for base
+    # asset. We retry a couple of times as we have nothing else to await on.
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(_UnexpectedMaxBorrowable),
+        before_sleep=before_sleep_log(_log, logging.WARNING)
+    )
+    async def _get_max_borrowable_with_retries(self, exchange: str, account: str, asset: str) -> Decimal:
+        borrowable = await self.user.get_max_borrowable(
+            exchange=exchange, account=account, asset=asset
+        )
+        if borrowable == 0:
+            raise _UnexpectedMaxBorrowable(
+                f'Borrowable amount 0 for account {account} asset {asset}'
+            )
+        return borrowable
 
     async def close_short_position(
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
