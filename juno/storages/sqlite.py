@@ -20,7 +20,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = '49'
+_VERSION = 'v49'
 
 T = TypeVar('T')
 
@@ -165,7 +165,7 @@ class SQLite(Storage):
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
     def _connect(self, shard: str) -> ContextManager[sqlite3.Connection]:
-        path = str(home_path('data') / f'v{self._version}_{shard}.db')
+        path = str(home_path('data') / f'{self._version}_{shard}.db')
         _log.debug(f'opening shard {path}')
         return closing(sqlite3.connect(path, detect_types=sqlite3.PARSE_DECLTYPES))
 

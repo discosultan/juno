@@ -9,20 +9,12 @@ const VERSION: &str = "v49";
 
 #[derive(Error, Debug)]
 pub enum StorageError {
-    #[error("unknown storage error")]
+    #[error("(de)serialization error")]
+    Serde(#[from] serde_json::Error),
+    #[error("sqlite error")]
+    Sqlite(#[from] rusqlite::Error),
+    #[error("unknown error")]
     Unknown(String),
-}
-
-impl From<rusqlite::Error> for StorageError {
-    fn from(err: rusqlite::Error) -> Self {
-        StorageError::Unknown(err.to_string())
-    }
-}
-
-impl From<serde_json::Error> for StorageError {
-    fn from(err: serde_json::Error) -> Self {
-        StorageError::Unknown(err.to_string())
-    }
 }
 
 #[derive(Deserialize, Serialize)]

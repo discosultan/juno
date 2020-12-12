@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -8,10 +8,27 @@ import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
 import Chart from './Chart';
+import { ChandlerContext } from '../App';
 
 export default function TradingResult({ value, onClose }) {
-  const { args, config, symbolCandles, symbolStats, title } = value;
+  const { args, config, symbolStats, title } = value;
   const stats = Object.values(symbolStats);
+  const chandler = useContext(ChandlerContext);
+  const [symbolCandles, setSymbolCandles] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      setSymbolCandles(
+        await chandler.fetchCandles({
+          exchange: args.exchange,
+          interval: args.interval,
+          start: args.start,
+          end: args.end,
+          symbols: args.trainingSymbols.concat(args.validationSymbols),
+        })
+      );
+    })();
+  }, [args, chandler]);
 
   return (
     <>
@@ -56,7 +73,7 @@ export default function TradingResult({ value, onClose }) {
         </Table>
       </TableContainer>
 
-      {args.trainingSymbols.map((symbol) => (
+      {symbolCandles !== null && args.trainingSymbols.map((symbol) => (
         <Chart
           key={symbol}
           symbol={symbol}
@@ -65,7 +82,7 @@ export default function TradingResult({ value, onClose }) {
         />
       ))}
 
-      {args.validationSymbols.map((symbol) => (
+      {symbolCandles !== null && args.validationSymbols.map((symbol) => (
         <Chart
           key={symbol}
           symbol={`${symbol} (v)`}

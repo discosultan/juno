@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Box from '@material-ui/core/Box';
 import Divider from '@material-ui/core/Divider';
+import useLocalStorageState from 'use-local-storage-state';
 import Controls from './Controls';
 import History from '../History';
 import Generations from './Generations';
@@ -11,9 +12,7 @@ import { fetchJson } from '../../fetch';
 export default function Dashboard() {
   const [gensInfo, setGensInfo] = useState(null);
   const [selectedGenInfo, setSelectedGenInfo] = useState(null);
-  // TODO: It would be nice to store the state in local storage. However, it is limited to only
-  // 5MB. If we didn't store candle data with it, we could hold more.
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useLocalStorageState('optimization_dashboard_history', []);
 
   function processNewGensInfo(gensInfo) {
     setGensInfo(gensInfo);
@@ -21,22 +20,12 @@ export default function Dashboard() {
   }
 
   async function optimize(args) {
-    const [evolution, symbolCandles] = await Promise.all([
-      fetchJson('POST', '/optimize', args),
-      fetchJson('POST', '/candles', {
-        exchange: args.exchange,
-        interval: args.interval,
-        start: args.start,
-        end: args.end,
-        symbols: args.trainingSymbols.concat(args.validationSymbols),
-      }),
-    ]);
+    const evolution = await fetchJson('POST', '/optimize', args);
     const gensInfo = {
       args: {
         ...args,
         seed: evolution.seed,
       },
-      symbolCandles,
       gens: evolution.generations,
     };
 
@@ -96,7 +85,6 @@ export default function Dashboard() {
                         ...ind.ind.chromosome.takeProfit,
                       },
                     },
-                    symbolCandles: gensInfo.symbolCandles,
                     symbolStats: ind.symbolStats,
                     title: `gen ${gen.nr}`,
                   })

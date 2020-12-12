@@ -12,6 +12,7 @@ import { MuiPickersUtilsProvider } from '@material-ui/pickers';
 import DateFnsUtils from '@date-io/date-fns';
 import { Dashboard as BacktestDashboard } from './components/backtest';
 import { Dashboard as OptimizationDashboard } from './components/optimization';
+import Chandler from './chandler';
 
 const useStyles = makeStyles((theme) => ({
   appBarItem: {
@@ -21,6 +22,9 @@ const useStyles = makeStyles((theme) => ({
     zIndex: theme.zIndex.drawer + 1,
   },
 }));
+
+const chandler = new Chandler();
+export const ChandlerContext = React.createContext();
 
 export default function App() {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
@@ -40,31 +44,33 @@ export default function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <MuiPickersUtilsProvider utils={DateFnsUtils}>
-        <Router>
-          <AppBar className={classes.appBar}>
-            <Toolbar variant="dense">
-              <Link component={RouterLink} to="/backtest" className={classes.appBarItem}>
-                <Typography color="textPrimary" variant="h6">
-                  Backtest
-                </Typography>
-              </Link>
-              <Link component={RouterLink} to="/optimize" className={classes.appBarItem}>
-                <Typography color="textPrimary" variant="h6">
-                  Optimize
-                </Typography>
-              </Link>
-            </Toolbar>
-          </AppBar>
+        <ChandlerContext.Provider value={chandler}>
+          <Router>
+            <AppBar className={classes.appBar}>
+              <Toolbar variant="dense">
+                <Link component={RouterLink} to="/backtest" className={classes.appBarItem}>
+                  <Typography color="textPrimary" variant="h6">
+                    Backtest
+                  </Typography>
+                </Link>
+                <Link component={RouterLink} to="/optimize" className={classes.appBarItem}>
+                  <Typography color="textPrimary" variant="h6">
+                    Optimize
+                  </Typography>
+                </Link>
+              </Toolbar>
+            </AppBar>
 
-          <Switch>
-            <Route path="/backtest">
-              <BacktestDashboard />
-            </Route>
-            <Route path="/">
-              <OptimizationDashboard />
-            </Route>
-          </Switch>
-        </Router>
+            <Switch>
+              <Route path="/backtest">
+                <BacktestDashboard />
+              </Route>
+              <Route path="/">
+                <OptimizationDashboard />
+              </Route>
+            </Switch>
+          </Router>
+        </ChandlerContext.Provider>
       </MuiPickersUtilsProvider>
     </ThemeProvider>
   );

@@ -9,19 +9,18 @@ export default function Dashboard() {
   const [tradingResult, setTradingResult] = useState(null);
 
   async function backtest(args) {
-    const [result, symbolCandles] = await Promise.all([
-      fetchJson('POST', `/backtest/${args.strategy}`, args),
-      fetchJson('POST', '/candles', {
+    const result = await fetchJson(
+      'POST',
+      `/backtest/${args.strategy}/${args.stopLoss}/${args.takeProfit}`,
+      args,
+    );
+
+    setTradingResult({
+      args: {
         exchange: args.exchange,
         interval: args.interval,
         start: args.start,
         end: args.end,
-        symbols: args.symbols,
-      }),
-    ]);
-
-    setTradingResult({
-      args: {
         trainingSymbols: args.symbols,
         validationSymbols: [],
       },
@@ -40,7 +39,6 @@ export default function Dashboard() {
           ...args.takeProfitParams,
         },
       },
-      symbolCandles,
       symbolStats: result.symbolStats,
       title: args.strategy,
     });

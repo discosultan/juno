@@ -43,12 +43,12 @@ export default function Controls({ onBacktest }) {
   const [stopLoss, setStopLoss] = useLocalStorageState('stopLoss', 'basic');
   const [stopLossParams, setStopLossParams] = useLocalStorageState(
     'stopLossParams',
-    '{\n  "threshold": 0\n}',
+    '{\n  "upThreshold": 0,\n  "downThreshold": 0\n}',
   );
   const [takeProfit, setTakeProfit] = useLocalStorageState('takeProfit', 'basic');
   const [takeProfitParams, setTakeProfitParams] = useLocalStorageState(
     'takeProfitParams',
-    '{\n  "threshold": 0\n}',
+    '{\n  "upThreshold": 0,\n  "downThreshold": 0\n}',
   );
 
   return (
