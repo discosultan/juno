@@ -723,7 +723,9 @@ class PositionMixin(ABC):
         retry=retry_if_exception_type(_UnexpectedMaxBorrowable),
         before_sleep=before_sleep_log(_log, logging.WARNING)
     )
-    async def _get_max_borrowable_with_retries(self, exchange: str, account: str, asset: str) -> Decimal:
+    async def _get_max_borrowable_with_retries(
+        self, exchange: str, account: str, asset: str
+    ) -> Decimal:
         borrowable = await self.user.get_max_borrowable(
             exchange=exchange, account=account, asset=asset
         )
