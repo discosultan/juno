@@ -15,7 +15,7 @@ from tenacity import (
     before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 )
 
-from juno import Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
+from juno import Balance, Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
 from juno.math import ceil_multiple, round_down, round_half_up
@@ -38,7 +38,7 @@ class TradingMode(IntEnum):
     LIVE = 2
 
 
-class _UnexpectedMaxBorrowable(Exception):
+class _UnexpectedExchangeResult(Exception):
     pass
 
 
@@ -671,15 +671,13 @@ class PositionMixin(ABC):
             borrowed = _calculate_borrowed(filters, margin_multiplier, limit, collateral, price)
         else:
             _log.info(f'transferring {collateral} {quote_asset} from spot to {symbol} account')
-            async with self.user.sync_wallet(exchange=exchange, account=symbol) as wallet:
-                await self.user.transfer(
-                    exchange=exchange,
-                    asset=quote_asset,
-                    size=collateral,
-                    from_account='spot',
-                    to_account=symbol,
-                )
-                await wallet.updated.wait()
+            await self.user.transfer(
+                exchange=exchange,
+                asset=quote_asset,
+                size=collateral,
+                from_account='spot',
+                to_account=symbol,
+            )
 
             borrowable = await self._get_max_borrowable_with_retries(
                 exchange=exchange, account=symbol, asset=base_asset
@@ -720,7 +718,7 @@ class PositionMixin(ABC):
     @retry(
         stop=stop_after_attempt(5),
         wait=wait_exponential(),
-        retry=retry_if_exception_type(_UnexpectedMaxBorrowable),
+        retry=retry_if_exception_type(_UnexpectedExchangeResult),
         before_sleep=before_sleep_log(_log, logging.WARNING)
     )
     async def _get_max_borrowable_with_retries(
@@ -730,7 +728,7 @@ class PositionMixin(ABC):
             exchange=exchange, account=account, asset=asset
         )
         if borrowable == 0:
-            raise _UnexpectedMaxBorrowable(
+            raise _UnexpectedExchangeResult(
                 f'Borrowable amount 0 for account {account} asset {asset}'
             )
         return borrowable
@@ -764,7 +762,8 @@ class PositionMixin(ABC):
 
         # Add an extra interest tick in case it is about to get ticked.
         interest_per_tick = borrow_info.hourly_interest_rate * position.borrowed
-        size = position.borrowed + interest + interest_per_tick
+        repay = position.borrowed + interest
+        size = repay + interest_per_tick
 
         res = await self.broker.buy(
             exchange=position.exchange,
@@ -787,7 +786,7 @@ class PositionMixin(ABC):
             await self.user.repay(
                 exchange=position.exchange,
                 asset=base_asset,
-                size=position.borrowed + interest,
+                size=repay,
                 account=position.symbol,
             )
 
@@ -795,10 +794,11 @@ class PositionMixin(ABC):
             # still be borrowed funds on the account. Double check and repay more if that is the
             # case.
             # Careful with this check! We may have another position still open.
-            new_balance = await self.user.get_balance(
+            new_balance = await self._get_repaid_balance_with_retries(
                 exchange=position.exchange,
                 account=position.symbol,
                 asset=base_asset,
+                original_borrowed=position.borrowed,
             )
             if new_balance.repay > 0:
                 _log.warning(
@@ -858,6 +858,28 @@ class PositionMixin(ABC):
         _log.info(f'{closed_position.symbol} {mode.name} short position closed')
         _log.debug(extract_public(closed_position))
         return closed_position
+
+    # After repaying borrowed asset, Binance can still return the old repay balance. We retry
+    # until the balance has changed.
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(),
+        retry=retry_if_exception_type(_UnexpectedExchangeResult),
+        before_sleep=before_sleep_log(_log, logging.WARNING)
+    )
+    async def _get_repaid_balance_with_retries(
+        self, exchange: str, account: str, asset: str, original_borrowed: Decimal
+    ) -> Balance:
+        balance = await self.user.get_balance(
+            exchange=exchange,
+            account=account,
+            asset=asset,
+        )
+        if balance.borrowed == original_borrowed:
+            raise _UnexpectedExchangeResult(
+                f'Borrowed amount still {original_borrowed} for account {account} asset {asset}'
+            )
+        return balance
 
 
 def _calculate_borrowed(
