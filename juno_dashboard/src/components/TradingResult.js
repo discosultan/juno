@@ -25,10 +25,39 @@ export default function TradingResult({ value, onClose }) {
           start: args.start,
           end: args.end,
           symbols: args.trainingSymbols.concat(args.validationSymbols),
-        })
+        }),
       );
     })();
   }, [args, chandler]);
+
+  function renderStats() {
+    if (stats.length === 0) return <></>;
+
+    const keys = Object.keys(stats[0]).filter((key) => key !== 'positions');
+    const symbols = args.trainingSymbols.concat(args.validationSymbols);
+
+    const keyTotals = keys.map((key) => symbols.reduce((acc, symbol) => {
+      const value = symbolStats[symbol][key];
+      return typeof value === "number" ? acc + value : acc;
+    }, 0));
+
+    return (
+      keys
+        .map((key, i) => (
+          <TableRow key={key}>
+            <TableCell component="th" scope="row">
+              {key}
+            </TableCell>
+            {symbols.map((symbol) => (
+              <TableCell key={symbol} align="right">
+                {fmtUnknown(symbolStats[symbol][key])}
+              </TableCell>
+            ))}
+            <TableCell>{fmtUnknown(keyTotals[i])}</TableCell>
+          </TableRow>
+        ))
+    );
+  }
 
   return (
     <>
@@ -53,43 +82,32 @@ export default function TradingResult({ value, onClose }) {
                   {symbol} (v)
                 </TableCell>
               ))}
+              <TableCell>total</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody>
-            {stats.length &&
-              Object.keys(stats[0]).filter((key) => key !== 'positions').map((key) => (
-                <TableRow key={key}>
-                  <TableCell component="th" scope="row">
-                    {key}
-                  </TableCell>
-                  {args.trainingSymbols.concat(args.validationSymbols).map((symbol) => (
-                    <TableCell key={symbol} align="right">
-                      {fmtUnknown(symbolStats[symbol][key])}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-          </TableBody>
+          <TableBody>{renderStats()}</TableBody>
         </Table>
       </TableContainer>
 
-      {symbolCandles !== null && args.trainingSymbols.map((symbol) => (
-        <Chart
-          key={symbol}
-          symbol={symbol}
-          candles={symbolCandles[symbol]}
-          stats={symbolStats[symbol]}
-        />
-      ))}
+      {symbolCandles !== null &&
+        args.trainingSymbols.map((symbol) => (
+          <Chart
+            key={symbol}
+            symbol={symbol}
+            candles={symbolCandles[symbol]}
+            stats={symbolStats[symbol]}
+          />
+        ))}
 
-      {symbolCandles !== null && args.validationSymbols.map((symbol) => (
-        <Chart
-          key={symbol}
-          symbol={`${symbol} (v)`}
-          candles={symbolCandles[symbol]}
-          stats={symbolStats[symbol]}
-        />
-      ))}
+      {symbolCandles !== null &&
+        args.validationSymbols.map((symbol) => (
+          <Chart
+            key={symbol}
+            symbol={`${symbol} (v)`}
+            candles={symbolCandles[symbol]}
+            stats={symbolStats[symbol]}
+          />
+        ))}
     </>
   );
 }
