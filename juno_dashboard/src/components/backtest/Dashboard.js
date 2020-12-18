@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import Box from '@material-ui/core/Box';
+import Divider from '@material-ui/core/Divider';
+import useLocalStorageState from 'use-local-storage-state';
 import Controls from './Controls';
+import History from '../History';
 import SplitPane from '../SplitPane';
 import TradingResult from '../TradingResult';
 import { fetchJson } from '../../fetch';
 
 export default function Dashboard() {
   const [tradingResult, setTradingResult] = useState(null);
+  const [history, setHistory] = useLocalStorageState('backtest_dashboard_history', []);
 
   async function backtest(args) {
     const result = await fetchJson(
@@ -15,7 +19,7 @@ export default function Dashboard() {
       args,
     );
 
-    setTradingResult({
+    const tradingResult = {
       args: {
         exchange: args.exchange,
         interval: args.interval,
@@ -41,15 +45,40 @@ export default function Dashboard() {
       },
       symbolStats: result.symbolStats,
       title: args.strategy,
-    });
+    };
+
+    const historyItem = {
+      time: new Date().toISOString(),
+      value: tradingResult,
+    };
+    if (history.length === 10) {
+      setHistory([historyItem, ...history.slice(0, history.length - 1)]);
+    } else {
+      setHistory([historyItem, ...history]);
+    }
+
+    setTradingResult(tradingResult);
   }
 
   return (
     <SplitPane
       left={
-        <Box p={1}>
-          <Controls onBacktest={backtest} />
-        </Box>
+        <>
+          <Box p={1}>
+            <History
+              id="optimization-history"
+              label="Optimization History"
+              value={tradingResult}
+              history={history}
+              format={(tradingResult) => tradingResult.config.strategy.type}
+              onChange={(tradingResult) => setTradingResult(tradingResult)}
+            />
+          </Box>
+          <Divider />
+          <Box p={1}>
+            <Controls onBacktest={backtest} />
+          </Box>
+        </>
       }
       right={tradingResult && <TradingResult value={tradingResult} />}
     />

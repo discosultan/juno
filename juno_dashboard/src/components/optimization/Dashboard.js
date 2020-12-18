@@ -14,7 +14,7 @@ export default function Dashboard() {
   const [selectedGenInfo, setSelectedGenInfo] = useState(null);
   const [history, setHistory] = useLocalStorageState('optimization_dashboard_history', []);
 
-  function processNewGensInfo(gensInfo) {
+  function processGensInfo(gensInfo) {
     setGensInfo(gensInfo);
     setSelectedGenInfo(null);
   }
@@ -31,7 +31,7 @@ export default function Dashboard() {
 
     const historyItem = {
       time: new Date().toISOString(),
-      gensInfo,
+      value: gensInfo,
     };
     if (history.length === 10) {
       setHistory([historyItem, ...history.slice(0, history.length - 1)]);
@@ -39,7 +39,7 @@ export default function Dashboard() {
       setHistory([historyItem, ...history]);
     }
 
-    processNewGensInfo(gensInfo);
+    processGensInfo(gensInfo);
   }
 
   return (
@@ -48,9 +48,12 @@ export default function Dashboard() {
         <>
           <Box p={1}>
             <History
-              gensInfo={gensInfo}
+              id="optimization-history"
+              label="Optimization History"
+              value={gensInfo}
               history={history}
-              onChange={(gensInfo) => processNewGensInfo(gensInfo)}
+              format={(gensInfo) => gensInfo.args.strategy}
+              onChange={(gensInfo) => processGensInfo(gensInfo)}
             />
           </Box>
           <Divider />

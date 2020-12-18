@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import MenuItem from '@material-ui/core/MenuItem';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 
-export default function History({ gensInfo, history, onChange }) {
-  const foundIndex = history.findIndex((item) => item.gensInfo === gensInfo);
-  const [indexStr, setIndexStr] = useState(foundIndex === -1 ? '' : `${foundIndex}`);
+export default function History({ id, label, value, history, format, onChange }) {
+  const foundIndex = history.findIndex((item) => item.value === value);
+  const indexStr = foundIndex === -1 ? '' : `${foundIndex}`;
 
   function change(indexStr) {
-    onChange(history[Number(indexStr)].gensInfo);
-    setIndexStr(indexStr);
+    onChange(history[Number(indexStr)].value);
   }
 
   return (
@@ -18,8 +17,8 @@ export default function History({ gensInfo, history, onChange }) {
         View Historical Sessions
       </Typography>
       <TextField
-        id="optimize-history"
-        label="Optimization History"
+        id={id}
+        label={label}
         fullWidth
         select
         SelectProps={{
@@ -29,7 +28,7 @@ export default function History({ gensInfo, history, onChange }) {
       >
         {history.map((item, i) => (
           <MenuItem key={i} value={`${i}`}>
-            {item.time} ({item.gensInfo.args.strategy})
+            {item.time} ({format(item.value)})
           </MenuItem>
         ))}
       </TextField>
