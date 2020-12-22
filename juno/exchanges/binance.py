@@ -934,7 +934,7 @@ class Binance(Exchange):
                 raise_on_disconnect=raise_on_disconnect
             ) as stream:
                 yield stream
-        except aiohttp.WebSocketError as e:
+        except (aiohttp.WSServerHandshakeError, aiohttp.WebSocketError) as e:
             _log.warning(f'{name} web socket exc: {e}')
             raise ExchangeException(str(e))
 
