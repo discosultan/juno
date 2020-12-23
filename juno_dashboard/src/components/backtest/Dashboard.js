@@ -66,8 +66,8 @@ export default function Dashboard() {
         <>
           <Box p={1}>
             <History
-              id="optimization-history"
-              label="Optimization History"
+              id="backtest-history"
+              label="Backtest History"
               value={tradingResult}
               history={history}
               format={(tradingResult) => tradingResult.config.strategy.type}

@@ -1,3 +1,4 @@
+// TODO: Fetch all of this from BE.
 export const Strategies = [
   'fourweekrule',
   'triplema',
@@ -21,6 +22,15 @@ export const TakeProfits = [
   'trending',
   // 'legacy',
 ];
-export const Symbols = ['eth-btc', 'ltc-btc', 'xrp-btc', 'xmr-btc', 'ada-btc', 'eos-btc'];
+export const Symbols = [
+  'ada-btc',
+  'dash-btc',
+  'eos-btc',
+  'eth-btc',
+  'link-btc',
+  'ltc-btc',
+  'xmr-btc',
+  'xrp-btc',
+];
 export const Intervals = ['1m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d'];
 export const MissedCandlePolicies = ['ignore', 'restart', 'last'];
