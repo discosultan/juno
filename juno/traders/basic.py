@@ -58,6 +58,7 @@ class BasicConfig:
 @dataclass
 class BasicState:
     config: BasicConfig
+    close_on_exit: bool
 
     strategy: Signal
     quote: Decimal
@@ -162,6 +163,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         return BasicState(
             config=config,
+            close_on_exit=config.close_on_exit,
             start=start,
             real_start=self._get_time_ms(),
             quote=quote,
@@ -228,7 +230,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 if not restart:
                     break
         finally:
-            if config.close_on_exit:
+            if state.close_on_exit:
                 await self._close_open_position(state)
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (

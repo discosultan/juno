@@ -63,6 +63,7 @@ class MultiConfig:
 @dataclass
 class MultiState:
     config: MultiConfig
+    close_on_exit: bool
     start: Timestamp
     symbol_states: Dict[str, _SymbolState]
     quotes: List[Decimal]
@@ -193,6 +194,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
         return MultiState(
             config=config,
+            close_on_exit=config.close_on_exit,
             symbols=symbols,
             real_start=self._get_time_ms(),
             start=start,
@@ -240,7 +242,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                   for s, ss in state.symbol_states.items())
             )
         finally:
-            if config.close_on_exit:
+            if state.close_on_exit:
                 await self._close_all_open_positions(state)
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
