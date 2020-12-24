@@ -266,7 +266,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             if advice in [Advice.SHORT, Advice.LIQUIDATE]:
                 await self._close_long_position(state, candle, CloseReason.STRATEGY)
             elif state.open_position and state.stop_loss.upside_hit:
-                _log.info(f'upside trailing stop hit at {config.stop_loss}; selling')
+                _log.info(f'upside stop loss hit at {config.stop_loss}; selling')
                 await self._close_long_position(state, candle, CloseReason.STOP_LOSS)
                 assert advice is not Advice.LONG
             elif state.open_position and state.take_profit.upside_hit:
@@ -278,7 +278,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             if advice in [Advice.LONG, Advice.LIQUIDATE]:
                 await self._close_short_position(state, candle, CloseReason.STRATEGY)
             elif state.stop_loss.downside_hit:
-                _log.info(f'downside trailing stop hit at {config.stop_loss}; selling')
+                _log.info(f'downside stop loss hit at {config.stop_loss}; selling')
                 await self._close_short_position(state, candle, CloseReason.STOP_LOSS)
                 assert advice is not Advice.SHORT
             elif state.take_profit.downside_hit:
