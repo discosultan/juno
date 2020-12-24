@@ -97,7 +97,7 @@ class Chandler:
             ).__aiter__()
             side_current = start
             side_end = start + interval
-            side_open = None
+            side_new = True
             side_high = Decimal('0.0')
             side_low = Decimal('inf')
             side_volume = Decimal('0.0')
@@ -107,13 +107,16 @@ class Chandler:
                         sc = await side_stream.__anext__()
                     except StopAsyncIteration:
                         break
-                    if side_open is None:
+                    
+                    if side_new:
                         side_open = sc.open
+                        side_time = floor_multiple(sc.time, interval)
+                        side_new = False
                     side_high = max(side_high, sc.high)
                     side_low = min(side_low, sc.low)
                     side_volume += sc.volume
                     yield Candle(
-                        time=sc.time,
+                        time=side_time,
                         open=side_open,
                         high=side_high,
                         low=side_low,
@@ -122,12 +125,15 @@ class Chandler:
                         closed=False,
                     )
                     side_current = sc.time + simulate_open_from_interval
+                else:
+                    # Discard one.
+                    sc = await side_stream.__anext__()
+                    assert sc.time == side_end - simulate_open_from_interval
+
                 try:
                     yield await main_stream.__anext__()
-                    # Discard one from side.
-                    await side_stream.__anext__()
                     side_end += interval
-                    side_open = None
+                    side_new = True
                     side_high = Decimal('0.0')
                     side_low = Decimal('inf')
                     side_volume = Decimal('0.0')

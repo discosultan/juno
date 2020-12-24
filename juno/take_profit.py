@@ -48,16 +48,23 @@ class Noop(TakeProfit):
 class Basic(TakeProfit):
     _up_threshold_factor: Decimal
     _down_threshold_factor: Decimal
+    _closed: bool
     _close_at_position: Decimal = Decimal('0.0')
     _close: Decimal = Decimal('0.0')
 
-    def __init__(self, up_threshold: Decimal, down_threshold: Optional[Decimal] = None) -> None:
+    def __init__(
+        self,
+        up_threshold: Decimal,
+        down_threshold: Optional[Decimal] = None,
+        closed: bool = True,
+    ) -> None:
         if down_threshold is None:
             down_threshold = up_threshold
         assert 0 <= up_threshold
         assert 0 <= down_threshold
         self._up_threshold_factor = 1 + up_threshold
         self._down_threshold_factor = 1 - down_threshold
+        self._closed = closed
 
     @property
     def upside_hit(self) -> bool:
@@ -68,9 +75,15 @@ class Basic(TakeProfit):
         return self._close <= self._close_at_position * self._down_threshold_factor
 
     def clear(self, candle: Candle) -> None:
+        if self._closed and not candle.closed:
+            return
+
         self._close_at_position = candle.close
 
     def update(self, candle: Candle) -> None:
+        if self._closed and not candle.closed:
+            return
+
         self._close = candle.close
 
 
@@ -116,6 +129,7 @@ class Trending(TakeProfit):
     _down_max_threshold: Decimal
     _lock_threshold: bool
     _easing: str
+    _closed: bool
     _up_threshold_factor: Decimal = Decimal('0.0')
     _down_threshold_factor: Decimal = Decimal('0.0')
     _adx: Adx
@@ -129,6 +143,7 @@ class Trending(TakeProfit):
         period: int = 14,
         lock_threshold: bool = False,
         easing: str = 'linear',
+        closed: bool = True,
     ) -> None:
         if down_thresholds is None:
             down_thresholds = up_thresholds
@@ -141,6 +156,7 @@ class Trending(TakeProfit):
         self._lock_threshold = lock_threshold
         self._adx = Adx(period)
         self._easing = easing
+        self._closed = closed
 
     @property
     def upside_hit(self) -> bool:
@@ -151,11 +167,17 @@ class Trending(TakeProfit):
         return self._close <= self._close_at_position * self._down_threshold_factor
 
     def clear(self, candle: Candle) -> None:
+        if self._closed and not candle.closed:
+            return
+
         self._close_at_position = candle.close
         if self._lock_threshold:
             self._set_thresholds()
 
     def update(self, candle: Candle) -> None:
+        if self._closed and not candle.closed:
+            return
+
         self._close = candle.close
         self._adx.update(candle.high, candle.low)
         if not self._lock_threshold:
