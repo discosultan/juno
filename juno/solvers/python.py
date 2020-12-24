@@ -85,7 +85,7 @@ class Python(Solver, SimulatedPositionMixin):
                                     low=last_candle.low,
                                     close=last_candle.close,
                                     volume=last_candle.volume,
-                                    closed=last_candle.closed
+                                    attrs=last_candle.attrs,
                                 )
                                 self._tick(config, state, missed_candle)
                         else:

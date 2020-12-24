@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from juno import Candle, ExchangeException, Trade
+from juno import Candle, CandleAttrs, ExchangeException, Trade
 from juno.asyncio import cancel, list_async, resolved_stream
 from juno.components import Chandler
 from juno.storages import Storage
@@ -36,7 +36,7 @@ async def test_stream_candles(
         Candle(time=1),
         # Deliberately skipped candle.
         Candle(time=3),
-        Candle(time=4, closed=False),
+        Candle(time=4, attrs=CandleAttrs.NONE),
         Candle(time=4),
     ]
     future_candles = [
@@ -131,7 +131,7 @@ async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            closed=True
+            attrs=CandleAttrs.CLOSED,
         )
     ]
 
@@ -308,7 +308,7 @@ async def test_stream_candles_construct_from_trades_if_interval_not_supported(
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            closed=True
+            attrs=CandleAttrs.CLOSED,
         )
     ]
 
@@ -490,7 +490,7 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
                     low=Decimal(f'{i}.0'),
                     close=Decimal(f'{i + 1}.0'),
                     volume=Decimal('1.0'),
-                    closed=True,
+                    attrs=CandleAttrs.CLOSED,
                 )
         else:  # interval == 2
             for i in range(3):
@@ -501,6 +501,7 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
                     low=Decimal(f'{i * 2}.0'),
                     close=Decimal(f'{(i + 1) * 2}.0'),
                     volume=Decimal('2.0'),
+                    attrs=CandleAttrs.CLOSED,
                 )
 
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
@@ -527,7 +528,7 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
             low=Decimal(f'{i - i % 2}.0'),
             close=Decimal(f'{i + 1}.0'),
             volume=Decimal(f'{i % 2 + 1}.0'),
-            closed=False if i % 2 == 0 else True,
+            attrs=CandleAttrs.FILLED if i % 2 == 0 else CandleAttrs.CLOSED,
         ) for i in range(6)
     ]
     assert candles == expected_candles

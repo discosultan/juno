@@ -10,7 +10,7 @@ from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tupl
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
-from juno import Candle, ExchangeException
+from juno import Candle, CandleAttrs, ExchangeException
 from juno.asyncio import first_async, list_async, stream_with_timeout
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
@@ -119,7 +119,7 @@ class Chandler:
                         low=side_low,
                         close=sc.close,
                         volume=side_volume,
-                        closed=False,
+                        attrs=CandleAttrs.FILLED,
                     )
                     side_current = sc.time + simulate_open_from_interval
                 try:
@@ -221,7 +221,7 @@ class Chandler:
                                 low=last_closed_candle.close,
                                 close=last_closed_candle.close,
                                 volume=Decimal('0.0'),
-                                closed=True,
+                                attrs=CandleAttrs.CLOSED | CandleAttrs.FILLED,
                             )
                 if not closed or candle.closed:
                     yield candle
@@ -388,7 +388,7 @@ class Chandler:
                         low=candle.low,
                         close=candle.close,
                         volume=candle.volume,
-                        closed=candle.closed,
+                        attrs=candle.attrs,
                     )
 
                 yield candle
@@ -420,7 +420,7 @@ class Chandler:
                     low=low,
                     close=close,
                     volume=volume,
-                    closed=True
+                    attrs=CandleAttrs.CLOSED,
                 )
                 current = next_
                 next_ = current + interval
@@ -447,7 +447,7 @@ class Chandler:
                 low=low,
                 close=close,
                 volume=volume,
-                closed=True
+                attrs=CandleAttrs.CLOSED,
             )
 
     async def _stream_construct_candles_by_volume(
@@ -483,7 +483,7 @@ class Chandler:
                     low=low,
                     close=close,
                     volume=volume,
-                    closed=True
+                    attrs=CandleAttrs.CLOSED,
                 )
                 current_volume -= volume
                 time = trade.time

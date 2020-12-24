@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from decimal import Decimal
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 from types import ModuleType
 from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
@@ -59,6 +59,12 @@ class BorrowInfo:
         return self.daily_interest_rate / 24
 
 
+class CandleAttrs(IntFlag):
+    NONE = 0
+    CLOSED = 1
+    FILLED = 2
+
+
 # We have a choice between dataclasses and namedtuples. Namedtuples are chosen as they support
 # iterating over values of an instance (i.e `*mytuple`) which is convenient for decomposing
 # values for SQLIte insertion. Dataclasses miss that functionality but offer comparisons, etc.
@@ -70,7 +76,7 @@ class Candle(NamedTuple):
     low: Decimal = Decimal('0.0')
     close: Decimal = Decimal('0.0')
     volume: Decimal = Decimal('0.0')  # Within interval.
-    closed: bool = True
+    attrs: CandleAttrs = CandleAttrs.CLOSED
 
     @property
     def midpoint(self) -> Decimal:
@@ -80,11 +86,19 @@ class Candle(NamedTuple):
     def mean_hlc(self) -> Decimal:
         return (self.high + self.low + self.close) / 3
 
+    @property
+    def closed(self) -> bool:
+        return CandleAttrs.CLOSED in self.attrs
+
+    @property
+    def filled(self) -> bool:
+        return CandleAttrs.FILLED in self.attrs
+
     def __repr__(self) -> str:
         return (
             f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
             f'open={self.open}, high={self.high}, low={self.low}, close={self.close}, '
-            f'volume={self.volume}, closed={self.closed})'
+            f'volume={self.volume}, closed={self.closed}, filled={self.filled}'
         )
 
     @staticmethod

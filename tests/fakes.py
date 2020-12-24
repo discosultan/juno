@@ -3,8 +3,8 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 
 from juno import (
-    BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus, components,
-    exchanges, storages
+    BorrowInfo, Candle, CandleAttrs, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
+    components, exchanges, storages
 )
 
 
@@ -169,7 +169,7 @@ class Chandler(components.Chandler):
                                 low=last_c.low,
                                 close=last_c.close,
                                 volume=last_c.volume,
-                                closed=True
+                                attrs=CandleAttrs.CLOSED | CandleAttrs.FILLED
                             )
                 if not closed or c.closed:
                     yield c

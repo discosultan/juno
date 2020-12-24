@@ -218,7 +218,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                                     low=last_candle.low,
                                     close=last_candle.close,
                                     volume=last_candle.volume,
-                                    closed=last_candle.closed,
+                                    attrs=last_candle.attrs,
                                 )
                                 await self._tick(state, missed_candle)
 

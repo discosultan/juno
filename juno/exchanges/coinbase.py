@@ -17,8 +17,9 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters, OrderException,
-    OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, CandleAttrs, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters,
+    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
+    Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -169,8 +170,13 @@ class Coinbase(Exchange):
                 if None in c:
                     raise Exception(f'missing data for candle {c}; please re-run the command')
                 yield Candle(
-                    c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]), Decimal(c[4]),
-                    Decimal(c[5]), True
+                    time=c[0] * 1000,
+                    open=Decimal(c[3]),
+                    high=Decimal(c[2]),
+                    low=Decimal(c[1]),
+                    close=Decimal(c[4]),
+                    volume=Decimal(c[5]),
+                    attrs=CandleAttrs.CLOSED,
                 )
 
     @asynccontextmanager
