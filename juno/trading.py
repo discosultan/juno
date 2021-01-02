@@ -12,7 +12,8 @@ from types import ModuleType
 from typing import Iterable, List, Optional, Type, Union
 
 from tenacity import (
-    before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+    RetryError, before_sleep_log, retry, retry_if_exception_type, stop_after_attempt,
+    wait_exponential
 )
 
 from juno import Balance, Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
@@ -679,9 +680,26 @@ class PositionMixin(ABC):
                 to_account=symbol,
             )
 
-            borrowable = await self._get_max_borrowable_with_retries(
-                exchange=exchange, account=symbol, asset=base_asset
-            )
+            # Looks like Binance caches the result, so even with retries, it can be that it will
+            # keep returning 0 while we have sufficient collateral present. To circumvent, once
+            # we hit the retry limit, we will try one more time. But this time, by first borrowing
+            # QUOTE, instead of base asset. This seems to reset the cache.
+            try:
+                borrowable = await self._get_max_borrowable_with_retries(
+                    exchange=exchange, account=symbol, asset=base_asset
+                )
+            except RetryError:
+                _log.warning(
+                    'borrowable 0 even after retries; trying once more by first getting quote '
+                    'asset max borrowable; hopefully this solves any caching issue on the exchange'
+                )
+                await self.user.get_max_borrowable(
+                    exchange=exchange, account=symbol, asset=quote_asset
+                )
+                borrowable = await self._get_max_borrowable_with_retries(
+                    exchange=exchange, account=symbol, asset=base_asset
+                )
+
             borrowed = _calculate_borrowed(
                 filters, margin_multiplier, borrowable, collateral, price
             )

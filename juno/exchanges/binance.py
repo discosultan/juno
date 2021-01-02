@@ -294,6 +294,9 @@ class Binance(Exchange):
                 for b in res.data['userAssets']
             }
         elif account == 'isolated':
+            # TODO: Binance also accepts a symbols param here to return only up to 5 account info.
+            # The weight is the same though, so not much benefit to using that.
+            # https://binance-docs.github.io/apidocs/spot/en/#query-isolated-margin-account-info-user_data
             res = await self._api_request(
                 'GET', '/sapi/v1/margin/isolated/account', weight=1, security=_SEC_USER_DATA
             )
