@@ -1,4 +1,3 @@
-from abc import ABC, abstractmethod
 from decimal import Decimal
 from typing import Callable, Optional, Tuple
 
@@ -8,71 +7,7 @@ from juno import Candle
 from juno.indicators import Adx
 from juno.math import lerp
 
-
-class TakeProfit(ABC):
-    @property
-    @abstractmethod
-    def upside_hit(self) -> bool:
-        pass
-
-    @property
-    @abstractmethod
-    def downside_hit(self) -> bool:
-        pass
-
-    @abstractmethod
-    def clear(self, candle: Candle) -> None:
-        pass
-
-    @abstractmethod
-    def update(self, candle: Candle) -> None:
-        pass
-
-
-class Noop(TakeProfit):
-    @property
-    def upside_hit(self) -> bool:
-        return False
-
-    @property
-    def downside_hit(self) -> bool:
-        return False
-
-    def clear(self, candle: Candle) -> None:
-        pass
-
-    def update(self, candle: Candle) -> None:
-        pass
-
-
-class Basic(TakeProfit):
-    _up_threshold_factor: Decimal
-    _down_threshold_factor: Decimal
-    _close_at_position: Decimal = Decimal('0.0')
-    _close: Decimal = Decimal('0.0')
-
-    def __init__(self, up_threshold: Decimal, down_threshold: Optional[Decimal] = None) -> None:
-        if down_threshold is None:
-            down_threshold = up_threshold
-        assert 0 <= up_threshold
-        assert 0 <= down_threshold
-        self._up_threshold_factor = 1 + up_threshold
-        self._down_threshold_factor = 1 - down_threshold
-
-    @property
-    def upside_hit(self) -> bool:
-        return self._close >= self._close_at_position * self._up_threshold_factor
-
-    @property
-    def downside_hit(self) -> bool:
-        return self._close <= self._close_at_position * self._down_threshold_factor
-
-    def clear(self, candle: Candle) -> None:
-        self._close_at_position = candle.close
-
-    def update(self, candle: Candle) -> None:
-        self._close = candle.close
-
+from .take_profit import TakeProfit
 
 _EASINGS = {
     'linear': pytweening.linear,
@@ -177,33 +112,3 @@ class Trending(TakeProfit):
         if easing_fn is None:
             raise ValueError(f'Unknown easing function: {self._easing}')
         return easing_fn
-
-
-class Legacy(TakeProfit):
-    _threshold: Decimal  # 0 means disabled.
-    _close_at_position: Decimal = Decimal('0.0')
-    _close: Decimal = Decimal('0.0')
-
-    def __init__(self, threshold: Decimal = Decimal('0.0')) -> None:
-        assert 0 <= threshold
-        self._threshold = threshold
-
-    @property
-    def upside_hit(self) -> bool:
-        return (
-            self._threshold > 0
-            and self._close >= self._close_at_position * (1 + self._threshold)
-        )
-
-    @property
-    def downside_hit(self) -> bool:
-        return (
-            self._threshold > 0
-            and self._close <= self._close_at_position * (1 - self._threshold)
-        )
-
-    def clear(self, candle: Candle) -> None:
-        self._close_at_position = candle.close
-
-    def update(self, candle: Candle) -> None:
-        self._close = candle.close
