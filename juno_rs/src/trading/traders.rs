@@ -65,82 +65,84 @@ pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
         U::new(stop_loss_params),
         V::new(take_profit_params),
     );
-    let mut i = 0;
-    loop {
-        let mut restart = false;
+    // let mut i = 0;
+    // loop {
+        // let mut restart = false;
+
+    // for candle in candles[i..candles.len()].iter() {
+    for candle in candles {
         let mut exit = false;
+        // i += 1;
 
-        for candle in candles[i..candles.len()].iter() {
-            i += 1;
-
-            if let Some(last_candle) = state.last_candle {
-                let diff = candle.time - last_candle.time;
-                if missed_candle_policy == 1 && diff >= two_interval {
-                    restart = true;
-                    state.strategy = T::new(strategy_params);
-                } else if missed_candle_policy == 2 && diff >= two_interval {
-                    let num_missed = diff / interval - 1;
-                    for i in 1..=num_missed {
-                        let missed_candle = Candle {
-                            time: last_candle.time + i * interval,
-                            open: last_candle.open,
-                            high: last_candle.high,
-                            low: last_candle.low,
-                            close: last_candle.close,
-                            volume: last_candle.volume,
-                        };
-                        if tick(
-                            &mut state,
-                            &mut summary,
-                            &fees,
-                            &filters,
-                            &borrow_info,
-                            margin_multiplier,
-                            interval,
-                            long,
-                            short,
-                            &missed_candle,
-                        )
-                        .is_err()
-                        {
-                            exit = true;
-                            break;
-                        }
+        if let Some(last_candle) = state.last_candle {
+            let diff = candle.time - last_candle.time;
+            if missed_candle_policy == 1 && diff >= two_interval {
+                // restart = true;
+                state.strategy = T::new(strategy_params);
+            } else if missed_candle_policy == 2 && diff >= two_interval {
+                let num_missed = diff / interval - 1;
+                for i in 1..=num_missed {
+                    let missed_candle = Candle {
+                        time: last_candle.time + i * interval,
+                        open: last_candle.open,
+                        high: last_candle.high,
+                        low: last_candle.low,
+                        close: last_candle.close,
+                        volume: last_candle.volume,
+                    };
+                    if tick(
+                        &mut state,
+                        &mut summary,
+                        &fees,
+                        &filters,
+                        &borrow_info,
+                        margin_multiplier,
+                        interval,
+                        long,
+                        short,
+                        &missed_candle,
+                    )
+                    .is_err()
+                    {
+                        exit = true;
+                        break;
                     }
                 }
             }
-
-            if exit {
-                break;
-            }
-
-            if tick(
-                &mut state,
-                &mut summary,
-                &fees,
-                &filters,
-                &borrow_info,
-                margin_multiplier,
-                interval,
-                long,
-                short,
-                candle,
-            )
-            .is_err()
-            {
-                exit = true;
-                break;
-            }
-
-            if restart {
-                break;
-            }
         }
 
-        if exit || !restart {
+        if exit {
             break;
         }
+
+        if tick(
+            &mut state,
+            &mut summary,
+            &fees,
+            &filters,
+            &borrow_info,
+            margin_multiplier,
+            interval,
+            long,
+            short,
+            candle,
+        )
+        .is_err()
+        {
+            // exit = true;
+            break;
+        }
+
+        // if restart {
+        //     break;
+        // }
     }
+
+        // if exit || !restart {
+    //     if exit {
+    //         break;
+    //     }
+    // }
 
     if let Some(last_candle) = state.last_candle {
         match state.open_position {

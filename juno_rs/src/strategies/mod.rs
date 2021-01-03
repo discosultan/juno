@@ -190,11 +190,11 @@ pub trait StdRngExt {
 
 impl StdRngExt for StdRng {
     fn gen_mid_trend_policy(&mut self) -> u32 {
-        self.gen_range(0, MidTrend::POLICIES_LEN)
+        self.gen_range(0..MidTrend::POLICIES_LEN)
     }
 
     fn gen_ma(&mut self) -> u32 {
-        MA_CHOICES[self.gen_range(0, MA_CHOICES.len())]
+        MA_CHOICES[self.gen_range(0..MA_CHOICES.len())]
     }
 }
 

@@ -117,7 +117,7 @@ fn gen_osc_filter(rng: &mut StdRng) -> u32 {
     }
 }
 fn gen_persistence(rng: &mut StdRng) -> u32 {
-    rng.gen_range(0, 10)
+    rng.gen_range(0..10)
 }
 
 #[derive(Signal)]

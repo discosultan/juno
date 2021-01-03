@@ -12,7 +12,7 @@ pub struct LegacyParams {
 
 fn threshold(rng: &mut StdRng) -> f64 {
     if rng.gen_bool(0.5) {
-        rng.gen_range(0.01, 1.00)
+        rng.gen_range(0.01..1.00)
     } else {
         0.0
     }

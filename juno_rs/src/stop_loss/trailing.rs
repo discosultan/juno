@@ -11,7 +11,7 @@ pub struct TrailingParams {
 }
 
 fn up_threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(0.001, 1.000)
+    rng.gen_range(0.001..1.000)
 }
 fn down_threshold(rng: &mut StdRng) -> f64 {
     up_threshold(rng)

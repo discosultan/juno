@@ -30,7 +30,7 @@
             },
             "stop_loss": {
                 "type": "basic",
-                "threshold": 0.1832
+                "up_threshold": 0.1832
             },
             "plugins": [
                 "discord"

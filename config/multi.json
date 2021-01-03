@@ -22,7 +22,7 @@
             },
             "stop_loss": {
                 "type": "basic",
-                "threshold": 0.10
+                "up_threshold": 0.10
             },
             "fiat_asset": "eur",
             "fiat_exchange": "coinbase"

@@ -61,7 +61,7 @@ impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
 }
 
 fn gen_persistence(rng: &mut StdRng) -> u32 {
-    rng.gen_range(0, 10)
+    rng.gen_range(0..10)
 }
 
 #[derive(Signal)]

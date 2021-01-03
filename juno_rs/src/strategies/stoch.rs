@@ -15,19 +15,19 @@ pub struct StochParams {
 }
 
 fn k_period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 201)
+    rng.gen_range(1..201)
 }
 fn k_sma_period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 201)
+    rng.gen_range(1..201)
 }
 fn d_sma_period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 201)
+    rng.gen_range(1..201)
 }
 fn up_threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(50.0, 100.0)
+    rng.gen_range(50.0..100.0)
 }
 fn down_threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(0.0, 50.0)
+    rng.gen_range(0.0..50.0)
 }
 
 pub struct Stoch {

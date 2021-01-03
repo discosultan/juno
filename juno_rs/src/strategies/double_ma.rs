@@ -29,7 +29,7 @@ fn long_ma(rng: &mut StdRng) -> u32 {
 }
 fn periods(rng: &mut StdRng) -> (u32, u32) {
     loop {
-        let (s, l) = (rng.gen_range(1, 200), rng.gen_range(2, 201));
+        let (s, l) = (rng.gen_range(1..200), rng.gen_range(2..201));
         if s < l {
             return (s, l);
         }

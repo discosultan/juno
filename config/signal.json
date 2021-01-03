@@ -12,7 +12,7 @@
             "interval": "1d",
             "strategy": {
                 "type": "fourweekrule",
-                "ma": "kama"
+                "ma": "ema"
             },
             "plugins": [
                 "discord"

@@ -31,7 +31,7 @@ pub struct TraderParams {
 }
 
 fn missed_candle_policy(rng: &mut StdRng) -> u32 {
-    rng.gen_range(0, MISSED_CANDLE_POLICIES_LEN)
+    rng.gen_range(0..MISSED_CANDLE_POLICIES_LEN)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]

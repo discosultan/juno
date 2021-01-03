@@ -23,7 +23,7 @@ pub struct TrendingParams {
 
 fn up_thresholds(rng: &mut StdRng) -> (f64, f64) {
     loop {
-        let (s, l) = (rng.gen_range(0.001, 9.999), rng.gen_range(0.002, 10.000));
+        let (s, l) = (rng.gen_range(0.001..9.999), rng.gen_range(0.002..10.000));
         if s < l {
             return (s, l);
         }
@@ -33,7 +33,7 @@ fn down_thresholds(rng: &mut StdRng) -> (f64, f64) {
     up_thresholds(rng)
 }
 fn period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 200)
+    rng.gen_range(1..200)
 }
 fn lock_threshold(rng: &mut StdRng) -> bool {
     rng.gen_bool(0.5)

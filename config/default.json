@@ -16,11 +16,11 @@
             },
             "strategy": {
                 "type": "fourweekrule",
-                "ma": "kama"
+                "ma": "ema"
             },
             "stop_loss": {
                 "type": "trailing",
-                "threshold": 0.1
+                "up_threshold": 0.1
             },
             "fiat_asset": "eur",
             "fiat_exchange": "coinbase"

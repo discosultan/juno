@@ -25,17 +25,17 @@ pub struct DoubleMA2Params {
 
 fn periods(rng: &mut StdRng) -> (u32, u32) {
     loop {
-        let (s, l) = (rng.gen_range(1, 100), rng.gen_range(2, 101));
+        let (s, l) = (rng.gen_range(1..100), rng.gen_range(2..101));
         if s < l {
             return (s, l);
         }
     }
 }
 fn neg_threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(-1.0, -0.1)
+    rng.gen_range(-1.0..-0.1)
 }
 fn pos_threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(0.1, 1.0)
+    rng.gen_range(0.1..1.0)
 }
 fn short_ma(rng: &mut StdRng) -> u32 {
     rng.gen_ma()

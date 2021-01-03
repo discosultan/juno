@@ -13,13 +13,13 @@ pub struct RsiParams {
 }
 
 fn period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 101)
+    rng.gen_range(1..101)
 }
 fn up_threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(50.0, 100.0)
+    rng.gen_range(50.0..100.0)
 }
 fn down_threshold(rng: &mut StdRng) -> f64 {
-    rng.gen_range(0.0, 50.0)
+    rng.gen_range(0.0..50.0)
 }
 
 pub struct Rsi {

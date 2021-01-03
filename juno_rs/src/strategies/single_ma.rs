@@ -22,7 +22,7 @@ fn ma(rng: &mut StdRng) -> u32 {
     rng.gen_ma()
 }
 fn period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 100)
+    rng.gen_range(1..100)
 }
 
 #[derive(Signal)]

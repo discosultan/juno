@@ -22,14 +22,14 @@ impl Default for MacdParams {
 
 fn periods(rng: &mut StdRng) -> (u32, u32) {
     loop {
-        let (s, l) = (rng.gen_range(1, 100), rng.gen_range(2, 101));
+        let (s, l) = (rng.gen_range(1..100), rng.gen_range(2..101));
         if s < l {
             return (s, l);
         }
     }
 }
 fn signal_period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1, 100)
+    rng.gen_range(1..100)
 }
 
 #[derive(Signal)]

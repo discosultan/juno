@@ -186,49 +186,40 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     async def run(self, state: BasicState) -> TradingSummary:
         config = state.config
         try:
-            while True:
-                restart = False
-
-                async for candle in self._chandler.stream_candles(
-                    exchange=config.exchange,
-                    symbol=config.symbol,
-                    interval=config.interval,
-                    start=state.current,
-                    end=config.end,
-                    exchange_timeout=config.exchange_candle_timeout,
+            async for candle in self._chandler.stream_candles(
+                exchange=config.exchange,
+                symbol=config.symbol,
+                interval=config.interval,
+                start=state.current,
+                end=config.end,
+                exchange_timeout=config.exchange_candle_timeout,
+            ):
+                # Check if we have missed a candle.
+                if (
+                    (last_candle := state.last_candle)
+                    and (time_diff := (candle.time - last_candle.time)) >= config.interval * 2
                 ):
-                    # Check if we have missed a candle.
-                    if (
-                        (last_candle := state.last_candle)
-                        and (time_diff := (candle.time - last_candle.time)) >= config.interval * 2
-                    ):
-                        if config.missed_candle_policy is MissedCandlePolicy.RESTART:
-                            _log.info('restarting strategy due to missed candle(s)')
-                            restart = True
-                            state.strategy = config.strategy.construct()
-                            state.current = candle.time + config.interval
-                        elif config.missed_candle_policy is MissedCandlePolicy.LAST:
-                            num_missed = time_diff // config.interval - 1
-                            _log.info(f'filling {num_missed} missed candles with last values')
-                            for i in range(1, num_missed + 1):
-                                missed_candle = Candle(
-                                    time=last_candle.time + i * config.interval,
-                                    open=last_candle.open,
-                                    high=last_candle.high,
-                                    low=last_candle.low,
-                                    close=last_candle.close,
-                                    volume=last_candle.volume,
-                                    closed=last_candle.closed,
-                                )
-                                await self._tick(state, missed_candle)
+                    if config.missed_candle_policy is MissedCandlePolicy.RESTART:
+                        _log.info('restarting strategy due to missed candle(s)')
+                        # restart = True
+                        state.strategy = config.strategy.construct()
+                        state.current = candle.time + config.interval
+                    elif config.missed_candle_policy is MissedCandlePolicy.LAST:
+                        num_missed = time_diff // config.interval - 1
+                        _log.info(f'filling {num_missed} missed candles with last values')
+                        for i in range(1, num_missed + 1):
+                            missed_candle = Candle(
+                                time=last_candle.time + i * config.interval,
+                                open=last_candle.close,
+                                high=last_candle.close,
+                                low=last_candle.close,
+                                close=last_candle.close,
+                                volume=Decimal('0.0'),
+                                closed=True,
+                            )
+                            await self._tick(state, missed_candle)
 
-                    await self._tick(state, candle)
-
-                    if restart:
-                        break
-
-                if not restart:
-                    break
+                await self._tick(state, candle)
         finally:
             if state.close_on_exit:
                 await self._close_open_position(state)

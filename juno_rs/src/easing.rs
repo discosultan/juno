@@ -90,7 +90,7 @@ pub trait StdRngExt {
 
 impl StdRngExt for StdRng {
     fn gen_easing(&mut self) -> u32 {
-        EASING_CHOICES[self.gen_range(0, EASING_CHOICES.len())]
+        EASING_CHOICES[self.gen_range(0..EASING_CHOICES.len())]
     }
 }
 
