@@ -78,11 +78,11 @@ pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
                 for i in 1..=num_missed {
                     let missed_candle = Candle {
                         time: last_candle.time + i * interval,
-                        open: last_candle.open,
-                        high: last_candle.high,
-                        low: last_candle.low,
+                        open: last_candle.close,
+                        high: last_candle.close,
+                        low: last_candle.close,
                         close: last_candle.close,
-                        volume: last_candle.volume,
+                        volume: 0.0,
                     };
                     if tick(
                         &mut state,

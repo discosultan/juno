@@ -13,6 +13,7 @@ export const Strategies = [
 export const StopLosses = [
   'noop',
   'basic',
+  'basicplustrailing',
   'trailing',
   // 'legacy',
 ];

@@ -29,8 +29,8 @@ export default function Controls({ onBacktest }) {
     'ada-btc',
   ]);
   const [interval, setInterval] = useLocalStorageState('interval', '1d');
-  const [start, setStart] = useLocalStorageState('start', '2017-12-08');
-  const [end, setEnd] = useLocalStorageState('end', '2020-11-01');
+  const [start, setStart] = useLocalStorageState('start', '2018-01-01');
+  const [end, setEnd] = useLocalStorageState('end', '2021-01-01');
   const [missedCandlePolicy, setMissedCandlePolicy] = useLocalStorageState(
     'missedCandlePolicy',
     'ignore',

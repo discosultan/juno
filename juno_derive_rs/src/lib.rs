@@ -153,9 +153,9 @@ const STRATEGIES: [&'static str; 3] = [
     // "SigOsc<TripleMA,Rsi>",
     // "SigOsc<DoubleMA,Rsi>",
 ];
-const STOP_LOSSES: [&'static str; 2] = [
+const STOP_LOSSES: [&'static str; 3] = [
     // "Noop",
-    "Basic", "Trailing",
+    "Basic", "BasicPlusTrailing", "Trailing",
     // "Legacy",
 ];
 const TAKE_PROFITS: [&'static str; 2] = [
