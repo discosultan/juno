@@ -12,8 +12,8 @@ from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional
 
 from juno import (
-    Balance, Candle, CandleAttrs, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType,
-    OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType, OrderUpdate, Side,
+    Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -157,7 +157,6 @@ class Kraken(Exchange):
                     low=Decimal(c[4]),
                     close=Decimal(c[5]),
                     volume=Decimal(c[7]),
-                    attrs=CandleAttrs.CLOSED,
                 )
 
         async with self._public_ws.subscribe({

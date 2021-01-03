@@ -17,9 +17,8 @@ from typing import (
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, CandleAttrs, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters,
-    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
-    Trade, json
+    Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters, OrderException,
+    OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -176,7 +175,6 @@ class Coinbase(Exchange):
                     low=Decimal(c[1]),
                     close=Decimal(c[4]),
                     volume=Decimal(c[5]),
-                    attrs=CandleAttrs.CLOSED,
                 )
 
     @asynccontextmanager

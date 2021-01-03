@@ -1,6 +1,6 @@
 use super::TradingChromosome;
 use crate::{
-    chandler::{candles_to_prices, fill_missing_candles},
+    chandler::candles_to_prices,
     genetics::{Evaluation, Individual},
     statistics,
     stop_loss::StopLoss,

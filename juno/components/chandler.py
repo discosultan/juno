@@ -54,14 +54,13 @@ class Chandler:
         interval: int,
         start: int,
         end: int = MAX_TIME_MS,
-        closed: bool = True,
-        fill_missing_with_last: bool = False,
-        simulate_open_from_interval: Optional[int] = None,
+        unclosed: bool = False,
+        simulate_unclosed_from_interval: Optional[int] = None,
         exchange_timeout: Optional[float] = None,
     ) -> List[Candle]:
         return await list_async(self.stream_candles(
-            exchange, symbol, interval, start, end, closed, fill_missing_with_last,
-            simulate_open_from_interval, exchange_timeout
+            exchange, symbol, interval, start, end, unclosed, simulate_unclosed_from_interval,
+            exchange_timeout
         ))
 
     async def stream_candles(
@@ -71,28 +70,25 @@ class Chandler:
         interval: int,
         start: int,
         end: int = MAX_TIME_MS,
-        closed: bool = True,
-        fill_missing_with_last: bool = False,
-        simulate_open_from_interval: Optional[int] = None,
+        unclosed: bool = False,
+        simulate_unclosed_from_interval: Optional[int] = None,
         exchange_timeout: Optional[float] = None,
     ) -> AsyncIterable[Candle]:
-        if simulate_open_from_interval is None:
+        if simulate_unclosed_from_interval is None:
             async for candle in self._stream_candles(
-                exchange, symbol, interval, start, end, closed, fill_missing_with_last,
-                exchange_timeout
+                exchange, symbol, interval, start, end, unclosed, exchange_timeout
             ):
                 yield candle
         else:
-            assert simulate_open_from_interval < interval
-            assert interval % simulate_open_from_interval == 0
-            assert closed
-            assert fill_missing_with_last
+            assert simulate_unclosed_from_interval < interval
+            assert interval % simulate_unclosed_from_interval == 0
+            assert not unclosed
 
             main_stream = self._stream_candles(
-                exchange, symbol, interval, start, end, True, True, exchange_timeout
+                exchange, symbol, interval, start, end, True, exchange_timeout
             ).__aiter__()
             side_stream = self._stream_candles(
-                exchange, symbol, simulate_open_from_interval, start, end, True, True,
+                exchange, symbol, simulate_unclosed_from_interval, start, end, True,
                 exchange_timeout
             ).__aiter__()
             side_current = start
@@ -102,7 +98,7 @@ class Chandler:
             side_low = Decimal('inf')
             side_volume = Decimal('0.0')
             while True:
-                while side_current < side_end - simulate_open_from_interval:
+                while side_current < side_end - simulate_unclosed_from_interval:
                     try:
                         sc = await side_stream.__anext__()
                     except StopAsyncIteration:
@@ -119,9 +115,9 @@ class Chandler:
                         low=side_low,
                         close=sc.close,
                         volume=side_volume,
-                        attrs=CandleAttrs.FILLED,
+                        attrs=CandleAttrs.UNCLOSED,
                     )
-                    side_current = sc.time + simulate_open_from_interval
+                    side_current = sc.time + simulate_unclosed_from_interval
                 try:
                     yield await main_stream.__anext__()
                     # Discard one from side.
@@ -141,8 +137,7 @@ class Chandler:
         interval: int,
         start: int,
         end: int,
-        closed: bool,
-        fill_missing_with_last: bool,
+        unclosed: bool,
         exchange_timeout: Optional[float],
     ) -> AsyncIterable[Candle]:
         """Tries to stream candles for the specified range from local storage. If candles don't
@@ -206,24 +201,18 @@ class Chandler:
                         f'missed {num_missed} {candle_msg}; last closed candle '
                         f'{last_closed_candle}; current candle {candle}'
                     )
-                    if fill_missing_with_last:
-                        _log.info(f'filling {num_missed} missed {candle_msg} with last values')
-                        for i in range(1, num_missed + 1):
-                            yield Candle(
-                                time=last_closed_candle.time + i * interval,
-                                # open=last_closed_candle.open,
-                                # high=last_closed_candle.high,
-                                # low=last_closed_candle.low,
-                                # close=last_closed_candle.close,
-                                # volume=last_closed_candle.volume,
-                                open=last_closed_candle.close,
-                                high=last_closed_candle.close,
-                                low=last_closed_candle.close,
-                                close=last_closed_candle.close,
-                                volume=Decimal('0.0'),
-                                attrs=CandleAttrs.CLOSED | CandleAttrs.FILLED,
-                            )
-                if not closed or candle.closed:
+                    _log.info(f'filling {num_missed} missed {candle_msg} with last values')
+                    for i in range(1, num_missed + 1):
+                        yield Candle(
+                            time=last_closed_candle.time + i * interval,
+                            open=last_closed_candle.close,
+                            high=last_closed_candle.close,
+                            low=last_closed_candle.close,
+                            close=last_closed_candle.close,
+                            volume=Decimal('0.0'),
+                            attrs=CandleAttrs.FILLED,
+                        )
+                if unclosed or candle.closed:
                     yield candle
                 if candle.closed:
                     last_closed_candle = candle
@@ -388,7 +377,7 @@ class Chandler:
                         low=candle.low,
                         close=candle.close,
                         volume=candle.volume,
-                        attrs=candle.attrs,
+                        attrs=CandleAttrs.ADJUSTED,
                     )
 
                 yield candle
@@ -420,7 +409,6 @@ class Chandler:
                     low=low,
                     close=close,
                     volume=volume,
-                    attrs=CandleAttrs.CLOSED,
                 )
                 current = next_
                 next_ = current + interval
@@ -447,7 +435,6 @@ class Chandler:
                 low=low,
                 close=close,
                 volume=volume,
-                attrs=CandleAttrs.CLOSED,
             )
 
     async def _stream_construct_candles_by_volume(
@@ -483,7 +470,6 @@ class Chandler:
                     low=low,
                     close=close,
                     volume=volume,
-                    attrs=CandleAttrs.CLOSED,
                 )
                 current_volume -= volume
                 time = trade.time

@@ -12,64 +12,249 @@ from juno.utils import key
 from . import fakes
 
 
-@pytest.mark.parametrize(
-    'start,end,closed,efrom,eto,espans',
-    [
-        [0, 3, True, 0, 2, [(0, 3)]],  # Skips skipped candle at the end.
-        [2, 3, True, 0, 0, [(2, 3)]],  # Empty if only skipped candle.
-        [3, 5, True, 2, 5, [(3, 5)]],  # Filters out closed candle.
-        [0, 5, False, 0, 5, [(0, 5)]],  # Includes closed candle.
-        [0, 6, True, 0, 6, [(0, 6)]],  # Includes future candle.
-        [5, 6, False, 5, 6, [(5, 6)]],  # Only future candle.
+async def test_stream_candles_skips_missing_candle_at_the_end() -> None:
+    expected_candles = [
+        Candle(time=0),
+        Candle(time=1),
+        Candle(time=2, attrs=CandleAttrs.FILLED),
     ]
-)
-async def test_stream_candles(
-    storage: fakes.Storage, start, end, closed, efrom, eto, espans
+    await assert_stream_candles(
+        historical_candles=[
+            Candle(time=0),
+            Candle(time=1),
+            # Deliberately skipped candle.
+        ],
+        future_candles=[],
+        start=0,
+        end=3,
+        unclosed=False,
+        expected_output_candles=expected_candles,
+        expected_stored_candles=expected_candles,
+        expected_stored_spans=[(0, 2)],
+    )
+
+
+async def test_stream_candles_empty_if_only_missed_candle() -> None:
+    await assert_stream_candles(
+        historical_candles=[
+            # Deliberately skipped candle.
+        ],
+        future_candles=[],
+        start=2,
+        end=3,
+        unclosed=False,
+        expected_output_candles=[],
+        expected_stored_candles=[],
+        expected_stored_spans=[],
+    )
+
+
+async def test_stream_candles_filters_unclosed_candle() -> None:
+    expected_candles = [
+        Candle(time=3),
+        Candle(time=4),
+    ]
+    await assert_stream_candles(
+        historical_candles=[
+            Candle(time=3),
+            Candle(time=4, attrs=CandleAttrs.UNCLOSED),
+            Candle(time=4),
+        ],
+        future_candles=[],
+        start=3,
+        end=5,
+        unclosed=False,
+        expected_output_candles=expected_candles,
+        expected_stored_candles=expected_candles,
+        expected_stored_spans=[(3, 5)],
+    )
+
+
+async def test_stream_candles_includes_unclosed_candle() -> None:
+    await assert_stream_candles(
+        historical_candles=[
+            Candle(time=3),
+            Candle(time=4, attrs=CandleAttrs.UNCLOSED),
+            Candle(time=4),
+        ],
+        future_candles=[Candle(time=5)],
+        start=3,
+        end=5,
+        unclosed=False,
+        expected_output_candles=[
+            Candle(time=3),
+            Candle(time=4, attrs=CandleAttrs.UNCLOSED),
+            Candle(time=4),
+            Candle(time=5),
+        ],
+        expected_stored_candles=[
+            Candle(time=3),
+            Candle(time=4),
+            Candle(time=5),
+        ],
+        expected_stored_spans=[(3, 5)],
+    )
+
+
+async def test_stream_candles_includes_future_candle() -> None:
+    expected_candles = [
+        Candle(time=0),
+        Candle(time=1),
+        Candle(time=2, attrs=CandleAttrs.FILLED),
+        Candle(time=3),
+        Candle(time=4),
+        Candle(time=5),
+    ]
+    await assert_stream_candles(
+        historical_candles=[
+            Candle(time=0),
+            Candle(time=1),
+            # Deliberately skipped candle.
+            Candle(time=3),
+            Candle(time=4, attrs=CandleAttrs.UNCLOSED),
+            Candle(time=4),
+        ],
+        future_candles=[Candle(time=5)],
+        start=0,
+        end=6,
+        unclosed=False,
+        expected_output_candles=expected_candles,
+        expected_stored_candles=expected_candles,
+        expected_stored_spans=[(0, 6)],
+    )
+
+
+async def test_stream_candles_only_future_candle() -> None:
+    await assert_stream_candles(
+        historical_candles=[],
+        future_candles=[
+            Candle(time=5, attrs=CandleAttrs.UNCLOSED),
+            Candle(time=5),
+        ],
+        start=5,
+        end=6,
+        unclosed=True,
+        expected_output_candles=[
+            Candle(time=5, attrs=CandleAttrs.UNCLOSED),
+            Candle(time=5),
+        ],
+        expected_stored_candles=[Candle(time=5)],
+        expected_stored_spans=[(5, 6)],
+    )
+
+
+async def assert_stream_candles(
+    historical_candles,
+    future_candles,
+    start,
+    end,
+    unclosed,
+    expected_output_candles,
+    expected_stored_candles,
+    expected_stored_spans,
 ) -> None:
     EXCHANGE = 'exchange'
     SYMBOL = 'eth-btc'
     INTERVAL = 1
     CURRENT = 5
     STORAGE_BATCH_SIZE = 2
-    historical_candles = [
-        Candle(time=0),
-        Candle(time=1),
-        # Deliberately skipped candle.
-        Candle(time=3),
-        Candle(time=4, attrs=CandleAttrs.NONE),
-        Candle(time=4),
-    ]
-    future_candles = [
-        Candle(time=5),
-    ]
-    expected_candles = (historical_candles + future_candles)[efrom:eto]
-    if closed:
-        expected_candles = [c for c in expected_candles if c.closed]
-    time = fakes.Time(CURRENT, increment=1)
-    exchange = fakes.Exchange(
-        historical_candles=historical_candles,
-        future_candles=future_candles,
-        candle_intervals=[1],
-    )
-    chandler = Chandler(
-        storage=storage,
-        exchanges=[exchange],
-        get_time_ms=time.get_time,
-        storage_batch_size=STORAGE_BATCH_SIZE
-    )
 
-    output_candles = await list_async(
-        chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, start, end, closed)
-    )
-    shard = key(EXCHANGE, SYMBOL, INTERVAL)
-    stored_spans, stored_candles = await asyncio.gather(
-        list_async(storage.stream_time_series_spans(shard, 'candle', start, end)),
-        list_async(storage.stream_time_series(shard, 'candle', Candle, start, end)),
-    )
+    async with fakes.Storage() as storage:
+        time = fakes.Time(CURRENT, increment=1)
+        exchange = fakes.Exchange(
+            historical_candles=historical_candles,
+            future_candles=future_candles,
+            candle_intervals=[1],
+        )
+        chandler = Chandler(
+            storage=storage,
+            exchanges=[exchange],
+            get_time_ms=time.get_time,
+            storage_batch_size=STORAGE_BATCH_SIZE,
+        )
 
-    assert output_candles == expected_candles
-    assert stored_candles == [c for c in output_candles if c.closed]
-    assert stored_spans == espans
+        output_candles = await list_async(
+            chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, start, end, unclosed)
+        )
+        shard = key(EXCHANGE, SYMBOL, INTERVAL)
+        stored_spans, stored_candles = await asyncio.gather(
+            list_async(storage.stream_time_series_spans(shard, 'candle', start, end)),
+            list_async(storage.stream_time_series(shard, 'candle', Candle, start, end)),
+        )
+
+        assert output_candles == expected_output_candles
+        assert stored_candles == expected_stored_candles
+        assert stored_spans == expected_stored_spans
+
+
+# @pytest.mark.parametrize(
+#     'start,end,unclosed,efrom,eto,espans',
+#     [
+#         # [0, 3, False, 0, 2, [(0, 3)]],  # Skips skipped candle at the end.
+#         # [2, 3, False, 0, 0, [(2, 3)]],  # Empty if only skipped candle.
+#         # [3, 5, False, 2, 5, [(3, 5)]],  # Filters out closed candle.
+#         # [0, 5, True, 0, 5, [(0, 5)]],   # Includes unclosed candle.
+#         # [0, 6, False, 0, 6, [(0, 6)]],  # Includes future candle.
+#         # [5, 6, True, 5, 6, [(5, 6)]],   # Only future candle.
+#     ]
+# )
+# async def test_stream_candles(
+#     storage: fakes.Storage, start, end, unclosed, efrom, eto, espans
+# ) -> None:
+#     EXCHANGE = 'exchange'
+#     SYMBOL = 'eth-btc'
+#     INTERVAL = 1
+#     CURRENT = 5
+#     STORAGE_BATCH_SIZE = 2
+#     historical_candles = [
+#         Candle(time=0),
+#         Candle(time=1),
+#         # Deliberately skipped candle.
+#         Candle(time=3),
+#         Candle(time=4, attrs=CandleAttrs.UNCLOSED),
+#         Candle(time=4),
+#     ]
+#     future_candles = [
+#         Candle(time=5),
+#     ]
+#     expected_candles = [
+#         Candle(time=0),
+#         Candle(time=1),
+#         Candle(time=2, attrs=CandleAttrs.FILLED),
+#         Candle(time=3),
+#         Candle(time=4, attrs=CandleAttrs.UNCLOSED),
+#         Candle(time=4),
+#         Candle(time=5),
+#     ][efrom:eto]
+#     if not unclosed:
+#         expected_candles = [c for c in expected_candles if c.closed]
+#     while CandleAttrs.FILLED in expected_candles[-1].attrs:
+#         expected_candles.pop()
+#     time = fakes.Time(CURRENT, increment=1)
+#     exchange = fakes.Exchange(
+#         historical_candles=historical_candles,
+#         future_candles=future_candles,
+#         candle_intervals=[1],
+#     )
+#     chandler = Chandler(
+#         storage=storage,
+#         exchanges=[exchange],
+#         get_time_ms=time.get_time,
+#         storage_batch_size=STORAGE_BATCH_SIZE
+#     )
+
+#     output_candles = await list_async(
+#         chandler.stream_candles(EXCHANGE, SYMBOL, INTERVAL, start, end, unclosed)
+#     )
+#     shard = key(EXCHANGE, SYMBOL, INTERVAL)
+#     stored_spans, stored_candles = await asyncio.gather(
+#         list_async(storage.stream_time_series_spans(shard, 'candle', start, end)),
+#         list_async(storage.stream_time_series(shard, 'candle', Candle, start, end)),
+#     )
+
+#     assert output_candles == expected_candles
+#     assert stored_candles == [c for c in output_candles if c.closed]
+#     assert stored_spans == espans
 
 
 async def test_stream_future_candles_span_stored_until_cancelled(storage: fakes.Storage) -> None:
@@ -131,7 +316,6 @@ async def test_stream_candles_construct_from_trades(storage: Storage) -> None:
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            attrs=CandleAttrs.CLOSED,
         )
     ]
 
@@ -260,21 +444,18 @@ async def test_stream_candles_fill_missing_with_last(storage: fakes.Storage) -> 
             interval=1,
             start=0,
             end=4,
-            fill_missing_with_last=True,
         )
     )
     assert output == [
         first_candle,
         Candle(
             time=2,
-            # open=Decimal('1.0'),
-            # high=Decimal('3.0'),
-            # low=Decimal('0.0'),
-            # close=Decimal('2.0'),
             open=Decimal('2.0'),
             high=Decimal('2.0'),
             low=Decimal('2.0'),
             close=Decimal('2.0'),
+            volume=Decimal('0.0'),
+            attrs=CandleAttrs.FILLED,
         ),
         third_candle,
     ]
@@ -291,11 +472,10 @@ async def test_stream_candles_construct_from_trades_if_interval_not_supported(
         Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
         Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
     ])
-    # TODO: YO BITCH
     chandler = Chandler(
         trades=trades,
         storage=storage,
-        exchanges=[exchange]
+        exchanges=[exchange],
     )
 
     output_candles = await list_async(chandler.stream_candles('exchange', 'eth-btc', 5, 0, 5))
@@ -308,7 +488,6 @@ async def test_stream_candles_construct_from_trades_if_interval_not_supported(
             low=Decimal('1.0'),
             close=Decimal('2.0'),
             volume=Decimal('4.0'),
-            attrs=CandleAttrs.CLOSED,
         )
     ]
 
@@ -479,7 +658,7 @@ async def test_map_symbol_interval_candles(storage, mocker) -> None:
     assert len(candles) == 4
 
 
-async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None:
+async def test_list_candles_simulate_unclosed_from_interval(mocker, storage) -> None:
     async def stream_historical_candles(symbol, interval, start, end):
         if interval == 1:
             for i in range(6):
@@ -490,7 +669,6 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
                     low=Decimal(f'{i}.0'),
                     close=Decimal(f'{i + 1}.0'),
                     volume=Decimal('1.0'),
-                    attrs=CandleAttrs.CLOSED,
                 )
         else:  # interval == 2
             for i in range(3):
@@ -501,7 +679,6 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
                     low=Decimal(f'{i * 2}.0'),
                     close=Decimal(f'{(i + 1) * 2}.0'),
                     volume=Decimal('2.0'),
-                    attrs=CandleAttrs.CLOSED,
                 )
 
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
@@ -515,9 +692,8 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
         interval=2,
         start=0,
         end=6,
-        simulate_open_from_interval=1,
-        closed=True,
-        fill_missing_with_last=True,
+        simulate_unclosed_from_interval=1,
+        unclosed=False,
     )
 
     expected_candles = [
@@ -528,7 +704,7 @@ async def test_list_candles_simulate_open_from_interval(mocker, storage) -> None
             low=Decimal(f'{i - i % 2}.0'),
             close=Decimal(f'{i + 1}.0'),
             volume=Decimal(f'{i % 2 + 1}.0'),
-            attrs=CandleAttrs.FILLED if i % 2 == 0 else CandleAttrs.CLOSED,
+            attrs=CandleAttrs.FILLED if i % 2 == 0 else CandleAttrs.NONE,
         ) for i in range(6)
     ]
     assert candles == expected_candles

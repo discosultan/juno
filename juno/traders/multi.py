@@ -395,7 +395,6 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             interval=config.interval,
             start=symbol_state.current,
             end=config.end,
-            fill_missing_with_last=True,
             exchange_timeout=config.exchange_candle_timeout,
         ):
             # Perform empty ticks when missing initial candles.

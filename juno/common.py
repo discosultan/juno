@@ -61,8 +61,9 @@ class BorrowInfo:
 
 class CandleAttrs(IntFlag):
     NONE = 0
-    CLOSED = 1
+    UNCLOSED = 1
     FILLED = 2
+    ADJUSTED = 4
 
 
 # We have a choice between dataclasses and namedtuples. Namedtuples are chosen as they support
@@ -76,7 +77,7 @@ class Candle(NamedTuple):
     low: Decimal = Decimal('0.0')
     close: Decimal = Decimal('0.0')
     volume: Decimal = Decimal('0.0')  # Within interval.
-    attrs: CandleAttrs = CandleAttrs.CLOSED
+    attrs: CandleAttrs = CandleAttrs.NONE
 
     @property
     def midpoint(self) -> Decimal:
@@ -87,18 +88,26 @@ class Candle(NamedTuple):
         return (self.high + self.low + self.close) / 3
 
     @property
+    def unclosed(self) -> bool:
+        return CandleAttrs.UNCLOSED in self.attrs
+
+    @property
     def closed(self) -> bool:
-        return CandleAttrs.CLOSED in self.attrs
+        return not self.unclosed
 
     @property
     def filled(self) -> bool:
         return CandleAttrs.FILLED in self.attrs
 
+    @property
+    def adjusted(self) -> bool:
+        return CandleAttrs.ADJUSTED in self.attrs
+
     def __repr__(self) -> str:
         return (
             f'{type(self).__name__}(time={datetime_utcfromtimestamp_ms(self.time)}, '
             f'open={self.open}, high={self.high}, low={self.low}, close={self.close}, '
-            f'volume={self.volume}, closed={self.closed}, filled={self.filled}'
+            f'volume={self.volume}, unclosed={self.unclosed}, filled={self.filled}'
         )
 
     @staticmethod

@@ -587,7 +587,6 @@ class Binance(Exchange):
                     low=Decimal(c[3]),
                     close=Decimal(c[4]),
                     volume=Decimal(c[5]),
-                    attrs=CandleAttrs.CLOSED,
                 )
 
     @asynccontextmanager
@@ -609,7 +608,7 @@ class Binance(Exchange):
                     low=Decimal(c['l']),
                     close=Decimal(c['c']),
                     volume=Decimal(c['v']),
-                    attrs=CandleAttrs.CLOSED if c['x'] else CandleAttrs.NONE,
+                    attrs=CandleAttrs.NONE if c['x'] else CandleAttrs.UNCLOSED,
                 )
 
         async with self._connect_refreshing_stream(

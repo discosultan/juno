@@ -58,46 +58,18 @@ class Python(Solver, SimulatedPositionMixin):
             take_profit=take_profit.Legacy(config.take_profit),
         )
         try:
-            i = 0
-            while True:
-                restart = False
-
-                for candle in config.candles[i:]:
-                    i += 1
-                    if not candle.closed:
+            for candle in config.candles:
+                if candle.filled:
+                    if config.missed_candle_policy is MissedCandlePolicy.IGNORE:
                         continue
+                    elif config.missed_candle_policy is MissedCandlePolicy.RESTART:
+                        state.strategy = config.new_strategy()
+                    elif config.missed_candle_policy is MissedCandlePolicy.LAST:
+                        pass
+                    else:
+                        raise NotImplementedError()
 
-                    if (
-                        config.missed_candle_policy is not MissedCandlePolicy.IGNORE
-                        and (last_candle := state.last_candle)
-                        and (time_diff := (candle.time - last_candle.time)) >= config.interval * 2
-                    ):
-                        if config.missed_candle_policy is MissedCandlePolicy.RESTART:
-                            restart = True
-                            state.strategy = config.new_strategy()
-                        elif config.missed_candle_policy is MissedCandlePolicy.LAST:
-                            num_missed = time_diff // config.interval - 1
-                            for i in range(1, num_missed + 1):
-                                missed_candle = Candle(
-                                    time=last_candle.time + i * config.interval,
-                                    open=last_candle.open,
-                                    high=last_candle.high,
-                                    low=last_candle.low,
-                                    close=last_candle.close,
-                                    volume=last_candle.volume,
-                                    attrs=last_candle.attrs,
-                                )
-                                self._tick(config, state, missed_candle)
-                        else:
-                            raise NotImplementedError()
-
-                    self._tick(config, state, candle)
-
-                    if restart:
-                        break
-
-                if not restart:
-                    break
+                self._tick(config, state, candle)
 
             if state.last_candle:
                 if isinstance(state.open_position, Position.OpenLong):

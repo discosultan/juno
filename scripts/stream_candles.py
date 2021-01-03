@@ -12,8 +12,7 @@ from juno.math import floor_multiple
 from juno.time import MIN_MS, strftimestamp, strpinterval, strptimestamp, time_ms
 from juno.utils import get_module_type
 
-CLOSED = True
-FILL_MISSING_WITH_LAST = False
+UNCLOSED = False
 DUMP_AS_JSON = False
 LOG_CANDLES = False
 
@@ -57,11 +56,10 @@ async def stream_candles(chandler: Chandler, symbol: str, interval: int) -> None
 
     candles = []
     async for i, candle in enumerate_async(chandler.stream_candles(
-        args.exchange, symbol, interval, start, end, closed=CLOSED,
-        fill_missing_with_last=FILL_MISSING_WITH_LAST
+        args.exchange, symbol, interval, start, end, unclosed=UNCLOSED
     )):
-        assert not FILL_MISSING_WITH_LAST or candle.time == start + i * interval
-        assert not CLOSED or candle.closed
+        assert candle.time == start + i * interval
+        assert UNCLOSED or candle.closed
 
         if DUMP_AS_JSON:
             candles.append(candle)

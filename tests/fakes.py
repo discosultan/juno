@@ -150,8 +150,8 @@ class Chandler(components.Chandler):
         self.last_candle = last_candle
 
     async def stream_candles(
-        self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False,
-        simulate_open_from_interval=None, exchange_timeout=None
+        self, exchange, symbol, interval, start, end, unclosed=False,
+        simulate_unclosed_from_interval=None, exchange_timeout=None
     ):
         # TODO: Get rid of this!
         if candles := self.candles.get((exchange, symbol, interval)):
@@ -160,18 +160,17 @@ class Chandler(components.Chandler):
                 time_diff = c.time - last_c.time if last_c else 0
                 if time_diff >= interval * 2:
                     num_missed = time_diff // interval - 1
-                    if fill_missing_with_last:
-                        for i in range(1, num_missed + 1):
-                            yield Candle(
-                                time=last_c.time + i * interval,
-                                open=last_c.open,
-                                high=last_c.high,
-                                low=last_c.low,
-                                close=last_c.close,
-                                volume=last_c.volume,
-                                attrs=CandleAttrs.CLOSED | CandleAttrs.FILLED
-                            )
-                if not closed or c.closed:
+                    for i in range(1, num_missed + 1):
+                        yield Candle(
+                            time=last_c.time + i * interval,
+                            open=last_c.open,
+                            high=last_c.high,
+                            low=last_c.low,
+                            close=last_c.close,
+                            volume=last_c.volume,
+                            attrs=CandleAttrs.FILLED,
+                        )
+                if unclosed or c.closed:
                     yield c
                 last_c = c
 

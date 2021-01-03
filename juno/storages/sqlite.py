@@ -4,6 +4,7 @@ import sqlite3
 from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
+from enum import IntEnum, IntFlag
 from typing import (
     Any, AsyncIterable, ContextManager, Dict, List, NamedTuple, Optional, Set, Tuple, Type,
     TypeVar, Union, get_type_hints
@@ -20,7 +21,7 @@ from .storage import Storage
 _log = logging.getLogger(__name__)
 
 # Version should be incremented every time a storage schema changes.
-_VERSION = 'v50'
+_VERSION = 'v51'
 
 T = TypeVar('T')
 
@@ -231,6 +232,8 @@ def _type_to_sql_type(type_: Type[Primitive]) -> str:
         return 'TEXT'
     if type_ is bool:
         return 'BOOLEAN'
+    if issubclass(type_, (IntEnum, IntFlag)):
+        return 'INTEGER'
     raise NotImplementedError(f'Missing conversion for type {type_}')
 
 

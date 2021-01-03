@@ -5,7 +5,7 @@ use thiserror::Error;
 
 type Result<T> = std::result::Result<T, StorageError>;
 
-const VERSION: &str = "v49";
+const VERSION: &str = "v51";
 
 #[derive(Error, Debug)]
 pub enum StorageError {

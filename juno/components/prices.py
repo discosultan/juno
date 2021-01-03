@@ -51,7 +51,7 @@ class Prices:
             assert quote_asset not in result
             quote_prices: List[Decimal] = []
             async for candle in self._chandler.stream_candles(
-                fiat_exchange, symbol, interval, start, end, fill_missing_with_last=True
+                fiat_exchange, symbol, interval, start, end
             ):
                 if len(quote_prices) == 0:
                     quote_prices.append(candle.open)
@@ -73,9 +73,10 @@ class Prices:
             assert base_asset not in result
             base_prices: List[Decimal] = []
             quote_prices = result[quote_asset]
-            async for price_i, candle in enumerate_async(self._chandler.stream_candles(
-                exchange, symbol, interval, start, end, fill_missing_with_last=True
-            ), 1):
+            async for price_i, candle in enumerate_async(
+                self._chandler.stream_candles(exchange, symbol, interval, start, end),
+                1,
+            ):
                 if len(base_prices) == 0:
                     base_prices.append(
                         candle.open
