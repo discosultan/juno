@@ -5,6 +5,8 @@ use crate::genetics::{
 use rand::prelude::*;
 use std::time;
 
+use super::Chromosome;
+
 pub struct GeneticAlgorithm<TE, TS, TC, TM, TR>
 where
     TE: Evaluation,
@@ -51,6 +53,8 @@ where
         hall_of_fame_size: usize,
         seed: Option<u64>,
         on_generation: fn(usize, &Generation<TE::Chromosome>) -> (),
+        // TODO: Can be simplified after https://github.com/rust-lang/rust/issues/38078
+        ctx: &<<TE as Evaluation>::Chromosome as Chromosome>::Context,
     ) -> Evolution<TE::Chromosome> {
         assert!(population_size >= 2);
         assert!(hall_of_fame_size >= 1);
@@ -67,7 +71,7 @@ where
         let mut timings = Timings::default();
 
         let mut parents = (0..population_size)
-            .map(|_| Individual::generate(&mut rng))
+            .map(|_| Individual::generate(&mut rng, ctx))
             .collect();
         self.evaluate_and_sort_by_fitness_desc(&mut parents, &mut timings);
         let generation = Generation {

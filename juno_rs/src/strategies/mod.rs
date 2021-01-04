@@ -202,21 +202,37 @@ pub fn serialize_mid_trend_policy<S>(value: &u32, serializer: S) -> Result<S::Ok
 where
     S: Serializer,
 {
-    let representation = match *value {
-        MidTrend::POLICY_CURRENT => "current",
-        MidTrend::POLICY_IGNORE => "ignore",
-        MidTrend::POLICY_PREVIOUS => "previous",
-        _ => panic!("unknown mid trend policy value: {}", value),
-    };
-    serializer.serialize_str(representation)
+    serializer.serialize_str(mid_trend_policy_to_str(*value))
 }
 
 pub fn deserialize_mid_trend_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(match representation.as_ref() {
+    let representation: &str = Deserialize::deserialize(deserializer)?;
+    Ok(str_to_mid_trend_policy(representation))
+}
+
+pub fn serialize_mid_trend_policy_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => serializer.serialize_str(mid_trend_policy_to_str(*value)),
+        None => serializer.serialize_none(),
+    }
+}
+
+pub fn deserialize_mid_trend_policy_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_mid_trend_policy(repr)))
+}
+
+fn str_to_mid_trend_policy(representation: &str) -> u32 {
+    match representation {
         "current" => MidTrend::POLICY_CURRENT,
         "ignore" => MidTrend::POLICY_IGNORE,
         "previous" => MidTrend::POLICY_PREVIOUS,
@@ -224,14 +240,20 @@ where
             "unknown mid trend policy representation: {}",
             representation
         ),
-    })
+    }
 }
 
-pub fn serialize_ma<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let representation = match *value {
+fn mid_trend_policy_to_str(value: u32) -> &'static str {
+    match value {
+        MidTrend::POLICY_CURRENT => "current",
+        MidTrend::POLICY_IGNORE => "ignore",
+        MidTrend::POLICY_PREVIOUS => "previous",
+        _ => panic!("unknown mid trend policy value: {}", value),
+    }
+}
+
+fn ma_to_str(value: u32) -> &'static str {
+    match value {
         adler32::ALMA => "alma",
         adler32::DEMA => "dema",
         adler32::EMA => "ema",
@@ -240,16 +262,11 @@ where
         adler32::SMA => "sma",
         adler32::SMMA => "smma",
         _ => panic!("unknown ma value: {}", value),
-    };
-    serializer.serialize_str(representation)
+    }
 }
 
-pub fn deserialize_ma<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(match representation.as_ref() {
+fn str_to_ma(representation: &str) -> u32 {
+    match representation {
         "alma" => adler32::ALMA,
         "dema" => adler32::DEMA,
         "ema" => adler32::EMA,
@@ -258,5 +275,37 @@ where
         "sma" => adler32::SMA,
         "smma" => adler32::SMMA,
         _ => panic!("unknown ma representation: {}", representation),
-    })
+    }
+}
+
+pub fn serialize_ma<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(ma_to_str(*value))
+}
+
+pub fn deserialize_ma<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(str_to_ma(Deserialize::deserialize(deserializer)?))
+}
+
+pub fn serialize_ma_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => serializer.serialize_str(ma_to_str(*value)),
+        None => serializer.serialize_none(),
+    }
+}
+
+pub fn deserialize_ma_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_ma(repr)))
 }

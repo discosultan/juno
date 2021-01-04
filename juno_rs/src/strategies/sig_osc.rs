@@ -1,6 +1,6 @@
 use super::{
-    deserialize_mid_trend_policy, serialize_mid_trend_policy, Oscillator, Signal, StdRngExt,
-    Strategy,
+    deserialize_mid_trend_policy, deserialize_mid_trend_policy_option, serialize_mid_trend_policy,
+    serialize_mid_trend_policy_option, Oscillator, Signal, StdRngExt, Strategy,
 };
 use crate::{
     genetics::Chromosome,
@@ -15,37 +15,61 @@ use std::cmp::{max, min};
 const OSC_FILTER_ENFORCE: u32 = 0;
 const OSC_FILTER_PREVENT: u32 = 1;
 
+fn osc_filter_to_str(value: u32) -> &'static str {
+    match value {
+        OSC_FILTER_ENFORCE => "enforce",
+        OSC_FILTER_PREVENT => "prevent",
+        _ => panic!("unknown osc filter value: {}", value),
+    }
+}
+
+fn str_to_osc_filter(representation: &str) -> u32 {
+    match representation {
+        "enforce" => OSC_FILTER_ENFORCE,
+        "prevent" => OSC_FILTER_PREVENT,
+        _ => panic!(
+            "unknown osc filter representation: {}",
+            representation
+        ),
+    }
+}
+
 fn serialize_osc_filter<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    let representation = match *value {
-        OSC_FILTER_ENFORCE => "enforce",
-        OSC_FILTER_PREVENT => "prevent",
-        _ => panic!("unknown oscillator filter value: {}", value),
-    };
-    serializer.serialize_str(representation)
+    serializer.serialize_str(osc_filter_to_str(*value))
 }
 
 fn deserialize_osc_filter<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(match representation.as_ref() {
-        "enforce" => OSC_FILTER_ENFORCE,
-        "prevent" => OSC_FILTER_PREVENT,
-        _ => panic!(
-            "unknown oscillator filter representation: {}",
-            representation
-        ),
-    })
+    Ok(str_to_osc_filter(Deserialize::deserialize(deserializer)?))
+}
+
+pub fn serialize_osc_filter_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => serializer.serialize_str(osc_filter_to_str(*value)),
+        None => serializer.serialize_none(),
+    }
+}
+
+pub fn deserialize_osc_filter_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_osc_filter(repr)))
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SigOscParams<S: Chromosome, O: Chromosome> {
-    pub sig_params: S,
-    pub osc_params: O,
+    pub sig: S,
+    pub osc: O,
     #[serde(serialize_with = "serialize_osc_filter")]
     #[serde(deserialize_with = "deserialize_osc_filter")]
     pub osc_filter: u32,
@@ -55,29 +79,46 @@ pub struct SigOscParams<S: Chromosome, O: Chromosome> {
     pub mid_trend_policy: u32,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SigOscParamsContext<S: Chromosome, O: Chromosome> {
+    pub sig: Option<S>,
+    pub osc: Option<O>,
+    #[serde(serialize_with = "serialize_osc_filter_option")]
+    #[serde(deserialize_with = "deserialize_osc_filter_option")]
+    pub osc_filter: Option<u32>,
+    pub persistence: Option<u32>,
+    #[serde(serialize_with = "serialize_mid_trend_policy_option")]
+    #[serde(deserialize_with = "deserialize_mid_trend_policy_option")]
+    pub mid_trend_policy: Option<u32>,
+}
+
 impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
+    type Context = SigOscParamsContext<S, O>;
+
     fn len() -> usize {
         S::len() + O::len() + 3
     }
 
-    fn generate(rng: &mut StdRng) -> Self {
+    fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
         Self {
-            sig_params: S::generate(rng),
-            osc_params: O::generate(rng),
-            osc_filter: gen_osc_filter(rng),
-            persistence: gen_persistence(rng),
-            mid_trend_policy: rng.gen_mid_trend_policy(),
+            sig: S::generate(rng, &ctx.sig),
+            osc: O::generate(rng, &ctx.osc),
+            osc_filter: ctx.osc_filter.unwrap_or_else(|| gen_osc_filter(rng)),
+            persistence: ctx.persistence.unwrap_or_else(|| gen_persistence(rng)),
+            mid_trend_policy: ctx
+                .mid_trend_policy
+                .unwrap_or_else(|| rng.gen_mid_trend_policy()),
         }
     }
 
     fn cross(&mut self, other: &mut Self, mut i: usize) {
         if i < S::len() {
-            self.sig_params.cross(&mut other.sig_params, i);
+            self.sig.cross(&mut other.sig, i);
             return;
         }
         i -= S::len();
         if i < O::len() {
-            self.osc_params.cross(&mut other.osc_params, i);
+            self.osc.cross(&mut other.osc, i);
             return;
         }
         i -= O::len();
@@ -89,21 +130,25 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
         }
     }
 
-    fn mutate(&mut self, rng: &mut StdRng, mut i: usize) {
+    fn mutate(&mut self, rng: &mut StdRng, mut i: usize, ctx: &Self::Context) {
         if i < S::len() {
-            self.sig_params.mutate(rng, i);
+            self.sig.mutate(rng, i, &ctx.sig);
             return;
         }
         i -= S::len();
         if i < O::len() {
-            self.osc_params.mutate(rng, i);
+            self.osc.mutate(rng, i, &ctx.osc);
             return;
         }
         i -= O::len();
         match i {
-            0 => self.osc_filter = gen_osc_filter(rng),
-            1 => self.persistence = gen_persistence(rng),
-            2 => self.mid_trend_policy = rng.gen_mid_trend_policy(),
+            0 => self.osc_filter = ctx.osc_filter.unwrap_or_else(|| gen_osc_filter(rng)),
+            1 => self.persistence = ctx.persistence.unwrap_or_else(|| gen_persistence(rng)),
+            2 => {
+                self.mid_trend_policy = ctx
+                    .mid_trend_policy
+                    .unwrap_or_else(|| rng.gen_mid_trend_policy())
+            }
             _ => panic!("index out of bounds"),
         }
     }
@@ -188,8 +233,8 @@ impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
     type Params = SigOscParams<S::Params, O::Params>;
 
     fn new(params: &Self::Params) -> Self {
-        let sig = S::new(&params.sig_params);
-        let osc = O::new(&params.osc_params);
+        let sig = S::new(&params.sig);
+        let osc = O::new(&params.osc);
         let mid_trend = MidTrend::new(params.mid_trend_policy);
         let persistence = Persistence::new(params.persistence, false);
         Self {

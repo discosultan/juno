@@ -1,5 +1,6 @@
 use super::{
-    deserialize_mid_trend_policy, serialize_mid_trend_policy, Signal, StdRngExt, Strategy,
+    deserialize_mid_trend_policy, deserialize_mid_trend_policy_option, serialize_mid_trend_policy,
+    serialize_mid_trend_policy_option, Signal, StdRngExt, Strategy,
 };
 use crate::{
     genetics::Chromosome,
@@ -13,29 +14,42 @@ use std::cmp::{max, min};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SigParams<S: Chromosome> {
-    pub sig_params: S,
+    pub sig: S,
     pub persistence: u32,
     #[serde(serialize_with = "serialize_mid_trend_policy")]
     #[serde(deserialize_with = "deserialize_mid_trend_policy")]
     pub mid_trend_policy: u32,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct SigParamsContext<S: Chromosome> {
+    pub sig: Option<S>,
+    pub persistence: Option<u32>,
+    #[serde(serialize_with = "serialize_mid_trend_policy_option")]
+    #[serde(deserialize_with = "deserialize_mid_trend_policy_option")]
+    pub mid_trend_policy: Option<u32>,
+}
+
 impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
+    type Context = SigParamsContext<Sig>;
+
     fn len() -> usize {
         Sig::len() + 2
     }
 
-    fn generate(rng: &mut StdRng) -> Self {
+    fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
         Self {
-            sig_params: Sig::generate(rng),
-            persistence: gen_persistence(rng),
-            mid_trend_policy: rng.gen_mid_trend_policy(),
+            sig: Sig::generate(rng, &ctx.sig),
+            persistence: ctx.persistence.unwrap_or_else(|| gen_persistence(rng)),
+            mid_trend_policy: ctx
+                .mid_trend_policy
+                .unwrap_or_else(|| rng.gen_mid_trend_policy()),
         }
     }
 
     fn cross(&mut self, other: &mut Self, mut i: usize) {
         if i < Sig::len() {
-            self.sig_params.cross(&mut other.sig_params, i);
+            self.sig.cross(&mut other.sig, i);
             return;
         }
         i -= Sig::len();
@@ -46,15 +60,19 @@ impl<Sig: Chromosome> Chromosome for SigParams<Sig> {
         }
     }
 
-    fn mutate(&mut self, rng: &mut StdRng, mut i: usize) {
+    fn mutate(&mut self, rng: &mut StdRng, mut i: usize, ctx: &Self::Context) {
         if i < Sig::len() {
-            self.sig_params.mutate(rng, i);
+            self.sig.mutate(rng, i, &ctx.sig);
             return;
         }
         i -= Sig::len();
         match i {
-            0 => self.persistence = gen_persistence(rng),
-            1 => self.mid_trend_policy = rng.gen_mid_trend_policy(),
+            0 => self.persistence = ctx.persistence.unwrap_or_else(|| gen_persistence(rng)),
+            1 => {
+                self.mid_trend_policy = ctx
+                    .mid_trend_policy
+                    .unwrap_or_else(|| rng.gen_mid_trend_policy())
+            }
             _ => panic!("index out of bounds"),
         }
     }
@@ -78,7 +96,7 @@ impl<S: Signal> Strategy for Sig<S> {
     type Params = SigParams<S::Params>;
 
     fn new(params: &Self::Params) -> Self {
-        let sig = S::new(&params.sig_params);
+        let sig = S::new(&params.sig);
         let mid_trend = MidTrend::new(params.mid_trend_policy);
         let persistence = Persistence::new(params.persistence, false);
         Self {

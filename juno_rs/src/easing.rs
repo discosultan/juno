@@ -94,11 +94,8 @@ impl StdRngExt for StdRng {
     }
 }
 
-pub fn serialize_easing<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let representation = match *value {
+fn easing_to_str(value: u32) -> &'static str {
+    match value {
         EASING_LINEAR => "linear",
         EASING_QUAD_IN => "quad_in",
         EASING_QUAD_OUT => "quad_out",
@@ -131,16 +128,11 @@ where
         EASING_BOUNCE_OUT => "bounce_out",
         EASING_BOUNCE_INOUT => "bounce_inout",
         _ => panic!("unknown easing value: {}", value),
-    };
-    serializer.serialize_str(representation)
+    }
 }
 
-pub fn deserialize_easing<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(match representation.as_ref() {
+fn str_to_easing(representation: &str) -> u32 {
+    match representation {
         "linear" => EASING_LINEAR,
         "quad_in" => EASING_QUAD_IN,
         "quad_out" => EASING_QUAD_OUT,
@@ -173,5 +165,37 @@ where
         "bounce_out" => EASING_BOUNCE_OUT,
         "bounce_inout" => EASING_BOUNCE_INOUT,
         _ => panic!("unknown easing representation: {}", representation),
-    })
+    }
+}
+
+pub fn serialize_easing<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(easing_to_str(*value))
+}
+
+pub fn deserialize_easing<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Ok(str_to_easing(Deserialize::deserialize(deserializer)?))
+}
+
+pub fn serialize_easing_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => serializer.serialize_str(easing_to_str(*value)),
+        None => serializer.serialize_none(),
+    }
+}
+
+pub fn deserialize_easing_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_easing(repr)))
 }

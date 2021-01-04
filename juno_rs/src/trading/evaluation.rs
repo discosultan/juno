@@ -128,12 +128,13 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
         //     ctx.stats_quote_prices.as_deref(),
         //     self.stats_interval,
         // )
-        statistics::get_sortino_ratio(
-            &summary,
-            &ctx.stats_base_prices,
-            ctx.stats_quote_prices.as_deref(),
-            self.stats_interval,
-        )
+        // statistics::get_sortino_ratio(
+        //     &summary,
+        //     &ctx.stats_base_prices,
+        //     ctx.stats_quote_prices.as_deref(),
+        //     self.stats_interval,
+        // )
+        statistics::get_profit(&summary)
     }
 }
 

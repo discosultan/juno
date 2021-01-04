@@ -12,10 +12,12 @@ use serde::Serialize;
 use std::{cmp::Ordering, fmt::Debug, time::Duration};
 
 pub trait Chromosome: Clone + Debug + Send + Serialize + Sync {
+    type Context;
+
     fn len() -> usize;
-    fn generate(rng: &mut StdRng) -> Self;
+    fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self;
     fn cross(&mut self, other: &mut Self, i: usize);
-    fn mutate(&mut self, rng: &mut StdRng, i: usize);
+    fn mutate(&mut self, rng: &mut StdRng, i: usize, ctx: &Self::Context);
 }
 
 pub trait Evaluation {
@@ -31,9 +33,9 @@ pub struct Individual<T: Chromosome> {
 }
 
 impl<T: Chromosome> Individual<T> {
-    fn generate(rng: &mut StdRng) -> Self {
+    fn generate(rng: &mut StdRng, ctx: &T::Context) -> Self {
         Self {
-            chromosome: T::generate(rng),
+            chromosome: T::generate(rng, ctx),
             fitness: f64::MIN,
         }
     }
