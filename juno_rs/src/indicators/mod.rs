@@ -56,7 +56,7 @@ pub const MA_CHOICES: [u32; 7] = [
     adler32::KAMA,
 ];
 
-pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA + Send + Sync> {
+pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     match code {
         adler32::ALMA => Box::new(Alma::new(period)),
         adler32::EMA => Box::new(Ema::new(period)),

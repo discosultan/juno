@@ -41,7 +41,7 @@ fn ma_period(rng: &mut StdRng) -> u32 {
 #[derive(Signal)]
 pub struct FourWeekRule {
     prices: BoundedVecDeque<f64>,
-    ma: Box<dyn indicators::MA + Send + Sync>,
+    ma: Box<dyn indicators::MA>,
     advice: Advice,
     t: u32,
     t1: u32,

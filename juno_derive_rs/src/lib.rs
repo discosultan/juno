@@ -142,10 +142,10 @@ pub fn derive_signal(input: TokenStream) -> TokenStream {
     TokenStream::from(output)
 }
 
-const STRATEGIES: [&'static str; 3] = [
+const STRATEGIES: [&'static str; 1] = [
     "FourWeekRule",
-    "TripleMA",
-    "DoubleMAStoch",
+    // "TripleMA",
+    // "DoubleMAStoch",
     // "DoubleMA",
     // "SingleMA",
     // "Sig<FourWeekRule>",
@@ -153,14 +153,15 @@ const STRATEGIES: [&'static str; 3] = [
     // "SigOsc<TripleMA,Rsi>",
     // "SigOsc<DoubleMA,Rsi>",
 ];
-const STOP_LOSSES: [&'static str; 3] = [
-    // "Noop",
-    "Basic", "BasicPlusTrailing", "Trailing",
+const STOP_LOSSES: [&'static str; 4] = [
+    "Noop",
+    "Basic",
+    "BasicPlusTrailing",
+    "Trailing",
     // "Legacy",
 ];
-const TAKE_PROFITS: [&'static str; 2] = [
-    // "Noop",
-    "Basic", "Trending",
+const TAKE_PROFITS: [&'static str; 3] = [
+    "Noop", "Basic", "Trending",
     // "Legacy",
 ];
 

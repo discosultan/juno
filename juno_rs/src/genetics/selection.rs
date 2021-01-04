@@ -90,7 +90,7 @@ impl Selection for TournamentSelection {
         }
     }
 }
- 
+
 // Useful for random search.
 pub struct GenerateRandomSelection {}
 
