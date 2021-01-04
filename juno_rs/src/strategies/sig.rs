@@ -23,7 +23,7 @@ pub struct SigParams<S: Chromosome> {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SigParamsContext<S: Chromosome> {
-    pub sig: Option<S>,
+    pub sig: Option<S::Context>,
     pub persistence: Option<u32>,
     #[serde(serialize_with = "serialize_mid_trend_policy_option")]
     #[serde(deserialize_with = "deserialize_mid_trend_policy_option")]

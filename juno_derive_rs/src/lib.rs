@@ -26,7 +26,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 #field_count
             }
 
-            fn generate(rng: &mut StdRng) -> Self {
+            fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
                 Self {
                     #(
                         #generate_field_name: #generate_field_name(rng),
@@ -46,7 +46,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 };
             }
 
-            fn mutate(&mut self, rng: &mut StdRng, i: usize) {
+            fn mutate(&mut self, rng: &mut StdRng, i: usize, ctx: &Self::Context) {
                 match i {
                     #(
                         #mutate_field_index => self.#mutate_field_name = #mutate_field_name(rng),
@@ -89,7 +89,7 @@ pub fn derive_aggregate_chromosome(input: TokenStream) -> TokenStream {
                 )*
             }
 
-            fn generate(rng: &mut StdRng) -> Self {
+            fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
                 Self {
                     #(
                         #generate_field_name: #generate_field_type::generate(rng),
@@ -108,7 +108,7 @@ pub fn derive_aggregate_chromosome(input: TokenStream) -> TokenStream {
                 panic!("index out of bounds");
             }
 
-            fn mutate(&mut self, rng: &mut StdRng, mut i: usize) {
+            fn mutate(&mut self, rng: &mut StdRng, mut i: usize, ctx: &Self::Context) {
                 #(
                     if i < #mutate_field_type::len() {
                         self.#mutate_field_name.mutate(rng, i);
