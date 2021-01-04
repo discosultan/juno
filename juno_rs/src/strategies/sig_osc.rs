@@ -1,4 +1,5 @@
 use super::{
+    AdviceFilters,
     deserialize_mid_trend_policy, serialize_mid_trend_policy, Oscillator, Signal, StdRngExt,
     Strategy,
 };
@@ -44,8 +45,8 @@ where
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SigOscParams<S: Chromosome, O: Chromosome> {
-    pub sig_params: S,
-    pub osc_params: O,
+    pub sig: S,
+    pub osc: O,
     #[serde(serialize_with = "serialize_osc_filter")]
     #[serde(deserialize_with = "deserialize_osc_filter")]
     pub osc_filter: u32,
@@ -62,8 +63,8 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
 
     fn generate(rng: &mut StdRng) -> Self {
         Self {
-            sig_params: S::generate(rng),
-            osc_params: O::generate(rng),
+            sig: S::generate(rng),
+            osc: O::generate(rng),
             osc_filter: gen_osc_filter(rng),
             persistence: gen_persistence(rng),
             mid_trend_policy: rng.gen_mid_trend_policy(),
@@ -72,12 +73,12 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
 
     fn cross(&mut self, other: &mut Self, mut i: usize) {
         if i < S::len() {
-            self.sig_params.cross(&mut other.sig_params, i);
+            self.sig.cross(&mut other.sig, i);
             return;
         }
         i -= S::len();
         if i < O::len() {
-            self.osc_params.cross(&mut other.osc_params, i);
+            self.osc.cross(&mut other.osc, i);
             return;
         }
         i -= O::len();
@@ -91,12 +92,12 @@ impl<S: Chromosome, O: Chromosome> Chromosome for SigOscParams<S, O> {
 
     fn mutate(&mut self, rng: &mut StdRng, mut i: usize) {
         if i < S::len() {
-            self.sig_params.mutate(rng, i);
+            self.sig.mutate(rng, i);
             return;
         }
         i -= S::len();
         if i < O::len() {
-            self.osc_params.mutate(rng, i);
+            self.osc.mutate(rng, i);
             return;
         }
         i -= O::len();
@@ -188,8 +189,8 @@ impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
     type Params = SigOscParams<S::Params, O::Params>;
 
     fn new(params: &Self::Params) -> Self {
-        let sig = S::new(&params.sig_params);
-        let osc = O::new(&params.osc_params);
+        let sig = S::new(&params.sig);
+        let osc = O::new(&params.osc);
         let mid_trend = MidTrend::new(params.mid_trend_policy);
         let persistence = Persistence::new(params.persistence, false);
         Self {

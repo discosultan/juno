@@ -27,6 +27,7 @@ use crate::{
     indicators::{adler32, MA_CHOICES},
     Advice, Candle,
 };
+use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::min;
@@ -92,6 +93,15 @@ impl MidTrend {
         }
         result
     }
+}
+
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+struct PersistenceParams {
+    pub level: u32,
+}
+
+fn level(rng: &mut StdRng) -> u32 {
+    rng.gen_range(0..10)
 }
 
 struct Persistence {
@@ -259,4 +269,15 @@ where
         "smma" => adler32::SMMA,
         _ => panic!("unknown ma representation: {}", representation),
     })
+}
+
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+pub struct MidTrendParams {
+    #[serde(serialize_with = "serialize_mid_trend_policy")]
+    #[serde(deserialize_with = "deserialize_mid_trend_policy")]
+    pub policy: u32,
+}
+
+fn policy(rng: &mut StdRng) -> u32 {
+    rng.gen_mid_trend_policy()
 }
