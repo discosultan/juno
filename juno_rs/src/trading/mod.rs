@@ -15,11 +15,15 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 
 pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
-#[derive(AggregateChromosome, Clone, Debug, Serialize)]
+#[derive(Chromosome, Clone, Debug, Serialize)]
 pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
+    #[chromosome]
     pub trader: TraderParams,
+    #[chromosome]
     pub strategy: T,
+    #[chromosome]
     pub stop_loss: U,
+    #[chromosome]
     pub take_profit: V,
 }
 

@@ -9,10 +9,12 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 
-#[derive(AggregateChromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 pub struct DoubleMAStochParams {
-    pub double_ma_params: DoubleMAParams,
-    pub stoch_params: StochParams,
+    #[chromosome]
+    pub double_ma: DoubleMAParams,
+    #[chromosome]
+    pub stoch: StochParams,
 }
 
 #[derive(Signal)]
@@ -27,8 +29,8 @@ impl Strategy for DoubleMAStoch {
 
     fn new(params: &Self::Params) -> Self {
         Self {
-            double_ma: DoubleMA::new(&params.double_ma_params),
-            stoch: Stoch::new(&params.stoch_params),
+            double_ma: DoubleMA::new(&params.double_ma),
+            stoch: Stoch::new(&params.stoch),
             advice: Advice::None,
         }
     }

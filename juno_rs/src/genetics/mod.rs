@@ -11,7 +11,7 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fmt::Debug, time::Duration};
 
-pub trait Chromosome: Clone + Debug + Send + Serialize + Sync {
+pub trait Chromosome: Clone + Send + Sync {
     type Context;
 
     fn len() -> usize;

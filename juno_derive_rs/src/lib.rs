@@ -1,123 +1,119 @@
 use proc_macro::{TokenStream, TokenTree};
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, parse_str, ItemStruct, TypePath};
+use syn::{Field, ItemStruct, TypePath, parse_macro_input, parse_str};
 
-#[proc_macro_derive(Chromosome)]
+fn is_chromosome(field: &Field) -> bool {
+    field.attrs.iter().any(|attr| attr.path.is_ident("chromosome"))
+}
+
+// Limited such that child chromosomes need to come before any other field.
+#[proc_macro_derive(Chromosome, attributes(chromosome))]
 pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemStruct);
 
-    let name = &input.ident;
-    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-
-    let field_count = input.fields.iter().count();
-    let field_name = input.fields.iter().map(|field| &field.ident);
-
-    let generate_field_name = field_name.clone();
-
-    let cross_field_index = 0..field_count;
-    let cross_field_name = field_name.clone();
-
-    let mutate_field_index = 0..field_count;
-    let mutate_field_name = field_name.clone();
-
-    let output = quote! {
-        impl #impl_generics Chromosome for #name #ty_generics #where_clause {
-            fn len() -> usize {
-                #field_count
-            }
-
-            fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
-                Self {
-                    #(
-                        #generate_field_name: #generate_field_name(rng),
-                    )*
-                }
-            }
-
-            fn cross(&mut self, other: &mut Self, i: usize) {
-                match i {
-                    #(
-                        #cross_field_index => std::mem::swap(
-                            &mut self.#cross_field_name,
-                            &mut other.#cross_field_name,
-                        ),
-                    )*
-                    _ => panic!("index out of bounds"),
-                };
-            }
-
-            fn mutate(&mut self, rng: &mut StdRng, i: usize, ctx: &Self::Context) {
-                match i {
-                    #(
-                        #mutate_field_index => self.#mutate_field_name = #mutate_field_name(rng),
-                    )*
-                    _ => panic!("index out of bounds"),
-                };
-            }
+    // Validate chromosome fields come before regular fields.
+    let mut can_have_chromosome = true;
+    for field in input.fields.iter() {
+        if !is_chromosome(field) {
+            can_have_chromosome = false;
+        } else if !can_have_chromosome  {
+            panic!("Chromosome fields must come before regular fields!");
         }
-    };
-
-    TokenStream::from(output)
-}
-
-#[proc_macro_derive(AggregateChromosome)]
-pub fn derive_aggregate_chromosome(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as ItemStruct);
+    }
 
     let name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
-    let field_name = input.fields.iter().map(|field| &field.ident);
-    let field_type = input.fields.iter().map(|field| &field.ty);
+    // Fields.
+    // `cfield` - field marked as chromosome.
+    // `rfield` - regular field.
 
-    let len_field_type = field_type.clone();
+    let cfield = input.fields.iter().filter(|field| is_chromosome(field));
+    let cfield_name = cfield.clone().map(|field| &field.ident);
+    let cfield_type = cfield.clone().map(|field| &field.ty);
 
-    let generate_field_name = field_name.clone();
-    let generate_field_type = field_type.clone();
+    let rfield = input.fields.iter().filter(|field| !is_chromosome(field));
+    let rfield_name = rfield.clone().map(|field| &field.ident);
+    let rfield_type = rfield.clone().map(|field| &field.ty);
 
-    let cross_field_name = field_name.clone();
-    let cross_field_type = field_type.clone();
+    let len_cfield_type = cfield_type.clone();
+    let len_rfield_count = rfield_type.clone().count();
 
-    let mutate_field_name = field_name.clone();
-    let mutate_field_type = field_type.clone();
+    let generate_cfield_name = cfield_name.clone();
+    let generate_cfield_type = cfield_type.clone();
+    let generate_rfield_name = rfield_name.clone();
+
+    let cross_cfield_name = cfield_name.clone();
+    let cross_cfield_type = cfield_type.clone();
+    let cross_rfield_index = 0..len_rfield_count;
+    let cross_rfield_name = rfield_name.clone();
+
+    let mutate_cfield_name = cfield_name.clone();
+    let mutate_cfield_type = cfield_type.clone();
+    let mutate_rfield_index = 0..len_rfield_count;
+    let mutate_rfield_name = rfield_name.clone();
+
+    // Context.
+    let vis = &input.vis;
+    // input.attrs
 
     let output = quote! {
         impl #impl_generics Chromosome for #name #ty_generics #where_clause {
             fn len() -> usize {
-                0 #(
-                    + #len_field_type::len()
-                )*
+                #(
+                    #len_cfield_type::len() +
+                )* #len_rfield_count
             }
 
-            fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
+            fn generate(rng: &mut StdRng, ctx: &Self::Context, ctx: &Self::Context) -> Self {
                 Self {
                     #(
-                        #generate_field_name: #generate_field_type::generate(rng),
+                        #generate_cfield_name: #generate_cfield_type::generate(rng),
+                    )*
+                    #(
+                        #generate_rfield_name: #generate_rfield_name(rng),
                     )*
                 }
             }
 
             fn cross(&mut self, other: &mut Self, mut i: usize) {
                 #(
-                    if i < #cross_field_type::len() {
-                        self.#cross_field_name.cross(&mut other.#cross_field_name, i);
+                    if i < #cross_cfield_type::len() {
+                        self.#cross_cfield_name.cross(&mut other.#cross_cfield_name, i);
                         return;
                     }
-                    i -= #cross_field_type::len();
+                    i -= #cross_cfield_type::len();
                 )*
-                panic!("index out of bounds");
+                match i {
+                    #(
+                        #cross_rfield_index => std::mem::swap(
+                            &mut self.#cross_rfield_name,
+                            &mut other.#cross_rfield_name,
+                        ),
+                    )*
+                    _ => panic!("index out of bounds"),
+                };
             }
 
             fn mutate(&mut self, rng: &mut StdRng, mut i: usize, ctx: &Self::Context) {
                 #(
-                    if i < #mutate_field_type::len() {
-                        self.#mutate_field_name.mutate(rng, i);
+                    if i < #mutate_cfield_type::len() {
+                        self.#mutate_cfield_name.mutate(rng, i);
                         return;
                     }
-                    i -= #mutate_field_type::len();
+                    i -= #mutate_cfield_type::len();
                 )*
-                panic!("index out of bounds");
+                match i {
+                    #(
+                        #mutate_rfield_index => self.#mutate_rfield_name = #mutate_rfield_name(rng),
+                    )*
+                    _ => panic!("index out of bounds"),
+                };
             }
+        }
+
+        #vis struct #name #ty_generics #where_clause {
+
         }
     };
 
@@ -161,7 +157,9 @@ const STOP_LOSSES: [&'static str; 4] = [
     // "Legacy",
 ];
 const TAKE_PROFITS: [&'static str; 3] = [
-    "Noop", "Basic", "Trending",
+    "Noop",
+    "Basic",
+    "Trending",
     // "Legacy",
 ];
 
