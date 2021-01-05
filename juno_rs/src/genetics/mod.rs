@@ -11,7 +11,7 @@ use rand::prelude::*;
 use serde::Serialize;
 use std::{cmp::Ordering, fmt::Debug, time::Duration};
 
-pub trait Chromosome: Clone + Debug + Send + Serialize + Sync {
+pub trait Chromosome: Clone + Send + Sync {
     fn len() -> usize;
     fn generate(rng: &mut StdRng) -> Self;
     fn cross(&mut self, other: &mut Self, i: usize);
