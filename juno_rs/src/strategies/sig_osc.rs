@@ -95,18 +95,18 @@ fn osc_filter(rng: &mut StdRng) -> u32 {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-pub struct SigOscParamsContext<S: Chromosome, O: Chromosome> {
-    pub sig: Option<S>,
-    pub osc: Option<O>,
-    #[serde(serialize_with = "serialize_osc_filter_option")]
-    #[serde(deserialize_with = "deserialize_osc_filter_option")]
-    pub osc_filter: Option<u32>,
-    pub persistence: Option<u32>,
-    #[serde(serialize_with = "serialize_mid_trend_policy_option")]
-    #[serde(deserialize_with = "deserialize_mid_trend_policy_option")]
-    pub mid_trend_policy: Option<u32>,
-}
+// #[derive(Debug, Deserialize, Serialize)]
+// pub struct SigOscParamsContext<S: Chromosome, O: Chromosome> {
+//     pub sig: Option<S>,
+//     pub osc: Option<O>,
+//     #[serde(serialize_with = "serialize_osc_filter_option")]
+//     #[serde(deserialize_with = "deserialize_osc_filter_option")]
+//     pub osc_filter: Option<u32>,
+//     pub persistence: Option<u32>,
+//     #[serde(serialize_with = "serialize_mid_trend_policy_option")]
+//     #[serde(deserialize_with = "deserialize_mid_trend_policy_option")]
+//     pub mid_trend_policy: Option<u32>,
+// }
 
 #[derive(Signal)]
 pub struct SigOsc<S: Signal, O: Oscillator> {

@@ -54,6 +54,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     let mutate_rfield_name = rfield_name.clone();
 
     // Context.
+    let context_name = format_ident!("{}Context", name);
     let vis = &input.vis;
     // input.attrs
 
@@ -65,7 +66,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 )* #len_rfield_count
             }
 
-            fn generate(rng: &mut StdRng, ctx: &Self::Context, ctx: &Self::Context) -> Self {
+            fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
                 Self {
                     #(
                         #generate_cfield_name: #generate_cfield_type::generate(rng),
@@ -112,7 +113,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
             }
         }
 
-        #vis struct #name #ty_generics #where_clause {
+        #vis struct #context_name #ty_generics #where_clause {
 
         }
     };
