@@ -4,11 +4,11 @@ mod legacy;
 mod noop;
 mod trailing;
 
-pub use basic::{Basic, BasicParams};
+pub use basic::{Basic, BasicParams, BasicParamsContext};
 pub use basic_plus_trailing::{BasicPlusTrailing, BasicPlusTrailingParams};
 pub use legacy::{Legacy, LegacyParams};
 pub use noop::{Noop, NoopParams};
-pub use trailing::{Trailing, TrailingParams};
+pub use trailing::{Trailing, TrailingParams, TrailingParamsContext};
 
 use crate::{genetics::Chromosome, Candle};
 use serde::{de::DeserializeOwned, Serialize};

@@ -8,7 +8,7 @@ pub use algorithm::GeneticAlgorithm;
 
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::{cmp::Ordering, fmt::Debug, time::Duration};
 
 pub trait Chromosome: Clone + Send + Sync {

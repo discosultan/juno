@@ -10,7 +10,7 @@ mod single_ma;
 mod stoch;
 mod triple_ma;
 
-pub use double_ma::{DoubleMA, DoubleMAParams};
+pub use double_ma::{DoubleMA, DoubleMAParams, DoubleMAParamsContext};
 pub use double_ma_2::{DoubleMA2, DoubleMA2Params};
 pub use double_ma_stoch::{DoubleMAStoch, DoubleMAStochParams};
 pub use four_week_rule::{FourWeekRule, FourWeekRuleParams};
@@ -19,7 +19,7 @@ pub use rsi::{Rsi, RsiParams};
 pub use sig::{Sig, SigParams};
 pub use sig_osc::{SigOsc, SigOscParams};
 pub use single_ma::{SingleMA, SingleMAParams};
-pub use stoch::{Stoch, StochParams};
+pub use stoch::{Stoch, StochParams, StochParamsContext};
 pub use triple_ma::{TripleMA, TripleMAParams};
 
 use crate::{
@@ -213,7 +213,10 @@ where
     Ok(str_to_mid_trend_policy(representation))
 }
 
-pub fn serialize_mid_trend_policy_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_mid_trend_policy_option<S>(
+    value: &Option<u32>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {

@@ -1,4 +1,7 @@
-use super::{Basic, BasicParams, StopLoss, Trailing, TrailingParams};
+use super::{
+    Basic, BasicParams, BasicParamsContext, StopLoss, Trailing, TrailingParams,
+    TrailingParamsContext,
+};
 use crate::{genetics::Chromosome, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
@@ -6,15 +9,10 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
 pub struct BasicPlusTrailingParams {
+    #[chromosome]
     pub basic: BasicParams,
+    #[chromosome]
     pub trailing: TrailingParams,
-}
-
-fn basic(rng: &mut StdRng) -> BasicParams {
-    BasicParams::generate(rng)
-}
-fn trailing(rng: &mut StdRng) -> TrailingParams {
-    TrailingParams::generate(rng)
 }
 
 pub struct BasicPlusTrailing {

@@ -95,14 +95,8 @@ fn test_derive_aggregate_generate() {
 fn test_derive_aggregate_mutate() {
     let mut rng = StdRng::seed_from_u64(1);
     let mut x = Aggregate {
-        agg_a: Regular {
-            a: 1,
-            b: 2,
-        },
-        agg_b: Regular {
-            a: 3,
-            b: 4,
-        },
+        agg_a: Regular { a: 1, b: 2 },
+        agg_b: Regular { a: 3, b: 4 },
         c: 5,
     };
 
@@ -125,25 +119,13 @@ fn test_derive_aggregate_mutate() {
 #[test]
 fn test_derive_aggregate_crossover() {
     let mut x1 = Aggregate {
-        agg_a: Regular {
-            a: 1,
-            b: 2,
-        },
-        agg_b: Regular {
-            a: 3,
-            b: 4,
-        },
+        agg_a: Regular { a: 1, b: 2 },
+        agg_b: Regular { a: 3, b: 4 },
         c: 5,
     };
     let mut x2 = Aggregate {
-        agg_a: Regular {
-            a: 6,
-            b: 7,
-        },
-        agg_b: Regular {
-            a: 8,
-            b: 9,
-        },
+        agg_a: Regular { a: 6, b: 7 },
+        agg_b: Regular { a: 8, b: 9 },
         c: 10,
     };
 

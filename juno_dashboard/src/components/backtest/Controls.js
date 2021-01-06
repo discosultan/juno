@@ -153,9 +153,7 @@ export default function Controls({ onBacktest }) {
         variant="contained"
         onClick={() =>
           onBacktest({
-            traderParams: {
-              missedCandlePolicy,
-            },
+            missedCandlePolicy,
             strategy,
             strategyParams: JSON.parse(strategyParams),
             stopLoss,

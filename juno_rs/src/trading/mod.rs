@@ -18,17 +18,11 @@ pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 #[derive(Chromosome, Clone, Debug, Serialize)]
 pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
     #[chromosome]
-    pub trader: TraderParams,
-    #[chromosome]
     pub strategy: T,
     #[chromosome]
     pub stop_loss: U,
     #[chromosome]
     pub take_profit: V,
-}
-
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-pub struct TraderParams {
     #[serde(serialize_with = "serialize_missed_candle_policy")]
     #[serde(deserialize_with = "deserialize_missed_candle_policy")]
     pub missed_candle_policy: u32,
@@ -269,10 +263,15 @@ fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::E
 where
     D: Deserializer<'de>,
 {
-    Ok(str_to_missed_candle_policy(Deserialize::deserialize(deserializer)?))
+    Ok(str_to_missed_candle_policy(Deserialize::deserialize(
+        deserializer,
+    )?))
 }
 
-pub fn serialize_missed_candle_policy_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_missed_candle_policy_option<S>(
+    value: &Option<u32>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -283,7 +282,9 @@ where
 }
 
 #[allow(dead_code)]
-pub fn deserialize_missed_candle_policy_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+pub fn deserialize_missed_candle_policy_option<'de, D>(
+    deserializer: D,
+) -> Result<Option<u32>, D::Error>
 where
     D: Deserializer<'de>,
 {

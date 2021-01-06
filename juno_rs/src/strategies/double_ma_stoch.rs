@@ -1,7 +1,9 @@
 use super::{Oscillator, Signal, Strategy};
 use crate::{
     genetics::Chromosome,
-    strategies::{DoubleMA, DoubleMAParams, Stoch, StochParams},
+    strategies::{
+        DoubleMA, DoubleMAParams, DoubleMAParamsContext, Stoch, StochParams, StochParamsContext,
+    },
     Advice, Candle,
 };
 use juno_derive_rs::*;

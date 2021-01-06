@@ -129,15 +129,18 @@ pub fn timestamp() -> u64 {
 fn str_to_timestamp(representation: &str) -> u64 {
     Err(())
         .or_else(|_| {
-            representation.parse::<DateTime<Utc>>()
+            representation
+                .parse::<DateTime<Utc>>()
                 .map(|x| x.timestamp() as u64 * 1000 + u64::from(x.timestamp_subsec_millis()))
         })
         .or_else(|_| {
-            representation.parse::<NaiveDateTime>()
+            representation
+                .parse::<NaiveDateTime>()
                 .map(|x| x.timestamp() as u64 * 1000 + u64::from(x.timestamp_subsec_millis()))
         })
         .or_else(|_| {
-            representation.parse::<NaiveDate>()
+            representation
+                .parse::<NaiveDate>()
                 .map(|x| x.and_hms(0, 0, 0).timestamp() as u64 * 1000)
         })
         .expect("parsed timestamp")

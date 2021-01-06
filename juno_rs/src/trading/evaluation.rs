@@ -118,7 +118,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
             2,
             self.interval,
             self.quote,
-            chromosome.trader.missed_candle_policy,
+            chromosome.missed_candle_policy,
             true,
             true,
         );

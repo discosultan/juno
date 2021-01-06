@@ -29,15 +29,6 @@ fn mid_trend_policy(rng: &mut StdRng) -> u32 {
     rng.gen_mid_trend_policy()
 }
 
-// #[derive(Debug, Deserialize, Serialize)]
-// pub struct SigParamsContext<S: Chromosome> {
-//     pub sig: Option<S::Context>,
-//     pub persistence: Option<u32>,
-//     #[serde(serialize_with = "serialize_mid_trend_policy_option")]
-//     #[serde(deserialize_with = "deserialize_mid_trend_policy_option")]
-//     pub mid_trend_policy: Option<u32>,
-// }
-
 #[derive(Signal)]
 pub struct Sig<S: Signal> {
     sig: S,

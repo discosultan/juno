@@ -8,6 +8,7 @@ pub trait Selection {
         parents: &[Individual<T>],
         offsprings: &mut Vec<Individual<T>>,
         rate: f32,
+        ctx: &T::Context,
     );
 }
 
@@ -29,6 +30,7 @@ impl Selection for EliteSelection {
         parents: &[Individual<T>],
         offsprings: &mut Vec<Individual<T>>,
         rate: f32,
+        _ctx: &T::Context,
     ) {
         debug_assert!(rate <= 1.0);
 
@@ -75,6 +77,7 @@ impl Selection for TournamentSelection {
         parents: &[Individual<T>],
         offsprings: &mut Vec<Individual<T>>,
         rate: f32,
+        _ctx: &T::Context,
     ) {
         debug_assert!(self.allow_winner_compete_next_tournament || rate <= 1.0);
 
@@ -101,12 +104,13 @@ impl Selection for GenerateRandomSelection {
         parents: &[Individual<T>],
         offsprings: &mut Vec<Individual<T>>,
         rate: f32,
+        ctx: &T::Context,
     ) {
         debug_assert!(rate == 1.0);
 
         let count = (parents.len() as f32 * rate) as usize;
         for _ in 0..count {
-            offsprings.push(Individual::generate(rng))
+            offsprings.push(Individual::generate(rng, ctx))
         }
     }
 }
