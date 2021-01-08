@@ -173,7 +173,7 @@ class Binance(Exchange):
 
             base_levels = base['levelDetails']
             if len(base_levels) == 0:
-                _log.warning(
+                _log.info(
                     f'no isolated margin borrow info for {base_asset}-{quote_asset} '
                     f'{base_asset} asset'
                 )
@@ -182,7 +182,7 @@ class Binance(Exchange):
 
             quote_levels = quote['levelDetails']
             if len(quote_levels) == 0:
-                _log.warning(
+                _log.info(
                     f'no isolated margin borrow info for {base_asset}-{quote_asset} '
                     f'{quote_asset} asset'
                 )
