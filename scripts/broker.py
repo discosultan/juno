@@ -11,8 +11,8 @@ from juno.storages import SQLite
 from juno.utils import get_module_type, unpack_symbol
 
 parser = argparse.ArgumentParser()
-parser.add_argument('side', nargs='?', type=lambda s: Side[s.upper()], default=Side.BUY)
-parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','), default='eth-btc')
+parser.add_argument('side', nargs='?', type=lambda s: Side[s.upper()])
+parser.add_argument('symbols', nargs='?', type=lambda s: s.split(','))
 parser.add_argument('-b', '--broker', default='limit')
 parser.add_argument('-e', '--exchange', default='binance')
 parser.add_argument('-a', '--account', default='spot')
