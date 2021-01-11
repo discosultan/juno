@@ -251,7 +251,7 @@ fn str_to_missed_candle_policy(representation: &str) -> u32 {
     }
 }
 
-fn serialize_missed_candle_policy<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
+pub fn serialize_missed_candle_policy<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -259,7 +259,7 @@ where
 }
 
 #[allow(dead_code)]
-fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
+pub fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
