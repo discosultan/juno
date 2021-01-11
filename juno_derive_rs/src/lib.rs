@@ -103,7 +103,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     } else {
         quote! { <#(#generic_ty_idents),*> }
     };
-    let ctx_generic_ty_lala = if generic_ty_idents.len() == 0 {
+    let ctx_generic_ty_ctx = if generic_ty_idents.len() == 0 {
         quote! {}
     } else {
         quote! { <#(#generic_ty_idents::Context),*> }
@@ -154,7 +154,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
         }
 
         impl #impl_generics Chromosome for #name #ty_generics #where_clause {
-            type Context = #ctx_name #ctx_generic_ty_lala;
+            type Context = #ctx_name #ctx_generic_ty_ctx;
 
             fn len() -> usize {
                 #(
