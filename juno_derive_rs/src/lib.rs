@@ -85,7 +85,6 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 if let Some(type_ident) = type_path.path.get_ident() {
                     // Check if generic type.
                     if generic_ty_idents.iter().any(|&ident| ident == type_ident) {
-                        // return quote! { #field_ty::Context };
                         return quote! { #field_ty };
                     }
                     let type_ident = format_ident!("{}Context", type_ident);
@@ -97,7 +96,6 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
             quote! { Option<#field_ty> }
         }
     });
-    // let ctx_generic_ty_ident = generic_ty_idents.iter().clone();
     let ctx_generic_ty = if generic_ty_idents.len() == 0 {
         quote! {}
     } else {
