@@ -1,9 +1,9 @@
 use proc_macro::{TokenStream, TokenTree};
 use quote::{format_ident, quote};
-use std::borrow::Cow;
+use std::{borrow::Cow, iter::once};
 use syn::{
-    parse_macro_input, parse_str, Attribute, Field, GenericParam, Ident, ItemStruct, Lit, Meta,
-    NestedMeta, Type, TypePath,
+    parse_macro_input, parse_quote, parse_str, Attribute, Field, GenericParam, Ident, ItemStruct,
+    Lit, Meta, NestedMeta, Type, TypePath,
 };
 
 fn is_chromosome(field: &Field) -> bool {
@@ -107,7 +107,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
         quote! { <#(#generic_ty_idents::Context),*> }
     };
     let ctx_field_attrs = ctx_field.clone().map(|field| {
-        field
+        let field_attrs = field
             .attrs
             .iter()
             .filter(|attr| !attr.path.is_ident("chromosome"))
@@ -138,7 +138,11 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 }
                 Cow::Borrowed(attr)
             })
-            .collect::<Vec<Cow<Attribute>>>()
+            // Add #[serde(default)].
+            .chain(once(Cow::Owned(parse_quote! { #[serde(default)] })))
+            .collect::<Vec<Cow<Attribute>>>();
+
+        field_attrs
     });
 
     let output = quote! {
@@ -163,10 +167,14 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
             fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
                 Self {
                     #(
-                        #generate_cfield_name: #generate_cfield_type::generate(rng, &ctx.#generate_cfield_name),
+                        #generate_cfield_name: #generate_cfield_type::generate(
+                            rng,
+                            &ctx.#generate_cfield_name,
+                        ),
                     )*
                     #(
-                        #generate_rfield_name: #generate_rfield_name(rng),
+                        #generate_rfield_name: ctx.#generate_rfield_name
+                            .unwrap_or_else(|| #generate_rfield_name(rng)),
                     )*
                 }
             }
@@ -200,7 +208,8 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 )*
                 match i {
                     #(
-                        #mutate_rfield_index => self.#mutate_rfield_name = #mutate_rfield_name(rng),
+                        #mutate_rfield_index => self.#mutate_rfield_name =
+                            ctx.#mutate_rfield_name.unwrap_or_else(|| #mutate_rfield_name(rng)),
                     )*
                     _ => panic!("index out of bounds"),
                 };

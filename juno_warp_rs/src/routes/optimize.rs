@@ -41,7 +41,8 @@ struct Params<T: Default> {
 
     validation_symbols: Vec<String>,
 
-    ctx: Option<T>,
+    #[serde(default)]
+    context: Option<T>,
 }
 
 impl<T: Default> Params<T> {
@@ -190,7 +191,7 @@ where <TradingChromosome<
         args.hall_of_fame_size,
         args.seed,
         on_generation,
-        &args.ctx.as_ref().unwrap_or(&default),
+        &args.context.as_ref().unwrap_or(&default),
     );
     Ok(evolution)
 }

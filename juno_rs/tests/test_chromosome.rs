@@ -1,8 +1,9 @@
 use juno_derive_rs::*;
 use juno_rs::genetics::Chromosome;
+use serde::{Deserialize, Serialize};
 use rand::prelude::*;
 
-#[derive(Chromosome, Clone, Debug, PartialEq)]
+#[derive(Chromosome, Clone, Debug, Default, PartialEq)]
 struct Regular {
     a: u32,
     b: u32,
@@ -24,7 +25,7 @@ fn test_derive_regular_len() {
 fn test_derive_regular_generate() {
     let mut rng = StdRng::seed_from_u64(1);
 
-    let x = Regular::generate(&mut rng);
+    let x = Regular::generate(&mut rng, &Default::default());
     assert_eq!(x.a, 10);
     assert_eq!(x.b, 20);
 }
@@ -34,11 +35,11 @@ fn test_derive_regular_mutate() {
     let mut rng = StdRng::seed_from_u64(1);
     let mut x = Regular { a: 1, b: 2 };
 
-    x.mutate(&mut rng, 0);
+    x.mutate(&mut rng, 0, &Default::default());
     assert_eq!(x.a, 10);
     assert_eq!(x.b, 2);
 
-    x.mutate(&mut rng, 1);
+    x.mutate(&mut rng, 1, &Default::default());
     assert_eq!(x.a, 10);
     assert_eq!(x.b, 20);
 }
@@ -83,7 +84,7 @@ fn test_derive_aggregate_len() {
 fn test_derive_aggregate_generate() {
     let mut rng = StdRng::seed_from_u64(1);
 
-    let x = Aggregate::generate(&mut rng);
+    let x = Aggregate::generate(&mut rng, &Default::default());
     assert_eq!(x.agg_a.a, 10);
     assert_eq!(x.agg_a.b, 20);
     assert_eq!(x.agg_b.a, 10);
@@ -100,17 +101,17 @@ fn test_derive_aggregate_mutate() {
         c: 5,
     };
 
-    x.mutate(&mut rng, 1);
+    x.mutate(&mut rng, 1, &Default::default());
     assert_eq!(x.agg_a, Regular { a: 1, b: 20 });
     assert_eq!(x.agg_b, Regular { a: 3, b: 4 });
     assert_eq!(x.c, 5);
 
-    x.mutate(&mut rng, 2);
+    x.mutate(&mut rng, 2, &Default::default());
     assert_eq!(x.agg_a, Regular { a: 1, b: 20 });
     assert_eq!(x.agg_b, Regular { a: 10, b: 4 });
     assert_eq!(x.c, 5);
 
-    x.mutate(&mut rng, 4);
+    x.mutate(&mut rng, 4, &Default::default());
     assert_eq!(x.agg_a, Regular { a: 1, b: 20 });
     assert_eq!(x.agg_b, Regular { a: 10, b: 4 });
     assert_eq!(x.c, 30);
