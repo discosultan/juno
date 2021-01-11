@@ -1,9 +1,16 @@
 use proc_macro::{TokenStream, TokenTree};
 use quote::{format_ident, quote};
-use syn::{Field, ItemStruct, TypePath, parse_macro_input, parse_str};
+use std::{borrow::Cow, iter::once};
+use syn::{
+    parse_macro_input, parse_quote, parse_str, Attribute, Field, GenericParam, Ident, ItemStruct,
+    Lit, Meta, NestedMeta, Type, TypePath,
+};
 
 fn is_chromosome(field: &Field) -> bool {
-    field.attrs.iter().any(|attr| attr.path.is_ident("chromosome"))
+    field
+        .attrs
+        .iter()
+        .any(|attr| attr.path.is_ident("chromosome"))
 }
 
 // Limited such that child chromosomes need to come before any other field.
@@ -16,7 +23,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     for field in input.fields.iter() {
         if !is_chromosome(field) {
             can_have_chromosome = false;
-        } else if !can_have_chromosome  {
+        } else if !can_have_chromosome {
             panic!("Chromosome fields must come before regular fields!");
         }
     }
@@ -53,21 +60,120 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     let mutate_rfield_index = 0..len_rfield_count;
     let mutate_rfield_name = rfield_name.clone();
 
+    // Context.
+    let generic_ty_idents = input
+        .generics
+        .params
+        .iter()
+        .filter_map(|generic| match generic {
+            GenericParam::Type(type_) => Some(&type_.ident),
+            _ => None,
+        })
+        .collect::<Vec<&Ident>>();
+    let ctx_attrs = &input.attrs;
+    let ctx_vis = &input.vis;
+    let ctx_name = format_ident!("{}Context", name);
+    let ctx_field = input.fields.iter();
+    let ctx_field_vis = ctx_field.clone().map(|field| &field.vis);
+    let ctx_field_name = ctx_field.clone().map(|field| &field.ident);
+    let ctx_field_type = ctx_field.clone().map(|field| {
+        let field_ty = &field.ty;
+        if is_chromosome(field) {
+            if let Type::Path(type_path) = field_ty {
+                if let Some(type_ident) = type_path.path.get_ident() {
+                    // Is generic type.
+                    if generic_ty_idents.iter().any(|&ident| ident == type_ident) {
+                        return quote! { #field_ty };
+                    } else {
+                        let type_ident = format_ident!("{}Context", type_ident);
+                        return quote! { #type_ident };
+                    }
+                }
+            }
+            panic!("Not implemented");
+        } else {
+            quote! { Option<#field_ty> }
+        }
+    });
+    let ctx_generic_ty = if generic_ty_idents.len() == 0 {
+        quote! {}
+    } else {
+        quote! { <#(#generic_ty_idents),*> }
+    };
+    let ctx_generic_ty_ctx = if generic_ty_idents.len() == 0 {
+        quote! {}
+    } else {
+        quote! { <#(#generic_ty_idents::Context),*> }
+    };
+    let ctx_field_attrs = ctx_field.clone().map(|field| {
+        let field_attrs = field
+            .attrs
+            .iter()
+            .filter(|attr| !attr.path.is_ident("chromosome"))
+            .map(|attr| {
+                if attr.path.is_ident("serde") {
+                    let meta = attr.parse_meta().unwrap();
+                    if let Meta::List(meta) = meta {
+                        if let NestedMeta::Meta(meta) = &meta.nested[0] {
+                            if let Meta::NameValue(meta) = meta {
+                                if meta.path.is_ident("serialize_with")
+                                    || meta.path.is_ident("deserialize_with")
+                                {
+                                    if let Lit::Str(value) = &meta.lit {
+                                        let meta_path = &meta.path;
+                                        let meta_lit = format!("{}_option", value.value());
+                                        return Cow::Owned(Attribute {
+                                            bracket_token: attr.bracket_token,
+                                            pound_token: attr.pound_token,
+                                            style: attr.style,
+                                            path: attr.path.clone(),
+                                            tokens: quote! { (#meta_path = #meta_lit) },
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Cow::Borrowed(attr)
+            })
+            // Add `#[serde(default)]`.
+            .chain(once(Cow::Owned(parse_quote! { #[serde(default)] })))
+            .collect::<Vec<Cow<Attribute>>>();
+
+        field_attrs
+    });
+
     let output = quote! {
+        #(#ctx_attrs)*
+        #[derive(Default, Deserialize, Serialize)]
+        #ctx_vis struct #ctx_name #ctx_generic_ty {
+            #(
+                #(#ctx_field_attrs)*
+                #ctx_field_vis #ctx_field_name: #ctx_field_type,
+            )*
+        }
+
         impl #impl_generics Chromosome for #name #ty_generics #where_clause {
+            type Context = #ctx_name #ctx_generic_ty_ctx;
+
             fn len() -> usize {
                 #(
                     #len_cfield_type::len() +
                 )* #len_rfield_count
             }
 
-            fn generate(rng: &mut StdRng) -> Self {
+            fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
                 Self {
                     #(
-                        #generate_cfield_name: #generate_cfield_type::generate(rng),
+                        #generate_cfield_name: #generate_cfield_type::generate(
+                            rng,
+                            &ctx.#generate_cfield_name,
+                        ),
                     )*
                     #(
-                        #generate_rfield_name: #generate_rfield_name(rng),
+                        #generate_rfield_name: ctx.#generate_rfield_name
+                            .unwrap_or_else(|| #generate_rfield_name(rng)),
                     )*
                 }
             }
@@ -91,17 +197,18 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 };
             }
 
-            fn mutate(&mut self, rng: &mut StdRng, mut i: usize) {
+            fn mutate(&mut self, rng: &mut StdRng, mut i: usize, ctx: &Self::Context) {
                 #(
                     if i < #mutate_cfield_type::len() {
-                        self.#mutate_cfield_name.mutate(rng, i);
+                        self.#mutate_cfield_name.mutate(rng, i, &ctx.#mutate_cfield_name);
                         return;
                     }
                     i -= #mutate_cfield_type::len();
                 )*
                 match i {
                     #(
-                        #mutate_rfield_index => self.#mutate_rfield_name = #mutate_rfield_name(rng),
+                        #mutate_rfield_index => self.#mutate_rfield_name =
+                            ctx.#mutate_rfield_name.unwrap_or_else(|| #mutate_rfield_name(rng)),
                     )*
                     _ => panic!("index out of bounds"),
                 };
@@ -149,9 +256,7 @@ const STOP_LOSSES: [&'static str; 4] = [
     // "Legacy",
 ];
 const TAKE_PROFITS: [&'static str; 3] = [
-    "Noop",
-    "Basic",
-    "Trending",
+    "Noop", "Basic", "Trending",
     // "Legacy",
 ];
 

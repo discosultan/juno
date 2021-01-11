@@ -29,7 +29,6 @@ export default function Dashboard() {
         validationSymbols: [],
       },
       config: {
-        trader: args.traderParams,
         strategy: {
           type: args.strategy,
           ...args.strategyParams,
@@ -42,6 +41,7 @@ export default function Dashboard() {
           type: args.takeProfit,
           ...args.takeProfitParams,
         },
+        missedCandlePolicy: args.missedCandlePolicy,
       },
       symbolStats: result.symbolStats,
       title: args.strategy,

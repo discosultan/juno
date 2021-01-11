@@ -1,5 +1,6 @@
 use super::{
-    deserialize_mid_trend_policy, serialize_mid_trend_policy, Signal, StdRngExt, Strategy,
+    deserialize_mid_trend_policy, deserialize_mid_trend_policy_option, serialize_mid_trend_policy,
+    serialize_mid_trend_policy_option, Signal, StdRngExt, Strategy,
 };
 use crate::{
     genetics::Chromosome,

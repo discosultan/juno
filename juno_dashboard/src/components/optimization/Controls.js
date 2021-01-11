@@ -3,8 +3,10 @@ import Checkbox from '@material-ui/core/Checkbox';
 import FormControlLabel from '@material-ui/core/FormControlLabel';
 import MenuItem from '@material-ui/core/MenuItem';
 import Button from '@material-ui/core/Button';
+import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
+import { makeStyles } from '@material-ui/core/styles';
 import useLocalStorageStateImpl from 'use-local-storage-state';
 import DatePicker from '../DatePicker';
 import { Intervals, StopLosses, Strategies, Symbols, TakeProfits } from '../../info';
@@ -12,6 +14,13 @@ import { Intervals, StopLosses, Strategies, Symbols, TakeProfits } from '../../i
 function useLocalStorageState(key, defaultValue) {
   return useLocalStorageStateImpl(`optimization_controls_${key}`, defaultValue);
 }
+
+const useStyles = makeStyles((_theme) => ({
+  textarea: {
+    resize: 'vertical',
+    width: '100%',
+  },
+}));
 
 export default function Controls({ onOptimize }) {
   const [strategy, setStrategy] = useLocalStorageState('strategy', 'fourweekrule');
@@ -35,6 +44,9 @@ export default function Controls({ onOptimize }) {
   const [hallOfFameSize, setHallOfFameSize] = useLocalStorageState('hallOfFameSize', 1);
   const [randomizeSeed, setRandomizeSeed] = useLocalStorageState('randomizeSeed', true);
   const [seed, setSeed] = useLocalStorageState('seed', 0);
+  const [context, setContext] = useLocalStorageState('context', '{\n}');
+
+  const classes = useStyles();
 
   return (
     <form noValidate autoComplete="off">
@@ -199,6 +211,15 @@ export default function Controls({ onOptimize }) {
         onChange={(e) => setSeed(e.target.valueAsNumber)}
       />
 
+      <TextareaAutosize
+        id="context"
+        className={classes.textarea}
+        aria-label={`context`}
+        rowsMin={3}
+        value={context}
+        onChange={(e) => setContext(e.target.value)}
+      />
+
       <br />
       <br />
       <Button
@@ -220,6 +241,7 @@ export default function Controls({ onOptimize }) {
             generations,
             hallOfFameSize,
             seed: randomizeSeed ? null : seed,
+            context: JSON.parse(context),
           })
         }
       >

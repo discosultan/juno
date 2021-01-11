@@ -2,7 +2,7 @@ use super::Chromosome;
 use rand::prelude::*;
 
 pub trait Mutation {
-    fn mutate<T: Chromosome>(&self, rng: &mut StdRng, chromosome: &mut T);
+    fn mutate<T: Chromosome>(&self, rng: &mut StdRng, chromosome: &mut T, ctx: &T::Context);
 }
 
 pub struct UniformMutation {
@@ -27,10 +27,10 @@ impl Default for UniformMutation {
 }
 
 impl Mutation for UniformMutation {
-    fn mutate<T: Chromosome>(&self, rng: &mut StdRng, chromosome: &mut T) {
+    fn mutate<T: Chromosome>(&self, rng: &mut StdRng, chromosome: &mut T, ctx: &T::Context) {
         for i in 0..T::len() {
             if rng.gen::<f32>() < self.mutation_probability {
-                chromosome.mutate(rng, i);
+                chromosome.mutate(rng, i, ctx);
             }
         }
     }

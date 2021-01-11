@@ -5,6 +5,8 @@ use crate::genetics::{
 use rand::prelude::*;
 use std::time;
 
+use super::Chromosome;
+
 pub struct GeneticAlgorithm<TE, TS, TC, TM, TR>
 where
     TE: Evaluation,
@@ -51,13 +53,16 @@ where
         hall_of_fame_size: usize,
         seed: Option<u64>,
         on_generation: fn(usize, &Generation<TE::Chromosome>) -> (),
+        // TODO: Can be simplified after https://github.com/rust-lang/rust/issues/38078
+        ctx: &<<TE as Evaluation>::Chromosome as Chromosome>::Context,
     ) -> Evolution<TE::Chromosome> {
         assert!(population_size >= 2);
         assert!(hall_of_fame_size >= 1);
 
         let seed = match seed {
             Some(seed) => seed,
-            None => rand::thread_rng().gen_range(0..=u64::MAX),
+            // Must EXCLUDE `u64::MAX`, therefore, exclusive range.
+            None => rand::thread_rng().gen_range(0..u64::MAX),
         };
 
         let mut rng = StdRng::seed_from_u64(seed);
@@ -67,7 +72,7 @@ where
         let mut timings = Timings::default();
 
         let mut parents = (0..population_size)
-            .map(|_| Individual::generate(&mut rng))
+            .map(|_| Individual::generate(&mut rng, ctx))
             .collect();
         self.evaluate_and_sort_by_fitness_desc(&mut parents, &mut timings);
         let generation = Generation {
@@ -88,6 +93,7 @@ where
                 &mut offsprings,
                 population_size,
                 &mut timings,
+                ctx,
             );
 
             std::mem::swap(&mut parents, &mut offsprings);
@@ -111,11 +117,17 @@ where
         offsprings: &mut Vec<Individual<TE::Chromosome>>,
         population_size: usize,
         timings: &mut Timings,
+        ctx: &<<TE as Evaluation>::Chromosome as Chromosome>::Context,
     ) {
         // select
         let start = time::Instant::now();
-        self.selection
-            .select(rng, parents, offsprings, self.reinsertion.selection_rate());
+        self.selection.select(
+            rng,
+            parents,
+            offsprings,
+            self.reinsertion.selection_rate(),
+            ctx,
+        );
         timings.selection = start.elapsed();
 
         // crossover & mutation
@@ -139,8 +151,8 @@ where
             // );
             self.crossover.cross(rng, chromosome1, chromosome2);
             // mutate
-            self.mutation.mutate(rng, chromosome1);
-            self.mutation.mutate(rng, chromosome2);
+            self.mutation.mutate(rng, chromosome1, ctx);
+            self.mutation.mutate(rng, chromosome2, ctx);
             // // reinsert
             // offspring.push(child1);
             // offspring.push(child2);

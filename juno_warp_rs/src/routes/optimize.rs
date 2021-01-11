@@ -1,5 +1,6 @@
 use super::custom_reject;
 use anyhow::Result;
+use bytes::buf::Buf;
 use juno_derive_rs::*;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
@@ -13,23 +14,20 @@ use juno_rs::{
     storages,
     strategies::*,
     take_profit::TakeProfit,
-    trading::{trade, BasicEvaluation, TradingChromosome, TradingSummary},
+    trading::{
+        trade, BasicEvaluation, TradingChromosome, TradingChromosomeContext, TradingSummary,
+    },
 };
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
-use warp::{reply::Json, Filter, Rejection};
+use warp::{hyper::body::Bytes, reply::Json, Filter, Rejection};
 
-#[derive(Debug, Deserialize)]
-struct Params {
+#[derive(Deserialize)]
+struct Params<T: Default> {
     population_size: usize,
     generations: usize,
     hall_of_fame_size: usize,
     seed: Option<u64>,
-
-    // TODO: Move to path params similar to backtest route?
-    strategy: String,
-    stop_loss: String,
-    take_profit: String,
 
     exchange: String,
     #[serde(deserialize_with = "deserialize_interval")]
@@ -42,9 +40,12 @@ struct Params {
     training_symbols: Vec<String>,
 
     validation_symbols: Vec<String>,
+
+    #[serde(default)]
+    context: Option<T>,
 }
 
-impl Params {
+impl<T: Default> Params<T> {
     fn iter_symbols(&self) -> impl Iterator<Item = &String> {
         self.training_symbols.iter().chain(&self.validation_symbols)
     }
@@ -73,18 +74,32 @@ struct EvolutionStats<T: Chromosome, U: Chromosome, V: Chromosome> {
 pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path("optimize"))
-        .and(warp::body::json())
-        .and_then(|args: Params| async move {
-            // TODO: Improve the macro so we don't need to extract variables like this.
-            let strategy = &args.strategy;
-            let stop_loss = &args.stop_loss;
-            let take_profit = &args.take_profit;
-            route_strategy!(process, strategy, stop_loss, take_profit, args)
-                .map_err(|error| custom_reject(error)) // TODO: return 400
-        })
+        .and(warp::path::param()) // strategy
+        .and(warp::path::param()) // stop_loss
+        .and(warp::path::param()) // take_profit
+        .and(warp::body::bytes())
+        .and_then(
+            |strategy: String, stop_loss: String, take_profit: String, bytes: Bytes| async move {
+                route_strategy!(process, strategy, stop_loss, take_profit, bytes)
+                    .map_err(|error| custom_reject(error)) // TODO: return 400
+            },
+        )
 }
 
-fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> {
+fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: Bytes) -> Result<Json>
+where
+    <<T as Strategy>::Params as Chromosome>::Context: Default + DeserializeOwned,
+    <<U as StopLoss>::Params as Chromosome>::Context: Default + DeserializeOwned,
+    <<V as TakeProfit>::Params as Chromosome>::Context: Default + DeserializeOwned,
+{
+    let args: Params<
+        TradingChromosomeContext<
+            <<T as Strategy>::Params as Chromosome>::Context,
+            <<U as StopLoss>::Params as Chromosome>::Context,
+            <<V as TakeProfit>::Params as Chromosome>::Context,
+        >,
+    > = serde_json::from_reader(bytes.reader())?;
+
     let evolution = optimize::<T, U, V>(&args)?;
     let mut best_fitnesses = vec![f64::NAN; args.hall_of_fame_size];
     let gen_stats = evolution
@@ -113,7 +128,7 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> 
                         .map(|symbol| {
                             let summary =
                                 backtest::<T, U, V>(&args, symbol, &ind.chromosome).unwrap();
-                            let stats = get_stats(&args, symbol, &summary).unwrap();
+                            let stats = get_stats::<T, U, V>(&args, symbol, &summary).unwrap();
                             (symbol.to_owned(), stats) // TODO: Return &String instead.
                         })
                         .collect::<HashMap<String, TradingStats>>();
@@ -135,8 +150,19 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(args: Params) -> Result<Json> 
 }
 
 fn optimize<T: Signal, U: StopLoss, V: TakeProfit>(
-    args: &Params,
-) -> Result<Evolution<TradingChromosome<T::Params, U::Params, V::Params>>> {
+    args: &Params<
+        <TradingChromosome<
+            <T as Strategy>::Params,
+            <U as StopLoss>::Params,
+            <V as TakeProfit>::Params,
+        > as Chromosome>::Context,
+    >,
+) -> Result<Evolution<TradingChromosome<T::Params, U::Params, V::Params>>>
+where <TradingChromosome<
+    <T as Strategy>::Params,
+    <U as StopLoss>::Params,
+    <V as TakeProfit>::Params
+> as Chromosome>::Context: Default + DeserializeOwned{
     let algo = GeneticAlgorithm::new(
         BasicEvaluation::<T, U, V>::new(
             &args.exchange,
@@ -153,12 +179,19 @@ fn optimize<T: Signal, U: StopLoss, V: TakeProfit>(
         reinsertion::EliteReinsertion::new(0.75),
         // reinsertion::PureReinsertion {}, // For random search.
     );
+    // TODO: Create this struct only if needed.
+    let default = <TradingChromosome<
+        <T as Strategy>::Params,
+        <U as StopLoss>::Params,
+        <V as TakeProfit>::Params,
+    > as Chromosome>::Context::default();
     let evolution = algo.evolve(
         args.population_size,
         args.generations,
         args.hall_of_fame_size,
         args.seed,
         on_generation,
+        &args.context.as_ref().unwrap_or(&default),
     );
     Ok(evolution)
 }
@@ -168,11 +201,23 @@ fn on_generation<T: Chromosome>(nr: usize, gen: &juno_rs::genetics::Generation<T
     println!("{:?}", gen.timings);
 }
 
-fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
-    args: &Params,
+fn backtest<T: Signal, U: StopLoss, V: TakeProfit>
+(
+    args: &Params<
+        <TradingChromosome<
+            <T as Strategy>::Params,
+            <U as StopLoss>::Params,
+            <V as TakeProfit>::Params,
+        > as Chromosome>::Context,
+    >,
     symbol: &str,
     chrom: &TradingChromosome<T::Params, U::Params, V::Params>,
-) -> Result<TradingSummary> {
+) -> Result<TradingSummary>
+where <TradingChromosome<
+    <T as Strategy>::Params,
+    <U as StopLoss>::Params,
+    <V as TakeProfit>::Params
+> as Chromosome>::Context: Default + DeserializeOwned{
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
@@ -188,13 +233,28 @@ fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
         2,
         args.interval,
         args.quote,
-        chrom.trader.missed_candle_policy,
+        chrom.missed_candle_policy,
         true,
         true,
     ))
 }
 
-fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<TradingStats> {
+fn get_stats<T: Signal, U: StopLoss, V: TakeProfit>(
+    args: &Params<
+        <TradingChromosome<
+            <T as Strategy>::Params,
+            <U as StopLoss>::Params,
+            <V as TakeProfit>::Params,
+        > as Chromosome>::Context,
+    >,
+    symbol: &str,
+    summary: &TradingSummary,
+) -> Result<TradingStats>
+where <TradingChromosome<
+    <T as Strategy>::Params,
+    <U as StopLoss>::Params,
+    <V as TakeProfit>::Params
+> as Chromosome>::Context: Default + DeserializeOwned{
     let stats_interval = DAY_MS;
 
     // Stats base.

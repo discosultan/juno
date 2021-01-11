@@ -1,6 +1,9 @@
 use super::TakeProfit;
 use crate::{
-    easing::{deserialize_easing, serialize_easing, tween, StdRngExt},
+    easing::{
+        deserialize_easing, deserialize_easing_option, serialize_easing, serialize_easing_option,
+        tween, StdRngExt,
+    },
     genetics::Chromosome,
     indicators::Adx,
     math::lerp,

@@ -1,4 +1,7 @@
-use super::{deserialize_ma, serialize_ma, Signal, StdRngExt, Strategy};
+use super::{
+    deserialize_ma, deserialize_ma_option, serialize_ma, serialize_ma_option, Signal, StdRngExt,
+    Strategy,
+};
 use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Candle};
 use bounded_vec_deque::BoundedVecDeque;
 use juno_derive_rs::*;

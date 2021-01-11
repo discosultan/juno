@@ -18,17 +18,11 @@ pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 #[derive(Chromosome, Clone, Debug, Serialize)]
 pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
     #[chromosome]
-    pub trader: TraderParams,
-    #[chromosome]
     pub strategy: T,
     #[chromosome]
     pub stop_loss: U,
     #[chromosome]
     pub take_profit: V,
-}
-
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-pub struct TraderParams {
     #[serde(serialize_with = "serialize_missed_candle_policy")]
     #[serde(deserialize_with = "deserialize_missed_candle_policy")]
     pub missed_candle_policy: u32,
@@ -236,26 +230,17 @@ impl TradingSummary {
     }
 }
 
-fn serialize_missed_candle_policy<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let representation = match *value {
+fn missed_candle_policy_to_str(value: u32) -> &'static str {
+    match value {
         MISSED_CANDLE_POLICY_IGNORE => "ignore",
         MISSED_CANDLE_POLICY_LAST => "last",
         MISSED_CANDLE_POLICY_RESTART => "restart",
         _ => panic!("unknown missed candle policy value: {}", value),
-    };
-    serializer.serialize_str(representation)
+    }
 }
 
-#[allow(dead_code)]
-fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(match representation.as_ref() {
+fn str_to_missed_candle_policy(representation: &str) -> u32 {
+    match representation {
         "ignore" => MISSED_CANDLE_POLICY_IGNORE,
         "last" => MISSED_CANDLE_POLICY_LAST,
         "restart" => MISSED_CANDLE_POLICY_RESTART,
@@ -263,5 +248,43 @@ where
             "unknown missed candle policy representation: {}",
             representation
         ),
-    })
+    }
+}
+
+pub fn serialize_missed_candle_policy<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(missed_candle_policy_to_str(*value))
+}
+
+pub fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(str_to_missed_candle_policy(&representation))
+}
+
+pub fn serialize_missed_candle_policy_option<S>(
+    value: &Option<u32>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => serializer.serialize_str(missed_candle_policy_to_str(*value)),
+        None => serializer.serialize_none(),
+    }
+}
+
+pub fn deserialize_missed_candle_policy_option<'de, D>(
+    deserializer: D,
+) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_missed_candle_policy(&repr)))
 }

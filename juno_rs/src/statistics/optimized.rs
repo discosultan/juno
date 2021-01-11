@@ -1,5 +1,8 @@
 use super::{map_period_deltas_from_summary, Asset, SQRT_365};
-use crate::{math::floor_multiple, trading::TradingSummary};
+use crate::{
+    math::floor_multiple,
+    trading::{Position, TradingSummary},
+};
 
 // Prices have one extra price in the beginning which is the opening price of the first candle.
 
@@ -158,4 +161,15 @@ pub fn get_sortino_ratio(
 
     debug_assert!(sortino_ratio.is_finite());
     sortino_ratio
+}
+
+pub fn get_profit(summary: &TradingSummary) -> f64 {
+    summary
+        .positions
+        .iter()
+        .map(|pos| match pos {
+            Position::Long(pos) => pos.profit(),
+            Position::Short(pos) => pos.profit(),
+        })
+        .sum()
 }

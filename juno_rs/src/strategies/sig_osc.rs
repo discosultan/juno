@@ -1,6 +1,6 @@
 use super::{
-    deserialize_mid_trend_policy, serialize_mid_trend_policy, Oscillator, Signal, StdRngExt,
-    Strategy,
+    deserialize_mid_trend_policy, deserialize_mid_trend_policy_option, serialize_mid_trend_policy,
+    serialize_mid_trend_policy_option, Oscillator, Signal, StdRngExt, Strategy,
 };
 use crate::{
     genetics::Chromosome,
@@ -15,16 +15,27 @@ use std::cmp::{max, min};
 const OSC_FILTER_ENFORCE: u32 = 0;
 const OSC_FILTER_PREVENT: u32 = 1;
 
+fn osc_filter_to_str(value: u32) -> &'static str {
+    match value {
+        OSC_FILTER_ENFORCE => "enforce",
+        OSC_FILTER_PREVENT => "prevent",
+        _ => panic!("unknown osc filter value: {}", value),
+    }
+}
+
+fn str_to_osc_filter(representation: &str) -> u32 {
+    match representation {
+        "enforce" => OSC_FILTER_ENFORCE,
+        "prevent" => OSC_FILTER_PREVENT,
+        _ => panic!("unknown osc filter representation: {}", representation),
+    }
+}
+
 fn serialize_osc_filter<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
-    let representation = match *value {
-        OSC_FILTER_ENFORCE => "enforce",
-        OSC_FILTER_PREVENT => "prevent",
-        _ => panic!("unknown oscillator filter value: {}", value),
-    };
-    serializer.serialize_str(representation)
+    serializer.serialize_str(osc_filter_to_str(*value))
 }
 
 fn deserialize_osc_filter<'de, D>(deserializer: D) -> Result<u32, D::Error>
@@ -32,14 +43,25 @@ where
     D: Deserializer<'de>,
 {
     let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(match representation.as_ref() {
-        "enforce" => OSC_FILTER_ENFORCE,
-        "prevent" => OSC_FILTER_PREVENT,
-        _ => panic!(
-            "unknown oscillator filter representation: {}",
-            representation
-        ),
-    })
+    Ok(str_to_osc_filter(&representation))
+}
+
+pub fn serialize_osc_filter_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => serializer.serialize_str(osc_filter_to_str(*value)),
+        None => serializer.serialize_none(),
+    }
+}
+
+pub fn deserialize_osc_filter_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_osc_filter(&repr)))
 }
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]

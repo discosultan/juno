@@ -118,7 +118,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
             2,
             self.interval,
             self.quote,
-            chromosome.trader.missed_candle_policy,
+            chromosome.missed_candle_policy,
             true,
             true,
         );
@@ -134,6 +134,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
             ctx.stats_quote_prices.as_deref(),
             self.stats_interval,
         )
+        // statistics::get_profit(&summary)
     }
 }
 
