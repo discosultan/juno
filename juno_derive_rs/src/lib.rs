@@ -2,8 +2,8 @@ use proc_macro::{TokenStream, TokenTree};
 use quote::{format_ident, quote};
 use std::borrow::Cow;
 use syn::{
-    parse_macro_input, parse_str, Attribute, Field, GenericParam, ItemStruct, Lit, Meta,
-    NestedMeta, Type, TypeParam, TypePath,
+    parse_macro_input, parse_str, Attribute, Field, GenericParam, Ident, ItemStruct, Lit, Meta,
+    NestedMeta, Type, TypePath,
 };
 
 fn is_chromosome(field: &Field) -> bool {
@@ -61,15 +61,15 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     let mutate_rfield_name = rfield_name.clone();
 
     // Context.
-    let generic_types = input
+    let generic_ty_idents = input
         .generics
         .params
         .iter()
         .filter_map(|generic| match generic {
-            GenericParam::Type(ref type_) => Some(type_),
+            GenericParam::Type(type_) => Some(&type_.ident),
             _ => None,
         })
-        .collect::<Vec<&TypeParam>>();
+        .collect::<Vec<&Ident>>();
     let ctx_attrs = &input.attrs;
     let ctx_vis = &input.vis;
     let ctx_name = format_ident!("{}Context", name);
@@ -84,8 +84,9 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
             if let Type::Path(type_path) = field_ty {
                 if let Some(type_ident) = type_path.path.get_ident() {
                     // Check if generic type.
-                    if generic_types.iter().any(|gtype| &gtype.ident == type_ident) {
-                        return quote! { #field_ty::Context };
+                    if generic_ty_idents.iter().any(|&ident| ident == type_ident) {
+                        // return quote! { #field_ty::Context };
+                        return quote! { #field_ty };
                     }
                     let type_ident = format_ident!("{}Context", type_ident);
                     return quote! { #type_ident };
@@ -96,6 +97,17 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
             quote! { Option<#field_ty> }
         }
     });
+    // let ctx_generic_ty_ident = generic_ty_idents.iter().clone();
+    let ctx_generic_ty = if generic_ty_idents.len() == 0 {
+        quote! {}
+    } else {
+        quote! { <#(#generic_ty_idents),*> }
+    };
+    let ctx_generic_ty_lala = if generic_ty_idents.len() == 0 {
+        quote! {}
+    } else {
+        quote! { <#(#generic_ty_idents::Context),*> }
+    };
     let ctx_field_attrs = ctx_field.clone().map(|field| {
         field
             .attrs
@@ -134,7 +146,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     let output = quote! {
         #(#ctx_attrs)*
         #[derive(Default, Deserialize, Serialize)]
-        #ctx_vis struct #ctx_name #impl_generics #where_clause {
+        #ctx_vis struct #ctx_name #ctx_generic_ty {
             #(
                 #(#ctx_field_attrs)*
                 #ctx_field_vis #ctx_field_name: #ctx_field_type,
@@ -142,7 +154,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
         }
 
         impl #impl_generics Chromosome for #name #ty_generics #where_clause {
-            type Context = #ctx_name #ty_generics;
+            type Context = #ctx_name #ctx_generic_ty_lala;
 
             fn len() -> usize {
                 #(

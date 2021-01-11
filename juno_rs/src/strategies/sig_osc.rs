@@ -42,7 +42,8 @@ fn deserialize_osc_filter<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(str_to_osc_filter(Deserialize::deserialize(deserializer)?))
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(str_to_osc_filter(&representation))
 }
 
 pub fn serialize_osc_filter_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
@@ -59,8 +60,8 @@ pub fn deserialize_osc_filter_option<'de, D>(deserializer: D) -> Result<Option<u
 where
     D: Deserializer<'de>,
 {
-    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_osc_filter(repr)))
+    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_osc_filter(&repr)))
 }
 
 #[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]

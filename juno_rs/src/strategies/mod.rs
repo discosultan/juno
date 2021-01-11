@@ -209,8 +209,8 @@ pub fn deserialize_mid_trend_policy<'de, D>(deserializer: D) -> Result<u32, D::E
 where
     D: Deserializer<'de>,
 {
-    let representation: &str = Deserialize::deserialize(deserializer)?;
-    Ok(str_to_mid_trend_policy(representation))
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(str_to_mid_trend_policy(&representation))
 }
 
 pub fn serialize_mid_trend_policy_option<S>(
@@ -230,8 +230,8 @@ pub fn deserialize_mid_trend_policy_option<'de, D>(deserializer: D) -> Result<Op
 where
     D: Deserializer<'de>,
 {
-    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_mid_trend_policy(repr)))
+    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_mid_trend_policy(&repr)))
 }
 
 fn str_to_mid_trend_policy(representation: &str) -> u32 {
@@ -292,7 +292,8 @@ pub fn deserialize_ma<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(str_to_ma(Deserialize::deserialize(deserializer)?))
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(str_to_ma(&representation))
 }
 
 pub fn serialize_ma_option<S>(value: &Option<u32>, serializer: S) -> Result<S::Ok, S::Error>
@@ -309,6 +310,6 @@ pub fn deserialize_ma_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::
 where
     D: Deserializer<'de>,
 {
-    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_ma(repr)))
+    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_ma(&repr)))
 }

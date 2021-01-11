@@ -20,7 +20,11 @@ export default function Dashboard() {
   }
 
   async function optimize(args) {
-    const evolution = await fetchJson('POST', '/optimize', args);
+    const evolution = await fetchJson(
+      'POST',
+      `/optimize/${args.strategy}/${args.stopLoss}/${args.takeProfit}`,
+      args,
+    );
     const gensInfo = {
       args: {
         ...args,
@@ -74,7 +78,7 @@ export default function Dashboard() {
                   setSelectedGenInfo({
                     args: gensInfo.args,
                     config: {
-                      trader: ind.ind.chromosome.trader,
+                      missedCandlePolicy: ind.ind.chromosome.missedCandlePolicy,
                       strategy: {
                         type: gensInfo.args.strategy,
                         ...ind.ind.chromosome.strategy,

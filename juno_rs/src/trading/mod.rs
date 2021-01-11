@@ -240,7 +240,7 @@ fn missed_candle_policy_to_str(value: u32) -> &'static str {
 }
 
 fn str_to_missed_candle_policy(representation: &str) -> u32 {
-    match representation.as_ref() {
+    match representation {
         "ignore" => MISSED_CANDLE_POLICY_IGNORE,
         "last" => MISSED_CANDLE_POLICY_LAST,
         "restart" => MISSED_CANDLE_POLICY_RESTART,
@@ -258,14 +258,12 @@ where
     serializer.serialize_str(missed_candle_policy_to_str(*value))
 }
 
-#[allow(dead_code)]
 pub fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(str_to_missed_candle_policy(Deserialize::deserialize(
-        deserializer,
-    )?))
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(str_to_missed_candle_policy(&representation))
 }
 
 pub fn serialize_missed_candle_policy_option<S>(
@@ -281,13 +279,12 @@ where
     }
 }
 
-#[allow(dead_code)]
 pub fn deserialize_missed_candle_policy_option<'de, D>(
     deserializer: D,
 ) -> Result<Option<u32>, D::Error>
 where
     D: Deserializer<'de>,
 {
-    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_missed_candle_policy(repr)))
+    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_missed_candle_policy(&repr)))
 }

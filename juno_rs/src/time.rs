@@ -95,7 +95,8 @@ pub fn deserialize_interval<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(str_to_interval(Deserialize::deserialize(deserializer)?))
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(str_to_interval(&representation))
 }
 
 pub fn serialize_interval_option<S>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error>
@@ -112,8 +113,8 @@ pub fn deserialize_interval_option<'de, D>(deserializer: D) -> Result<Option<u64
 where
     D: Deserializer<'de>,
 {
-    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_interval(repr)))
+    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_interval(&repr)))
 }
 
 // Timestamp.
@@ -183,7 +184,8 @@ pub fn deserialize_timestamp<'de, D>(deserializer: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
 {
-    Ok(str_to_timestamp(Deserialize::deserialize(deserializer)?))
+    let representation: String = Deserialize::deserialize(deserializer)?;
+    Ok(str_to_timestamp(&representation))
 }
 
 pub fn serialize_timestamp_option<S>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error>
@@ -200,8 +202,8 @@ pub fn deserialize_timestamp_option<'de, D>(deserializer: D) -> Result<Option<u6
 where
     D: Deserializer<'de>,
 {
-    let representation: Option<&str> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_timestamp(repr)))
+    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr| str_to_timestamp(&repr)))
 }
 
 #[cfg(test)]

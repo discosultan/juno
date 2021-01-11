@@ -4,6 +4,7 @@ use bytes::buf::Buf;
 use juno_derive_rs::*;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
+    genetics::Chromosome,
     prelude::*,
     statistics::TradingStats,
     stop_loss::StopLoss,
@@ -17,7 +18,7 @@ use std::collections::HashMap;
 use warp::{hyper::body::Bytes, reply::Json, Filter, Rejection};
 
 #[derive(Debug, Deserialize)]
-struct Params<T: Signal, U: StopLoss, V: TakeProfit> {
+struct Params<T: Chromosome, U: Chromosome, V: Chromosome> {
     exchange: String,
     symbols: Vec<String>,
     #[serde(deserialize_with = "deserialize_interval")]
@@ -27,10 +28,11 @@ struct Params<T: Signal, U: StopLoss, V: TakeProfit> {
     #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
-    strategy_params: T::Params,
-    stop_loss_params: U::Params,
-    take_profit_params: V::Params,
-    trader_params: TraderParams,
+    strategy_params: T,
+    stop_loss_params: U,
+    take_profit_params: V,
+    #[serde(deserialize_with = "deserialize_missed_candle_policy")]
+    missed_candle_policy: u32,
 }
 
 #[derive(Serialize)]
@@ -54,7 +56,7 @@ pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection>
 }
 
 fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: Bytes) -> Result<Json> {
-    let args: Params<T, U, V> = serde_json::from_reader(bytes.reader())?;
+    let args: Params<T::Params, U::Params, V::Params> = serde_json::from_reader(bytes.reader())?;
 
     let symbol_summaries = args
         .symbols
@@ -76,7 +78,7 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: Bytes) -> Result<Json> 
 }
 
 fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
-    args: &Params<T, U, V>,
+    args: &Params<T::Params, U::Params, V::Params>,
     symbol: &str,
 ) -> Result<TradingSummary> {
     let candles =
@@ -94,13 +96,13 @@ fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
         2,
         args.interval,
         args.quote,
-        args.trader_params.missed_candle_policy,
+        args.missed_candle_policy,
         true,
         true,
     ))
 }
 
-fn get_stats<T: Signal, U: StopLoss, V: TakeProfit>(
+fn get_stats<T: Chromosome, U: Chromosome, V: Chromosome>(
     args: &Params<T, U, V>,
     symbol: &str,
     summary: &TradingSummary,

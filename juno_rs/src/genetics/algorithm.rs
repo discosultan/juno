@@ -61,7 +61,8 @@ where
 
         let seed = match seed {
             Some(seed) => seed,
-            None => rand::thread_rng().gen_range(0..=u64::MAX),
+            // Must EXCLUDE `u64::MAX`, therefore, exclusive range.
+            None => rand::thread_rng().gen_range(0..u64::MAX),
         };
 
         let mut rng = StdRng::seed_from_u64(seed);
