@@ -79,16 +79,15 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     let ctx_field_type = ctx_field.clone().map(|field| {
         let field_ty = &field.ty;
         if is_chromosome(field) {
-            // TODO: Can be simplified by returning only `quote! { #field_ty::Context }` after:
-            // https://github.com/rust-lang/rust/issues/38078
             if let Type::Path(type_path) = field_ty {
                 if let Some(type_ident) = type_path.path.get_ident() {
-                    // Check if generic type.
+                    // Is generic type.
                     if generic_ty_idents.iter().any(|&ident| ident == type_ident) {
                         return quote! { #field_ty };
+                    } else {
+                        let type_ident = format_ident!("{}Context", type_ident);
+                        return quote! { #type_ident };
                     }
-                    let type_ident = format_ident!("{}Context", type_ident);
-                    return quote! { #type_ident };
                 }
             }
             panic!("Not implemented");
@@ -138,7 +137,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                 }
                 Cow::Borrowed(attr)
             })
-            // Add #[serde(default)].
+            // Add `#[serde(default)]`.
             .chain(once(Cow::Owned(parse_quote! { #[serde(default)] })))
             .collect::<Vec<Cow<Attribute>>>();
 
