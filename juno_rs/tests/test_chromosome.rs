@@ -69,15 +69,19 @@ struct Aggregate {
     #[chromosome]
     agg_b: Regular,
     c: u32,
+    d: u32,
 }
 
 fn c(_rng: &mut StdRng) -> u32 {
     30
 }
+fn d(_rng: &mut StdRng) -> u32 {
+    40
+}
 
 #[test]
 fn test_derive_aggregate_len() {
-    assert_eq!(Aggregate::len(), 5);
+    assert_eq!(Aggregate::len(), 6);
 }
 
 #[test]
@@ -90,6 +94,7 @@ fn test_derive_aggregate_generate() {
     assert_eq!(x.agg_b.a, 10);
     assert_eq!(x.agg_b.b, 20);
     assert_eq!(x.c, 30);
+    assert_eq!(x.d, 40);
 }
 
 #[test]
@@ -99,22 +104,26 @@ fn test_derive_aggregate_mutate() {
         agg_a: Regular { a: 1, b: 2 },
         agg_b: Regular { a: 3, b: 4 },
         c: 5,
+        d: 6,
     };
 
     x.mutate(&mut rng, 1, &Default::default());
     assert_eq!(x.agg_a, Regular { a: 1, b: 20 });
     assert_eq!(x.agg_b, Regular { a: 3, b: 4 });
     assert_eq!(x.c, 5);
+    assert_eq!(x.d, 6);
 
     x.mutate(&mut rng, 2, &Default::default());
     assert_eq!(x.agg_a, Regular { a: 1, b: 20 });
     assert_eq!(x.agg_b, Regular { a: 10, b: 4 });
     assert_eq!(x.c, 5);
+    assert_eq!(x.d, 6);
 
     x.mutate(&mut rng, 4, &Default::default());
     assert_eq!(x.agg_a, Regular { a: 1, b: 20 });
     assert_eq!(x.agg_b, Regular { a: 10, b: 4 });
     assert_eq!(x.c, 30);
+    assert_eq!(x.d, 6);
 }
 
 #[test]
@@ -123,34 +132,99 @@ fn test_derive_aggregate_crossover() {
         agg_a: Regular { a: 1, b: 2 },
         agg_b: Regular { a: 3, b: 4 },
         c: 5,
+        d: 6,
     };
     let mut x2 = Aggregate {
-        agg_a: Regular { a: 6, b: 7 },
-        agg_b: Regular { a: 8, b: 9 },
-        c: 10,
+        agg_a: Regular { a: 7, b: 8 },
+        agg_b: Regular { a: 9, b: 10 },
+        c: 11,
+        d: 12,
     };
 
     x1.cross(&mut x2, 1);
-    assert_eq!(x1.agg_a, Regular { a: 1, b: 7 });
+    assert_eq!(x1.agg_a, Regular { a: 1, b: 8 });
     assert_eq!(x1.agg_b, Regular { a: 3, b: 4 });
     assert_eq!(x1.c, 5);
-    assert_eq!(x2.agg_a, Regular { a: 6, b: 2 });
-    assert_eq!(x2.agg_b, Regular { a: 8, b: 9 });
-    assert_eq!(x2.c, 10);
+    assert_eq!(x1.d, 6);
+    assert_eq!(x2.agg_a, Regular { a: 7, b: 2 });
+    assert_eq!(x2.agg_b, Regular { a: 9, b: 10 });
+    assert_eq!(x2.c, 11);
+    assert_eq!(x2.d, 12);
 
     x1.cross(&mut x2, 2);
-    assert_eq!(x1.agg_a, Regular { a: 1, b: 7 });
-    assert_eq!(x1.agg_b, Regular { a: 8, b: 4 });
+    assert_eq!(x1.agg_a, Regular { a: 1, b: 8 });
+    assert_eq!(x1.agg_b, Regular { a: 9, b: 4 });
     assert_eq!(x1.c, 5);
-    assert_eq!(x2.agg_a, Regular { a: 6, b: 2 });
-    assert_eq!(x2.agg_b, Regular { a: 3, b: 9 });
-    assert_eq!(x2.c, 10);
+    assert_eq!(x1.d, 6);
+    assert_eq!(x2.agg_a, Regular { a: 7, b: 2 });
+    assert_eq!(x2.agg_b, Regular { a: 3, b: 10 });
+    assert_eq!(x2.c, 11);
+    assert_eq!(x2.d, 12);
 
     x1.cross(&mut x2, 4);
-    assert_eq!(x1.agg_a, Regular { a: 1, b: 7 });
-    assert_eq!(x1.agg_b, Regular { a: 8, b: 4 });
-    assert_eq!(x1.c, 10);
-    assert_eq!(x2.agg_a, Regular { a: 6, b: 2 });
-    assert_eq!(x2.agg_b, Regular { a: 3, b: 9 });
+    assert_eq!(x1.agg_a, Regular { a: 1, b: 8 });
+    assert_eq!(x1.agg_b, Regular { a: 9, b: 4 });
+    assert_eq!(x1.c, 11);
+    assert_eq!(x1.d, 6);
+    assert_eq!(x2.agg_a, Regular { a: 7, b: 2 });
+    assert_eq!(x2.agg_b, Regular { a: 3, b: 10 });
     assert_eq!(x2.c, 5);
+    assert_eq!(x2.d, 12);
+}
+
+#[test]
+fn test_derive_context_generate() {
+    let mut rng = StdRng::seed_from_u64(1);
+
+    let x = Aggregate::generate(&mut rng, &AggregateContext {
+        agg_a: Default::default(),
+        agg_b: RegularContext {
+            a: None,
+            b: Some(200),
+        },
+        c: Default::default(),
+        d: Some(400),
+    });
+    assert_eq!(x.agg_a.a, 10);
+    assert_eq!(x.agg_a.b, 20);
+    assert_eq!(x.agg_b.a, 10);
+    assert_eq!(x.agg_b.b, 200);
+    assert_eq!(x.c, 30);
+    assert_eq!(x.d, 400);
+}
+
+#[test]
+fn test_derive_context_mutate() {
+    let mut rng = StdRng::seed_from_u64(1);
+
+    let mut x = Aggregate {
+        agg_a: Regular { a: 1, b: 2 },
+        agg_b: Regular { a: 3, b: 4 },
+        c: 5,
+        d: 6,
+    };
+    let ctx = AggregateContext {
+        agg_a: Default::default(),
+        agg_b: RegularContext {
+            a: None,
+            b: Some(200),
+        },
+        c: Default::default(),
+        d: Some(400),
+    };
+
+    x.mutate(&mut rng, 1, &ctx);
+    assert_eq!(x.agg_a.b, 20);
+
+    x.mutate(&mut rng, 2, &ctx);
+    assert_eq!(x.agg_b.a, 10);
+
+    x.mutate(&mut rng, 3, &ctx);
+    assert_eq!(x.agg_b.b, 200);
+
+    x.mutate(&mut rng, 4, &ctx);
+    assert_eq!(x.c, 30);
+
+    x.mutate(&mut rng, 5, &ctx);
+    assert_eq!(x.d, 400);
 }
