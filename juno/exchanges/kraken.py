@@ -463,7 +463,7 @@ class KrakenPrivateFeed(KrakenPublicFeed):
             self.channels[channel_id].put_nowait(data[0])  # type: ignore
 
 
-def _validate_subscription_status(data: Any):
+def _validate_subscription_status(data: Any) -> None:
     if data['status'] == 'error':
         raise Exception(data['errorMessage'])
 

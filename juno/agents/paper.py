@@ -56,8 +56,6 @@ class Paper(Agent):
         assert all(t.broker for t in self._traders.values())
 
     async def on_running(self, config: Config, state: State) -> None:
-        await super().on_running(config, state)
-
         now = self._get_time_ms()
 
         assert config.end is None or config.end > now
@@ -90,6 +88,10 @@ class Paper(Agent):
         )
         if not state.result:
             state.result = await trader.initialize(trader_config)
+
+        _log.info(f'{self.get_name(state)}: running with config {format_as_config(config)}')
+        await self._events.emit(state.name, 'starting', config, state, trader)
+
         await trader.run(state.result)
 
     async def on_finally(self, config: Config, state: State) -> None:

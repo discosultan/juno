@@ -5,7 +5,7 @@ from typing import Generic, Optional, Type, TypeVar
 
 from juno.brokers import Broker
 from juno.components import User
-from juno.trading import TradingMode, TradingSummary
+from juno.trading import CloseReason, Position, TradingMode, TradingSummary
 
 TC = TypeVar('TC')
 TS = TypeVar('TS')
@@ -40,6 +40,10 @@ class Trader(ABC, Generic[TC, TS]):
 
     @abstractmethod
     async def run(self, state: TS) -> TradingSummary:
+        pass
+
+    @abstractmethod
+    async def close_position(self, state: TS, symbol: str, reason: CloseReason) -> Position.Closed:
         pass
 
     async def request_quote(

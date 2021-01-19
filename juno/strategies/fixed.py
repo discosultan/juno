@@ -52,7 +52,7 @@ class Fixed(Signal):
     def mature(self) -> bool:
         return self._t >= self._t2
 
-    def update(self, candle: Candle):
+    def update(self, candle: Candle) -> None:
         self._t = min(self._t + 1, self._t2)
 
         self.updates.append(candle)

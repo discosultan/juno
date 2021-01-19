@@ -311,9 +311,10 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
         await cancel(agent_run_task)
 
     state: BasicState = agent_run_task.result()
-    assert state.first_candle and state.last_candle
+    assert state.first_candle
     assert state.first_candle.time == 0
-    assert state.last_candle.time == 1
+    assert state.current_candle
+    assert state.current_candle.time == 1
 
 
 def _get_container(exchange: Exchange) -> Container:

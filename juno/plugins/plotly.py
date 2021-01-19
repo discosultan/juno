@@ -98,7 +98,7 @@ def plot(candles: List[Candle], summary: TradingSummary) -> None:
     py.plot(fig)
 
 
-def trace_position_openings(positions: List[Position.Closed], symbol: str):
+def trace_position_openings(positions: List[Position.Closed], symbol: str) -> go.Scatter:
     return go.Scatter(
         mode='markers',
         x=[datetime_utcfromtimestamp_ms(p.open_time) for p in positions],
@@ -112,7 +112,7 @@ def trace_position_openings(positions: List[Position.Closed], symbol: str):
     )
 
 
-def trace_position_closings(positions: List[Position.Closed], color: str):
+def trace_position_closings(positions: List[Position.Closed], color: str) -> go.Scatter:
     return go.Scatter(
         mode='markers',
         x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
@@ -125,7 +125,7 @@ def trace_position_closings(positions: List[Position.Closed], color: str):
     )
 
 
-def trace_profit_pct_changes(summary: TradingSummary):
+def trace_profit_pct_changes(summary: TradingSummary) -> go.Bar:
     positions = summary.list_positions()
     balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
     profit_pct_changes = [100 * (b - a) / a for a, b in zip(balances[::1], balances[1::1])]
@@ -136,7 +136,7 @@ def trace_profit_pct_changes(summary: TradingSummary):
     )
 
 
-def trace_balance(summary: TradingSummary):
+def trace_balance(summary: TradingSummary) -> go.Scatter:
     positions = summary.list_positions()
     balances = list(accumulate(chain([summary.quote], (p.profit for p in positions))))
     times = list(
@@ -153,7 +153,7 @@ def trace_balance(summary: TradingSummary):
     )
 
 
-def trace_adx(candles: List[Candle]):
+def trace_adx(candles: List[Candle]) -> go.Scatter:
     adx = indicators.Adx(28)
     values = [adx.update(c.high, c.low) for c in candles]
     return go.Scatter(

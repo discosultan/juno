@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from discord import File
 from discord.ext import commands
@@ -14,6 +14,7 @@ from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
 from juno.config import format_as_config
 from juno.time import MIN_MS, time_ms
+from juno.traders import Trader
 from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, extract_public
@@ -21,6 +22,12 @@ from juno.utils import exc_traceback, extract_public
 from .plugin import Plugin
 
 _log = logging.getLogger(__name__)
+
+
+class _TraderContext:
+    def __init__(self, state: Any, instance: Trader) -> None:
+        self.state = state
+        self.instance = instance
 
 
 # We use simulated position mixin to provide info for the `.status` command.
@@ -54,7 +61,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
 
     async def activate(self, agent_name: str, agent_type: str) -> None:
         channel_name = agent_type
-        agent_state = None
+        trader_ctx: Optional[_TraderContext] = None
 
         if not (channel_id := self._channel_ids.get(channel_name)):
             raise ValueError(f'Missing {channel_name} channel ID from config')
@@ -65,9 +72,12 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         format_message = partial(self._format_message, channel_name, agent_name)
 
         @self._events.on(agent_name, 'starting')
-        async def on_starting(config: Any, state: Any) -> None:
-            nonlocal agent_state
-            agent_state = state
+        async def on_starting(config: Any, state: Any, trader: Trader) -> None:
+            nonlocal trader_ctx
+            trader_ctx = _TraderContext(
+                state=state.result,
+                instance=trader,
+            )
             await send_message(
                 format_message('starting with config', format_as_config(config), lang='json')
             )
@@ -126,8 +136,20 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         async def on_advice(advice: Advice) -> None:
             await send_message(format_message('received advice', advice.name))
 
+        @self.command(help='Closes the specified open position')
+        async def close_position(ctx: commands.Context, symbol: str) -> None:
+            if ctx.channel.name != channel_name:
+                return
+            assert trader_ctx
+
+            await trader_ctx.instance.close_position(
+                state=trader_ctx.state,
+                symbol=symbol,
+                reason=CloseReason.CANCELLED,
+            )
+
         @self.command(help='Set whether trader closes positions on exit')
-        async def close_on_exit(ctx: commands.Context, value: str):
+        async def close_on_exit(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
             if value not in ['true', 'false']:
@@ -135,10 +157,10 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                     'please pass true/false to set whether trader will close positions on exit'
                 )
                 return
-            assert agent_state
+            assert trader_ctx
 
             close_on_exit = True if value == 'true' else False
-            agent_state.result.close_on_exit = close_on_exit
+            trader_ctx.state.close_on_exit = close_on_exit
             msg = (
                 f'agent {agent_name} ({agent_type}) will{"" if close_on_exit else " not"} close '
                 'positions on exit'
@@ -155,10 +177,10 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                     'please pass true/false to set whether trader will open new positions'
                 )
                 return
-            assert agent_state
+            assert trader_ctx
 
             open_new_positions = True if value == 'true' else False
-            agent_state.result.open_new_positions = open_new_positions
+            trader_ctx.state.open_new_positions = open_new_positions
             msg = (
                 f'agent {agent_name} ({agent_type}) will{"" if open_new_positions else " not"} '
                 'open new positions'
@@ -170,20 +192,18 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         async def status(ctx: commands.Context) -> None:
             if ctx.channel.name != channel_name:
                 return
+            assert trader_ctx
 
-            assert agent_state
-            trader_state = agent_state.result
-            trader_state.summary
             await send_message(
                 format_message(
                     'summary',
-                    format_as_config(extract_public(trader_state.summary)),
+                    format_as_config(extract_public(trader_ctx.state.summary)),
                     lang='json',
                 )
             )
             await asyncio.gather(*(
                 self._send_open_position_status(ctx.channel.id, agent_type, agent_name, p)
-                for p in trader_state.open_positions
+                for p in trader_ctx.state.open_positions
             ))
 
         _log.info(f'activated for {agent_name} ({agent_type})')

@@ -195,7 +195,7 @@ def type_to_raw(value: Any) -> Any:
     raise NotImplementedError(f'Unable to convert {value}')
 
 
-def types_match(obj: Any, type_: Type[Any]):
+def types_match(obj: Any, type_: Type[Any]) -> bool:
     origin = get_root_origin(type_) or type_
 
     if origin is Union:

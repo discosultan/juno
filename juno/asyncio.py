@@ -6,8 +6,8 @@ import signal
 import traceback
 from dataclasses import dataclass, field
 from typing import (
-    Any, AsyncIterable, AsyncIterator, Callable, Dict, Generic, Iterable, List, Optional, Tuple,
-    TypeVar, cast
+    Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Dict, Generic, Iterable, List,
+    Optional, Tuple, TypeVar, cast
 )
 
 _log = logging.getLogger(__name__)
@@ -148,12 +148,12 @@ async def _cancel(task: asyncio.Task) -> None:
         _log.info(f'{qualname} task cancelled')
 
 
-def create_task_sigint_on_exception(coro):
+def create_task_sigint_on_exception(coro: Coroutine) -> asyncio.Task:
     """ Creates a new task.
         Sends a SIGINT on unhandled exception.
     """
 
-    def callback(task):
+    def callback(task: asyncio.Task) -> None:
         task_name = task.get_coro().__qualname__
         if not task.cancelled() and (exc := task.exception()):
             msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))

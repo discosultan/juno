@@ -11,6 +11,7 @@ from slack_sdk.web.async_client import AsyncWebClient
 from juno import Advice
 from juno.components import Events
 from juno.config import format_as_config
+from juno.traders import Trader
 from juno.trading import Position, TradingSummary
 from juno.utils import exc_traceback, extract_public
 
@@ -41,7 +42,7 @@ class Slack(Plugin):
         await self._slack_client.conversations_join(channel=self._channel_id)
 
         @self._events.on(agent_name, 'starting')
-        async def on_starting(config: Any, state: Any) -> None:
+        async def on_starting(config: Any, state: Any, trader: Trader) -> None:
             nonlocal agent_state
             agent_state = state
             await send_message(format_message('starting with config', format_as_config(config)))

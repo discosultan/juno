@@ -264,6 +264,6 @@ def _map_type_parent_module_types(type_: Type[Any]) -> Dict[str, Type[Any]]:
     return map_concrete_module_types(sys.modules[parent_module_name])
 
 
-def format_as_config(obj: Any):
+def format_as_config(obj: Any) -> str:
     cfg = type_to_config(obj, type(obj))
     return json.dumps(cfg, indent=4)

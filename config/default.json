@@ -12,7 +12,8 @@
                 "type": "basic",
                 "symbol": "eth-btc",
                 "long": true,
-                "short": true
+                "short": true,
+                "adjust_start": false
             },
             "strategy": {
                 "type": "fourweekrule",

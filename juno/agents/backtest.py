@@ -59,8 +59,6 @@ class Backtest(Agent):
         self._get_time_ms = get_time_ms
 
     async def on_running(self, config: Config, state: State) -> None:
-        await super().on_running(config, state)
-
         now = self._get_time_ms()
 
         assert config.start is None or config.start < now
@@ -97,6 +95,9 @@ class Backtest(Agent):
         )
         if not state.result:
             state.result = await trader.initialize(trader_config)
+
+        _log.info(f'{self.get_name(state)}: running with config {format_as_config(config)}')
+        await self._events.emit(state.name, 'starting', config, state, trader)
 
         await trader.run(state.result)
         assert (summary := state.result.summary)
