@@ -165,6 +165,26 @@ def create_task_sigint_on_exception(coro: Coroutine) -> asyncio.Task:
     return child_task
 
 
+def create_task_cancel_owner_on_exception(coro: Coroutine) -> asyncio.Task:
+    """ Creates a new task.
+        Cancels the parent task in case the child task raises an unhandled exception.
+    """
+    parent_task = asyncio.current_task()
+
+    def callback(task):
+        task_name = task.get_coro().__qualname__
+        if not task.cancelled() and (exc := task.exception()):
+            if exc := task.exception():
+                msg = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+                _log.error(f'unhandled exception in {task_name} task ({msg})')
+                # parent_task.set_exception(exc)  # Not allowed for a task.
+                parent_task.cancel()
+
+    child_task = asyncio.create_task(coro)
+    child_task.add_done_callback(callback)
+    return child_task
+
+
 async def stream_queue(
     queue: asyncio.Queue, timeout: Optional[float] = None, raise_on_exc: bool = False
 ) -> AsyncIterable[Any]:
@@ -256,6 +276,15 @@ class SlotBarrier(Generic[T]):
         else:
             raise ValueError(f'Slot {slot} already released')
 
+        self._update_locked()
+
+    def add(self, slot: T) -> None:
+        assert slot not in self._slots
+        self._slots[slot] = _Slot()
+        self._update_locked()
+
+    def delete(self, slot: T) -> None:
+        del self._slots[slot]
         self._update_locked()
 
     def _update_locked(self) -> None:

@@ -214,6 +214,18 @@ async def test_slot_barrier_exceptions() -> None:
     assert not barrier.locked
 
 
+async def test_slot_barrier_add_delete() -> None:
+    barrier = SlotBarrier(['a'])
+    assert barrier.locked
+
+    barrier.add('b')
+    barrier.release('a')
+    assert barrier.locked
+
+    barrier.delete('b')
+    assert not barrier.locked
+
+
 async def test_cancel() -> None:
     done_task: asyncio.Task[None] = asyncio.create_task(asyncio.sleep(0))
     await done_task

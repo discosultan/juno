@@ -9,7 +9,7 @@ from typing import Callable, Coroutine, Dict, List, Optional, Tuple, Type
 from more_itertools import take
 
 from juno import Advice, Candle, Interval, Timestamp
-from juno.asyncio import Event, SlotBarrier
+from juno.asyncio import Event, SlotBarrier, cancel, create_task_cancel_owner_on_exception
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
@@ -64,12 +64,11 @@ class MultiConfig:
 class MultiState:
     config: MultiConfig
     close_on_exit: bool
-    start: Timestamp
+    next_: Timestamp
     symbol_states: Dict[str, _SymbolState]
     quotes: List[Decimal]
     summary: TradingSummary
     real_start: Timestamp
-    symbols: List[str]
     open_new_positions: bool = True  # Whether new positions can be opened.
 
     @property
@@ -85,7 +84,8 @@ class _SymbolState:
     strategy: Signal
     changed: Changed
     override_changed: Changed
-    current: Timestamp
+    start: Timestamp
+    next_: Timestamp
     stop_loss: StopLoss
     take_profit: TakeProfit
     start_adjusted: bool = False
@@ -195,32 +195,35 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return MultiState(
             config=config,
             close_on_exit=config.close_on_exit,
-            symbols=symbols,
             real_start=self._get_time_ms(),
-            start=start,
+            next_=start,
             quotes=[quote / config.position_count] * config.position_count,
             summary=TradingSummary(
                 start=start,
                 quote=quote,
                 quote_asset='btc',  # TODO: support others
             ),
-            symbol_states={
-                s: _SymbolState(
-                    symbol=s,
-                    strategy=config.symbol_strategies.get(s, config.strategy).construct(),
-                    changed=Changed(True),
-                    override_changed=Changed(True),
-                    current=start,
-                    stop_loss=(
-                        NoopStopLoss() if config.stop_loss is None
-                        else config.stop_loss.construct()
-                    ),
-                    take_profit=(
-                        NoopTakeProfit() if config.take_profit is None
-                        else config.take_profit.construct()
-                    ),
-                ) for s in symbols
-            }
+            symbol_states={s: self._create_symbol_state(s, start, config) for s in symbols},
+        )
+
+    def _create_symbol_state(
+        self, symbol: str, start: int, config: MultiConfig
+    ) -> _SymbolState:
+        return _SymbolState(
+            symbol=symbol,
+            strategy=config.symbol_strategies.get(symbol, config.strategy).construct(),
+            changed=Changed(True),
+            override_changed=Changed(True),
+            start=start,
+            next_=start,
+            stop_loss=(
+                NoopStopLoss() if config.stop_loss is None
+                else config.stop_loss.construct()
+            ),
+            take_profit=(
+                NoopTakeProfit() if config.take_profit is None
+                else config.take_profit.construct()
+            ),
         )
 
     async def run(self, state: MultiState) -> TradingSummary:
@@ -232,16 +235,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         _log.info(f'quote split as: {state.quotes}')
 
         try:
-            candles_updated = SlotBarrier(state.symbol_states.keys())
-            trackers_ready: Dict[str, Event] = {
-                s: Event(autoclear=True) for s in state.symbol_states.keys()
-            }
-            await asyncio.gather(
-                self._manage_positions(state, candles_updated, trackers_ready),
-                *(self._track_advice(state, ss, candles_updated, trackers_ready[s])
-                  for s, ss in state.symbol_states.items())
-            )
+            track_tasks: Dict[str, asyncio.Task] = {}
+            await self._manage_positions(state, track_tasks)
         finally:
+            await cancel(*track_tasks.values())
             if state.close_on_exit:
                 await self._close_all_open_positions(state)
             if config.end is not None and config.end <= state.real_start:  # Backtest.
@@ -291,70 +288,59 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return config.track + [s for s, t in take(count, tickers.items()) if t not in config.track]
 
     async def _manage_positions(
-        self, state: MultiState, candles_updated: SlotBarrier, trackers_ready: Dict[str, Event]
+        self, state: MultiState, track_tasks: Dict[str, asyncio.Task]
     ) -> None:
         config = state.config
         assert state.symbol_states
-        final_candle_time = floor_multiple(config.end, config.interval) - config.interval
-        to_process: List[Coroutine[None, None, Position.Any]] = []
+
+        candles_updated = SlotBarrier(state.symbol_states.keys())
+        trackers_ready: Dict[str, Event] = {
+            s: Event(autoclear=True) for s in state.symbol_states.keys()
+        }
+        for symbol, symbol_state in state.symbol_states.items():
+            track_tasks[symbol] = create_task_cancel_owner_on_exception(
+                self._track_advice(state, symbol_state, candles_updated, trackers_ready[symbol])
+            )
+
+        end = floor_multiple(config.end, config.interval)
         while True:
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()
 
             # TODO: Rebalance quotes.
-            # TODO: Repick top symbols.
 
-            # Try close existing positions.
-            to_process.clear()
-            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
-                assert ss.last_candle
-                if (
-                    isinstance(ss.open_position, Position.OpenLong)
-                    and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]
-                ):
-                    to_process.append(
-                        self._close_long_position(state, ss, ss.last_candle, ss.reason)
+            await self._try_close_existing_positions(state)
+            await self._try_open_new_positions(state)
+
+            # Repick top symbols.
+            top_symbols = await self._find_top_symbols(config)
+            leaving_symbols = [
+                s for s, ss in state.symbol_states.items()
+                if not ss.open_position and s not in top_symbols
+            ]
+            new_symbols = [
+                s for s in top_symbols if s not in state.symbol_states.keys()
+            ][:len(leaving_symbols)]
+            assert len(leaving_symbols) == len(new_symbols)
+            _log.info(f'swapping out {leaving_symbols} in favor of {new_symbols}')
+
+            if len(new_symbols) > 0:
+                await cancel(*(track_tasks[s] for s in leaving_symbols))
+                for leaving_symbol in leaving_symbols:
+                    del track_tasks[leaving_symbol]
+                    del trackers_ready[leaving_symbol]
+                    candles_updated.delete(leaving_symbol)
+                    del state.symbol_states[leaving_symbol]
+
+                for new_symbol in new_symbols:
+                    symbol_state = self._create_symbol_state(new_symbol, state.next_, config)
+                    state.symbol_states[new_symbol] = symbol_state
+                    candles_updated.add(new_symbol)
+                    tracker_ready: Event = Event(autoclear=True)
+                    trackers_ready[new_symbol] = tracker_ready
+                    track_tasks[new_symbol] = create_task_cancel_owner_on_exception(
+                        self._track_advice(state, symbol_state, candles_updated, tracker_ready)
                     )
-                elif (
-                    isinstance(ss.open_position, Position.OpenShort)
-                    and ss.advice in [Advice.LIQUIDATE, Advice.LONG]
-                ):
-                    to_process.append(
-                        self._close_short_position(state, ss, ss.last_candle, ss.reason)
-                    )
-            if len(to_process) > 0:
-                positions = await asyncio.gather(*to_process)
-                await self._events.emit(
-                    config.channel, 'positions_closed', positions, state.summary
-                )
-
-            # Try open new positions.
-            to_process.clear()
-            count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
-            assert count <= config.position_count
-            available = config.position_count - count
-            if state.open_new_positions:
-                for ss in (ss for ss in state.symbol_states.values() if ss.ready):
-                    if available == 0:
-                        break
-
-                    if ss.open_position:
-                        continue
-
-                    assert ss.last_candle
-                    # TODO: Be more flexible?
-                    if ss.advice is Advice.LONG and ss.advice_age == 1:
-                        to_process.append(self._open_long_position(state, ss, ss.last_candle))
-                        available -= 1
-                    elif ss.advice is Advice.SHORT and ss.advice_age == 1:
-                        to_process.append(self._open_short_position(state, ss, ss.last_candle))
-                        available -= 1
-
-            if len(to_process) > 0:
-                positions = await asyncio.gather(*to_process)
-                await self._events.emit(
-                    config.channel, 'positions_opened', positions, state.summary
-                )
 
             # Clear barrier for next update.
             candles_updated.clear()
@@ -362,13 +348,64 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 e.set()
 
             # Exit if last candle.
-            if (
-                (last_candle := next(iter(state.symbol_states.values())).last_candle)
-                and last_candle.time >= final_candle_time
-            ):
+            if state.next_ >= end:
                 for ss in state.symbol_states.values():
-                    _log.info(f'{ss.symbol} last candle: {last_candle}')
+                    _log.info(f'{ss.symbol} last candle: {ss.last_candle}')
                 break
+
+    async def _try_close_existing_positions(self, state: MultiState) -> None:
+        config = state.config
+        to_process: List[Coroutine[None, None, Position.Closed]] = []
+        for ss in (ss for ss in state.symbol_states.values() if ss.ready):
+            assert ss.last_candle
+            if (
+                isinstance(ss.open_position, Position.OpenLong)
+                and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]
+            ):
+                to_process.append(
+                    self._close_long_position(state, ss, ss.last_candle, ss.reason)
+                )
+            elif (
+                isinstance(ss.open_position, Position.OpenShort)
+                and ss.advice in [Advice.LIQUIDATE, Advice.LONG]
+            ):
+                to_process.append(
+                    self._close_short_position(state, ss, ss.last_candle, ss.reason)
+                )
+        if len(to_process) > 0:
+            positions = await asyncio.gather(*to_process)
+            await self._events.emit(
+                config.channel, 'positions_closed', positions, state.summary
+            )
+
+    async def _try_open_new_positions(self, state: MultiState) -> None:
+        config = state.config
+        to_process: List[Coroutine[None, None, Position.Open]] = []
+        count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
+        assert count <= config.position_count
+        available = config.position_count - count
+        if state.open_new_positions:
+            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
+                if available == 0:
+                    break
+
+                if ss.open_position:
+                    continue
+
+                assert ss.last_candle
+                # TODO: Be more flexible?
+                if ss.advice is Advice.LONG and ss.advice_age == 1:
+                    to_process.append(self._open_long_position(state, ss, ss.last_candle))
+                    available -= 1
+                elif ss.advice is Advice.SHORT and ss.advice_age == 1:
+                    to_process.append(self._open_short_position(state, ss, ss.last_candle))
+                    available -= 1
+
+        if len(to_process) > 0:
+            positions = await asyncio.gather(*to_process)
+            await self._events.emit(
+                config.channel, 'positions_opened', positions, state.summary
+            )
 
     async def _track_advice(
         self, state: MultiState, symbol_state: _SymbolState, candles_updated: SlotBarrier,
@@ -376,14 +413,15 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
     ) -> None:
         config = state.config
 
+        _log.info(f'tracking {symbol_state.symbol} candles')
         if config.adjust_start and not symbol_state.start_adjusted:
             _log.info(
                 f'fetching {symbol_state.strategy.maturity - 1} {symbol_state.symbol} candle(s) '
                 'before start time to warm-up strategy'
             )
-            symbol_state.current = (
+            symbol_state.next_ = (
                 max(
-                    symbol_state.current - (symbol_state.strategy.maturity - 1) * config.interval,
+                    symbol_state.next_ - (symbol_state.strategy.maturity - 1) * config.interval,
                     0,
                 )
             )
@@ -393,33 +431,36 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             exchange=config.exchange,
             symbol=symbol_state.symbol,
             interval=config.interval,
-            start=symbol_state.current,
+            start=symbol_state.next_,
             end=config.end,
             fill_missing_with_last=True,
             exchange_timeout=config.exchange_candle_timeout,
         ):
             # Perform empty ticks when missing initial candles.
             initial_missed = False
-            if (time_diff := candle.time - symbol_state.current) > 0:
+            if (time_diff := candle.time - symbol_state.next_) > 0:
                 assert not initial_missed
-                assert symbol_state.current <= state.start
+                assert symbol_state.next_ <= symbol_state.start
                 initial_missed = True
                 num_missed = time_diff // config.interval
+                _log.info(f'missed {num_missed} initial {symbol_state.symbol} candles')
                 for _ in range(num_missed):
                     await self._process_advice(
                         symbol_state, candles_updated, ready, Advice.NONE, Advice.NONE, None
                     )
 
             advice, override_advice, override_reason = self._process_candle(
-                config, symbol_state, candle
+                state, symbol_state, candle
             )
             await self._process_advice(
                 symbol_state, candles_updated, ready, advice, override_advice, override_reason
             )
 
     def _process_candle(
-        self, config: MultiConfig, symbol_state: _SymbolState, candle: Candle
+        self, state: MultiState, symbol_state: _SymbolState, candle: Candle
     ) -> Tuple[Advice, Advice, Optional[CloseReason]]:
+        config = state.config
+
         symbol_state.stop_loss.update(candle)
         symbol_state.take_profit.update(candle)
         symbol_state.strategy.update(candle)
@@ -472,7 +513,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             _log.info(f'{symbol_state.symbol} first candle: {candle}')
             symbol_state.first_candle = candle
         symbol_state.last_candle = candle
-        symbol_state.current = candle.time + config.interval
+        symbol_state.next_ = candle.time + config.interval
+        state.next_ = max(state.next_, symbol_state.next_)
 
         return advice, override_advice, override_reason
 
