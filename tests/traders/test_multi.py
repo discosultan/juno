@@ -568,12 +568,12 @@ async def test_repick_symbols() -> None:
         interval=1,
         start=0,
         end=2,
-        quote=Decimal('1.0'),
+        quote=Decimal('2.0'),
         strategy=TypeConstructor.from_type(Fixed),
         symbol_strategies={
             'eth-btc': TypeConstructor.from_type(
                 Fixed,
-                advices=[Advice.LONG, Advice.LONG],
+                advices=[Advice.LONG, Advice.NONE],
             ),
             'ltc-btc': TypeConstructor.from_type(
                 Fixed,
@@ -581,17 +581,16 @@ async def test_repick_symbols() -> None:
             ),
             'xmr-btc': TypeConstructor.from_type(
                 Fixed,
-                advices=[Advice.LONG, Advice.LONG],
+                advices=[Advice.LONG],
             ),
         },
         long=True,
         track_count=2,
         position_count=2,
         close_on_exit=True,
+        adjust_start=False,
     )
     state = await trader.initialize(config)
-
-    task = asyncio.create_task(trader.run(state))
     informant.tickers = {
         'xmr-btc': Ticker(
             volume=Decimal('2.0'),
@@ -604,12 +603,19 @@ async def test_repick_symbols() -> None:
             price=Decimal('1.0'),
         ),
     }
+
+    task = asyncio.create_task(trader.run(state))
+
     await asyncio.gather(
-        chandler.future_candle_queues['eth-btc'].join(),
-        chandler.future_candle_queues['ltc-btc'].join(),
+        chandler.future_candle_queues[('dummy', 'eth-btc', 1)].join(),
+        chandler.future_candle_queues[('dummy', 'ltc-btc', 1)].join(),
     )
-    chandler.future_candle_queues['eth-btc'].put_nowait(Candle(time=1, close=Decimal('1.0')))
-    chandler.future_candle_queues['xmr-btc'].put_nowait(Candle(time=1, close=Decimal('1.0')))
+    chandler.future_candle_queues[('dummy', 'eth-btc', 1)].put_nowait(
+        Candle(time=1, close=Decimal('1.0'))
+    )
+    chandler.future_candle_queues[('dummy', 'xmr-btc', 1)].put_nowait(
+        Candle(time=1, close=Decimal('1.0'))
+    )
 
     summary = await asyncio.wait_for(task, timeout=1.0)
 

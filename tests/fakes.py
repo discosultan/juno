@@ -178,8 +178,8 @@ class Chandler(components.Chandler):
         if future_candles := self.future_candle_queues.get((exchange, symbol, interval)):
             while True:
                 candle = await future_candles.get()
-                yield candle
                 future_candles.task_done()
+                yield candle
                 if candle.time >= end - interval:
                     break
 
