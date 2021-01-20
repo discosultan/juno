@@ -69,7 +69,6 @@ class MultiState:
     quotes: List[Decimal]
     summary: TradingSummary
     real_start: Timestamp
-    symbols: List[str]
     open_new_positions: bool = True  # Whether new positions can be opened.
 
     @property
@@ -195,7 +194,6 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return MultiState(
             config=config,
             close_on_exit=config.close_on_exit,
-            symbols=symbols,
             real_start=self._get_time_ms(),
             start=start,
             quotes=[quote / config.position_count] * config.position_count,

@@ -258,6 +258,15 @@ class SlotBarrier(Generic[T]):
 
         self._update_locked()
 
+    def add(self, slot: T) -> None:
+        assert slot not in self._slots
+        self._slots[slot] = _Slot()
+        self._update_locked()
+
+    def delete(self, slot: T) -> None:
+        del self._slots[slot]
+        self._update_locked()
+
     def _update_locked(self) -> None:
         if not self.locked:
             self._event.set()

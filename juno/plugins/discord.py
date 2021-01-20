@@ -148,7 +148,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
                 reason=CloseReason.CANCELLED,
             )
 
-        @self.command(help='Set whether trader closes positions on exit')
+        @self.command(help='Sets whether trader closes positions on exit')
         async def close_on_exit(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
@@ -168,7 +168,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
             _log.info(msg)
             await send_message(msg)
 
-        @self.command(help='Set whether trader opens new positions')
+        @self.command(help='Sets whether trader opens new positions')
         async def open_new_positions(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
@@ -188,7 +188,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
             _log.info(msg)
             await send_message(msg)
 
-        @self.command(help='Get trading summary if all open positions were closed right now')
+        @self.command(help='Gets trading summary if all open positions were closed right now')
         async def status(ctx: commands.Context) -> None:
             if ctx.channel.name != channel_name:
                 return
