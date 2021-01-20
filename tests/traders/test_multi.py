@@ -621,5 +621,7 @@ async def test_repick_symbols() -> None:
 
     positions = summary.list_positions()
     assert len(positions) == 2
+    assert positions[0].open_time == 1
     assert positions[0].symbol == 'eth-btc'
+    assert positions[1].open_time == 2
     assert positions[1].symbol == 'xmr-btc'
