@@ -542,3 +542,78 @@ async def test_take_profit() -> None:
     positions = summary.list_positions()
     assert len(positions) == 1
     assert positions[0].close_reason is CloseReason.TAKE_PROFIT
+
+
+async def test_repick_symbols() -> None:
+    informant = fakes.Informant(tickers={
+        'eth-btc': Ticker(
+            volume=Decimal('2.0'),
+            quote_volume=Decimal('2.0'),
+            price=Decimal('2.0'),
+        ),
+        'ltc-btc': Ticker(
+            volume=Decimal('1.0'),
+            quote_volume=Decimal('1.0'),
+            price=Decimal('1.0'),
+        ),
+    })
+    chandler = fakes.Chandler(future_candles={
+        ('dummy', 'eth-btc', 1): [Candle(time=0, close=Decimal('2.0'))],
+        ('dummy', 'ltc-btc', 1): [Candle(time=0, close=Decimal('1.0'))],
+    })
+    trader = traders.Multi(chandler=chandler, informant=informant)
+
+    config = traders.MultiConfig(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=2,
+        quote=Decimal('1.0'),
+        strategy=TypeConstructor.from_type(Fixed),
+        symbol_strategies={
+            'eth-btc': TypeConstructor.from_type(
+                Fixed,
+                advices=[Advice.LONG, Advice.LONG],
+            ),
+            'ltc-btc': TypeConstructor.from_type(
+                Fixed,
+                advices=[Advice.NONE, Advice.NONE],
+            ),
+            'xmr-btc': TypeConstructor.from_type(
+                Fixed,
+                advices=[Advice.LONG, Advice.LONG],
+            ),
+        },
+        long=True,
+        track_count=2,
+        position_count=2,
+        close_on_exit=True,
+    )
+    state = await trader.initialize(config)
+
+    task = asyncio.create_task(trader.run(state))
+    informant.tickers = {
+        'xmr-btc': Ticker(
+            volume=Decimal('2.0'),
+            quote_volume=Decimal('2.0'),
+            price=Decimal('2.0'),
+        ),
+        'xrp-btc': Ticker(
+            volume=Decimal('1.0'),
+            quote_volume=Decimal('1.0'),
+            price=Decimal('1.0'),
+        ),
+    }
+    await asyncio.gather(
+        chandler.future_candle_queues['eth-btc'].join(),
+        chandler.future_candle_queues['ltc-btc'].join(),
+    )
+    chandler.future_candle_queues['eth-btc'].put_nowait(Candle(time=1, close=Decimal('1.0')))
+    chandler.future_candle_queues['xmr-btc'].put_nowait(Candle(time=1, close=Decimal('1.0')))
+
+    summary = await asyncio.wait_for(task, timeout=1.0)
+
+    positions = summary.list_positions()
+    assert len(positions) == 2
+    assert positions[0].symbol == 'eth-btc'
+    assert positions[1].symbol == 'xmr-btc'

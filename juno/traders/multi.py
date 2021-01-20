@@ -294,65 +294,26 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         config = state.config
         assert state.symbol_states
         final_candle_time = floor_multiple(config.end, config.interval) - config.interval
-        to_process: List[Coroutine[None, None, Position.Any]] = []
         while True:
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()
 
             # TODO: Rebalance quotes.
-            # TODO: Repick top symbols.
 
-            # Try close existing positions.
-            to_process.clear()
-            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
-                assert ss.last_candle
-                if (
-                    isinstance(ss.open_position, Position.OpenLong)
-                    and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]
-                ):
-                    to_process.append(
-                        self._close_long_position(state, ss, ss.last_candle, ss.reason)
-                    )
-                elif (
-                    isinstance(ss.open_position, Position.OpenShort)
-                    and ss.advice in [Advice.LIQUIDATE, Advice.LONG]
-                ):
-                    to_process.append(
-                        self._close_short_position(state, ss, ss.last_candle, ss.reason)
-                    )
-            if len(to_process) > 0:
-                positions = await asyncio.gather(*to_process)
-                await self._events.emit(
-                    config.channel, 'positions_closed', positions, state.summary
-                )
+            await self._try_close_existing_positions(state)
+            await self._try_open_new_positions(state)
 
-            # Try open new positions.
-            to_process.clear()
-            count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
-            assert count <= config.position_count
-            available = config.position_count - count
-            if state.open_new_positions:
-                for ss in (ss for ss in state.symbol_states.values() if ss.ready):
-                    if available == 0:
-                        break
-
-                    if ss.open_position:
-                        continue
-
-                    assert ss.last_candle
-                    # TODO: Be more flexible?
-                    if ss.advice is Advice.LONG and ss.advice_age == 1:
-                        to_process.append(self._open_long_position(state, ss, ss.last_candle))
-                        available -= 1
-                    elif ss.advice is Advice.SHORT and ss.advice_age == 1:
-                        to_process.append(self._open_short_position(state, ss, ss.last_candle))
-                        available -= 1
-
-            if len(to_process) > 0:
-                positions = await asyncio.gather(*to_process)
-                await self._events.emit(
-                    config.channel, 'positions_opened', positions, state.summary
-                )
+            # Repick top symbols.
+            top_symbols = await self._find_top_symbols(config)
+            leaving_symbols = [
+                s for s, ss in state.symbol_states.items()
+                if not ss.open_position and s not in top_symbols
+            ]
+            new_symbols = [
+                s for s in top_symbols if s not in state.symbol_states.keys()
+            ][:len(leaving_symbols)]
+            assert len(leaving_symbols) == len(new_symbols)
+            _log.info(f'swapping out {leaving_symbols} in favor of {new_symbols}')
 
             # Clear barrier for next update.
             candles_updated.clear()
@@ -367,6 +328,60 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 for ss in state.symbol_states.values():
                     _log.info(f'{ss.symbol} last candle: {last_candle}')
                 break
+
+    async def _try_close_existing_positions(self, state: MultiState) -> None:
+        config = state.config
+        to_process: List[Coroutine[None, None, Position.Closed]] = []
+        for ss in (ss for ss in state.symbol_states.values() if ss.ready):
+            assert ss.last_candle
+            if (
+                isinstance(ss.open_position, Position.OpenLong)
+                and ss.advice in [Advice.LIQUIDATE, Advice.SHORT]
+            ):
+                to_process.append(
+                    self._close_long_position(state, ss, ss.last_candle, ss.reason)
+                )
+            elif (
+                isinstance(ss.open_position, Position.OpenShort)
+                and ss.advice in [Advice.LIQUIDATE, Advice.LONG]
+            ):
+                to_process.append(
+                    self._close_short_position(state, ss, ss.last_candle, ss.reason)
+                )
+        if len(to_process) > 0:
+            positions = await asyncio.gather(*to_process)
+            await self._events.emit(
+                config.channel, 'positions_closed', positions, state.summary
+            )
+
+    async def _try_open_new_positions(self, state: MultiState) -> None:
+        config = state.config
+        to_process: List[Coroutine[None, None, Position.Open]] = []
+        count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
+        assert count <= config.position_count
+        available = config.position_count - count
+        if state.open_new_positions:
+            for ss in (ss for ss in state.symbol_states.values() if ss.ready):
+                if available == 0:
+                    break
+
+                if ss.open_position:
+                    continue
+
+                assert ss.last_candle
+                # TODO: Be more flexible?
+                if ss.advice is Advice.LONG and ss.advice_age == 1:
+                    to_process.append(self._open_long_position(state, ss, ss.last_candle))
+                    available -= 1
+                elif ss.advice is Advice.SHORT and ss.advice_age == 1:
+                    to_process.append(self._open_short_position(state, ss, ss.last_candle))
+                    available -= 1
+
+        if len(to_process) > 0:
+            positions = await asyncio.gather(*to_process)
+            await self._events.emit(
+                config.channel, 'positions_opened', positions, state.summary
+            )
 
     async def _track_advice(
         self, state: MultiState, symbol_state: _SymbolState, candles_updated: SlotBarrier,
