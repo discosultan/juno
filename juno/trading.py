@@ -43,6 +43,10 @@ class _UnexpectedExchangeResult(Exception):
     pass
 
 
+class PositionNotOpen(Exception):
+    pass
+
+
 class Position(ModuleType):
     # TODO: Add support for external token fees (i.e BNB)
     # Note that we cannot set the dataclass as frozen because that would break JSON

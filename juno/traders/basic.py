@@ -14,8 +14,8 @@ from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingMode,
-    TradingSummary
+    CloseReason, Position, PositionMixin, PositionNotOpen, SimulatedPositionMixin, StartMixin,
+    TradingMode, TradingSummary
 )
 from juno.typing import TypeConstructor
 from juno.utils import unpack_symbol
@@ -219,9 +219,9 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 await self._tick(state, candle)
         finally:
             if state.close_on_exit and state.open_position:
-                await self.close_position(
+                await self.close_positions(
                     state,
-                    state.open_position.symbol,
+                    [state.open_position.symbol],
                     CloseReason.CANCELLED,
                 )
             if config.end is not None and config.end <= state.real_start:  # Backtest.
@@ -294,17 +294,24 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         state.last_candle = candle
         state.next_ = candle.time + config.interval
 
-    async def close_position(
-        self, state: BasicState, symbol: str, reason: CloseReason
-    ) -> Position.Closed:
-        if state.open_position and state.open_position.symbol == symbol and state.last_candle:
+    async def close_positions(
+        self, state: BasicState, symbols: List[str], reason: CloseReason
+    ) -> List[Position.Closed]:
+        if len(symbols) == 0:
+            return []
+        if (
+            state.open_position
+            and len(symbols) == 1
+            and state.open_position.symbol == (symbol := symbols[0])
+            and state.last_candle
+        ):
             if isinstance(state.open_position, Position.OpenLong):
                 _log.info(f'{symbol} long position open; closing')
-                return await self._close_long_position(state, state.last_candle, reason)
+                return [await self._close_long_position(state, state.last_candle, reason)]
             elif isinstance(state.open_position, Position.OpenShort):
                 _log.info(f'{symbol} short position open; closing')
-                return await self._close_short_position(state, state.last_candle, reason)
-        raise Exception(f'Attempted to close {symbol} position but none open')
+                return [await self._close_short_position(state, state.last_candle, reason)]
+        raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
 
     async def _open_long_position(self, state: BasicState, candle: Candle) -> None:
         assert not state.open_position

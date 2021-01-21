@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Generic, Optional, Type, TypeVar
+from typing import Generic, List, Optional, Type, TypeVar
 
 from juno.brokers import Broker
 from juno.components import User
@@ -43,7 +43,9 @@ class Trader(ABC, Generic[TC, TS]):
         pass
 
     @abstractmethod
-    async def close_position(self, state: TS, symbol: str, reason: CloseReason) -> Position.Closed:
+    async def close_positions(
+        self, state: TS, symbols: List[str], reason: CloseReason
+    ) -> List[Position.Closed]:
         pass
 
     async def request_quote(

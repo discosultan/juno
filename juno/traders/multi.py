@@ -21,8 +21,8 @@ from juno.take_profit import Noop as NoopTakeProfit
 from juno.take_profit import TakeProfit
 from juno.time import strftimestamp, time_ms
 from juno.trading import (
-    CloseReason, Position, PositionMixin, SimulatedPositionMixin, StartMixin, TradingMode,
-    TradingSummary
+    CloseReason, Position, PositionMixin, PositionNotOpen, SimulatedPositionMixin, StartMixin,
+    TradingMode, TradingSummary
 )
 from juno.typing import TypeConstructor
 
@@ -73,8 +73,6 @@ class MultiState:
 
     @property
     def open_positions(self) -> List[Position.Open]:
-        if not self.symbol_states:
-            return []
         return [s.open_position for s in self.symbol_states.values() if s.open_position]
 
 
@@ -291,7 +289,6 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         self, state: MultiState, track_tasks: Dict[str, asyncio.Task]
     ) -> None:
         config = state.config
-        assert state.symbol_states
 
         candles_updated = SlotBarrier(state.symbol_states.keys())
         trackers_ready: Dict[str, Event] = {
@@ -538,33 +535,54 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         await ready.wait()
 
     async def _close_all_open_positions(self, state: MultiState) -> None:
-        config = state.config
-        assert state.symbol_states
-        to_close: List[Coroutine[None, None, Position.Closed]] = []
-        for symbol, ss in state.symbol_states.items():
-            if ss.open_position:
-                to_close.append(self.close_position(state, symbol, CloseReason.CANCELLED))
-        if len(to_close) > 0:
-            _log.info(f'closing {len(to_close)} open position(s)')
-            positions = await asyncio.gather(*to_close)
-            await self._events.emit(
-                config.channel, 'positions_closed', positions, state.summary
-            )
+        await self._close_positions(
+            state,
+            [ss for ss in state.symbol_states.values() if ss.open_position],
+            CloseReason.CANCELLED,
+        )
 
-    async def close_position(
-        self, state: MultiState, symbol: str, reason: CloseReason
+    async def close_positions(
+        self, state: MultiState, symbols: List[str], reason: CloseReason
+    ) -> List[Position.Closed]:
+        symbol_states = [
+            ss
+            for ss in (state.symbol_states.get(s) for s in symbols)
+            if ss and ss.open_position
+        ]
+        if len(symbol_states) != len(symbols):
+            raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
+        return await self._close_positions(state, symbol_states, reason)
+
+    async def _close_positions(
+        self, state: MultiState, symbol_states: List[_SymbolState], reason: CloseReason
+    ) -> List[Position.Closed]:
+        if len(symbol_states) == 0:
+            return []
+
+        _log.info(f'closing {len(symbol_states)} open position(s)')
+        positions = await asyncio.gather(
+            *(self._close_position(state, ss, reason) for ss in symbol_states)
+        )
+        await self._events.emit(
+            state.config.channel, 'positions_closed', positions, state.summary
+        )
+        return positions
+
+    async def _close_position(
+        self, state: MultiState, symbol_state: _SymbolState, reason: CloseReason
     ) -> Position.Closed:
-        ss = state.symbol_states.get(symbol)
-        if ss and ss.open_position and ss.open_position.symbol == symbol:
-            if isinstance(ss.open_position, Position.OpenLong):
-                assert ss.last_candle
-                _log.info(f'{symbol} long position open; closing')
-                return await self._close_long_position(state, ss, ss.last_candle, reason)
-            elif isinstance(ss.open_position, Position.OpenShort):
-                assert ss.last_candle
-                _log.info(f'{symbol} short position open; closing')
-                return await self._close_short_position(state, ss, ss.last_candle, reason)
-        raise Exception(f'Attempted to close {symbol} position but none open')
+        assert symbol_state.open_position
+        assert symbol_state.last_candle
+        if isinstance(symbol_state.open_position, Position.OpenLong):
+            _log.info(f'{symbol_state.symbol} long position open; closing')
+            return await self._close_long_position(
+                state, symbol_state, symbol_state.last_candle, reason
+            )
+        elif isinstance(symbol_state.open_position, Position.OpenShort):
+            _log.info(f'{symbol_state.symbol} short position open; closing')
+            return await self._close_short_position(
+                state, symbol_state, symbol_state.last_candle, reason
+            )
 
     async def _open_long_position(
         self, state: MultiState, symbol_state: _SymbolState, candle: Candle

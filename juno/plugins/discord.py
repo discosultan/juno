@@ -15,7 +15,9 @@ from juno.components import Chandler, Events, Informant
 from juno.config import format_as_config
 from juno.time import MIN_MS, time_ms
 from juno.traders import Trader
-from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
+from juno.trading import (
+    CloseReason, Position, PositionNotOpen, SimulatedPositionMixin, TradingSummary
+)
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import exc_traceback, extract_public
 
@@ -136,17 +138,23 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         async def on_advice(advice: Advice) -> None:
             await send_message(format_message('received advice', advice.name))
 
-        @self.command(help='Closes the specified open position')
-        async def close_position(ctx: commands.Context, symbol: str) -> None:
+        @self.command(help='Closes open positions by specified comma-separated symbols')
+        async def close_positions(ctx: commands.Context, value: str) -> None:
             if ctx.channel.name != channel_name:
                 return
             assert trader_ctx
 
-            await trader_ctx.instance.close_position(
-                state=trader_ctx.state,
-                symbol=symbol,
-                reason=CloseReason.CANCELLED,
-            )
+            symbols = value.split(',')
+
+            await send_message(f'closing {symbols} positions')
+            try:
+                await trader_ctx.instance.close_positions(
+                    state=trader_ctx.state,
+                    symbols=symbols,
+                    reason=CloseReason.CANCELLED,
+                )
+            except PositionNotOpen:
+                await send_message(f'not all {symbols} positions open')
 
         @self.command(help='Sets whether trader closes positions on exit')
         async def close_on_exit(ctx: commands.Context, value: str) -> None:
