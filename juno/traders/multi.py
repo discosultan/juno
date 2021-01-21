@@ -64,16 +64,20 @@ class MultiConfig:
 class MultiState:
     config: MultiConfig
     close_on_exit: bool
-    next_: Timestamp
     symbol_states: Dict[str, _SymbolState]
     quotes: List[Decimal]
     summary: TradingSummary
+    start: Timestamp  # Candle time.
     real_start: Timestamp
     open_new_positions: bool = True  # Whether new positions can be opened.
 
     @property
     def open_positions(self) -> List[Position.Open]:
         return [s.open_position for s in self.symbol_states.values() if s.open_position]
+
+    @property
+    def next_(self) -> Timestamp:
+        return max(*(ss.next_ for ss in self.symbol_states.values()), 0)
 
 
 @dataclass
@@ -194,7 +198,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             config=config,
             close_on_exit=config.close_on_exit,
             real_start=self._get_time_ms(),
-            next_=start,
+            start=floor_multiple(start, config.interval),
             quotes=[quote / config.position_count] * config.position_count,
             summary=TradingSummary(
                 start=start,
@@ -309,35 +313,36 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             await self._try_close_existing_positions(state)
             await self._try_open_new_positions(state)
 
-            # Repick top symbols.
-            top_symbols = await self._find_top_symbols(config)
-            leaving_symbols = [
-                s for s, ss in state.symbol_states.items()
-                if not ss.open_position and s not in top_symbols
-            ]
-            new_symbols = [
-                s for s in top_symbols if s not in state.symbol_states.keys()
-            ][:len(leaving_symbols)]
-            assert len(leaving_symbols) == len(new_symbols)
-            _log.info(f'swapping out {leaving_symbols} in favor of {new_symbols}')
+            # Repick top symbols. Do not repick during adjusted start period.
+            if state.next_ > state.start:
+                top_symbols = await self._find_top_symbols(config)
+                leaving_symbols = [
+                    s for s, ss in state.symbol_states.items()
+                    if not ss.open_position and s not in top_symbols
+                ]
+                new_symbols = [
+                    s for s in top_symbols if s not in state.symbol_states.keys()
+                ][:len(leaving_symbols)]
+                assert len(leaving_symbols) == len(new_symbols)
+                _log.info(f'swapping out {leaving_symbols} in favor of {new_symbols}')
 
-            if len(new_symbols) > 0:
-                await cancel(*(track_tasks[s] for s in leaving_symbols))
-                for leaving_symbol in leaving_symbols:
-                    del track_tasks[leaving_symbol]
-                    del trackers_ready[leaving_symbol]
-                    candles_updated.delete(leaving_symbol)
-                    del state.symbol_states[leaving_symbol]
+                if len(new_symbols) > 0:
+                    await cancel(*(track_tasks[s] for s in leaving_symbols))
+                    for leaving_symbol in leaving_symbols:
+                        del track_tasks[leaving_symbol]
+                        del trackers_ready[leaving_symbol]
+                        candles_updated.delete(leaving_symbol)
+                        del state.symbol_states[leaving_symbol]
 
-                for new_symbol in new_symbols:
-                    symbol_state = self._create_symbol_state(new_symbol, state.next_, config)
-                    state.symbol_states[new_symbol] = symbol_state
-                    candles_updated.add(new_symbol)
-                    tracker_ready: Event = Event(autoclear=True)
-                    trackers_ready[new_symbol] = tracker_ready
-                    track_tasks[new_symbol] = create_task_cancel_owner_on_exception(
-                        self._track_advice(state, symbol_state, candles_updated, tracker_ready)
-                    )
+                    for new_symbol in new_symbols:
+                        symbol_state = self._create_symbol_state(new_symbol, state.next_, config)
+                        state.symbol_states[new_symbol] = symbol_state
+                        candles_updated.add(new_symbol)
+                        tracker_ready: Event = Event(autoclear=True)
+                        trackers_ready[new_symbol] = tracker_ready
+                        track_tasks[new_symbol] = create_task_cancel_owner_on_exception(
+                            self._track_advice(state, symbol_state, candles_updated, tracker_ready)
+                        )
 
             # Clear barrier for next update.
             candles_updated.clear()
@@ -511,7 +516,6 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             symbol_state.first_candle = candle
         symbol_state.last_candle = candle
         symbol_state.next_ = candle.time + config.interval
-        state.next_ = max(state.next_, symbol_state.next_)
 
         return advice, override_advice, override_reason
 

@@ -4,8 +4,8 @@ from decimal import Decimal
 import pytest
 
 from juno import (
-    Advice, Balance, Candle, Fill, OrderResult, OrderStatus, Ticker, stop_loss, take_profit,
-    traders
+    Advice, Balance, Candle, Fees, Fill, Filters, OrderResult, OrderStatus, Ticker, stop_loss,
+    take_profit, traders
 )
 from juno.asyncio import cancel
 from juno.strategies import Fixed
@@ -625,3 +625,40 @@ async def test_repick_symbols() -> None:
     assert positions[0].symbol == 'eth-btc'
     assert positions[1].open_time == 2
     assert positions[1].symbol == 'xmr-btc'
+
+
+async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker) -> None:
+    informant = mocker.patch('juno.components.Informant', autospec=True)
+    informant.get_fees_filters.return_value = (Fees(), Filters())
+    informant.map_tickers.return_value = {
+        'eth-btc': Ticker(
+            volume=Decimal('1.0'),
+            quote_volume=Decimal('1.0'),
+            price=Decimal('1.0'),
+        ),
+    }
+    chandler = fakes.Chandler(candles={
+        ('dummy', 'eth-btc', 1): [
+            Candle(time=0, close=Decimal('1.0')),
+            Candle(time=1, close=Decimal('1.0')),
+        ],
+    })
+    trader = traders.Multi(chandler=chandler, informant=informant)
+
+    config = traders.MultiConfig(
+        exchange='dummy',
+        interval=1,
+        start=1,
+        end=2,
+        quote=Decimal('1.0'),
+        strategy=TypeConstructor.from_type(Fixed, maturity=2),
+        track_count=1,
+        position_count=1,
+        adjust_start=True,
+    )
+    state = await trader.initialize(config)
+
+    await trader.run(state)
+
+    # Initial call and repick during second candle.
+    assert len(informant.map_tickers.mock_calls) == 2

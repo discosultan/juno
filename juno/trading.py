@@ -418,6 +418,10 @@ class TradingSummary:
         self._calc_drawdowns_if_stale()
         return self._mean_drawdown
 
+    @property
+    def return_over_maximum_drawdown(self) -> Decimal:
+        return Decimal('0.0') if self.max_drawdown == 0 else self.roi / self.max_drawdown
+
     def _calc_drawdowns_if_stale(self) -> None:
         if not self._drawdowns_dirty:
             return
