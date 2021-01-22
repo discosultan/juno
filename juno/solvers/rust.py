@@ -9,7 +9,7 @@ import shutil
 import zlib
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Tuple
+from typing import Any
 
 import cffi
 import pandas as pd
@@ -48,7 +48,7 @@ _strategy_types = [
 ]
 
 # (symbol, interval, start, end)
-TimeSeriesKey = Tuple[str, Interval, Timestamp, Timestamp]
+TimeSeriesKey = tuple[str, Interval, Timestamp, Timestamp]
 
 _DEFAULT_BORROW_INFO = BorrowInfo()
 
@@ -57,7 +57,7 @@ class Rust(Solver):
     def __init__(self, informant: Informant) -> None:
         self._informant = informant
 
-        self._c_fees_filters: dict[str, Tuple[Any, Any]] = {}
+        self._c_fees_filters: dict[str, tuple[Any, Any]] = {}
         self._c_borrow_infos: dict[str, Any] = {}
         self._c_candles: dict[TimeSeriesKey, Any] = {}
         self._c_prices: dict[TimeSeriesKey, Any] = {}

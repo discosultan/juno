@@ -6,7 +6,7 @@ import itertools
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Generic, Optional, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, Type, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
@@ -83,7 +83,7 @@ class Informant:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(self._exchange_info_sync_task, self._tickers_sync_task)
 
-    def get_fees_filters(self, exchange: str, symbol: str) -> Tuple[Fees, Filters]:
+    def get_fees_filters(self, exchange: str, symbol: str) -> tuple[Fees, Filters]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         fees = exchange_info.fees.get('__all__') or exchange_info.fees[symbol]
         filters = exchange_info.filters.get('__all__') or exchange_info.filters[symbol]

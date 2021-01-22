@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import partial
 from random import Random, randrange
-from typing import Any, Callable, NamedTuple, Optional, Tuple
+from typing import Any, Callable, NamedTuple, Optional
 
 from deap import base, tools
 
@@ -84,7 +84,7 @@ class OptimizerState:
     intervals: list[int]
     generation: int = 0
     summary: Optional[OptimizationSummary] = None
-    random_state: Optional[Tuple[int, Tuple[int, ...], None]] = None
+    random_state: Optional[tuple[int, tuple[int, ...], None]] = None
     population: Optional[list[Any]] = None
 
 
@@ -346,7 +346,7 @@ class Optimizer(StartMixin):
         state: OptimizerState,
         fiat_prices: dict[str, list[Decimal]],
         benchmark: AnalysisSummary,
-        candles: dict[Tuple[str, int], list[Candle]],
+        candles: dict[tuple[str, int], list[Candle]],
         ind: Individual,
     ) -> None:
         assert state.summary
@@ -374,7 +374,7 @@ def _build_attr(target: Optional[Any], constraint: Constraint, random: Any) -> C
         return Constant(value).get
 
 
-def _isclose(a: Tuple[Any, ...], b: Tuple[Any, ...]) -> bool:
+def _isclose(a: tuple[Any, ...], b: tuple[Any, ...]) -> bool:
     isclose = True
     for aval, bval in zip(a, b):
         if isinstance(aval, Decimal):

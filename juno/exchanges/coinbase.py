@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
 from time import time
-from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional, Tuple
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 from dateutil.tz import UTC
 
@@ -418,7 +418,7 @@ class CoinbaseFeed:
 
         self.subscriptions_updated: Event[None] = Event(autoclear=True)
         self.subscriptions: dict[str, list[str]] = {}
-        self.channels: dict[Tuple[str, str], asyncio.Queue] = defaultdict(asyncio.Queue)
+        self.channels: dict[tuple[str, str], asyncio.Queue] = defaultdict(asyncio.Queue)
         self.type_to_channel: dict[str, str] = {}
 
     async def __aenter__(self) -> CoinbaseFeed:

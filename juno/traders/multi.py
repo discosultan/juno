@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Coroutine, Optional, Tuple, Type
+from typing import Callable, Coroutine, Optional, Type
 
 from more_itertools import take
 
@@ -461,7 +461,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
     def _process_candle(
         self, state: MultiState, symbol_state: _SymbolState, candle: Candle
-    ) -> Tuple[Advice, Advice, Optional[CloseReason]]:
+    ) -> tuple[Advice, Advice, Optional[CloseReason]]:
         config = state.config
 
         symbol_state.stop_loss.update(candle)

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
-from typing import NamedTuple, Optional, Tuple, Union
+from typing import NamedTuple, Optional, Union
 
 from juno.aliases import Timestamp
 from juno.filters import Filters
@@ -96,13 +96,13 @@ class Candle(NamedTuple):
 
 class Depth(ModuleType):
     class Snapshot(NamedTuple):
-        bids: list[Tuple[Decimal, Decimal]] = []
-        asks: list[Tuple[Decimal, Decimal]] = []
+        bids: list[tuple[Decimal, Decimal]] = []
+        asks: list[tuple[Decimal, Decimal]] = []
         last_id: int = 0
 
     class Update(NamedTuple):
-        bids: list[Tuple[Decimal, Decimal]] = []
-        asks: list[Tuple[Decimal, Decimal]] = []
+        bids: list[tuple[Decimal, Decimal]] = []
+        asks: list[tuple[Decimal, Decimal]] = []
         first_id: int = 0
         last_id: int = 0
 

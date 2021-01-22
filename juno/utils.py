@@ -11,7 +11,7 @@ from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Iterator, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
+from typing import Any, Iterator, Optional, Sequence, Type, TypeVar, get_type_hints
 
 import aiolimiter
 
@@ -86,7 +86,7 @@ def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
     return filter(lambda w: len(w) == length, _words) if length else _words
 
 
-def unpack_symbol(symbol: str) -> Tuple[str, str]:
+def unpack_symbol(symbol: str) -> tuple[str, str]:
     index_of_separator = symbol.find('-')
     return symbol[:index_of_separator], symbol[index_of_separator + 1:]
 

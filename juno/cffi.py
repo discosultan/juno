@@ -1,8 +1,6 @@
 from decimal import Decimal
 from enum import IntEnum
-from typing import (
-    Any, Callable, Iterable, Optional, Tuple, Type, get_args, get_origin, get_type_hints
-)
+from typing import Any, Callable, Iterable, Optional, Type, get_args, get_origin, get_type_hints
 
 _DEFAULT_MAPPINGS = {
     bool: 'bool',
@@ -23,7 +21,7 @@ class CDefBuilder:
         return self.function_from_params(function.__name__, hints['return'], *params)
 
     def function_from_params(
-        self, name: str, return_param: Optional[Type[Any]], *params: Tuple[str, Type[Any]],
+        self, name: str, return_param: Optional[Type[Any]], *params: tuple[str, Type[Any]],
         refs: list[str] = []
     ) -> str:
         param_strings = (
@@ -36,7 +34,7 @@ class CDefBuilder:
         return self.struct_from_fields(type_.__name__, *fields)
 
     def struct_from_fields(
-        self, name: str, *fields: Tuple[str, Optional[Type[Any]]], refs: list[str] = []
+        self, name: str, *fields: tuple[str, Optional[Type[Any]]], refs: list[str] = []
     ) -> str:
         field_strings = (
             f'    {self._map_type(v, is_ref=k in refs)} {k};\n' for k, v in _transform(fields)
@@ -67,8 +65,8 @@ class CDefBuilder:
 
 
 def _transform(
-    items: Iterable[Tuple[str, Optional[Type[Any]]]]
-) -> Iterable[Tuple[str, Optional[Type[Any]]]]:
+    items: Iterable[tuple[str, Optional[Type[Any]]]]
+) -> Iterable[tuple[str, Optional[Type[Any]]]]:
     for k, v in items:
         yield k, v
         if get_origin(v) is list:

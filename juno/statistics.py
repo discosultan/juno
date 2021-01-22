@@ -1,6 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
-from typing import Callable, NamedTuple, Optional, Tuple
+from typing import Callable, NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -75,8 +75,8 @@ def analyse_portfolio(
 
 def _get_trades_from_summary(
     summary: TradingSummary, interval: int
-) -> dict[int, list[Tuple[str, Decimal]]]:
-    trades: dict[int, list[Tuple[str, Decimal]]] = defaultdict(list)
+) -> dict[int, list[tuple[str, Decimal]]]:
+    trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
     for pos in summary.get_positions():
         base_asset, quote_asset = unpack_symbol(pos.symbol)
         # Open.
@@ -97,7 +97,7 @@ def _get_asset_performance(
     start_day: int,
     end_day: int,
     asset_prices: dict[str, list[Decimal]],
-    trades: dict[int, list[Tuple[str, Decimal]]],
+    trades: dict[int, list[tuple[str, Decimal]]],
     interval: int,
 ) -> list[dict[str, Decimal]]:
     asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))

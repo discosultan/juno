@@ -6,7 +6,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Optional, Tuple
+from typing import AsyncIterable, AsyncIterator, Optional
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
 
@@ -32,9 +32,9 @@ class User:
 
         # Balance sync state.
         # Key: (exchange, account)
-        self._wallet_sync_tasks: dict[Tuple[str, str], asyncio.Task] = {}
+        self._wallet_sync_tasks: dict[tuple[str, str], asyncio.Task] = {}
         self._wallet_sync_ctxs: dict[
-            Tuple[str, str], dict[str, User.WalletSyncContext]
+            tuple[str, str], dict[str, User.WalletSyncContext]
         ] = defaultdict(dict)
 
     async def __aenter__(self) -> User:

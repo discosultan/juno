@@ -6,7 +6,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Optional, Tuple
+from typing import AsyncIterable, AsyncIterator, Optional
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -40,10 +40,10 @@ class Orderbook:
             # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
 
-        def list_asks(self) -> list[Tuple[Decimal, Decimal]]:
+        def list_asks(self) -> list[tuple[Decimal, Decimal]]:
             return sorted(self.sides[Side.BUY].items())
 
-        def list_bids(self) -> list[Tuple[Decimal, Decimal]]:
+        def list_bids(self) -> list[tuple[Decimal, Decimal]]:
             return sorted(self.sides[Side.SELL].items(), reverse=True)
 
         def find_order_asks(
@@ -137,8 +137,8 @@ class Orderbook:
 
         # Order sync state.
         # Key: (exchange, symbol)
-        self._sync_tasks: dict[Tuple[str, str], asyncio.Task] = {}
-        self._sync_ctxs: dict[Tuple[str, str], dict[str, Orderbook.SyncContext]] = defaultdict(
+        self._sync_tasks: dict[tuple[str, str], asyncio.Task] = {}
+        self._sync_ctxs: dict[tuple[str, str], dict[str, Orderbook.SyncContext]] = defaultdict(
             dict
         )
 
@@ -264,7 +264,7 @@ class Orderbook:
 
 
 def _set_orderbook_side(
-    orderbook_side: dict[Decimal, Decimal], values: list[Tuple[Decimal, Decimal]]
+    orderbook_side: dict[Decimal, Decimal], values: list[tuple[Decimal, Decimal]]
 ) -> None:
     orderbook_side.clear()
     for price, size in values:
@@ -272,7 +272,7 @@ def _set_orderbook_side(
 
 
 def _update_orderbook_side(
-    orderbook_side: dict[Decimal, Decimal], values: list[Tuple[Decimal, Decimal]]
+    orderbook_side: dict[Decimal, Decimal], values: list[tuple[Decimal, Decimal]]
 ) -> None:
     for price, size in values:
         if size > 0:

@@ -5,8 +5,7 @@ from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
 from typing import (
-    Any, AsyncIterable, ContextManager, NamedTuple, Optional, Tuple, Type, TypeVar, Union,
-    get_type_hints
+    Any, AsyncIterable, ContextManager, NamedTuple, Optional, Type, TypeVar, Union, get_type_hints
 )
 
 from juno import Interval, Timestamp, json
@@ -51,8 +50,8 @@ class SQLite(Storage):
 
     async def stream_time_series_spans(
         self, shard: str, key: str, start: int = 0, end: int = MAX_TIME_MS
-    ) -> AsyncIterable[Tuple[int, int]]:
-        def inner() -> list[Tuple[int, int]]:
+    ) -> AsyncIterable[tuple[int, int]]:
+        def inner() -> list[tuple[int, int]]:
             _log.info(
                 f'streaming span(s) between {strfspan(start, end)} from shard {shard} {key}'
             )

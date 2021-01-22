@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import sys
-from typing import Any, Tuple, Type
+from typing import Any, Type
 
 import pkg_resources
 from mergedeep import merge
@@ -74,7 +74,7 @@ async def main() -> None:
     # Load agents and plugins.
     agent_types: dict[str, Type[Agent]] = map_concrete_module_types(agents)
     plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
-    agent_ctxs: list[Tuple[Agent, Any, list[Plugin]]] = [(
+    agent_ctxs: list[tuple[Agent, Any, list[Plugin]]] = [(
         container.resolve(agent_types[c['type']]),
         config.config_to_type(c, agent_types[c['type']].Config),
         [container.resolve(plugin_types[p]) for p in c.get('plugins', [])],

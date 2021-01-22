@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Tuple
 
 from .dm import DM
 
@@ -35,7 +34,7 @@ class DI:
     def mature(self) -> bool:
         return self._t >= self._t2
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> tuple[Decimal, Decimal]:
         self._t = min(self._t + 1, self._t3)
 
         self._dm.update(high, low)

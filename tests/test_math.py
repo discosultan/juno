@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Tuple
 
 import pytest
 
@@ -63,7 +62,7 @@ def test_split(input_: Decimal, parts: int, expected_output: list[Decimal]) -> N
     ((0, 3), (2, 4), True),
 ])
 def test_spans_overlap(
-    span1: Tuple[int, int], span2: Tuple[int, int], expected_output: bool
+    span1: tuple[int, int], span2: tuple[int, int], expected_output: bool
 ) -> None:
     output = math.spans_overlap(span1, span2)
     assert output == expected_output

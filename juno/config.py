@@ -5,7 +5,7 @@ from dataclasses import is_dataclass
 from enum import Enum
 from types import ModuleType
 from typing import (
-    Any, Mapping, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin, get_type_hints
+    Any, Mapping, Optional, Type, TypeVar, Union, get_args, get_origin, get_type_hints
 )
 
 from juno import Interval, Timestamp, json
@@ -127,7 +127,7 @@ def get_module_type_constructor(
     return TypeConstructor.from_type(type_, **kwargs)
 
 
-def get_type_name_and_kwargs(config: dict[str, Any]) -> Tuple[str, dict[str, Any]]:
+def get_type_name_and_kwargs(config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     type_name = config.get('type')
     if not type_name:
         raise ValueError('Unable to get type name. Property "type" missing in config')
@@ -136,7 +136,7 @@ def get_type_name_and_kwargs(config: dict[str, Any]) -> Tuple[str, dict[str, Any
 
 def get_module_type_and_kwargs(
     module: ModuleType, config: dict[str, Any]
-) -> Tuple[type, dict[str, Any]]:
+) -> tuple[type, dict[str, Any]]:
     type_name = config.get('type')
     if not type_name:
         raise ValueError('Unable to get module type. Property "type" missing in config')

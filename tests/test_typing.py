@@ -2,6 +2,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
+# Tuple import required here for mypy.
 from typing import (  # type: ignore
     Any, Deque, Generic, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
 )

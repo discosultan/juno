@@ -8,8 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Generic, Iterable, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin,
-    get_type_hints
+    Any, Generic, Iterable, Optional, Type, TypeVar, Union, get_args, get_origin, get_type_hints
 )
 
 from typing_inspect import (
@@ -122,11 +121,11 @@ def raw_to_type(value: Any, type_: Any) -> Any:
 
     if resolved_type is tuple:
         sub_types = get_args(type_)
-        # Handle ellipsis. special case. I.e `Tuple[int, ...]`.
+        # Handle ellipsis. special case. I.e `tuple[int, ...]`.
         if len(sub_types) == 2 and sub_types[1] is Ellipsis:
             sub_type = sub_types[0]
             return tuple(raw_to_type(sv, sub_type) for sv in value)
-        # Handle regular cases. I.e `Tuple[int, str, float]`.
+        # Handle regular cases. I.e `tuple[int, str, float]`.
         else:
             return tuple(raw_to_type(sv, st) for sv, st in zip(value, sub_types))
         return value
@@ -270,7 +269,7 @@ def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
 @dataclass(frozen=True)
 class TypeConstructor(Generic[T]):
     name: str  # Fully qualified name.
-    args: Tuple[Any, ...] = ()
+    args: tuple[Any, ...] = ()
     kwargs: dict[str, Any] = field(default_factory=dict)
 
     def construct(self) -> T:

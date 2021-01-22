@@ -1,6 +1,6 @@
 import math
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
-from typing import Iterable, Tuple, TypeVar
+from typing import Iterable, TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
 
@@ -25,7 +25,7 @@ def lerp(a: Decimal, b: Decimal, t: Decimal) -> Decimal:
     return t * a + (1 - t) * b
 
 
-def minmax(values: Iterable[Decimal]) -> Tuple[Decimal, Decimal]:
+def minmax(values: Iterable[Decimal]) -> tuple[Decimal, Decimal]:
     min_ = Decimal('Inf')
     max_ = Decimal('-Inf')
     for value in values:
@@ -46,7 +46,7 @@ def split(total: Decimal, parts: int) -> list[Decimal]:
     return result
 
 
-def spans_overlap(span1: Tuple[int, int], span2: Tuple[int, int]) -> bool:
+def spans_overlap(span1: tuple[int, int], span2: tuple[int, int]) -> bool:
     for _ in range(max(span1[0], span2[0]), min(span1[-1], span2[-1])):
         return True
     return False

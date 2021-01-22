@@ -1,7 +1,7 @@
 # Sets sensible defaults to simplejson functions.
 
 from decimal import Decimal
-from typing import IO, Any, Optional, Tuple
+from typing import IO, Any, Optional
 
 import simplejson as json
 
@@ -10,7 +10,7 @@ def dump(
     obj: Any,
     fp: IO,
     indent: Optional[int] = None,
-    separators: Optional[Tuple[str, str]] = None,
+    separators: Optional[tuple[str, str]] = None,
 ) -> None:
     return json.dump(
         obj,
@@ -25,7 +25,7 @@ def dump(
 def dumps(
     obj: Any,
     indent: Optional[int] = None,
-    separators: Optional[Tuple[str, str]] = None,
+    separators: Optional[tuple[str, str]] = None,
 ) -> str:
     return json.dumps(
         obj,

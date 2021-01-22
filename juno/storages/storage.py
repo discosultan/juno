@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterable, Optional, Tuple, Type, TypeVar
+from typing import Any, AsyncIterable, Optional, Type, TypeVar
 
 from juno.utils import AbstractAsyncContextManager
 
@@ -12,7 +12,7 @@ class Storage(AbstractAsyncContextManager, ABC):
     @abstractmethod
     async def stream_time_series_spans(
         self, shard: str, key: str, start: int, end: int
-    ) -> AsyncIterable[Tuple[int, int]]:
+    ) -> AsyncIterable[tuple[int, int]]:
         yield  # type: ignore
 
     @abstractmethod
