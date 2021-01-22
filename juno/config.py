@@ -5,7 +5,7 @@ from dataclasses import is_dataclass
 from enum import Enum
 from types import ModuleType
 from typing import (
-    Any, Dict, List, Mapping, Optional, Set, Tuple, Type, TypeVar, Union, get_args, get_origin,
+    Any, Dict, Mapping, Optional, Set, Tuple, Type, TypeVar, Union, get_args, get_origin,
     get_type_hints
 )
 
@@ -69,7 +69,7 @@ def _matches_name(key: str, name: str) -> bool:
     return key.split('_')[-1] == name
 
 
-def _ensure_list(existing: Optional[List[Any]], length: int) -> List[Any]:
+def _ensure_list(existing: Optional[list[Any]], length: int) -> list[Any]:
     if existing is None:
         return [None] * length
     if len(existing) < length:
@@ -90,7 +90,7 @@ def _get(collection: Any, key: Any) -> Optional[Any]:
         return collection.get(key)
 
 
-def init_instances_mentioned_in_config(type_: type, config: Dict[str, Any]) -> List[Any]:
+def init_instances_mentioned_in_config(type_: type, config: Dict[str, Any]) -> list[Any]:
     result = []
     name = type_.__name__.lower()
     module_types = _map_type_parent_module_types(type_)
@@ -101,7 +101,7 @@ def init_instances_mentioned_in_config(type_: type, config: Dict[str, Any]) -> L
     return result
 
 
-def try_init_all_instances(type_: type, config: Dict[str, Any]) -> List[Any]:
+def try_init_all_instances(type_: type, config: Dict[str, Any]) -> list[Any]:
     result = []
     for type_ in _map_type_parent_module_types(type_).values():
         if inspect.isabstract(type_):
@@ -185,7 +185,7 @@ def config_to_type(value: Any, type_: Any) -> Any:
             return config_to_type(value, st) if value is not None else None
         if origin is type:  # typing.Type[T]
             raise NotImplementedError()
-        if origin is list:  # typing.List[T]
+        if origin is list:  # typing.list[T]
             st, = get_args(type_)
             return [config_to_type(sv, st) for sv in value]
         if origin is dict:  # typing.Dict[T, Y]
@@ -219,7 +219,7 @@ def type_to_config(value: Any, type_: Any) -> Any:
             return type_to_config(value, st) if value is not None else None
         if origin is type:  # typing.Type[T]
             return value.__name__.lower()
-        if origin is list:  # typing.List[T]
+        if origin is list:  # typing.list[T]
             st, = get_args(type_)
             return [type_to_config(sv, st) for sv in value]
         if origin is dict:  # typing.Dict[T, Y]

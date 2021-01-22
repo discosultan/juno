@@ -5,7 +5,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar, get_args
+from typing import Any, Callable, Dict, Iterable, Optional, Set, Type, TypeVar, get_args
 
 from typing_inspect import is_optional_type
 
@@ -120,8 +120,8 @@ class Container:
 
 
 def map_dependencies(
-    instances: Dict[Type[Any], Any], graph: Optional[Dict[Any, List[Any]]] = None
-) -> Dict[Any, List[Any]]:
+    instances: Dict[Type[Any], Any], graph: Optional[Dict[Any, list[Any]]] = None
+) -> Dict[Any, list[Any]]:
     if not graph:
         graph = defaultdict(list)
 
@@ -146,7 +146,7 @@ def map_dependencies(
     return graph
 
 
-def list_dependencies_in_init_order(dep_map: Dict[Any, List[Any]]) -> List[List[Any]]:
+def list_dependencies_in_init_order(dep_map: Dict[Any, list[Any]]) -> list[list[Any]]:
     initialized: Set[Any] = set()
     tiers = []
     while len(initialized) < len(dep_map):

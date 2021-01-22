@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Dict, List, Optional, Type
+from typing import Callable, Dict, Optional, Type
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
@@ -75,7 +75,7 @@ class BasicState:
     last_candle: Optional[Candle] = None
 
     @property
-    def open_positions(self) -> List[Position.Open]:
+    def open_positions(self) -> list[Position.Open]:
         return [self.open_position] if self.open_position else []
 
 
@@ -95,7 +95,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         user: Optional[User] = None,
         broker: Optional[Broker] = None,  # Only required if not backtesting.
         events: Events = Events(),
-        exchanges: List[Exchange] = [],
+        exchanges: list[Exchange] = [],
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
@@ -295,8 +295,8 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         state.next_ = candle.time + config.interval
 
     async def close_positions(
-        self, state: BasicState, symbols: List[str], reason: CloseReason
-    ) -> List[Position.Closed]:
+        self, state: BasicState, symbols: list[str], reason: CloseReason
+    ) -> list[Position.Closed]:
         if len(symbols) == 0:
             return []
         if (

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from typing import AsyncIterable, Callable, Deque, List, Optional
+from typing import AsyncIterable, Callable, Deque, Optional
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -25,7 +25,7 @@ class Trades:
     def __init__(
         self,
         storage: Storage,
-        exchanges: List[Exchange],
+        exchanges: list[Exchange],
         get_time_ms: Callable[[], int] = time_ms,
         storage_batch_size: int = 1000
     ) -> None:
@@ -96,7 +96,7 @@ class Trades:
                 # We also use swap to store trades from previous batch in case we get multiple
                 # trades with a same time at the edge of the batch.
                 batch = []
-                swap_batch: List[Trade] = []
+                swap_batch: list[Trade] = []
                 current = self._get_time_ms()
 
                 try:
@@ -200,5 +200,5 @@ class Trades:
                 yield trade
 
 
-def _get_span_end(batch: List[Trade]) -> int:
+def _get_span_end(batch: list[Trade]) -> int:
     return batch[-1].time + 1

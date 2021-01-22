@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 import logging
-from typing import Dict, List
+from typing import Dict
 
 from juno import Balance, exchanges
 from juno.components import User
@@ -28,7 +28,7 @@ async def main() -> None:
             await asyncio.gather(*(stream_account(user, a) for a in args.accounts))
 
 
-async def log_accounts(user: User, accounts: List[str]) -> None:
+async def log_accounts(user: User, accounts: list[str]) -> None:
     account_balances = await user.map_balances(
         exchange=args.exchange, accounts=accounts, significant=True
     )

@@ -6,8 +6,8 @@ import signal
 import traceback
 from dataclasses import dataclass, field
 from typing import (
-    Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Dict, Generic, Iterable, List,
-    Optional, Tuple, TypeVar, cast
+    Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Dict, Generic, Iterable, Optional,
+    Tuple, TypeVar, cast
 )
 
 _log = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ async def enumerate_async(
         i += step
 
 
-async def list_async(async_iter: AsyncIterable[T]) -> List[T]:
+async def list_async(async_iter: AsyncIterable[T]) -> list[T]:
     """Async equivalent to `list(iter)`."""
     return [item async for item in async_iter]
 

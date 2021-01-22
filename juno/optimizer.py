@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import partial
 from random import Random, randrange
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Any, Callable, Dict, NamedTuple, Optional, Tuple
 
 from deap import base, tools
 
@@ -55,8 +55,8 @@ class OptimizerConfig:
     exchange: str
     quote: Decimal
     strategy: TypeConstructor[Strategy]
-    symbols: Optional[List[str]] = None
-    intervals: Optional[List[Interval]] = None
+    symbols: Optional[list[str]] = None
+    intervals: Optional[list[Interval]] = None
     start: Optional[Timestamp] = None
     end: Optional[Timestamp] = None
     missed_candle_policy: Optional[MissedCandlePolicy] = MissedCandlePolicy.IGNORE
@@ -80,12 +80,12 @@ class OptimizerState:
     start: Timestamp
     end: Timestamp
     seed: int
-    symbols: List[str]
-    intervals: List[int]
+    symbols: list[str]
+    intervals: list[int]
     generation: int = 0
     summary: Optional[OptimizationSummary] = None
     random_state: Optional[Tuple[int, Tuple[int, ...], None]] = None
-    population: Optional[List[Any]] = None
+    population: Optional[list[Any]] = None
 
 
 # TODO: Does not support persist/resume. Population not stored/restored properly. Need to store
@@ -295,7 +295,7 @@ class Optimizer(StartMixin):
     async def _build_summary(
         self,
         state: OptimizerState,
-        fiat_prices: Dict[str, List[Decimal]],
+        fiat_prices: Dict[str, list[Decimal]],
         benchmark: AnalysisSummary,
         ind: Individual,
     ) -> OptimizationSummary:
@@ -344,9 +344,9 @@ class Optimizer(StartMixin):
     def _validate(
         self,
         state: OptimizerState,
-        fiat_prices: Dict[str, List[Decimal]],
+        fiat_prices: Dict[str, list[Decimal]],
         benchmark: AnalysisSummary,
-        candles: Dict[Tuple[str, int], List[Candle]],
+        candles: Dict[Tuple[str, int], list[Candle]],
         ind: Individual,
     ) -> None:
         assert state.summary

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from discord import File
 from discord.ext import commands
@@ -85,7 +85,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
             )
 
         @self._events.on(agent_name, 'positions_opened')
-        async def on_positions_opened(positions: List[Position], summary: TradingSummary) -> None:
+        async def on_positions_opened(positions: list[Position], summary: TradingSummary) -> None:
             await asyncio.gather(
                 *(send_message(
                     format_message(
@@ -98,7 +98,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
             )
 
         @self._events.on(agent_name, 'positions_closed')
-        async def on_positions_closed(positions: List[Position], summary: TradingSummary) -> None:
+        async def on_positions_closed(positions: list[Position], summary: TradingSummary) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await asyncio.gather(
                 *(send_message(

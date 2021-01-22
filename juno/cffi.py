@@ -1,8 +1,7 @@
 from decimal import Decimal
 from enum import IntEnum
 from typing import (
-    Any, Callable, Dict, Iterable, List, Optional, Tuple, Type, get_args, get_origin,
-    get_type_hints
+    Any, Callable, Dict, Iterable, Optional, Tuple, Type, get_args, get_origin, get_type_hints
 )
 
 _DEFAULT_MAPPINGS = {
@@ -25,19 +24,19 @@ class CDefBuilder:
 
     def function_from_params(
         self, name: str, return_param: Optional[Type[Any]], *params: Tuple[str, Type[Any]],
-        refs: List[str] = []
+        refs: list[str] = []
     ) -> str:
         param_strings = (
             f'\n    {self._map_type(v, is_ref=k in refs)} {k}' for k, v in _transform(params)
         )
         return f'{self._map_type(return_param)} {name}({",".join(param_strings)});\n'
 
-    def struct(self, type_: Type[Any], exclude: List[str] = []) -> str:
+    def struct(self, type_: Type[Any], exclude: list[str] = []) -> str:
         fields = ((k, v) for k, v in _transform(get_type_hints(type_).items()) if k not in exclude)
         return self.struct_from_fields(type_.__name__, *fields)
 
     def struct_from_fields(
-        self, name: str, *fields: Tuple[str, Optional[Type[Any]]], refs: List[str] = []
+        self, name: str, *fields: Tuple[str, Optional[Type[Any]]], refs: list[str] = []
     ) -> str:
         field_strings = (
             f'    {self._map_type(v, is_ref=k in refs)} {k};\n' for k, v in _transform(fields)

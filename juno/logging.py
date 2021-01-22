@@ -2,7 +2,6 @@ import logging
 import sys
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
-from typing import List
 
 from colorlog import ColoredFormatter
 
@@ -15,13 +14,13 @@ disabled_log.disabled = True
 
 def create_handlers(
     log_format: str = 'default',
-    log_outputs: List[str] = ['stdout'],
+    log_outputs: list[str] = ['stdout'],
     log_directory: str = 'logs',  # Only used when `log_outputs` includes 'file'.
-) -> List[logging.Handler]:
+) -> list[logging.Handler]:
     # We make a copy in order not to mutate the input.
     log_outputs = log_outputs[:]
 
-    handlers: List[logging.Handler] = []
+    handlers: list[logging.Handler] = []
 
     if 'stdout' in log_outputs:
         handlers.append(logging.StreamHandler(stream=sys.stdout))

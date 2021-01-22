@@ -9,7 +9,7 @@ import shutil
 import zlib
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 
 import cffi
 import pandas as pd
@@ -218,7 +218,7 @@ class Rust(Solver):
             self._c_borrow_infos[key] = c_borrow_info
         return c_borrow_info
 
-    def _get_or_create_c_candles(self, key: TimeSeriesKey, candles: List[Candle]) -> Any:
+    def _get_or_create_c_candles(self, key: TimeSeriesKey, candles: list[Candle]) -> Any:
         c_candles = self._c_candles.get(key)
         if not c_candles:
             c_candles = self._ffi.new(f'Candle[{len(candles)}]')
@@ -234,7 +234,7 @@ class Rust(Solver):
             self._c_candles[key] = c_candles
         return c_candles
 
-    def _get_or_create_c_prices(self, key: TimeSeriesKey, prices: List[Decimal]) -> Any:
+    def _get_or_create_c_prices(self, key: TimeSeriesKey, prices: list[Decimal]) -> Any:
         c_prices = self._c_prices.get(key)
         if not c_prices:
             c_prices = self._ffi.new(f'double[{len(prices)}]')
@@ -264,13 +264,13 @@ def _build_cdef() -> str:
         _cdef_builder.struct(FitnessValues),
         _cdef_builder.struct_from_fields(
             'AnalysisInfo',
-            ('quote_fiat_prices', List[Decimal]),
-            ('base_fiat_prices', List[Decimal]),
-            ('benchmark_g_returns', List[Decimal])
+            ('quote_fiat_prices', list[Decimal]),
+            ('base_fiat_prices', list[Decimal]),
+            ('benchmark_g_returns', list[Decimal])
         ),
         _cdef_builder.struct_from_fields(
             'TradingInfo',
-            ('candles', List[Candle]),
+            ('candles', list[Candle]),
             ('fees', Fees),
             ('filters', Filters),
             ('borrow_info', BorrowInfo),

@@ -6,7 +6,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
+from typing import AsyncIterable, AsyncIterator, Dict, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -40,10 +40,10 @@ class Orderbook:
             # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
 
-        def list_asks(self) -> List[Tuple[Decimal, Decimal]]:
+        def list_asks(self) -> list[Tuple[Decimal, Decimal]]:
             return sorted(self.sides[Side.BUY].items())
 
-        def list_bids(self) -> List[Tuple[Decimal, Decimal]]:
+        def list_bids(self) -> list[Tuple[Decimal, Decimal]]:
             return sorted(self.sides[Side.SELL].items(), reverse=True)
 
         def find_order_asks(
@@ -52,7 +52,7 @@ class Orderbook:
             filters: Filters,
             size: Optional[Decimal] = None,
             quote: Optional[Decimal] = None,
-        ) -> List[Fill]:
+        ) -> list[Fill]:
             if size is not None and quote is not None:
                 raise ValueError()
             if size is None and quote is None:
@@ -104,7 +104,7 @@ class Orderbook:
             filters: Filters,
             size: Optional[Decimal] = None,
             quote: Optional[Decimal] = None,
-        ) -> List[Fill]:
+        ) -> list[Fill]:
             if quote is not None:
                 raise NotImplementedError()
             if size is None:
@@ -132,7 +132,7 @@ class Orderbook:
                     size -= bsize
             return result
 
-    def __init__(self, exchanges: List[Exchange]) -> None:
+    def __init__(self, exchanges: list[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
 
         # Order sync state.
@@ -264,7 +264,7 @@ class Orderbook:
 
 
 def _set_orderbook_side(
-    orderbook_side: Dict[Decimal, Decimal], values: List[Tuple[Decimal, Decimal]]
+    orderbook_side: Dict[Decimal, Decimal], values: list[Tuple[Decimal, Decimal]]
 ) -> None:
     orderbook_side.clear()
     for price, size in values:
@@ -272,7 +272,7 @@ def _set_orderbook_side(
 
 
 def _update_orderbook_side(
-    orderbook_side: Dict[Decimal, Decimal], values: List[Tuple[Decimal, Decimal]]
+    orderbook_side: Dict[Decimal, Decimal], values: list[Tuple[Decimal, Decimal]]
 ) -> None:
     for price, size in values:
         if size > 0:

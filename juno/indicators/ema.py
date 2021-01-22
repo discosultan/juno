@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import List
 
 
 # Exponential Moving Average
@@ -12,7 +11,7 @@ class Ema:
     _a_inv: Decimal
 
     # Only used when `adjust=True`.
-    _prices: List[Decimal]
+    _prices: list[Decimal]
     _denominator: Decimal = Decimal('0.0')
 
     _t: int = 0

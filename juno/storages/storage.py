@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterable, List, Optional, Tuple, Type, TypeVar
+from typing import Any, AsyncIterable, Optional, Tuple, Type, TypeVar
 
 from juno.utils import AbstractAsyncContextManager
 
@@ -23,7 +23,7 @@ class Storage(AbstractAsyncContextManager, ABC):
 
     @abstractmethod
     async def store_time_series_and_span(
-        self, shard: str, key: str, items: List[Any], start: int, end: int
+        self, shard: str, key: str, items: list[Any], start: int, end: int
     ) -> None:
         pass
 

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Awaitable, Callable, Dict, List, Tuple
+from typing import Any, Awaitable, Callable, Dict, Tuple
 
 from juno.utils import exc_traceback
 
@@ -10,7 +10,7 @@ _log = logging.getLogger(__name__)
 
 class Events:
     def __init__(self) -> None:
-        self._handlers: Dict[Tuple[str, str], List[Callable[..., Awaitable[None]]]] = (
+        self._handlers: Dict[Tuple[str, str], list[Callable[..., Awaitable[None]]]] = (
             defaultdict(list)
         )
 
@@ -20,7 +20,7 @@ class Events:
 
         return _on
 
-    async def emit(self, channel: str, event: str, *args: Any) -> List[Any]:
+    async def emit(self, channel: str, event: str, *args: Any) -> list[Any]:
         handlers = self._handlers[(channel, event)]
         results = await asyncio.gather(*(h(*args) for h in handlers), return_exceptions=True)
         for e in (r for r in results if isinstance(r, Exception)):

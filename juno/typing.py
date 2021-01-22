@@ -8,8 +8,8 @@ from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union, get_args,
-    get_origin, get_type_hints
+    Any, Dict, Generic, Iterable, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin,
+    get_type_hints
 )
 
 from typing_inspect import (
@@ -20,8 +20,8 @@ ExcType = Optional[Type[BaseException]]
 ExcValue = Optional[BaseException]
 Traceback = Optional[TracebackType]
 
-JSONValue = Union[str, int, float, bool, None, Dict[str, Any], List[Any]]
-JSONType = Union[Dict[str, JSONValue], List[JSONValue]]
+JSONValue = Union[str, int, float, bool, None, Dict[str, Any], list[Any]]
+JSONType = Union[Dict[str, JSONValue], list[JSONValue]]
 
 T = TypeVar('T')
 
@@ -236,7 +236,7 @@ def map_input_args(obj: Any, args: Iterable[Any]) -> Dict[str, Any]:
     return {k: v for k, v in zip(get_input_type_hints(obj).keys(), args)}
 
 
-def resolve_generic_types(container: Any) -> List[type]:
+def resolve_generic_types(container: Any) -> list[type]:
     result = []
     container_type = type(container)
     generic_params = container_type.__parameters__

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Dict, List, Optional
+from typing import AsyncIterable, AsyncIterator, Dict, Optional
 
 from juno import (
     Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side, Ticker,
@@ -21,14 +21,14 @@ class Exchange(ABC):
     can_place_order_market_quote: bool = False  # Whether market order accepts quote param.
 
     @abstractmethod
-    def list_candle_intervals(self) -> List[int]:
+    def list_candle_intervals(self) -> list[int]:
         pass
 
     @abstractmethod
     async def get_exchange_info(self) -> ExchangeInfo:
         pass
 
-    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+    async def map_tickers(self, symbols: list[str] = []) -> Dict[str, Ticker]:
         # Empty list to disable filter.
         pass
 
@@ -123,5 +123,5 @@ class Exchange(ABC):
     async def create_account(self, account: str) -> None:
         pass
 
-    async def list_open_accounts(self) -> List[str]:
+    async def list_open_accounts(self) -> list[str]:
         return ['spot']

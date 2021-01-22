@@ -1,6 +1,6 @@
 import math
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
-from typing import Iterable, List, Tuple, TypeVar
+from typing import Iterable, Tuple, TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
 
@@ -34,7 +34,7 @@ def minmax(values: Iterable[Decimal]) -> Tuple[Decimal, Decimal]:
     return min_, max_
 
 
-def split(total: Decimal, parts: int) -> List[Decimal]:
+def split(total: Decimal, parts: int) -> list[Decimal]:
     assert parts > 0
 
     if parts == 1:

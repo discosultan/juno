@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import sys
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, Tuple, Type
 
 import pkg_resources
 from mergedeep import merge
@@ -58,23 +58,23 @@ async def main() -> None:
     container.add_singleton_instance(Dict[str, Any], lambda: cfg)
     container.add_singleton_instance(Storage, lambda: config.init_instance(Storage, cfg))
     container.add_singleton_instance(
-        List[Exchange], lambda: config.init_instances_mentioned_in_config(Exchange, cfg)
+        list[Exchange], lambda: config.init_instances_mentioned_in_config(Exchange, cfg)
     )
     # container.add_singleton_instance(
-    #     List[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
+    #     list[Exchange], lambda: config.try_init_all_instances(Exchange, cfg)
     # )
     container.add_singleton_type(Broker, lambda: config.resolve_concrete(Broker, cfg))
     container.add_singleton_type(Solver, lambda: config.resolve_concrete(Solver, cfg, Python))
     container.add_singleton_type(Optimizer)
     trader_types = map_concrete_module_types(traders, Trader).values()
     container.add_singleton_types(trader_types)
-    container.add_singleton_instance(List[Trader], lambda: map(container.resolve, trader_types))
+    container.add_singleton_instance(list[Trader], lambda: map(container.resolve, trader_types))
     container.add_singleton_types(map_concrete_module_types(components).values())
 
     # Load agents and plugins.
     agent_types: Dict[str, Type[Agent]] = map_concrete_module_types(agents)
     plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
-    agent_ctxs: List[Tuple[Agent, Any, List[Plugin]]] = [(
+    agent_ctxs: list[Tuple[Agent, Any, list[Plugin]]] = [(
         container.resolve(agent_types[c['type']]),
         config.config_to_type(c, agent_types[c['type']].Config),
         [container.resolve(plugin_types[p]) for p in c.get('plugins', [])],

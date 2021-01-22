@@ -2,7 +2,7 @@
 
 import asyncio
 from decimal import Decimal
-from typing import Callable, List
+from typing import Callable
 
 import pytest
 
@@ -105,7 +105,7 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
     )
     exchange.stream_historical_candles.return_value = resolved_stream(*raw_to_type(
         load_json_file(__file__, f'./data/backtest_scenario{scenario_nr}_candles.json'),
-        List[Candle],
+        list[Candle],
     ))
 
     container = _get_container(exchange)
@@ -320,8 +320,8 @@ async def test_live_persist_and_resume(mocker, strategy: str) -> None:
 def _get_container(exchange: Exchange) -> Container:
     container = Container()
     container.add_singleton_instance(Storage, lambda: Memory())
-    container.add_singleton_instance(List[Exchange], lambda: [exchange])
-    container.add_singleton_instance(List[Trader], lambda: [container.resolve(Basic)])
+    container.add_singleton_instance(list[Exchange], lambda: [exchange])
+    container.add_singleton_instance(list[Trader], lambda: [container.resolve(Basic)])
     container.add_singleton_type(Informant)
     container.add_singleton_type(Orderbook)
     container.add_singleton_type(Chandler)

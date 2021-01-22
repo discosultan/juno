@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, NamedTuple, Optional
 
 from juno import Interval, Timestamp, stop_loss, strategies, take_profit
 from juno.components import Chandler, Events, Prices
@@ -44,7 +44,7 @@ class Backtest(Agent):
 
     def __init__(
         self,
-        traders: List[Trader],
+        traders: list[Trader],
         chandler: Chandler,
         prices: Optional[Prices] = None,
         events: Events = Events(),

@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from decimal import Decimal
-from typing import Callable, Dict, List, Tuple
+from typing import Callable, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -85,7 +85,7 @@ async def main() -> None:
             market_data['btc'][time] = btc_fiat_candle.close
             market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
-        trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
+        trades: Dict[int, list[Tuple[str, Decimal]]] = defaultdict(list)
         for pos in trading_summary.get_positions():
             # Open.
             time = floor_multiple(pos.open_time, DAY_MS)

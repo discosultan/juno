@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 from juno import Fill, OrderResult, OrderStatus, OrderType, Side
 from juno.components import Informant, Orderbook, User
@@ -115,7 +115,7 @@ class Market(Broker):
 
         return res
 
-    def _validate_fills(self, exchange: str, symbol: str, fills: List[Fill]) -> None:
+    def _validate_fills(self, exchange: str, symbol: str, fills: list[Fill]) -> None:
         _fees, filters = self._informant.get_fees_filters(exchange, symbol)
         size = Fill.total_size(fills)
         filters.size.validate(size)

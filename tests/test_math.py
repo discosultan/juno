@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, Tuple
+from typing import Tuple
 
 import pytest
 
@@ -53,7 +53,7 @@ def test_minmax() -> None:
         [Decimal('1.0001')],
     ),
 ])
-def test_split(input_: Decimal, parts: int, expected_output: List[Decimal]) -> None:
+def test_split(input_: Decimal, parts: int, expected_output: list[Decimal]) -> None:
     output = math.split(input_, parts)
     assert output == expected_output
 

@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Coroutine, Dict, List, Optional, Tuple, Type
+from typing import Callable, Coroutine, Dict, Optional, Tuple, Type
 
 from more_itertools import take
 
@@ -52,8 +52,8 @@ class MultiConfig:
     long: bool = True  # Take long positions.
     short: bool = False  # Take short positions.
     close_on_exit: bool = True  # Whether to close open positions on exit.
-    track: List[str] = field(default_factory=list)
-    track_exclude: List[str] = field(default_factory=list)  # Symbols to ignore.
+    track: list[str] = field(default_factory=list)
+    track_exclude: list[str] = field(default_factory=list)  # Symbols to ignore.
     track_count: int = 4
     track_required_start: Optional[Timestamp] = None
     position_count: int = 2
@@ -65,14 +65,14 @@ class MultiState:
     config: MultiConfig
     close_on_exit: bool
     symbol_states: Dict[str, _SymbolState]
-    quotes: List[Decimal]
+    quotes: list[Decimal]
     summary: TradingSummary
     start: Timestamp  # Candle time.
     real_start: Timestamp
     open_new_positions: bool = True  # Whether new positions can be opened.
 
     @property
-    def open_positions(self) -> List[Position.Open]:
+    def open_positions(self) -> list[Position.Open]:
         return [s.open_position for s in self.symbol_states.values() if s.open_position]
 
     @property
@@ -141,7 +141,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         user: Optional[User] = None,
         broker: Optional[Broker] = None,
         events: Events = Events(),
-        exchanges: List[Exchange] = [],
+        exchanges: list[Exchange] = [],
         get_time_ms: Callable[[], int] = time_ms,
     ) -> None:
         self._chandler = chandler
@@ -258,7 +258,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         _log.info('finished')
         return state.summary
 
-    async def _find_top_symbols(self, config: MultiConfig) -> List[str]:
+    async def _find_top_symbols(self, config: MultiConfig) -> list[str]:
         tickers = self._informant.map_tickers(
             config.exchange, symbol_patterns=[SYMBOL_PATTERN],
             exclude_symbol_patterns=config.track_exclude, spot=True, isolated_margin=True
@@ -358,7 +358,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
     async def _try_close_existing_positions(self, state: MultiState) -> None:
         config = state.config
-        to_process: List[Coroutine[None, None, Position.Closed]] = []
+        to_process: list[Coroutine[None, None, Position.Closed]] = []
         for ss in (ss for ss in state.symbol_states.values() if ss.ready):
             assert ss.last_candle
             if (
@@ -383,7 +383,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
     async def _try_open_new_positions(self, state: MultiState) -> None:
         config = state.config
-        to_process: List[Coroutine[None, None, Position.Open]] = []
+        to_process: list[Coroutine[None, None, Position.Open]] = []
         count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
         assert count <= config.position_count
         available = config.position_count - count
@@ -547,8 +547,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         )
 
     async def close_positions(
-        self, state: MultiState, symbols: List[str], reason: CloseReason
-    ) -> List[Position.Closed]:
+        self, state: MultiState, symbols: list[str], reason: CloseReason
+    ) -> list[Position.Closed]:
         symbol_states = [
             ss
             for ss in (state.symbol_states.get(s) for s in symbols)
@@ -559,8 +559,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return await self._close_positions(state, symbol_states, reason)
 
     async def _close_positions(
-        self, state: MultiState, symbol_states: List[_SymbolState], reason: CloseReason
-    ) -> List[Position.Closed]:
+        self, state: MultiState, symbol_states: list[_SymbolState], reason: CloseReason
+    ) -> list[Position.Closed]:
         if len(symbol_states) == 0:
             return []
 

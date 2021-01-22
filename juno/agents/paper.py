@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple, Optional
+from typing import Any, Callable, Dict, NamedTuple, Optional
 
 from juno import Interval, Timestamp, stop_loss, strategies, take_profit
 from juno.components import Events, Informant
@@ -41,7 +41,7 @@ class Paper(Agent):
     def __init__(
         self,
         informant: Informant,
-        traders: List[Trader],
+        traders: list[Trader],
         events: Events = Events(),
         storage: Storage = Memory(),
         get_time_ms: Callable[[], int] = time_ms,

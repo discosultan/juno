@@ -5,8 +5,8 @@ from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
 from typing import (
-    Any, AsyncIterable, ContextManager, Dict, List, NamedTuple, Optional, Set, Tuple, Type,
-    TypeVar, Union, get_type_hints
+    Any, AsyncIterable, ContextManager, Dict, NamedTuple, Optional, Set, Tuple, Type, TypeVar,
+    Union, get_type_hints
 )
 
 from juno import Interval, Timestamp, json
@@ -52,7 +52,7 @@ class SQLite(Storage):
     async def stream_time_series_spans(
         self, shard: str, key: str, start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[Tuple[int, int]]:
-        def inner() -> List[Tuple[int, int]]:
+        def inner() -> list[Tuple[int, int]]:
             _log.info(
                 f'streaming span(s) between {strfspan(start, end)} from shard {shard} {key}'
             )
@@ -71,7 +71,7 @@ class SQLite(Storage):
     async def stream_time_series(
         self, shard: str, key: str, type_: Type[T], start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[T]:
-        def inner() -> List[T]:
+        def inner() -> list[T]:
             _log.info(
                 f'streaming items between {strfspan(start, end)} from shard {shard} {key}'
             )
@@ -86,7 +86,7 @@ class SQLite(Storage):
             yield raw_to_type(row, type_)
 
     async def store_time_series_and_span(
-        self, shard: str, key: str, items: List[Any], start: int, end: int
+        self, shard: str, key: str, items: list[Any], start: int, end: int
     ) -> None:
         # Even if items list is empty, we still want to store a span for the period!
         if len(items) > 0:

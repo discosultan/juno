@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from typing import (  # type: ignore
-    Any, Deque, Dict, Generic, List, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
+    Any, Deque, Dict, Generic, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
 )
 
 import pytest
@@ -71,7 +71,7 @@ def test_get_input_type_hints() -> None:
 
 @pytest.mark.parametrize('input_,expected_output', [
     (list, 'list'),
-    (List[int], 'typing.List[int]'),
+    (list[int], 'list[int]'),
     (BasicNamedTuple, 'BasicNamedTuple'),
     # (Optional[int], 'typing.Optional[int]'),  # 'typing.Union[int, None]'
 ])
@@ -81,7 +81,7 @@ def test_get_name(input_, expected_output) -> None:
 
 @pytest.mark.parametrize('input_,expected_output', [
     (list, False),
-    (List[int], False),
+    (list[int], False),
     (BasicNamedTuple, True),
     (BasicNamedTuple(value1=1), True),
 ])
@@ -93,7 +93,7 @@ def test_isnamedtuple(input_, expected_output) -> None:
     ([1, 2], BasicNamedTuple, BasicNamedTuple(1, 2)),
     ([1], BasicNamedTuple, BasicNamedTuple(1, 2)),
     ([1, [2, 3]], Tuple[int, BasicNamedTuple], (1, BasicNamedTuple(2, 3))),
-    ([1, 2], List[int], [1, 2]),
+    ([1, 2], list[int], [1, 2]),
     ({'value1': 1, 'value2': 2}, BasicDataClass, BasicDataClass(value1=1, value2=2)),
     ([1.0, 2.0], Deque[Decimal], deque([Decimal('1.0'), Decimal('2.0')])),
     (1, BasicEnum, BasicEnum.VALUE),
@@ -142,8 +142,8 @@ def test_raw_to_type(obj, type_, expected_output) -> None:
     ({'a': BasicNamedTuple(1, 2)}, Dict[str, BasicNamedTuple], True),
     ({'a': 1, 'b': 'x'}, Dict[str, int], False),
     ({'value': 1}, BasicNamedTuple, False),
-    ([BasicNamedTuple(1, 2)], List[BasicNamedTuple], True),
-    ([1, 'x'], List[int], False),
+    ([BasicNamedTuple(1, 2)], list[BasicNamedTuple], True),
+    ([1, 'x'], list[int], False),
     ((1, 'x'), Tuple[int, str], True),
     (BasicDataClass(1, 2), BasicDataClass, True),
     (1, Optional[int], True),

@@ -9,7 +9,7 @@ import urllib.parse
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional
 
 from juno import (
     Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType, OrderUpdate, Side,
@@ -74,7 +74,7 @@ class Kraken(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def list_candle_intervals(self) -> List[int]:
+    def list_candle_intervals(self) -> list[int]:
         return [
             60000,  # 1m
             300000,  # 5m
@@ -105,7 +105,7 @@ class Kraken(Exchange):
             )
         return ExchangeInfo(fees=fees, filters=filters)
 
-    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+    async def map_tickers(self, symbols: list[str] = []) -> Dict[str, Ticker]:
         if not symbols:
             raise ValueError('Empty symbols list not supported')
 
@@ -369,7 +369,7 @@ class KrakenPublicFeed:
 
     @asynccontextmanager
     async def subscribe(
-        self, subscription: Any, symbols: Optional[List[str]] = None
+        self, subscription: Any, symbols: Optional[list[str]] = None
     ) -> AsyncIterator[AsyncIterable[Any]]:
         await self._ensure_connection()
 

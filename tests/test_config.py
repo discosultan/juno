@@ -1,7 +1,7 @@
 import sys
 from decimal import Decimal
 from enum import IntEnum
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, NamedTuple, Optional, Union
 
 from juno import Interval, Timestamp, config
 from juno.time import HOUR_MS
@@ -18,7 +18,7 @@ class Foo(NamedTuple):
     optional_interval: Optional[Interval]
     missing_optional_interval: Optional[Interval]
     decimal: Decimal
-    list_of_intervals: List[Interval]
+    list_of_intervals: list[Interval]
     dict_of_intervals: Dict[Interval, Interval]
     enum: SomeEnum
 

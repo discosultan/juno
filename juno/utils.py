@@ -11,9 +11,7 @@ from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
-from typing import (
-    Any, Dict, Iterator, List, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
-)
+from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
 
 import aiolimiter
 
@@ -164,7 +162,7 @@ def map_concrete_module_types(
 # Cannot use typevar T in place of Any here. Triggers: "Only concrete class can be given where type
 # is expected".
 # Ref: https://github.com/python/mypy/issues/5374
-def list_concretes_from_module(module: ModuleType, abstract: Type[Any]) -> List[Type[Any]]:
+def list_concretes_from_module(module: ModuleType, abstract: Type[Any]) -> list[Type[Any]]:
     return [t for _n, t in inspect.getmembers(
         module,
         lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract)

@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, Optional
 
 from juno.asyncio import enumerate_async
 from juno.components import Chandler
@@ -24,14 +24,14 @@ class Prices:
         interval: int = DAY_MS,
         fiat_exchange: Optional[str] = None,
         fiat_asset: str = 'usdt',
-    ) -> Dict[str, List[Decimal]]:
+    ) -> Dict[str, list[Decimal]]:
         """Maps all assets found in symbols to their fiat prices."""
         start = floor_multiple(start, interval)
         end = floor_multiple(end, interval)
 
         fiat_exchange = fiat_exchange or exchange
 
-        result: Dict[str, List[Decimal]] = {}
+        result: Dict[str, list[Decimal]] = {}
 
         # Quote -> fiat.
         quote_fiat_symbols = {
@@ -49,7 +49,7 @@ class Prices:
             assert fiat_exchange
             quote_asset, _fiat_asset = unpack_symbol(symbol)
             assert quote_asset not in result
-            quote_prices: List[Decimal] = []
+            quote_prices: list[Decimal] = []
             async for candle in self._chandler.stream_candles(
                 fiat_exchange, symbol, interval, start, end, fill_missing_with_last=True
             ):
@@ -71,7 +71,7 @@ class Prices:
         async def assign_with_prices(symbol: str) -> None:
             base_asset, quote_asset = unpack_symbol(symbol)
             assert base_asset not in result
-            base_prices: List[Decimal] = []
+            base_prices: list[Decimal] = []
             quote_prices = result[quote_asset]
             async for price_i, candle in enumerate_async(self._chandler.stream_candles(
                 exchange, symbol, interval, start, end, fill_missing_with_last=True

@@ -1,7 +1,7 @@
 import asyncio
 import csv
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from juno import Candle, Filters, MissedCandlePolicy, stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
@@ -88,7 +88,7 @@ async def stream_and_export_daily_candles_as_csv(
     )
 
 
-def export_daily_candles_as_csv(symbol: str, candles: List[Candle]) -> None:
+def export_daily_candles_as_csv(symbol: str, candles: list[Candle]) -> None:
     with open(f'{symbol}-max.csv', 'w', newline='') as csvfile:
         fieldnames = ['snapped_at', 'price', 'market_cap', 'total_volume']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)

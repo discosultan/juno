@@ -6,7 +6,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Dict, List, Optional, Set, Tuple
+from typing import AsyncIterable, AsyncIterator, Dict, Optional, Set, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
 
@@ -26,7 +26,7 @@ class User:
             # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
 
-    def __init__(self, exchanges: List[Exchange]) -> None:
+    def __init__(self, exchanges: list[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._open_accounts: Dict[str, Set[str]] = {}
 
@@ -93,7 +93,7 @@ class User:
     async def map_balances(
         self,
         exchange: str,
-        accounts: List[str],
+        accounts: list[str],
         significant: Optional[bool] = None,
     ) -> Dict[str, Dict[str, Balance]]:
         account_args = {a if a in ['spot', 'margin'] else 'isolated' for a in accounts}

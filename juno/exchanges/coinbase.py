@@ -10,9 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
 from time import time
-from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
-)
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional, Tuple
 
 from dateutil.tz import UTC
 
@@ -75,7 +73,7 @@ class Coinbase(Exchange):
         await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def list_candle_intervals(self) -> List[int]:
+    def list_candle_intervals(self) -> list[int]:
         return [
             60000,  # 1m
             300000,  # 5m
@@ -115,7 +113,7 @@ class Coinbase(Exchange):
             filters=filters,
         )
 
-    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+    async def map_tickers(self, symbols: list[str] = []) -> Dict[str, Ticker]:
         # TODO: Use REST endpoint instead of WS here?
         # https://docs.pro.coinbase.com/#get-product-ticker
         # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
@@ -419,7 +417,7 @@ class CoinbaseFeed:
         self.process_task: Optional[asyncio.Task] = None
 
         self.subscriptions_updated: Event[None] = Event(autoclear=True)
-        self.subscriptions: Dict[str, List[str]] = {}
+        self.subscriptions: Dict[str, list[str]] = {}
         self.channels: Dict[Tuple[str, str], asyncio.Queue] = defaultdict(asyncio.Queue)
         self.type_to_channel: Dict[str, str] = {}
 
@@ -437,7 +435,7 @@ class CoinbaseFeed:
 
     @asynccontextmanager
     async def subscribe(
-        self, channel: str, types: List[str], symbols: List[str]
+        self, channel: str, types: list[str], symbols: list[str]
     ) -> AsyncIterator[AsyncIterable[Any]]:
         for type_ in types:
             self.type_to_channel[type_] = channel
@@ -500,7 +498,7 @@ class CoinbaseFeed:
 
 
 def _is_subscribed(
-    subscriptions: Dict[str, List[str]], channels: List[str], symbols: List[str]
+    subscriptions: Dict[str, list[str]], channels: list[str], symbols: list[str]
 ) -> bool:
     for channel in channels:
         channel_sub = subscriptions.get(channel)

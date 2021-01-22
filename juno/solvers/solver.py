@@ -3,9 +3,7 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import (
-    Any, Callable, Dict, Iterable, List, NamedTuple, Optional, Tuple, Type, get_type_hints
-)
+from typing import Any, Callable, Dict, Iterable, NamedTuple, Optional, Tuple, Type, get_type_hints
 
 import pandas as pd
 from deap import base
@@ -134,9 +132,9 @@ class Individual(list):
 
 class Solver(AbstractAsyncContextManager, ABC):
     class Config(NamedTuple):
-        fiat_prices: Dict[str, List[Decimal]]
+        fiat_prices: Dict[str, list[Decimal]]
         benchmark_g_returns: pd.Series
-        candles: List[Candle]
+        candles: list[Candle]
         strategy_type: Type[Strategy]
         strategy_args: Tuple[Any, ...]
         exchange: str

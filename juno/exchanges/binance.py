@@ -10,7 +10,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterable, AsyncIterator, Dict, Optional
 
 import aiohttp
 from multidict import MultiDict
@@ -111,7 +111,7 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def list_candle_intervals(self) -> List[int]:
+    def list_candle_intervals(self) -> list[int]:
         return [
             60000,  # 1m
             180000,  # 3m
@@ -251,7 +251,7 @@ class Binance(Exchange):
             borrow_info=borrow_info,
         )
 
-    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+    async def map_tickers(self, symbols: list[str] = []) -> Dict[str, Ticker]:
         if len(symbols) > 1:
             raise NotImplementedError()
 
@@ -391,7 +391,7 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def list_orders(self, account: str, symbol: Optional[str] = None) -> List[Order]:
+    async def list_orders(self, account: str, symbol: Optional[str] = None) -> list[Order]:
         if account not in ['spot', 'margin']:
             if symbol is None:
                 symbol = account
@@ -763,7 +763,7 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
         )
 
-    async def convert_dust(self, assets: List[str]) -> None:
+    async def convert_dust(self, assets: list[str]) -> None:
         await self._api_request(
             'POST',
             '/sapi/v1/asset/dust',
@@ -771,7 +771,7 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
         )
 
-    async def _list_symbols(self, isolated: bool = False) -> List[str]:
+    async def _list_symbols(self, isolated: bool = False) -> list[str]:
         res = await self._api_request(
             'GET',
             f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
@@ -779,7 +779,7 @@ class Binance(Exchange):
         )
         return [_from_symbol(s['symbol']) for s in res.data]
 
-    async def list_open_accounts(self) -> List[str]:
+    async def list_open_accounts(self) -> list[str]:
         res = await self._api_request(
             'GET', '/sapi/v1/margin/isolated/account', security=_SEC_USER_DATA
         )

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from itertools import accumulate, chain
-from typing import List
 
 import plotly.graph_objs as go
 import plotly.offline as py
@@ -35,7 +34,7 @@ class Plotly(Plugin):
         _log.info(f'activated for {agent_name} ({agent_type})')
 
 
-def plot(candles: List[Candle], summary: TradingSummary) -> None:
+def plot(candles: list[Candle], summary: TradingSummary) -> None:
     times = [datetime_utcfromtimestamp_ms(c.time) for c in candles]
 
     traces = []
@@ -98,7 +97,7 @@ def plot(candles: List[Candle], summary: TradingSummary) -> None:
     py.plot(fig)
 
 
-def trace_position_openings(positions: List[Position.Closed], symbol: str) -> go.Scatter:
+def trace_position_openings(positions: list[Position.Closed], symbol: str) -> go.Scatter:
     return go.Scatter(
         mode='markers',
         x=[datetime_utcfromtimestamp_ms(p.open_time) for p in positions],
@@ -112,7 +111,7 @@ def trace_position_openings(positions: List[Position.Closed], symbol: str) -> go
     )
 
 
-def trace_position_closings(positions: List[Position.Closed], color: str) -> go.Scatter:
+def trace_position_closings(positions: list[Position.Closed], color: str) -> go.Scatter:
     return go.Scatter(
         mode='markers',
         x=[datetime_utcfromtimestamp_ms(p.close_time) for p in positions],
@@ -153,7 +152,7 @@ def trace_balance(summary: TradingSummary) -> go.Scatter:
     )
 
 
-def trace_adx(candles: List[Candle]) -> go.Scatter:
+def trace_adx(candles: list[Candle]) -> go.Scatter:
     adx = indicators.Adx(28)
     values = [adx.update(c.high, c.low) for c in candles]
     return go.Scatter(

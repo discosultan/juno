@@ -6,7 +6,7 @@ import itertools
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Dict, Generic, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, Dict, Generic, Optional, Tuple, Type, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
@@ -34,7 +34,7 @@ class Informant:
     def __init__(
         self,
         storage: Storage,
-        exchanges: List[Exchange],
+        exchanges: list[Exchange],
         get_time_ms: Callable[[], int] = time_ms,
         cache_time: int = 6 * HOUR_MS,
     ) -> None:
@@ -99,8 +99,8 @@ class Informant:
 
     # TODO: Do we need this? And the borrow param?
     def list_assets(
-        self, exchange: str, patterns: Optional[List[str]] = None, borrow: bool = False
-    ) -> List[str]:
+        self, exchange: str, patterns: Optional[list[str]] = None, borrow: bool = False
+    ) -> list[str]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         all_assets = {a: None for a in itertools.chain(
             *(map(unpack_symbol, exchange_info.filters.keys()))
@@ -120,11 +120,11 @@ class Informant:
     def list_symbols(
         self,
         exchange: str,
-        patterns: Optional[List[str]] = None,
+        patterns: Optional[list[str]] = None,
         spot: Optional[bool] = None,
         cross_margin: Optional[bool] = None,
         isolated_margin: Optional[bool] = None,
-    ) -> List[str]:
+    ) -> list[str]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         all_symbols = exchange_info.filters.keys()
 
@@ -152,8 +152,8 @@ class Informant:
         return list(result)
 
     def list_candle_intervals(
-        self, exchange: str, patterns: Optional[List[int]] = None
-    ) -> List[int]:
+        self, exchange: str, patterns: Optional[list[int]] = None
+    ) -> list[int]:
         all_intervals = self._exchanges[exchange].list_candle_intervals()
 
         result = (i for i in all_intervals)
@@ -167,8 +167,8 @@ class Informant:
     def map_tickers(
         self,
         exchange: str,
-        symbol_patterns: Optional[List[str]] = None,
-        exclude_symbol_patterns: Optional[List[str]] = None,
+        symbol_patterns: Optional[list[str]] = None,
+        exclude_symbol_patterns: Optional[list[str]] = None,
         spot: Optional[bool] = None,
         cross_margin: Optional[bool] = None,
         isolated_margin: Optional[bool] = None,
@@ -206,7 +206,7 @@ class Informant:
         # Sorted by quote volume desc. Watch out when queried with different quote assets.
         return dict(sorted(result, key=lambda st: st[1].quote_volume, reverse=True))
 
-    def list_exchanges(self, symbol: Optional[str] = None) -> List[str]:
+    def list_exchanges(self, symbol: Optional[str] = None) -> list[str]:
         result = (e for e in self._exchanges.keys())
 
         if symbol is not None:
@@ -216,7 +216,7 @@ class Informant:
 
     async def _periodic_sync_for_exchanges(
         self, key: str, type_: Type[_Timestamped[T]], initial_sync_event: asyncio.Event,
-        fetch: Callable[[Exchange], Awaitable[T]], exchanges: List[str]
+        fetch: Callable[[Exchange], Awaitable[T]], exchanges: list[str]
     ) -> None:
         period = self._cache_time
         _log.info(
