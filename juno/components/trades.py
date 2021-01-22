@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import deque
-from typing import AsyncIterable, Callable, Deque, Optional
+from typing import AsyncIterable, Callable, Optional
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -159,7 +159,7 @@ class Trades:
         exchange_instance = self._exchanges[exchange]
 
         async def inner(stream: Optional[AsyncIterable[Trade]]) -> AsyncIterable[Trade]:
-            last_trade_ids: Deque[int] = deque(maxlen=20)
+            last_trade_ids: deque[int] = deque(maxlen=20)
             if start < current:  # Historical.
                 async for trade in exchange_instance.stream_historical_trades(
                     symbol, start, min(end, current)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import deque
 from decimal import ROUND_FLOOR, Decimal
-from typing import Deque, Optional
+from typing import Optional
 
 
 # Arnaud Legoux Moving Average
@@ -10,7 +10,7 @@ class Alma:
     value: Decimal = Decimal('0.0')
 
     _weights: list[Decimal]
-    _prices: Deque[Decimal]
+    _prices: deque[Decimal]
 
     _t: int = 0
     _t1: int

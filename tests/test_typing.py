@@ -4,7 +4,7 @@ from decimal import Decimal
 from enum import IntEnum
 # Tuple import required here for mypy.
 from typing import (  # type: ignore
-    Any, Deque, Generic, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
+    Any, Generic, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
 )
 
 import pytest
@@ -96,7 +96,7 @@ def test_isnamedtuple(input_, expected_output) -> None:
     ([1, [2, 3]], Tuple[int, BasicNamedTuple], (1, BasicNamedTuple(2, 3))),
     ([1, 2], list[int], [1, 2]),
     ({'value1': 1, 'value2': 2}, BasicDataClass, BasicDataClass(value1=1, value2=2)),
-    ([1.0, 2.0], Deque[Decimal], deque([Decimal('1.0'), Decimal('2.0')])),
+    ([1.0, 2.0], deque[Decimal], deque([Decimal('1.0'), Decimal('2.0')])),
     (1, BasicEnum, BasicEnum.VALUE),
     ({'value': 1}, GenericDataClass[int], GenericDataClass(value=1)),
     (
@@ -148,8 +148,8 @@ def test_raw_to_type(obj, type_, expected_output) -> None:
     ((1, 'x'), Tuple[int, str], True),
     (BasicDataClass(1, 2), BasicDataClass, True),
     (1, Optional[int], True),
-    (deque([Decimal('1.0')]), Deque[Decimal], True),
-    (deque([1]), Deque[str], False),
+    (deque([Decimal('1.0')]), deque[Decimal], True),
+    (deque([1]), deque[str], False),
 ])
 def test_types_match(input_, type_, expected_output) -> None:
     assert typing.types_match(input_, type_) == expected_output

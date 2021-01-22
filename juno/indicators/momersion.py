@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import deque
 from decimal import Decimal
-from typing import Deque
 
 from more_itertools import pairwise
 
@@ -14,7 +13,7 @@ class Momersion:
     value: Decimal = Decimal('0.0')
 
     _prev_price: Decimal = Decimal('0.0')
-    _returns: Deque[Decimal]
+    _returns: deque[Decimal]
 
     _t: int = 0
     _t1: int

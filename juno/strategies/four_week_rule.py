@@ -1,6 +1,5 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque
 
 from juno import Advice, Candle, indicators
 from juno.constraints import Int
@@ -26,7 +25,7 @@ class FourWeekRule(Signal):
             }
         )
 
-    _prices: Deque[Decimal]
+    _prices: deque[Decimal]
     _ma: MA
     _advice: Advice = Advice.NONE
     _t: int = 0

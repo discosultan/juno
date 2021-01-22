@@ -1,6 +1,5 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque
 
 from .sma import Sma
 
@@ -10,8 +9,8 @@ class Stoch:
     k: Decimal = Decimal('0.0')
     d: Decimal = Decimal('0.0')
 
-    _k_high_window: Deque[Decimal]
-    _k_low_window: Deque[Decimal]
+    _k_high_window: deque[Decimal]
+    _k_low_window: deque[Decimal]
 
     _k_sma: Sma
     _d_sma: Sma
