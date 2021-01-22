@@ -324,9 +324,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     s for s in top_symbols if s not in state.symbol_states.keys()
                 ][:len(leaving_symbols)]
                 assert len(leaving_symbols) == len(new_symbols)
-                _log.info(f'swapping out {leaving_symbols} in favor of {new_symbols}')
 
                 if len(new_symbols) > 0:
+                    _log.info(f'swapping out {leaving_symbols} in favor of {new_symbols}')
+
                     await cancel(*(track_tasks[s] for s in leaving_symbols))
                     for leaving_symbol in leaving_symbols:
                         del track_tasks[leaving_symbol]

@@ -44,27 +44,44 @@ export default function Generations({ value, onSelect }) {
           </TableHead>
           <TableBody>
             {/* We reverse gens to show the latest on top */}
-            {gens.slice(0).reverse().map((gen, i) => gen.hallOfFame.map((ind, j) => (
-              <TableRow
-                key={i * args.hallOfFameSize + j}
-                hover
-                className={classes.row}
-                onClick={() => onSelect(value, gen, ind)}
-              >
-                <TableCell component="th" scope="row">
-                  {gen.nr}
-                </TableCell>
-                {symbols.map((symbol) => (
-                  <TableCell key={symbol} align="right">
-                    {ind.symbolStats[symbol].sortinoRatio.toFixed(8)}
-                  </TableCell>
-                ))}
-                <TableCell align="right">{ind.ind.fitness.toFixed(8)}</TableCell>
-              </TableRow>
-            )))}
+            {gens
+              .slice(0)
+              .reverse()
+              .map((gen, i) =>
+                gen.hallOfFame.map((ind, j) => (
+                  <TableRow
+                    key={i * args.hallOfFameSize + j}
+                    hover
+                    className={classes.row}
+                    onClick={() => onSelect(value, gen, ind)}
+                  >
+                    <TableCell component="th" scope="row">
+                      {gen.nr}
+                    </TableCell>
+                    {symbols.map((symbol) => (
+                      <TableCell key={symbol} align="right">
+                        {getEvaluationStat(
+                          ind.symbolStats[symbol],
+                          args.evaluationStatistic,
+                        ).toFixed(8)}
+                      </TableCell>
+                    ))}
+                    <TableCell align="right">{ind.ind.fitness.toFixed(8)}</TableCell>
+                  </TableRow>
+                )),
+              )}
           </TableBody>
         </Table>
       </TableContainer>
     </>
   );
+}
+
+function getEvaluationStat(stats, evaluationStatistic) {
+  evaluationStatistic = evaluationStatistic.charAt(0).toLowerCase() + evaluationStatistic.slice(1);
+  let result = stats.core[evaluationStatistic];
+  if (result === undefined) {
+    result = stats.extended[evaluationStatistic];
+  }
+  return result;
 }

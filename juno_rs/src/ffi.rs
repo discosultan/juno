@@ -1,5 +1,6 @@
 use crate::{
-    statistics, stop_loss,
+    statistics::ExtendedStatistics,
+    stop_loss,
     strategies::{self, Signal},
     take_profit,
     time::DAY_MS,
@@ -111,7 +112,7 @@ unsafe fn run_test<T: Signal>(
     //     analysis_info.benchmark_g_returns_length as usize,
     // );
 
-    let stats = statistics::analyse(
+    let stats = ExtendedStatistics::compose(
         &trading_summary,
         &base_fiat_prices,
         Some(&quote_fiat_prices),

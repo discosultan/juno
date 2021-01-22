@@ -1,7 +1,7 @@
 use juno_derive_rs::*;
 use juno_rs::genetics::Chromosome;
-use serde::{Deserialize, Serialize};
 use rand::prelude::*;
+use serde::{Deserialize, Serialize};
 
 #[derive(Chromosome, Clone, Debug, Default, PartialEq)]
 struct Regular {
@@ -176,15 +176,18 @@ fn test_derive_aggregate_crossover() {
 fn test_derive_context_generate() {
     let mut rng = StdRng::seed_from_u64(1);
 
-    let x = Aggregate::generate(&mut rng, &AggregateContext {
-        agg_a: Default::default(),
-        agg_b: RegularContext {
-            a: None,
-            b: Some(200),
+    let x = Aggregate::generate(
+        &mut rng,
+        &AggregateContext {
+            agg_a: Default::default(),
+            agg_b: RegularContext {
+                a: None,
+                b: Some(200),
+            },
+            c: Default::default(),
+            d: Some(400),
         },
-        c: Default::default(),
-        d: Some(400),
-    });
+    );
     assert_eq!(x.agg_a.a, 10);
     assert_eq!(x.agg_a.b, 20);
     assert_eq!(x.agg_b.a, 10);

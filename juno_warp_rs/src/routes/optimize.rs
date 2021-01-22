@@ -9,18 +9,19 @@ use juno_rs::{
         Individual,
     },
     prelude::*,
-    statistics::TradingStats,
+    statistics::Statistics,
     stop_loss::StopLoss,
     storages,
     strategies::*,
     take_profit::TakeProfit,
     trading::{
-        trade, BasicEvaluation, TradingChromosome, TradingChromosomeContext, TradingSummary,
+        trade, BasicEvaluation, EvaluationStatistic, TradingChromosome, TradingChromosomeContext,
+        TradingSummary,
     },
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::collections::HashMap;
-use warp::{hyper::body::Bytes, reply::Json, Filter, Rejection};
+use std::{cmp::min, collections::HashMap};
+use warp::{hyper::body, reply, Filter, Rejection, Reply};
 
 #[derive(Deserialize)]
 struct Params<T: Default> {
@@ -40,6 +41,8 @@ struct Params<T: Default> {
     training_symbols: Vec<String>,
 
     validation_symbols: Vec<String>,
+
+    evaluation_statistic: EvaluationStatistic,
 
     #[serde(default)]
     context: Option<T>,
@@ -62,7 +65,7 @@ struct Generation<T: Chromosome, U: Chromosome, V: Chromosome> {
 #[derive(Serialize)]
 struct IndividualStats<T: Chromosome, U: Chromosome, V: Chromosome> {
     ind: Individual<TradingChromosome<T, U, V>>,
-    symbol_stats: HashMap<String, TradingStats>,
+    symbol_stats: HashMap<String, Statistics>,
 }
 
 #[derive(Serialize)]
@@ -71,22 +74,30 @@ struct EvolutionStats<T: Chromosome, U: Chromosome, V: Chromosome> {
     seed: u64,
 }
 
-pub fn route() -> impl Filter<Extract = (warp::reply::Json,), Error = Rejection> + Clone {
+pub fn routes() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+    warp::path("optimize").and(get().or(post()))
+}
+
+fn get() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
+    warp::get().map(|| reply::json(&EvaluationStatistic::values()))
+}
+
+fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
-        .and(warp::path("optimize"))
+        // .and(warp::path("optimize"))
         .and(warp::path::param()) // strategy
         .and(warp::path::param()) // stop_loss
         .and(warp::path::param()) // take_profit
         .and(warp::body::bytes())
         .and_then(
-            |strategy: String, stop_loss: String, take_profit: String, bytes: Bytes| async move {
+            |strategy: String, stop_loss: String, take_profit: String, bytes: body::Bytes| async move {
                 route_strategy!(process, strategy, stop_loss, take_profit, bytes)
                     .map_err(|error| custom_reject(error)) // TODO: return 400
             },
         )
 }
 
-fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: Bytes) -> Result<Json>
+fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: body::Bytes) -> Result<reply::Json>
 where
     <<T as Strategy>::Params as Chromosome>::Context: Default + DeserializeOwned,
     <<U as StopLoss>::Params as Chromosome>::Context: Default + DeserializeOwned,
@@ -108,7 +119,7 @@ where
         .enumerate()
         .filter(|(_, gen)| {
             let mut pass = false;
-            for i in 0..args.hall_of_fame_size {
+            for i in 0..min(args.hall_of_fame_size, gen.hall_of_fame.len()) {
                 let best_ind = &gen.hall_of_fame[i];
                 let best_fitness = best_fitnesses[i];
                 if best_fitness.is_nan() || best_ind.fitness > best_fitness {
@@ -131,7 +142,7 @@ where
                             let stats = get_stats::<T, U, V>(&args, symbol, &summary).unwrap();
                             (symbol.to_owned(), stats) // TODO: Return &String instead.
                         })
-                        .collect::<HashMap<String, TradingStats>>();
+                        .collect::<HashMap<String, Statistics>>();
 
                     IndividualStats { ind, symbol_stats }
                 })
@@ -143,7 +154,7 @@ where
             }
         })
         .collect::<Vec<Generation<_, _, _>>>();
-    Ok(warp::reply::json(&EvolutionStats {
+    Ok(reply::json(&EvolutionStats {
         generations: gen_stats,
         seed: evolution.seed,
     }))
@@ -171,6 +182,7 @@ where <TradingChromosome<
             args.start,
             args.end,
             args.quote,
+            args.evaluation_statistic,
         )?,
         selection::EliteSelection { shuffle: false },
         // selection::GenerateRandomSelection {}, // For random search.
@@ -249,7 +261,7 @@ fn get_stats<T: Signal, U: StopLoss, V: TakeProfit>(
     >,
     symbol: &str,
     summary: &TradingSummary,
-) -> Result<TradingStats>
+) -> Result<Statistics>
 where <TradingChromosome<
     <T as Strategy>::Params,
     <U as StopLoss>::Params,
@@ -272,7 +284,7 @@ where <TradingChromosome<
     let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));
     let stats_base_prices = candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
-    let stats = TradingStats::from_summary(
+    let stats = Statistics::compose(
         &summary,
         &stats_base_prices,
         stats_quote_prices.as_deref(),

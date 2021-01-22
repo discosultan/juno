@@ -10,6 +10,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import useLocalStorageStateImpl from 'use-local-storage-state';
 import DatePicker from '../DatePicker';
 import { Intervals, StopLosses, Strategies, Symbols, TakeProfits } from '../../info';
+import useEvaluationStatistics from '../../hooks/useEvaluationStatistics';
 
 function useLocalStorageState(key, defaultValue) {
   return useLocalStorageStateImpl(`optimization_controls_${key}`, defaultValue);
@@ -39,6 +40,9 @@ export default function Controls({ onOptimize }) {
   const [interval, setInterval] = useLocalStorageState('interval', '1d');
   const [start, setStart] = useLocalStorageState('start', '2018-01-01');
   const [end, setEnd] = useLocalStorageState('end', '2021-01-01');
+  const [evaluationStatistic, setEvaluastionStatistic] = useLocalStorageState(
+    'evaluationStatistic', 'Profit'
+  );
   const [generations, setGenerations] = useLocalStorageState('generations', 32);
   const [populationSize, setPopulationSize] = useLocalStorageState('populationSize', 32);
   const [hallOfFameSize, setHallOfFameSize] = useLocalStorageState('hallOfFameSize', 1);
@@ -46,6 +50,7 @@ export default function Controls({ onOptimize }) {
   const [seed, setSeed] = useLocalStorageState('seed', 0);
   const [context, setContext] = useLocalStorageState('context', '{\n}');
 
+  const evaluationStatistics = useEvaluationStatistics();
   const classes = useStyles();
 
   return (
@@ -162,6 +167,21 @@ export default function Controls({ onOptimize }) {
       <DatePicker label="End" value={end} onChange={(e) => setEnd(e.target.value)} />
 
       <TextField
+        id="evaluationStatistic"
+        fullWidth
+        select
+        label="Evaluation Statistic"
+        value={evaluationStatistic}
+        onChange={(e) => setEvaluastionStatistic(e.target.value)}
+      >
+        {evaluationStatistics.map((statistic) => (
+          <MenuItem key={statistic} value={statistic}>
+            {statistic}
+          </MenuItem>
+        ))}
+      </TextField>
+
+      <TextField
         id="generations"
         fullWidth
         label="Number Of Generations"
@@ -237,6 +257,7 @@ export default function Controls({ onOptimize }) {
             start,
             end,
             quote: 1.0,
+            evaluationStatistic,
             populationSize,
             generations,
             hallOfFameSize,

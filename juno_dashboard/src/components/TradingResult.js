@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React from 'react';
 import Table from '@material-ui/core/Table';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
@@ -8,27 +8,24 @@ import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
 import Button from '@material-ui/core/Button';
 import Chart from './Chart';
-import { ChandlerContext } from '../App';
+import useSymbolCandles from '../hooks/useSymbolCandles';
 
 export default function TradingResult({ value, onClose }) {
   const { args, config, symbolStats, title } = value;
-  const stats = Object.values(symbolStats);
-  const chandler = useContext(ChandlerContext);
-  const [symbolCandles, setSymbolCandles] = useState(null);
 
-  useEffect(() => {
-    (async () => {
-      setSymbolCandles(
-        await chandler.fetchCandles({
-          exchange: args.exchange,
-          interval: args.interval,
-          start: args.start,
-          end: args.end,
-          symbols: args.trainingSymbols.concat(args.validationSymbols),
-        }),
-      );
-    })();
-  }, [args, chandler]);
+  // Flatten a complex statistics object.
+  const flatSymbolStats = Object.entries(symbolStats).reduce((acc, [symbol, stats]) => {
+    acc[symbol] = {
+      ...stats.core,
+      ...stats.extended,
+    };
+    delete acc[symbol]['positions'];
+    delete acc[symbol]['gReturns'];
+    return acc;
+  }, {});
+
+  const stats = Object.values(flatSymbolStats);
+  const symbolCandles = useSymbolCandles(args);
 
   function renderStats() {
     if (stats.length === 0) return <></>;
@@ -36,27 +33,26 @@ export default function TradingResult({ value, onClose }) {
     const keys = Object.keys(stats[0]).filter((key) => key !== 'positions');
     const symbols = args.trainingSymbols.concat(args.validationSymbols);
 
-    const keyTotals = keys.map((key) => symbols.reduce((acc, symbol) => {
-      const value = symbolStats[symbol][key];
-      return typeof value === "number" ? acc + value : acc;
-    }, 0));
-
-    return (
-      keys
-        .map((key, i) => (
-          <TableRow key={key}>
-            <TableCell component="th" scope="row">
-              {key}
-            </TableCell>
-            {symbols.map((symbol) => (
-              <TableCell key={symbol} align="right">
-                {fmtUnknown(symbolStats[symbol][key])}
-              </TableCell>
-            ))}
-            <TableCell>{fmtUnknown(keyTotals[i])}</TableCell>
-          </TableRow>
-        ))
+    const keyTotals = keys.map((key) =>
+      symbols.reduce((acc, symbol) => {
+        const value = flatSymbolStats[symbol][key];
+        return typeof value === 'number' ? acc + value : acc;
+      }, 0),
     );
+
+    return keys.map((key, i) => (
+      <TableRow key={key}>
+        <TableCell component="th" scope="row">
+          {key}
+        </TableCell>
+        {symbols.map((symbol) => (
+          <TableCell key={symbol} align="right">
+            {fmtUnknown(flatSymbolStats[symbol][key])}
+          </TableCell>
+        ))}
+        <TableCell>{fmtUnknown(keyTotals[i])}</TableCell>
+      </TableRow>
+    ));
   }
 
   return (
@@ -89,25 +85,27 @@ export default function TradingResult({ value, onClose }) {
         </Table>
       </TableContainer>
 
-      {symbolCandles !== null &&
-        args.trainingSymbols.map((symbol) => (
-          <Chart
-            key={symbol}
-            symbol={symbol}
-            candles={symbolCandles[symbol]}
-            stats={symbolStats[symbol]}
-          />
-        ))}
-
-      {symbolCandles !== null &&
-        args.validationSymbols.map((symbol) => (
-          <Chart
-            key={symbol}
-            symbol={`${symbol} (v)`}
-            candles={symbolCandles[symbol]}
-            stats={symbolStats[symbol]}
-          />
-        ))}
+      {Object.keys(symbolCandles).length && []
+        .concat(
+          args.trainingSymbols.map((symbol) => (
+            <Chart
+              key={symbol}
+              symbol={symbol}
+              candles={symbolCandles[symbol]}
+              stats={symbolStats[symbol].core}
+            />
+          ))
+        .concat(
+          args.validationSymbols.map((symbol) => (
+            <Chart
+              key={symbol}
+              symbol={`${symbol} (v)`}
+              candles={symbolCandles[symbol]}
+              stats={symbolStats[symbol].core}
+            />
+          )))
+        )
+      }
     </>
   );
 }

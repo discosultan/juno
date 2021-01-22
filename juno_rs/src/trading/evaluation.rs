@@ -12,6 +12,7 @@ use crate::{
     BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 struct SymbolCtx {
@@ -28,9 +29,29 @@ pub struct BasicEvaluation<T: Signal, U: StopLoss, V: TakeProfit> {
     interval: u64,
     quote: f64,
     stats_interval: u64,
+    evaluation_statistic: EvaluationStatistic,
     signal_phantom: PhantomData<T>,
     stop_loss_phantom: PhantomData<U>,
     take_profit_phantom: PhantomData<V>,
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub enum EvaluationStatistic {
+    Profit,
+    ReturnOverMaxDrawdown,
+    SharpeRatio,
+    SortinoRatio,
+}
+
+impl EvaluationStatistic {
+    pub fn values() -> [EvaluationStatistic; 4] {
+        [
+            EvaluationStatistic::Profit,
+            EvaluationStatistic::ReturnOverMaxDrawdown,
+            EvaluationStatistic::SharpeRatio,
+            EvaluationStatistic::SortinoRatio,
+        ]
+    }
 }
 
 impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
@@ -41,6 +62,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
         start: u64,
         end: u64,
         quote: f64,
+        evaluation_statistic: EvaluationStatistic,
     ) -> Result<Self, storages::StorageError> {
         let exchange_info = storages::get_exchange_info(exchange)?;
         let stats_interval = time::DAY_MS;
@@ -86,6 +108,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
             interval,
             stats_interval,
             quote,
+            evaluation_statistic,
             signal_phantom: PhantomData,
             stop_loss_phantom: PhantomData,
             take_profit_phantom: PhantomData,
@@ -122,19 +145,22 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
             true,
             true,
         );
-        // statistics::get_sharpe_ratio(
-        //     &summary,
-        //     &ctx.stats_base_prices,
-        //     ctx.stats_quote_prices.as_deref(),
-        //     self.stats_interval,
-        // )
-        statistics::get_sortino_ratio(
-            &summary,
-            &ctx.stats_base_prices,
-            ctx.stats_quote_prices.as_deref(),
-            self.stats_interval,
-        )
-        // statistics::get_profit(&summary)
+        match self.evaluation_statistic {
+            EvaluationStatistic::Profit => statistics::get_profit(&summary),
+            EvaluationStatistic::ReturnOverMaxDrawdown => statistics::get_return_over_max_drawdown(&summary),
+            EvaluationStatistic::SharpeRatio => statistics::get_sharpe_ratio(
+                &summary,
+                &ctx.stats_base_prices,
+                ctx.stats_quote_prices.as_deref(),
+                self.stats_interval,
+            ),
+            EvaluationStatistic::SortinoRatio => statistics::get_sortino_ratio(
+                &summary,
+                &ctx.stats_base_prices,
+                ctx.stats_quote_prices.as_deref(),
+                self.stats_interval,
+            ),
+        }
     }
 }
 

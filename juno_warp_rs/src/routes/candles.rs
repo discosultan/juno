@@ -3,7 +3,7 @@ use anyhow::Result;
 use juno_rs::{chandler::fill_missing_candles, prelude::*, storages, Candle};
 use serde::Deserialize;
 use std::collections::HashMap;
-use warp::{reply::Json, Filter, Rejection};
+use warp::{body, reply, Filter, Rejection, Reply};
 
 #[derive(Debug, Deserialize)]
 struct Params {
@@ -17,10 +17,13 @@ struct Params {
     symbols: Vec<String>,
 }
 
-pub fn route() -> impl Filter<Extract = (Json,), Error = Rejection> + Clone {
+pub fn routes() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
+    warp::path("candles").and(post())
+}
+
+fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
-        .and(warp::path("candles"))
-        .and(warp::body::json())
+        .and(body::json())
         .and_then(|args: Params| async move {
             let symbol_candles_result = args
                 .symbols
@@ -40,7 +43,7 @@ pub fn route() -> impl Filter<Extract = (Json,), Error = Rejection> + Clone {
                 .collect::<Result<HashMap<&String, Vec<Candle>>>>();
 
             match symbol_candles_result {
-                Ok(symbol_candles) => Ok(warp::reply::json(&symbol_candles)),
+                Ok(symbol_candles) => Ok(reply::json(&symbol_candles)),
                 Err(error) => Err(custom_reject(error)),
             }
         })
