@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal, Overflow
 from enum import IntEnum
 from types import ModuleType
-from typing import Iterable, Optional, Type, Union
+from typing import Iterable, Optional, Union
 
 from tenacity import (
     RetryError, before_sleep_log, retry, retry_if_exception_type, stop_after_attempt,
@@ -266,7 +266,7 @@ class TradingSummary:
 
     def get_positions(
         self,
-        type_: Optional[Type[Position.Closed]] = None,
+        type_: Optional[type[Position.Closed]] = None,
         reason: Optional[CloseReason] = None,
     ) -> Iterable[Position.Closed]:
         result = (p for p in self._positions)
@@ -278,7 +278,7 @@ class TradingSummary:
 
     def list_positions(
         self,
-        type_: Optional[Type[Position.Closed]] = None,
+        type_: Optional[type[Position.Closed]] = None,
         reason: Optional[CloseReason] = None,
     ) -> list[Position.Closed]:
         return list(self.get_positions(type_, reason))

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import sys
-from typing import Any, Type
+from typing import Any
 
 import pkg_resources
 from mergedeep import merge
@@ -72,7 +72,7 @@ async def main() -> None:
     container.add_singleton_types(map_concrete_module_types(components).values())
 
     # Load agents and plugins.
-    agent_types: dict[str, Type[Agent]] = map_concrete_module_types(agents)
+    agent_types: dict[str, type[Agent]] = map_concrete_module_types(agents)
     plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
     agent_ctxs: list[tuple[Agent, Any, list[Plugin]]] = [(
         container.resolve(agent_types[c['type']]),

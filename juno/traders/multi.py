@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Coroutine, Optional, Type
+from typing import Callable, Coroutine, Optional
 
 from more_itertools import take
 
@@ -127,11 +127,11 @@ class _SymbolState:
 
 class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMixin, StartMixin):
     @staticmethod
-    def config() -> Type[MultiConfig]:
+    def config() -> type[MultiConfig]:
         return MultiConfig
 
     @staticmethod
-    def state() -> Type[MultiState]:
+    def state() -> type[MultiState]:
         return MultiState
 
     def __init__(

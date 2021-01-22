@@ -5,7 +5,7 @@ from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
 from typing import (
-    Any, AsyncIterable, ContextManager, NamedTuple, Optional, Type, TypeVar, Union, get_type_hints
+    Any, AsyncIterable, ContextManager, NamedTuple, Optional, TypeVar, Union, get_type_hints
 )
 
 from juno import Interval, Timestamp, json
@@ -68,7 +68,7 @@ class SQLite(Storage):
             yield max(span_start, start), min(span_end, end)
 
     async def stream_time_series(
-        self, shard: str, key: str, type_: Type[T], start: int = 0, end: int = MAX_TIME_MS
+        self, shard: str, key: str, type_: type[T], start: int = 0, end: int = MAX_TIME_MS
     ) -> AsyncIterable[T]:
         def inner() -> list[T]:
             _log.info(
@@ -139,7 +139,7 @@ class SQLite(Storage):
 
         await asyncio.get_running_loop().run_in_executor(None, inner)
 
-    async def get(self, shard: str, key: str, type_: Type[T]) -> Optional[T]:
+    async def get(self, shard: str, key: str, type_: type[T]) -> Optional[T]:
         def inner() -> Optional[T]:
             _log.info(f'getting {key} from shard {shard}')
             with self._connect(shard) as conn:
@@ -169,7 +169,7 @@ class SQLite(Storage):
         _log.debug(f'opening shard {path}')
         return closing(sqlite3.connect(path, detect_types=sqlite3.PARSE_DECLTYPES))
 
-    def _ensure_table(self, conn: sqlite3.Connection, name: str, type_: Type[Any]) -> None:
+    def _ensure_table(self, conn: sqlite3.Connection, name: str, type_: type[Any]) -> None:
         tables = self._tables[conn]
         if name not in tables:
             c = conn.cursor()
@@ -178,7 +178,7 @@ class SQLite(Storage):
             tables.add(name)
 
 
-def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
+def _create_table(c: sqlite3.Cursor, type_: type[Any], name: str) -> None:
     type_hints = get_type_hints(type_)
     col_types = [(k, _type_to_sql_type(v)) for k, v in type_hints.items()]
 
@@ -220,7 +220,7 @@ def _create_table(c: sqlite3.Cursor, type_: Type[Any], name: str) -> None:
         )
 
 
-def _type_to_sql_type(type_: Type[Primitive]) -> str:
+def _type_to_sql_type(type_: type[Primitive]) -> str:
     if type_ in [Interval, Timestamp, int]:
         return 'INTEGER'
     if type_ is float:

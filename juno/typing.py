@@ -8,14 +8,14 @@ from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Generic, Iterable, Optional, Type, TypeVar, Union, get_args, get_origin, get_type_hints
+    Any, Generic, Iterable, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
 )
 
 from typing_inspect import (
     get_parameters, is_generic_type, is_optional_type, is_typevar, is_union_type
 )
 
-ExcType = Optional[Type[BaseException]]
+ExcType = Optional[type[BaseException]]
 ExcValue = Optional[BaseException]
 Traceback = Optional[TracebackType]
 
@@ -33,7 +33,7 @@ def get_name(type_: Any) -> str:
     return str(type_) if get_origin(type_) else type_.__name__
 
 
-def get_root_origin(type_: Any) -> Optional[Type[Any]]:
+def get_root_origin(type_: Any) -> Optional[type[Any]]:
     last_origin = None
     origin = type_
     while True:
@@ -194,7 +194,7 @@ def type_to_raw(value: Any) -> Any:
     raise NotImplementedError(f'Unable to convert {value}')
 
 
-def types_match(obj: Any, type_: Type[Any]) -> bool:
+def types_match(obj: Any, type_: type[Any]) -> bool:
     origin = get_root_origin(type_) or type_
 
     if origin is Union:
@@ -253,7 +253,7 @@ def get_fully_qualified_name(obj: Any) -> str:
     return f'{type_.__module__}::{type_.__qualname__}'
 
 
-def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
+def get_type_by_fully_qualified_name(name: str) -> type[Any]:
     # Resolve module.
     module_name, type_name = name.split('::')
     module = importlib.import_module(module_name)
@@ -276,11 +276,11 @@ class TypeConstructor(Generic[T]):
         return self.type_(*self.args, **self.kwargs)  # type: ignore
 
     @property
-    def type_(self) -> Type[T]:
+    def type_(self) -> type[T]:
         return get_type_by_fully_qualified_name(self.name)
 
     @staticmethod
-    def from_type(type_: Type[T], *args: Any, **kwargs: Any) -> TypeConstructor:
+    def from_type(type_: type[T], *args: Any, **kwargs: Any) -> TypeConstructor:
         return TypeConstructor(
             name=get_fully_qualified_name(type_),
             args=args,

@@ -1,6 +1,6 @@
 from decimal import Decimal
 from enum import IntEnum
-from typing import Any, Callable, Iterable, Optional, Type, get_args, get_origin, get_type_hints
+from typing import Any, Callable, Iterable, Optional, get_args, get_origin, get_type_hints
 
 _DEFAULT_MAPPINGS = {
     bool: 'bool',
@@ -12,7 +12,7 @@ _DEFAULT_MAPPINGS = {
 
 
 class CDefBuilder:
-    def __init__(self, custom_mappings: dict[Type[Any], str] = {}) -> None:
+    def __init__(self, custom_mappings: dict[type[Any], str] = {}) -> None:
         self._custom_mappings = custom_mappings
 
     def function(self, function: Callable[..., Any]) -> str:
@@ -21,7 +21,7 @@ class CDefBuilder:
         return self.function_from_params(function.__name__, hints['return'], *params)
 
     def function_from_params(
-        self, name: str, return_param: Optional[Type[Any]], *params: tuple[str, Type[Any]],
+        self, name: str, return_param: Optional[type[Any]], *params: tuple[str, type[Any]],
         refs: list[str] = []
     ) -> str:
         param_strings = (
@@ -29,23 +29,23 @@ class CDefBuilder:
         )
         return f'{self._map_type(return_param)} {name}({",".join(param_strings)});\n'
 
-    def struct(self, type_: Type[Any], exclude: list[str] = []) -> str:
+    def struct(self, type_: type[Any], exclude: list[str] = []) -> str:
         fields = ((k, v) for k, v in _transform(get_type_hints(type_).items()) if k not in exclude)
         return self.struct_from_fields(type_.__name__, *fields)
 
     def struct_from_fields(
-        self, name: str, *fields: tuple[str, Optional[Type[Any]]], refs: list[str] = []
+        self, name: str, *fields: tuple[str, Optional[type[Any]]], refs: list[str] = []
     ) -> str:
         field_strings = (
             f'    {self._map_type(v, is_ref=k in refs)} {k};\n' for k, v in _transform(fields)
         )
         return f'typedef struct {{\n{"".join(field_strings)}}} {name};\n'
 
-    def _map_type(self, type_: Optional[Type[Any]], is_ref: bool = False) -> str:
+    def _map_type(self, type_: Optional[type[Any]], is_ref: bool = False) -> str:
         type_name = self._resolve_type_name(type_)
         return f'const {type_name}*' if is_ref else type_name
 
-    def _resolve_type_name(self, type_: Optional[Type[Any]]) -> str:
+    def _resolve_type_name(self, type_: Optional[type[Any]]) -> str:
         for k, v in self._custom_mappings.items():
             if type_ is k:
                 return v
@@ -65,8 +65,8 @@ class CDefBuilder:
 
 
 def _transform(
-    items: Iterable[tuple[str, Optional[Type[Any]]]]
-) -> Iterable[tuple[str, Optional[Type[Any]]]]:
+    items: Iterable[tuple[str, Optional[type[Any]]]]
+) -> Iterable[tuple[str, Optional[type[Any]]]]:
     for k, v in items:
         yield k, v
         if get_origin(v) is list:

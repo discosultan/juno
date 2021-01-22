@@ -5,7 +5,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from typing import Any, Callable, Iterable, Optional, Type, TypeVar, get_args
+from typing import Any, Callable, Iterable, Optional, TypeVar, get_args
 
 from typing_inspect import is_optional_type
 
@@ -22,9 +22,9 @@ _log = logging.getLogger(__name__)
 # If type registering was purely explicit, we could start using `resolve` after `__aenter__`.
 class Container:
     def __init__(self) -> None:
-        self._singleton_instances: dict[Type[Any], Callable[[], Any]] = {}
-        self._singleton_types: dict[Type[Any], Callable[[], Type[Any]]] = {}
-        self._singletons: dict[Type[Any], Any] = {}
+        self._singleton_instances: dict[type[Any], Callable[[], Any]] = {}
+        self._singleton_types: dict[type[Any], Callable[[], type[Any]]] = {}
+        self._singletons: dict[type[Any], Any] = {}
 
     async def __aenter__(self) -> Container:
         _log.info(f'created instances: {list(self._singletons.values())}')
@@ -50,7 +50,7 @@ class Container:
     def add_singleton_type(
         self,
         type_: Any,
-        factory: Optional[Callable[[], Type[Any]]] = None
+        factory: Optional[Callable[[], type[Any]]] = None
     ) -> None:
         self._singleton_types[type_] = factory if factory else lambda: type_
 
@@ -120,7 +120,7 @@ class Container:
 
 
 def map_dependencies(
-    instances: dict[Type[Any], Any], graph: Optional[dict[Any, list[Any]]] = None
+    instances: dict[type[Any], Any], graph: Optional[dict[Any, list[Any]]] = None
 ) -> dict[Any, list[Any]]:
     if not graph:
         graph = defaultdict(list)
@@ -131,7 +131,7 @@ def map_dependencies(
         if instance in graph:
             continue
 
-        deps: dict[Type[Any], Any] = {}
+        deps: dict[type[Any], Any] = {}
 
         for dep_type in get_input_type_hints(type_.__init__).values():  # type: ignore
             dep = instances.get(dep_type)

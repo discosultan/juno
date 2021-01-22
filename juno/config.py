@@ -4,9 +4,7 @@ import sys
 from dataclasses import is_dataclass
 from enum import Enum
 from types import ModuleType
-from typing import (
-    Any, Mapping, Optional, Type, TypeVar, Union, get_args, get_origin, get_type_hints
-)
+from typing import Any, Mapping, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
 
 from juno import Interval, Timestamp, json
 from juno.itertools import recursive_iter
@@ -145,7 +143,7 @@ def get_module_type_and_kwargs(
 
 
 # TODO: Cannot make generic because https://github.com/python/mypy/issues/5374
-def init_instance(type_: Type[Any], config: dict[str, Any]) -> Any:
+def init_instance(type_: type[Any], config: dict[str, Any]) -> Any:
     # Supports loading abstract types by resolving concrete type from config.
     if inspect.isabstract(type_):
         type_ = resolve_concrete(type_, config)
@@ -182,7 +180,7 @@ def config_to_type(value: Any, type_: Any) -> Any:
         if origin is Union:  # Most probably Optional[T].
             st, _ = get_args(type_)
             return config_to_type(value, st) if value is not None else None
-        if origin is type:  # typing.Type[T]
+        if origin is type:  # typing.type[T]
             raise NotImplementedError()
         if origin is list:  # typing.list[T]
             st, = get_args(type_)
@@ -216,7 +214,7 @@ def type_to_config(value: Any, type_: Any) -> Any:
         if origin is Union:  # Most probably Optional[T].
             st, _ = get_args(type_)
             return type_to_config(value, st) if value is not None else None
-        if origin is type:  # typing.Type[T]
+        if origin is type:  # typing.type[T]
             return value.__name__.lower()
         if origin is list:  # typing.list[T]
             st, = get_args(type_)
@@ -235,8 +233,8 @@ def type_to_config(value: Any, type_: Any) -> Any:
 
 
 def resolve_concrete(
-    type_: Type[Any], config: dict[str, Any], default: Any = inspect.Parameter.empty
-) -> Type[Any]:
+    type_: type[Any], config: dict[str, Any], default: Any = inspect.Parameter.empty
+) -> type[Any]:
     if not inspect.isabstract(type_):
         raise ValueError(f'Unable to resolve concrete type for a non-abstract type {type_}')
 
@@ -257,7 +255,7 @@ def resolve_concrete(
     return concrete_type
 
 
-def _map_type_parent_module_types(type_: Type[Any]) -> dict[str, Type[Any]]:
+def _map_type_parent_module_types(type_: type[Any]) -> dict[str, type[Any]]:
     module_name = type_.__module__
     parent_module_name = module_name[0:module_name.rfind('.')]
     return map_concrete_module_types(sys.modules[parent_module_name])

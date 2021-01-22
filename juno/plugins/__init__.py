@@ -1,11 +1,11 @@
 import importlib
 import inspect
-from typing import Iterable, Type
+from typing import Iterable
 
 from .plugin import Plugin
 
 
-def map_plugin_types(names: Iterable[str]) -> dict[str, Type[Plugin]]:
+def map_plugin_types(names: Iterable[str]) -> dict[str, type[Plugin]]:
     plugins = {}
     for name in names:
         plugin_module = importlib.import_module(f'juno.plugins.{name}')

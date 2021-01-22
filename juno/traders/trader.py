@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Generic, Optional, Type, TypeVar
+from typing import Generic, Optional, TypeVar
 
 from juno.brokers import Broker
 from juno.components import User
@@ -16,12 +16,12 @@ _log = logging.getLogger(__name__)
 class Trader(ABC, Generic[TC, TS]):
     @staticmethod
     @abstractmethod
-    def config() -> Type[TC]:
+    def config() -> type[TC]:
         pass
 
     @staticmethod
     @abstractmethod
-    def state() -> Type[TS]:
+    def state() -> type[TS]:
         pass
 
     @property

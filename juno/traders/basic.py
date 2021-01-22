@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Optional, Type
+from typing import Callable, Optional
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
@@ -81,11 +81,11 @@ class BasicState:
 
 class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMixin, StartMixin):
     @staticmethod
-    def config() -> Type[BasicConfig]:
+    def config() -> type[BasicConfig]:
         return BasicConfig
 
     @staticmethod
-    def state() -> Type[BasicState]:
+    def state() -> type[BasicState]:
         return BasicState
 
     def __init__(

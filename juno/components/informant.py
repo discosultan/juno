@@ -6,7 +6,7 @@ import itertools
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Generic, Optional, Type, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
@@ -43,7 +43,7 @@ class Informant:
         self._get_time_ms = get_time_ms
         self._cache_time = cache_time
 
-        self._synced_data: dict[str, dict[Type[_Timestamped[Any]], _Timestamped[Any]]] = (
+        self._synced_data: dict[str, dict[type[_Timestamped[Any]], _Timestamped[Any]]] = (
             defaultdict(dict)
         )
 
@@ -215,7 +215,7 @@ class Informant:
         return list(result)
 
     async def _periodic_sync_for_exchanges(
-        self, key: str, type_: Type[_Timestamped[T]], initial_sync_event: asyncio.Event,
+        self, key: str, type_: type[_Timestamped[T]], initial_sync_event: asyncio.Event,
         fetch: Callable[[Exchange], Awaitable[T]], exchanges: list[str]
     ) -> None:
         period = self._cache_time
@@ -238,7 +238,7 @@ class Informant:
         before_sleep=before_sleep_log(_log, logging.WARNING)
     )
     async def _sync_for_exchange(
-        self, exchange: str, key: str, type_: Type[_Timestamped[T]],
+        self, exchange: str, key: str, type_: type[_Timestamped[T]],
         fetch: Callable[[Exchange], Awaitable[T]]
     ) -> None:
         now = self._get_time_ms()
