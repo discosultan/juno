@@ -1,6 +1,5 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque, Tuple
 
 from .sma import Sma
 
@@ -10,8 +9,8 @@ class Stoch:
     k: Decimal = Decimal('0.0')
     d: Decimal = Decimal('0.0')
 
-    _k_high_window: Deque[Decimal]
-    _k_low_window: Deque[Decimal]
+    _k_high_window: deque[Decimal]
+    _k_low_window: deque[Decimal]
 
     _k_sma: Sma
     _d_sma: Sma
@@ -43,7 +42,7 @@ class Stoch:
     def mature(self) -> bool:
         return self._t >= self._t3
 
-    def update(self, high: Decimal, low: Decimal, close: Decimal) -> Tuple[Decimal, Decimal]:
+    def update(self, high: Decimal, low: Decimal, close: Decimal) -> tuple[Decimal, Decimal]:
         self._t = min(self._t + 1, self._t3)
 
         self._k_high_window.append(high)

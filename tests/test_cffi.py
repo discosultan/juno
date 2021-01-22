@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import List, NamedTuple, _GenericAlias  # type: ignore
+from typing import NamedTuple, _GenericAlias  # type: ignore
 
 import pytest
 
@@ -49,7 +49,7 @@ def test_build_function_from_params_void_return(cdef_builder: cffi.CDefBuilder) 
 
 
 def test_cdef_builder_function_from_params_list(cdef_builder: cffi.CDefBuilder) -> None:
-    output = cdef_builder.function_from_params('temp', int, ('values', List[int]))
+    output = cdef_builder.function_from_params('temp', int, ('values', list[int]))
     assert output == """uint32_t temp(
     const uint32_t* values,
     uint32_t values_length);

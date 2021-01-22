@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import IntEnum
-from typing import Any, Dict, NamedTuple, Optional, Tuple, Type, Union
+from typing import Any, NamedTuple, Optional, Union
 
 from juno import Advice, Candle
 from juno.constraints import Choice, Constraint
@@ -145,7 +145,7 @@ class Changed:
 
 class Strategy(ABC):
     class Meta(NamedTuple):
-        constraints: Dict[Union[str, Tuple[str, ...]], Constraint] = {}
+        constraints: dict[Union[str, tuple[str, ...]], Constraint] = {}
 
     @staticmethod
     def meta() -> Strategy.Meta:
@@ -166,7 +166,7 @@ class Strategy(ABC):
         pass
 
     @staticmethod
-    def validate_constraints(type_: Type[Strategy], *args: Any) -> None:
+    def validate_constraints(type_: type[Strategy], *args: Any) -> None:
         # Assumes ordered.
         from_index = 0
         for names, constraint in type_.meta().constraints.items():

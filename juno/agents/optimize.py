@@ -1,7 +1,7 @@
 import logging
 from dataclasses import asdict, dataclass
 from decimal import Decimal
-from typing import Any, Dict, List, NamedTuple, Optional, get_type_hints
+from typing import Any, NamedTuple, Optional, get_type_hints
 
 from juno import Interval, MissedCandlePolicy, Timestamp, strategies
 from juno.components import Events
@@ -20,10 +20,10 @@ _log = logging.getLogger(__name__)
 class Optimize(Agent):
     class Config(NamedTuple):
         exchange: str
-        symbols: Optional[List[str]]
-        intervals: Optional[List[Interval]]
+        symbols: Optional[list[str]]
+        intervals: Optional[list[Interval]]
         quote: Decimal
-        strategy: Dict[str, Any]
+        strategy: dict[str, Any]
         name: Optional[str] = None
         persist: bool = False  # TODO: Not implemented.
         start: Optional[Timestamp] = None

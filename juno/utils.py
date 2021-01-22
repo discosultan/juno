@@ -11,9 +11,7 @@ from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
-from typing import (
-    Any, Dict, Iterator, List, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
-)
+from typing import Any, Iterator, Optional, Sequence, TypeVar, get_type_hints
 
 import aiolimiter
 
@@ -35,7 +33,7 @@ def _asdict(a: Any) -> dict:
     return a.__dict__
 
 
-def construct(type_: Type[T], *args, **kwargs) -> T:
+def construct(type_: type[T], *args, **kwargs) -> T:
     type_hints = get_type_hints(type_)
     final_kwargs = {}
     for d in itertools.chain(map(_asdict, args), [kwargs]):
@@ -48,7 +46,7 @@ def key(*items: Any) -> str:
 
 
 # TODO: Remove if not used.
-def replace_secrets(obj: Dict[str, Any]) -> Dict[str, Any]:
+def replace_secrets(obj: dict[str, Any]) -> dict[str, Any]:
     # Do not mutate source obj.
     obj = deepcopy(obj)
 
@@ -88,7 +86,7 @@ def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
     return filter(lambda w: len(w) == length, _words) if length else _words
 
 
-def unpack_symbol(symbol: str) -> Tuple[str, str]:
+def unpack_symbol(symbol: str) -> tuple[str, str]:
     index_of_separator = symbol.find('-')
     return symbol[:index_of_separator], symbol[index_of_separator + 1:]
 
@@ -149,8 +147,8 @@ def exc_traceback(exc: Exception) -> str:
 
 
 def map_concrete_module_types(
-    module: ModuleType, abstract: Optional[Type[Any]] = None
-) -> Dict[str, Type[Any]]:
+    module: ModuleType, abstract: Optional[type[Any]] = None
+) -> dict[str, type[Any]]:
     return {n.lower(): t for n, t in inspect.getmembers(
         module,
         lambda c: (
@@ -164,14 +162,14 @@ def map_concrete_module_types(
 # Cannot use typevar T in place of Any here. Triggers: "Only concrete class can be given where type
 # is expected".
 # Ref: https://github.com/python/mypy/issues/5374
-def list_concretes_from_module(module: ModuleType, abstract: Type[Any]) -> List[Type[Any]]:
+def list_concretes_from_module(module: ModuleType, abstract: type[Any]) -> list[type[Any]]:
     return [t for _n, t in inspect.getmembers(
         module,
         lambda m: inspect.isclass(m) and not inspect.isabstract(m) and issubclass(m, abstract)
     )]
 
 
-def get_module_type(module: ModuleType, name: str) -> Type[Any]:
+def get_module_type(module: ModuleType, name: str) -> type[Any]:
     name_lower = name.lower()
     found_members = inspect.getmembers(
         module,

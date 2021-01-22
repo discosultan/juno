@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal, Overflow
 from enum import IntEnum
 from types import ModuleType
-from typing import Iterable, List, Optional, Type, Union
+from typing import Iterable, Optional, Union
 
 from tenacity import (
     RetryError, before_sleep_log, retry, retry_if_exception_type, stop_after_attempt,
@@ -56,9 +56,9 @@ class Position(ModuleType):
         exchange: str
         symbol: str
         open_time: Timestamp
-        open_fills: List[Fill]
+        open_fills: list[Fill]
         close_time: Timestamp
-        close_fills: List[Fill]
+        close_fills: list[Fill]
         close_reason: CloseReason
 
         def quote_delta(self) -> Decimal:
@@ -109,10 +109,10 @@ class Position(ModuleType):
         exchange: str
         symbol: str
         time: Timestamp
-        fills: List[Fill]
+        fills: list[Fill]
 
         def close(
-            self, time: Timestamp, fills: List[Fill], reason: CloseReason
+            self, time: Timestamp, fills: list[Fill], reason: CloseReason
         ) -> Position.Long:
             return Position.Long(
                 exchange=self.exchange,
@@ -142,9 +142,9 @@ class Position(ModuleType):
         collateral: Decimal  # quote
         borrowed: Decimal  # base
         open_time: Timestamp
-        open_fills: List[Fill]
+        open_fills: list[Fill]
         close_time: Timestamp
-        close_fills: List[Fill]
+        close_fills: list[Fill]
         close_reason: CloseReason
         interest: Decimal  # base
 
@@ -206,10 +206,10 @@ class Position(ModuleType):
         collateral: Decimal
         borrowed: Decimal
         time: Timestamp
-        fills: List[Fill]
+        fills: list[Fill]
 
         def close(
-            self, interest: Decimal, time: Timestamp, fills: List[Fill],
+            self, interest: Decimal, time: Timestamp, fills: list[Fill],
             reason: CloseReason
         ) -> Position.Short:
             return Position.Short(
@@ -250,8 +250,8 @@ class TradingSummary:
     quote: Decimal
     quote_asset: str
 
-    _positions: List[Position.Closed] = field(default_factory=list)
-    _drawdowns: List[Decimal] = field(default_factory=list)
+    _positions: list[Position.Closed] = field(default_factory=list)
+    _drawdowns: list[Decimal] = field(default_factory=list)
     _max_drawdown: Decimal = Decimal('0.0')
     _mean_drawdown: Decimal = Decimal('0.0')
 
@@ -266,7 +266,7 @@ class TradingSummary:
 
     def get_positions(
         self,
-        type_: Optional[Type[Position.Closed]] = None,
+        type_: Optional[type[Position.Closed]] = None,
         reason: Optional[CloseReason] = None,
     ) -> Iterable[Position.Closed]:
         result = (p for p in self._positions)
@@ -278,9 +278,9 @@ class TradingSummary:
 
     def list_positions(
         self,
-        type_: Optional[Type[Position.Closed]] = None,
+        type_: Optional[type[Position.Closed]] = None,
         reason: Optional[CloseReason] = None,
-    ) -> List[Position.Closed]:
+    ) -> list[Position.Closed]:
         return list(self.get_positions(type_, reason))
 
     def finish(self, end: Timestamp) -> None:
@@ -404,7 +404,7 @@ class TradingSummary:
         return int(statistics.mean(durations))
 
     # @property
-    # def drawdowns(self) -> List[Decimal]:
+    # def drawdowns(self) -> list[Decimal]:
     #     self._calc_drawdowns_if_stale()
     #     return self._drawdowns
 

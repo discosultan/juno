@@ -2,7 +2,6 @@ import argparse
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict
 
 from juno import Balance, Fill, Side, brokers, exchanges
 from juno.components import Informant, Orderbook, User
@@ -56,7 +55,7 @@ async def transact_symbol(
     orderbook: Orderbook,
     exchange: exchanges.Exchange,
     broker: brokers.Broker,
-    balances: Dict[str, Balance],
+    balances: dict[str, Balance],
     symbol: str,
 ) -> None:
     base_asset, quote_asset = unpack_symbol(symbol)

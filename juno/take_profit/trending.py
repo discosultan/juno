@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional
 
 import pytweening
 
@@ -59,8 +59,8 @@ class Trending(TakeProfit):
 
     def __init__(
         self,
-        up_thresholds: Tuple[Decimal, Decimal],
-        down_thresholds: Optional[Tuple[Decimal, Decimal]] = None,
+        up_thresholds: tuple[Decimal, Decimal],
+        down_thresholds: Optional[tuple[Decimal, Decimal]] = None,
         period: int = 14,
         lock_threshold: bool = False,
         easing: str = 'linear',

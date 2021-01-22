@@ -1,6 +1,5 @@
 import math
 from decimal import Decimal
-from typing import List
 
 import pytest
 
@@ -19,15 +18,15 @@ from . import fakes
 async def test_solver_works_with_default_fees_filters(loop, solver_type) -> None:
     portfolio_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
-        List[Candle]
+        list[Candle]
     )
     statistics_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_86400000_candles.json'),
-        List[Candle]
+        list[Candle]
     )
     statistics_fiat_candles = raw_to_type(
         load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
-        List[Candle]
+        list[Candle]
     )
     fiat_prices = {
         'btc': [statistics_fiat_candles[0].open] + [c.close for c in statistics_fiat_candles],

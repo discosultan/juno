@@ -1,17 +1,17 @@
 from random import Random
-from typing import Any, Tuple
+from typing import Any
 
 from deap import tools
 
 
-def mut_individual(random: Random, individual: list, attrs: Any, indpb: float) -> Tuple[list]:
+def mut_individual(random: Random, individual: list, attrs: Any, indpb: float) -> tuple[list]:
     for i, attr in enumerate(attrs):
         if random.random() < indpb:
             individual[i] = attr()
     return individual,
 
 
-def cx_individual(random: Random, ind1: list, ind2: list) -> Tuple[list, list]:
+def cx_individual(random: Random, ind1: list, ind2: list) -> tuple[list, list]:
     stop = len(ind1)
 
     # Variant A.
@@ -33,7 +33,7 @@ def cx_individual(random: Random, ind1: list, ind2: list) -> Tuple[list, list]:
     return ind1, ind2
 
 
-def cx_uniform(random: Random, ind1: list, ind2: list, indpb: float) -> Tuple[list, list]:
+def cx_uniform(random: Random, ind1: list, ind2: list, indpb: float) -> tuple[list, list]:
     size = min(len(ind1), len(ind2))
     for i in range(size):
         if random.random() < indpb:

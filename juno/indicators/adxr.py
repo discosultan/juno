@@ -1,6 +1,5 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque
 
 from .adx import Adx
 
@@ -9,7 +8,7 @@ from .adx import Adx
 class Adxr:
     value: Decimal = Decimal('0.0')
     _adx: Adx
-    _historical_adx: Deque[Decimal]
+    _historical_adx: deque[Decimal]
     _t: int = 0
     _t1: int
     _t2: int

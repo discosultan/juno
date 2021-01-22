@@ -1,6 +1,6 @@
 from collections import defaultdict
 from decimal import Decimal
-from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
+from typing import Callable, NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -37,14 +37,14 @@ class AnalysisSummary(NamedTuple):
     stats: Statistics
 
 
-def analyse_benchmark(prices: List[Decimal]) -> AnalysisSummary:
+def analyse_benchmark(prices: list[Decimal]) -> AnalysisSummary:
     performance = pd.Series([float(p) for p in prices])
     return _calculate_statistics(performance)
 
 
 def analyse_portfolio(
     benchmark_g_returns: pd.Series,
-    asset_prices: Dict[str, List[Decimal]],
+    asset_prices: dict[str, list[Decimal]],
     trading_summary: TradingSummary,
     interval: int = DAY_MS,
 ) -> AnalysisSummary:
@@ -75,8 +75,8 @@ def analyse_portfolio(
 
 def _get_trades_from_summary(
     summary: TradingSummary, interval: int
-) -> Dict[int, List[Tuple[str, Decimal]]]:
-    trades: Dict[int, List[Tuple[str, Decimal]]] = defaultdict(list)
+) -> dict[int, list[tuple[str, Decimal]]]:
+    trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
     for pos in summary.get_positions():
         base_asset, quote_asset = unpack_symbol(pos.symbol)
         # Open.
@@ -96,14 +96,14 @@ def _get_asset_performance(
     summary: TradingSummary,
     start_day: int,
     end_day: int,
-    asset_prices: Dict[str, List[Decimal]],
-    trades: Dict[int, List[Tuple[str, Decimal]]],
+    asset_prices: dict[str, list[Decimal]],
+    trades: dict[int, list[tuple[str, Decimal]]],
     interval: int,
-) -> List[Dict[str, Decimal]]:
-    asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
+) -> list[dict[str, Decimal]]:
+    asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
     asset_holdings[summary.quote_asset] = summary.quote
 
-    asset_performances: List[Dict[str, Decimal]] = []
+    asset_performances: list[dict[str, Decimal]] = []
 
     asset_performances.append(
         _get_asset_performances_from_holdings(asset_holdings, asset_prices, 0)
@@ -126,8 +126,8 @@ def _get_asset_performance(
 
 
 def _get_asset_performances_from_holdings(
-    asset_holdings: Dict[str, Decimal], asset_prices: Dict[str, List[Decimal]], price_i: int
-) -> Dict[str, Decimal]:
+    asset_holdings: dict[str, Decimal], asset_prices: dict[str, list[Decimal]], price_i: int
+) -> dict[str, Decimal]:
     asset_performance = {k: Decimal('0.0') for k in asset_prices.keys()}
     for asset, prices in asset_prices.items():
         asset_performance[asset] = asset_holdings[asset] * prices[price_i]

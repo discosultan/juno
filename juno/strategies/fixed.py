@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from typing import List
 
 from juno import Advice, Candle
 
@@ -10,8 +9,8 @@ _log = logging.getLogger(__name__)
 
 
 class Fixed(Signal):
-    advices: List[Advice]
-    updates: List[Candle]
+    advices: list[Advice]
+    updates: list[Candle]
     cancel: bool
 
     _advice: Advice = Advice.NONE
@@ -24,7 +23,7 @@ class Fixed(Signal):
 
     def __init__(
         self,
-        advices: List[Advice] = [],
+        advices: list[Advice] = [],
         maturity: int = 1,
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,

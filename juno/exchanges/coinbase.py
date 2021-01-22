@@ -10,9 +10,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from decimal import Decimal
 from time import time
-from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, List, Optional, Tuple
-)
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 from dateutil.tz import UTC
 
@@ -55,7 +53,7 @@ class Coinbase(Exchange):
 
         self._ws = CoinbaseFeed(api_key, secret_key, passphrase)
         # TODO: use LRU cache
-        self._order_id_to_client_id: Dict[str, str] = {}
+        self._order_id_to_client_id: dict[str, str] = {}
 
     async def __aenter__(self) -> Coinbase:
         # Rate limiter.
@@ -75,7 +73,7 @@ class Coinbase(Exchange):
         await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def list_candle_intervals(self) -> List[int]:
+    def list_candle_intervals(self) -> list[int]:
         return [
             60000,  # 1m
             300000,  # 5m
@@ -115,7 +113,7 @@ class Coinbase(Exchange):
             filters=filters,
         )
 
-    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
         # TODO: Use REST endpoint instead of WS here?
         # https://docs.pro.coinbase.com/#get-product-ticker
         # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
@@ -135,7 +133,7 @@ class Coinbase(Exchange):
                     break
         return tickers
 
-    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
+    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == 'spot':
             res = await self._private_request('GET', '/accounts')
@@ -283,7 +281,7 @@ class Coinbase(Exchange):
             # Supports stop orders through params.
             raise NotImplementedError()
 
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
             'side': 'buy' if side is Side.BUY else 'sell',
             'product_id': _to_product(symbol),
@@ -362,7 +360,7 @@ class Coinbase(Exchange):
             yield inner(ws)
 
     async def _paginated_public_request(
-        self, method: str, url: str, data: Dict[str, Any] = {}
+        self, method: str, url: str, data: dict[str, Any] = {}
     ) -> AsyncIterable[ClientJsonResponse]:
         page_after = None
         while True:
@@ -376,14 +374,14 @@ class Coinbase(Exchange):
                 break
 
     async def _public_request(
-        self, method: str, url: str, data: Dict[str, Any] = {}
+        self, method: str, url: str, data: dict[str, Any] = {}
     ) -> ClientJsonResponse:
         async for res in self._paginated_public_request(method, url, data):
             return res  # Return only first.
         raise Exception('No response from paginated request')
 
     async def _private_request(
-        self, method: str, url: str, data: Dict[str, Any] = {}
+        self, method: str, url: str, data: dict[str, Any] = {}
     ) -> ClientJsonResponse:
         await self._priv_limiter.acquire()
         timestamp = _auth_timestamp()
@@ -419,9 +417,9 @@ class CoinbaseFeed:
         self.process_task: Optional[asyncio.Task] = None
 
         self.subscriptions_updated: Event[None] = Event(autoclear=True)
-        self.subscriptions: Dict[str, List[str]] = {}
-        self.channels: Dict[Tuple[str, str], asyncio.Queue] = defaultdict(asyncio.Queue)
-        self.type_to_channel: Dict[str, str] = {}
+        self.subscriptions: dict[str, list[str]] = {}
+        self.channels: dict[tuple[str, str], asyncio.Queue] = defaultdict(asyncio.Queue)
+        self.type_to_channel: dict[str, str] = {}
 
     async def __aenter__(self) -> CoinbaseFeed:
         await self.session.__aenter__()
@@ -437,7 +435,7 @@ class CoinbaseFeed:
 
     @asynccontextmanager
     async def subscribe(
-        self, channel: str, types: List[str], symbols: List[str]
+        self, channel: str, types: list[str], symbols: list[str]
     ) -> AsyncIterator[AsyncIterable[Any]]:
         for type_ in types:
             self.type_to_channel[type_] = channel
@@ -500,7 +498,7 @@ class CoinbaseFeed:
 
 
 def _is_subscribed(
-    subscriptions: Dict[str, List[str]], channels: List[str], symbols: List[str]
+    subscriptions: dict[str, list[str]], channels: list[str], symbols: list[str]
 ) -> bool:
     for channel in channels:
         channel_sub = subscriptions.get(channel)

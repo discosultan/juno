@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from juno import Advice, Candle, strategies
 from juno.config import init_module_instance
@@ -23,8 +23,8 @@ class SigOsc(Signal):
 
     def __init__(
         self,
-        sig: Dict[str, Any],
-        osc: Dict[str, Any],
+        sig: dict[str, Any],
+        osc: dict[str, Any],
         osc_filter: str = 'enforce',
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from decimal import Decimal
 from random import Random
-from typing import Any, Callable, List, Tuple
+from typing import Any, Callable
 
 
 class Constraint(ABC):
@@ -28,7 +28,7 @@ class Constant(Constraint):
 
 
 class Choice(Constraint):
-    def __init__(self, choices: List[Any]) -> None:
+    def __init__(self, choices: list[Any]) -> None:
         self._choices = choices
 
     def validate(self, value: Any) -> bool:
@@ -39,7 +39,7 @@ class Choice(Constraint):
 
 
 class ConstraintChoice(Constraint):
-    def __init__(self, choices: List[Constraint]) -> None:
+    def __init__(self, choices: list[Constraint]) -> None:
         self._choices = choices
 
     def validate(self, value: Any) -> bool:
@@ -99,7 +99,7 @@ class Pair(Constraint):
     def validate(self, a: Any, b: Any) -> bool:
         return self._a.validate(a) and self._b.validate(b) and self._op(a, b)
 
-    def random(self, random: Random) -> Tuple[Any, Any]:
+    def random(self, random: Random) -> tuple[Any, Any]:
         while True:
             a = self._a.random(random)
             b = self._b.random(random)
@@ -132,7 +132,7 @@ class Triple(Constraint):
             and self._bc_op(b, c)
         )
 
-    def random(self, random: Random) -> Tuple[Any, Any, Any]:
+    def random(self, random: Random) -> tuple[Any, Any, Any]:
         while True:
             a = self._a.random(random)
             b = self._b.random(random)

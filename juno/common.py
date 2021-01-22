@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
-from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import NamedTuple, Optional, Union
 
 from juno.aliases import Timestamp
 from juno.filters import Filters
@@ -88,7 +88,7 @@ class Candle(NamedTuple):
         )
 
     @staticmethod
-    def meta() -> Dict[str, str]:
+    def meta() -> dict[str, str]:
         return {
             'time': 'unique',
         }
@@ -96,13 +96,13 @@ class Candle(NamedTuple):
 
 class Depth(ModuleType):
     class Snapshot(NamedTuple):
-        bids: List[Tuple[Decimal, Decimal]] = []
-        asks: List[Tuple[Decimal, Decimal]] = []
+        bids: list[tuple[Decimal, Decimal]] = []
+        asks: list[tuple[Decimal, Decimal]] = []
         last_id: int = 0
 
     class Update(NamedTuple):
-        bids: List[Tuple[Decimal, Decimal]] = []
-        asks: List[Tuple[Decimal, Decimal]] = []
+        bids: list[tuple[Decimal, Decimal]] = []
+        asks: list[tuple[Decimal, Decimal]] = []
         first_id: int = 0
         last_id: int = 0
 
@@ -140,20 +140,20 @@ class Fill(NamedTuple):
         )
 
     @staticmethod
-    def mean_price(fills: List[Fill]) -> Decimal:
+    def mean_price(fills: list[Fill]) -> Decimal:
         total_size = Fill.total_size(fills)
         return sum((f.price * f.size / total_size for f in fills), Decimal('0.0'))
 
     @staticmethod
-    def total_size(fills: List[Fill]) -> Decimal:
+    def total_size(fills: list[Fill]) -> Decimal:
         return sum((f.size for f in fills), Decimal('0.0'))
 
     @staticmethod
-    def total_quote(fills: List[Fill]) -> Decimal:
+    def total_quote(fills: list[Fill]) -> Decimal:
         return sum((f.quote for f in fills), Decimal('0.0'))
 
     @staticmethod
-    def total_fee(fills: List[Fill]) -> Decimal:
+    def total_fee(fills: list[Fill]) -> Decimal:
         # Note that we may easily have different fee assets per order when utility tokens such as
         # BNB are used.
         if len({f.fee_asset for f in fills}) > 1:
@@ -162,21 +162,21 @@ class Fill(NamedTuple):
         return sum((f.fee for f in fills), Decimal('0.0'))
 
     @staticmethod
-    def expected_quote(fills: List[Fill], precision: int) -> Decimal:
+    def expected_quote(fills: list[Fill], precision: int) -> Decimal:
         return sum(
             (round_down(f.price * f.size, precision) for f in fills),
             Decimal('0.0'),
         )
 
     @staticmethod
-    def expected_base_fee(fills: List[Fill], fee_rate: Decimal, precision: int) -> Decimal:
+    def expected_base_fee(fills: list[Fill], fee_rate: Decimal, precision: int) -> Decimal:
         return sum(
             (round_half_up(f.size * fee_rate, precision) for f in fills),
             Decimal('0.0'),
         )
 
     @staticmethod
-    def expected_quote_fee(fills: List[Fill], fee_rate: Decimal, precision: int) -> Decimal:
+    def expected_quote_fee(fills: list[Fill], fee_rate: Decimal, precision: int) -> Decimal:
         return sum(
             (round_half_up(f.size * f.price * fee_rate, precision) for f in fills),
             Decimal('0.0'),
@@ -192,7 +192,7 @@ class MissedCandlePolicy(IntEnum):
 class OrderResult(NamedTuple):
     time: Timestamp
     status: OrderStatus
-    fills: List[Fill] = []
+    fills: list[Fill] = []
 
 
 class OrderStatus(IntEnum):
@@ -271,7 +271,7 @@ class Trade(NamedTuple):
     size: Decimal = Decimal('0.0')
 
     @staticmethod
-    def meta() -> Dict[str, str]:
+    def meta() -> dict[str, str]:
         return {
             'time': 'index',
         }
@@ -279,9 +279,9 @@ class Trade(NamedTuple):
 
 @dataclass
 class ExchangeInfo:
-    fees: Dict[str, Fees] = field(default_factory=lambda: {'__all__': Fees()})
-    filters: Dict[str, Filters] = field(default_factory=lambda: {'__all__': Filters()})
+    fees: dict[str, Fees] = field(default_factory=lambda: {'__all__': Fees()})
+    filters: dict[str, Filters] = field(default_factory=lambda: {'__all__': Filters()})
     # Keys: account, asset
-    borrow_info: Dict[str, Dict[str, BorrowInfo]] = field(
+    borrow_info: dict[str, dict[str, BorrowInfo]] = field(
         default_factory=lambda: {'__all__': {'__all__': BorrowInfo()}}
     )

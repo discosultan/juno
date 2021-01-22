@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 
@@ -12,7 +12,7 @@ from juno.utils import full_path
 
 @pytest.mark.manual
 @pytest.mark.plugin
-async def test_discord(request, config: Dict[str, Any], mocker) -> None:
+async def test_discord(request, config: dict[str, Any], mocker) -> None:
     skip_non_configured(request, config)
 
     from juno.plugins.discord import Discord
@@ -31,7 +31,7 @@ async def test_discord(request, config: Dict[str, Any], mocker) -> None:
 
 @pytest.mark.manual
 @pytest.mark.plugin
-async def test_slack(request, config: Dict[str, Any]) -> None:
+async def test_slack(request, config: dict[str, Any]) -> None:
     skip_non_configured(request, config)
 
     from juno.plugins.slack import Slack

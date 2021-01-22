@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Tuple
 
 from .ema import Ema
 
@@ -48,7 +47,7 @@ class Obv2:
     def mature(self) -> bool:
         return True
 
-    def update(self, price: Decimal, volume: Decimal) -> Tuple[Decimal, Decimal]:
+    def update(self, price: Decimal, volume: Decimal) -> tuple[Decimal, Decimal]:
         if price > self._last_price:
             self.value += volume
         elif price < self._last_price:

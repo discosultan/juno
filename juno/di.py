@@ -5,7 +5,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Type, TypeVar, get_args
+from typing import Any, Callable, Iterable, Optional, TypeVar, get_args
 
 from typing_inspect import is_optional_type
 
@@ -22,9 +22,9 @@ _log = logging.getLogger(__name__)
 # If type registering was purely explicit, we could start using `resolve` after `__aenter__`.
 class Container:
     def __init__(self) -> None:
-        self._singleton_instances: Dict[Type[Any], Callable[[], Any]] = {}
-        self._singleton_types: Dict[Type[Any], Callable[[], Type[Any]]] = {}
-        self._singletons: Dict[Type[Any], Any] = {}
+        self._singleton_instances: dict[type[Any], Callable[[], Any]] = {}
+        self._singleton_types: dict[type[Any], Callable[[], type[Any]]] = {}
+        self._singletons: dict[type[Any], Any] = {}
 
     async def __aenter__(self) -> Container:
         _log.info(f'created instances: {list(self._singletons.values())}')
@@ -50,7 +50,7 @@ class Container:
     def add_singleton_type(
         self,
         type_: Any,
-        factory: Optional[Callable[[], Type[Any]]] = None
+        factory: Optional[Callable[[], type[Any]]] = None
     ) -> None:
         self._singleton_types[type_] = factory if factory else lambda: type_
 
@@ -98,7 +98,7 @@ class Container:
                     return default
                 raise TypeError(f'Unable to construct {type_}')
 
-            kwargs: Dict[str, Any] = {}
+            kwargs: dict[str, Any] = {}
             signature = inspect.signature(instance_type.__init__)
             for dep_name, dep_type in get_input_type_hints(instance_type.__init__  # type: ignore
                                                            ).items():
@@ -120,8 +120,8 @@ class Container:
 
 
 def map_dependencies(
-    instances: Dict[Type[Any], Any], graph: Optional[Dict[Any, List[Any]]] = None
-) -> Dict[Any, List[Any]]:
+    instances: dict[type[Any], Any], graph: Optional[dict[Any, list[Any]]] = None
+) -> dict[Any, list[Any]]:
     if not graph:
         graph = defaultdict(list)
 
@@ -131,7 +131,7 @@ def map_dependencies(
         if instance in graph:
             continue
 
-        deps: Dict[Type[Any], Any] = {}
+        deps: dict[type[Any], Any] = {}
 
         for dep_type in get_input_type_hints(type_.__init__).values():  # type: ignore
             dep = instances.get(dep_type)
@@ -146,8 +146,8 @@ def map_dependencies(
     return graph
 
 
-def list_dependencies_in_init_order(dep_map: Dict[Any, List[Any]]) -> List[List[Any]]:
-    initialized: Set[Any] = set()
+def list_dependencies_in_init_order(dep_map: dict[Any, list[Any]]) -> list[list[Any]]:
+    initialized: set[Any] = set()
     tiers = []
     while len(initialized) < len(dep_map):
         tier = []

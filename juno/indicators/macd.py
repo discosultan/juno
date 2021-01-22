@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Tuple
 
 from .ema import Ema
 
@@ -44,7 +43,7 @@ class Macd:
     def mature(self) -> bool:
         return self._signal_ema.mature
 
-    def update(self, price: Decimal) -> Tuple[Decimal, Decimal, Decimal]:
+    def update(self, price: Decimal) -> tuple[Decimal, Decimal, Decimal]:
         self._short_ema.update(price)
         self._long_ema.update(price)
 

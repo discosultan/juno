@@ -1,6 +1,5 @@
 from collections import deque
 from decimal import Decimal
-from typing import Deque
 
 from .sma import Sma
 
@@ -10,7 +9,7 @@ class Cci:
     value: Decimal = Decimal('0.0')
     _sma: Sma
     _scale: Decimal
-    _typical_prices: Deque[Decimal]
+    _typical_prices: deque[Decimal]
     _t: int = 0
     _t1: int
 

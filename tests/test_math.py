@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import List, Tuple
 
 import pytest
 
@@ -53,7 +52,7 @@ def test_minmax() -> None:
         [Decimal('1.0001')],
     ),
 ])
-def test_split(input_: Decimal, parts: int, expected_output: List[Decimal]) -> None:
+def test_split(input_: Decimal, parts: int, expected_output: list[Decimal]) -> None:
     output = math.split(input_, parts)
     assert output == expected_output
 
@@ -63,7 +62,7 @@ def test_split(input_: Decimal, parts: int, expected_output: List[Decimal]) -> N
     ((0, 3), (2, 4), True),
 ])
 def test_spans_overlap(
-    span1: Tuple[int, int], span2: Tuple[int, int], expected_output: bool
+    span1: tuple[int, int], span2: tuple[int, int], expected_output: bool
 ) -> None:
     output = math.spans_overlap(span1, span2)
     assert output == expected_output

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import deque
 from decimal import Decimal
-from typing import Deque
 
 from .rsi import Rsi
 
@@ -13,7 +12,7 @@ class StochRsi:
     _rsi: Rsi
     _min: Decimal = Decimal('0.0')
     _max: Decimal = Decimal('0.0')
-    _rsi_values: Deque[Decimal]
+    _rsi_values: deque[Decimal]
     _t: int = 0
     _t1: int
     _t2: int

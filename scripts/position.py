@@ -4,7 +4,6 @@ import argparse
 import asyncio
 import logging
 from decimal import Decimal
-from typing import Dict
 
 from juno.brokers import Broker, Limit
 from juno.components import Chandler, Informant, Orderbook, User
@@ -66,7 +65,7 @@ class PositionHandler(PositionMixin):
         return self._broker
 
     @property
-    def exchanges(self) -> Dict[str, Exchange]:
+    def exchanges(self) -> dict[str, Exchange]:
         return self._exchanges
 
     @property

@@ -1,7 +1,7 @@
 import asyncio
 import csv
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any
 
 from juno import Candle, Filters, MissedCandlePolicy, stop_loss, strategies
 from juno.components import Chandler, Informant, Trades
@@ -88,7 +88,7 @@ async def stream_and_export_daily_candles_as_csv(
     )
 
 
-def export_daily_candles_as_csv(symbol: str, candles: List[Candle]) -> None:
+def export_daily_candles_as_csv(symbol: str, candles: list[Candle]) -> None:
     with open(f'{symbol}-max.csv', 'w', newline='') as csvfile:
         fieldnames = ['snapped_at', 'price', 'market_cap', 'total_volume']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -98,7 +98,7 @@ def export_daily_candles_as_csv(symbol: str, candles: List[Candle]) -> None:
             writer.writerow(candle_row(candle))
 
 
-def candle_row(candle: Candle) -> Dict[str, Any]:
+def candle_row(candle: Candle) -> dict[str, Any]:
     return {
         'snapped_at': datetime_utcfromtimestamp_ms(candle.time).strftime(r'%Y-%m-%d 00:00:00 UTC'),
         'price': str(candle.close),
@@ -137,7 +137,7 @@ def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, sym
 
 def trade_row(
     time: int, buy_asset: str, sell_asset: str, buy_size: Decimal, buy_price: Decimal
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     return {
         'Date': datetime_utcfromtimestamp_ms(time).strftime(r'%m/%d/%Y'),
         'Buy': buy_asset.upper(),

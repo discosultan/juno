@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import deque
 from decimal import Decimal
 from statistics import median
-from typing import Deque
 
 from more_itertools import pairwise
 
@@ -12,7 +11,7 @@ from more_itertools import pairwise
 class Mmi:
     value: Decimal = Decimal('0.0')
 
-    _prices: Deque[Decimal]
+    _prices: deque[Decimal]
 
     _t: int = 0
     _t1: int

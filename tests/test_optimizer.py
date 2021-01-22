@@ -1,5 +1,6 @@
 from decimal import Decimal
-from typing import List, Tuple
+# Tuple import required here for mypy.
+from typing import Tuple
 
 import pytest
 
@@ -27,16 +28,16 @@ async def test_optimizer_same_result_with_predefined_seed(
 ) -> None:
     portfolio_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_3600000_candles.json'),
-        List[Candle]
+        list[Candle]
     )
     statistics_candles = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_86400000_candles.json'),
-        List[Candle]
+        list[Candle]
     )
     # TODO: Use binance usdt candles instead.
     statistics_fiat_candles = raw_to_type(
         load_json_file(__file__, './data/coinbase_btc-eur_86400000_candles.json'),
-        List[Candle]
+        list[Candle]
     )
     fees, filters = raw_to_type(
         load_json_file(__file__, './data/binance_eth-btc_fees_filters.json'),

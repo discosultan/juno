@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Dict
 
 import aiohttp
 import pytest
@@ -80,7 +79,7 @@ async def test_map_tickers(loop, request, exchange: Exchange) -> None:
     tickers = await exchange.map_tickers()
 
     assert len(tickers) > 0
-    assert types_match(tickers, Dict[str, Ticker])
+    assert types_match(tickers, dict[str, Ticker])
 
 
 @pytest.mark.exchange
@@ -92,7 +91,7 @@ async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
     tickers = await exchange.map_tickers(symbols=['eth-btc'])
 
     assert len(tickers) == 1
-    assert types_match(tickers, Dict[str, Ticker])
+    assert types_match(tickers, dict[str, Ticker])
 
 
 @pytest.mark.exchange
@@ -102,7 +101,7 @@ async def test_map_spot_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
     balances = await exchange.map_balances(account='spot')
-    assert types_match(balances, Dict[str, Dict[str, Balance]])
+    assert types_match(balances, dict[str, dict[str, Balance]])
 
 
 @pytest.mark.exchange
@@ -113,7 +112,7 @@ async def test_map_cross_margin_balances(loop, request, exchange: Exchange) -> N
     skip_no_capability(exchange.can_margin_trade)
 
     balances = await exchange.map_balances(account='margin')
-    assert types_match(balances, Dict[str, Dict[str, Balance]])
+    assert types_match(balances, dict[str, dict[str, Balance]])
 
 
 @pytest.mark.exchange
@@ -124,7 +123,7 @@ async def test_map_isolated_margin_balances(loop, request, exchange: Exchange) -
     skip_no_capability(exchange.can_margin_trade)
 
     balances = await exchange.map_balances(account='isolated')
-    assert types_match(balances, Dict[str, Dict[str, Balance]])
+    assert types_match(balances, dict[str, dict[str, Balance]])
 
 
 @pytest.mark.exchange

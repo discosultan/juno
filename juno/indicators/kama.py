@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections import deque
 from decimal import Decimal
-from typing import Deque
 
 
 # Kaufman's Adaptive Moving Average
@@ -13,8 +12,8 @@ class Kama:
     _long_alpha: Decimal
 
     # _prev_price: Decimal
-    _prices: Deque[Decimal]
-    _diffs: Deque[Decimal]
+    _prices: deque[Decimal]
+    _diffs: deque[Decimal]
 
     _t: int = 0
     _t1: int

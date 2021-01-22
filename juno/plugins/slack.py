@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
-from typing import Any, Dict, List
+from typing import Any
 
 from more_itertools import sliced
 from slack_sdk.web.async_client import AsyncWebClient
@@ -21,7 +21,7 @@ _log = logging.getLogger(__name__)
 
 
 class Slack(Plugin):
-    def __init__(self, events: Events, config: Dict[str, Any]) -> None:
+    def __init__(self, events: Events, config: dict[str, Any]) -> None:
         slack_config = config.get(type(self).__name__.lower(), {})
         if not (token := slack_config.get('token')):
             raise ValueError('Missing token from config')
@@ -48,7 +48,7 @@ class Slack(Plugin):
             await send_message(format_message('starting with config', format_as_config(config)))
 
         @self._events.on(agent_name, 'positions_opened')
-        async def on_positions_opened(positions: List[Position], summary: TradingSummary) -> None:
+        async def on_positions_opened(positions: list[Position], summary: TradingSummary) -> None:
             await asyncio.gather(
                 *(send_message(
                     format_message(
@@ -60,7 +60,7 @@ class Slack(Plugin):
             )
 
         @self._events.on(agent_name, 'positions_closed')
-        async def on_positions_closed(positions: List[Position], summary: TradingSummary) -> None:
+        async def on_positions_closed(positions: list[Position], summary: TradingSummary) -> None:
             # We send separate messages to avoid exhausting max message length limit.
             await asyncio.gather(
                 *(send_message(

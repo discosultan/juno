@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Callable, Dict, List, NamedTuple, Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 from juno import Interval, Timestamp, stop_loss, strategies, take_profit
 from juno.components import Events, Informant
@@ -23,10 +23,10 @@ class Live(Agent):
     class Config(NamedTuple):
         exchange: str
         interval: Interval
-        trader: Dict[str, Any]
-        strategy: Dict[str, Any]
-        stop_loss: Optional[Dict[str, Any]] = None
-        take_profit: Optional[Dict[str, Any]] = None
+        trader: dict[str, Any]
+        strategy: dict[str, Any]
+        stop_loss: Optional[dict[str, Any]] = None
+        take_profit: Optional[dict[str, Any]] = None
         name: Optional[str] = None
         persist: bool = False
         quote: Optional[Decimal] = None
@@ -41,7 +41,7 @@ class Live(Agent):
     def __init__(
         self,
         informant: Informant,
-        traders: List[Trader],
+        traders: list[Trader],
         storage: Storage,
         events: Events = Events(),
         get_time_ms: Callable[[], int] = time_ms,

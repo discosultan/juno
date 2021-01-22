@@ -5,7 +5,7 @@ import logging
 import uuid
 from dataclasses import dataclass
 from enum import IntEnum
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from juno.components import Events
 from juno.config import format_as_config
@@ -42,7 +42,7 @@ class Agent:
         self._events = events
         self._storage = storage
 
-    async def run(self, config: Any, plugins: List[Plugin] = []) -> Any:
+    async def run(self, config: Any, plugins: list[Plugin] = []) -> Any:
         state = await self._get_or_create_state(config)
 
         # Activate plugins.

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from juno import Advice, Candle
 from juno.config import init_instance
@@ -17,8 +17,8 @@ class DoubleMAStoch(Signal):
 
     def __init__(
         self,
-        double_ma: Dict[str, Any],
-        stoch: Dict[str, Any],
+        double_ma: dict[str, Any],
+        stoch: dict[str, Any],
     ) -> None:
         self._double_ma = init_instance(DoubleMA, double_ma)
         self._stoch = init_instance(Stoch, stoch)

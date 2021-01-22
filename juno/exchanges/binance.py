@@ -10,7 +10,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncIterable, AsyncIterator, Dict, List, Optional
+from typing import Any, AsyncIterable, AsyncIterator, Optional
 
 import aiohttp
 from multidict import MultiDict
@@ -94,7 +94,7 @@ class Binance(Exchange):
         self._margin_limiter = AsyncLimiter(1, 2 * x)
 
         self._clock = Clock(self)
-        self._user_data_streams: Dict[str, UserDataStream] = {}
+        self._user_data_streams: dict[str, UserDataStream] = {}
 
     async def __aenter__(self) -> Binance:
         await self._session.__aenter__()
@@ -111,7 +111,7 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def list_candle_intervals(self) -> List[int]:
+    def list_candle_intervals(self) -> list[int]:
         return [
             60000,  # 1m
             180000,  # 3m
@@ -251,7 +251,7 @@ class Binance(Exchange):
             borrow_info=borrow_info,
         )
 
-    async def map_tickers(self, symbols: List[str] = []) -> Dict[str, Ticker]:
+    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
         if len(symbols) > 1:
             raise NotImplementedError()
 
@@ -267,7 +267,7 @@ class Binance(Exchange):
             ) for t in response_data
         }
 
-    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
+    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == 'spot':
             res = await self._api_request(
@@ -325,10 +325,10 @@ class Binance(Exchange):
     @asynccontextmanager
     async def connect_stream_balances(
         self, account: str
-    ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+    ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
         async def inner(
-            stream: AsyncIterable[Dict[str, Any]]
-        ) -> AsyncIterable[Dict[str, Balance]]:
+            stream: AsyncIterable[dict[str, Any]]
+        ) -> AsyncIterable[dict[str, Balance]]:
             async for data in stream:
                 result = {}
                 for balance in data['B']:
@@ -391,7 +391,7 @@ class Binance(Exchange):
         ) as ws:
             yield inner(ws)
 
-    async def list_orders(self, account: str, symbol: Optional[str] = None) -> List[Order]:
+    async def list_orders(self, account: str, symbol: Optional[str] = None) -> list[Order]:
         if account not in ['spot', 'margin']:
             if symbol is None:
                 symbol = account
@@ -434,7 +434,7 @@ class Binance(Exchange):
     async def connect_stream_orders(
         self, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
-        async def inner(stream: AsyncIterable[Dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
+        async def inner(stream: AsyncIterable[dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
                 res_symbol = _from_symbol(data['s'])
                 if res_symbol != symbol:
@@ -497,7 +497,7 @@ class Binance(Exchange):
         time_in_force: Optional[TimeInForce] = None,
         client_id: Optional[str] = None,
     ) -> OrderResult:
-        data: Dict[str, Any] = {
+        data: dict[str, Any] = {
             'symbol': _to_http_symbol(symbol),
             'side': _to_side(side),
             'type': _to_order_type(type_),
@@ -616,7 +616,7 @@ class Binance(Exchange):
         # Aggregated trades. This means trades executed at the same time, same price and as part of
         # the same order will be aggregated by summing their size.
         batch_start = start
-        payload: Dict[str, Any] = {
+        payload: dict[str, Any] = {
             'symbol': _to_http_symbol(symbol),
         }
         while True:
@@ -763,7 +763,7 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
         )
 
-    async def convert_dust(self, assets: List[str]) -> None:
+    async def convert_dust(self, assets: list[str]) -> None:
         await self._api_request(
             'POST',
             '/sapi/v1/asset/dust',
@@ -771,7 +771,7 @@ class Binance(Exchange):
             security=_SEC_USER_DATA,
         )
 
-    async def _list_symbols(self, isolated: bool = False) -> List[str]:
+    async def _list_symbols(self, isolated: bool = False) -> list[str]:
         res = await self._api_request(
             'GET',
             f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
@@ -779,7 +779,7 @@ class Binance(Exchange):
         )
         return [_from_symbol(s['symbol']) for s in res.data]
 
-    async def list_open_accounts(self) -> List[str]:
+    async def list_open_accounts(self) -> list[str]:
         res = await self._api_request(
             'GET', '/sapi/v1/margin/isolated/account', security=_SEC_USER_DATA
         )
@@ -901,7 +901,7 @@ class Binance(Exchange):
 
         await asyncio.gather(*limiters)
 
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
 
         if security in [
             _SEC_TRADE, _SEC_USER_DATA, _SEC_MARGIN, _SEC_USER_STREAM, _SEC_MARKET_DATA
@@ -1025,7 +1025,7 @@ class UserDataStream:
         self._listen_key_refresh_task: Optional[asyncio.Task[None]] = None
         self._stream_user_data_task: Optional[asyncio.Task[None]] = None
 
-        self._queues: Dict[str, Dict[str, asyncio.Queue]] = (
+        self._queues: dict[str, dict[str, asyncio.Queue]] = (
             defaultdict(lambda: defaultdict(asyncio.Queue))
         )
 

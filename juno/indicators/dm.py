@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Tuple
 
 
 # Directional Movement Indicator
@@ -44,7 +43,7 @@ class DM:
     def sum(self) -> Decimal:
         return self.plus_value + self.minus_value
 
-    def update(self, high: Decimal, low: Decimal) -> Tuple[Decimal, Decimal]:
+    def update(self, high: Decimal, low: Decimal) -> tuple[Decimal, Decimal]:
         self._t = min(self._t + 1, self._t3)
 
         if self._t >= self._t1 and self._t < self._t3:
@@ -68,7 +67,7 @@ class DM:
 
 
 def _calc_direction(prev_high: Decimal, prev_low: Decimal, high: Decimal,
-                    low: Decimal) -> Tuple[Decimal, Decimal]:
+                    low: Decimal) -> tuple[Decimal, Decimal]:
     up = high - prev_high
     down = prev_low - low
 

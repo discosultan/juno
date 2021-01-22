@@ -8,25 +8,24 @@ from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Dict, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union, get_args,
-    get_origin, get_type_hints
+    Any, Generic, Iterable, Optional, TypeVar, Union, get_args, get_origin, get_type_hints
 )
 
 from typing_inspect import (
     get_parameters, is_generic_type, is_optional_type, is_typevar, is_union_type
 )
 
-ExcType = Optional[Type[BaseException]]
+ExcType = Optional[type[BaseException]]
 ExcValue = Optional[BaseException]
 Traceback = Optional[TracebackType]
 
-JSONValue = Union[str, int, float, bool, None, Dict[str, Any], List[Any]]
-JSONType = Union[Dict[str, JSONValue], List[JSONValue]]
+JSONValue = Union[str, int, float, bool, None, dict[str, Any], list[Any]]
+JSONType = Union[dict[str, JSONValue], list[JSONValue]]
 
 T = TypeVar('T')
 
 
-def get_input_type_hints(obj: Any) -> Dict[str, type]:
+def get_input_type_hints(obj: Any) -> dict[str, type]:
     return {n: t for n, t in get_type_hints(obj).items() if n != 'return'}
 
 
@@ -34,7 +33,7 @@ def get_name(type_: Any) -> str:
     return str(type_) if get_origin(type_) else type_.__name__
 
 
-def get_root_origin(type_: Any) -> Optional[Type[Any]]:
+def get_root_origin(type_: Any) -> Optional[type[Any]]:
     last_origin = None
     origin = type_
     while True:
@@ -122,11 +121,11 @@ def raw_to_type(value: Any, type_: Any) -> Any:
 
     if resolved_type is tuple:
         sub_types = get_args(type_)
-        # Handle ellipsis. special case. I.e `Tuple[int, ...]`.
+        # Handle ellipsis. special case. I.e `tuple[int, ...]`.
         if len(sub_types) == 2 and sub_types[1] is Ellipsis:
             sub_type = sub_types[0]
             return tuple(raw_to_type(sv, sub_type) for sv in value)
-        # Handle regular cases. I.e `Tuple[int, str, float]`.
+        # Handle regular cases. I.e `tuple[int, str, float]`.
         else:
             return tuple(raw_to_type(sv, st) for sv, st in zip(value, sub_types))
         return value
@@ -195,7 +194,7 @@ def type_to_raw(value: Any) -> Any:
     raise NotImplementedError(f'Unable to convert {value}')
 
 
-def types_match(obj: Any, type_: Type[Any]) -> bool:
+def types_match(obj: Any, type_: type[Any]) -> bool:
     origin = get_root_origin(type_) or type_
 
     if origin is Union:
@@ -232,11 +231,11 @@ def types_match(obj: Any, type_: Type[Any]) -> bool:
     )
 
 
-def map_input_args(obj: Any, args: Iterable[Any]) -> Dict[str, Any]:
+def map_input_args(obj: Any, args: Iterable[Any]) -> dict[str, Any]:
     return {k: v for k, v in zip(get_input_type_hints(obj).keys(), args)}
 
 
-def resolve_generic_types(container: Any) -> List[type]:
+def resolve_generic_types(container: Any) -> list[type]:
     result = []
     container_type = type(container)
     generic_params = container_type.__parameters__
@@ -254,7 +253,7 @@ def get_fully_qualified_name(obj: Any) -> str:
     return f'{type_.__module__}::{type_.__qualname__}'
 
 
-def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
+def get_type_by_fully_qualified_name(name: str) -> type[Any]:
     # Resolve module.
     module_name, type_name = name.split('::')
     module = importlib.import_module(module_name)
@@ -270,18 +269,18 @@ def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
 @dataclass(frozen=True)
 class TypeConstructor(Generic[T]):
     name: str  # Fully qualified name.
-    args: Tuple[Any, ...] = ()
-    kwargs: Dict[str, Any] = field(default_factory=dict)
+    args: tuple[Any, ...] = ()
+    kwargs: dict[str, Any] = field(default_factory=dict)
 
     def construct(self) -> T:
         return self.type_(*self.args, **self.kwargs)  # type: ignore
 
     @property
-    def type_(self) -> Type[T]:
+    def type_(self) -> type[T]:
         return get_type_by_fully_qualified_name(self.name)
 
     @staticmethod
-    def from_type(type_: Type[T], *args: Any, **kwargs: Any) -> TypeConstructor:
+    def from_type(type_: type[T], *args: Any, **kwargs: Any) -> TypeConstructor:
         return TypeConstructor(
             name=get_fully_qualified_name(type_),
             args=args,

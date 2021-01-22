@@ -6,7 +6,7 @@ import logging
 import sys
 from contextlib import AsyncExitStack
 from decimal import Decimal
-from typing import AsyncIterable, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import AsyncIterable, Callable, Iterable, Optional
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -32,7 +32,7 @@ class Chandler:
     def __init__(
         self,
         storage: Storage,
-        exchanges: List[Exchange],
+        exchanges: list[Exchange],
         trades: Optional[Trades] = None,
         get_time_ms: Callable[[], int] = time_ms,
         storage_batch_size: int = 1000,
@@ -58,7 +58,7 @@ class Chandler:
         fill_missing_with_last: bool = False,
         simulate_open_from_interval: Optional[int] = None,
         exchange_timeout: Optional[float] = None,
-    ) -> List[Candle]:
+    ) -> list[Candle]:
         return await list_async(self.stream_candles(
             exchange, symbol, interval, start, end, closed, fill_missing_with_last,
             simulate_open_from_interval, exchange_timeout
@@ -256,7 +256,7 @@ class Chandler:
                 # point before we're able to clear the batch. This can cause same data to be
                 # stored twice, raising an integrity error.
                 batch = []
-                swap_batch: List[Candle] = []
+                swap_batch: list[Candle] = []
                 current = floor_multiple(self._get_time_ms(), interval)
 
                 try:
@@ -558,7 +558,7 @@ class Chandler:
 
     async def map_symbol_interval_candles(
         self, exchange: str, symbols: Iterable[str], intervals: Iterable[int], start: int, end: int
-    ) -> Dict[Tuple[str, int], List[Candle]]:
+    ) -> dict[tuple[str, int], list[Candle]]:
         symbols = set(symbols)
         intervals = set(intervals)
         candles = await asyncio.gather(

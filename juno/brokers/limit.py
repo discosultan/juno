@@ -3,7 +3,7 @@ import logging
 import operator
 import uuid
 from decimal import Decimal
-from typing import AsyncIterable, Callable, List, Optional
+from typing import AsyncIterable, Callable, Optional
 
 from juno import Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.asyncio import Event, cancel
@@ -22,8 +22,8 @@ class _Context:
         self.use_quote = use_quote
         self.client_id = client_id
         self.new_event: Event[None] = Event(autoclear=True)
-        self.cancelled_event: Event[List[Fill]] = Event(autoclear=True)
-        self.fills: List[Fill] = []  # Fills from aggregated trades.
+        self.cancelled_event: Event[list[Fill]] = Event(autoclear=True)
+        self.fills: list[Fill] = []  # Fills from aggregated trades.
         self.time: int = -1
         self.active_order: Optional[_ActiveOrder] = None
 
@@ -311,7 +311,7 @@ class Limit(Broker):
     async def _track_fills(
         self, symbol: str, stream: AsyncIterable[OrderUpdate.Any], side: Side, ctx: _Context
     ) -> None:
-        fills_since_last_order: List[Fill] = []
+        fills_since_last_order: list[Fill] = []
         async for order in stream:
             if order.client_id != ctx.client_id:
                 _log.debug(

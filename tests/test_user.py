@@ -1,6 +1,5 @@
 import asyncio
 from decimal import Decimal
-from typing import Dict
 
 from juno import Balance
 from juno.asyncio import stream_queue
@@ -97,7 +96,7 @@ async def test_concurrent_sync_should_not_ping_exchange_multiple_times(mocker) -
 async def test_concurrent_sync_should_have_isolated_events(mocker) -> None:
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
     exchange.map_balances.return_value = {'spot': {}}
-    balances: asyncio.Queue[Dict[str, Balance]] = asyncio.Queue()
+    balances: asyncio.Queue[dict[str, Balance]] = asyncio.Queue()
     exchange.connect_stream_balances.return_value.__aenter__.return_value = stream_queue(balances)
 
     async with User(exchanges=[exchange]) as user:
