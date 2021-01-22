@@ -5,7 +5,7 @@ import inspect
 import logging
 from collections import defaultdict
 from collections.abc import Hashable
-from typing import Any, Callable, Iterable, Optional, Set, Type, TypeVar, get_args
+from typing import Any, Callable, Iterable, Optional, Type, TypeVar, get_args
 
 from typing_inspect import is_optional_type
 
@@ -147,7 +147,7 @@ def map_dependencies(
 
 
 def list_dependencies_in_init_order(dep_map: dict[Any, list[Any]]) -> list[list[Any]]:
-    initialized: Set[Any] = set()
+    initialized: set[Any] = set()
     tiers = []
     while len(initialized) < len(dep_map):
         tier = []

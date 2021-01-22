@@ -6,7 +6,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Optional, Set, Tuple
+from typing import AsyncIterable, AsyncIterator, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
 
@@ -28,7 +28,7 @@ class User:
 
     def __init__(self, exchanges: list[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._open_accounts: dict[str, Set[str]] = {}
+        self._open_accounts: dict[str, set[str]] = {}
 
         # Balance sync state.
         # Key: (exchange, account)

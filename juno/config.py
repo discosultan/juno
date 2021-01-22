@@ -5,7 +5,7 @@ from dataclasses import is_dataclass
 from enum import Enum
 from types import ModuleType
 from typing import (
-    Any, Mapping, Optional, Set, Tuple, Type, TypeVar, Union, get_args, get_origin, get_type_hints
+    Any, Mapping, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin, get_type_hints
 )
 
 from juno import Interval, Timestamp, json
@@ -45,7 +45,7 @@ def from_json_file(file: str) -> dict[str, Any]:
         return json.load(f)
 
 
-def list_names(config: dict[str, Any], name: str) -> Set[str]:
+def list_names(config: dict[str, Any], name: str) -> set[str]:
     result = set()
     name_plural = name + 's'
     for keys, v in recursive_iter(config):
