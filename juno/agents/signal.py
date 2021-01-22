@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional
 
 from juno import Advice, Interval, strategies
 from juno.components import Chandler, Events
@@ -20,7 +20,7 @@ class Signal(Agent):
         exchange: str
         symbol: str
         interval: Interval
-        strategy: Dict[str, Any]
+        strategy: dict[str, Any]
         name: Optional[str] = None
 
     def __init__(

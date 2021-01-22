@@ -4,7 +4,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Coroutine, Dict, Optional, Tuple, Type
+from typing import Callable, Coroutine, Optional, Tuple, Type
 
 from more_itertools import take
 
@@ -40,7 +40,7 @@ class MultiConfig:
     end: Timestamp
     strategy: TypeConstructor[Signal]
     # Overrides default strategy.
-    symbol_strategies: Dict[str, TypeConstructor[Signal]] = field(default_factory=dict)
+    symbol_strategies: dict[str, TypeConstructor[Signal]] = field(default_factory=dict)
     stop_loss: Optional[TypeConstructor[StopLoss]] = None
     take_profit: Optional[TypeConstructor[TakeProfit]] = None
     start: Optional[Timestamp] = None  # None means max earliest is found.
@@ -64,7 +64,7 @@ class MultiConfig:
 class MultiState:
     config: MultiConfig
     close_on_exit: bool
-    symbol_states: Dict[str, _SymbolState]
+    symbol_states: dict[str, _SymbolState]
     quotes: list[Decimal]
     summary: TradingSummary
     start: Timestamp  # Candle time.
@@ -166,7 +166,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return self._chandler
 
     @property
-    def exchanges(self) -> Dict[str, Exchange]:
+    def exchanges(self) -> dict[str, Exchange]:
         return self._exchanges
 
     @property
@@ -237,7 +237,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         _log.info(f'quote split as: {state.quotes}')
 
         try:
-            track_tasks: Dict[str, asyncio.Task] = {}
+            track_tasks: dict[str, asyncio.Task] = {}
             await self._manage_positions(state, track_tasks)
         finally:
             await cancel(*track_tasks.values())
@@ -290,12 +290,12 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         return config.track + [s for s, t in take(count, tickers.items()) if t not in config.track]
 
     async def _manage_positions(
-        self, state: MultiState, track_tasks: Dict[str, asyncio.Task]
+        self, state: MultiState, track_tasks: dict[str, asyncio.Task]
     ) -> None:
         config = state.config
 
         candles_updated = SlotBarrier(state.symbol_states.keys())
-        trackers_ready: Dict[str, Event] = {
+        trackers_ready: dict[str, Event] = {
             s: Event(autoclear=True) for s in state.symbol_states.keys()
         }
         for symbol, symbol_state in state.symbol_states.items():

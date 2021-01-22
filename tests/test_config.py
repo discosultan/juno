@@ -1,7 +1,7 @@
 import sys
 from decimal import Decimal
 from enum import IntEnum
-from typing import Any, Dict, NamedTuple, Optional, Union
+from typing import Any, NamedTuple, Optional, Union
 
 from juno import Interval, Timestamp, config
 from juno.time import HOUR_MS
@@ -19,12 +19,12 @@ class Foo(NamedTuple):
     missing_optional_interval: Optional[Interval]
     decimal: Decimal
     list_of_intervals: list[Interval]
-    dict_of_intervals: Dict[Interval, Interval]
+    dict_of_intervals: dict[Interval, Interval]
     enum: SomeEnum
 
 
 def test_config_to_type_type_to_config() -> None:
-    input_: Dict[str, Any] = {
+    input_: dict[str, Any] = {
         'name': 'bar',
         'timestamp': '2000-01-01 00:00:00+00:00',
         'interval': '1h',
@@ -35,7 +35,7 @@ def test_config_to_type_type_to_config() -> None:
         'dict_of_intervals': {'1h': '2h'},
         'enum': 'key',
     }
-    expected_output: Union[Dict[str, Any], Foo] = Foo(
+    expected_output: Union[dict[str, Any], Foo] = Foo(
         name='bar',
         timestamp=946_684_800_000,
         interval=HOUR_MS,

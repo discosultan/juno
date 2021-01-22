@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import logging
-from typing import Dict
 
 from juno import Balance, exchanges
 from juno.components import User
@@ -50,7 +49,7 @@ async def stream_account(user: User, account: str) -> None:
             log(account, wallet.balances)
 
 
-def log(account: str, account_balances: Dict[str, Balance]) -> None:
+def log(account: str, account_balances: dict[str, Balance]) -> None:
     logging.info(f'{args.exchange} {account} account')
     for asset, balance in account_balances.items():
         logging.info(f'{asset} - {balance}')

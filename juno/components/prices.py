@@ -1,6 +1,6 @@
 import asyncio
 from decimal import Decimal
-from typing import Dict, Iterable, Optional
+from typing import Iterable, Optional
 
 from juno.asyncio import enumerate_async
 from juno.components import Chandler
@@ -24,14 +24,14 @@ class Prices:
         interval: int = DAY_MS,
         fiat_exchange: Optional[str] = None,
         fiat_asset: str = 'usdt',
-    ) -> Dict[str, list[Decimal]]:
+    ) -> dict[str, list[Decimal]]:
         """Maps all assets found in symbols to their fiat prices."""
         start = floor_multiple(start, interval)
         end = floor_multiple(end, interval)
 
         fiat_exchange = fiat_exchange or exchange
 
-        result: Dict[str, list[Decimal]] = {}
+        result: dict[str, list[Decimal]] = {}
 
         # Quote -> fiat.
         quote_fiat_symbols = {

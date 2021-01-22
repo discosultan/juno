@@ -6,7 +6,7 @@ import itertools
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Dict, Generic, Optional, Tuple, Type, TypeVar
+from typing import Any, Awaitable, Callable, Generic, Optional, Tuple, Type, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
@@ -43,7 +43,7 @@ class Informant:
         self._get_time_ms = get_time_ms
         self._cache_time = cache_time
 
-        self._synced_data: Dict[str, Dict[Type[_Timestamped[Any]], _Timestamped[Any]]] = (
+        self._synced_data: dict[str, dict[Type[_Timestamped[Any]], _Timestamped[Any]]] = (
             defaultdict(dict)
         )
 
@@ -66,7 +66,7 @@ class Informant:
         self._tickers_sync_task = create_task_sigint_on_exception(
             self._periodic_sync_for_exchanges(
                 'tickers',
-                _Timestamped[Dict[str, Ticker]],
+                _Timestamped[dict[str, Ticker]],
                 tickers_synced_evt,
                 lambda e: e.map_tickers(),
                 [n for n, e in self._exchanges.items() if e.can_list_all_tickers],
@@ -172,9 +172,9 @@ class Informant:
         spot: Optional[bool] = None,
         cross_margin: Optional[bool] = None,
         isolated_margin: Optional[bool] = None,
-    ) -> Dict[str, Ticker]:
+    ) -> dict[str, Ticker]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        all_tickers = self._synced_data[exchange][_Timestamped[Dict[str, Ticker]]].item
+        all_tickers = self._synced_data[exchange][_Timestamped[dict[str, Ticker]]].item
 
         result = ((s, t) for s, t in all_tickers.items())
 

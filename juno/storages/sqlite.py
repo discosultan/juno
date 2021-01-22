@@ -5,8 +5,8 @@ from collections import defaultdict
 from contextlib import closing
 from decimal import Decimal
 from typing import (
-    Any, AsyncIterable, ContextManager, Dict, NamedTuple, Optional, Set, Tuple, Type, TypeVar,
-    Union, get_type_hints
+    Any, AsyncIterable, ContextManager, NamedTuple, Optional, Set, Tuple, Type, TypeVar, Union,
+    get_type_hints
 )
 
 from juno import Interval, Timestamp, json
@@ -46,7 +46,7 @@ sqlite3.register_converter('BOOLEAN', lambda v: bool(int(v)))
 class SQLite(Storage):
     def __init__(self, version: Optional[str] = None) -> None:
         self._version = _VERSION if version is None else version
-        self._tables: Dict[Any, Set[str]] = defaultdict(set)
+        self._tables: dict[Any, Set[str]] = defaultdict(set)
         _log.info(f'sqlite version: {sqlite3.sqlite_version}; schema version: {self._version}')
 
     async def stream_time_series_spans(
@@ -240,7 +240,7 @@ class KeyValuePair(NamedTuple):
     value: str
 
     @staticmethod
-    def meta() -> Dict[str, str]:
+    def meta() -> dict[str, str]:
         return {
             'key': 'unique',
         }
@@ -251,7 +251,7 @@ class Span(NamedTuple):
     end: Timestamp
 
     @staticmethod
-    def meta() -> Dict[str, str]:
+    def meta() -> dict[str, str]:
         return {
             'start': 'unique',
             'end': 'unique',

@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from typing import (  # type: ignore
-    Any, Deque, Dict, Generic, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
+    Any, Deque, Generic, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
 )
 
 import pytest
@@ -139,8 +139,8 @@ def test_raw_to_type(obj, type_, expected_output) -> None:
     ((1, ), BasicNamedTuple, False),
     (1, int, True),
     ('a', int, False),
-    ({'a': BasicNamedTuple(1, 2)}, Dict[str, BasicNamedTuple], True),
-    ({'a': 1, 'b': 'x'}, Dict[str, int], False),
+    ({'a': BasicNamedTuple(1, 2)}, dict[str, BasicNamedTuple], True),
+    ({'a': 1, 'b': 'x'}, dict[str, int], False),
     ({'value': 1}, BasicNamedTuple, False),
     ([BasicNamedTuple(1, 2)], list[BasicNamedTuple], True),
     ([1, 'x'], list[int], False),

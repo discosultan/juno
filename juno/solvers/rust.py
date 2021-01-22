@@ -9,7 +9,7 @@ import shutil
 import zlib
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Tuple
 
 import cffi
 import pandas as pd
@@ -35,7 +35,7 @@ _cdef_builder = CDefBuilder({
 })
 
 # We don't support mapping all strategies anymore because Sig and SigOsc for example, take
-# `Dict[str, Any]` as args. That is not supported. Therefore, we provide a list of enabled
+# `dict[str, Any]` as args. That is not supported. Therefore, we provide a list of enabled
 # strategies instead.
 # _strategy_types = list_concretes_from_module(strategies, Strategy)
 _strategy_types = [
@@ -57,11 +57,11 @@ class Rust(Solver):
     def __init__(self, informant: Informant) -> None:
         self._informant = informant
 
-        self._c_fees_filters: Dict[str, Tuple[Any, Any]] = {}
-        self._c_borrow_infos: Dict[str, Any] = {}
-        self._c_candles: Dict[TimeSeriesKey, Any] = {}
-        self._c_prices: Dict[TimeSeriesKey, Any] = {}
-        self._c_series: Dict[TimeSeriesKey, Any] = {}
+        self._c_fees_filters: dict[str, Tuple[Any, Any]] = {}
+        self._c_borrow_infos: dict[str, Any] = {}
+        self._c_candles: dict[TimeSeriesKey, Any] = {}
+        self._c_prices: dict[TimeSeriesKey, Any] = {}
+        self._c_series: dict[TimeSeriesKey, Any] = {}
 
     async def __aenter__(self) -> Rust:
         # Setup Rust src paths.

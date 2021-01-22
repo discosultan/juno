@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Dict, Optional, Type
+from typing import Callable, Optional, Type
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
@@ -120,7 +120,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         return self._chandler
 
     @property
-    def exchanges(self) -> Dict[str, Exchange]:
+    def exchanges(self) -> dict[str, Exchange]:
         return self._exchanges
 
     @property

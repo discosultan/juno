@@ -3,7 +3,7 @@ import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any, Dict, NamedTuple, Optional, Union
+from typing import Any, NamedTuple, Optional, Union
 
 import pytest
 
@@ -95,9 +95,9 @@ async def test_stream_time_series_spans_merges_adjacent(memory: storages.Memory)
                 price=Decimal('1.0'),
             ),
         },
-        Dict[str, Ticker],
+        dict[str, Ticker],
     ),
-    ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, Dict[str, Fees]),
+    ({'foo': Fees(maker=Decimal('0.01'), taker=Decimal('0.02'))}, dict[str, Fees]),
     (
         Position.Long(
             exchange='exchange',
@@ -146,8 +146,8 @@ async def test_memory_set_get_different(memory: storages.Memory) -> None:
         memory.set('shard', 'filters', filters)
     )
     out_fees, out_filters = await asyncio.gather(
-        memory.get('shard', 'fees', Dict[str, Fees]),
-        memory.get('shard', 'filters', Dict[str, Filters]),
+        memory.get('shard', 'fees', dict[str, Fees]),
+        memory.get('shard', 'filters', dict[str, Filters]),
     )
 
     assert out_fees == fees

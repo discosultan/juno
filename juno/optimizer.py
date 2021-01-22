@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from functools import partial
 from random import Random, randrange
-from typing import Any, Callable, Dict, NamedTuple, Optional, Tuple
+from typing import Any, Callable, NamedTuple, Optional, Tuple
 
 from deap import base, tools
 
@@ -295,7 +295,7 @@ class Optimizer(StartMixin):
     async def _build_summary(
         self,
         state: OptimizerState,
-        fiat_prices: Dict[str, list[Decimal]],
+        fiat_prices: dict[str, list[Decimal]],
         benchmark: AnalysisSummary,
         ind: Individual,
     ) -> OptimizationSummary:
@@ -344,9 +344,9 @@ class Optimizer(StartMixin):
     def _validate(
         self,
         state: OptimizerState,
-        fiat_prices: Dict[str, list[Decimal]],
+        fiat_prices: dict[str, list[Decimal]],
         benchmark: AnalysisSummary,
-        candles: Dict[Tuple[str, int], list[Candle]],
+        candles: dict[Tuple[str, int], list[Candle]],
         ind: Individual,
     ) -> None:
         assert state.summary

@@ -6,7 +6,7 @@ import logging
 import sys
 from contextlib import AsyncExitStack
 from decimal import Decimal
-from typing import AsyncIterable, Callable, Dict, Iterable, Optional, Tuple
+from typing import AsyncIterable, Callable, Iterable, Optional, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
@@ -558,7 +558,7 @@ class Chandler:
 
     async def map_symbol_interval_candles(
         self, exchange: str, symbols: Iterable[str], intervals: Iterable[int], start: int, end: int
-    ) -> Dict[Tuple[str, int], list[Candle]]:
+    ) -> dict[Tuple[str, int], list[Candle]]:
         symbols = set(symbols)
         intervals = set(intervals)
         candles = await asyncio.gather(

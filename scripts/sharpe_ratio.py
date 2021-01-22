@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections import defaultdict
 from decimal import Decimal
-from typing import Callable, Dict, Tuple
+from typing import Callable, Tuple
 
 import numpy as np
 import pandas as pd
@@ -79,13 +79,13 @@ async def main() -> None:
         )
         assert len(btc_fiat_daily) == length_days
         assert len(symbol_daily) == length_days
-        market_data: Dict[str, Dict[int, Decimal]] = defaultdict(dict)
+        market_data: dict[str, dict[int, Decimal]] = defaultdict(dict)
         for btc_fiat_candle, symbol_candle in zip(btc_fiat_daily, symbol_daily):
             time = btc_fiat_candle.time
             market_data['btc'][time] = btc_fiat_candle.close
             market_data[base_asset][time] = symbol_candle.close * btc_fiat_candle.close
 
-        trades: Dict[int, list[Tuple[str, Decimal]]] = defaultdict(list)
+        trades: dict[int, list[Tuple[str, Decimal]]] = defaultdict(list)
         for pos in trading_summary.get_positions():
             # Open.
             time = floor_multiple(pos.open_time, DAY_MS)
@@ -98,10 +98,10 @@ async def main() -> None:
             day_trades.append((base_asset, -pos.base_cost))
             day_trades.append((quote_asset, +pos.gain))
 
-        asset_holdings: Dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
+        asset_holdings: dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
         asset_holdings[quote_asset] = trading_summary.quote
 
-        asset_performance: Dict[int, Dict[str, Decimal]] = defaultdict(
+        asset_performance: dict[int, dict[str, Decimal]] = defaultdict(
             lambda: {k: Decimal('0.0') for k in market_data.keys()}
         )
 

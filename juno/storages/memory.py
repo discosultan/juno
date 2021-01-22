@@ -4,7 +4,7 @@ import sqlite3
 from collections import defaultdict
 from contextlib import contextmanager
 from threading import Lock
-from typing import Dict, Iterator, Optional
+from typing import Iterator, Optional
 
 from juno.typing import ExcType, ExcValue, Traceback
 
@@ -15,7 +15,7 @@ class Memory(SQLite):
     """In-memory data storage. Uses SQLite's memory mode for implementation."""
     def __init__(self) -> None:
         super().__init__()
-        self._conns: Dict[str, _ConnectionContext] = defaultdict(_ConnectionContext)
+        self._conns: dict[str, _ConnectionContext] = defaultdict(_ConnectionContext)
 
     async def __aenter__(self) -> Memory:
         return self

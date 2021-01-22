@@ -1,7 +1,7 @@
 from decimal import Decimal
 from enum import IntEnum
 from typing import (
-    Any, Callable, Dict, Iterable, Optional, Tuple, Type, get_args, get_origin, get_type_hints
+    Any, Callable, Iterable, Optional, Tuple, Type, get_args, get_origin, get_type_hints
 )
 
 _DEFAULT_MAPPINGS = {
@@ -14,7 +14,7 @@ _DEFAULT_MAPPINGS = {
 
 
 class CDefBuilder:
-    def __init__(self, custom_mappings: Dict[Type[Any], str] = {}) -> None:
+    def __init__(self, custom_mappings: dict[Type[Any], str] = {}) -> None:
         self._custom_mappings = custom_mappings
 
     def function(self, function: Callable[..., Any]) -> str:

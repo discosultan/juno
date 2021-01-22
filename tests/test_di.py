@@ -1,5 +1,5 @@
 import itertools
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 import pytest
 
@@ -63,7 +63,7 @@ def test_list_dependencies_in_init_order() -> None:
     foo = Foo()
     bar = Bar(foo)
     baz = Baz(bar)
-    dep_map: Dict[Any, list[Any]] = {
+    dep_map: dict[Any, list[Any]] = {
         baz: [bar],
         bar: [foo],
         foo: [],

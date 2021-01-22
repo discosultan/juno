@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
-from typing import Dict, NamedTuple, Optional, Tuple, Union
+from typing import NamedTuple, Optional, Tuple, Union
 
 from juno.aliases import Timestamp
 from juno.filters import Filters
@@ -88,7 +88,7 @@ class Candle(NamedTuple):
         )
 
     @staticmethod
-    def meta() -> Dict[str, str]:
+    def meta() -> dict[str, str]:
         return {
             'time': 'unique',
         }
@@ -271,7 +271,7 @@ class Trade(NamedTuple):
     size: Decimal = Decimal('0.0')
 
     @staticmethod
-    def meta() -> Dict[str, str]:
+    def meta() -> dict[str, str]:
         return {
             'time': 'index',
         }
@@ -279,9 +279,9 @@ class Trade(NamedTuple):
 
 @dataclass
 class ExchangeInfo:
-    fees: Dict[str, Fees] = field(default_factory=lambda: {'__all__': Fees()})
-    filters: Dict[str, Filters] = field(default_factory=lambda: {'__all__': Filters()})
+    fees: dict[str, Fees] = field(default_factory=lambda: {'__all__': Fees()})
+    filters: dict[str, Filters] = field(default_factory=lambda: {'__all__': Filters()})
     # Keys: account, asset
-    borrow_info: Dict[str, Dict[str, BorrowInfo]] = field(
+    borrow_info: dict[str, dict[str, BorrowInfo]] = field(
         default_factory=lambda: {'__all__': {'__all__': BorrowInfo()}}
     )

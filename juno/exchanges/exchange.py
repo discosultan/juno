@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Dict, Optional
+from typing import AsyncIterable, AsyncIterator, Optional
 
 from juno import (
     Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side, Ticker,
@@ -28,20 +28,20 @@ class Exchange(ABC):
     async def get_exchange_info(self) -> ExchangeInfo:
         pass
 
-    async def map_tickers(self, symbols: list[str] = []) -> Dict[str, Ticker]:
+    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
         # Empty list to disable filter.
         pass
 
     # Result outer key - account
     # Result inner key - asset
     @abstractmethod
-    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
+    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         pass
 
     @asynccontextmanager
     async def connect_stream_balances(
         self, account: str
-    ) -> AsyncIterator[AsyncIterable[Dict[str, Balance]]]:
+    ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
         yield  # type: ignore
 
     @abstractmethod

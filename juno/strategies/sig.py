@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 from juno import Advice, Candle, strategies
 from juno.config import init_module_instance
@@ -17,7 +17,7 @@ class Sig(Signal):
 
     def __init__(
         self,
-        sig: Dict[str, Any],
+        sig: dict[str, Any],
         mid_trend_policy: MidTrendPolicy = MidTrendPolicy.CURRENT,
         persistence: int = 0,
     ) -> None:

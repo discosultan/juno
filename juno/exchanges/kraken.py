@@ -9,7 +9,7 @@ import urllib.parse
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Dict, Optional
+from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 from juno import (
     Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType, OrderUpdate, Side,
@@ -105,7 +105,7 @@ class Kraken(Exchange):
             )
         return ExchangeInfo(fees=fees, filters=filters)
 
-    async def map_tickers(self, symbols: list[str] = []) -> Dict[str, Ticker]:
+    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
         if not symbols:
             raise ValueError('Empty symbols list not supported')
 
@@ -120,7 +120,7 @@ class Kraken(Exchange):
             ) for pair, val in res['result'].items()
         }
 
-    async def map_balances(self, account: str) -> Dict[str, Dict[str, Balance]]:
+    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == 'spot':
             res = await self._request_private('/0/private/Balance')
@@ -316,7 +316,7 @@ class Kraken(Exchange):
         return await self._request('POST', url, data, headers, limiter, cost)
 
     async def _request(
-        self, method: str, url: str, data: Dict[str, Any], headers: Dict[str, str],
+        self, method: str, url: str, data: dict[str, Any], headers: dict[str, str],
         limiter: AsyncLimiter, cost: int
     ) -> Any:
         if limiter is None:
@@ -350,10 +350,10 @@ class KrakenPublicFeed:
         self.process_task: Optional[asyncio.Task] = None
 
         self.reqid = 1
-        self.subscriptions: Dict[int, Event[asyncio.Queue[Any]]] = defaultdict(
+        self.subscriptions: dict[int, Event[asyncio.Queue[Any]]] = defaultdict(
             lambda: Event(autoclear=True)
         )
-        self.channels: Dict[int, asyncio.Queue[Any]] = defaultdict(asyncio.Queue)
+        self.channels: dict[int, asyncio.Queue[Any]] = defaultdict(asyncio.Queue)
 
     async def __aenter__(self) -> KrakenPublicFeed:
         await self.session.__aenter__()

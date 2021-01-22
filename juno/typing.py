@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from types import TracebackType
 from typing import (
-    Any, Dict, Generic, Iterable, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin,
+    Any, Generic, Iterable, Optional, Tuple, Type, TypeVar, Union, get_args, get_origin,
     get_type_hints
 )
 
@@ -20,13 +20,13 @@ ExcType = Optional[Type[BaseException]]
 ExcValue = Optional[BaseException]
 Traceback = Optional[TracebackType]
 
-JSONValue = Union[str, int, float, bool, None, Dict[str, Any], list[Any]]
-JSONType = Union[Dict[str, JSONValue], list[JSONValue]]
+JSONValue = Union[str, int, float, bool, None, dict[str, Any], list[Any]]
+JSONType = Union[dict[str, JSONValue], list[JSONValue]]
 
 T = TypeVar('T')
 
 
-def get_input_type_hints(obj: Any) -> Dict[str, type]:
+def get_input_type_hints(obj: Any) -> dict[str, type]:
     return {n: t for n, t in get_type_hints(obj).items() if n != 'return'}
 
 
@@ -232,7 +232,7 @@ def types_match(obj: Any, type_: Type[Any]) -> bool:
     )
 
 
-def map_input_args(obj: Any, args: Iterable[Any]) -> Dict[str, Any]:
+def map_input_args(obj: Any, args: Iterable[Any]) -> dict[str, Any]:
     return {k: v for k, v in zip(get_input_type_hints(obj).keys(), args)}
 
 
@@ -271,7 +271,7 @@ def get_type_by_fully_qualified_name(name: str) -> Type[Any]:
 class TypeConstructor(Generic[T]):
     name: str  # Fully qualified name.
     args: Tuple[Any, ...] = ()
-    kwargs: Dict[str, Any] = field(default_factory=dict)
+    kwargs: dict[str, Any] = field(default_factory=dict)
 
     def construct(self) -> T:
         return self.type_(*self.args, **self.kwargs)  # type: ignore

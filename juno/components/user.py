@@ -6,7 +6,7 @@ import uuid
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from typing import AsyncIterable, AsyncIterator, Dict, Optional, Set, Tuple
+from typing import AsyncIterable, AsyncIterator, Optional, Set, Tuple
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
 
@@ -21,20 +21,20 @@ _log = logging.getLogger(__name__)
 
 class User:
     class WalletSyncContext:
-        def __init__(self, balances: Optional[Dict[str, Balance]] = None) -> None:
+        def __init__(self, balances: Optional[dict[str, Balance]] = None) -> None:
             self.balances = {} if balances is None else balances
             # Will not be set for initial data.
             self.updated: Event[None] = Event(autoclear=True)
 
     def __init__(self, exchanges: list[Exchange]) -> None:
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._open_accounts: Dict[str, Set[str]] = {}
+        self._open_accounts: dict[str, Set[str]] = {}
 
         # Balance sync state.
         # Key: (exchange, account)
-        self._wallet_sync_tasks: Dict[Tuple[str, str], asyncio.Task] = {}
-        self._wallet_sync_ctxs: Dict[
-            Tuple[str, str], Dict[str, User.WalletSyncContext]
+        self._wallet_sync_tasks: dict[Tuple[str, str], asyncio.Task] = {}
+        self._wallet_sync_ctxs: dict[
+            Tuple[str, str], dict[str, User.WalletSyncContext]
         ] = defaultdict(dict)
 
     async def __aenter__(self) -> User:
@@ -95,11 +95,11 @@ class User:
         exchange: str,
         accounts: list[str],
         significant: Optional[bool] = None,
-    ) -> Dict[str, Dict[str, Balance]]:
+    ) -> dict[str, dict[str, Balance]]:
         account_args = {a if a in ['spot', 'margin'] else 'isolated' for a in accounts}
 
         exchange_instance = self._exchanges[exchange]
-        result: Dict[str, Dict[str, Balance]] = {}
+        result: dict[str, dict[str, Balance]] = {}
         balances = await asyncio.gather(
             *(exchange_instance.map_balances(account=a) for a in account_args)
         )
@@ -225,7 +225,7 @@ class User:
 
     async def _stream_balances(
         self, exchange: str, account: str
-    ) -> AsyncIterable[Dict[str, Balance]]:
+    ) -> AsyncIterable[dict[str, Balance]]:
         exchange_instance = self._exchanges[exchange]
 
         if exchange_instance.can_stream_balances:

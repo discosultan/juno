@@ -11,7 +11,7 @@ from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, Iterator, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
+from typing import Any, Iterator, Optional, Sequence, Tuple, Type, TypeVar, get_type_hints
 
 import aiolimiter
 
@@ -46,7 +46,7 @@ def key(*items: Any) -> str:
 
 
 # TODO: Remove if not used.
-def replace_secrets(obj: Dict[str, Any]) -> Dict[str, Any]:
+def replace_secrets(obj: dict[str, Any]) -> dict[str, Any]:
     # Do not mutate source obj.
     obj = deepcopy(obj)
 
@@ -148,7 +148,7 @@ def exc_traceback(exc: Exception) -> str:
 
 def map_concrete_module_types(
     module: ModuleType, abstract: Optional[Type[Any]] = None
-) -> Dict[str, Type[Any]]:
+) -> dict[str, Type[Any]]:
     return {n.lower(): t for n, t in inspect.getmembers(
         module,
         lambda c: (

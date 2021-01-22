@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from discord import File
 from discord.ext import commands
@@ -35,7 +35,7 @@ class _TraderContext:
 # We use simulated position mixin to provide info for the `.status` command.
 class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
     def __init__(
-        self, chandler: Chandler, informant: Informant, events: Events, config: Dict[str, Any]
+        self, chandler: Chandler, informant: Informant, events: Events, config: dict[str, Any]
     ) -> None:
         super().__init__(command_prefix='.')
 

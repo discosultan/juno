@@ -6,8 +6,8 @@ import signal
 import traceback
 from dataclasses import dataclass, field
 from typing import (
-    Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Dict, Generic, Iterable, Optional,
-    Tuple, TypeVar, cast
+    Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Generic, Iterable, Optional, Tuple,
+    TypeVar, cast
 )
 
 _log = logging.getLogger(__name__)
@@ -75,7 +75,7 @@ async def list_async(async_iter: AsyncIterable[T]) -> list[T]:
     return [item async for item in async_iter]
 
 
-async def dict_async(async_iter: AsyncIterable[Tuple[T, U]]) -> Dict[T, U]:
+async def dict_async(async_iter: AsyncIterable[Tuple[T, U]]) -> dict[T, U]:
     return {key: value async for key, value in async_iter}
 
 
@@ -87,7 +87,7 @@ async def first_async(async_iter: AsyncIterable[T]) -> T:
 
 # Ref: https://stackoverflow.com/a/50903757/1466456
 async def merge_async(*async_iters: AsyncIterable[T]) -> AsyncIterable[T]:
-    iter_next: Dict[AsyncIterator[T], Optional[asyncio.Future]] = {
+    iter_next: dict[AsyncIterator[T], Optional[asyncio.Future]] = {
         it.__aiter__(): None for it in async_iters
     }
     while iter_next:

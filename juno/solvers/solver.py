@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from decimal import Decimal
-from typing import Any, Callable, Dict, Iterable, NamedTuple, Optional, Tuple, Type, get_type_hints
+from typing import Any, Callable, Iterable, NamedTuple, Optional, Tuple, Type, get_type_hints
 
 import pandas as pd
 from deap import base
@@ -44,7 +44,7 @@ class FitnessValues(NamedTuple):
     # num_positions_in_loss: int = 0
 
     @staticmethod
-    def meta() -> Dict[str, float]:
+    def meta() -> dict[str, float]:
         # NB! There's an issue with optimizing more than 3 objectives:
         # https://stackoverflow.com/q/44929118/1466456
         # We try to maximize properties with positive weight, minimize properties with negative
@@ -132,7 +132,7 @@ class Individual(list):
 
 class Solver(AbstractAsyncContextManager, ABC):
     class Config(NamedTuple):
-        fiat_prices: Dict[str, list[Decimal]]
+        fiat_prices: dict[str, list[Decimal]]
         benchmark_g_returns: pd.Series
         candles: list[Candle]
         strategy_type: Type[Strategy]

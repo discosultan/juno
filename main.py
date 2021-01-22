@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import sys
-from typing import Any, Dict, Tuple, Type
+from typing import Any, Tuple, Type
 
 import pkg_resources
 from mergedeep import merge
@@ -55,7 +55,7 @@ async def main() -> None:
 
     # Configure deps.
     container = Container()
-    container.add_singleton_instance(Dict[str, Any], lambda: cfg)
+    container.add_singleton_instance(dict[str, Any], lambda: cfg)
     container.add_singleton_instance(Storage, lambda: config.init_instance(Storage, cfg))
     container.add_singleton_instance(
         list[Exchange], lambda: config.init_instances_mentioned_in_config(Exchange, cfg)
@@ -72,7 +72,7 @@ async def main() -> None:
     container.add_singleton_types(map_concrete_module_types(components).values())
 
     # Load agents and plugins.
-    agent_types: Dict[str, Type[Agent]] = map_concrete_module_types(agents)
+    agent_types: dict[str, Type[Agent]] = map_concrete_module_types(agents)
     plugin_types = map_plugin_types(config.list_names(cfg, 'plugin'))
     agent_ctxs: list[Tuple[Agent, Any, list[Plugin]]] = [(
         container.resolve(agent_types[c['type']]),
