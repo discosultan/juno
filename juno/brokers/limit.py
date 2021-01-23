@@ -187,9 +187,15 @@ class Limit(Broker):
                 await cancel(keep_limit_order_best_task, track_fills_task)
                 raise
             except _FilledFromKeepAtBest:
-                await cancel(track_fills_task)
+                try:
+                    await cancel(track_fills_task)
+                except _FilledFromTrack:
+                    pass
             except _FilledFromTrack:
-                await cancel(keep_limit_order_best_task)
+                try:
+                    await cancel(keep_limit_order_best_task)
+                except _FilledFromKeepAtBest:
+                    pass
             finally:
                 if self._cancel_order_on_error and ctx.active_order:
                     # Cancel active order.
