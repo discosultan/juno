@@ -68,16 +68,13 @@ class MultiState:
     quotes: list[Decimal]
     summary: TradingSummary
     start: Timestamp  # Candle time.
+    next_: Timestamp  # Candle time.
     real_start: Timestamp
     open_new_positions: bool = True  # Whether new positions can be opened.
 
     @property
     def open_positions(self) -> list[Position.Open]:
         return [s.open_position for s in self.symbol_states.values() if s.open_position]
-
-    @property
-    def next_(self) -> Timestamp:
-        return max(*(ss.next_ for ss in self.symbol_states.values()), 0)
 
 
 @dataclass
@@ -194,11 +191,13 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
             assert position_quote > filters.price.min
 
+        candle_start = floor_multiple(start, config.interval)
         return MultiState(
             config=config,
             close_on_exit=config.close_on_exit,
             real_start=self._get_time_ms(),
-            start=floor_multiple(start, config.interval),
+            start=candle_start,
+            next_=candle_start,
             quotes=[quote / config.position_count] * config.position_count,
             summary=TradingSummary(
                 start=start,
@@ -439,25 +438,31 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             fill_missing_with_last=True,
             exchange_timeout=config.exchange_candle_timeout,
         ):
-            # Perform empty ticks when missing initial candles.
-            initial_missed = False
-            if (time_diff := candle.time - symbol_state.next_) > 0:
-                assert not initial_missed
-                assert symbol_state.next_ <= symbol_state.start
-                initial_missed = True
-                num_missed = time_diff // config.interval
-                _log.info(f'missed {num_missed} initial {symbol_state.symbol} candles')
-                for _ in range(num_missed):
-                    await self._process_advice(
-                        symbol_state, candles_updated, ready, Advice.NONE, Advice.NONE, None
-                    )
+            if symbol_state.next_ < symbol_state.start:
+                # Do not signal position manager during warm-up (adjusted start) period.
+                advice, _, _ = self._process_candle(state, symbol_state, candle)
+                if advice is not Advice.NONE:
+                    _log.warning(f'received advice {advice.name} during strategy warm-up period')
+            else:
+                # Perform empty ticks when missing initial candles.
+                initial_missed = False
+                if (time_diff := candle.time - symbol_state.next_) > 0:
+                    assert not initial_missed
+                    assert symbol_state.next_ <= symbol_state.start
+                    initial_missed = True
+                    num_missed = time_diff // config.interval
+                    _log.info(f'missed {num_missed} initial {symbol_state.symbol} candles')
+                    for _ in range(num_missed):
+                        await self._process_advice(
+                            symbol_state, candles_updated, ready, Advice.NONE, Advice.NONE, None
+                        )
 
-            advice, override_advice, override_reason = self._process_candle(
-                state, symbol_state, candle
-            )
-            await self._process_advice(
-                symbol_state, candles_updated, ready, advice, override_advice, override_reason
-            )
+                advice, override_advice, override_reason = self._process_candle(
+                    state, symbol_state, candle
+                )
+                await self._process_advice(
+                    symbol_state, candles_updated, ready, advice, override_advice, override_reason
+                )
 
     def _process_candle(
         self, state: MultiState, symbol_state: _SymbolState, candle: Candle
@@ -517,6 +522,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             symbol_state.first_candle = candle
         symbol_state.last_candle = candle
         symbol_state.next_ = candle.time + config.interval
+        state.next_ = max(state.next_, symbol_state.next_)
 
         return advice, override_advice, override_reason
 

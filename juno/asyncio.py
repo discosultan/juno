@@ -116,31 +116,12 @@ async def map_async(
 
 
 async def cancel(*tasks: Optional[asyncio.Task]) -> None:
-    pending_tasks = (t for t in tasks if t and not t.done())
-    await asyncio.gather(*(_cancel(t) for t in pending_tasks))
-
-    # for task in pending_tasks:
-    #     task.cancel()
-    #     qualname = task.get_coro().__qualname__
-    #     _log.info(f'{qualname} task cancelled')
-    #     cancellation_tasks.append(task)
-
-    # results = await asyncio.gather(*pending_tasks, return_exceptions=True)
-    # unhandled_ex = None
-    # for result in results:
-    #     if isinstance(result, BaseException) and not isinstance(result, asyncio.CancelledError):
-    #         msg = ''.join(traceback.format_exception(type(result), result, result.__traceback__))
-    #         _log.error(
-    #             f'unhandled exception in {task.get_coro().__qualname__} task ({msg})'
-    #         )  # type: ignore
-    #         if not unhandled_ex:
-    #             unhandled_ex = result
-    # if unhandled_ex:
-    #    raise unhandled_ex
+    await asyncio.gather(*(_cancel(t) for t in tasks if t))
 
 
 async def _cancel(task: asyncio.Task) -> None:
-    task.cancel()
+    if not task.done():
+        task.cancel()
     try:
         await task
     except asyncio.CancelledError:

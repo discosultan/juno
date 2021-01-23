@@ -528,7 +528,7 @@ async def test_take_profit() -> None:
         quote=Decimal('1.0'),
         strategy=TypeConstructor.from_type(
             Fixed,
-            advices=[Advice.LONG],
+            advices=[Advice.LONG, Advice.NONE],
         ),
         long=True,
         track_count=1,
@@ -651,7 +651,7 @@ async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker) -> N
         start=1,
         end=2,
         quote=Decimal('1.0'),
-        strategy=TypeConstructor.from_type(Fixed, maturity=2),
+        strategy=TypeConstructor.from_type(Fixed, maturity=2, advices=[Advice.NONE, Advice.NONE]),
         track_count=1,
         position_count=1,
         adjust_start=True,
@@ -662,3 +662,59 @@ async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker) -> N
 
     # Initial call and repick during second candle.
     assert len(informant.map_tickers.mock_calls) == 2
+
+
+async def test_repick_symbols_with_adjusted_start() -> None:
+    informant = fakes.Informant(tickers={
+        'eth-btc': Ticker(
+            volume=Decimal('1.0'),
+            quote_volume=Decimal('1.0'),
+            price=Decimal('1.0'),
+        ),
+    })
+    chandler = fakes.Chandler(future_candles={
+        ('dummy', 'eth-btc', 1): [
+            Candle(time=0, close=Decimal('1.0')),
+            Candle(time=1, close=Decimal('1.0')),
+        ],
+        ('dummy', 'ltc-btc', 1): [
+            Candle(time=1, close=Decimal('1.0')),
+            Candle(time=2, close=Decimal('1.0')),
+        ],
+    })
+    trader = traders.Multi(chandler=chandler, informant=informant)
+
+    config = traders.MultiConfig(
+        exchange='dummy',
+        interval=1,
+        start=1,
+        end=3,
+        quote=Decimal('1.0'),
+        strategy=TypeConstructor.from_type(Fixed, maturity=2, advices=[Advice.NONE, Advice.NONE]),
+        symbol_strategies={
+            'ltc-btc': TypeConstructor.from_type(
+                Fixed,
+                maturity=2,
+                advices=[Advice.NONE, Advice.LONG],
+            ),
+        },
+        track_count=1,
+        position_count=1,
+        close_on_exit=True,
+        adjust_start=True,
+    )
+    state = await trader.initialize(config)
+    informant.tickers = {
+        'ltc-btc': Ticker(
+            volume=Decimal('1.0'),
+            quote_volume=Decimal('1.0'),
+            price=Decimal('1.0'),
+        ),
+    }
+
+    summary = await trader.run(state)
+
+    positions = summary.list_positions()
+    assert len(positions) == 1
+    assert positions[0].open_time == 3
+    assert positions[0].symbol == 'ltc-btc'

@@ -34,7 +34,11 @@ class _ActiveOrder:
         self.size = size
 
 
-class _Filled(Exception):
+class _FilledFromTrack(Exception):
+    pass
+
+
+class _FilledFromKeepAtBest(Exception):
     pass
 
 
@@ -182,8 +186,10 @@ class Limit(Broker):
             except OrderException:
                 await cancel(keep_limit_order_best_task, track_fills_task)
                 raise
-            except _Filled:
-                await cancel(keep_limit_order_best_task, track_fills_task)
+            except _FilledFromKeepAtBest:
+                await cancel(track_fills_task)
+            except _FilledFromTrack:
+                await cancel(keep_limit_order_best_task)
             finally:
                 if self._cancel_order_on_error and ctx.active_order:
                     # Cancel active order.
@@ -285,7 +291,7 @@ class Limit(Broker):
                             size = filters.min_size(price)
                             _log.info(f'increased size to {size}')
                         else:
-                            raise _Filled()
+                            raise _FilledFromKeepAtBest()
 
                 _log.info(f'placing {symbol} {side.name} order at price {price} for size {size}')
                 try:
@@ -337,7 +343,7 @@ class Limit(Broker):
                 ctx.fills.extend(fills_since_last_order)
                 ctx.time = order.time
                 ctx.active_order = None
-                raise _Filled()
+                raise _FilledFromTrack()
             else:
                 raise NotImplementedError(order)
 
