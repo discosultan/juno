@@ -35,6 +35,11 @@ pub trait MA: Send + Sync {
     fn value(&self) -> f64;
 }
 
+#[typetag::serde(tag = "type")]
+pub trait MAParams {
+    fn create(&self) -> Box<dyn MA>;
+}
+
 pub mod adler32 {
     // Adler32 of lowercased indicator name.
     pub const ALMA: u32 = 67_568_028;

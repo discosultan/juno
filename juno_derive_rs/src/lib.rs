@@ -13,6 +13,13 @@ fn is_chromosome(field: &Field) -> bool {
         .any(|attr| attr.path.is_ident("chromosome"))
 }
 
+fn is_factory(field: &Field) -> bool {
+    field
+        .attrs
+        .iter()
+        .any(|attr| attr.path.is_ident("factory"))
+}
+
 // Limited such that child chromosomes need to come before any other field.
 #[proc_macro_derive(Chromosome, attributes(chromosome))]
 pub fn derive_chromosome(input: TokenStream) -> TokenStream {
@@ -39,7 +46,11 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
     let cfield_name = cfield.clone().map(|field| &field.ident);
     let cfield_type = cfield.clone().map(|field| &field.ty);
 
-    let rfield = input.fields.iter().filter(|field| !is_chromosome(field));
+    let ffield = input.fields.iter().filter(|field| is_factory(field));
+    let ffield_name = ffield.clone().map(|field| &field.ident);
+    let ffield_type = ffield.clone().map(|field| &field.ty);
+
+    let rfield = input.fields.iter().filter(|field| !is_chromosome(field) && !is_chromosome(field));
     let rfield_name = rfield.clone().map(|field| &field.ident);
     let rfield_type = rfield.clone().map(|field| &field.ty);
 
@@ -48,6 +59,7 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
 
     let generate_cfield_name = cfield_name.clone();
     let generate_cfield_type = cfield_type.clone();
+    let generate_ffield_name = ffield_name.clone();
     let generate_rfield_name = rfield_name.clone();
 
     let cross_cfield_name = cfield_name.clone();
@@ -170,6 +182,13 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                             rng,
                             &ctx.#generate_cfield_name,
                         ),
+                    )*
+                    #(
+                        #generate_ffield_name: if let Some(factory) = ctx.#generate_ffield_name {
+                            factory.create()
+                        } else {
+                            #generate_ffield_name(rng)
+                        },
                     )*
                     #(
                         #generate_rfield_name: ctx.#generate_rfield_name

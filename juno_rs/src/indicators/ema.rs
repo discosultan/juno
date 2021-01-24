@@ -1,5 +1,18 @@
-use super::MA;
+use super::{MA, MAParams};
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
+
+#[derive(Deserialize, Serialize)]
+pub struct EmaParams {
+    period: u32,
+}
+
+#[typetag::serde]
+impl MAParams for EmaParams {
+    fn create(&self) -> Box<dyn MA> {
+        Box::new(Ema::new(self.period))
+    }
+}
 
 pub struct Ema {
     pub value: f64,
