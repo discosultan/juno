@@ -1,17 +1,23 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Switch, Route, Link as RouterLink } from 'react-router-dom';
-import useMediaQuery from '@material-ui/core/useMediaQuery';
-import { makeStyles } from '@material-ui/core/styles';
-import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';
+import DateFnsUtils from '@date-io/date-fns';
 import AppBar from '@material-ui/core/AppBar';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import Link from '@material-ui/core/Link';
 import Toolbar from '@material-ui/core/Toolbar';
 import Typography from '@material-ui/core/Typography';
+import {
+  ThemeProvider,
+  makeStyles,
+  // TODO: Remove in MUI v5.
+  // https://stackoverflow.com/a/64135466
+  unstable_createMuiStrictModeTheme as createMuiTheme,
+} from '@material-ui/core/styles';
+import useMediaQuery from '@material-ui/core/useMediaQuery';
 import { MuiPickersUtilsProvider } from '@material-ui/pickers';
-import DateFnsUtils from '@date-io/date-fns';
-import { Dashboard as BacktestDashboard } from './components/backtest';
-import { Dashboard as OptimizationDashboard } from './components/optimization';
+
+const BacktestDashboard = lazy(() => import('./components/backtest/Dashboard'));
+const OptimizationDashboard = lazy(() => import('./components/optimization/Dashboard'));
 
 const useStyles = makeStyles((theme) => ({
   appBarItem: {
@@ -56,14 +62,12 @@ export default function App() {
             </Toolbar>
           </AppBar>
 
-          <Switch>
-            <Route path="/backtest">
-              <BacktestDashboard />
-            </Route>
-            <Route path="/">
-              <OptimizationDashboard />
-            </Route>
-          </Switch>
+          <Suspense fallback={<div>Loading...</div>}>
+            <Switch>
+              <Route path="/backtest" component={BacktestDashboard} />
+              <Route path="/" component={OptimizationDashboard} />
+            </Switch>
+          </Suspense>
         </Router>
       </MuiPickersUtilsProvider>
     </ThemeProvider>

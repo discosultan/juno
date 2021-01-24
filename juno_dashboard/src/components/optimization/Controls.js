@@ -171,36 +171,38 @@ export default function Controls({ onOptimize }) {
       <DatePicker label="Start" value={start} onChange={(e) => setStart(e.target.value)} />
       <DatePicker label="End" value={end} onChange={(e) => setEnd(e.target.value)} />
 
-      <TextField
-        id="evaluationStatistic"
-        fullWidth
-        select
-        label="Evaluation Statistic"
-        value={evaluationStatistic}
-        onChange={(e) => setEvaluastionStatistic(e.target.value)}
-      >
-        {optimizeInfo.evaluationStatistics &&
-          optimizeInfo.evaluationStatistics.map((value) => (
+      {optimizeInfo.evaluationStatistics && (
+        <TextField
+          id="evaluationStatistic"
+          fullWidth
+          select
+          label="Evaluation Statistic"
+          value={evaluationStatistic}
+          onChange={(e) => setEvaluastionStatistic(e.target.value)}
+        >
+          {optimizeInfo.evaluationStatistics.map((value) => (
             <MenuItem key={value} value={value}>
               {value}
             </MenuItem>
           ))}
-      </TextField>
-      <TextField
-        id="evaluationAggregation"
-        fullWidth
-        select
-        label="Evaluation Aggregation"
-        value={evaluationAggregation}
-        onChange={(e) => setEvaluastionAggregation(e.target.value)}
-      >
-        {optimizeInfo.evaluationAggregations &&
-          optimizeInfo.evaluationAggregations.map((value) => (
+        </TextField>
+      )}
+      {optimizeInfo.evaluationAggregations && (
+        <TextField
+          id="evaluationAggregation"
+          fullWidth
+          select
+          label="Evaluation Aggregation"
+          value={evaluationAggregation}
+          onChange={(e) => setEvaluastionAggregation(e.target.value)}
+        >
+          {optimizeInfo.evaluationAggregations.map((value) => (
             <MenuItem key={value} value={value}>
               {value}
             </MenuItem>
           ))}
-      </TextField>
+        </TextField>
+      )}
 
       <TextField
         id="generations"
