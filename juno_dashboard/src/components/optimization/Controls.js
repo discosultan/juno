@@ -10,7 +10,7 @@ import { makeStyles } from '@material-ui/core/styles';
 import useLocalStorageStateImpl from 'use-local-storage-state';
 import DatePicker from '../DatePicker';
 import { Intervals, StopLosses, Strategies, Symbols, TakeProfits } from '../../info';
-import useEvaluationStatistics from '../../hooks/useEvaluationStatistics';
+import useOptimizeInfo from '../../hooks/useOptimizeInfo';
 
 function useLocalStorageState(key, defaultValue) {
   return useLocalStorageStateImpl(`optimization_controls_${key}`, defaultValue);
@@ -41,7 +41,12 @@ export default function Controls({ onOptimize }) {
   const [start, setStart] = useLocalStorageState('start', '2018-01-01');
   const [end, setEnd] = useLocalStorageState('end', '2021-01-01');
   const [evaluationStatistic, setEvaluastionStatistic] = useLocalStorageState(
-    'evaluationStatistic', 'Profit'
+    'evaluationStatistic',
+    'Profit',
+  );
+  const [evaluationAggregation, setEvaluastionAggregation] = useLocalStorageState(
+    'evaluationAggregation',
+    'Linear',
   );
   const [generations, setGenerations] = useLocalStorageState('generations', 32);
   const [populationSize, setPopulationSize] = useLocalStorageState('populationSize', 32);
@@ -50,7 +55,7 @@ export default function Controls({ onOptimize }) {
   const [seed, setSeed] = useLocalStorageState('seed', 0);
   const [context, setContext] = useLocalStorageState('context', '{\n}');
 
-  const evaluationStatistics = useEvaluationStatistics();
+  const optimizeInfo = useOptimizeInfo();
   const classes = useStyles();
 
   return (
@@ -174,11 +179,27 @@ export default function Controls({ onOptimize }) {
         value={evaluationStatistic}
         onChange={(e) => setEvaluastionStatistic(e.target.value)}
       >
-        {evaluationStatistics.map((statistic) => (
-          <MenuItem key={statistic} value={statistic}>
-            {statistic}
-          </MenuItem>
-        ))}
+        {optimizeInfo.evaluationStatistics &&
+          optimizeInfo.evaluationStatistics.map((value) => (
+            <MenuItem key={value} value={value}>
+              {value}
+            </MenuItem>
+          ))}
+      </TextField>
+      <TextField
+        id="evaluationAggregation"
+        fullWidth
+        select
+        label="Evaluation Aggregation"
+        value={evaluationAggregation}
+        onChange={(e) => setEvaluastionAggregation(e.target.value)}
+      >
+        {optimizeInfo.evaluationAggregations &&
+          optimizeInfo.evaluationAggregations.map((value) => (
+            <MenuItem key={value} value={value}>
+              {value}
+            </MenuItem>
+          ))}
       </TextField>
 
       <TextField
@@ -258,6 +279,7 @@ export default function Controls({ onOptimize }) {
             end,
             quote: 1.0,
             evaluationStatistic,
+            evaluationAggregation,
             populationSize,
             generations,
             hallOfFameSize,

@@ -15,6 +15,42 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub enum EvaluationStatistic {
+    Profit,
+    ReturnOverMaxDrawdown,
+    SharpeRatio,
+    SortinoRatio,
+}
+
+impl EvaluationStatistic {
+    pub fn values() -> [Self; 4] {
+        [
+            Self::Profit,
+            Self::ReturnOverMaxDrawdown,
+            Self::SharpeRatio,
+            Self::SortinoRatio,
+        ]
+    }
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub enum EvaluationAggregation {
+    Linear,
+    Log10,
+    Log10Factored,
+}
+
+impl EvaluationAggregation {
+    pub fn values() -> [Self; 3] {
+        [
+            Self::Linear,
+            Self::Log10,
+            Self::Log10Factored,
+        ]
+    }
+}
+
 struct SymbolCtx {
     candles: Vec<Candle>,
     fees: Fees,
@@ -30,28 +66,10 @@ pub struct BasicEvaluation<T: Signal, U: StopLoss, V: TakeProfit> {
     quote: f64,
     stats_interval: u64,
     evaluation_statistic: EvaluationStatistic,
+    evaluation_aggregation_fn: fn(f64, f64) -> f64,
     signal_phantom: PhantomData<T>,
     stop_loss_phantom: PhantomData<U>,
     take_profit_phantom: PhantomData<V>,
-}
-
-#[derive(Clone, Copy, Deserialize, Serialize)]
-pub enum EvaluationStatistic {
-    Profit,
-    ReturnOverMaxDrawdown,
-    SharpeRatio,
-    SortinoRatio,
-}
-
-impl EvaluationStatistic {
-    pub fn values() -> [EvaluationStatistic; 4] {
-        [
-            EvaluationStatistic::Profit,
-            EvaluationStatistic::ReturnOverMaxDrawdown,
-            EvaluationStatistic::SharpeRatio,
-            EvaluationStatistic::SortinoRatio,
-        ]
-    }
 }
 
 impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
@@ -63,6 +81,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
         end: u64,
         quote: f64,
         evaluation_statistic: EvaluationStatistic,
+        evaluation_aggregation: EvaluationAggregation,
     ) -> Result<Self, storages::StorageError> {
         let exchange_info = storages::get_exchange_info(exchange)?;
         let stats_interval = time::DAY_MS;
@@ -109,6 +128,11 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
             stats_interval,
             quote,
             evaluation_statistic,
+            evaluation_aggregation_fn: match evaluation_aggregation {
+                EvaluationAggregation::Linear => sum_linear,
+                EvaluationAggregation::Log10 => sum_log10,
+                EvaluationAggregation::Log10Factored => sum_log10_factored,
+            },
             signal_phantom: PhantomData,
             stop_loss_phantom: PhantomData,
             take_profit_phantom: PhantomData,
@@ -171,6 +195,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> Evaluation for BasicEvaluation<T, U,
         // TODO: Support different strategies here. A la parallel cpu or gpu, for example.
         // let fitnesses = Vec::with_capacity(population.len());
         // let fitness_slices = fitnesses.chunks_exact_mut(1).collect();
+
         population
             // .iter_mut()
             .par_iter_mut()
@@ -179,14 +204,14 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> Evaluation for BasicEvaluation<T, U,
                     .symbol_ctxs
                     .iter()
                     .map(|ctx| self.evaluate_symbol(ctx, &ind.chromosome))
-                    .fold(0.0, sum_log10_factored)
+                    .fold(0.0, self.evaluation_aggregation_fn)
             });
     }
 }
 
-// fn sum_linear(acc: f64, val: f64) -> f64 {
-//     acc + val
-// }
+fn sum_linear(acc: f64, val: f64) -> f64 {
+    acc + val
+}
 fn sum_log10(acc: f64, val: f64) -> f64 {
     const LOG_SHIFT_FACTOR: f64 = 1.0;
     acc + if val >= 0.0 {

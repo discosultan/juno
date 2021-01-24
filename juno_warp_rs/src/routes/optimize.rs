@@ -15,8 +15,8 @@ use juno_rs::{
     strategies::*,
     take_profit::TakeProfit,
     trading::{
-        trade, BasicEvaluation, EvaluationStatistic, TradingChromosome, TradingChromosomeContext,
-        TradingSummary,
+        trade, BasicEvaluation, EvaluationAggregation, EvaluationStatistic, TradingChromosome,
+        TradingChromosomeContext, TradingSummary,
     },
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -43,6 +43,7 @@ struct Params<T: Default> {
     validation_symbols: Vec<String>,
 
     evaluation_statistic: EvaluationStatistic,
+    evaluation_aggregation: EvaluationAggregation,
 
     #[serde(default)]
     context: Option<T>,
@@ -74,12 +75,21 @@ struct EvolutionStats<T: Chromosome, U: Chromosome, V: Chromosome> {
     seed: u64,
 }
 
+#[derive(Serialize)]
+struct Info {
+    evaluation_statistics: [EvaluationStatistic; 4],
+    evaluation_aggregations: [EvaluationAggregation; 3],
+}
+
 pub fn routes() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     warp::path("optimize").and(get().or(post()))
 }
 
 fn get() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
-    warp::get().map(|| reply::json(&EvaluationStatistic::values()))
+    warp::get().map(|| reply::json(&Info {
+        evaluation_statistics: EvaluationStatistic::values(),
+        evaluation_aggregations: EvaluationAggregation::values(),
+    }))
 }
 
 fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
@@ -183,6 +193,7 @@ where <TradingChromosome<
             args.end,
             args.quote,
             args.evaluation_statistic,
+            args.evaluation_aggregation,
         )?,
         selection::EliteSelection { shuffle: false },
         // selection::GenerateRandomSelection {}, // For random search.
