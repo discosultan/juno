@@ -8,9 +8,9 @@ import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import useLocalStorageStateImpl from 'use-local-storage-state';
-import DatePicker from '../DatePicker';
-import { Intervals, StopLosses, Strategies, Symbols, TakeProfits } from '../../info';
-import useOptimizeInfo from '../../hooks/useOptimizeInfo';
+import DatePicker from 'components/DatePicker';
+import { Intervals, StopLosses, Strategies, Symbols, TakeProfits } from 'info';
+import useOptimizeInfo from 'hooks/useOptimizeInfo';
 
 function useLocalStorageState(key, defaultValue) {
   return useLocalStorageStateImpl(`optimization_controls_${key}`, defaultValue);

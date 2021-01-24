@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { PriceScaleMode, createChart } from 'lightweight-charts';
 import Box from '@material-ui/core/Box';
 import Typography from '@material-ui/core/Typography';
 import { useTheme } from '@material-ui/core/styles';
+import { PriceScaleMode, createChart } from 'lightweight-charts';
 import useResizeObserver from 'use-resize-observer';
 
 function fmtPct(value) {

@@ -4,7 +4,7 @@ import Button from '@material-ui/core/Button';
 import TextField from '@material-ui/core/TextField';
 import Typography from '@material-ui/core/Typography';
 import useLocalStorageStateImpl from 'use-local-storage-state';
-import DatePicker from '../DatePicker';
+import DatePicker from 'components/DatePicker';
 import DynamicParams from './DynamicParams';
 import {
   Intervals,

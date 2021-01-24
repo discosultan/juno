@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchJson } from '../fetch';
+import { fetchJson } from 'fetch';
 
 let optimizeInfoCache = null;
 

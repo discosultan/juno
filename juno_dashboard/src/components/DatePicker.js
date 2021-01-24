@@ -1,6 +1,6 @@
 import React from 'react';
-import { DatePicker as MuiDatePicker } from '@material-ui/pickers';
 import DateFnsUtils from '@date-io/date-fns';
+import { DatePicker as MuiDatePicker } from '@material-ui/pickers';
 
 /*
  * Beware workarounds involving bugs in material-ui-pickers' design.

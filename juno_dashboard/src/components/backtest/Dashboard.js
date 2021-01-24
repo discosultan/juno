@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import Box from '@material-ui/core/Box';
 import Divider from '@material-ui/core/Divider';
 import useLocalStorageState from 'use-local-storage-state';
+import History from 'components/History';
+import SplitPane from 'components/SplitPane';
+import TradingResult from 'components/TradingResult';
+import { fetchJson } from 'fetch';
 import Controls from './Controls';
-import History from '../History';
-import SplitPane from '../SplitPane';
-import TradingResult from '../TradingResult';
-import { fetchJson } from '../../fetch';
 
 export default function Dashboard() {
   const [tradingResult, setTradingResult] = useState(null);
