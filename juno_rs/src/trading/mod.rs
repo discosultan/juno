@@ -4,7 +4,7 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, time::serialize_timestamp};
+use crate::{genetics::Chromosome, stop_loss::StopLoss, take_profit::TakeProfit, time::serialize_timestamp};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -16,13 +16,13 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
 #[derive(Chromosome, Clone, Debug, Serialize)]
-pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
+pub struct TradingChromosome<T: Chromosome> {
     #[chromosome]
     pub strategy: T,
-    #[chromosome]
-    pub stop_loss: U,
-    #[chromosome]
-    pub take_profit: V,
+    #[factory]
+    pub stop_loss: Box<dyn StopLoss>,
+    #[factory]
+    pub take_profit: Box<dyn TakeProfit>,
     #[serde(serialize_with = "serialize_missed_candle_policy")]
     #[serde(deserialize_with = "deserialize_missed_candle_policy")]
     pub missed_candle_policy: u32,

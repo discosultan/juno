@@ -56,22 +56,22 @@ impl<T: Default> Params<T> {
 }
 
 #[derive(Serialize)]
-struct Generation<T: Chromosome, U: Chromosome, V: Chromosome> {
+struct Generation<T: Chromosome> {
     // We need to store generation number because we are filtering out generations with not change
     // in top.
     nr: usize,
-    hall_of_fame: Vec<IndividualStats<T, U, V>>,
+    hall_of_fame: Vec<IndividualStats<T>>,
 }
 
 #[derive(Serialize)]
-struct IndividualStats<T: Chromosome, U: Chromosome, V: Chromosome> {
-    ind: Individual<TradingChromosome<T, U, V>>,
+struct IndividualStats<T: Chromosome> {
+    ind: Individual<TradingChromosome<T>>,
     symbol_stats: HashMap<String, Statistics>,
 }
 
 #[derive(Serialize)]
-struct EvolutionStats<T: Chromosome, U: Chromosome, V: Chromosome> {
-    generations: Vec<Generation<T, U, V>>,
+struct EvolutionStats<T: Chromosome> {
+    generations: Vec<Generation<T>>,
     seed: u64,
 }
 
@@ -107,21 +107,17 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
         )
 }
 
-fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: body::Bytes) -> Result<reply::Json>
+fn process<T: Signal>(bytes: body::Bytes) -> Result<reply::Json>
 where
     <<T as Strategy>::Params as Chromosome>::Context: Default + DeserializeOwned,
-    <<U as StopLoss>::Params as Chromosome>::Context: Default + DeserializeOwned,
-    <<V as TakeProfit>::Params as Chromosome>::Context: Default + DeserializeOwned,
 {
     let args: Params<
         TradingChromosomeContext<
             <<T as Strategy>::Params as Chromosome>::Context,
-            <<U as StopLoss>::Params as Chromosome>::Context,
-            <<V as TakeProfit>::Params as Chromosome>::Context,
         >,
     > = serde_json::from_reader(bytes.reader())?;
 
-    let evolution = optimize::<T, U, V>(&args)?;
+    let evolution = optimize::<T>(&args)?;
     let mut best_fitnesses = vec![f64::NAN; args.hall_of_fame_size];
     let gen_stats = evolution
         .generations
@@ -170,22 +166,18 @@ where
     }))
 }
 
-fn optimize<T: Signal, U: StopLoss, V: TakeProfit>(
+fn optimize<T: Signal>(
     args: &Params<
         <TradingChromosome<
             <T as Strategy>::Params,
-            <U as StopLoss>::Params,
-            <V as TakeProfit>::Params,
         > as Chromosome>::Context,
     >,
-) -> Result<Evolution<TradingChromosome<T::Params, U::Params, V::Params>>>
+) -> Result<Evolution<TradingChromosome<T::Params>>>
 where <TradingChromosome<
     <T as Strategy>::Params,
-    <U as StopLoss>::Params,
-    <V as TakeProfit>::Params
 > as Chromosome>::Context: Default + DeserializeOwned{
     let algo = GeneticAlgorithm::new(
-        BasicEvaluation::<T, U, V>::new(
+        BasicEvaluation::<T>::new(
             &args.exchange,
             &args.training_symbols,
             args.interval,
@@ -205,8 +197,6 @@ where <TradingChromosome<
     // TODO: Create this struct only if needed.
     let default = <TradingChromosome<
         <T as Strategy>::Params,
-        <U as StopLoss>::Params,
-        <V as TakeProfit>::Params,
     > as Chromosome>::Context::default();
     let evolution = algo.evolve(
         args.population_size,
@@ -224,17 +214,15 @@ fn on_generation<T: Chromosome>(nr: usize, gen: &juno_rs::genetics::Generation<T
     println!("{:?}", gen.timings);
 }
 
-fn backtest<T: Signal, U: StopLoss, V: TakeProfit>
+fn backtest<T: Signal>
 (
     args: &Params<
         <TradingChromosome<
             <T as Strategy>::Params,
-            <U as StopLoss>::Params,
-            <V as TakeProfit>::Params,
         > as Chromosome>::Context,
     >,
     symbol: &str,
-    chrom: &TradingChromosome<T::Params, U::Params, V::Params>,
+    chrom: &TradingChromosome<T::Params>,
 ) -> Result<TradingSummary>
 where <TradingChromosome<
     <T as Strategy>::Params,
@@ -245,7 +233,7 @@ where <TradingChromosome<
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    Ok(trade::<T, U, V>(
+    Ok(trade::<T>(
         &chrom.strategy,
         &chrom.stop_loss,
         &chrom.take_profit,
@@ -262,12 +250,10 @@ where <TradingChromosome<
     ))
 }
 
-fn get_stats<T: Signal, U: StopLoss, V: TakeProfit>(
+fn get_stats<T: Signal>(
     args: &Params<
         <TradingChromosome<
             <T as Strategy>::Params,
-            <U as StopLoss>::Params,
-            <V as TakeProfit>::Params,
         > as Chromosome>::Context,
     >,
     symbol: &str,
@@ -275,8 +261,6 @@ fn get_stats<T: Signal, U: StopLoss, V: TakeProfit>(
 ) -> Result<Statistics>
 where <TradingChromosome<
     <T as Strategy>::Params,
-    <U as StopLoss>::Params,
-    <V as TakeProfit>::Params
 > as Chromosome>::Context: Default + DeserializeOwned{
     let stats_interval = DAY_MS;
 
