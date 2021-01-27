@@ -18,9 +18,9 @@ def test_datetime_utcfromtimestamp_ms() -> None:
 @pytest.mark.parametrize(
     'input_,expected_output', [
         [time.DAY_MS * 2, '2d'],
-        [123, '123'],
-        [1234, '1s234'],
-        [0, '0'],
+        [123, '123ms'],
+        [1234, '1s234ms'],
+        [0, '0ms'],
     ]
 )
 def test_strfinterval(input_, expected_output) -> None:
@@ -31,6 +31,8 @@ def test_strfinterval(input_, expected_output) -> None:
     'input_,expected_output', [
         ['1d', time.DAY_MS],
         ['2d', time.DAY_MS * 2],
+        ['1s1ms', time.SEC_MS + 1],
+        ['1m1s', time.MIN_MS + time.SEC_MS],
     ]
 )
 def test_strpinterval(input_, expected_output) -> None:

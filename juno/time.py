@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from time import time
 
@@ -44,7 +45,7 @@ _INTERVAL_FACTORS = {
     'h': HOUR_MS,
     'm': MIN_MS,
     's': SEC_MS,
-    '': 1,
+    'ms': 1,
 }
 
 
@@ -57,12 +58,21 @@ def strfinterval(interval: int) -> str:
             result += f'{quotient}{letter}'
         if remainder == 0:
             break
-    return result if result else '0'
+    return result if result else '0ms'
 
 
 def strpinterval(interval: str) -> int:
-    # TODO: Make on-par with strfinterval. Also in Rust impl.
-    return int(interval[:-1]) * _INTERVAL_FACTORS[interval[-1]]
+    result = 0
+    for group in re.findall(r'(\d+[a-zA-Z]+)', interval):
+        result += _calc_interval_group(group)
+    return result
+
+
+def _calc_interval_group(group: str) -> int:
+    for i in range(1, len(group)):
+        if group[i].isalpha():
+            return int(group[:i]) * _INTERVAL_FACTORS[group[i:]]
+    raise ValueError(f'Invalid interval group: {group}')
 
 
 def strfspan(start: int, end: int) -> str:

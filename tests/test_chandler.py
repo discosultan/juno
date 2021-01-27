@@ -291,7 +291,6 @@ async def test_stream_candles_construct_from_trades_if_interval_not_supported(
         Trade(time=1, price=Decimal('4.0'), size=Decimal('1.0')),
         Trade(time=3, price=Decimal('2.0'), size=Decimal('2.0')),
     ])
-    # TODO: YO BITCH
     chandler = Chandler(
         trades=trades,
         storage=storage,

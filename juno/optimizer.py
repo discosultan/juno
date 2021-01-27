@@ -154,7 +154,7 @@ class Optimizer(StartMixin):
             config.exchange, state.symbols, state.intervals, state.start, state.end
         )
 
-        for (s, i), _v in ((k, v) for k, v in candles.items() if len(v) == 0):
+        for (s, i), _ in ((k, v) for k, v in candles.items() if len(v) == 0):
             # TODO: Exclude from optimization.
             _log.warning(f'no {s} {strfinterval(i)} candles found between '
                          f'{strfspan(state.start, state.end)}')

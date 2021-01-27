@@ -1,6 +1,11 @@
 use chrono::prelude::*;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Deserializer, Serializer};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 pub const SEC_MS: u64 = 1000;
 pub const MIN_MS: u64 = 60_000;
@@ -21,28 +26,29 @@ const INTERVAL_FACTORS: [(&str, u64); 8] = [
     ("h", HOUR_MS),
     ("m", MIN_MS),
     ("s", SEC_MS),
-    ("", 1),
+    ("ms", 1),
 ];
 
+static INTERVAL_FACTOR_MAP: Lazy<HashMap<&'static str, u64>> = Lazy::new(|| {
+    INTERVAL_FACTORS.iter().cloned().collect()
+});
+
+static INTERVAL_GROUP_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(\d+[a-zA-Z]+)").unwrap()
+});
+
 fn str_to_interval(representation: &str) -> u64 {
-    match representation {
-        "1m" => 60_000,
-        "3m" => 180_000,
-        "5m" => 300_000,
-        "15m" => 900_000,
-        "30m" => 1_800_000,
-        "1h" => 3_600_000,
-        "2h" => 7_200_000,
-        "4h" => 14_400_000,
-        "6h" => 21_600_000,
-        "8h" => 28_800_000,
-        "12h" => 43_200_000,
-        "1d" => 86_400_000,
-        "3d" => 259_200_000,
-        "1w" => 604_800_000,
-        "1M" => 2_629_746_000,
-        _ => panic!("unknown interval representation: {}", representation),
+    INTERVAL_GROUP_RE.find_iter(representation)
+        .fold(0, |acc, group| acc + calc_interval_group(group.as_str()))
+}
+
+fn calc_interval_group(group: &str) -> u64 {
+    for (i, c) in group.chars().enumerate() {
+        if c.is_alphabetic() {
+            return group[0..i].parse::<u64>().unwrap() * INTERVAL_FACTOR_MAP[&group[i..]];
+        }
     }
+    panic!("Invalid interval group: {}", group);
 }
 
 fn interval_to_string(value: u64) -> String {
@@ -59,7 +65,7 @@ fn interval_to_string(value: u64) -> String {
         }
     }
     if result == "" {
-        result.push('0');
+        result.push_str("0ms");
     }
     result
 }
@@ -213,15 +219,17 @@ mod tests {
     #[test]
     fn test_interval_to_repr() {
         assert_eq!((DAY_MS * 2).to_interval_repr(), "2d");
-        assert_eq!(123.to_interval_repr(), "123");
-        assert_eq!(1234.to_interval_repr(), "1s234");
-        assert_eq!(0.to_interval_repr(), "0");
+        assert_eq!(123.to_interval_repr(), "123ms");
+        assert_eq!(1234.to_interval_repr(), "1s234ms");
+        assert_eq!(0.to_interval_repr(), "0ms");
     }
 
     #[test]
     fn test_interval_from_repr() {
         assert_eq!("1d".to_interval(), DAY_MS);
-        // assert_eq!("2d".to_interval(), DAY_MS * 2);
+        assert_eq!("2d".to_interval(), DAY_MS * 2);
+        assert_eq!("1s1ms".to_interval(), SEC_MS + 1);
+        assert_eq!("1m1s".to_interval(), MIN_MS + SEC_MS);
     }
 
     #[test]
