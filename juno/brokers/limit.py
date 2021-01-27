@@ -339,7 +339,7 @@ class Limit(Broker):
             elif isinstance(order, OrderUpdate.Match):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} matched')
                 fills_since_last_order.append(order.fill)
-            elif isinstance(order, OrderUpdate.Canceled):
+            elif isinstance(order, OrderUpdate.Cancelled):
                 _log.info(f'existing {symbol} {side.name} order {ctx.client_id} cancelled')
                 ctx.fills.extend(fills_since_last_order)
                 ctx.time = order.time

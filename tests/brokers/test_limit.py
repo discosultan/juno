@@ -133,7 +133,7 @@ async def test_partial_fill_adjust_fill() -> None:
         )
         await yield_control()
         await exchange.orders_queue.put(
-            OrderUpdate.Canceled(
+            OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
             )
@@ -218,7 +218,7 @@ async def test_multiple_cancels() -> None:
         )
         await yield_control()  # Cancel order.
         await exchange.orders_queue.put(
-            OrderUpdate.Canceled(
+            OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
             )
@@ -235,7 +235,7 @@ async def test_multiple_cancels() -> None:
         )
         await yield_control()  # Cancel order.
         await exchange.orders_queue.put(
-            OrderUpdate.Canceled(
+            OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
             )
@@ -323,7 +323,7 @@ async def test_partial_fill_cancel_min_notional() -> None:
         )
         await yield_control()  # Cancel order.
         await exchange.orders_queue.put(
-            OrderUpdate.Canceled(
+            OrderUpdate.Cancelled(
                 time=0,
                 client_id=order_client_id,
             )

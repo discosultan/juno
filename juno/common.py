@@ -199,7 +199,7 @@ class OrderStatus(IntEnum):
     NEW = 1
     FILLED = 2
     PARTIALLY_FILLED = 3
-    CANCELED = 4
+    CANCELLED = 4
 
 
 class OrderType(IntEnum):
@@ -227,7 +227,7 @@ class OrderUpdate(ModuleType):
         client_id: str
         fill: Fill
 
-    class Canceled(NamedTuple):
+    class Cancelled(NamedTuple):
         time: Timestamp
         client_id: str
 
@@ -235,7 +235,7 @@ class OrderUpdate(ModuleType):
         time: Timestamp
         client_id: str
 
-    Any = Union[New, Match, Canceled, Done]
+    Any = Union[New, Match, Cancelled, Done]
 
 
 class Side(IntEnum):
@@ -250,16 +250,16 @@ class Ticker(NamedTuple):
 
 
 class TimeInForce(IntEnum):
-    # A Good-Til-Canceled order will continue to work within the system and in the marketplace
-    # until it executes or is canceled.
+    # A Good-Til-Cancelled order will continue to work within the system and in the marketplace
+    # until it executes or is cancelled.
     GTC = 0
     # Any portion of an Immediate-or-Cancel order that is not filled as soon as it becomes
-    # available in the market is canceled.
+    # available in the market is cancelled.
     IOC = 1
     # If the entire Fill-or-Kill order does not execute as soon as it becomes available, the entire
-    # order is canceled.
+    # order is cancelled.
     FOK = 2,
-    # A Good-Til-Time orders remain open on the book until canceled or the allotted time is
+    # A Good-Til-Time orders remain open on the book until cancelled or the allotted time is
     # depleted on the matching engine.
     GTT = 3,
 

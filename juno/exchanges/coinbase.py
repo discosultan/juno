@@ -246,7 +246,7 @@ class Coinbase(Exchange):
                             client_id=client_id,
                         )
                     elif reason == 'canceled':
-                        yield OrderUpdate.Canceled(
+                        yield OrderUpdate.Cancelled(
                             time=_from_datetime(data['time']),
                             client_id=client_id,
                         )
@@ -310,6 +310,8 @@ class Coinbase(Exchange):
         symbol: str,
         client_id: str,
     ) -> None:
+        if account != 'spot':
+            raise NotImplementedError()
         res = await self._private_request('DELETE', f'/orders/client:{client_id}', {
             'product_id': _to_product(symbol),
         })

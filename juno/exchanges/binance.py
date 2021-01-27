@@ -470,10 +470,10 @@ class Binance(Exchange):
                         time=data['T'],  # Transaction time.
                         client_id=data['c'],
                     )
-                elif status is OrderStatus.CANCELED:
+                elif status is OrderStatus.CANCELLED:
                     # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
                     # except for when an order gets cancelled; in that case 'c' has a new value.
-                    yield OrderUpdate.Canceled(
+                    yield OrderUpdate.Cancelled(
                         time=data['T'],
                         client_id=data['C'],
                     )
@@ -1248,7 +1248,7 @@ def _from_order_status(status: str) -> OrderStatus:
         'NEW': OrderStatus.NEW,
         'PARTIALLY_FILLED': OrderStatus.PARTIALLY_FILLED,
         'FILLED': OrderStatus.FILLED,
-        'CANCELED': OrderStatus.CANCELED
+        'CANCELED': OrderStatus.CANCELLED
     }
     mapped_status = status_map.get(status)
     if not mapped_status:
