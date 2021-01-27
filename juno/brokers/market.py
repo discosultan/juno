@@ -49,38 +49,32 @@ class Market(Broker):
                 size = filters.with_fee(size, fees.taker)
             size = filters.size.round_down(size)
             if test:
-                async with self._orderbook.sync(exchange, symbol) as orderbook:
-                    fills = orderbook.find_order_asks(
-                        size=size, fee_rate=fees.taker, filters=filters
-                    )
-                self._validate_fills(exchange, symbol, fills)
-                res = OrderResult(time=self._get_time_ms(), status=OrderStatus.FILLED, fills=fills)
+                res = OrderResult(
+                    time=self._get_time_ms(),
+                    status=OrderStatus.FILLED,
+                    fills=await self._get_buy_fills(exchange, symbol, size=size),
+                )
             else:
                 res = await self._fill(
                     exchange=exchange, symbol=symbol, side=Side.BUY, size=size, account=account
                 )
         elif quote is not None:
-            if test or not self._orderbook.can_place_order_market_quote(exchange):
-                fees, filters = self._informant.get_fees_filters(exchange, symbol)
-                async with self._orderbook.sync(exchange, symbol) as orderbook:
-                    fills = orderbook.find_order_asks(
-                        quote=quote, fee_rate=fees.taker, filters=filters
-                    )
-                self._validate_fills(exchange, symbol, fills)
-
             if test:
-                res = OrderResult(time=self._get_time_ms(), status=OrderStatus.FILLED, fills=fills)
+                res = OrderResult(
+                    time=self._get_time_ms(),
+                    status=OrderStatus.FILLED,
+                    fills=await self._get_buy_fills(exchange, symbol, quote=quote),
+                )
+            elif self._orderbook.can_place_order_market_quote(exchange):
+                res = await self._fill(
+                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
+                    quote=quote
+                )
             else:
-                if self._orderbook.can_place_order_market_quote(exchange):
-                    res = await self._fill(
-                        exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
-                        quote=quote
-                    )
-                else:
-                    res = await self._fill(
-                        exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
-                        size=Fill.total_size(fills)
-                    )
+                res = await self._fill(
+                    exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
+                    size=Fill.total_size(await self._get_buy_fills(exchange, symbol, quote=quote))
+                )
         else:
             raise NotImplementedError()
 
@@ -98,16 +92,15 @@ class Market(Broker):
         assert size  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
-        fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        _, filters = self._informant.get_fees_filters(exchange, symbol)
         size = filters.size.round_down(size)
 
         if test:
-            async with self._orderbook.sync(exchange, symbol) as orderbook:
-                fills = orderbook.find_order_bids(
-                    size=size, fee_rate=fees.taker, filters=filters
-                )
-            self._validate_fills(exchange, symbol, fills)
-            res = OrderResult(time=self._get_time_ms(), status=OrderStatus.FILLED, fills=fills)
+            res = OrderResult(
+                time=self._get_time_ms(),
+                status=OrderStatus.FILLED,
+                fills=await self._get_sell_fills(exchange, symbol, size=size)
+            )
         else:
             res = await self._fill(
                 exchange=exchange, account=account, symbol=symbol, side=Side.SELL, size=size
@@ -115,8 +108,37 @@ class Market(Broker):
 
         return res
 
+    async def _get_buy_fills(
+        self,
+        exchange: str,
+        symbol: str,
+        size: Optional[Decimal] = None,
+        quote: Optional[Decimal] = None,
+    ) -> list[Fill]:
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        async with self._orderbook.sync(exchange, symbol) as orderbook:
+            fills = orderbook.find_order_asks(
+                size=size, quote=quote, fee_rate=fees.taker, filters=filters
+            )
+        self._validate_fills(exchange, symbol, fills)
+        return fills
+
+    async def _get_sell_fills(
+        self,
+        exchange: str,
+        symbol: str,
+        size: Decimal,
+    ) -> list[Fill]:
+        fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        async with self._orderbook.sync(exchange, symbol) as orderbook:
+            fills = orderbook.find_order_bids(
+                size=size, fee_rate=fees.taker, filters=filters
+            )
+        self._validate_fills(exchange, symbol, fills)
+        return fills
+
     def _validate_fills(self, exchange: str, symbol: str, fills: list[Fill]) -> None:
-        _fees, filters = self._informant.get_fees_filters(exchange, symbol)
+        _, filters = self._informant.get_fees_filters(exchange, symbol)
         size = Fill.total_size(fills)
         filters.size.validate(size)
         # TODO: Calc avg price over `filters.min_notional.avg_price_period` minutes.

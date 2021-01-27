@@ -250,10 +250,10 @@ class Optimizer(StartMixin):
         _log.info('evolving')
         evolve_start = time_ms()
 
+        cancellation_request = threading.Event()
+        cancellation_response = asyncio.Event()
+        cancelled_exc = None
         try:
-            cancellation_request = threading.Event()
-            cancellation_response = asyncio.Event()
-            cancelled_exc = None
             # Returns the final population and logbook with the statistics of the evolution.
             # TODO: Cancelling does not cancel the actual threadpool executor work. See
             # https://gist.github.com/yeraydiazdiaz/b8c059c6dcfaf3255c65806de39175a7
@@ -286,7 +286,7 @@ class Optimizer(StartMixin):
 
         best_ind = hall_of_fame[0]
         state.summary = await self._build_summary(state, fiat_prices, benchmark, best_ind)
-        self._validate(state, fiat_prices, benchmark, candles, best_ind)
+        self._validate(state, best_ind)
 
         if cancelled_exc:
             raise cancelled_exc
@@ -344,9 +344,6 @@ class Optimizer(StartMixin):
     def _validate(
         self,
         state: OptimizerState,
-        fiat_prices: dict[str, list[Decimal]],
-        benchmark: AnalysisSummary,
-        candles: dict[tuple[str, int], list[Candle]],
         ind: Individual,
     ) -> None:
         assert state.summary

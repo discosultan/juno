@@ -232,7 +232,7 @@ class Chandler:
             num_missed = time_diff // interval - 1
             _log.warning(
                 f'missed {num_missed} {candle_msg} from the end {strftimestamp(end)}; '
-                f'current candle {candle}'
+                f'current candle {last_closed_candle}'
             )
         elif not last_closed_candle:
             _log.warning(f'missed all {candle_msg} between {strfspan(start, end)}')
