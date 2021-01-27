@@ -188,7 +188,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         quote = await self.request_quote(config.quote, config.exchange, 'btc', config.mode)
         position_quote = quote / config.position_count
         for symbol in symbols:
-            fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
+            _, filters = self._informant.get_fees_filters(config.exchange, symbol)
             assert position_quote > filters.price.min
 
         candle_start = floor_multiple(start, config.interval)

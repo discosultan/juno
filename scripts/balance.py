@@ -13,6 +13,7 @@ parser.add_argument(
 )
 parser.add_argument('-e', '--exchange', default='binance')
 parser.add_argument('--stream', action='store_true', default=False)
+parser.add_argument('--empty', action='store_true', default=False)
 args = parser.parse_args()
 
 
@@ -29,16 +30,16 @@ async def main() -> None:
 
 async def log_accounts(user: User, accounts: list[str]) -> None:
     account_balances = await user.map_balances(
-        exchange=args.exchange, accounts=accounts, significant=True
+        exchange=args.exchange, accounts=accounts, significant=not args.empty
     )
-    all_empty = True
+    log_all_empty = True
     for account, account_balance in account_balances.items():
-        if len(account_balance) > 0:
-            all_empty = False
+        if len(account_balance) > 0 or args.empty:
+            log_all_empty = False
             logging.info(f'{args.exchange} {account} account')
             for asset, balance in account_balance.items():
                 logging.info(f'{asset} - {balance}')
-    if all_empty:
+    if log_all_empty:
         logging.info('all accounts empty')
 
 
