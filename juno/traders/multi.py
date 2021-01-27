@@ -188,7 +188,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         quote = await self.request_quote(config.quote, config.exchange, 'btc', config.mode)
         position_quote = quote / config.position_count
         for symbol in symbols:
-            fees, filters = self._informant.get_fees_filters(config.exchange, symbol)
+            _, filters = self._informant.get_fees_filters(config.exchange, symbol)
             assert position_quote > filters.price.min
 
         candle_start = floor_multiple(start, config.interval)
@@ -198,7 +198,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             real_start=self._get_time_ms(),
             start=candle_start,
             next_=candle_start,
-            quotes=[quote / config.position_count] * config.position_count,
+            quotes=self._split_quote(quote, config),
             summary=TradingSummary(
                 start=start,
                 quote=quote,
@@ -206,6 +206,9 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             ),
             symbol_states={s: self._create_symbol_state(s, start, config) for s in symbols},
         )
+
+    def _split_quote(self, quote: Decimal, config: MultiConfig) -> list[Decimal]:
+        return [quote / config.position_count] * config.position_count
 
     def _create_symbol_state(
         self, symbol: str, start: int, config: MultiConfig
@@ -307,8 +310,6 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()
 
-            # TODO: Rebalance quotes.
-
             await self._try_close_existing_positions(state)
             await self._try_open_new_positions(state)
 
@@ -343,6 +344,9 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                         track_tasks[new_symbol] = create_task_cancel_owner_on_exception(
                             self._track_advice(state, symbol_state, candles_updated, tracker_ready)
                         )
+
+            # Rebalance quotes.
+            state.quotes = self._split_quote(sum(state.quotes, Decimal('0.0')), config)
 
             # Clear barrier for next update.
             candles_updated.clear()

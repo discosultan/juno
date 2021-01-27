@@ -718,3 +718,67 @@ async def test_repick_symbols_with_adjusted_start() -> None:
     assert len(positions) == 1
     assert positions[0].open_time == 3
     assert positions[0].symbol == 'ltc-btc'
+
+
+async def test_rebalance_quotes() -> None:
+    chandler = fakes.Chandler(
+        candles={
+            ('dummy', s, 1): [Candle(time=i, close=Decimal(f'{i + 1}.0')) for i in range(3)]
+            for s in ['eth-btc', 'ltc-btc', 'xmr-btc']
+        },
+    )
+    informant = fakes.Informant(tickers={
+        'eth-btc': Ticker(
+            volume=Decimal('3.0'),
+            quote_volume=Decimal('3.0'),
+            price=Decimal('1.0'),
+        ),
+        'ltc-btc': Ticker(
+            volume=Decimal('2.0'),
+            quote_volume=Decimal('2.0'),
+            price=Decimal('1.0'),
+        ),
+        'xmr-btc': Ticker(
+            volume=Decimal('1.0'),
+            quote_volume=Decimal('1.0'),
+            price=Decimal('1.0'),
+        ),
+    })
+    trader = traders.Multi(chandler=chandler, informant=informant)
+    config = traders.MultiConfig(
+        exchange='dummy',
+        interval=1,
+        start=0,
+        end=3,
+        quote=Decimal('3.0'),
+        strategy=TypeConstructor.from_type(Fixed),
+        symbol_strategies={
+            'eth-btc': TypeConstructor.from_type(
+                Fixed,
+                advices=[Advice.LONG, Advice.NONE, Advice.LIQUIDATE],
+            ),
+            'ltc-btc': TypeConstructor.from_type(
+                Fixed,
+                advices=[Advice.LONG, Advice.LIQUIDATE, Advice.NONE],
+            ),
+            'xmr-btc': TypeConstructor.from_type(
+                Fixed,
+                advices=[Advice.NONE, Advice.NONE, Advice.NONE],
+            ),
+        },
+        long=True,
+        track_count=3,
+        position_count=3,
+        close_on_exit=True,
+    )
+    state = await trader.initialize(config)
+
+    summary = await trader.run(state)
+
+    # Quote distribution at the end of every tick:
+    # 1.0 1.0 2.0
+    # 1.0 1.5 2.0
+    # 1.0 1.5 2.0
+
+    assert len(summary.list_positions()) == 2
+    assert state.quotes == [Decimal('2.0'), Decimal('2.0'), Decimal('2.0')]
