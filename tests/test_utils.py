@@ -1,15 +1,6 @@
 from juno import utils
 
 
-def test_replace_secrets() -> None:
-    input_ = {'foo': 'hello', 'secret_bar': 'world'}
-    output = utils.replace_secrets(input_)
-
-    assert all(k in output for k in input_.keys())
-    assert output['foo'] == 'hello'
-    assert output['secret_bar'] != input_['secret_bar']
-
-
 def test_unpack_symbol() -> None:
     assert utils.unpack_symbol('eth-btc') == ('eth', 'btc')
 

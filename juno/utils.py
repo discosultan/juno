@@ -5,8 +5,6 @@ import itertools
 import logging
 import random
 import traceback
-from collections.abc import MutableMapping, MutableSequence
-from copy import deepcopy
 from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
@@ -43,31 +41,6 @@ def construct(type_: type[T], *args, **kwargs) -> T:
 
 def key(*items: Any) -> str:
     return '_'.join(map(str, items))
-
-
-# TODO: Remove if not used.
-def replace_secrets(obj: dict[str, Any]) -> dict[str, Any]:
-    # Do not mutate source obj.
-    obj = deepcopy(obj)
-
-    # Replace secret values.
-    stack = [obj]
-    while stack:
-        item = stack.pop()
-        if isinstance(item, MutableMapping):  # Json object.
-            it = item.items()
-        elif isinstance(item, MutableSequence):  # Json array.
-            it = enumerate(item)
-        else:  # Scalar.
-            continue
-
-        for k, v in it:
-            if 'secret' in k and isinstance(v, str):
-                item[k] = '********'
-            else:
-                stack.append(v)
-
-    return obj
 
 
 _words = None
