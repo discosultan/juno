@@ -15,8 +15,9 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optio
 from dateutil.tz import UTC
 
 from juno import (
-    Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters, OrderException,
-    OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce, Trade, json
+    AssetInfo, Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters,
+    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
+    Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -109,6 +110,7 @@ class Coinbase(Exchange):
             )
 
         return ExchangeInfo(
+            assets={'__all__': AssetInfo(precision=8)},
             fees=fees,
             filters=filters,
         )
