@@ -3,8 +3,8 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 
 from juno import (
-    BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus, components,
-    exchanges, storages
+    AssetInfo, BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
+    components, exchanges, storages
 )
 
 
@@ -211,6 +211,7 @@ class Informant(components.Informant):
         borrow_info=BorrowInfo(),
         margin_multiplier=2,
         assets=[],
+        asset_info=AssetInfo(),
     ):
         self.fees = fees
         self.filters = filters
@@ -221,6 +222,10 @@ class Informant(components.Informant):
         self.borrow_info = borrow_info
         self.margin_multiplier = margin_multiplier
         self.assets = assets
+        self.asset_info = asset_info
+
+    def get_asset_info(self, exchange, asset):
+        return self.asset_info
 
     def get_borrow_info(self, account, exchange, asset):
         return self.borrow_info

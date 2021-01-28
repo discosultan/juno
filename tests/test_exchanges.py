@@ -52,6 +52,10 @@ async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
 
     info = await exchange.get_exchange_info()
 
+    assert len(info.assets) > 0
+    if '__all__' not in info.assets:
+        assert info.assets['btc']
+
     assert len(info.fees) > 0
     first_fees = next(iter(info.fees.values()))
     assert 0 <= first_fees.taker <= Decimal('0.1')

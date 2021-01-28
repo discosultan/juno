@@ -12,8 +12,8 @@ from decimal import Decimal
 from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optional
 
 from juno import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType, OrderUpdate, Side,
-    Ticker, TimeInForce, Trade, json
+    AssetInfo, Balance, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderType,
+    OrderUpdate, Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.http import ClientSession, ClientWebSocketResponse
@@ -88,9 +88,18 @@ class Kraken(Exchange):
         ]
 
     async def get_exchange_info(self) -> ExchangeInfo:
-        res = await self._request_public('GET', '/0/public/AssetPairs')
+        assets_res, symbols_res = await asyncio.gather(
+            self._request_public('GET', '/0/public/Assets'),
+            self._request_public('GET', '/0/public/AssetPairs'),
+        )
+
+        assets = {
+            _from_symbol(val['altname']): AssetInfo(precision=val['decimals'])
+            for val in assets_res['result'].values()
+        }
+
         fees, filters = {}, {}
-        for val in res['result'].values():
+        for val in symbols_res['result'].values():
             name = _from_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
             # TODO: Take into account different fee levels. Currently only worst level.
             taker_fee = val['fees'][0][1] / 100
@@ -103,7 +112,12 @@ class Kraken(Exchange):
                 base_precision=val['lot_decimals'],
                 quote_precision=val['pair_decimals'],
             )
-        return ExchangeInfo(fees=fees, filters=filters)
+
+        return ExchangeInfo(
+            assets=assets,
+            fees=fees,
+            filters=filters,
+        )
 
     async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
         if not symbols:

@@ -10,7 +10,9 @@ from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
-from juno import BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
+from juno import (
+    AssetInfo, BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
+)
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.storages import Storage
@@ -82,6 +84,10 @@ class Informant:
 
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(self._exchange_info_sync_task, self._tickers_sync_task)
+
+    def get_asset_info(self, exchange: str, asset: str) -> AssetInfo:
+        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
+        return exchange_info.assets.get('__all__') or exchange_info.assets[asset]
 
     def get_fees_filters(self, exchange: str, symbol: str) -> tuple[Fees, Filters]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item

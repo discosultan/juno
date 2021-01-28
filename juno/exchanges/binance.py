@@ -19,9 +19,9 @@ from tenacity import (
 )
 
 from juno import (
-    Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Order,
-    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
-    Trade, json
+    AssetInfo, Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
+    Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
+    TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -246,6 +246,7 @@ class Binance(Exchange):
             )
 
         return ExchangeInfo(
+            assets={'__all__': AssetInfo(precision=8)},
             fees=fees,
             filters=filters,
             borrow_info=borrow_info,
