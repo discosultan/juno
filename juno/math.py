@@ -1,4 +1,5 @@
 import math
+import statistics
 from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
 from typing import Iterable, TypeVar
 
@@ -34,13 +35,13 @@ def minmax(values: Iterable[Decimal]) -> tuple[Decimal, Decimal]:
     return min_, max_
 
 
-def split(total: Decimal, parts: int) -> list[Decimal]:
+def split(total: Decimal, parts: int, precision: int) -> list[Decimal]:
     assert parts > 0
 
     if parts == 1:
         return [total]
 
-    part = (total / parts).quantize(total, rounding=ROUND_DOWN)
+    part = (total / parts).quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_DOWN)
     result = [part for _ in range(parts - 1)]
     result.append(total - sum(result))
     return result
@@ -50,3 +51,9 @@ def spans_overlap(span1: tuple[int, int], span2: tuple[int, int]) -> bool:
     for _ in range(max(span1[0], span2[0]), min(span1[-1], span2[-1])):
         return True
     return False
+
+
+def rpstdev(data: Iterable[Decimal]) -> Decimal:
+    """Square root of the population variance relative (%) to mean."""
+    mean = statistics.mean(data)
+    return statistics.pstdev(data) / mean
