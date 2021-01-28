@@ -40,20 +40,33 @@ def test_minmax() -> None:
     assert output == (Decimal('1.0'), Decimal('3.0'))
 
 
-@pytest.mark.parametrize('input_,parts,expected_output', [
+@pytest.mark.parametrize('total,parts,precision,expected_output', [
     (
         Decimal('1.0001'),
+        4,
         4,
         [Decimal('0.2500'), Decimal('0.2500'), Decimal('0.2500'), Decimal('0.2501')],
     ),
     (
         Decimal('1.0001'),
         1,
+        4,
         [Decimal('1.0001')],
     ),
+    (
+        Decimal('4'),
+        3,
+        4,
+        [Decimal('1.3333'), Decimal('1.3333'), Decimal('1.3334')],
+    ),
 ])
-def test_split(input_: Decimal, parts: int, expected_output: list[Decimal]) -> None:
-    output = math.split(input_, parts)
+def test_split(
+    total: Decimal,
+    parts: int,
+    precision: int,
+    expected_output: list[Decimal],
+) -> None:
+    output = math.split(total, parts, precision)
     assert output == expected_output
 
 
@@ -70,3 +83,7 @@ def test_spans_overlap(
 
 def test_lerp() -> None:
     assert math.lerp(Decimal('-1.0'), Decimal('3.0'), Decimal('0.5')) == Decimal('1.0')
+
+
+def test_rpstdev() -> None:
+    assert math.rpstdev([Decimal('10.0'), Decimal('30.0')]) == Decimal('0.5')
