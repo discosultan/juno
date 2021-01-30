@@ -25,7 +25,10 @@ export default function TradingResult({ value, onClose }) {
   }, {});
 
   const stats = Object.values(flatSymbolStats);
-  const symbolCandles = useSymbolCandles(args);
+  const symbolCandles = useSymbolCandles({
+    ...args,
+    interval: config.trader.interval,
+  });
 
   function renderStats() {
     if (stats.length === 0) return <></>;

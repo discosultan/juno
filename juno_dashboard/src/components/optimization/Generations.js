@@ -25,7 +25,7 @@ export default function Generations({ value, onSelect }) {
         <pre>{JSON.stringify(args, null, 4)}</pre>
       </Paper>
       <TableContainer component={Paper}>
-        <Table size="small" aria-label="a dense table">
+        <Table size="small" aria-label="generations table">
           <TableHead>
             <TableRow>
               <TableCell>gen</TableCell>

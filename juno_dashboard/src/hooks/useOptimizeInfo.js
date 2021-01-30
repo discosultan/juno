@@ -7,15 +7,17 @@ export default function useOptimizeInfo() {
   const [optimizeInfo, setOptimizeInfo] = useState({});
 
   useEffect(() => {
-    (async () => setOptimizeInfo(await fetchOptimizeInfo()))();
+    const abortController = new AbortController();
+    (async () => setOptimizeInfo(await fetchOptimizeInfo(abortController.signal)))();
+    return () => abortController.abort();
   }, []);
 
   return optimizeInfo;
 }
 
-async function fetchOptimizeInfo() {
+async function fetchOptimizeInfo(signal) {
   if (optimizeInfoCache === null) {
-    optimizeInfoCache = await fetchJson('GET', '/optimize');
+    optimizeInfoCache = await fetchJson('GET', '/optimize', null, signal);
   }
   return optimizeInfoCache;
 }

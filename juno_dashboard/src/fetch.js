@@ -1,10 +1,11 @@
-export async function fetchJson(method, url, body) {
+export async function fetchJson(method, url, body, signal) {
   const response = await fetch(url, {
     method,
     headers: {
       'content-type': 'application/json',
     },
     body: JSON.stringify(body, camelToSnakeReplacer),
+    signal,
   });
   const text = await response.text();
   return JSON.parse(text, snakeToCamelReviver);

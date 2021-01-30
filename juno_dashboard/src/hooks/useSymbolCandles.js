@@ -7,23 +7,28 @@ export default function useSymbolCandles(args) {
   const [symbolCandles, setSymbolCandles] = useState({});
 
   useEffect(() => {
+    const abortController = new AbortController();
     (async () => {
       setSymbolCandles(
-        await fetchCandles({
-          exchange: args.exchange,
-          interval: args.interval,
-          start: args.start,
-          end: args.end,
-          symbols: args.trainingSymbols.concat(args.validationSymbols),
-        }),
+        await fetchCandles(
+          {
+            exchange: args.exchange,
+            interval: args.interval,
+            start: args.start,
+            end: args.end,
+            symbols: args.trainingSymbols.concat(args.validationSymbols),
+          },
+          abortController.signal,
+        ),
       );
     })();
+    return () => abortController.abort();
   }, [args]);
 
   return symbolCandles;
 }
 
-async function fetchCandles(args) {
+async function fetchCandles(args, signal) {
   const result = {};
   const missingSymbols = [];
 
@@ -37,13 +42,18 @@ async function fetchCandles(args) {
   }
 
   if (missingSymbols.length > 0) {
-    const missingCandles = await fetchJson('POST', '/candles', {
-      exchange: args.exchange,
-      interval: args.interval,
-      start: args.start,
-      end: args.end,
-      symbols: missingSymbols,
-    });
+    const missingCandles = await fetchJson(
+      'POST',
+      '/candles',
+      {
+        exchange: args.exchange,
+        interval: args.interval,
+        start: args.start,
+        end: args.end,
+        symbols: missingSymbols,
+      },
+      signal,
+    );
     for (const [symbol, candles] of Object.entries(missingCandles)) {
       result[symbol] = candles;
       candleCache[composeKey(args, symbol)] = candles;
@@ -54,5 +64,5 @@ async function fetchCandles(args) {
 }
 
 function composeKey(args, symbol) {
-  return `${args.exchange}_${args.intervals}_${symbol}_${args.start}_${args.end}`;
+  return `${args.exchange}_${args.interval}_${symbol}_${args.start}_${args.end}`;
 }

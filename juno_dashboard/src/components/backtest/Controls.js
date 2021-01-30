@@ -121,9 +121,9 @@ export default function Controls({ onBacktest }) {
           onChange: (e) => setSymbols(e.target.value),
         }}
       >
-        {Symbols.map((symbol) => (
-          <MenuItem key={symbol} value={symbol}>
-            {symbol}
+        {Symbols.map((value) => (
+          <MenuItem key={value} value={value}>
+            {value}
           </MenuItem>
         ))}
       </TextField>
@@ -136,9 +136,9 @@ export default function Controls({ onBacktest }) {
         value={interval}
         onChange={(e) => setInterval(e.target.value)}
       >
-        {Intervals.map((interval) => (
-          <MenuItem key={interval} value={interval}>
-            {interval}
+        {Intervals.map((value) => (
+          <MenuItem key={value} value={value}>
+            {value}
           </MenuItem>
         ))}
       </TextField>

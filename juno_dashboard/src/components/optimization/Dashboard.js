@@ -78,7 +78,7 @@ export default function Dashboard() {
                   setSelectedGenInfo({
                     args: gensInfo.args,
                     config: {
-                      missedCandlePolicy: ind.ind.chromosome.missedCandlePolicy,
+                      trader: ind.ind.chromosome.trader,
                       strategy: {
                         type: gensInfo.args.strategy,
                         ...ind.ind.chromosome.strategy,

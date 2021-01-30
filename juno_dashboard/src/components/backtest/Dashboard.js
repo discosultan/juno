@@ -22,7 +22,6 @@ export default function Dashboard() {
     const tradingResult = {
       args: {
         exchange: args.exchange,
-        interval: args.interval,
         start: args.start,
         end: args.end,
         trainingSymbols: args.symbols,
@@ -41,7 +40,10 @@ export default function Dashboard() {
           type: args.takeProfit,
           ...args.takeProfitParams,
         },
-        missedCandlePolicy: args.missedCandlePolicy,
+        trader: {
+          interval: args.interval,
+          missedCandlePolicy: args.missedCandlePolicy,
+        },
       },
       symbolStats: result.symbolStats,
       title: args.strategy,

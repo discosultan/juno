@@ -9,7 +9,7 @@ import Typography from '@material-ui/core/Typography';
 import { makeStyles } from '@material-ui/core/styles';
 import useLocalStorageStateImpl from 'use-local-storage-state';
 import DatePicker from 'components/DatePicker';
-import { Intervals, StopLosses, Strategies, Symbols, TakeProfits } from 'info';
+import { Intervals, MissedCandlePolicies, StopLosses, Strategies, Symbols, TakeProfits } from 'info';
 import useOptimizeInfo from 'hooks/useOptimizeInfo';
 
 function useLocalStorageState(key, defaultValue) {
@@ -37,7 +37,11 @@ export default function Controls({ onOptimize }) {
   const [validationSymbols, setValidationSymbols] = useLocalStorageState('validationSymbols', [
     'ada-btc',
   ]);
-  const [interval, setInterval] = useLocalStorageState('interval', '1d');
+  const [intervals, setIntervals] = useLocalStorageState('intervals', ['1d']);
+  const [
+    missedCandlePolicies,
+    setMissedCandlePolicies,
+  ] = useLocalStorageState('missedCandlePolicies', ['ignore']);
   const [start, setStart] = useLocalStorageState('start', '2018-01-01');
   const [end, setEnd] = useLocalStorageState('end', '2021-01-01');
   const [evaluationStatistic, setEvaluastionStatistic] = useLocalStorageState(
@@ -53,7 +57,9 @@ export default function Controls({ onOptimize }) {
   const [hallOfFameSize, setHallOfFameSize] = useLocalStorageState('hallOfFameSize', 1);
   const [randomizeSeed, setRandomizeSeed] = useLocalStorageState('randomizeSeed', true);
   const [seed, setSeed] = useLocalStorageState('seed', 0);
-  const [context, setContext] = useLocalStorageState('context', '{\n}');
+  const [strategyContext, setStrategyContext] = useLocalStorageState('strategyContext', '{\n}');
+  const [stopLossContext, setStopLossContext] = useLocalStorageState('stopLossContext', '{\n}');
+  const [takeProfitContext, setTakeProfitContext] = useLocalStorageState('takeProfitContext', '{\n}');
 
   const optimizeInfo = useOptimizeInfo();
   const classes = useStyles();
@@ -78,6 +84,15 @@ export default function Controls({ onOptimize }) {
           </MenuItem>
         ))}
       </TextField>
+      <TextareaAutosize
+        id="strategyContext"
+        className={classes.textarea}
+        aria-label="strategy context"
+        rowsMin={3}
+        value={strategyContext}
+        onChange={(e) => setStrategyContext(e.target.value)}
+      />
+
       <TextField
         id="stopLoss"
         label="Stop Loss"
@@ -92,6 +107,15 @@ export default function Controls({ onOptimize }) {
           </MenuItem>
         ))}
       </TextField>
+      <TextareaAutosize
+        id="stopLossContext"
+        className={classes.textarea}
+        aria-label="stop loss context"
+        rowsMin={3}
+        value={stopLossContext}
+        onChange={(e) => setStopLossContext(e.target.value)}
+      />
+
       <TextField
         id="takeProfit"
         label="Take Profit"
@@ -106,6 +130,14 @@ export default function Controls({ onOptimize }) {
           </MenuItem>
         ))}
       </TextField>
+      <TextareaAutosize
+        id="takeProfitContext"
+        className={classes.textarea}
+        aria-label="take profit context"
+        rowsMin={3}
+        value={takeProfitContext}
+        onChange={(e) => setTakeProfitContext(e.target.value)}
+      />
 
       <TextField
         id="exchange"
@@ -154,16 +186,37 @@ export default function Controls({ onOptimize }) {
       </TextField>
 
       <TextField
-        id="interval"
+        id="intervals"
+        label="Intervals"
         fullWidth
         select
-        label="Interval"
-        value={interval}
-        onChange={(e) => setInterval(e.target.value)}
+        SelectProps={{
+          multiple: true,
+          value: intervals,
+          onChange: (e) => setIntervals(e.target.value),
+        }}
       >
-        {Intervals.map((interval) => (
-          <MenuItem key={interval} value={interval}>
-            {interval}
+        {Intervals.map((value) => (
+          <MenuItem key={value} value={value}>
+            {value}
+          </MenuItem>
+        ))}
+      </TextField>
+
+      <TextField
+        id="missedCandlePolicies"
+        label="Missed Candle Policies"
+        fullWidth
+        select
+        SelectProps={{
+          multiple: true,
+          value: missedCandlePolicies,
+          onChange: (e) => setMissedCandlePolicies(e.target.value),
+        }}
+      >
+        {MissedCandlePolicies.map((value) => (
+          <MenuItem key={value} value={value}>
+            {value}
           </MenuItem>
         ))}
       </TextField>
@@ -254,15 +307,6 @@ export default function Controls({ onOptimize }) {
         onChange={(e) => setSeed(e.target.valueAsNumber)}
       />
 
-      <TextareaAutosize
-        id="context"
-        className={classes.textarea}
-        aria-label={`context`}
-        rowsMin={3}
-        value={context}
-        onChange={(e) => setContext(e.target.value)}
-      />
-
       <br />
       <br />
       <Button
@@ -276,7 +320,6 @@ export default function Controls({ onOptimize }) {
             exchange,
             trainingSymbols,
             validationSymbols,
-            interval,
             start,
             end,
             quote: 1.0,
@@ -286,7 +329,15 @@ export default function Controls({ onOptimize }) {
             generations,
             hallOfFameSize,
             seed: randomizeSeed ? null : seed,
-            context: JSON.parse(context),
+            context: {
+              trader: {
+                intervals,
+                missedCandlePolicies,
+              },
+              strategy: JSON.parse(strategyContext),
+              stopLoss: JSON.parse(stopLossContext),
+              takeProfit: JSON.parse(takeProfitContext),
+            },
           })
         }
       >
