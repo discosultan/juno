@@ -169,7 +169,7 @@ pub fn get_return_over_max_drawdown(summary: &TradingSummary) -> f64 {
         0.0
     } else {
         roi / max_drawdown
-    }
+    };
 }
 
 #[cfg(test)]

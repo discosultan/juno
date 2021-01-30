@@ -1,7 +1,7 @@
 use chrono::prelude::*;
 use once_cell::sync::Lazy;
 use regex::Regex;
-use serde::{Deserialize, Deserializer, Serializer};
+use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serializer};
 use std::{
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},
@@ -29,16 +29,14 @@ const INTERVAL_FACTORS: [(&str, u64); 8] = [
     ("ms", 1),
 ];
 
-static INTERVAL_FACTOR_MAP: Lazy<HashMap<&'static str, u64>> = Lazy::new(|| {
-    INTERVAL_FACTORS.iter().cloned().collect()
-});
+static INTERVAL_FACTOR_MAP: Lazy<HashMap<&'static str, u64>> =
+    Lazy::new(|| INTERVAL_FACTORS.iter().cloned().collect());
 
-static INTERVAL_GROUP_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(\d+[a-zA-Z]+)").unwrap()
-});
+static INTERVAL_GROUP_RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(\d+[a-zA-Z]+)").unwrap());
 
 fn str_to_interval(representation: &str) -> u64 {
-    INTERVAL_GROUP_RE.find_iter(representation)
+    INTERVAL_GROUP_RE
+        .find_iter(representation)
         .fold(0, |acc, group| acc + calc_interval_group(group.as_str()))
 }
 
@@ -121,6 +119,55 @@ where
 {
     let representation: Option<String> = Deserialize::deserialize(deserializer)?;
     Ok(representation.map(|repr| str_to_interval(&repr)))
+}
+
+pub fn serialize_intervals<S>(values: &[u64], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut seq = serializer.serialize_seq(Some(values.len()))?;
+    for interval in values {
+        seq.serialize_element(&interval_to_string(*interval))?;
+    }
+    seq.end()
+}
+
+pub fn deserialize_intervals<'de, D>(deserializer: D) -> Result<Vec<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representations: Vec<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representations
+        .iter()
+        .map(|repr| str_to_interval(repr))
+        .collect())
+}
+
+pub fn serialize_intervals_option<S>(
+    value: &Option<Vec<u64>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => {
+            let mut seq = serializer.serialize_seq(Some(value.len()))?;
+            for interval in value {
+                seq.serialize_element(&interval_to_string(*interval))?;
+            }
+            seq.end()
+        }
+        None => serializer.serialize_none(),
+    }
+}
+
+pub fn deserialize_intervals_option<'de, D>(deserializer: D) -> Result<Option<Vec<u64>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representations: Option<Vec<String>> = Deserialize::deserialize(deserializer)?;
+    Ok(representations.map(|reprs| reprs.iter().map(|repr| str_to_interval(repr)).collect()))
 }
 
 // Timestamp.

@@ -4,10 +4,14 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, time::serialize_timestamp};
+use crate::{
+    genetics::Chromosome,
+    time::{deserialize_intervals, serialize_interval, serialize_intervals, serialize_timestamp},
+};
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
+use std::mem;
 
 pub const MISSED_CANDLE_POLICY_IGNORE: u32 = 0;
 pub const MISSED_CANDLE_POLICY_RESTART: u32 = 1;
@@ -16,21 +20,76 @@ pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
 pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
 
 #[derive(Chromosome, Clone, Debug, Serialize)]
-pub struct TradingChromosome<T: Chromosome, U: Chromosome, V: Chromosome> {
+pub struct TradingParams<T: Chromosome, U: Chromosome, V: Chromosome> {
     #[chromosome]
     pub strategy: T,
     #[chromosome]
     pub stop_loss: U,
     #[chromosome]
     pub take_profit: V,
+    #[chromosome]
+    pub trader: TraderParams,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct TraderParams {
+    #[serde(serialize_with = "serialize_interval")]
+    pub interval: u64,
     #[serde(serialize_with = "serialize_missed_candle_policy")]
-    #[serde(deserialize_with = "deserialize_missed_candle_policy")]
     pub missed_candle_policy: u32,
 }
 
-fn missed_candle_policy(rng: &mut StdRng) -> u32 {
-    rng.gen_range(0..MISSED_CANDLE_POLICIES_LEN)
+#[derive(Default, Deserialize, Serialize)]
+pub struct TraderParamsContext {
+    #[serde(deserialize_with = "deserialize_intervals")]
+    #[serde(serialize_with = "serialize_intervals")]
+    pub intervals: Vec<u64>,
+    #[serde(deserialize_with = "deserialize_missed_candle_policies")]
+    #[serde(serialize_with = "serialize_missed_candle_policies")]
+    pub missed_candle_policies: Vec<u32>,
 }
+
+impl Chromosome for TraderParams {
+    type Context = TraderParamsContext;
+
+    fn len() -> usize {
+        2
+    }
+
+    fn generate(rng: &mut StdRng, ctx: &Self::Context) -> Self {
+        Self {
+            interval: match ctx.intervals.len() {
+                0 => panic!(),
+                1 => ctx.intervals[0],
+                _ => *ctx.intervals.choose(rng).unwrap(),
+            },
+            missed_candle_policy: match ctx.missed_candle_policies.len() {
+                0 => panic!(),
+                1 => ctx.missed_candle_policies[0],
+                _ => *ctx.missed_candle_policies.choose(rng).unwrap(),
+            },
+        }
+    }
+
+    fn cross(&mut self, other: &mut Self, i: usize) {
+        match i {
+            0 => mem::swap(&mut self.interval, &mut other.interval),
+            1 => mem::swap(
+                &mut self.missed_candle_policy,
+                &mut other.missed_candle_policy,
+            ),
+            _ => panic!(),
+        };
+    }
+
+    fn mutate(&mut self, rng: &mut StdRng, _i: usize, ctx: &Self::Context) {
+        self.interval = Self::generate(rng, ctx).interval;
+    }
+}
+
+// fn missed_candle_policy(rng: &mut StdRng) -> u32 {
+//     rng.gen_range(0..MISSED_CANDLE_POLICIES_LEN)
+// }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub enum CloseReason {
@@ -287,4 +346,26 @@ where
 {
     let representation: Option<String> = Deserialize::deserialize(deserializer)?;
     Ok(representation.map(|repr| str_to_missed_candle_policy(&repr)))
+}
+
+pub fn serialize_missed_candle_policies<S>(values: &[u32], serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let mut seq = serializer.serialize_seq(Some(values.len()))?;
+    for value in values {
+        seq.serialize_element(missed_candle_policy_to_str(*value))?;
+    }
+    seq.end()
+}
+
+pub fn deserialize_missed_candle_policies<'de, D>(deserializer: D) -> Result<Vec<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: Vec<String> = Deserialize::deserialize(deserializer)?;
+    Ok(representation
+        .iter()
+        .map(|repr| str_to_missed_candle_policy(repr))
+        .collect())
 }
