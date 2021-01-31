@@ -8,7 +8,6 @@ from typing import Any
 from more_itertools import sliced
 from slack_sdk.web.async_client import AsyncWebClient
 
-from juno import Advice
 from juno.components import Events
 from juno.config import format_as_config
 from juno.traders import Trader
@@ -87,9 +86,9 @@ class Slack(Plugin):
         async def on_errored(exc: Exception) -> None:
             await send_message(format_message('errored', exc_traceback(exc)))
 
-        @self._events.on(agent_name, 'advice')
-        async def on_advice(advice: Advice) -> None:
-            await send_message(format_message('received advice', advice.name))
+        @self._events.on(agent_name, 'message')
+        async def on_message(message: str) -> None:
+            await send_message(format_message('received message', message))
 
         _log.info(f'activated for {agent_name} ({agent_type})')
 

@@ -3,7 +3,7 @@ from typing import Any
 
 import pytest
 
-from juno import Advice, Candle, Fill
+from juno import Candle, Fill
 from juno.components import Events
 from juno.time import DAY_MS
 from juno.trading import CloseReason, Position, TradingSummary
@@ -75,7 +75,7 @@ async def send_test_events(events: Events):
     await events.emit('agent', 'positions_closed', [pos], trading_summary)
     await events.emit('agent', 'finished', trading_summary)
     await events.emit('agent', 'image', full_path(__file__, '/data/dummy_img.png'))
-    await events.emit('agent', 'advice', Advice.LIQUIDATE)
+    await events.emit('agent', 'message', 'hello')
     try:
         raise Exception('Expected error.')
     except Exception as exc:
