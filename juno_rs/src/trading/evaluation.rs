@@ -58,7 +58,6 @@ struct SymbolCtx {
 
 pub struct BasicEvaluation<T: Signal, U: StopLoss, V: TakeProfit> {
     symbol_ctxs: Vec<SymbolCtx>,
-    // interval: u64,
     quote: f64,
     stats_interval: u64,
     evaluation_statistic: EvaluationStatistic,
@@ -128,7 +127,6 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
 
         Ok(Self {
             symbol_ctxs,
-            // intervals,
             stats_interval,
             quote,
             evaluation_statistic,
