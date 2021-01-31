@@ -36,7 +36,7 @@ struct Params<T: Chromosome, U: Chromosome, V: Chromosome> {
 }
 
 #[derive(Serialize)]
-struct TradingResult {
+struct BacktestResult {
     symbol_stats: HashMap<String, Statistics>,
 }
 
@@ -77,7 +77,7 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: body::Bytes) -> Result<
         })
         .collect::<HashMap<String, Statistics>>();
 
-    Ok(reply::json(&TradingResult { symbol_stats }))
+    Ok(reply::json(&BacktestResult { symbol_stats }))
 }
 
 fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(

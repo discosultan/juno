@@ -1,4 +1,4 @@
-use super::TradingChromosome;
+use super::TradingParams;
 use crate::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::{Evaluation, Individual},
@@ -13,7 +13,7 @@ use crate::{
 };
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
+use std::{collections::HashMap, marker::PhantomData};
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub enum EvaluationStatistic {
@@ -43,16 +43,12 @@ pub enum EvaluationAggregation {
 
 impl EvaluationAggregation {
     pub fn values() -> [Self; 3] {
-        [
-            Self::Linear,
-            Self::Log10,
-            Self::Log10Factored,
-        ]
+        [Self::Linear, Self::Log10, Self::Log10Factored]
     }
 }
 
 struct SymbolCtx {
-    candles: Vec<Candle>,
+    interval_candles: HashMap<u64, Vec<Candle>>,
     fees: Fees,
     filters: Filters,
     borrow_info: BorrowInfo,
@@ -62,7 +58,6 @@ struct SymbolCtx {
 
 pub struct BasicEvaluation<T: Signal, U: StopLoss, V: TakeProfit> {
     symbol_ctxs: Vec<SymbolCtx>,
-    interval: u64,
     quote: f64,
     stats_interval: u64,
     evaluation_statistic: EvaluationStatistic,
@@ -76,7 +71,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
     pub fn new(
         exchange: &str,
         symbols: &[String],
-        interval: u64,
+        intervals: &[u64],
         start: u64,
         end: u64,
         quote: f64,
@@ -88,8 +83,16 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
         let symbol_ctxs = symbols
             .iter()
             .map(|symbol| {
-                let candles =
-                    storages::list_candles(exchange, &symbol, interval, start, end).unwrap();
+                let interval_candles: HashMap<u64, Vec<Candle>> = intervals
+                    .iter()
+                    .map(|&interval| {
+                        (
+                            interval,
+                            storages::list_candles(exchange, &symbol, interval, start, end)
+                                .unwrap(),
+                        )
+                    })
+                    .collect();
                 // TODO: Do listing and filling of missing candles in one go?
 
                 // Stats base.
@@ -112,7 +115,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
 
                 // Store context variables.
                 SymbolCtx {
-                    candles,
+                    interval_candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
                     borrow_info: exchange_info.borrow_info[symbol][symbol.base_asset()],
@@ -124,7 +127,6 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
 
         Ok(Self {
             symbol_ctxs,
-            interval,
             stats_interval,
             quote,
             evaluation_statistic,
@@ -141,7 +143,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
 
     pub fn evaluate_symbols(
         &self,
-        chromosome: &TradingChromosome<T::Params, U::Params, V::Params>,
+        chromosome: &TradingParams<T::Params, U::Params, V::Params>,
     ) -> Vec<f64> {
         self.symbol_ctxs
             .par_iter()
@@ -152,26 +154,28 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
     fn evaluate_symbol(
         &self,
         ctx: &SymbolCtx,
-        chromosome: &TradingChromosome<T::Params, U::Params, V::Params>,
+        chromosome: &TradingParams<T::Params, U::Params, V::Params>,
     ) -> f64 {
         let summary = trade::<T, U, V>(
             &chromosome.strategy,
             &chromosome.stop_loss,
             &chromosome.take_profit,
-            &ctx.candles,
+            &ctx.interval_candles[&chromosome.trader.interval],
             &ctx.fees,
             &ctx.filters,
             &ctx.borrow_info,
             2,
-            self.interval,
+            chromosome.trader.interval,
             self.quote,
-            chromosome.missed_candle_policy,
+            chromosome.trader.missed_candle_policy,
             true,
             true,
         );
         match self.evaluation_statistic {
             EvaluationStatistic::Profit => statistics::get_profit(&summary),
-            EvaluationStatistic::ReturnOverMaxDrawdown => statistics::get_return_over_max_drawdown(&summary),
+            EvaluationStatistic::ReturnOverMaxDrawdown => {
+                statistics::get_return_over_max_drawdown(&summary)
+            }
             EvaluationStatistic::SharpeRatio => statistics::get_sharpe_ratio(
                 &summary,
                 &ctx.stats_base_prices,
@@ -189,7 +193,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
 }
 
 impl<T: Signal, U: StopLoss, V: TakeProfit> Evaluation for BasicEvaluation<T, U, V> {
-    type Chromosome = TradingChromosome<T::Params, U::Params, V::Params>;
+    type Chromosome = TradingParams<T::Params, U::Params, V::Params>;
 
     fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]) {
         // TODO: Support different strategies here. A la parallel cpu or gpu, for example.
