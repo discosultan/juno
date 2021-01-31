@@ -82,14 +82,14 @@ impl Chromosome for TraderParams {
         };
     }
 
-    fn mutate(&mut self, rng: &mut StdRng, _i: usize, ctx: &Self::Context) {
-        self.interval = Self::generate(rng, ctx).interval;
+    fn mutate(&mut self, rng: &mut StdRng, i: usize, ctx: &Self::Context) {
+        match i {
+            0 => self.interval = Self::generate(rng, ctx).interval,
+            1 => self.missed_candle_policy = rng.gen_range(0..MISSED_CANDLE_POLICIES_LEN),
+            _ => panic!(),
+        };
     }
 }
-
-// fn missed_candle_policy(rng: &mut StdRng) -> u32 {
-//     rng.gen_range(0..MISSED_CANDLE_POLICIES_LEN)
-// }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize)]
 pub enum CloseReason {
