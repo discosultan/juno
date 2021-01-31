@@ -327,7 +327,9 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 assert len(leaving_symbols) == len(new_symbols)
 
                 if len(new_symbols) > 0:
-                    _log.info(f'swapping out {leaving_symbols} in favor of {new_symbols}')
+                    msg = f'swapping out {leaving_symbols} in favor of {new_symbols}'
+                    _log.info(msg)
+                    await self._events.emit(config.channel, 'message', msg)
 
                     await cancel(*(track_tasks[s] for s in leaving_symbols))
                     for leaving_symbol in leaving_symbols:
@@ -352,7 +354,9 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 state.quotes = self._split_quote(
                     sum(old_quotes, Decimal('0.0')), len(old_quotes), config.exchange
                 )
-                _log.info(f'rebalanced existing available quotes {old_quotes} as {state.quotes}')
+                msg = f'rebalanced existing available quotes {old_quotes} as {state.quotes}'
+                _log.info(msg)
+                await self._events.emit(config.channel, 'message', msg)
 
             # Clear barrier for next update.
             candles_updated.clear()
@@ -452,7 +456,13 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 # Do not signal position manager during warm-up (adjusted start) period.
                 advice, _, _ = self._process_candle(state, symbol_state, candle)
                 if advice is not Advice.NONE:
-                    _log.warning(f'received advice {advice.name} during strategy warm-up period')
+                    msg = (
+                        f'received {symbol_state.symbol} advice {advice.name} during strategy '
+                        f'warm-up period: actual start {strftimestamp(symbol_state.start)}; '
+                        f'current {strftimestamp(symbol_state.next_)}'
+                    )
+                    _log.warning(msg)
+                    await self._events.emit(config.channel, 'message', msg)
             else:
                 # Perform empty ticks when missing initial candles.
                 initial_missed = False

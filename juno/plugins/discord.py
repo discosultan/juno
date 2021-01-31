@@ -9,7 +9,6 @@ from discord import File
 from discord.ext import commands
 from more_itertools import sliced
 
-from juno import Advice
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.components import Chandler, Events, Informant
 from juno.config import format_as_config
@@ -71,7 +70,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         channel_id = int(channel_id)
         send_message = partial(self._send_message, channel_id)
         send_file = partial(self._send_file, channel_id)
-        format_message = partial(self._format_message, channel_name, agent_name)
+        format_message = partial(_format_message, channel_name, agent_name)
 
         @self._events.on(agent_name, 'starting')
         async def on_starting(config: Any, state: Any, trader: Trader) -> None:
@@ -134,9 +133,9 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         async def on_image(path: str) -> None:
             await send_file(path)
 
-        @self._events.on(agent_name, 'advice')
-        async def on_advice(advice: Advice) -> None:
-            await send_message(format_message('received advice', advice.name))
+        @self._events.on(agent_name, 'message')
+        async def on_message(message: str) -> None:
+            await send_message(format_message('received message', message))
 
         @self.command(help='Closes open positions by specified comma-separated symbols')
         async def close_positions(ctx: commands.Context, value: str) -> None:
@@ -231,7 +230,7 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
             )
         await self._send_message(
             channel_id,
-            self._format_message(
+            _format_message(
                 agent_type,
                 agent_name,
                 f'{"long" if isinstance(pos, Position.OpenLong) else "short"} position open; if '
@@ -258,14 +257,14 @@ class Discord(commands.Bot, Plugin, SimulatedPositionMixin):
         channel = self.get_channel(channel_id)
         await channel.send(file=File(path))
 
-    def _format_message(
-        self,
-        channel_name: str,
-        agent_name: str,
-        title: str,
-        content: Any,
-        lang: str = '',
-    ) -> str:
-        return (
-            f'{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'
-        )
+
+def _format_message(
+    channel_name: str,
+    agent_name: str,
+    title: str,
+    content: Any,
+    lang: str = '',
+) -> str:
+    return (
+        f'{channel_name} agent {agent_name} {title}:\n```{lang}\n{content}\n```\n'
+    )
