@@ -179,7 +179,9 @@ impl<'de> Deserialize<'de> for Interval {
     where
         D: Deserializer<'de>,
     {
-        Ok(Interval(str_to_interval(Deserialize::deserialize(deserializer)?)))
+        Ok(Interval(str_to_interval(Deserialize::deserialize(
+            deserializer,
+        )?)))
     }
 }
 

@@ -3,7 +3,10 @@ use crate::math::floor_multiple;
 use super::Interval;
 use chrono::prelude::*;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use std::{fmt, ops, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    fmt, ops,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 fn timestamp() -> u64 {
     let start = SystemTime::now();
@@ -126,7 +129,9 @@ impl<'de> Deserialize<'de> for Timestamp {
     where
         D: Deserializer<'de>,
     {
-        Ok(Timestamp(str_to_timestamp(Deserialize::deserialize(deserializer)?)))
+        Ok(Timestamp(str_to_timestamp(Deserialize::deserialize(
+            deserializer,
+        )?)))
     }
 }
 

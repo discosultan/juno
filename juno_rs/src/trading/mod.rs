@@ -4,10 +4,7 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{
-    genetics::Chromosome,
-    prelude::*,
-};
+use crate::{genetics::Chromosome, prelude::*};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -95,16 +92,20 @@ impl Chromosome for TraderParams {
 
     fn mutate(&mut self, rng: &mut StdRng, i: usize, ctx: &Self::Context) {
         match i {
-            0 => self.interval = match ctx.intervals.len() {
-                0 => panic!(),
-                1 => ctx.intervals[0],
-                _ => *ctx.intervals.choose(rng).unwrap(),
-            },
-            1 => self.missed_candle_policy = match ctx.missed_candle_policies.len() {
-                0 => panic!(),
-                1 => ctx.missed_candle_policies[0],
-                _ => *ctx.missed_candle_policies.choose(rng).unwrap(),
-            },
+            0 => {
+                self.interval = match ctx.intervals.len() {
+                    0 => panic!(),
+                    1 => ctx.intervals[0],
+                    _ => *ctx.intervals.choose(rng).unwrap(),
+                }
+            }
+            1 => {
+                self.missed_candle_policy = match ctx.missed_candle_policies.len() {
+                    0 => panic!(),
+                    1 => ctx.missed_candle_policies[0],
+                    _ => *ctx.missed_candle_policies.choose(rng).unwrap(),
+                }
+            }
             _ => panic!(),
         };
     }
