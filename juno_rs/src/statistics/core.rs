@@ -1,7 +1,7 @@
 use super::PositionStatistics;
 use crate::{
     math::annualized,
-    prelude::*,
+    primitives::{Interval, Timestamp},
     trading::{CloseReason, Position, TradingSummary},
 };
 use serde::Serialize;

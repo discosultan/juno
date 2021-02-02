@@ -1,5 +1,5 @@
 use crate::{
-    prelude::*,
+    primitives::Interval,
     statistics::ExtendedStatistics,
     stop_loss,
     strategies::{self, Signal},

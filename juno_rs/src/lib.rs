@@ -6,7 +6,6 @@ pub mod genetics;
 pub mod indicators;
 pub mod itertools;
 pub mod math;
-pub mod prelude;
 pub mod primitives;
 pub mod statistics;
 pub mod stop_loss;
@@ -15,7 +14,11 @@ pub mod strategies;
 pub mod take_profit;
 pub mod trading;
 
-pub use crate::{ffi::*, filters::*, primitives::*};
+pub use crate::{
+    ffi::*,
+    filters::*,
+    primitives::{Interval, Timestamp},
+};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

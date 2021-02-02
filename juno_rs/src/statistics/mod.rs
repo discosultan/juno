@@ -5,7 +5,7 @@ pub use extended::*;
 
 use crate::{
     math::annualized,
-    prelude::*,
+    primitives::{Interval, Timestamp},
     trading::{CloseReason, Position, TradingSummary},
 };
 use serde::Serialize;
@@ -97,7 +97,7 @@ impl Statistics {
 #[cfg(test)]
 mod test_utils {
     use crate::{
-        prelude::*,
+        primitives::{Interval, Timestamp},
         trading::{CloseReason, LongPosition, Position, TradingSummary},
     };
 

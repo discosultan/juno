@@ -1,7 +1,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use juno_rs::{
     filters::{Filters, Price, Size},
-    prelude::*,
+    primitives::{Interval, Timestamp},
     stop_loss,
     strategies::{FourWeekRule, FourWeekRuleParams},
     take_profit,

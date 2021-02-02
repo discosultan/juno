@@ -1,6 +1,6 @@
 use crate::{
     math::{round_down, round_half_up},
-    prelude::*,
+    primitives::{Interval, Timestamp},
     stop_loss::StopLoss,
     strategies::{Changed, Signal},
     take_profit::TakeProfit,

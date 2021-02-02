@@ -4,7 +4,10 @@ mod traders;
 pub use evaluation::*;
 pub use traders::*;
 
-use crate::{genetics::Chromosome, prelude::*};
+use crate::{
+    genetics::Chromosome,
+    primitives::{Interval, Timestamp},
+};
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};

@@ -1,7 +1,7 @@
 use super::SQRT_365;
 use crate::{
     math::{mean, std_deviation},
-    prelude::*,
+    primitives::{Interval, Timestamp},
     trading::{Position, TradingSummary},
 };
 // use ndarray::prelude::*;

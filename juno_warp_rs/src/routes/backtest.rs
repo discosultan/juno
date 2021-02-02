@@ -5,13 +5,14 @@ use juno_derive_rs::*;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::Chromosome,
-    prelude::*,
+    primitives::{Interval, Timestamp},
     statistics::Statistics,
     stop_loss::StopLoss,
     storages,
     strategies::*,
     take_profit::TakeProfit,
     trading::{trade, MissedCandlePolicy, TradingSummary},
+    SymbolExt,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

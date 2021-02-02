@@ -2,7 +2,7 @@ use super::TradingParams;
 use crate::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::{Evaluation, Individual},
-    prelude::*,
+    primitives::{Interval, Timestamp},
     statistics,
     stop_loss::StopLoss,
     storages,

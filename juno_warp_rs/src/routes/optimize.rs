@@ -8,7 +8,7 @@ use juno_rs::{
         crossover, mutation, reinsertion, selection, Chromosome, Evolution, GeneticAlgorithm,
         Individual,
     },
-    prelude::*,
+    primitives::{Interval, Timestamp},
     statistics::Statistics,
     stop_loss::StopLoss,
     storages,
@@ -18,6 +18,7 @@ use juno_rs::{
         trade, BasicEvaluation, EvaluationAggregation, EvaluationStatistic, TradingParams,
         TradingParamsContext, TradingSummary,
     },
+    SymbolExt,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{cmp::min, collections::HashMap};
