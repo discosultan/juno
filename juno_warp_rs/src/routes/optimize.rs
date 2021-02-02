@@ -31,10 +31,8 @@ struct Params<T: Default, U: Default, V: Default> {
     seed: Option<u64>,
 
     exchange: String,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    start: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    end: u64,
+    start: Timestamp,
+    end: Timestamp,
     quote: f64,
     training_symbols: Vec<String>,
 
@@ -267,7 +265,7 @@ where
     <<U as StopLoss>::Params as Chromosome>::Context: Default,
     <<V as TakeProfit>::Params as Chromosome>::Context: Default,
 {
-    let stats_interval = DAY_MS;
+    let stats_interval = Interval::DAY_MS;
 
     // Stats base.
     let stats_candles =

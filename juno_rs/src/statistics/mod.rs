@@ -5,7 +5,7 @@ pub use extended::*;
 
 use crate::{
     math::annualized,
-    time::{serialize_interval, serialize_timestamp},
+    prelude::*,
     trading::{CloseReason, Position, TradingSummary},
 };
 use serde::Serialize;
@@ -17,15 +17,12 @@ pub(crate) const SQRT_365: f64 = 19.10497317454279908588432590477168560028076171
 pub struct PositionStatistics {
     #[serde(rename = "type")]
     pub type_: &'static str,
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub open_time: u64,
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub close_time: u64,
+    pub open_time: Timestamp,
+    pub close_time: Timestamp,
     pub cost: f64,
     pub gain: f64,
     pub profit: f64,
-    #[serde(serialize_with = "serialize_interval")]
-    pub duration: u64,
+    pub duration: Interval,
     pub roi: f64,
     pub annualized_roi: f64,
     pub close_reason: CloseReason,
@@ -47,7 +44,7 @@ impl PositionStatistics {
                     profit,
                     duration,
                     roi,
-                    annualized_roi: annualized(duration, roi),
+                    annualized_roi: annualized(duration.0, roi),
                     close_reason: pos.close_reason,
                 }
             }
@@ -64,7 +61,7 @@ impl PositionStatistics {
                     profit,
                     duration,
                     roi,
-                    annualized_roi: annualized(duration, roi),
+                    annualized_roi: annualized(duration.0, roi),
                     close_reason: pos.close_reason,
                 }
             }
@@ -83,7 +80,7 @@ impl Statistics {
         summary: &TradingSummary,
         base_prices: &[f64],
         quote_prices: Option<&[f64]>,
-        stats_interval: u64,
+        stats_interval: Interval,
     ) -> Self {
         Self {
             core: CoreStatistics::compose(summary),
@@ -99,29 +96,32 @@ impl Statistics {
 
 #[cfg(test)]
 mod test_utils {
-    use crate::trading::{CloseReason, LongPosition, Position, TradingSummary};
+    use crate::{
+        prelude::*,
+        trading::{CloseReason, LongPosition, Position, TradingSummary},
+    };
 
     pub fn get_populated_trading_summary() -> TradingSummary {
-        let mut summary = TradingSummary::new(0, 10, 1.0);
+        let mut summary = TradingSummary::new(Timestamp(0), Timestamp(10), 1.0);
         summary.positions.push(Position::Long(LongPosition {
-            open_time: 2,
+            open_time: Timestamp(2),
             open_quote: 1.0,
             open_size: 2.0,
             open_fee: 0.2,
 
-            close_time: 4,
+            close_time: Timestamp(4),
             close_size: 1.8,
             close_quote: 0.9,
             close_fee: 0.09,
             close_reason: CloseReason::Strategy,
         }));
         summary.positions.push(Position::Long(LongPosition {
-            open_time: 6,
+            open_time: Timestamp(6),
             open_quote: 0.81,
             open_size: 1.62,
             open_fee: 0.02,
 
-            close_time: 8,
+            close_time: Timestamp(8),
             close_size: 1.6,
             close_quote: 1.2,
             close_fee: 0.1,

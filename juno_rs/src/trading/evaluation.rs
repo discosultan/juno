@@ -2,12 +2,12 @@ use super::TradingParams;
 use crate::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::{Evaluation, Individual},
+    prelude::*,
     statistics,
     stop_loss::StopLoss,
     storages,
     strategies::Signal,
     take_profit::TakeProfit,
-    time,
     trading::trade,
     BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
@@ -48,7 +48,7 @@ impl EvaluationAggregation {
 }
 
 struct SymbolCtx {
-    interval_candles: HashMap<u64, Vec<Candle>>,
+    interval_candles: HashMap<Interval, Vec<Candle>>,
     fees: Fees,
     filters: Filters,
     borrow_info: BorrowInfo,
@@ -59,7 +59,7 @@ struct SymbolCtx {
 pub struct BasicEvaluation<T: Signal, U: StopLoss, V: TakeProfit> {
     symbol_ctxs: Vec<SymbolCtx>,
     quote: f64,
-    stats_interval: u64,
+    stats_interval: Interval,
     evaluation_statistic: EvaluationStatistic,
     evaluation_aggregation_fn: fn(f64, f64) -> f64,
     signal_phantom: PhantomData<T>,
@@ -71,19 +71,19 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
     pub fn new(
         exchange: &str,
         symbols: &[String],
-        intervals: &[u64],
-        start: u64,
-        end: u64,
+        intervals: &[Interval],
+        start: Timestamp,
+        end: Timestamp,
         quote: f64,
         evaluation_statistic: EvaluationStatistic,
         evaluation_aggregation: EvaluationAggregation,
     ) -> Result<Self, storages::StorageError> {
         let exchange_info = storages::get_exchange_info(exchange)?;
-        let stats_interval = time::DAY_MS;
+        let stats_interval = Interval::DAY_MS;
         let symbol_ctxs = symbols
             .iter()
             .map(|symbol| {
-                let interval_candles: HashMap<u64, Vec<Candle>> = intervals
+                let interval_candles: HashMap<Interval, Vec<Candle>> = intervals
                     .iter()
                     .map(|&interval| {
                         (

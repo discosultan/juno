@@ -1,4 +1,4 @@
-use crate::{Candle, ExchangeInfo};
+use crate::{Candle, ExchangeInfo, prelude::*};
 use rusqlite::{params, Connection, NO_PARAMS};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -32,9 +32,9 @@ fn blob_to_f64(blob: Vec<u8>) -> std::result::Result<f64, rusqlite::Error> {
 pub fn list_candles(
     exchange: &str,
     symbol: &str,
-    interval: u64,
-    start: u64,
-    end: u64,
+    interval: Interval,
+    start: Timestamp,
+    end: Timestamp,
 ) -> Result<Vec<Candle>> {
     let shard = format!("{}_{}_{}", exchange, symbol, interval);
     let conn = Connection::open(format!(
@@ -45,9 +45,9 @@ pub fn list_candles(
         "SELECT time, open, high, low, close, volume FROM candle WHERE time >= ? AND time < ? \
         ORDER BY time",
     )?;
-    let res = stmt.query_map(params![start as i64, end as i64], |row| {
+    let res = stmt.query_map(params![start.0 as i64, end.0 as i64], |row| {
         Ok(Candle {
-            time: row.get::<_, i64>(0)? as u64,
+            time: (row.get::<_, i64>(0)? as u64).into(),
             open: blob_to_f64(row.get(1)?)?,
             high: blob_to_f64(row.get(2)?)?,
             low: blob_to_f64(row.get(3)?)?,

@@ -1,4 +1,4 @@
-use crate::{math::floor_multiple, Candle};
+use crate::{prelude::*, Candle};
 use thiserror::Error;
 
 type Result<T> = std::result::Result<T, ChandlerError>;
@@ -10,27 +10,26 @@ pub enum ChandlerError {
 }
 
 pub fn fill_missing_candles(
-    interval: u64,
-    start: u64,
-    end: u64,
+    interval: Interval,
+    start: Timestamp,
+    end: Timestamp,
     candles: &[Candle],
 ) -> Result<Vec<Candle>> {
-    let start = floor_multiple(start, interval);
-    let end = floor_multiple(end, interval);
-    let length = ((end - start) / interval) as usize;
+    let start = start.floor_multiple(interval);
+    let end = end.floor_multiple(interval);
+    let length = (end - start) / interval;
 
     let mut candles_filled = Vec::with_capacity(length);
     let mut current = start;
     let mut prev_candle: Option<&Candle> = None;
 
     for candle in candles {
-        debug_assert_eq!(candle.time % interval, 0);
         let diff = (candle.time - current) / interval;
         for i in 1..=diff {
             match prev_candle {
                 None => return Err(ChandlerError::MissingStartCandles),
                 Some(ref c) => candles_filled.push(Candle {
-                    time: c.time + i as u64 * interval,
+                    time: c.time + i * interval,
                     // open: c.open,
                     // high: c.high,
                     // low: c.low,
@@ -78,7 +77,7 @@ mod tests {
     fn test_fill_missing_candles() {
         let input = vec![
             Candle {
-                time: 0,
+                time: Timestamp(0),
                 open: 2.0,
                 high: 4.0,
                 low: 1.0,
@@ -86,7 +85,7 @@ mod tests {
                 volume: 1.0,
             },
             Candle {
-                time: 2,
+                time: Timestamp(2),
                 open: 1.0,
                 high: 1.0,
                 low: 1.0,
@@ -96,7 +95,7 @@ mod tests {
         ];
         let expected_output = vec![
             Candle {
-                time: 0,
+                time: Timestamp(0),
                 open: 2.0,
                 high: 4.0,
                 low: 1.0,
@@ -104,7 +103,7 @@ mod tests {
                 volume: 1.0,
             },
             Candle {
-                time: 1,
+                time: Timestamp(1),
                 open: 3.0,
                 high: 3.0,
                 low: 3.0,
@@ -112,7 +111,7 @@ mod tests {
                 volume: 0.0,
             },
             Candle {
-                time: 2,
+                time: Timestamp(2),
                 open: 1.0,
                 high: 1.0,
                 low: 1.0,
@@ -121,7 +120,7 @@ mod tests {
             },
         ];
 
-        let output = fill_missing_candles(1, 0, 3, &input);
+        let output = fill_missing_candles(Interval(1), Timestamp(0), Timestamp(3), &input);
 
         assert!(output.is_ok());
         let output = output.unwrap();

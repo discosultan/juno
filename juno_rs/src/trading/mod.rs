@@ -6,7 +6,7 @@ pub use traders::*;
 
 use crate::{
     genetics::Chromosome,
-    time::{deserialize_intervals, serialize_interval, serialize_intervals, serialize_timestamp},
+    prelude::*,
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
@@ -33,17 +33,14 @@ pub struct TradingParams<T: Chromosome, U: Chromosome, V: Chromosome> {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct TraderParams {
-    #[serde(serialize_with = "serialize_interval")]
-    pub interval: u64,
+    pub interval: Interval,
     #[serde(serialize_with = "serialize_missed_candle_policy")]
     pub missed_candle_policy: u32,
 }
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct TraderParamsContext {
-    #[serde(deserialize_with = "deserialize_intervals")]
-    #[serde(serialize_with = "serialize_intervals")]
-    pub intervals: Vec<u64>,
+    pub intervals: Vec<Interval>,
     #[serde(deserialize_with = "deserialize_missed_candle_policies")]
     #[serde(serialize_with = "serialize_missed_candle_policies")]
     pub missed_candle_policies: Vec<u32>,
@@ -105,7 +102,7 @@ pub enum OpenPosition {
 }
 
 pub struct OpenLongPosition {
-    pub time: u64,
+    pub time: Timestamp,
     pub quote: f64,
     pub size: f64,
     pub fee: f64,
@@ -114,7 +111,7 @@ pub struct OpenLongPosition {
 impl OpenLongPosition {
     pub fn close(
         &self,
-        time: u64,
+        time: Timestamp,
         size: f64,
         quote: f64,
         fee: f64,
@@ -145,7 +142,7 @@ impl OpenLongPosition {
 }
 
 pub struct OpenShortPosition {
-    pub time: u64,
+    pub time: Timestamp,
     pub collateral: f64,
     pub borrowed: f64,
     pub quote: f64,
@@ -153,7 +150,7 @@ pub struct OpenShortPosition {
 }
 
 impl OpenShortPosition {
-    pub fn close(&self, time: u64, quote: f64, reason: CloseReason) -> ShortPosition {
+    pub fn close(&self, time: Timestamp, quote: f64, reason: CloseReason) -> ShortPosition {
         ShortPosition {
             open_time: self.time,
             collateral: self.collateral,
@@ -182,14 +179,12 @@ pub enum Position {
 
 #[derive(Debug, Serialize)]
 pub struct LongPosition {
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub open_time: u64,
+    pub open_time: Timestamp,
     pub open_quote: f64,
     pub open_size: f64,
     pub open_fee: f64,
 
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub close_time: u64,
+    pub close_time: Timestamp,
     pub close_size: f64,
     pub close_quote: f64,
     pub close_fee: f64,
@@ -219,21 +214,19 @@ impl LongPosition {
         self.gain() - self.cost()
     }
 
-    pub fn duration(&self) -> u64 {
+    pub fn duration(&self) -> Interval {
         self.close_time - self.open_time
     }
 }
 
 #[derive(Debug, Serialize)]
 pub struct ShortPosition {
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub open_time: u64,
+    pub open_time: Timestamp,
     pub collateral: f64,
     pub borrowed: f64,
     pub open_quote: f64,
     pub open_fee: f64,
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub close_time: u64,
+    pub close_time: Timestamp,
     pub close_quote: f64,
     pub close_reason: CloseReason,
 }
@@ -258,7 +251,7 @@ impl ShortPosition {
         self.open_quote - self.open_fee + self.collateral - self.close_quote
     }
 
-    pub fn duration(&self) -> u64 {
+    pub fn duration(&self) -> Interval {
         self.close_time - self.open_time
     }
 
@@ -271,15 +264,13 @@ impl ShortPosition {
 pub struct TradingSummary {
     pub positions: Vec<Position>,
 
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub start: u64,
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub end: u64,
+    pub start: Timestamp,
+    pub end: Timestamp,
     pub quote: f64,
 }
 
 impl TradingSummary {
-    pub fn new(start: u64, end: u64, quote: f64) -> Self {
+    pub fn new(start: Timestamp, end: Timestamp, quote: f64) -> Self {
         Self {
             positions: Vec::new(),
             start,

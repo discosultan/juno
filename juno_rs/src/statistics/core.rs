@@ -1,27 +1,23 @@
 use super::PositionStatistics;
 use crate::{
     math::annualized,
-    time::{serialize_interval, serialize_timestamp},
+    prelude::*,
     trading::{CloseReason, Position, TradingSummary},
 };
 use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct CoreStatistics {
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub start: u64,
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub end: u64,
-    #[serde(serialize_with = "serialize_interval")]
-    pub duration: u64,
+    pub start: Timestamp,
+    pub end: Timestamp,
+    pub duration: Interval,
     pub cost: f64,
     pub gain: f64,
     pub profit: f64,
     pub roi: f64,
     pub annualized_roi: f64,
     pub mean_position_profit: f64,
-    #[serde(serialize_with = "serialize_interval")]
-    pub mean_position_duration: u64,
+    pub mean_position_duration: Interval,
     // pub drawdowns: Vec<f64>,
     pub max_drawdown: f64,
     pub mean_drawdown: f64,
@@ -50,7 +46,7 @@ impl CoreStatistics {
         let mut max_drawdown = 0.0;
         let mut total_drawdown = 0.0;
 
-        let mut total_position_duration = 0;
+        let mut total_position_duration = Interval(0);
 
         for pos in summary.positions.iter() {
             let (pos_profit, pos_duration, close_reason) = match pos {
@@ -85,18 +81,18 @@ impl CoreStatistics {
             if summary.positions.len() > 0 {
                 (
                     profit / summary.positions.len() as f64,
-                    total_position_duration / summary.positions.len() as u64,
+                    total_position_duration / summary.positions.len(),
                     total_drawdown / summary.positions.len() as f64,
                 )
             } else {
-                (0.0, 0, 0.0)
+                (0.0, Interval(0), 0.0)
             };
 
         let duration = summary.end - summary.start;
         let cost = summary.quote;
         let gain = cost + profit;
         let roi = profit / cost;
-        let annualized_roi = annualized(duration, roi);
+        let annualized_roi = annualized(duration.0, roi);
         let return_over_max_drawdown = if max_drawdown == 0.0 {
             0.0
         } else {

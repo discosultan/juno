@@ -8,12 +8,9 @@ use warp::{body, reply, Filter, Rejection, Reply};
 #[derive(Debug, Deserialize)]
 struct Params {
     exchange: String,
-    #[serde(deserialize_with = "deserialize_interval")]
-    interval: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    start: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    end: u64,
+    interval: Interval,
+    start: Timestamp,
+    end: Timestamp,
     symbols: Vec<String>,
 }
 

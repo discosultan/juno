@@ -1,9 +1,9 @@
 use crate::{
+    prelude::*,
     statistics::ExtendedStatistics,
     stop_loss,
     strategies::{self, Signal},
     take_profit,
-    time::DAY_MS,
     trading::trade,
     BorrowInfo, Candle, Fees, Filters,
 };
@@ -90,7 +90,7 @@ unsafe fn run_test<T: Signal>(
         filters,
         borrow_info,
         trading_info.margin_multiplier,
-        trading_info.interval,
+        Interval(trading_info.interval),
         trading_info.quote,
         trading_info.missed_candle_policy,
         trading_info.long,
@@ -117,7 +117,7 @@ unsafe fn run_test<T: Signal>(
         &base_fiat_prices,
         Some(&quote_fiat_prices),
         // benchmark_g_returns,
-        DAY_MS,
+        Interval::DAY_MS,
     );
 
     // Combine.

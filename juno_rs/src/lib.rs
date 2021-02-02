@@ -7,17 +7,16 @@ pub mod indicators;
 pub mod itertools;
 pub mod math;
 pub mod prelude;
+pub mod primitives;
 pub mod statistics;
 pub mod stop_loss;
 pub mod storages;
 pub mod strategies;
 pub mod take_profit;
-pub mod time;
 pub mod trading;
 
-pub use crate::{ffi::*, filters::Filters, math::floor_multiple};
+pub use crate::{ffi::*, filters::*, primitives::*};
 
-use crate::time::serialize_timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -62,8 +61,7 @@ pub struct BorrowInfo {
 #[derive(Clone, Copy, Debug, Serialize, PartialEq)]
 #[repr(C)]
 pub struct Candle {
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub time: u64,
+    pub time: Timestamp,
     pub open: f64,
     pub high: f64,
     pub low: f64,

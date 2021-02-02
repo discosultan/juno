@@ -21,12 +21,9 @@ use warp::{hyper::body, reply, Filter, Rejection, Reply};
 struct Params<T: Chromosome, U: Chromosome, V: Chromosome> {
     exchange: String,
     symbols: Vec<String>,
-    #[serde(deserialize_with = "deserialize_interval")]
-    interval: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    start: u64,
-    #[serde(deserialize_with = "deserialize_timestamp")]
-    end: u64,
+    interval: Interval,
+    start: Timestamp,
+    end: Timestamp,
     quote: f64,
     strategy_params: T,
     stop_loss_params: U,
@@ -110,7 +107,7 @@ fn get_stats<T: Chromosome, U: Chromosome, V: Chromosome>(
     symbol: &str,
     summary: &TradingSummary,
 ) -> Result<Statistics> {
-    let stats_interval = DAY_MS;
+    let stats_interval = Interval::DAY_MS;
 
     // Stats base.
     let stats_candles =
