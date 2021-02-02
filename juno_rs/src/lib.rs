@@ -6,7 +6,6 @@ pub mod genetics;
 pub mod indicators;
 pub mod itertools;
 pub mod math;
-pub mod prelude;
 pub mod statistics;
 pub mod stop_loss;
 pub mod storages;
