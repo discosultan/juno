@@ -74,14 +74,6 @@ impl ops::Sub for Timestamp {
     }
 }
 
-// impl ops::Div<Interval> for Timestamp {
-//     type Output = usize;
-
-//     fn div(self, rhs: Interval) -> Self::Output {
-//         (self.0 / rhs.0) as usize
-//     }
-// }
-
 impl ops::Rem<Interval> for Timestamp {
     type Output = Interval;
 
