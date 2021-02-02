@@ -3,10 +3,8 @@ use juno_rs::{
     filters::{Filters, Price, Size},
     stop_loss,
     strategies::{FourWeekRule, FourWeekRuleParams},
-    take_profit, trading, BorrowInfo, Candle, Fees,
+    take_profit, time, trading, BorrowInfo, Candle, Fees,
 };
-
-const MIN_MS: u64 = 60000;
 
 fn trade_benchmark(c: &mut Criterion) {
     let strategy_params = FourWeekRuleParams::default();
@@ -15,7 +13,7 @@ fn trade_benchmark(c: &mut Criterion) {
     let mut candles = Vec::with_capacity(num_candles);
     for i in 0..num_candles {
         candles.push(Candle {
-            time: i as u64 * MIN_MS,
+            time: i as u64 * time::MIN_MS,
             open: 0.0,
             high: 0.0,
             low: 0.0,
@@ -56,7 +54,7 @@ fn trade_benchmark(c: &mut Criterion) {
                 &filters,
                 &borrow_info,
                 2,
-                60000,
+                time::MIN_MS,
                 1.0,
                 trading::MISSED_CANDLE_POLICY_IGNORE,
                 true,

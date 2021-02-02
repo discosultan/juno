@@ -11,7 +11,7 @@ use juno_rs::{
     storages,
     strategies::*,
     take_profit::TakeProfit,
-    trading::*,
+    trading::{trade, MissedCandlePolicy, TradingSummary},
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -31,8 +31,7 @@ struct Params<T: Chromosome, U: Chromosome, V: Chromosome> {
     strategy_params: T,
     stop_loss_params: U,
     take_profit_params: V,
-    #[serde(deserialize_with = "deserialize_missed_candle_policy")]
-    missed_candle_policy: u32,
+    missed_candle_policy: MissedCandlePolicy,
 }
 
 #[derive(Serialize)]

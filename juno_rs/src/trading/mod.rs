@@ -10,14 +10,31 @@ use crate::{
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
-use serde::{ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use std::mem;
 
-pub const MISSED_CANDLE_POLICY_IGNORE: u32 = 0;
-pub const MISSED_CANDLE_POLICY_RESTART: u32 = 1;
-pub const MISSED_CANDLE_POLICY_LAST: u32 = 2;
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum MissedCandlePolicy {
+    Ignore,
+    Restart,
+    Last,
+}
 
-pub const MISSED_CANDLE_POLICIES_LEN: u32 = 3;
+const MISSED_CANDLE_POLICY_CHOICES: [MissedCandlePolicy; 3] = [
+    MissedCandlePolicy::Ignore,
+    MissedCandlePolicy::Restart,
+    MissedCandlePolicy::Last,
+];
+
+pub trait StdRngExt {
+    fn gen_missed_candle_policy(&mut self) -> MissedCandlePolicy;
+}
+
+impl StdRngExt for StdRng {
+    fn gen_missed_candle_policy(&mut self) -> MissedCandlePolicy {
+        *MISSED_CANDLE_POLICY_CHOICES.choose(self).unwrap()
+    }
+}
 
 #[derive(Chromosome, Clone, Debug, Serialize)]
 pub struct TradingParams<T: Chromosome, U: Chromosome, V: Chromosome> {
@@ -35,8 +52,7 @@ pub struct TradingParams<T: Chromosome, U: Chromosome, V: Chromosome> {
 pub struct TraderParams {
     #[serde(serialize_with = "serialize_interval")]
     pub interval: u64,
-    #[serde(serialize_with = "serialize_missed_candle_policy")]
-    pub missed_candle_policy: u32,
+    pub missed_candle_policy: MissedCandlePolicy,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -44,9 +60,7 @@ pub struct TraderParamsContext {
     #[serde(deserialize_with = "deserialize_intervals")]
     #[serde(serialize_with = "serialize_intervals")]
     pub intervals: Vec<u64>,
-    #[serde(deserialize_with = "deserialize_missed_candle_policies")]
-    #[serde(serialize_with = "serialize_missed_candle_policies")]
-    pub missed_candle_policies: Vec<u32>,
+    pub missed_candle_policies: Vec<MissedCandlePolicy>,
 }
 
 impl Chromosome for TraderParams {
@@ -84,8 +98,16 @@ impl Chromosome for TraderParams {
 
     fn mutate(&mut self, rng: &mut StdRng, i: usize, ctx: &Self::Context) {
         match i {
-            0 => self.interval = Self::generate(rng, ctx).interval,
-            1 => self.missed_candle_policy = rng.gen_range(0..MISSED_CANDLE_POLICIES_LEN),
+            0 => self.interval = match ctx.intervals.len() {
+                0 => panic!(),
+                1 => ctx.intervals[0],
+                _ => *ctx.intervals.choose(rng).unwrap(),
+            },
+            1 => self.missed_candle_policy = match ctx.missed_candle_policies.len() {
+                0 => panic!(),
+                1 => ctx.missed_candle_policies[0],
+                _ => *ctx.missed_candle_policies.choose(rng).unwrap(),
+            },
             _ => panic!(),
         };
     }
@@ -287,85 +309,4 @@ impl TradingSummary {
             quote,
         }
     }
-}
-
-fn missed_candle_policy_to_str(value: u32) -> &'static str {
-    match value {
-        MISSED_CANDLE_POLICY_IGNORE => "ignore",
-        MISSED_CANDLE_POLICY_LAST => "last",
-        MISSED_CANDLE_POLICY_RESTART => "restart",
-        _ => panic!("unknown missed candle policy value: {}", value),
-    }
-}
-
-fn str_to_missed_candle_policy(representation: &str) -> u32 {
-    match representation {
-        "ignore" => MISSED_CANDLE_POLICY_IGNORE,
-        "last" => MISSED_CANDLE_POLICY_LAST,
-        "restart" => MISSED_CANDLE_POLICY_RESTART,
-        _ => panic!(
-            "unknown missed candle policy representation: {}",
-            representation
-        ),
-    }
-}
-
-pub fn serialize_missed_candle_policy<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(missed_candle_policy_to_str(*value))
-}
-
-pub fn deserialize_missed_candle_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(str_to_missed_candle_policy(&representation))
-}
-
-pub fn serialize_missed_candle_policy_option<S>(
-    value: &Option<u32>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match value {
-        Some(value) => serializer.serialize_str(missed_candle_policy_to_str(*value)),
-        None => serializer.serialize_none(),
-    }
-}
-
-pub fn deserialize_missed_candle_policy_option<'de, D>(
-    deserializer: D,
-) -> Result<Option<u32>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_missed_candle_policy(&repr)))
-}
-
-pub fn serialize_missed_candle_policies<S>(values: &[u32], serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let mut seq = serializer.serialize_seq(Some(values.len()))?;
-    for value in values {
-        seq.serialize_element(missed_candle_policy_to_str(*value))?;
-    }
-    seq.end()
-}
-
-pub fn deserialize_missed_candle_policies<'de, D>(deserializer: D) -> Result<Vec<u32>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: Vec<String> = Deserialize::deserialize(deserializer)?;
-    Ok(representation
-        .iter()
-        .map(|repr| str_to_missed_candle_policy(repr))
-        .collect())
 }

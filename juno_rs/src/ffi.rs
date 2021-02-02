@@ -1,12 +1,4 @@
-use crate::{
-    statistics::ExtendedStatistics,
-    stop_loss,
-    strategies::{self, Signal},
-    take_profit,
-    time::DAY_MS,
-    trading::trade,
-    BorrowInfo, Candle, Fees, Filters,
-};
+use crate::{BorrowInfo, Candle, Fees, Filters, statistics::ExtendedStatistics, stop_loss, strategies::{self, Signal}, take_profit, time::DAY_MS, trading::{MissedCandlePolicy, trade}};
 use std::slice;
 
 #[no_mangle]
@@ -92,7 +84,12 @@ unsafe fn run_test<T: Signal>(
         trading_info.margin_multiplier,
         trading_info.interval,
         trading_info.quote,
-        trading_info.missed_candle_policy,
+        match trading_info.missed_candle_policy {
+            0 => MissedCandlePolicy::Ignore,
+            1 => MissedCandlePolicy::Restart,
+            2 => MissedCandlePolicy::Last,
+            _ => panic!("Unknown missed candle policy {}", trading_info.missed_candle_policy),
+        },
         trading_info.long,
         trading_info.short,
     );
