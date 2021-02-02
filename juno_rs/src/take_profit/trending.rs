@@ -1,9 +1,6 @@
 use super::TakeProfit;
 use crate::{
-    easing::{
-        deserialize_easing, deserialize_easing_option, serialize_easing, serialize_easing_option,
-        tween, StdRngExt,
-    },
+    easing::{tween, Easing, StdRngExt},
     genetics::Chromosome,
     indicators::Adx,
     math::lerp,
@@ -19,9 +16,7 @@ pub struct TrendingParams {
     pub down_thresholds: (f64, f64),
     pub period: u32,
     pub lock_threshold: bool,
-    #[serde(serialize_with = "serialize_easing")]
-    #[serde(deserialize_with = "deserialize_easing")]
-    pub easing: u32,
+    pub easing: Easing,
 }
 
 fn up_thresholds(rng: &mut StdRng) -> (f64, f64) {
@@ -41,7 +36,7 @@ fn period(rng: &mut StdRng) -> u32 {
 fn lock_threshold(rng: &mut StdRng) -> bool {
     rng.gen_bool(0.5)
 }
-fn easing(rng: &mut StdRng) -> u32 {
+fn easing(rng: &mut StdRng) -> Easing {
     rng.gen_easing()
 }
 
@@ -51,7 +46,7 @@ pub struct Trending {
     down_min_threshold: f64,
     down_max_threshold: f64,
     lock_threshold: bool,
-    easing: u32,
+    easing: Easing,
     up_threshold_factor: f64,
     down_threshold_factor: f64,
     adx: Adx,

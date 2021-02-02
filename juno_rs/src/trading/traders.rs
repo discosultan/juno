@@ -10,6 +10,8 @@ use crate::{
     Advice, BorrowInfo, Candle, Fees, Filters,
 };
 
+use super::MissedCandlePolicy;
+
 struct State<T: Signal, U: StopLoss, V: TakeProfit> {
     pub strategy: T,
     pub stop_loss: U,
@@ -45,7 +47,7 @@ pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
     margin_multiplier: u32,
     interval: Interval,
     quote: f64,
-    missed_candle_policy: u32,
+    missed_candle_policy: MissedCandlePolicy,
     long: bool,
     short: bool,
 ) -> TradingSummary {
@@ -71,9 +73,9 @@ pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
 
         if let Some(last_candle) = state.last_candle {
             let diff = candle.time - last_candle.time;
-            if missed_candle_policy == 1 && diff >= two_interval {
+            if missed_candle_policy == MissedCandlePolicy::Restart && diff >= two_interval {
                 state.strategy = T::new(strategy_params);
-            } else if missed_candle_policy == 2 && diff >= two_interval {
+            } else if missed_candle_policy == MissedCandlePolicy::Last && diff >= two_interval {
                 let num_missed = diff / interval - 1;
                 for i in 1..=num_missed {
                     let missed_candle = Candle {

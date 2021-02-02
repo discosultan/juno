@@ -4,7 +4,9 @@ use juno_rs::{
     prelude::*,
     stop_loss,
     strategies::{FourWeekRule, FourWeekRuleParams},
-    take_profit, trading, BorrowInfo, Candle, Fees,
+    take_profit,
+    trading::{self, MissedCandlePolicy},
+    BorrowInfo, Candle, Fees,
 };
 
 fn trade_benchmark(c: &mut Criterion) {
@@ -57,7 +59,7 @@ fn trade_benchmark(c: &mut Criterion) {
                 2,
                 Interval::MIN_MS,
                 1.0,
-                trading::MISSED_CANDLE_POLICY_IGNORE,
+                MissedCandlePolicy::Ignore,
                 true,
                 true,
             )
