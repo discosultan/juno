@@ -159,6 +159,16 @@ class Limit(Broker):
         async with self._user.connect_stream_orders(
             exchange=exchange, account=account, symbol=symbol
         ) as stream:
+            # Listens for fill events for an existing Order.
+            track_fills_task = asyncio.create_task(
+                self._track_fills(
+                    symbol=symbol,
+                    stream=stream,
+                    side=side,
+                    ctx=ctx,
+                )
+            )
+
             # Keeps a limit order at spread.
             keep_limit_order_best_task = asyncio.create_task(
                 self._keep_limit_order_best(
@@ -167,16 +177,6 @@ class Limit(Broker):
                     symbol=symbol,
                     side=side,
                     ensure_size=ensure_size,
-                    ctx=ctx,
-                )
-            )
-
-            # Listens for fill events for an existing Order.
-            track_fills_task = asyncio.create_task(
-                self._track_fills(
-                    symbol=symbol,
-                    stream=stream,
-                    side=side,
                     ctx=ctx,
                 )
             )

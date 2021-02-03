@@ -44,16 +44,13 @@ async def main() -> None:
             exchange=args.exchange, accounts=[args.account]
         ))[args.account]
         await asyncio.gather(
-            *(transact_symbol(
-                informant, orderbook, exchange, broker, balances, s
-            ) for s in args.symbols)
+            *(transact_symbol(informant, orderbook, broker, balances, s) for s in args.symbols)
         )
 
 
 async def transact_symbol(
     informant: Informant,
     orderbook: Orderbook,
-    exchange: exchanges.Exchange,
     broker: brokers.Broker,
     balances: dict[str, Balance],
     symbol: str,
