@@ -1,7 +1,4 @@
-use super::{
-    deserialize_mid_trend_policy, deserialize_mid_trend_policy_option, serialize_mid_trend_policy,
-    serialize_mid_trend_policy_option, Signal, StdRngExt, Strategy,
-};
+use super::{MidTrendPolicy, Signal, StdRngExt, Strategy};
 use crate::{
     genetics::Chromosome,
     strategies::{combine, MidTrend, Persistence},
@@ -17,15 +14,13 @@ pub struct SigParams<S: Chromosome> {
     #[chromosome]
     pub sig: S,
     pub persistence: u32,
-    #[serde(serialize_with = "serialize_mid_trend_policy")]
-    #[serde(deserialize_with = "deserialize_mid_trend_policy")]
-    pub mid_trend_policy: u32,
+    pub mid_trend_policy: MidTrendPolicy,
 }
 
 fn persistence(rng: &mut StdRng) -> u32 {
     rng.gen_range(0..10)
 }
-fn mid_trend_policy(rng: &mut StdRng) -> u32 {
+fn mid_trend_policy(rng: &mut StdRng) -> MidTrendPolicy {
     rng.gen_mid_trend_policy()
 }
 

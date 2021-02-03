@@ -1,12 +1,16 @@
-use crate::{math::floor_multiple, Candle};
+use crate::{math::floor_multiple, time::TimestampIntExt, Candle};
 use thiserror::Error;
 
 type Result<T> = std::result::Result<T, ChandlerError>;
 
 #[derive(Error, Debug)]
 pub enum ChandlerError {
-    #[error("missing candle(s) from start of period; cannot fill")]
-    MissingStartCandles,
+    #[error("missing candle(s) from the start of the period; cannot fill; start {start}, current {current}")]
+    MissingStartCandles { start: String, current: String },
+    #[error(
+        "missing candle(s) from the end of the period; cannot fill; current {current}, end {end}"
+    )]
+    MissingEndCandles { current: String, end: String },
 }
 
 pub fn fill_missing_candles(
@@ -28,7 +32,12 @@ pub fn fill_missing_candles(
         let diff = (candle.time - current) / interval;
         for i in 1..=diff {
             match prev_candle {
-                None => return Err(ChandlerError::MissingStartCandles),
+                None => {
+                    return Err(ChandlerError::MissingStartCandles {
+                        start: start.to_timestamp_repr(),
+                        current: candle.time.to_timestamp_repr(),
+                    })
+                }
                 Some(ref c) => candles_filled.push(Candle {
                     time: c.time + i as u64 * interval,
                     // open: c.open,
@@ -53,7 +62,10 @@ pub fn fill_missing_candles(
     }
 
     if current != end {
-        panic!("missing candle(s) from end of period; cannot fill");
+        return Err(ChandlerError::MissingEndCandles {
+            current: current.to_timestamp_repr(),
+            end: end.to_timestamp_repr(),
+        });
     }
     assert_eq!(candles_filled.len(), length);
 

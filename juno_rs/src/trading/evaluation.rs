@@ -1,10 +1,10 @@
 use super::TradingParams;
 use crate::{
-    chandler::{candles_to_prices, fill_missing_candles},
+    chandler::{candles_to_prices, fill_missing_candles, ChandlerError},
     genetics::{Evaluation, Individual},
     statistics,
     stop_loss::StopLoss,
-    storages,
+    storages::{get_exchange_info, list_candles, StorageError},
     strategies::Signal,
     take_profit::TakeProfit,
     time,
@@ -14,6 +14,7 @@ use crate::{
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, marker::PhantomData};
+use thiserror::Error;
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub enum EvaluationStatistic {
@@ -47,6 +48,14 @@ impl EvaluationAggregation {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum EvaluationError {
+    #[error("storage error")]
+    Storage(#[from] StorageError),
+    #[error("chandler error")]
+    Chandler(#[from] ChandlerError),
+}
+
 struct SymbolCtx {
     interval_candles: HashMap<u64, Vec<Candle>>,
     fees: Fees,
@@ -77,8 +86,8 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
         quote: f64,
         evaluation_statistic: EvaluationStatistic,
         evaluation_aggregation: EvaluationAggregation,
-    ) -> Result<Self, storages::StorageError> {
-        let exchange_info = storages::get_exchange_info(exchange)?;
+    ) -> Result<Self, EvaluationError> {
+        let exchange_info = get_exchange_info(exchange)?;
         let stats_interval = time::DAY_MS;
         let symbol_ctxs = symbols
             .iter()
@@ -88,8 +97,7 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
                     .map(|&interval| {
                         (
                             interval,
-                            storages::list_candles(exchange, &symbol, interval, start, end)
-                                .unwrap(),
+                            list_candles(exchange, &symbol, interval, start, end).unwrap(),
                         )
                     })
                     .collect();
@@ -97,16 +105,15 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
 
                 // Stats base.
                 let stats_candles =
-                    storages::list_candles(exchange, &symbol, stats_interval, start, end).unwrap();
+                    list_candles(exchange, &symbol, stats_interval, start, end).unwrap();
                 let stats_candles =
-                    fill_missing_candles(stats_interval, start, end, &stats_candles).unwrap();
+                    fill_missing_candles(stats_interval, start, end, &stats_candles)?;
 
                 // Stats quote (optional).
                 let stats_fiat_candles =
-                    storages::list_candles("coinbase", "btc-eur", stats_interval, start, end)
-                        .unwrap();
+                    list_candles("coinbase", "btc-eur", stats_interval, start, end).unwrap();
                 let stats_fiat_candles =
-                    fill_missing_candles(stats_interval, start, end, &stats_fiat_candles).unwrap();
+                    fill_missing_candles(stats_interval, start, end, &stats_fiat_candles)?;
 
                 // let stats_quote_prices = None;
                 let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));
@@ -114,16 +121,16 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
                     candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
                 // Store context variables.
-                SymbolCtx {
+                Ok(SymbolCtx {
                     interval_candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
                     borrow_info: exchange_info.borrow_info[symbol][symbol.base_asset()],
                     stats_base_prices,
                     stats_quote_prices,
-                }
+                })
             })
-            .collect();
+            .collect::<Result<Vec<SymbolCtx>, ChandlerError>>()?;
 
         Ok(Self {
             symbol_ctxs,

@@ -49,20 +49,27 @@ pub trait Signal: Strategy {
     fn advice(&self) -> Advice;
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum MidTrendPolicy {
+    Current,
+    Previous,
+    Ignore,
+}
+
+const MID_TREND_POLICY_CHOICES: [MidTrendPolicy; 3] = [
+    MidTrendPolicy::Current,
+    MidTrendPolicy::Previous,
+    MidTrendPolicy::Ignore,
+];
+
 pub struct MidTrend {
-    policy: u32,
+    policy: MidTrendPolicy,
     previous: Option<Advice>,
     enabled: bool,
 }
 
 impl MidTrend {
-    pub const POLICY_CURRENT: u32 = 0;
-    pub const POLICY_PREVIOUS: u32 = 1;
-    pub const POLICY_IGNORE: u32 = 2;
-
-    pub const POLICIES_LEN: u32 = 3;
-
-    pub fn new(policy: u32) -> Self {
+    pub fn new(policy: MidTrendPolicy) -> Self {
         Self {
             policy,
             previous: None,
@@ -71,7 +78,7 @@ impl MidTrend {
     }
 
     pub fn maturity(&self) -> u32 {
-        if self.policy == Self::POLICY_CURRENT {
+        if self.policy == MidTrendPolicy::Current {
             0
         } else {
             1
@@ -79,7 +86,7 @@ impl MidTrend {
     }
 
     pub fn update(&mut self, value: Advice) -> Advice {
-        if !self.enabled || self.policy != MidTrend::POLICY_IGNORE {
+        if !self.enabled || self.policy != MidTrendPolicy::Ignore {
             return value;
         }
 
@@ -184,74 +191,17 @@ pub fn combine(advice1: Advice, advice2: Advice) -> Advice {
 }
 
 pub trait StdRngExt {
-    fn gen_mid_trend_policy(&mut self) -> u32;
+    fn gen_mid_trend_policy(&mut self) -> MidTrendPolicy;
     fn gen_ma(&mut self) -> u32;
 }
 
 impl StdRngExt for StdRng {
-    fn gen_mid_trend_policy(&mut self) -> u32 {
-        self.gen_range(0..MidTrend::POLICIES_LEN)
+    fn gen_mid_trend_policy(&mut self) -> MidTrendPolicy {
+        *MID_TREND_POLICY_CHOICES.choose(self).unwrap()
     }
 
     fn gen_ma(&mut self) -> u32 {
         MA_CHOICES[self.gen_range(0..MA_CHOICES.len())]
-    }
-}
-
-pub fn serialize_mid_trend_policy<S>(value: &u32, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(mid_trend_policy_to_str(*value))
-}
-
-pub fn deserialize_mid_trend_policy<'de, D>(deserializer: D) -> Result<u32, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: String = Deserialize::deserialize(deserializer)?;
-    Ok(str_to_mid_trend_policy(&representation))
-}
-
-pub fn serialize_mid_trend_policy_option<S>(
-    value: &Option<u32>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    match value {
-        Some(value) => serializer.serialize_str(mid_trend_policy_to_str(*value)),
-        None => serializer.serialize_none(),
-    }
-}
-
-pub fn deserialize_mid_trend_policy_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let representation: Option<String> = Deserialize::deserialize(deserializer)?;
-    Ok(representation.map(|repr| str_to_mid_trend_policy(&repr)))
-}
-
-fn str_to_mid_trend_policy(representation: &str) -> u32 {
-    match representation {
-        "current" => MidTrend::POLICY_CURRENT,
-        "ignore" => MidTrend::POLICY_IGNORE,
-        "previous" => MidTrend::POLICY_PREVIOUS,
-        _ => panic!(
-            "unknown mid trend policy representation: {}",
-            representation
-        ),
-    }
-}
-
-fn mid_trend_policy_to_str(value: u32) -> &'static str {
-    match value {
-        MidTrend::POLICY_CURRENT => "current",
-        MidTrend::POLICY_IGNORE => "ignore",
-        MidTrend::POLICY_PREVIOUS => "previous",
-        _ => panic!("unknown mid trend policy value: {}", value),
     }
 }
 
