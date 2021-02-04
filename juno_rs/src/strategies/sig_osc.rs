@@ -1,7 +1,7 @@
-use super::{MidTrendPolicy, Oscillator, Signal, StdRngExt, Strategy};
+use super::{Oscillator, Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    strategies::{combine, MidTrend, Persistence},
+    utils::{combine, MidTrend, MidTrendPolicy, MidTrendPolicyExt, Persistence},
     Advice, Candle,
 };
 use juno_derive_rs::*;
@@ -106,9 +106,9 @@ impl<S: Signal, O: Oscillator> SigOsc<S, O> {
 impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
     type Params = SigOscParams<S::Params, O::Params>;
 
-    fn new(params: &Self::Params) -> Self {
-        let sig = S::new(&params.sig);
-        let osc = O::new(&params.osc);
+    fn new(params: &Self::Params, meta: &StrategyMeta) -> Self {
+        let sig = S::new(&params.sig, meta);
+        let osc = O::new(&params.osc, meta);
         let mid_trend = MidTrend::new(params.mid_trend_policy);
         let persistence = Persistence::new(params.persistence, false);
         Self {

@@ -1,6 +1,6 @@
 use super::{
     deserialize_ma, deserialize_ma_option, serialize_ma, serialize_ma_option, Signal, StdRngExt,
-    Strategy,
+    Strategy, StrategyMeta,
 };
 use crate::{
     genetics::Chromosome,
@@ -43,7 +43,7 @@ unsafe impl Sync for SingleMA {}
 impl Strategy for SingleMA {
     type Params = SingleMAParams;
 
-    fn new(params: &Self::Params) -> Self {
+    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
         assert!(params.period > 0);
 
         let ma = ma_from_adler32(params.ma, params.period);

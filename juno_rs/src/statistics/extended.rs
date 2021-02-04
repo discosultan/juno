@@ -18,7 +18,7 @@ pub(crate) enum Asset {
 pub struct ExtendedStatistics {
     // performance: Vec<f64>,
     // a_returns: Vec<f64>,
-    pub g_returns: Vec<f64>,
+    // pub g_returns: Vec<f64>,
     // neg_g_returns: Vec<f64>,
 
     // total_return: f64,
@@ -200,7 +200,7 @@ fn calculate_statistics(performance: &[f64]) -> ExtendedStatistics {
 
     ExtendedStatistics {
         // a_returns,
-        g_returns,
+        // g_returns,
         // neg_g_returns,
         annualized_return,
         sharpe_ratio,

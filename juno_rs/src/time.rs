@@ -113,12 +113,38 @@ where
     }
 }
 
+pub fn serialize_interval_option_option<S>(
+    value: &Option<Option<u64>>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match value {
+        Some(value) => match value {
+            Some(value) => serializer.serialize_str(&interval_to_string(*value)),
+            None => serializer.serialize_none(),
+        },
+        None => serializer.serialize_none(),
+    }
+}
+
 pub fn deserialize_interval_option<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
 where
     D: Deserializer<'de>,
 {
     let representation: Option<String> = Deserialize::deserialize(deserializer)?;
     Ok(representation.map(|repr| str_to_interval(&repr)))
+}
+
+pub fn deserialize_interval_option_option<'de, D>(
+    deserializer: D,
+) -> Result<Option<Option<u64>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let representation: Option<Option<String>> = Deserialize::deserialize(deserializer)?;
+    Ok(representation.map(|repr1| repr1.map(|repr2| str_to_interval(&repr2))))
 }
 
 pub fn serialize_intervals<S>(values: &[u64], serializer: S) -> Result<S::Ok, S::Error>

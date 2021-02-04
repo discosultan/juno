@@ -1,12 +1,13 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
     stop_loss::StopLoss,
-    strategies::{Changed, Signal},
+    strategies::{Signal, StrategyMeta},
     take_profit::TakeProfit,
     time,
     trading::{
         CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position, TradingSummary,
     },
+    utils::Changed,
     Advice, BorrowInfo, Candle, Fees, Filters,
 };
 
@@ -60,10 +61,12 @@ pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
 
+    let strategy_meta = StrategyMeta { interval };
+
     let mut summary = TradingSummary::new(start, end, quote);
     let mut state = State::new(
         quote,
-        T::new(strategy_params),
+        T::new(strategy_params, &strategy_meta),
         U::new(stop_loss_params),
         V::new(take_profit_params),
     );
@@ -74,7 +77,7 @@ pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
         if let Some(last_candle) = state.last_candle {
             let diff = candle.time - last_candle.time;
             if missed_candle_policy == MissedCandlePolicy::Restart && diff >= two_interval {
-                state.strategy = T::new(strategy_params);
+                state.strategy = T::new(strategy_params, &strategy_meta);
             } else if missed_candle_policy == MissedCandlePolicy::Last && diff >= two_interval {
                 let num_missed = diff / interval - 1;
                 for i in 1..=num_missed {

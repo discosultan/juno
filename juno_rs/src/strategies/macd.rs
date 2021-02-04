@@ -1,4 +1,4 @@
-use super::{Signal, Strategy};
+use super::{Signal, Strategy, StrategyMeta};
 use crate::{genetics::Chromosome, indicators, Advice, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
@@ -41,7 +41,7 @@ pub struct Macd {
 impl Strategy for Macd {
     type Params = MacdParams;
 
-    fn new(params: &Self::Params) -> Self {
+    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
         let (short_period, long_period) = params.periods;
         Self {
             macd: indicators::Macd::new(short_period, long_period, params.signal_period),

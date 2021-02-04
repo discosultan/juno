@@ -228,7 +228,8 @@ fn sum_log10(acc: f64, val: f64) -> f64 {
     acc + if val >= 0.0 {
         (val + LOG_SHIFT_FACTOR).log10()
     } else {
-        -(-val + LOG_SHIFT_FACTOR).log10()
+        // -(-val + LOG_SHIFT_FACTOR).log10()
+        -(10.0_f64).powf(-val + LOG_SHIFT_FACTOR)
     }
 }
 fn sum_log10_factored(acc: f64, val: f64) -> f64 {

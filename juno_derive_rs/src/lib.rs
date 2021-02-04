@@ -237,13 +237,13 @@ pub fn derive_signal(input: TokenStream) -> TokenStream {
     TokenStream::from(output)
 }
 
-const STRATEGIES: [&'static str; 1] = [
+const STRATEGIES: [&'static str; 2] = [
     "FourWeekRule",
     // "TripleMA",
     // "DoubleMAStoch",
     // "DoubleMA",
     // "SingleMA",
-    // "Sig<FourWeekRule>",
+    "Sig<FourWeekRule>",
     // "Sig<TripleMA>",
     // "SigOsc<TripleMA,Rsi>",
     // "SigOsc<DoubleMA,Rsi>",
@@ -300,7 +300,7 @@ pub fn route_strategy(input: TokenStream) -> TokenStream {
             #(
                 (#strategy_quoted, #stop_loss_quoted, #take_profit_quoted) => #in_function::<juno_rs::strategies::#strategy, juno_rs::stop_loss::#stop_loss, juno_rs::take_profit::#take_profit>(#in_args),
             )*
-            _ => panic!("unsupported combination: {}, {}, {}", #in_strategy, #in_stop_loss, #in_take_profit),
+            _ => Err(anyhow::anyhow!("unsupported combination: {}, {}, {}", #in_strategy, #in_stop_loss, #in_take_profit)),
         }
     };
     result.into()

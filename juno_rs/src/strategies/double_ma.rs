@@ -1,6 +1,6 @@
 use super::{
     deserialize_ma, deserialize_ma_option, serialize_ma, serialize_ma_option, Signal, StdRngExt,
-    Strategy,
+    Strategy, StrategyMeta,
 };
 use crate::{
     genetics::Chromosome,
@@ -52,7 +52,7 @@ unsafe impl Sync for DoubleMA {}
 impl Strategy for DoubleMA {
     type Params = DoubleMAParams;
 
-    fn new(params: &Self::Params) -> Self {
+    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
         let (short_period, long_period) = params.periods;
         assert!(short_period > 0);
         assert!(short_period < long_period);

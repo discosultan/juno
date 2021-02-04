@@ -13,12 +13,13 @@ pub mod strategies;
 pub mod take_profit;
 pub mod time;
 pub mod trading;
+pub mod utils;
 
-pub use crate::{ffi::*, filters::Filters, math::floor_multiple};
+pub use crate::{ffi::*, filters::Filters};
 
 use crate::time::serialize_timestamp;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::AddAssign};
 
 pub trait SymbolExt {
     fn assets(&self) -> (&str, &str);
@@ -68,6 +69,15 @@ pub struct Candle {
     pub low: f64,
     pub close: f64,
     pub volume: f64,
+}
+
+impl AddAssign<&Candle> for Candle {
+    fn add_assign(&mut self, other: &Self) {
+        self.high = f64::max(self.high, other.high);
+        self.low = f64::min(self.low, other.low);
+        self.close = other.close;
+        self.volume += other.volume;
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]

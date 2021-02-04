@@ -1,4 +1,4 @@
-use super::{Oscillator, Strategy};
+use super::{Oscillator, Strategy, StrategyMeta};
 use crate::{genetics::Chromosome, indicators, Candle};
 use juno_derive_rs::*;
 use rand::prelude::*;
@@ -39,7 +39,7 @@ pub struct Stoch {
 impl Strategy for Stoch {
     type Params = StochParams;
 
-    fn new(params: &Self::Params) -> Self {
+    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
         Self {
             indicator: indicators::Stoch::new(
                 params.k_period,

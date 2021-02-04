@@ -1,6 +1,6 @@
 use super::{
     deserialize_ma, deserialize_ma_option, serialize_ma, serialize_ma_option, Signal, StdRngExt,
-    Strategy,
+    Strategy, StrategyMeta,
 };
 use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Candle};
 use bounded_vec_deque::BoundedVecDeque;
@@ -53,7 +53,7 @@ pub struct FourWeekRule {
 impl Strategy for FourWeekRule {
     type Params = FourWeekRuleParams;
 
-    fn new(params: &Self::Params) -> Self {
+    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
         Self {
             prices: BoundedVecDeque::new(params.period as usize),
             ma: indicators::ma_from_adler32(params.ma, params.ma_period),

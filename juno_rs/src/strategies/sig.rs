@@ -1,7 +1,11 @@
-use super::{MidTrendPolicy, Signal, StdRngExt, Strategy};
+use super::{Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    strategies::{combine, MidTrend, Persistence},
+    time::{
+        deserialize_interval_option, deserialize_interval_option_option, serialize_interval_option,
+        serialize_interval_option_option,
+    },
+    utils::{combine, BufferedCandle, MidTrend, MidTrendPolicy, MidTrendPolicyExt, Persistence},
     Advice, Candle,
 };
 use juno_derive_rs::*;
@@ -15,6 +19,9 @@ pub struct SigParams<S: Chromosome> {
     pub sig: S,
     pub persistence: u32,
     pub mid_trend_policy: MidTrendPolicy,
+    #[serde(deserialize_with = "deserialize_interval_option")]
+    #[serde(serialize_with = "serialize_interval_option")]
+    pub buffer_interval: Option<u64>,
 }
 
 fn persistence(rng: &mut StdRng) -> u32 {
@@ -23,12 +30,16 @@ fn persistence(rng: &mut StdRng) -> u32 {
 fn mid_trend_policy(rng: &mut StdRng) -> MidTrendPolicy {
     rng.gen_mid_trend_policy()
 }
+fn buffer_interval(_rng: &mut StdRng) -> Option<u64> {
+    None
+}
 
 #[derive(Signal)]
 pub struct Sig<S: Signal> {
     sig: S,
     mid_trend: MidTrend,
     persistence: Persistence,
+    buffered_candle: BufferedCandle,
     advice: Advice,
     t: u32,
     t1: u32,
@@ -37,8 +48,8 @@ pub struct Sig<S: Signal> {
 impl<S: Signal> Strategy for Sig<S> {
     type Params = SigParams<S::Params>;
 
-    fn new(params: &Self::Params) -> Self {
-        let sig = S::new(&params.sig);
+    fn new(params: &Self::Params, meta: &StrategyMeta) -> Self {
+        let sig = S::new(&params.sig, meta);
         let mid_trend = MidTrend::new(params.mid_trend_policy);
         let persistence = Persistence::new(params.persistence, false);
         Self {
@@ -48,6 +59,7 @@ impl<S: Signal> Strategy for Sig<S> {
             sig,
             mid_trend,
             persistence,
+            buffered_candle: BufferedCandle::new(meta.interval, params.buffer_interval),
         }
     }
 
@@ -60,14 +72,16 @@ impl<S: Signal> Strategy for Sig<S> {
     }
 
     fn update(&mut self, candle: &Candle) {
-        self.t = min(self.t + 1, self.t1);
+        if let Some(candle) = self.buffered_candle.buffer(candle) {
+            self.t = min(self.t + 1, self.t1);
 
-        self.sig.update(candle);
-        if self.sig.mature() {
-            self.advice = combine(
-                self.mid_trend.update(self.sig.advice()),
-                self.persistence.update(self.sig.advice()),
-            );
+            self.sig.update(candle.as_ref());
+            if self.sig.mature() {
+                self.advice = combine(
+                    self.mid_trend.update(self.sig.advice()),
+                    self.persistence.update(self.sig.advice()),
+                );
+            }
         }
     }
 }

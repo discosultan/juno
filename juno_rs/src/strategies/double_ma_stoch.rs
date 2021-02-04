@@ -1,4 +1,4 @@
-use super::{Oscillator, Signal, Strategy};
+use super::{Oscillator, Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
     strategies::{
@@ -29,10 +29,10 @@ pub struct DoubleMAStoch {
 impl Strategy for DoubleMAStoch {
     type Params = DoubleMAStochParams;
 
-    fn new(params: &Self::Params) -> Self {
+    fn new(params: &Self::Params, meta: &StrategyMeta) -> Self {
         Self {
-            double_ma: DoubleMA::new(&params.double_ma),
-            stoch: Stoch::new(&params.stoch),
+            double_ma: DoubleMA::new(&params.double_ma, meta),
+            stoch: Stoch::new(&params.stoch, meta),
             advice: Advice::None,
         }
     }
