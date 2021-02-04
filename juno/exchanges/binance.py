@@ -1200,7 +1200,7 @@ def _from_symbol(symbol: str) -> str:
     known_quote_assets = [
         'BNB', 'BTC', 'ETH', 'XRP', 'USDT', 'PAX', 'TUSD', 'USDC', 'USDS', 'TRX', 'BUSD', 'NGN',
         'RUB', 'TRY', 'EUR', 'ZAR', 'BKRW', 'IDRT', 'GBP', 'UAH', 'BIDR', 'AUD', 'DAI', 'BRL',
-        'BVND'
+        'BVND', 'VAI'
     ]
     for asset in known_quote_assets:
         if symbol.endswith(asset):
