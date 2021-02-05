@@ -6,12 +6,13 @@ import warnings
 from contextlib import asynccontextmanager
 from itertools import cycle
 from typing import (
-    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Callable, Iterator, Optional, cast
+    Any, AsyncContextManager, AsyncIterable, AsyncIterator, Callable, Iterator, Optional
 )
 
 import aiohttp
+from multidict import CIMultiDictProxy
 
-from juno import json
+import juno.json as json
 from juno.utils import generate_random_words
 
 from .asyncio import cancel, chain_async, resolved_stream
@@ -20,6 +21,25 @@ from .typing import ExcType, ExcValue, Traceback
 _log = logging.getLogger(__name__)
 
 _random_words = generate_random_words(length=6)
+
+
+class ClientResponse:
+    def __init__(self, response: aiohttp.ClientResponse) -> None:
+        self._response = response
+
+    @property
+    def status(self) -> int:
+        return self._response.status
+
+    @property
+    def headers(self) -> CIMultiDictProxy:
+        return self._response.headers
+
+    async def json(self) -> Any:
+        return await self._response.json(loads=json.loads)
+
+    def raise_for_status(self) -> None:
+        self._response.raise_for_status()
 
 
 # Adds logging to aiohttp client session.
@@ -59,7 +79,7 @@ class ClientSession:
         name: Optional[str] = None,
         raise_for_status: Optional[bool] = None,
         **kwargs: Any
-    ) -> AsyncIterator[aiohttp.ClientResponse]:
+    ) -> AsyncIterator[ClientResponse]:
         name = name or next(_random_words)
         _log.info(f'req {name} {method} {url}')
         _log.debug(kwargs)
@@ -69,13 +89,7 @@ class ClientSession:
             _log.debug(content)
             if raise_for_status or (raise_for_status is None and self._raise_for_status):
                 res.raise_for_status()
-            yield res
-
-    async def request_json(self, *args: Any, **kwargs: Any) -> ClientJsonResponse:
-        async with self.request(*args, **kwargs) as res:
-            res = cast(ClientJsonResponse, res)
-            res.data = await res.json(loads=json.loads)
-            return res
+            yield ClientResponse(res)
 
     @asynccontextmanager
     async def ws_connect(self, url: str, name: Optional[str] = None,
@@ -84,10 +98,6 @@ class ClientSession:
         _log.info(f'WS {name} {url}: {kwargs}')
         async with self._session.ws_connect(url, **kwargs) as ws:
             yield ClientWebSocketResponse(ws, name)
-
-
-class ClientJsonResponse(aiohttp.ClientResponse):
-    data: Any
 
 
 class ClientWebSocketResponse:

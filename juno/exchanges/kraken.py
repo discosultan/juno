@@ -346,7 +346,7 @@ class Kraken(Exchange):
         kwargs['params' if method == 'GET' else 'data'] = data
 
         async with self._session.request(**kwargs) as res:
-            result = await res.json(loads=json.loads)
+            result = await res.json()
             errors = result['error']
             if len(errors) > 0:
                 raise Exception(errors)
