@@ -231,3 +231,11 @@ fn test_derive_context_mutate() {
     x.mutate(&mut rng, 5, &ctx);
     assert_eq!(x.d, 400);
 }
+
+// There are not tests for this struct. It is simply checking if the Chromosome derive macro is
+// able to generate a context in case of a field with #[serde(default)].
+#[derive(Chromosome, Clone, Serialize)]
+struct WithDefault {
+    #[serde(default)]
+    a: u32,
+}
