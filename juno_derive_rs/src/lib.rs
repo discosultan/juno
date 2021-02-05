@@ -1,6 +1,6 @@
 use proc_macro::{TokenStream, TokenTree};
 use quote::{format_ident, quote};
-use std::{borrow::Cow, iter::once};
+use std::borrow::Cow;
 use syn::{
     parse_macro_input, parse_quote, parse_str, Attribute, Field, GenericParam, Ident, ItemStruct,
     Lit, Meta, NestedMeta, Type, TypePath,
@@ -106,7 +106,9 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
         quote! { <#(#generic_ty_idents::Context),*> }
     };
     let ctx_field_attrs = ctx_field.clone().map(|field| {
-        let field_attrs = field
+        let mut is_serde_default = false;
+
+        let mut field_attrs = field
             .attrs
             .iter()
             .filter(|attr| !attr.path.is_ident("chromosome"))
@@ -131,15 +133,22 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
                                         });
                                     }
                                 }
+                            } else if let Meta::Path(path) = meta {
+                                if path.is_ident("default") {
+                                    is_serde_default = true;
+                                }
                             }
                         }
                     }
                 }
                 Cow::Borrowed(attr)
             })
-            // Add `#[serde(default)]`.
-            .chain(once(Cow::Owned(parse_quote! { #[serde(default)] })))
             .collect::<Vec<Cow<Attribute>>>();
+
+        if !is_serde_default {
+            // Add `#[serde(default)]`.
+            field_attrs.push(Cow::Owned(parse_quote! { #[serde(default)] }));
+        }
 
         field_attrs
     });

@@ -17,8 +17,10 @@ use std::cmp::{max, min};
 pub struct SigParams<S: Chromosome> {
     #[chromosome]
     pub sig: S,
+    #[serde(default)]
     pub persistence: u32,
     pub mid_trend_policy: MidTrendPolicy,
+    #[serde(default)]
     #[serde(deserialize_with = "deserialize_interval_option")]
     #[serde(serialize_with = "serialize_interval_option")]
     pub buffer_interval: Option<u64>,
