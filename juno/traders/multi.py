@@ -83,11 +83,11 @@ class _SymbolState:
     strategy: Signal
     changed: Changed
     override_changed: Changed
+    adjusted_start: Timestamp
     start: Timestamp
     next_: Timestamp
     stop_loss: StopLoss
     take_profit: TakeProfit
-    start_adjusted: bool = False
     open_position: Optional[Position.Open] = None
     allocated_quote: Decimal = Decimal('0.0')
     first_candle: Optional[Candle] = None
@@ -204,7 +204,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 quote=quote,
                 quote_asset='btc',  # TODO: support others
             ),
-            symbol_states={s: self._create_symbol_state(s, start, config) for s in symbols},
+            symbol_states={s: self._create_symbol_state(s, candle_start, config) for s in symbols},
         )
 
     def _split_quote(self, quote: Decimal, parts: int, exchange: str) -> list[Decimal]:
@@ -214,13 +214,24 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
     def _create_symbol_state(
         self, symbol: str, start: int, config: MultiConfig
     ) -> _SymbolState:
+        strategy = config.symbol_strategies.get(symbol, config.strategy).construct()
+
+        adjusted_start = start
+        if config.adjust_start:
+            _log.info(
+                f'fetching {strategy.maturity - 1} {symbol} candle(s) before start time to '
+                'warm-up strategy'
+            )
+            adjusted_start = max(start - (strategy.maturity - 1) * config.interval, 0)
+
         return _SymbolState(
             symbol=symbol,
-            strategy=config.symbol_strategies.get(symbol, config.strategy).construct(),
+            strategy=strategy,
             changed=Changed(True),
             override_changed=Changed(True),
+            adjusted_start=adjusted_start,
             start=start,
-            next_=start,
+            next_=adjusted_start,
             stop_loss=(
                 NoopStopLoss() if config.stop_loss is None
                 else config.stop_loss.construct()
@@ -428,20 +439,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         ready: Event
     ) -> None:
         config = state.config
-
         _log.info(f'tracking {symbol_state.symbol} candles')
-        if config.adjust_start and not symbol_state.start_adjusted:
-            _log.info(
-                f'fetching {symbol_state.strategy.maturity - 1} {symbol_state.symbol} candle(s) '
-                'before start time to warm-up strategy'
-            )
-            symbol_state.next_ = (
-                max(
-                    symbol_state.next_ - (symbol_state.strategy.maturity - 1) * config.interval,
-                    0,
-                )
-            )
-            symbol_state.start_adjusted = True
 
         async for candle in self._chandler.stream_candles(
             exchange=config.exchange,
@@ -452,14 +450,16 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             fill_missing_with_last=True,
             exchange_timeout=config.exchange_candle_timeout,
         ):
-            if symbol_state.next_ < symbol_state.start:
+            current = symbol_state.next_
+            if current < symbol_state.start:
                 # Do not signal position manager during warm-up (adjusted start) period.
                 advice, _, _ = self._process_candle(state, symbol_state, candle)
                 if advice is not Advice.NONE:
                     msg = (
                         f'received {symbol_state.symbol} advice {advice.name} during strategy '
-                        f'warm-up period: actual start {strftimestamp(symbol_state.start)}; '
-                        f'current {strftimestamp(symbol_state.next_)}'
+                        f'warm-up period: adjusted start '
+                        f'{strftimestamp(symbol_state.adjusted_start)}; actual start '
+                        f'{strftimestamp(symbol_state.start)}; current {strftimestamp(current)}'
                     )
                     _log.warning(msg)
                     await self._events.emit(config.channel, 'message', msg)
