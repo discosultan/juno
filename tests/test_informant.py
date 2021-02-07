@@ -132,12 +132,15 @@ async def test_resource_caching_to_storage(storage) -> None:
 
 
 async def test_map_tickers_exclude_symbol_patterns(mocker, storage) -> None:
+    ticker = Ticker(
+        volume=Decimal('1.0'),
+        quote_volume=Decimal('1.0'),
+        price=Decimal('1.0'),
+    )
     tickers = {
-        'btc': Ticker(
-            volume=Decimal('1.0'),
-            quote_volume=Decimal('1.0'),
-            price=Decimal('1.0'),
-        ),
+        'btc': ticker,
+        'eth': ticker,
+        'ltc': ticker,
     }
 
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
@@ -147,4 +150,10 @@ async def test_map_tickers_exclude_symbol_patterns(mocker, storage) -> None:
     async with Informant(storage=storage, exchanges=[exchange]) as informant:
         assert informant.map_tickers('magicmock', exclude_symbol_patterns=None) == tickers
         assert informant.map_tickers('magicmock', exclude_symbol_patterns=[]) == tickers
-        assert informant.map_tickers('magicmock', exclude_symbol_patterns=['btc']) == {}
+        assert informant.map_tickers('magicmock', exclude_symbol_patterns=['btc']) == {
+            'eth': ticker,
+            'ltc': ticker,
+        }
+        assert informant.map_tickers('magicmock', exclude_symbol_patterns=['btc', 'eth']) == {
+            'ltc': ticker,
+        }
