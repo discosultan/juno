@@ -86,7 +86,8 @@ async def transact_symbol(
                     size=transact_size,
                     test=False,
                 )
-            except BadOrder:
+            except BadOrder as e:
+                logging.warning(f'unable to transact last chunk: {e}')
                 break
             size -= Fill.total_size(res.fills)
             fills.extend(res.fills)
