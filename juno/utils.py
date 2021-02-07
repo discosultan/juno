@@ -59,9 +59,19 @@ def generate_random_words(length: Optional[int] = None) -> Iterator[str]:
     return filter(lambda w: len(w) == length, _words) if length else _words
 
 
-def unpack_symbol(symbol: str) -> tuple[str, str]:
+def unpack_assets(symbol: str) -> tuple[str, str]:
     index_of_separator = symbol.find('-')
     return symbol[:index_of_separator], symbol[index_of_separator + 1:]
+
+
+def unpack_base_asset(symbol: str) -> str:
+    index_of_separator = symbol.find('-')
+    return symbol[:index_of_separator]
+
+
+def unpack_quote_asset(symbol: str) -> str:
+    index_of_separator = symbol.find('-')
+    return symbol[index_of_separator + 1:]
 
 
 def home_path(*args: str) -> Path:

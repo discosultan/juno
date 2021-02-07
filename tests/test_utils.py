@@ -2,7 +2,7 @@ from juno import utils
 
 
 def test_unpack_symbol() -> None:
-    assert utils.unpack_symbol('eth-btc') == ('eth', 'btc')
+    assert utils.unpack_assets('eth-btc') == ('eth', 'btc')
 
 
 def test_extract_public() -> None:

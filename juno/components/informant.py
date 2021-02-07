@@ -19,7 +19,7 @@ from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import HOUR_MS, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback, get_name
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 _log = logging.getLogger(__name__)
 
@@ -109,7 +109,7 @@ class Informant:
     ) -> list[str]:
         exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
         all_assets = {a: None for a in itertools.chain(
-            *(map(unpack_symbol, exchange_info.filters.keys()))
+            *(map(unpack_assets, exchange_info.filters.keys()))
         )}
 
         result = (a for a in all_assets.keys())

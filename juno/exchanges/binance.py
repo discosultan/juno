@@ -29,7 +29,7 @@ from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
 from juno.itertools import page
 from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter, unpack_symbol
+from juno.utils import AsyncLimiter, unpack_assets
 
 from .exchange import Exchange
 
@@ -308,7 +308,7 @@ class Binance(Exchange):
                 'GET', '/sapi/v1/margin/isolated/account', weight=1, security=_SEC_USER_DATA
             )
             for balances in content['assets']:
-                base_asset, quote_asset = unpack_symbol(_from_symbol(balances['symbol']))
+                base_asset, quote_asset = unpack_assets(_from_symbol(balances['symbol']))
                 base_balance = balances['baseAsset']
                 quote_balance = balances['quoteAsset']
                 result[f'{base_asset}-{quote_asset}'] = {
@@ -759,7 +759,7 @@ class Binance(Exchange):
 
     async def create_account(self, account: str) -> None:
         assert account not in ['spot', 'margin']
-        base_asset, quote_asset = unpack_symbol(account)
+        base_asset, quote_asset = unpack_assets(account)
         await self._api_request(
             'POST',
             '/sapi/v1/margin/isolated/create',

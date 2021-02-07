@@ -19,7 +19,7 @@ from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_
 from juno.http import ClientSession, ClientWebSocketResponse
 from juno.time import MIN_MS, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter, unpack_symbol
+from juno.utils import AsyncLimiter, unpack_assets
 
 from .exchange import Exchange
 
@@ -509,10 +509,10 @@ REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in ASSET_ALIAS_MAP.items()}
 
 
 def _to_http_symbol(symbol: str) -> str:
-    base, quote = unpack_symbol(symbol)
+    base, quote = unpack_assets(symbol)
     return f'{ASSET_ALIAS_MAP.get(base, base)}{ASSET_ALIAS_MAP.get(quote, quote)}'
 
 
 def _from_symbol(symbol: str) -> str:
-    base, quote = unpack_symbol(symbol)
+    base, quote = unpack_assets(symbol)
     return f'{REVERSE_ASSET_ALIAS_MAP.get(base, base)}-{REVERSE_ASSET_ALIAS_MAP.get(quote, quote)}'

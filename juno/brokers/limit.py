@@ -11,7 +11,7 @@ from juno import (
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook, User
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 from .broker import Broker
 
@@ -73,7 +73,7 @@ class Limit(Broker):
         assert not test
         Broker.validate_funds(size, quote)
 
-        base_asset, quote_asset = unpack_symbol(symbol)
+        base_asset, quote_asset = unpack_assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         if size is not None:
@@ -98,11 +98,12 @@ class Limit(Broker):
         # Validate fee and quote expectation.
         expected_fee = Fill.expected_base_fee(res.fills, fees.maker, filters.base_precision)
         expected_quote = Fill.expected_quote(res.fills, filters.quote_precision)
-        if Fill.total_fee(res.fills) != expected_fee:
+        fee = Fill.total_fee(res.fills, base_asset)
+        if fee != expected_fee:
+            # TODO: Always warns when a different fee asset (such as BNB) is involved.
             _log.warning(
-                f'total_fee={Fill.total_fee(res.fills)} != {expected_fee=} '
-                f'(total_size={Fill.total_size(res.fills)}, {fees.maker=}, '
-                f'{filters.base_precision=})'
+                f'total_fee={fee} != {expected_fee=} (total_size={Fill.total_size(res.fills)}, '
+                f'{fees.maker=}, {filters.base_precision=})'
             )
         if Fill.total_quote(res.fills) != expected_quote:
             _log.warning(f'total_quote={Fill.total_quote(res.fills)} != {expected_quote=}')
@@ -122,7 +123,7 @@ class Limit(Broker):
         assert size  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
-        base_asset, _ = unpack_symbol(symbol)
+        base_asset, quote_asset = unpack_assets(symbol)
         _log.info(
             f'selling {size} {base_asset} with limit orders at spread ({account} account)'
         )
@@ -132,11 +133,12 @@ class Limit(Broker):
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
         expected_fee = Fill.expected_quote_fee(res.fills, fees.maker, filters.quote_precision)
         expected_quote = Fill.expected_quote(res.fills, filters.quote_precision)
-        if Fill.total_fee(res.fills) != expected_fee:
+        fee = Fill.total_fee(res.fills, quote_asset)
+        if fee != expected_fee:
+            # TODO: Always warns when a different fee asset (such as BNB) is involved.
             _log.warning(
-                f'total_fee={Fill.total_fee(res.fills)} != {expected_fee=} '
-                f'(total_quote={Fill.total_quote(res.fills)}, {fees.maker=}, '
-                f'{filters.quote_precision=})'
+                f'total_fee={fee} != {expected_fee=} (total_quote={Fill.total_quote(res.fills)}, '
+                f'{fees.maker=}, {filters.quote_precision=})'
             )
         if Fill.total_quote(res.fills) != expected_quote:
             _log.warning(f'total_quote={Fill.total_quote(res.fills)} != {expected_quote=}')

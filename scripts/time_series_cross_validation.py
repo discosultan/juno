@@ -13,7 +13,7 @@ from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.storages import SQLite
 from juno.traders import Basic, BasicConfig
 from juno.typing import TypeConstructor
-from juno.utils import construct, extract_public, get_module_type, unpack_symbol
+from juno.utils import construct, extract_public, get_module_type, unpack_assets
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.HOUR_MS
@@ -78,7 +78,7 @@ async def main() -> None:
         ))
         trading_summary = await trader.run(trader_state)
 
-        base_asset, quote_asset = unpack_symbol(SYMBOL)
+        base_asset, quote_asset = unpack_assets(SYMBOL)
         fiat_prices = await prices.map_asset_prices(
             exchange=optimization_summary.trading_config.exchange,
             symbols=[SYMBOL],

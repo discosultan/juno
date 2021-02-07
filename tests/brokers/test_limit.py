@@ -6,9 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from juno import (
-    BadOrder, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus, OrderUpdate
-)
+from juno import BadOrder, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus, OrderUpdate
 from juno.asyncio import Event, stream_queue
 from juno.brokers import Limit
 from juno.components import Informant, Orderbook, User
@@ -167,7 +165,7 @@ async def test_partial_fill_adjust_fill() -> None:
         assert result.status is OrderStatus.FILLED
         assert Fill.total_quote(result.fills) == 2
         assert Fill.total_size(result.fills) == Decimal('1.5')
-        assert Fill.total_fee(result.fills) == Decimal('0.15')
+        assert Fill.total_fee(result.fills, 'eth') == Decimal('0.15')
         assert len(exchange.place_order_calls) == 2
         assert exchange.place_order_calls[0]['price'] == 1
         assert exchange.place_order_calls[0]['size'] == 2
@@ -269,7 +267,7 @@ async def test_multiple_cancels() -> None:
         assert result.status is OrderStatus.FILLED
         assert Fill.total_quote(result.fills) == 10
         assert Fill.total_size(result.fills) == Decimal('6.0')
-        assert Fill.total_fee(result.fills) == Decimal('0.6')
+        assert Fill.total_fee(result.fills, 'eth') == Decimal('0.6')
         assert len(exchange.place_order_calls) == 3
         assert len(exchange.cancel_order_calls) == 2
 

@@ -7,7 +7,7 @@ from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
 from juno.trading import CloseReason, Position, SimulatedPositionMixin, TradingSummary
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 from .solver import FitnessValues, Solver
 
@@ -45,7 +45,7 @@ class Python(Solver, SimulatedPositionMixin):
         return FitnessValues.from_trading_summary(summary, portfolio.stats)
 
     def _trade(self, config: Solver.Config) -> TradingSummary:
-        _, quote_asset = unpack_symbol(config.symbol)
+        _, quote_asset = unpack_assets(config.symbol)
         state = _State(
             summary=TradingSummary(
                 start=config.candles[0].time,

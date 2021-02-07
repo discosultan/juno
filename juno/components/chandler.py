@@ -18,7 +18,7 @@ from juno.math import ceil_multiple, floor_multiple
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
-from juno.utils import key, unpack_symbol
+from juno.utils import key, unpack_assets
 
 from .trades import Trades
 
@@ -456,7 +456,7 @@ class Chandler:
         if not self._trades:
             raise ValueError('Trades component not configured. Unable to construct candles')
 
-        base_asset, _ = unpack_symbol(symbol)
+        base_asset, _ = unpack_assets(symbol)
         _log.info(f'constructing {exchange} {symbol} {volume}{base_asset} candles from trades')
 
         current_volume = Decimal('0.0')

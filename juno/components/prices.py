@@ -6,7 +6,7 @@ from juno.asyncio import enumerate_async
 from juno.components import Chandler
 from juno.math import floor_multiple
 from juno.time import DAY_MS, strftimestamp
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 
 class Prices:
@@ -36,7 +36,7 @@ class Prices:
         # Quote -> fiat.
         quote_fiat_symbols = {
             f'{q}-{fiat_asset}' if q != fiat_asset else f'{b}-{q}'
-            for b, q in map(unpack_symbol, symbols)
+            for b, q in map(unpack_assets, symbols)
         }
 
         # Validate we have enough data.
@@ -47,7 +47,7 @@ class Prices:
         # Gather prices.
         async def assign(symbol: str) -> None:
             assert fiat_exchange
-            quote_asset, _fiat_asset = unpack_symbol(symbol)
+            quote_asset, _fiat_asset = unpack_assets(symbol)
             assert quote_asset not in result
             quote_prices: list[Decimal] = []
             async for candle in self._chandler.stream_candles(
@@ -60,7 +60,7 @@ class Prices:
         await asyncio.gather(*(assign(s) for s in quote_fiat_symbols))
 
         # Base -> fiat.
-        base_quote_symbols = [s for s in set(symbols) if unpack_symbol(s)[0] not in result]
+        base_quote_symbols = [s for s in set(symbols) if unpack_assets(s)[0] not in result]
 
         # Validate we have enough data.
         await asyncio.gather(
@@ -69,7 +69,7 @@ class Prices:
 
         # Gather prices.
         async def assign_with_prices(symbol: str) -> None:
-            base_asset, quote_asset = unpack_symbol(symbol)
+            base_asset, quote_asset = unpack_assets(symbol)
             assert base_asset not in result
             base_prices: list[Decimal] = []
             quote_prices = result[quote_asset]
@@ -89,7 +89,7 @@ class Prices:
         await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))
 
         # Add fiat currency itself to prices if it's specified as a quote of any symbol.
-        if fiat_asset in (q for _, q in map(unpack_symbol, symbols)):
+        if fiat_asset in (q for _, q in map(unpack_assets, symbols)):
             result[fiat_asset] = [Decimal('1.0')] * (((end - start) // interval) + 1)
 
         # # Validate we have enough data points.

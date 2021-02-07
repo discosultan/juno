@@ -22,7 +22,7 @@ from juno.components import Informant
 from juno.filters import Price, Size
 from juno.time import DAY_MS
 from juno.typing import ExcType, ExcValue, Traceback, get_input_type_hints
-from juno.utils import home_path, unpack_symbol
+from juno.utils import home_path, unpack_assets
 
 from .solver import FitnessValues, Solver
 
@@ -113,7 +113,7 @@ class Rust(Solver):
         pass
 
     def solve(self, config: Solver.Config) -> FitnessValues:
-        base_asset, _ = unpack_symbol(config.symbol)
+        base_asset, _ = unpack_assets(config.symbol)
 
         # Trading.
         c_candles = self._get_or_create_c_candles(

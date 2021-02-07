@@ -13,7 +13,7 @@ from juno.time import DAY_MS, HOUR_MS, datetime_utcfromtimestamp_ms, strptimesta
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
 from juno.typing import TypeConstructor
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 SYMBOL = 'eth-btc'
 INTERVAL = HOUR_MS
@@ -108,7 +108,7 @@ def candle_row(candle: Candle) -> dict[str, Any]:
 
 
 def export_trading_summary_as_csv(filters: Filters, summary: TradingSummary, symbol: str) -> None:
-    base_asset, quote_asset = unpack_symbol(symbol)
+    base_asset, quote_asset = unpack_assets(symbol)
 
     with open('tradesheet.csv', 'w', newline='') as csvfile:
         fieldnames = ['Date', 'Buy', 'Sell', 'Units', 'Value Per Unit']

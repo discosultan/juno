@@ -21,7 +21,7 @@ from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
 from juno.math import ceil_multiple, round_down, round_half_up
 from juno.time import HOUR_MS, MIN_MS, YEAR_MS, strftimestamp, time_ms
-from juno.utils import extract_public, unpack_symbol
+from juno.utils import extract_public, unpack_assets, unpack_base_asset, unpack_quote_asset
 
 _log = logging.getLogger(__name__)
 
@@ -70,7 +70,10 @@ class Position(ModuleType):
 
         @property
         def base_gain(self) -> Decimal:
-            return Fill.total_size(self.open_fills) - Fill.total_fee(self.open_fills)
+            return (
+                Fill.total_size(self.open_fills)
+                - Fill.total_fee(self.open_fills, unpack_base_asset(self.symbol))
+            )
 
         @property
         def base_cost(self) -> Decimal:
@@ -78,7 +81,10 @@ class Position(ModuleType):
 
         @property
         def gain(self) -> Decimal:
-            return Fill.total_quote(self.close_fills) - Fill.total_fee(self.close_fills)
+            return (
+                Fill.total_quote(self.close_fills)
+                - Fill.total_fee(self.close_fills, unpack_quote_asset(self.symbol))
+            )
 
         @property
         def profit(self) -> Decimal:
@@ -96,7 +102,7 @@ class Position(ModuleType):
         def dust(self) -> Decimal:
             return (
                 Fill.total_size(self.open_fills)
-                - Fill.total_fee(self.open_fills)
+                - Fill.total_fee(self.open_fills, unpack_base_asset(self.symbol))
                 - Fill.total_size(self.close_fills)
             )
 
@@ -133,7 +139,10 @@ class Position(ModuleType):
 
         @property
         def base_gain(self) -> Decimal:
-            return Fill.total_size(self.fills) - Fill.total_fee(self.fills)
+            return (
+                Fill.total_size(self.fills)
+                - Fill.total_fee(self.fills, unpack_base_asset(self.symbol))
+            )
 
     @dataclass
     class Short:
@@ -167,7 +176,7 @@ class Position(ModuleType):
         def gain(self) -> Decimal:
             return (
                 Fill.total_quote(self.open_fills)
-                - Fill.total_fee(self.open_fills)
+                - Fill.total_fee(self.open_fills, unpack_quote_asset(self.symbol))
                 + self.collateral
                 - Fill.total_quote(self.close_fills)
             )
@@ -226,7 +235,10 @@ class Position(ModuleType):
             )
 
         def quote_delta(self) -> Decimal:
-            return Fill.total_quote(self.fills) - Fill.total_fee(self.fills)
+            return (
+                Fill.total_quote(self.fills)
+                - Fill.total_fee(self.fills, unpack_quote_asset(self.symbol))
+            )
 
         @property
         def cost(self) -> Decimal:
@@ -242,6 +254,7 @@ class Position(ModuleType):
 
 
 # TODO: both positions and candles could theoretically grow infinitely
+# TODO: include fees from other than base and quote assets (BNB, for example)
 @dataclass
 class TradingSummary:
     start: Timestamp
@@ -475,7 +488,7 @@ class SimulatedPositionMixin(ABC):
         self, exchange: str, symbol: str, time: Timestamp, price: Decimal, quote: Decimal,
         log: bool = True
     ) -> Position.OpenLong:
-        base_asset, _ = unpack_symbol(symbol)
+        base_asset, _ = unpack_assets(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
 
         size = filters.size.round_down(quote / price)
@@ -500,7 +513,7 @@ class SimulatedPositionMixin(ABC):
         self, position: Position.OpenLong, time: Timestamp, price: Decimal, reason: CloseReason,
         log: bool = True
     ) -> Position.Long:
-        _, quote_asset = unpack_symbol(position.symbol)
+        _, quote_asset = unpack_assets(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
 
         size = filters.size.round_down(position.base_gain)
@@ -525,7 +538,7 @@ class SimulatedPositionMixin(ABC):
         self, exchange: str, symbol: str, time: Timestamp, price: Decimal, collateral: Decimal,
         log: bool = True
     ) -> Position.OpenShort:
-        base_asset, quote_asset = unpack_symbol(symbol)
+        base_asset, quote_asset = unpack_assets(symbol)
         fees, filters = self.informant.get_fees_filters(exchange, symbol)
         limit = self.informant.get_borrow_info(
             exchange=exchange, asset=base_asset, account=symbol
@@ -557,7 +570,7 @@ class SimulatedPositionMixin(ABC):
         self, position: Position.OpenShort, time: Timestamp, price: Decimal,
         reason: CloseReason, log: bool = True
     ) -> Position.Short:
-        base_asset, _ = unpack_symbol(position.symbol)
+        base_asset, _ = unpack_assets(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
         borrow_info = self.informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
@@ -664,7 +677,7 @@ class PositionMixin(ABC):
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f'opening {symbol} {mode.name} short position with {collateral} collateral')
 
-        base_asset, quote_asset = unpack_symbol(symbol)
+        base_asset, quote_asset = unpack_assets(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
         # TODO: We could get a maximum margin multiplier from the exchange and use that but use the
         # lowers multiplier for now for reduced risk.
@@ -765,7 +778,7 @@ class PositionMixin(ABC):
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
         _log.info(f'closing {position.symbol} {mode.name} short position')
 
-        base_asset, quote_asset = unpack_symbol(position.symbol)
+        base_asset, quote_asset = unpack_assets(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
         borrow_info = self.informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol

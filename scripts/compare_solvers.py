@@ -12,7 +12,7 @@ from juno.solvers import Python, Rust, Solver
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.traders import Basic, BasicConfig
 from juno.typing import TypeConstructor
-from juno.utils import extract_public, unpack_symbol
+from juno.utils import extract_public, unpack_assets
 
 SYMBOL = 'eth-btc'
 INTERVAL = time.DAY_MS
@@ -55,7 +55,7 @@ def _take_profit(
 async def main() -> None:
     start = floor_multiple(START, INTERVAL)
     end = floor_multiple(END, INTERVAL)
-    base_asset, quote_asset = unpack_symbol(SYMBOL)
+    base_asset, quote_asset = unpack_assets(SYMBOL)
 
     storage = storages.SQLite()
     binance = init_instance(exchanges.Binance, from_env())

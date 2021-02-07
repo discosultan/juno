@@ -1,6 +1,5 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
-from juno.errors import BadOrder
 
 import aiohttp
 import pytest

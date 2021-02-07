@@ -7,7 +7,7 @@ import pandas as pd
 
 from juno.math import floor_multiple
 from juno.time import DAY_MS
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 from .trading import TradingSummary
 
@@ -78,7 +78,7 @@ def _get_trades_from_summary(
 ) -> dict[int, list[tuple[str, Decimal]]]:
     trades: dict[int, list[tuple[str, Decimal]]] = defaultdict(list)
     for pos in summary.get_positions():
-        base_asset, quote_asset = unpack_symbol(pos.symbol)
+        base_asset, quote_asset = unpack_assets(pos.symbol)
         # Open.
         time = floor_multiple(pos.open_time, interval)
         day_trades = trades[time]

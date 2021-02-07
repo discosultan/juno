@@ -18,7 +18,7 @@ from juno.trading import (
     TradingMode, TradingSummary
 )
 from juno.typing import TypeConstructor
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 from .trader import Trader
 
@@ -48,11 +48,11 @@ class BasicConfig:
 
     @property
     def base_asset(self) -> str:
-        return unpack_symbol(self.symbol)[0]
+        return unpack_assets(self.symbol)[0]
 
     @property
     def quote_asset(self) -> str:
-        return unpack_symbol(self.symbol)[1]
+        return unpack_assets(self.symbol)[1]
 
 
 @dataclass

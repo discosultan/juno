@@ -16,7 +16,7 @@ from juno.storages import SQLite
 from juno.time import DAY_MS, HOUR_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.typing import TypeConstructor
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 SYMBOL = 'eth-btc'
 INTERVAL = HOUR_MS
@@ -39,7 +39,7 @@ async def main() -> None:
     trader = Basic(informant=informant, chandler=chandler, exchanges=exchanges)
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
-    base_asset, quote_asset = unpack_symbol(SYMBOL)
+    base_asset, quote_asset = unpack_assets(SYMBOL)
     async with binance, coinbase, informant:
         trader_state = await trader.initialize(BasicConfig(
             exchange='binance',

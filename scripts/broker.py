@@ -7,7 +7,7 @@ from juno import Balance, Fill, Side, brokers, exchanges
 from juno.components import Informant, Orderbook, User
 from juno.config import from_env, init_instance
 from juno.storages import SQLite
-from juno.utils import get_module_type, unpack_symbol
+from juno.utils import get_module_type, unpack_assets
 
 parser = argparse.ArgumentParser()
 parser.add_argument('side', nargs='?', type=lambda s: Side[s.upper()])
@@ -55,7 +55,7 @@ async def transact_symbol(
     balances: dict[str, Balance],
     symbol: str,
 ) -> None:
-    base_asset, quote_asset = unpack_symbol(symbol)
+    base_asset, quote_asset = unpack_assets(symbol)
     fees, filters = informant.get_fees_filters(args.exchange, symbol)
 
     available_base = balances[base_asset].available
@@ -110,10 +110,10 @@ async def transact_symbol(
     logging.info(f'{args.account} {args.side.name} {symbol}')
     logging.info(f'total size: {Fill.total_size(res.fills)}')
     logging.info(f'total quote: {Fill.total_quote(res.fills)}')
-    logging.info(f'total fee: {Fill.total_fee(res.fills)}')
+    logging.info(f'total fee(s): {Fill.all_fees(res.fills)}')
     logging.info(f'in case of market order total size: {Fill.total_size(market_fills)}')
     logging.info(f'in case of market order total quote: {Fill.total_quote(market_fills)}')
-    logging.info(f'in case of market order total fee: {Fill.total_fee(market_fills)}')
+    logging.info(f'in case of market order total fee(s): {Fill.all_fees(market_fills)}')
 
 
 asyncio.run(main())

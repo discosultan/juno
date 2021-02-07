@@ -26,7 +26,7 @@ from juno.itertools import page
 from juno.math import round_half_up
 from juno.time import datetime_timestamp_ms
 from juno.typing import ExcType, ExcValue, Traceback
-from juno.utils import AsyncLimiter, unpack_symbol
+from juno.utils import AsyncLimiter, unpack_assets
 
 from .exchange import Exchange
 
@@ -204,7 +204,7 @@ class Coinbase(Exchange):
         assert account == 'spot'
 
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
-            base_asset, quote_asset = unpack_symbol(symbol)
+            base_asset, quote_asset = unpack_assets(symbol)
             async for data in ws:
                 type_ = data['type']
                 if type_ == 'received':

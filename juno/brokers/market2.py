@@ -5,7 +5,7 @@ from typing import Callable, Optional
 
 from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.components import Informant, Orderbook, User
-from juno.utils import unpack_symbol
+from juno.utils import unpack_assets
 
 from .broker import Broker
 
@@ -41,7 +41,7 @@ class Market2(Broker):
         assert not test
         Broker.validate_funds(size, quote)
 
-        base_asset, quote_asset = unpack_symbol(symbol)
+        base_asset, quote_asset = unpack_assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
         if size is not None:

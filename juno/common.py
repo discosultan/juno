@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
@@ -153,13 +154,15 @@ class Fill(NamedTuple):
         return sum((f.quote for f in fills), Decimal('0.0'))
 
     @staticmethod
-    def total_fee(fills: list[Fill]) -> Decimal:
-        # Note that we may easily have different fee assets per order when utility tokens such as
-        # BNB are used.
-        if len({f.fee_asset for f in fills}) > 1:
-            raise NotImplementedError('Implement support for different fee assets')
+    def total_fee(fills: list[Fill], asset: str) -> Decimal:
+        return sum((f.fee for f in fills if f.fee_asset == asset), Decimal('0.0'))
 
-        return sum((f.fee for f in fills), Decimal('0.0'))
+    @staticmethod
+    def all_fees(fills: list[Fill]) -> dict[str, Decimal]:
+        res: dict[str, Decimal] = defaultdict(lambda: Decimal('0.0'))
+        for fill in fills:
+            res[fill.fee_asset] += fill.fee
+        return dict(res)
 
     @staticmethod
     def expected_quote(fills: list[Fill], precision: int) -> Decimal:
