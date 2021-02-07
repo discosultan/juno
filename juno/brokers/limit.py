@@ -5,7 +5,10 @@ import uuid
 from decimal import Decimal
 from typing import AsyncIterable, Callable, Optional
 
-from juno import Fill, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
+from juno import (
+    BadOrder, Fill, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate,
+    OrderWouldBeTaker, Side
+)
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook, User
 from juno.utils import unpack_symbol
@@ -183,7 +186,7 @@ class Limit(Broker):
 
             try:
                 await asyncio.gather(keep_limit_order_best_task, track_fills_task)
-            except OrderException:
+            except BadOrder:
                 await cancel(keep_limit_order_best_task, track_fills_task)
                 raise
             except _FilledFromKeepAtBest:
@@ -291,7 +294,7 @@ class Limit(Broker):
                     try:
                         filters.size.validate(size)
                         filters.min_notional.validate_limit(price=price, size=size)
-                    except OrderException as e:
+                    except BadOrder as e:
                         _log.info(f'{symbol} {side.name} price / size no longer valid: {e}')
                         if ensure_size and Fill.total_size(ctx.fills) < ctx.original:
                             size = filters.min_size(price)
@@ -311,7 +314,7 @@ class Limit(Broker):
                         size=size,
                         client_id=ctx.client_id,
                     )
-                except OrderException:
+                except OrderWouldBeTaker:
                     # Order would immediately match and take. Retry.
                     continue
 
@@ -364,7 +367,7 @@ class Limit(Broker):
                 account=account,
             )
             return True
-        except OrderException as exc:
+        except OrderMissing as exc:
             _log.warning(
                 f'failed to cancel {symbol} order {client_id}; probably got filled; {exc}'
             )

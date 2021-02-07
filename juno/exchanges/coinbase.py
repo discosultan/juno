@@ -15,9 +15,9 @@ from typing import Any, AsyncContextManager, AsyncIterable, AsyncIterator, Optio
 from dateutil.tz import UTC
 
 from juno import (
-    AssetInfo, Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill, Filters,
-    OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker, TimeInForce,
-    Trade, json
+    AssetInfo, BadOrder, Balance, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
+    Filters, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
+    TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, merge_async, stream_queue
 from juno.filters import Price, Size
@@ -301,7 +301,11 @@ class Coinbase(Exchange):
         if type_ is OrderType.LIMIT_MAKER:
             data['post_only'] = True
 
-        _, content = await self._private_request('POST', '/orders', data=data)
+        response, content = await self._private_request('POST', '/orders', data=data)
+
+        if response.status == 400:
+            raise BadOrder(content['message'])
+
         # Does not support returning fills straight away. Need to listen through WS.
         return OrderResult(status=OrderStatus.NEW, time=_from_datetime(content['created_at']))
 
@@ -317,7 +321,7 @@ class Coinbase(Exchange):
             'product_id': _to_product(symbol),
         })
         if response.status == 404:
-            raise OrderException(content.data['message'])
+            raise OrderMissing(content['message'])
 
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int

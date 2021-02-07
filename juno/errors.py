@@ -2,5 +2,13 @@ class ExchangeException(Exception):
     pass
 
 
-class OrderException(Exception):
+class OrderWouldBeTaker(Exception):
+    pass
+
+
+class OrderMissing(Exception):
+    pass
+
+
+class BadOrder(Exception):
     pass

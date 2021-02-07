@@ -4,7 +4,7 @@ import logging
 from decimal import Decimal
 from typing import Awaitable, Callable
 
-from juno import Fill, OrderException, Side, brokers, exchanges
+from juno import BadOrder, Fill, Side, brokers, exchanges
 from juno.brokers import Limit
 from juno.common import OrderResult
 from juno.components import Informant, Orderbook, User
@@ -86,7 +86,7 @@ async def transact_symbol(
                     size=transact_size,
                     test=False,
                 )
-            except OrderException:
+            except BadOrder:
                 break
             size -= Fill.total_size(res.fills)
             fills.extend(res.fills)

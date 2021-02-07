@@ -1,12 +1,15 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from juno.errors import BadOrder
 
 import aiohttp
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
 import juno
-from juno import Balance, Candle, Depth, ExchangeInfo, Ticker, Trade
+from juno import (
+    BadOrder, Balance, Candle, Depth, ExchangeInfo, OrderMissing, OrderType, Side, Ticker, Trade
+)
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, Kraken
@@ -237,6 +240,38 @@ async def test_connect_stream_trades(loop, request, exchange: Exchange) -> None:
         async for trade in stream:
             assert types_match(trade, Trade)
             break
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_place_order_bad_order(loop, request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+    skip_exchange(exchange, Kraken)
+
+    with pytest.raises(BadOrder):
+        await exchange.place_order(
+            account='spot',
+            symbol='eth-btc',
+            side=Side.BUY,
+            type_=OrderType.MARKET,
+            size=Decimal('0.0'),
+        )
+
+
+@pytest.mark.exchange
+@pytest.mark.manual
+@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+async def test_cancel_order_order_missing(loop, request, exchange: Exchange) -> None:
+    skip_not_configured(request, exchange)
+    skip_exchange(exchange, Kraken)
+
+    with pytest.raises(OrderMissing):
+        await exchange.cancel_order(
+            account='spot',
+            symbol='eth-btc',
+            client_id='10f95b36-7ba0-441a-b0a8-72dc4d86cc3f',
+        )
 
 
 def skip_not_configured(request, exchange):

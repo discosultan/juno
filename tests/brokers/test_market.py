@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from juno import Depth, ExchangeInfo, Fees, Fill, OrderException, OrderResult, OrderStatus
+from juno import BadOrder, Depth, ExchangeInfo, Fees, Fill, OrderResult, OrderStatus
 from juno.brokers import Market
 from juno.components import Informant, Orderbook, User
 from juno.exchanges import Exchange
@@ -31,7 +31,7 @@ async def test_insufficient_balance() -> None:
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
         # Should raise because size filter min is 0.2.
-        with pytest.raises(OrderException):
+        with pytest.raises(BadOrder):
             await broker.buy(
                 exchange='exchange',
                 account='spot',

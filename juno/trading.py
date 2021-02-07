@@ -16,7 +16,7 @@ from tenacity import (
     wait_exponential
 )
 
-from juno import Balance, Candle, Fees, Fill, Filters, Interval, OrderException, Timestamp
+from juno import BadOrder, Balance, Candle, Fees, Fill, Filters, Interval, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
 from juno.math import ceil_multiple, round_down, round_half_up
@@ -480,7 +480,7 @@ class SimulatedPositionMixin(ABC):
 
         size = filters.size.round_down(quote / price)
         if size == 0:
-            raise OrderException()
+            raise BadOrder()
         quote = round_down(price * size, filters.quote_precision)
         fee = round_half_up(size * fees.taker, filters.base_precision)
 
@@ -913,10 +913,10 @@ def _calculate_borrowed(
 ) -> Decimal:
     collateral_size = filters.size.round_down(collateral / price)
     if collateral_size == 0:
-        raise OrderException('Collateral base size 0')
+        raise BadOrder('Collateral base size 0')
     borrowed = collateral_size * (margin_multiplier - 1)
     if borrowed == 0:
-        raise OrderException('Borrowed 0; incorrect margin multiplier?')
+        raise BadOrder('Borrowed 0; incorrect margin multiplier?')
     return min(borrowed, limit)
 
 

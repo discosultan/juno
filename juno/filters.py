@@ -4,7 +4,7 @@
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 
-from .errors import OrderException
+from .errors import BadOrder
 from .math import round_half_up
 
 
@@ -78,7 +78,7 @@ class Size:
 
     def validate(self, size: Decimal) -> None:
         if not self.valid(size):
-            raise OrderException(
+            raise BadOrder(
                 f'Size {size} must be between [{self.min}; {self.max}] with a step of {self.step}'
             )
 
@@ -98,7 +98,7 @@ class MinNotional:
 
     def validate_limit(self, price: Decimal, size: Decimal) -> None:
         if not self.valid(price, size):
-            raise OrderException(
+            raise BadOrder(
                 f'Price {price} * size {size} ({price * size}) must be between '
                 f'[{self.min_notional}; inf]'
             )

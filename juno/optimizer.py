@@ -11,7 +11,7 @@ from typing import Any, Callable, NamedTuple, Optional
 
 from deap import base, tools
 
-from juno import Interval, MissedCandlePolicy, OrderException, Timestamp, stop_loss, take_profit
+from juno import BadOrder, Interval, MissedCandlePolicy, Timestamp, stop_loss, take_profit
 from juno.components import Chandler, Informant, Prices
 from juno.constraints import Choice, Constant, Constraint, ConstraintChoice, Uniform
 from juno.deap import cx_uniform, ea_mu_plus_lambda, mut_individual
@@ -326,7 +326,7 @@ class Optimizer(StartMixin):
         trader_state = await self._trader.initialize(trading_config)
         try:
             await self._trader.run(trader_state)
-        except OrderException as e:
+        except BadOrder as e:
             _log.warning(f'trader stopped with exception: {e}')
         assert trader_state.summary
         portfolio_summary = analyse_portfolio(

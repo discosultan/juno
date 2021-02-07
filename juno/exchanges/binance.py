@@ -19,9 +19,9 @@ from tenacity import (
 )
 
 from juno import (
-    AssetInfo, Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
-    Order, OrderException, OrderResult, OrderStatus, OrderType, OrderUpdate, Side, Ticker,
-    TimeInForce, Trade, json
+    AssetInfo, BadOrder, Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees,
+    Fill, Order, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, OrderWouldBeTaker,
+    Side, Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
@@ -847,18 +847,22 @@ class Binance(Exchange):
                     # want to wait for a some kind of a successful health check before retrying.
                     raise ExchangeException(error_msg)
                 elif error_code == _ERR_CANCEL_REJECTED:
-                    raise OrderException(error_msg)
+                    raise OrderMissing(error_msg)
                 elif error_code in {_ERR_NEW_ORDER_REJECTED, _ERR_MARGIN_NEW_ORDER_REJECTED}:
-                    raise OrderException(error_msg)
+                    if error_msg == 'Order would immediately match and take.':
+                        raise OrderWouldBeTaker(error_msg)
+                    else:
+                        # For example: 'Account has insufficient balance for requested action.'
+                        raise BadOrder(error_msg)
                 elif error_code == _ERR_ISOLATED_MARGIN_ACCOUNT_DOES_NOT_EXIST:
                     raise ExchangeException(error_msg)
                 elif error_code == _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS:
                     raise ExchangeException(error_msg)
                 # TODO: Check only specific error codes.
                 elif error_code <= -9000:  # Filter error.
-                    raise OrderException(error_msg)
+                    raise BadOrder(error_msg)
                 elif error_code == -1013:  # TODO: Not documented but also a filter error O_o
-                    raise OrderException(error_msg)
+                    raise BadOrder(error_msg)
                 elif error_code == _ERR_TOO_MANY_REQUESTS:
                     if (retry_after := res.headers.get('Retry-After')):
                         _log.info(f'server provided retry-after {retry_after}; sleeping')

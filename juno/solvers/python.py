@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Optional
 
-from juno import Advice, Candle, MissedCandlePolicy, OrderException, stop_loss, take_profit
+from juno import Advice, BadOrder, Candle, MissedCandlePolicy, stop_loss, take_profit
 from juno.components import Informant
 from juno.statistics import analyse_portfolio
 from juno.strategies import Changed, Strategy
@@ -97,7 +97,7 @@ class Python(Solver, SimulatedPositionMixin):
                         config, state, state.last_candle, CloseReason.CANCELLED
                     )
 
-        except OrderException:
+        except BadOrder:
             pass
 
         state.summary.finish(config.candles[-1].time + config.interval)
