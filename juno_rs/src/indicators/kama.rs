@@ -1,6 +1,12 @@
 use super::MA;
 use bounded_vec_deque::BoundedVecDeque;
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct KamaParams {
+    pub period: u32,
+}
 
 pub struct Kama {
     pub value: f64,
@@ -17,19 +23,20 @@ pub struct Kama {
 }
 
 impl Kama {
-    pub fn new(period: u32) -> Self {
+    pub fn new(params: &KamaParams) -> Self {
+        assert!(params.period > 0);
         Self {
             value: 0.0,
 
             short_alpha: 2.0 / (2.0 + 1.0),
             long_alpha: 2.0 / (30.0 + 1.0),
 
-            prices: BoundedVecDeque::new(period as usize),
-            diffs: BoundedVecDeque::new(period as usize),
+            prices: BoundedVecDeque::new(params.period as usize),
+            diffs: BoundedVecDeque::new(params.period as usize),
 
             t: 0,
-            t1: period,
-            t2: period + 1,
+            t1: params.period,
+            t2: params.period + 1,
         }
     }
 }

@@ -14,25 +14,53 @@ mod smma;
 mod stoch;
 
 pub use adx::Adx;
-pub use alma::Alma;
-pub use dema::Dema;
+pub use alma::{Alma, AlmaParams};
+pub use dema::{Dema, DemaParams};
 pub use di::DI;
 pub use dm::DM;
 pub use dx::DX;
-pub use ema::Ema;
-pub use ema2::Ema2;
-pub use kama::Kama;
+pub use ema::{Ema, EmaParams};
+pub use ema2::{Ema2, Ema2Params};
+pub use kama::{Kama, KamaParams};
 pub use macd::Macd;
 pub use rsi::Rsi;
-pub use sma::Sma;
-pub use smma::Smma;
+pub use sma::{Sma, SmaParams};
+pub use smma::{Smma, SmmaParams};
 pub use stoch::Stoch;
+
+use serde::{Deserialize, Serialize};
 
 pub trait MA: Send + Sync {
     fn maturity(&self) -> u32;
     fn mature(&self) -> bool;
     fn update(&mut self, price: f64);
     fn value(&self) -> f64;
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(tag = "type")]
+pub enum MAParams {
+    Alma(AlmaParams),
+    Dema(DemaParams),
+    Ema(EmaParams),
+    Ema2(Ema2Params),
+    Kama(KamaParams),
+    Sma(SmaParams),
+    Smma(SmmaParams),
+}
+
+impl MAParams {
+    pub fn construct(&self) -> Box<dyn MA> {
+        match self {
+            MAParams::Sma(params) => Box::new(Sma::new(params)),
+            MAParams::Alma(params) => Box::new(Alma::new(params)),
+            MAParams::Dema(params) => Box::new(Dema::new(params)),
+            MAParams::Ema(params) => Box::new(Ema::new(params)),
+            MAParams::Ema2(params) => Box::new(Ema2::new(params)),
+            MAParams::Kama(params) => Box::new(Kama::new(params)),
+            MAParams::Smma(params) => Box::new(Smma::new(params)),
+        }
+    }
 }
 
 pub mod adler32 {
@@ -58,13 +86,20 @@ pub const MA_CHOICES: [u32; 7] = [
 
 pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     match code {
-        adler32::ALMA => Box::new(Alma::new(period)),
-        adler32::EMA => Box::new(Ema::new(period)),
-        adler32::EMA2 => Box::new(Ema2::new(period)),
-        adler32::SMA => Box::new(Sma::new(period)),
-        adler32::SMMA => Box::new(Smma::new(period)),
-        adler32::DEMA => Box::new(Dema::new(period)),
-        adler32::KAMA => Box::new(Kama::new(period)),
+        adler32::ALMA => Box::new(Alma::new(&AlmaParams {
+            period,
+            offset: 0.85,
+            sigma: None,
+        })),
+        adler32::EMA => Box::new(Ema::new(&EmaParams {
+            period,
+            smoothing: None,
+        })),
+        adler32::EMA2 => Box::new(Ema2::new(&Ema2Params { period })),
+        adler32::SMA => Box::new(Sma::new(&SmaParams { period })),
+        adler32::SMMA => Box::new(Smma::new(&SmmaParams { period })),
+        adler32::DEMA => Box::new(Dema::new(&DemaParams { period })),
+        adler32::KAMA => Box::new(Kama::new(&KamaParams { period })),
         _ => panic!(format!("indicator {} not supported", code)),
     }
 }

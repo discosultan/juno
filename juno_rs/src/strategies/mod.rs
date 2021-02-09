@@ -10,6 +10,8 @@ mod single_ma;
 mod stoch;
 mod triple_ma;
 
+use std::ops::Range;
+
 pub use double_ma::{DoubleMA, DoubleMAParams, DoubleMAParamsContext};
 pub use double_ma_2::{DoubleMA2, DoubleMA2Params};
 pub use double_ma_stoch::{DoubleMAStoch, DoubleMAStochParams};
@@ -24,7 +26,10 @@ pub use triple_ma::{TripleMA, TripleMAParams};
 
 use crate::{
     genetics::Chromosome,
-    indicators::{adler32, MA_CHOICES},
+    indicators::{
+        adler32, AlmaParams, DemaParams, Ema2Params, EmaParams, KamaParams, MAParams, SmaParams,
+        SmmaParams, MA_CHOICES,
+    },
     Advice, Candle,
 };
 use rand::prelude::*;
@@ -53,12 +58,44 @@ pub trait Signal: Strategy {
 }
 
 pub trait StdRngExt {
+    // TODO: remove
     fn gen_ma(&mut self) -> u32;
+    fn gen_ma_params(&mut self, period: Range<u32>) -> MAParams;
 }
 
 impl StdRngExt for StdRng {
     fn gen_ma(&mut self) -> u32 {
         MA_CHOICES[self.gen_range(0..MA_CHOICES.len())]
+    }
+
+    fn gen_ma_params(&mut self, period: Range<u32>) -> MAParams {
+        match self.gen_range(0..7) {
+            0 => MAParams::Alma(AlmaParams {
+                period: self.gen_range(period),
+                offset: 0.85,
+                sigma: None,
+            }),
+            1 => MAParams::Dema(DemaParams {
+                period: self.gen_range(period),
+            }),
+            2 => MAParams::Ema(EmaParams {
+                period: self.gen_range(period),
+                smoothing: None,
+            }),
+            3 => MAParams::Ema2(Ema2Params {
+                period: self.gen_range(period),
+            }),
+            4 => MAParams::Kama(KamaParams {
+                period: self.gen_range(period),
+            }),
+            5 => MAParams::Sma(SmaParams {
+                period: self.gen_range(period),
+            }),
+            6 => MAParams::Smma(SmmaParams {
+                period: self.gen_range(period),
+            }),
+            _ => panic!(),
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-use super::{smma::Smma, MA};
+use super::{smma::{Smma, SmmaParams}, MA};
 use std::cmp::min;
 
 pub struct Rsi {
@@ -17,8 +17,8 @@ impl Rsi {
     pub fn new(period: u32) -> Self {
         Self {
             value: 0.0,
-            mean_down: Smma::new(period),
-            mean_up: Smma::new(period),
+            mean_down: Smma::new(&SmmaParams { period }),
+            mean_up: Smma::new(&SmmaParams { period }),
             last_price: 0.0,
             t: 0,
             t1: period + 1,
