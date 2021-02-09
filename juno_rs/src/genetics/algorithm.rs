@@ -163,7 +163,7 @@ where
         self.evaluate_and_sort_by_fitness_desc(offsprings, timings);
         // reinsert
         self.reinsertion
-            .reinsert(parents, offsprings, population_size)
+            .reinsert(rng, parents, offsprings, population_size, ctx)
     }
 
     fn evaluate_and_sort_by_fitness_desc(

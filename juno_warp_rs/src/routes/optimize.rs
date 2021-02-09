@@ -195,7 +195,7 @@ where
         // selection::GenerateRandomSelection {}, // For random search.
         crossover::UniformCrossover::new(0.5),
         mutation::UniformMutation::new(0.25),
-        reinsertion::EliteReinsertion::new(0.75),
+        reinsertion::EliteReinsertion::new(0.75, 0.5),
         // reinsertion::PureReinsertion {}, // For random search.
     );
     let evolution = algo.evolve(

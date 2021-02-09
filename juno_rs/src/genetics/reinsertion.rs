@@ -1,25 +1,33 @@
 use super::{Chromosome, Individual};
+use rand::prelude::*;
 
 pub trait Reinsertion {
     fn selection_rate(&self) -> f32;
 
     fn reinsert<T: Chromosome>(
         &self,
+        rng: &mut StdRng,
         parents: &[Individual<T>],
         offsprings: &mut Vec<Individual<T>>,
         population_size: usize,
+        ctx: &T::Context,
     );
 }
 
 // Produce less offspring than parents and replace the worst parents.
 pub struct EliteReinsertion {
     selection_rate: f32,
+    generation_rate: f32,
 }
 
 impl EliteReinsertion {
-    pub fn new(selection_rate: f32) -> Self {
+    pub fn new(selection_rate: f32, generation_rate: f32) -> Self {
         assert!(0.0 < selection_rate && selection_rate < 1.0);
-        Self { selection_rate }
+        assert!(0.0 <= generation_rate && generation_rate <= 1.0);
+        Self {
+            selection_rate,
+            generation_rate,
+        }
     }
 }
 
@@ -27,6 +35,7 @@ impl Default for EliteReinsertion {
     fn default() -> Self {
         Self {
             selection_rate: 0.75,
+            generation_rate: 0.0,
         }
     }
 }
@@ -38,15 +47,24 @@ impl Reinsertion for EliteReinsertion {
 
     fn reinsert<T: Chromosome>(
         &self,
+        rng: &mut StdRng,
         parents: &[Individual<T>],
         offsprings: &mut Vec<Individual<T>>,
         population_size: usize,
+        ctx: &T::Context,
     ) {
-        assert!(offsprings.len() < population_size);
+        debug_assert!(offsprings.len() < population_size);
 
         // Both parents and offsprings are assumed to be ordered by fitness desc.
         let diff = population_size - offsprings.len();
-        offsprings.extend_from_slice(&parents[..diff as usize]);
+
+        let num_gen = (diff as f32 * self.generation_rate) as usize;
+        let num_parents = diff - num_gen;
+
+        offsprings.extend_from_slice(&parents[..num_parents as usize]);
+        for _ in 0..num_gen {
+            offsprings.push(Individual::generate(rng, ctx));
+        }
         offsprings.sort_by(Individual::fitness_desc);
     }
 }
@@ -78,11 +96,13 @@ impl Reinsertion for FitnessReinsertion {
 
     fn reinsert<T: Chromosome>(
         &self,
+        _rng: &mut StdRng,
         _parents: &[Individual<T>],
         offsprings: &mut Vec<Individual<T>>,
         population_size: usize,
+        _ctx: &T::Context,
     ) {
-        assert!(offsprings.len() > population_size);
+        debug_assert!(offsprings.len() > population_size);
 
         // Offsprings are assumed to be ordered by fitness desc.
         let diff = offsprings.len() - population_size;
@@ -102,10 +122,12 @@ impl Reinsertion for PureReinsertion {
 
     fn reinsert<T: Chromosome>(
         &self,
+        _rng: &mut StdRng,
         _parents: &[Individual<T>],
         offsprings: &mut Vec<Individual<T>>,
         population_size: usize,
+        _ctx: &T::Context,
     ) {
-        assert_eq!(offsprings.len(), population_size)
+        debug_assert_eq!(offsprings.len(), population_size)
     }
 }
