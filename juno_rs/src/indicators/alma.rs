@@ -3,7 +3,7 @@ use bounded_vec_deque::BoundedVecDeque;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct AlmaParams {
     pub offset: f64, // 0.85
     pub period: u32,

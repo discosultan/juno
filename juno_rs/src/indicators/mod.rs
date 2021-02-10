@@ -28,6 +28,7 @@ pub use sma::{Sma, SmaParams};
 pub use smma::{Smma, SmmaParams};
 pub use stoch::Stoch;
 
+use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
 pub trait MA: Send + Sync {
@@ -37,7 +38,7 @@ pub trait MA: Send + Sync {
     fn value(&self) -> f64;
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum MAParams {
     Alma(AlmaParams),
@@ -59,6 +60,50 @@ impl MAParams {
             MAParams::Ema2(params) => Box::new(Ema2::new(params)),
             MAParams::Kama(params) => Box::new(Kama::new(params)),
             MAParams::Smma(params) => Box::new(Smma::new(params)),
+        }
+    }
+
+    pub fn period(&self) -> u32 {
+        match self {
+            MAParams::Sma(params) => params.period,
+            MAParams::Alma(params) => params.period,
+            MAParams::Dema(params) => params.period,
+            MAParams::Ema(params) => params.period,
+            MAParams::Ema2(params) => params.period,
+            MAParams::Kama(params) => params.period,
+            MAParams::Smma(params) => params.period,
+        }
+    }
+}
+
+pub trait StdRngExt {
+    // TODO: remove
+    fn gen_ma(&mut self) -> u32;
+    fn gen_ma_params(&mut self, period: u32) -> MAParams;
+}
+
+impl StdRngExt for StdRng {
+    fn gen_ma(&mut self) -> u32 {
+        MA_CHOICES[self.gen_range(0..MA_CHOICES.len())]
+    }
+
+    fn gen_ma_params(&mut self, period: u32) -> MAParams {
+        match self.gen_range(0..7) {
+            0 => MAParams::Alma(AlmaParams {
+                period,
+                offset: 0.85,
+                sigma: None,
+            }),
+            1 => MAParams::Dema(DemaParams { period }),
+            2 => MAParams::Ema(EmaParams {
+                period,
+                smoothing: None,
+            }),
+            3 => MAParams::Ema2(Ema2Params { period }),
+            4 => MAParams::Kama(KamaParams { period }),
+            5 => MAParams::Sma(SmaParams { period }),
+            6 => MAParams::Smma(SmmaParams { period }),
+            _ => panic!(),
         }
     }
 }

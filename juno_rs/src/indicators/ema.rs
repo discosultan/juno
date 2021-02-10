@@ -2,7 +2,7 @@ use super::MA;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct EmaParams {
     pub period: u32,
     pub smoothing: Option<f64>, // Calculated from period if None.

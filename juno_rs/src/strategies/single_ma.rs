@@ -1,7 +1,7 @@
-use super::{Signal, StdRngExt, Strategy, StrategyMeta};
+use super::{Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    indicators::{MAParams, MA},
+    indicators::{MAParams, MA, StdRngExt},
     Advice, Candle,
 };
 use juno_derive_rs::*;
@@ -16,7 +16,8 @@ pub struct SingleMAParams {
 }
 
 fn ma(rng: &mut StdRng) -> MAParams {
-    rng.gen_ma_params(1..100)
+    let period = rng.gen_range(1..100);
+    rng.gen_ma_params(period)
 }
 
 #[derive(Signal)]

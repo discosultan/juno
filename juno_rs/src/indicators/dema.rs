@@ -2,7 +2,7 @@ use super::{ema::{Ema, EmaParams}, MA};
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct DemaParams {
     pub period: u32,
 }
