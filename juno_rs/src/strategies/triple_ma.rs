@@ -1,7 +1,7 @@
 use super::{Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    indicators::{MAParams, StdRngExt, MA},
+    indicators::{MAParams, MAExt, MA},
     Advice, Candle,
 };
 use juno_derive_rs::*;

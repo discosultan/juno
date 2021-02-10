@@ -1,7 +1,7 @@
 use super::{Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    indicators::{self, MAParams, StdRngExt},
+    indicators::{self, MAParams, MAExt},
     itertools::IteratorExt,
     Advice, Candle,
 };

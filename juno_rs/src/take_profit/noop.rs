@@ -4,15 +4,15 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct NoopParams {}
 
 pub struct Noop {}
 
-impl TakeProfit for Noop {
-    type Params = NoopParams;
-
-    fn new(_params: &Self::Params) -> Self {
+impl Noop {
+    pub fn new(_params: &NoopParams) -> Self {
         Self {}
     }
 }
+
+impl TakeProfit for Noop {}

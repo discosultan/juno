@@ -6,6 +6,8 @@ pub use traders::*;
 
 use crate::{
     genetics::Chromosome,
+    stop_loss::{StopLossExt, StopLossParams},
+    take_profit::{TakeProfitExt, TakeProfitParams},
     time::{deserialize_intervals, serialize_interval, serialize_intervals, serialize_timestamp},
 };
 use juno_derive_rs::*;
@@ -26,26 +28,33 @@ const MISSED_CANDLE_POLICY_CHOICES: [MissedCandlePolicy; 3] = [
     MissedCandlePolicy::Last,
 ];
 
-pub trait StdRngExt {
+pub trait MissedCandlePolicyExt {
     fn gen_missed_candle_policy(&mut self) -> MissedCandlePolicy;
 }
 
-impl StdRngExt for StdRng {
+impl MissedCandlePolicyExt for StdRng {
     fn gen_missed_candle_policy(&mut self) -> MissedCandlePolicy {
         *MISSED_CANDLE_POLICY_CHOICES.choose(self).unwrap()
     }
 }
 
 #[derive(Chromosome, Clone, Debug, Serialize)]
-pub struct TradingParams<T: Chromosome, U: Chromosome, V: Chromosome> {
+pub struct TradingParams<T: Chromosome> {
     #[chromosome]
     pub strategy: T,
     #[chromosome]
-    pub stop_loss: U,
-    #[chromosome]
-    pub take_profit: V,
-    #[chromosome]
     pub trader: TraderParams,
+    // #[chromosome]
+    pub stop_loss: StopLossParams,
+    // #[chromosome]
+    pub take_profit: TakeProfitParams,
+}
+
+fn stop_loss(rng: &mut StdRng) -> StopLossParams {
+    rng.gen_stop_loss_params()
+}
+fn take_profit(rng: &mut StdRng) -> TakeProfitParams {
+    rng.gen_take_profit_params()
 }
 
 #[derive(Clone, Debug, Serialize)]

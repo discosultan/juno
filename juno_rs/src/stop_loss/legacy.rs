@@ -4,7 +4,7 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct LegacyParams {
     pub threshold: f64,
     pub trail: bool,
@@ -31,10 +31,8 @@ pub struct Legacy {
     close: f64,
 }
 
-impl StopLoss for Legacy {
-    type Params = LegacyParams;
-
-    fn new(params: &Self::Params) -> Self {
+impl Legacy {
+    pub fn new(params: &LegacyParams) -> Self {
         Self {
             threshold: params.threshold,
             trail: params.trail,
@@ -44,7 +42,9 @@ impl StopLoss for Legacy {
             close: 0.0,
         }
     }
+}
 
+impl StopLoss for Legacy {
     fn upside_hit(&self) -> bool {
         self.threshold > 0.0
             && self.close

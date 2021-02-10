@@ -76,17 +76,11 @@ impl MAParams {
     }
 }
 
-pub trait StdRngExt {
-    // TODO: remove
-    fn gen_ma(&mut self) -> u32;
+pub trait MAExt {
     fn gen_ma_params(&mut self, period: u32) -> MAParams;
 }
 
-impl StdRngExt for StdRng {
-    fn gen_ma(&mut self) -> u32 {
-        MA_CHOICES[self.gen_range(0..MA_CHOICES.len())]
-    }
-
+impl MAExt for StdRng {
     fn gen_ma_params(&mut self, period: u32) -> MAParams {
         match self.gen_range(0..7) {
             0 => MAParams::Alma(AlmaParams {
@@ -118,16 +112,6 @@ pub mod adler32 {
     pub const DEMA: u32 = 66_978_200;
     pub const KAMA: u32 = 68_026_779;
 }
-
-pub const MA_CHOICES: [u32; 7] = [
-    adler32::ALMA,
-    adler32::EMA,
-    adler32::EMA2,
-    adler32::SMA,
-    adler32::SMMA,
-    adler32::DEMA,
-    adler32::KAMA,
-];
 
 pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
     match code {

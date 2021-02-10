@@ -87,11 +87,11 @@ static EASINGS: Lazy<HashMap<Easing, fn(f64) -> f64>> = Lazy::new(|| {
 
 static EASING_CHOICES: Lazy<Vec<Easing>> = Lazy::new(|| EASINGS.keys().map(|&k| k).collect());
 
-pub trait StdRngExt {
+pub trait EasingExt {
     fn gen_easing(&mut self) -> Easing;
 }
 
-impl StdRngExt for StdRng {
+impl EasingExt for StdRng {
     fn gen_easing(&mut self) -> Easing {
         *EASING_CHOICES.choose(self).unwrap()
     }

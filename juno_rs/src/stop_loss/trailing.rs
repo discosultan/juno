@@ -4,7 +4,7 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TrailingParams {
     pub up_threshold: f64,
     pub down_threshold: f64,
@@ -25,10 +25,8 @@ pub struct Trailing {
     close: f64,
 }
 
-impl StopLoss for Trailing {
-    type Params = TrailingParams;
-
-    fn new(params: &Self::Params) -> Self {
+impl Trailing {
+    pub fn new(params: &TrailingParams) -> Self {
         Self {
             up_threshold_factor: 1.0 - params.up_threshold,
             down_threshold_factor: 1.0 + params.down_threshold,
@@ -37,7 +35,9 @@ impl StopLoss for Trailing {
             close: 0.0,
         }
     }
+}
 
+impl StopLoss for Trailing {
     fn upside_hit(&self) -> bool {
         self.close <= self.highest_close_since_position * self.up_threshold_factor
     }

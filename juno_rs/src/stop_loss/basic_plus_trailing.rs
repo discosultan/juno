@@ -7,7 +7,7 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct BasicPlusTrailingParams {
     #[chromosome]
     pub basic: BasicParams,
@@ -20,16 +20,16 @@ pub struct BasicPlusTrailing {
     trailing: Trailing,
 }
 
-impl StopLoss for BasicPlusTrailing {
-    type Params = BasicPlusTrailingParams;
-
-    fn new(params: &Self::Params) -> Self {
+impl BasicPlusTrailing {
+    pub fn new(params: &BasicPlusTrailingParams) -> Self {
         Self {
             basic: Basic::new(&params.basic),
             trailing: Trailing::new(&params.trailing),
         }
     }
+}
 
+impl StopLoss for BasicPlusTrailing {
     fn upside_hit(&self) -> bool {
         self.basic.upside_hit() || self.trailing.upside_hit()
     }

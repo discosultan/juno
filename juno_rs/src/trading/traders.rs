@@ -1,8 +1,8 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
-    stop_loss::StopLoss,
+    stop_loss::{StopLoss, StopLossParams},
     strategies::{Signal, StrategyMeta},
-    take_profit::TakeProfit,
+    take_profit::{TakeProfit, TakeProfitParams},
     time,
     trading::{
         CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position, TradingSummary,
@@ -13,18 +13,23 @@ use crate::{
 
 use super::MissedCandlePolicy;
 
-struct State<T: Signal, U: StopLoss, V: TakeProfit> {
+struct State<T: Signal> {
     pub strategy: T,
-    pub stop_loss: U,
-    pub take_profit: V,
+    pub stop_loss: Box<dyn StopLoss>,
+    pub take_profit: Box<dyn TakeProfit>,
     pub changed: Changed,
     pub quote: f64,
     pub open_position: Option<OpenPosition>,
     pub last_candle: Option<Candle>,
 }
 
-impl<T: Signal, U: StopLoss, V: TakeProfit> State<T, U, V> {
-    pub fn new(quote: f64, strategy: T, stop_loss: U, take_profit: V) -> Self {
+impl<T: Signal> State<T> {
+    pub fn new(
+        quote: f64,
+        strategy: T,
+        stop_loss: Box<dyn StopLoss>,
+        take_profit: Box<dyn TakeProfit>,
+    ) -> Self {
         Self {
             strategy,
             stop_loss,
@@ -37,10 +42,10 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> State<T, U, V> {
     }
 }
 
-pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
+pub fn trade<T: Signal>(
     strategy_params: &T::Params,
-    stop_loss_params: &U::Params,
-    take_profit_params: &V::Params,
+    stop_loss_params: &StopLossParams,
+    take_profit_params: &TakeProfitParams,
     candles: &[Candle],
     fees: &Fees,
     filters: &Filters,
@@ -67,8 +72,8 @@ pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
     let mut state = State::new(
         quote,
         T::new(strategy_params, &strategy_meta),
-        U::new(stop_loss_params),
-        V::new(take_profit_params),
+        stop_loss_params.construct(),
+        take_profit_params.construct(),
     );
 
     for candle in candles {
@@ -160,8 +165,8 @@ pub fn trade<T: Signal, U: StopLoss, V: TakeProfit>(
     summary
 }
 
-fn tick<T: Signal, U: StopLoss, V: TakeProfit>(
-    mut state: &mut State<T, U, V>,
+fn tick<T: Signal>(
+    mut state: &mut State<T>,
     mut summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
@@ -274,8 +279,8 @@ fn tick<T: Signal, U: StopLoss, V: TakeProfit>(
     Ok(())
 }
 
-fn try_open_long_position<T: Signal, U: StopLoss, V: TakeProfit>(
-    state: &mut State<T, U, V>,
+fn try_open_long_position<T: Signal>(
+    state: &mut State<T>,
     fees: &Fees,
     filters: &Filters,
     time: u64,
@@ -300,8 +305,8 @@ fn try_open_long_position<T: Signal, U: StopLoss, V: TakeProfit>(
     Ok(())
 }
 
-fn close_long_position<T: Signal, U: StopLoss, V: TakeProfit>(
-    state: &mut State<T, U, V>,
+fn close_long_position<T: Signal>(
+    state: &mut State<T>,
     summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
@@ -326,8 +331,8 @@ fn close_long_position<T: Signal, U: StopLoss, V: TakeProfit>(
     }
 }
 
-fn try_open_short_position<T: Signal, U: StopLoss, V: TakeProfit>(
-    state: &mut State<T, U, V>,
+fn try_open_short_position<T: Signal>(
+    state: &mut State<T>,
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
@@ -359,8 +364,8 @@ fn try_open_short_position<T: Signal, U: StopLoss, V: TakeProfit>(
     Ok(())
 }
 
-fn close_short_position<T: Signal, U: StopLoss, V: TakeProfit>(
-    state: &mut State<T, U, V>,
+fn close_short_position<T: Signal>(
+    state: &mut State<T>,
     summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,

@@ -76,15 +76,15 @@ unsafe fn run_test<T: Signal>(
     let fees = &*trading_info.fees;
     let filters = &*trading_info.filters;
     let borrow_info = &*trading_info.borrow_info;
-    let trading_summary = trade::<T, stop_loss::Legacy, take_profit::Legacy>(
+    let trading_summary = trade::<T>(
         strategy_params,
-        &stop_loss::LegacyParams {
+        &stop_loss::StopLossParams::Legacy(stop_loss::LegacyParams {
             threshold: trading_info.stop_loss,
             trail: trading_info.trail_stop_loss,
-        },
-        &take_profit::LegacyParams {
+        }),
+        &take_profit::TakeProfitParams::Legacy(take_profit::LegacyParams {
             threshold: trading_info.take_profit,
-        },
+        }),
         candles,
         fees,
         filters,
