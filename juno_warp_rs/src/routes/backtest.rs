@@ -6,10 +6,10 @@ use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
     genetics::Chromosome,
     statistics::Statistics,
-    stop_loss::StopLoss,
+    stop_loss::StopLossParams,
     storages,
     strategies::*,
-    take_profit::TakeProfit,
+    take_profit::TakeProfitParams,
     time::{deserialize_interval, deserialize_timestamp, DAY_MS},
     trading::{trade, MissedCandlePolicy, TradingSummary},
     SymbolExt,
@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use warp::{hyper::body, reply, Filter, Rejection, Reply};
 
 #[derive(Debug, Deserialize)]
-struct Params<T: Chromosome, U: Chromosome, V: Chromosome> {
+struct Params<T: Chromosome> {
     exchange: String,
     symbols: Vec<String>,
     #[serde(deserialize_with = "deserialize_interval")]
@@ -30,8 +30,8 @@ struct Params<T: Chromosome, U: Chromosome, V: Chromosome> {
     end: u64,
     quote: f64,
     strategy_params: T,
-    stop_loss_params: U,
-    take_profit_params: V,
+    stop_loss: StopLossParams,
+    take_profit: TakeProfitParams,
     missed_candle_policy: MissedCandlePolicy,
 }
 
@@ -47,25 +47,23 @@ pub fn routes() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone 
 fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path::param()) // strategy
-        .and(warp::path::param()) // stop_loss
-        .and(warp::path::param()) // take_profit
         .and(warp::body::bytes())
         .and_then(
-            |strategy: String, stop_loss: String, take_profit: String, bytes: body::Bytes| async move {
+            |strategy: String, bytes: body::Bytes| async move {
                 route_strategy!(process, strategy, stop_loss, take_profit, bytes)
                     .map_err(|error| custom_reject(error))
             },
         )
 }
 
-fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: body::Bytes) -> Result<reply::Json> {
-    let args: Params<T::Params, U::Params, V::Params> = serde_json::from_reader(bytes.reader())?;
+fn process<T: Signal>(bytes: body::Bytes) -> Result<reply::Json> {
+    let args: Params<T::Params> = serde_json::from_reader(bytes.reader())?;
 
     let symbol_summaries = args
         .symbols
         .iter()
         .map(|symbol| {
-            let summary = backtest::<T, U, V>(&args, symbol).expect("backtest");
+            let summary = backtest::<T>(&args, symbol).expect("backtest");
             (symbol.to_owned(), summary) // TODO: Return &String instead.
         })
         .collect::<HashMap<String, TradingSummary>>();
@@ -80,18 +78,15 @@ fn process<T: Signal, U: StopLoss, V: TakeProfit>(bytes: body::Bytes) -> Result<
     Ok(reply::json(&BacktestResult { symbol_stats }))
 }
 
-fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
-    args: &Params<T::Params, U::Params, V::Params>,
-    symbol: &str,
-) -> Result<TradingSummary> {
+fn backtest<T: Signal>(args: &Params<T::Params>, symbol: &str) -> Result<TradingSummary> {
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    Ok(trade::<T, U, V>(
+    Ok(trade::<T>(
         &args.strategy_params,
-        &args.stop_loss_params,
-        &args.take_profit_params,
+        &args.stop_loss,
+        &args.take_profit,
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
@@ -105,8 +100,8 @@ fn backtest<T: Signal, U: StopLoss, V: TakeProfit>(
     ))
 }
 
-fn get_stats<T: Chromosome, U: Chromosome, V: Chromosome>(
-    args: &Params<T, U, V>,
+fn get_stats<T: Chromosome>(
+    args: &Params<T>,
     symbol: &str,
     summary: &TradingSummary,
 ) -> Result<Statistics> {

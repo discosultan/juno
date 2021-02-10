@@ -246,27 +246,16 @@ pub fn derive_signal(input: TokenStream) -> TokenStream {
     TokenStream::from(output)
 }
 
-const STRATEGIES: [&'static str; 3] = [
+const STRATEGIES: [&'static str; 7] = [
     "FourWeekRule",
-    // "TripleMA",
-    // "DoubleMAStoch",
-    // "DoubleMA",
+    "TripleMA",
+    "DoubleMAStoch",
+    "DoubleMA",
     "SingleMA",
     "Sig<FourWeekRule>",
-    // "Sig<TripleMA>",
+    "Sig<TripleMA>",
     // "SigOsc<TripleMA,Rsi>",
     // "SigOsc<DoubleMA,Rsi>",
-];
-const STOP_LOSSES: [&'static str; 4] = [
-    "Noop",
-    "Basic",
-    "BasicPlusTrailing",
-    "Trailing",
-    // "Legacy",
-];
-const TAKE_PROFITS: [&'static str; 3] = [
-    "Noop", "Basic", "Trending",
-    // "Legacy",
 ];
 
 #[proc_macro]
@@ -281,11 +270,9 @@ pub fn route_strategy(input: TokenStream) -> TokenStream {
 
     let in_function = format_ident!("{}", idents[0].to_string());
     let in_strategy = format_ident!("{}", idents[1].to_string());
-    let in_stop_loss = format_ident!("{}", idents[2].to_string());
-    let in_take_profit = format_ident!("{}", idents[3].to_string());
     let in_args = format_ident!("{}", idents[4].to_string());
 
-    let identifiers = cartesian_product(vec![&STRATEGIES, &STOP_LOSSES, &TAKE_PROFITS]);
+    let identifiers = cartesian_product(vec![&STRATEGIES]);
 
     let strategy_quoted = identifiers.iter().map(|x| {
         format!(
@@ -299,17 +286,13 @@ pub fn route_strategy(input: TokenStream) -> TokenStream {
     let strategy = identifiers
         .iter()
         .map(|x| parse_str::<TypePath>(x[0]).unwrap().path);
-    let stop_loss_quoted = identifiers.iter().map(|x| x[1].to_lowercase());
-    let stop_loss = identifiers.iter().map(|x| format_ident!("{}", x[1]));
-    let take_profit_quoted = identifiers.iter().map(|x| x[2].to_lowercase());
-    let take_profit = identifiers.iter().map(|x| format_ident!("{}", x[2]));
 
     let result = quote! {
-        match (#in_strategy.as_ref(), #in_stop_loss.as_ref(), #in_take_profit.as_ref()) {
+        match #in_strategy.as_ref() {
             #(
-                (#strategy_quoted, #stop_loss_quoted, #take_profit_quoted) => #in_function::<juno_rs::strategies::#strategy, juno_rs::stop_loss::#stop_loss, juno_rs::take_profit::#take_profit>(#in_args),
+                #strategy_quoted => #in_function::<juno_rs::strategies::#strategy>(#in_args),
             )*
-            _ => Err(anyhow::anyhow!("unsupported combination: {}, {}, {}", #in_strategy, #in_stop_loss, #in_take_profit)),
+            _ => Err(anyhow::anyhow!("unsupported strategy: {}", #in_strategy)),
         }
     };
     result.into()

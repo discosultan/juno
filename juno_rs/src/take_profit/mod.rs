@@ -52,16 +52,12 @@ pub trait TakeProfitExt {
 
 impl TakeProfitExt for StdRng {
     fn gen_take_profit_params(&mut self) -> TakeProfitParams {
-        match self.gen_range(0..4) {
+        match self.gen_range(0..3) {
             0 => {
                 TakeProfitParams::Basic(BasicParams::generate(self, &BasicParamsContext::default()))
             }
-            1 => TakeProfitParams::Legacy(LegacyParams::generate(
-                self,
-                &LegacyParamsContext::default(),
-            )),
-            2 => TakeProfitParams::Noop(NoopParams::generate(self, &NoopParamsContext::default())),
-            3 => TakeProfitParams::Trending(TrendingParams::generate(
+            1 => TakeProfitParams::Noop(NoopParams::generate(self, &NoopParamsContext::default())),
+            2 => TakeProfitParams::Trending(TrendingParams::generate(
                 self,
                 &TrendingParamsContext::default(),
             )),

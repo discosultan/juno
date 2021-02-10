@@ -58,17 +58,14 @@ pub trait StopLossExt {
 
 impl StopLossExt for StdRng {
     fn gen_stop_loss_params(&mut self) -> StopLossParams {
-        match self.gen_range(0..5) {
+        match self.gen_range(0..4) {
             0 => StopLossParams::BasicPlusTrailing(BasicPlusTrailingParams::generate(
                 self,
                 &BasicPlusTrailingParamsContext::default(),
             )),
             1 => StopLossParams::Basic(BasicParams::generate(self, &BasicParamsContext::default())),
-            2 => {
-                StopLossParams::Legacy(LegacyParams::generate(self, &LegacyParamsContext::default()))
-            }
-            3 => StopLossParams::Noop(NoopParams::generate(self, &NoopParamsContext::default())),
-            4 => StopLossParams::Trailing(TrailingParams::generate(
+            2 => StopLossParams::Noop(NoopParams::generate(self, &NoopParamsContext::default())),
+            3 => StopLossParams::Trailing(TrailingParams::generate(
                 self,
                 &TrailingParamsContext::default(),
             )),
