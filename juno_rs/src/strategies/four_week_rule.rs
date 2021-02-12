@@ -1,7 +1,7 @@
 use super::{Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    indicators::{self, MAParams, MAExt},
+    indicators::{self, MAExt, MAParams},
     itertools::IteratorExt,
     Advice, Candle,
 };
@@ -23,7 +23,10 @@ impl Default for FourWeekRuleParams {
     fn default() -> Self {
         Self {
             period: 28,
-            ma: MAParams::Ema(EmaParams { period: 14, smoothing: None }),
+            ma: MAParams::Ema(EmaParams {
+                period: 14,
+                smoothing: None,
+            }),
         }
     }
 }

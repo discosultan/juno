@@ -1,4 +1,8 @@
-use super::{dx::DX, smma::{Smma, SmmaParams}, MA};
+use super::{
+    dx::DX,
+    smma::{Smma, SmmaParams},
+    MA,
+};
 use std::cmp::max;
 
 pub struct Adx {

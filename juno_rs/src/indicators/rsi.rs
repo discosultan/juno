@@ -1,4 +1,7 @@
-use super::{smma::{Smma, SmmaParams}, MA};
+use super::{
+    smma::{Smma, SmmaParams},
+    MA,
+};
 use std::cmp::min;
 
 pub struct Rsi {

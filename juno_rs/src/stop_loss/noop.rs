@@ -1,7 +1,6 @@
 use super::StopLoss;
 use crate::genetics::Chromosome;
 use juno_derive_rs::*;
-use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]

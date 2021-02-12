@@ -94,12 +94,10 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path::param()) // strategy
         .and(warp::body::bytes())
-        .and_then(
-            |strategy: String, bytes: body::Bytes| async move {
-                route_strategy!(process, strategy, stop_loss, take_profit, bytes)
-                    .map_err(|error| custom_reject(error)) // TODO: return 400
-            },
-        )
+        .and_then(|strategy: String, bytes: body::Bytes| async move {
+            route_strategy!(process, strategy, stop_loss, take_profit, bytes)
+                .map_err(|error| custom_reject(error)) // TODO: return 400
+        })
 }
 
 fn process<T: Signal>(bytes: body::Bytes) -> Result<reply::Json>
@@ -135,8 +133,7 @@ where
                     let symbol_stats = args
                         .iter_symbols()
                         .map(|symbol| {
-                            let summary =
-                                backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
+                            let summary = backtest::<T>(&args, symbol, &ind.chromosome).unwrap();
                             let stats = get_stats::<T>(&args, symbol, &summary).unwrap();
                             (symbol.to_owned(), stats) // TODO: Return &String instead.
                         })

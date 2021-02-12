@@ -13,7 +13,7 @@ pub use noop::{Noop, NoopParams, NoopParamsContext};
 pub use trailing::{Trailing, TrailingParams, TrailingParamsContext};
 
 use crate::{genetics::Chromosome, Candle};
-use rand::prelude::*;
+use juno_derive_rs::*;
 use serde::{Deserialize, Serialize};
 
 pub trait StopLoss: Send + Sync {
@@ -30,7 +30,7 @@ pub trait StopLoss: Send + Sync {
     fn update(&mut self, _candle: &Candle) {}
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(ChromosomeEnum, Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum StopLossParams {
     BasicPlusTrailing(BasicPlusTrailingParams),
@@ -38,38 +38,4 @@ pub enum StopLossParams {
     Legacy(LegacyParams),
     Noop(NoopParams),
     Trailing(TrailingParams),
-}
-
-impl StopLossParams {
-    pub fn construct(&self) -> Box<dyn StopLoss> {
-        match self {
-            StopLossParams::BasicPlusTrailing(params) => Box::new(BasicPlusTrailing::new(params)),
-            StopLossParams::Basic(params) => Box::new(Basic::new(params)),
-            StopLossParams::Legacy(params) => Box::new(Legacy::new(params)),
-            StopLossParams::Noop(params) => Box::new(Noop::new(params)),
-            StopLossParams::Trailing(params) => Box::new(Trailing::new(params)),
-        }
-    }
-}
-
-pub trait StopLossExt {
-    fn gen_stop_loss_params(&mut self) -> StopLossParams;
-}
-
-impl StopLossExt for StdRng {
-    fn gen_stop_loss_params(&mut self) -> StopLossParams {
-        match self.gen_range(0..4) {
-            0 => StopLossParams::BasicPlusTrailing(BasicPlusTrailingParams::generate(
-                self,
-                &BasicPlusTrailingParamsContext::default(),
-            )),
-            1 => StopLossParams::Basic(BasicParams::generate(self, &BasicParamsContext::default())),
-            2 => StopLossParams::Noop(NoopParams::generate(self, &NoopParamsContext::default())),
-            3 => StopLossParams::Trailing(TrailingParams::generate(
-                self,
-                &TrailingParamsContext::default(),
-            )),
-            _ => panic!(),
-        }
-    }
 }

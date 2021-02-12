@@ -29,7 +29,7 @@ impl Alma {
             Some(sigma) => {
                 assert!(sigma > 0);
                 sigma
-            },
+            }
             None => (params.period as f64 / 1.5).floor() as u32,
         };
 

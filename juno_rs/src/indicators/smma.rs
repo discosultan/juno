@@ -1,4 +1,7 @@
-use super::{sma::{Sma, SmaParams}, MA};
+use super::{
+    sma::{Sma, SmaParams},
+    MA,
+};
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
@@ -23,7 +26,9 @@ impl Smma {
         // Period validated within Sma.
         Self {
             value: 0.0,
-            sma: Sma::new(&SmaParams { period: params.period }),
+            sma: Sma::new(&SmaParams {
+                period: params.period,
+            }),
             weight: params.period.into(),
             t: 0,
             t1: params.period,

@@ -1,4 +1,7 @@
-use super::{sma::{Sma, SmaParams}, MA};
+use super::{
+    sma::{Sma, SmaParams},
+    MA,
+};
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
@@ -24,7 +27,9 @@ impl Ema2 {
             value: 0.0,
             period: params.period,
             a: 2.0 / f64::from(params.period + 1),
-            sma: Sma::new(&SmaParams { period: params.period }),
+            sma: Sma::new(&SmaParams {
+                period: params.period,
+            }),
             t1: params.period,
             t2: params.period + 1,
             t: 0,

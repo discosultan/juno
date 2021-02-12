@@ -6,8 +6,8 @@ pub use traders::*;
 
 use crate::{
     genetics::Chromosome,
-    stop_loss::{StopLossExt, StopLossParams},
-    take_profit::{TakeProfitExt, TakeProfitParams},
+    stop_loss::{StopLossParams, StopLossParamsContext},
+    take_profit::{TakeProfitParams, TakeProfitParamsContext},
     time::{deserialize_intervals, serialize_interval, serialize_intervals, serialize_timestamp},
 };
 use juno_derive_rs::*;
@@ -44,17 +44,10 @@ pub struct TradingParams<T: Chromosome> {
     pub strategy: T,
     #[chromosome]
     pub trader: TraderParams,
-    // #[chromosome]
+    #[chromosome]
     pub stop_loss: StopLossParams,
-    // #[chromosome]
+    #[chromosome]
     pub take_profit: TakeProfitParams,
-}
-
-fn stop_loss(rng: &mut StdRng) -> StopLossParams {
-    rng.gen_stop_loss_params()
-}
-fn take_profit(rng: &mut StdRng) -> TakeProfitParams {
-    rng.gen_take_profit_params()
 }
 
 #[derive(Clone, Debug, Serialize)]

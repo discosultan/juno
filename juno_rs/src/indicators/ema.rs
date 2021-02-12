@@ -22,7 +22,7 @@ impl Ema {
             Some(smoothing) => {
                 assert!(0.0 < smoothing && smoothing <= 1.0);
                 smoothing
-            },
+            }
             None => 2.0 / f64::from(params.period + 1),
         };
         Self {

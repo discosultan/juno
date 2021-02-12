@@ -7,7 +7,6 @@ use crate::{
     Advice, Candle,
 };
 use juno_derive_rs::*;
-use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 

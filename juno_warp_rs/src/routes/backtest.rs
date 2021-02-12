@@ -48,12 +48,10 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::path::param()) // strategy
         .and(warp::body::bytes())
-        .and_then(
-            |strategy: String, bytes: body::Bytes| async move {
-                route_strategy!(process, strategy, stop_loss, take_profit, bytes)
-                    .map_err(|error| custom_reject(error))
-            },
-        )
+        .and_then(|strategy: String, bytes: body::Bytes| async move {
+            route_strategy!(process, strategy, stop_loss, take_profit, bytes)
+                .map_err(|error| custom_reject(error))
+        })
 }
 
 fn process<T: Signal>(bytes: body::Bytes) -> Result<reply::Json> {

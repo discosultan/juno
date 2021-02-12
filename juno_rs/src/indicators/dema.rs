@@ -1,4 +1,7 @@
-use super::{ema::{Ema, EmaParams}, MA};
+use super::{
+    ema::{Ema, EmaParams},
+    MA,
+};
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
@@ -21,8 +24,14 @@ impl Dema {
         // Period validated within Ema.
         Self {
             value: 0.0,
-            ema1: Ema::new(&EmaParams { period: params.period, smoothing: None }),
-            ema2: Ema::new(&EmaParams { period: params.period, smoothing: None }),
+            ema1: Ema::new(&EmaParams {
+                period: params.period,
+                smoothing: None,
+            }),
+            ema2: Ema::new(&EmaParams {
+                period: params.period,
+                smoothing: None,
+            }),
             t: 0,
             t1: params.period,
             t2: params.period * 2 - 1,
