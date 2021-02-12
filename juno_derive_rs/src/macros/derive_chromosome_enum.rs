@@ -111,13 +111,13 @@ pub fn derive_chromosome_enum(input: TokenStream) -> TokenStream {
                     }
                 }
             )*
+            // fn basic(&self) -> &BasicParamsContext {
+            //     match self {
+            //         TakeProfitParamsContext::Basic(ctx) => ctx,
+            //         _ => &DEFAULT_BASIC_PARAMS_CTX,
+            //     }
+            // }
         }
-        // fn basic(&self) -> &BasicParamsContext {
-        //     match self {
-        //         TakeProfitParamsContext::Basic(ctx) => ctx,
-        //         _ => &DEFAULT_BASIC_PARAMS_CTX,
-        //     }
-        // }
 
         impl Chromosome for #name_params {
             type Context = #ctx_name;
