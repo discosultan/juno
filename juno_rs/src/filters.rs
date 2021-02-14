@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[repr(C)]
 pub struct Price {
     pub min: f64,
     pub max: f64,
@@ -31,7 +30,6 @@ impl Price {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[repr(C)]
 pub struct Size {
     pub min: f64,
     pub max: f64,
@@ -69,7 +67,6 @@ impl Size {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[repr(C)]
 pub struct Filters {
     pub price: Price,
     pub size: Size,

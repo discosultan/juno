@@ -2,11 +2,13 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use juno_rs::{
     filters::{Filters, Price, Size},
     stop_loss,
-    strategies::{FourWeekRule, FourWeekRuleParams},
+    strategies::{self, FourWeekRuleParams, SignalParams, StrategyParams},
     take_profit, time,
     trading::{self, MissedCandlePolicy},
     BorrowInfo, Candle, Fees,
 };
+use stop_loss::StopLossParams;
+use take_profit::TakeProfitParams;
 
 fn trade_benchmark(c: &mut Criterion) {
     let strategy_params = FourWeekRuleParams::default();
@@ -47,10 +49,12 @@ fn trade_benchmark(c: &mut Criterion) {
     };
     c.bench_function("trade", |b| {
         b.iter(|| {
-            trading::trade::<FourWeekRule, stop_loss::Noop, take_profit::Noop>(
-                &strategy_params,
-                &stop_loss::NoopParams {},
-                &take_profit::NoopParams {},
+            trading::trade(
+                &StrategyParams::Basic(strategies::BasicParams {
+                    sig: SignalParams::FourWeekRule(strategy_params),
+                }),
+                &StopLossParams::Noop(stop_loss::NoopParams {}),
+                &TakeProfitParams::Noop(take_profit::NoopParams {}),
                 &candles,
                 &fees,
                 &filters,

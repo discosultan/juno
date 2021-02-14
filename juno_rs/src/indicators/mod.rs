@@ -53,25 +53,25 @@ pub enum MAParams {
 impl MAParams {
     pub fn construct(&self) -> Box<dyn MA> {
         match self {
-            MAParams::Sma(params) => Box::new(Sma::new(params)),
-            MAParams::Alma(params) => Box::new(Alma::new(params)),
-            MAParams::Dema(params) => Box::new(Dema::new(params)),
-            MAParams::Ema(params) => Box::new(Ema::new(params)),
-            MAParams::Ema2(params) => Box::new(Ema2::new(params)),
-            MAParams::Kama(params) => Box::new(Kama::new(params)),
-            MAParams::Smma(params) => Box::new(Smma::new(params)),
+            Self::Sma(params) => Box::new(Sma::new(params)),
+            Self::Alma(params) => Box::new(Alma::new(params)),
+            Self::Dema(params) => Box::new(Dema::new(params)),
+            Self::Ema(params) => Box::new(Ema::new(params)),
+            Self::Ema2(params) => Box::new(Ema2::new(params)),
+            Self::Kama(params) => Box::new(Kama::new(params)),
+            Self::Smma(params) => Box::new(Smma::new(params)),
         }
     }
 
     pub fn period(&self) -> u32 {
         match self {
-            MAParams::Sma(params) => params.period,
-            MAParams::Alma(params) => params.period,
-            MAParams::Dema(params) => params.period,
-            MAParams::Ema(params) => params.period,
-            MAParams::Ema2(params) => params.period,
-            MAParams::Kama(params) => params.period,
-            MAParams::Smma(params) => params.period,
+            Self::Sma(params) => params.period,
+            Self::Alma(params) => params.period,
+            Self::Dema(params) => params.period,
+            Self::Ema(params) => params.period,
+            Self::Ema2(params) => params.period,
+            Self::Kama(params) => params.period,
+            Self::Smma(params) => params.period,
         }
     }
 }

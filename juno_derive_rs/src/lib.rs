@@ -17,8 +17,3 @@ pub fn derive_chromosome(input: TokenStream) -> TokenStream {
 pub fn derive_signal(input: TokenStream) -> TokenStream {
     macros::derive_signal(input)
 }
-
-#[proc_macro]
-pub fn route_strategy(input: TokenStream) -> TokenStream {
-    macros::route_strategy(input)
-}

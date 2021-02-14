@@ -10,7 +10,7 @@ use juno_derive_rs::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct DoubleMAStochParams {
     #[chromosome]
     pub double_ma: DoubleMAParams,
@@ -25,17 +25,17 @@ pub struct DoubleMAStoch {
     advice: Advice,
 }
 
-impl Strategy for DoubleMAStoch {
-    type Params = DoubleMAStochParams;
-
-    fn new(params: &Self::Params, meta: &StrategyMeta) -> Self {
+impl DoubleMAStoch {
+    pub fn new(params: &DoubleMAStochParams, meta: &StrategyMeta) -> Self {
         Self {
             double_ma: DoubleMA::new(&params.double_ma, meta),
             stoch: Stoch::new(&params.stoch, meta),
             advice: Advice::None,
         }
     }
+}
 
+impl Strategy for DoubleMAStoch {
     fn maturity(&self) -> u32 {
         max(self.double_ma.maturity(), self.stoch.maturity())
     }

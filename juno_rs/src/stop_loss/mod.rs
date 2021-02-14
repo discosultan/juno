@@ -39,3 +39,15 @@ pub enum StopLossParams {
     Noop(NoopParams),
     Trailing(TrailingParams),
 }
+
+impl StopLossParams {
+    pub fn construct(&self) -> Box<dyn StopLoss> {
+        match self {
+            Self::BasicPlusTrailing(params) => Box::new(BasicPlusTrailing::new(params)),
+            Self::Basic(params) => Box::new(Basic::new(params)),
+            Self::Legacy(params) => Box::new(Legacy::new(params)),
+            Self::Noop(params) => Box::new(Noop::new(params)),
+            Self::Trailing(params) => Box::new(Trailing::new(params)),
+        }
+    }
+}

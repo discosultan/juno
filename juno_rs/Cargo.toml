@@ -4,12 +4,6 @@ version = "0.1.0"
 authors = ["discosultan <jaanusvarus@gmail.com>"]
 edition = "2018"
 
-[lib]
-crate-type = [
-    "cdylib",  # For FFI.
-    "rlib",  # For benchmarking.
-]
-
 [dependencies]
 bounded-vec-deque = "0.1"
 chrono = "0.4"

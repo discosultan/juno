@@ -9,8 +9,7 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct DoubleMA2Params {
     pub neg_threshold: f64,
     pub pos_threshold: f64,
@@ -44,10 +43,8 @@ pub struct DoubleMA2 {
 unsafe impl Send for DoubleMA2 {}
 unsafe impl Sync for DoubleMA2 {}
 
-impl Strategy for DoubleMA2 {
-    type Params = DoubleMA2Params;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
+impl DoubleMA2 {
+    pub fn new(params: &DoubleMA2Params, _meta: &StrategyMeta) -> Self {
         // Non-zero period is validated within indicator.
         let (short_ma, long_ma) = &params.mas;
         assert!(short_ma.period() < long_ma.period());
@@ -62,7 +59,9 @@ impl Strategy for DoubleMA2 {
             advice: Advice::None,
         }
     }
+}
 
+impl Strategy for DoubleMA2 {
     fn maturity(&self) -> u32 {
         max(self.long_ma.maturity(), self.short_ma.maturity())
     }

@@ -1,10 +1,7 @@
 use super::custom_reject;
 use anyhow::Result;
-use bytes::buf::Buf;
-use juno_derive_rs::*;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
-    genetics::Chromosome,
     statistics::Statistics,
     stop_loss::StopLossParams,
     storages,
@@ -16,10 +13,10 @@ use juno_rs::{
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use warp::{hyper::body, reply, Filter, Rejection, Reply};
+use warp::{reply, Filter, Rejection, Reply};
 
 #[derive(Debug, Deserialize)]
-struct Params<T: Chromosome> {
+struct Params {
     exchange: String,
     symbols: Vec<String>,
     #[serde(deserialize_with = "deserialize_interval")]
@@ -29,7 +26,7 @@ struct Params<T: Chromosome> {
     #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
-    strategy_params: T,
+    strategy_params: StrategyParams,
     stop_loss: StopLossParams,
     take_profit: TakeProfitParams,
     missed_candle_policy: MissedCandlePolicy,
@@ -46,42 +43,36 @@ pub fn routes() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone 
 
 fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
-        .and(warp::path::param()) // strategy
-        .and(warp::body::bytes())
-        .and_then(|strategy: String, bytes: body::Bytes| async move {
-            route_strategy!(process, strategy, stop_loss, take_profit, bytes)
-                .map_err(|error| custom_reject(error))
-        })
+        .and(warp::body::json())
+        .and_then(|args: Params| async move { process(args).map_err(|error| custom_reject(error)) })
 }
 
-fn process<T: Signal>(bytes: body::Bytes) -> Result<reply::Json> {
-    let args: Params<T::Params> = serde_json::from_reader(bytes.reader())?;
-
+fn process(args: Params) -> Result<reply::Json> {
     let symbol_summaries = args
         .symbols
         .iter()
         .map(|symbol| {
-            let summary = backtest::<T>(&args, symbol).expect("backtest");
+            let summary = backtest(&args, symbol).expect("backtest");
             (symbol.to_owned(), summary) // TODO: Return &String instead.
         })
-        .collect::<HashMap<String, TradingSummary>>();
+        .collect::<HashMap<_, _>>();
     let symbol_stats = symbol_summaries
         .iter()
         .map(|(symbol, summary)| {
             let stats = get_stats(&args, symbol, summary).expect("get stats");
             (symbol.to_owned(), stats) // TODO: Return &String instead.
         })
-        .collect::<HashMap<String, Statistics>>();
+        .collect::<HashMap<_, _>>();
 
     Ok(reply::json(&BacktestResult { symbol_stats }))
 }
 
-fn backtest<T: Signal>(args: &Params<T::Params>, symbol: &str) -> Result<TradingSummary> {
+fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
     let candles =
         storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
-    Ok(trade::<T>(
+    Ok(trade(
         &args.strategy_params,
         &args.stop_loss,
         &args.take_profit,
@@ -98,11 +89,7 @@ fn backtest<T: Signal>(args: &Params<T::Params>, symbol: &str) -> Result<Trading
     ))
 }
 
-fn get_stats<T: Chromosome>(
-    args: &Params<T>,
-    symbol: &str,
-    summary: &TradingSummary,
-) -> Result<Statistics> {
+fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Statistics> {
     let stats_interval = DAY_MS;
 
     // Stats base.

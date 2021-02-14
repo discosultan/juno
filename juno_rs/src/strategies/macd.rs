@@ -4,8 +4,7 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct MacdParams {
     pub periods: (u32, u32),
     pub signal_period: u32,
@@ -38,17 +37,17 @@ pub struct Macd {
     advice: Advice,
 }
 
-impl Strategy for Macd {
-    type Params = MacdParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
+impl Macd {
+    pub fn new(params: &MacdParams, _meta: &StrategyMeta) -> Self {
         let (short_period, long_period) = params.periods;
         Self {
             macd: indicators::Macd::new(short_period, long_period, params.signal_period),
             advice: Advice::None,
         }
     }
+}
 
+impl Strategy for Macd {
     fn maturity(&self) -> u32 {
         self.macd.maturity()
     }

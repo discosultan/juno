@@ -4,8 +4,7 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[repr(C)]
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct StochParams {
     pub k_period: u32,
     pub k_sma_period: u32,
@@ -36,10 +35,8 @@ pub struct Stoch {
     down_threshold: f64,
 }
 
-impl Strategy for Stoch {
-    type Params = StochParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
+impl Stoch {
+    pub fn new(params: &StochParams, _meta: &StrategyMeta) -> Self {
         Self {
             indicator: indicators::Stoch::new(
                 params.k_period,
@@ -50,7 +47,9 @@ impl Strategy for Stoch {
             down_threshold: params.down_threshold,
         }
     }
+}
 
+impl Strategy for Stoch {
     fn maturity(&self) -> u32 {
         self.indicator.maturity()
     }

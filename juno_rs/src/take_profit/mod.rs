@@ -34,3 +34,14 @@ pub enum TakeProfitParams {
     Noop(NoopParams),
     Trending(TrendingParams),
 }
+
+impl TakeProfitParams {
+    pub fn construct(&self) -> Box<dyn TakeProfit> {
+        match self {
+            Self::Basic(params) => Box::new(Basic::new(params)),
+            Self::Legacy(params) => Box::new(Legacy::new(params)),
+            Self::Noop(params) => Box::new(Noop::new(params)),
+            Self::Trending(params) => Box::new(Trending::new(params)),
+        }
+    }
+}

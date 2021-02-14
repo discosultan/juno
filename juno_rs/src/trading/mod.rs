@@ -7,6 +7,7 @@ pub use traders::*;
 use crate::{
     genetics::Chromosome,
     stop_loss::{StopLossParams, StopLossParamsContext},
+    strategies::{StrategyParams, StrategyParamsContext},
     take_profit::{TakeProfitParams, TakeProfitParamsContext},
     time::{deserialize_intervals, serialize_interval, serialize_intervals, serialize_timestamp},
 };
@@ -38,10 +39,10 @@ impl MissedCandlePolicyExt for StdRng {
     }
 }
 
-#[derive(Chromosome, Clone, Debug, Serialize)]
-pub struct TradingParams<T: Chromosome> {
+#[derive(Chromosome, Clone, Copy, Debug, Serialize)]
+pub struct TradingParams {
     #[chromosome]
-    pub strategy: T,
+    pub strategy: StrategyParams,
     #[chromosome]
     pub trader: TraderParams,
     #[chromosome]
@@ -50,7 +51,7 @@ pub struct TradingParams<T: Chromosome> {
     pub take_profit: TakeProfitParams,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct TraderParams {
     #[serde(serialize_with = "serialize_interval")]
     pub interval: u64,

@@ -9,8 +9,7 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TripleMAParams {
     pub mas: (MAParams, MAParams, MAParams),
 }
@@ -43,10 +42,8 @@ pub struct TripleMA {
 unsafe impl Send for TripleMA {}
 unsafe impl Sync for TripleMA {}
 
-impl Strategy for TripleMA {
-    type Params = TripleMAParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
+impl TripleMA {
+    pub fn new(params: &TripleMAParams, _meta: &StrategyMeta) -> Self {
         // Non-zero period is validated within indicator.
         let (short_ma, medium_ma, long_ma) = &params.mas;
         assert!(short_ma.period() < medium_ma.period());
@@ -59,7 +56,9 @@ impl Strategy for TripleMA {
             advice: Advice::None,
         }
     }
+}
 
+impl Strategy for TripleMA {
     fn maturity(&self) -> u32 {
         max(
             max(self.long_ma.maturity(), self.medium_ma.maturity()),

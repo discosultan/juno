@@ -9,8 +9,7 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct SingleMAParams {
     pub ma: MAParams,
 }
@@ -32,10 +31,8 @@ pub struct SingleMA {
 unsafe impl Send for SingleMA {}
 unsafe impl Sync for SingleMA {}
 
-impl Strategy for SingleMA {
-    type Params = SingleMAParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
+impl SingleMA {
+    pub fn new(params: &SingleMAParams, _meta: &StrategyMeta) -> Self {
         let ma = params.ma.construct();
         Self {
             previous_ma_value: 0.0,
@@ -45,7 +42,9 @@ impl Strategy for SingleMA {
             ma,
         }
     }
+}
 
+impl Strategy for SingleMA {
     fn maturity(&self) -> u32 {
         self.t1
     }

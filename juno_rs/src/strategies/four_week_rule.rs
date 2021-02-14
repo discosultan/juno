@@ -12,8 +12,7 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct FourWeekRuleParams {
     pub period: u32,
     pub ma: MAParams,
@@ -50,10 +49,8 @@ pub struct FourWeekRule {
     t1: u32,
 }
 
-impl Strategy for FourWeekRule {
-    type Params = FourWeekRuleParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
+impl FourWeekRule {
+    pub fn new(params: &FourWeekRuleParams, _meta: &StrategyMeta) -> Self {
         Self {
             prices: BoundedVecDeque::new(params.period as usize),
             ma: params.ma.construct(),
@@ -62,7 +59,9 @@ impl Strategy for FourWeekRule {
             t1: params.period + 1,
         }
     }
+}
 
+impl Strategy for FourWeekRule {
     fn maturity(&self) -> u32 {
         self.t1
     }

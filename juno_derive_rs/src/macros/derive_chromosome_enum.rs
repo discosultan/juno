@@ -7,10 +7,10 @@ pub fn derive_chromosome_enum(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemEnum);
 
     let name_params = &input.ident;
-    let name = format_ident!(
-        "{}",
-        name_params.to_string().strip_suffix("Params").unwrap()
-    );
+    // let name = format_ident!(
+    //     "{}",
+    //     name_params.to_string().strip_suffix("Params").unwrap()
+    // );
 
     let variant_name = input.variants.iter().map(|variant| &variant.ident);
     let variant_params_name = variant_name
@@ -18,7 +18,7 @@ pub fn derive_chromosome_enum(input: TokenStream) -> TokenStream {
         .map(|name| format_ident!("{}Params", name));
     let variant_len = input.variants.len();
 
-    let construct_variant_name = variant_name.clone();
+    // let construct_variant_name = variant_name.clone();
     let variant_len_variant_name = variant_name.clone();
     let variant_len_target_name = variant_params_name.clone();
 
@@ -58,15 +58,15 @@ pub fn derive_chromosome_enum(input: TokenStream) -> TokenStream {
 
     let output = quote! {
         impl #name_params {
-            pub fn construct(&self) -> Box<dyn #name> {
-                match self {
-                    #(
-                        #name_params::#construct_variant_name(params) =>
-                            Box::new(#construct_variant_name::new(params)),
-                    )*
-                    // TakeProfitParams::Basic(params) => Box::new(Basic::new(params)),
-                }
-            }
+            // pub fn construct(&self) -> Box<dyn #name> {
+            //     match self {
+            //         #(
+            //             #name_params::#construct_variant_name(params) =>
+            //                 Box::new(#construct_variant_name::new(params)),
+            //         )*
+            //         // TakeProfitParams::Basic(params) => Box::new(Basic::new(params)),
+            //     }
+            // }
 
             pub fn variant_len(&self) -> usize {
                 match self {

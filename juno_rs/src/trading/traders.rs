@@ -1,7 +1,7 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
     stop_loss::{StopLoss, StopLossParams},
-    strategies::{Signal, StrategyMeta},
+    strategies::{Signal, StrategyMeta, StrategyParams},
     take_profit::{TakeProfit, TakeProfitParams},
     time,
     trading::{
@@ -13,8 +13,8 @@ use crate::{
 
 use super::MissedCandlePolicy;
 
-struct State<T: Signal> {
-    pub strategy: T,
+struct State {
+    pub strategy: Box<dyn Signal>,
     pub stop_loss: Box<dyn StopLoss>,
     pub take_profit: Box<dyn TakeProfit>,
     pub changed: Changed,
@@ -23,10 +23,10 @@ struct State<T: Signal> {
     pub last_candle: Option<Candle>,
 }
 
-impl<T: Signal> State<T> {
+impl State {
     pub fn new(
         quote: f64,
-        strategy: T,
+        strategy: Box<dyn Signal>,
         stop_loss: Box<dyn StopLoss>,
         take_profit: Box<dyn TakeProfit>,
     ) -> Self {
@@ -42,8 +42,8 @@ impl<T: Signal> State<T> {
     }
 }
 
-pub fn trade<T: Signal>(
-    strategy_params: &T::Params,
+pub fn trade(
+    strategy_params: &StrategyParams,
     stop_loss_params: &StopLossParams,
     take_profit_params: &TakeProfitParams,
     candles: &[Candle],
@@ -71,7 +71,7 @@ pub fn trade<T: Signal>(
     let mut summary = TradingSummary::new(start, end, quote);
     let mut state = State::new(
         quote,
-        T::new(strategy_params, &strategy_meta),
+        strategy_params.construct(&strategy_meta),
         stop_loss_params.construct(),
         take_profit_params.construct(),
     );
@@ -82,7 +82,7 @@ pub fn trade<T: Signal>(
         if let Some(last_candle) = state.last_candle {
             let diff = candle.time - last_candle.time;
             if missed_candle_policy == MissedCandlePolicy::Restart && diff >= two_interval {
-                state.strategy = T::new(strategy_params, &strategy_meta);
+                state.strategy = strategy_params.construct(&strategy_meta);
             } else if missed_candle_policy == MissedCandlePolicy::Last && diff >= two_interval {
                 let num_missed = diff / interval - 1;
                 for i in 1..=num_missed {
@@ -165,8 +165,8 @@ pub fn trade<T: Signal>(
     summary
 }
 
-fn tick<T: Signal>(
-    mut state: &mut State<T>,
+fn tick(
+    mut state: &mut State,
     mut summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
@@ -279,8 +279,8 @@ fn tick<T: Signal>(
     Ok(())
 }
 
-fn try_open_long_position<T: Signal>(
-    state: &mut State<T>,
+fn try_open_long_position(
+    state: &mut State,
     fees: &Fees,
     filters: &Filters,
     time: u64,
@@ -305,8 +305,8 @@ fn try_open_long_position<T: Signal>(
     Ok(())
 }
 
-fn close_long_position<T: Signal>(
-    state: &mut State<T>,
+fn close_long_position(
+    state: &mut State,
     summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
@@ -331,8 +331,8 @@ fn close_long_position<T: Signal>(
     }
 }
 
-fn try_open_short_position<T: Signal>(
-    state: &mut State<T>,
+fn try_open_short_position(
+    state: &mut State,
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
@@ -364,8 +364,8 @@ fn try_open_short_position<T: Signal>(
     Ok(())
 }
 
-fn close_short_position<T: Signal>(
-    state: &mut State<T>,
+fn close_short_position(
+    state: &mut State,
     summary: &mut TradingSummary,
     fees: &Fees,
     filters: &Filters,
