@@ -1,10 +1,7 @@
-use super::{
-    deserialize_ma, deserialize_ma_option, serialize_ma, serialize_ma_option, Signal, StdRngExt,
-    Strategy, StrategyMeta,
-};
+use super::{Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    indicators::{ma_from_adler32, MA},
+    indicators::{MAExt, MAParams, MA},
     Advice, Candle,
 };
 use juno_derive_rs::*;
@@ -12,20 +9,14 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct SingleMAParams {
-    #[serde(serialize_with = "serialize_ma")]
-    #[serde(deserialize_with = "deserialize_ma")]
-    pub ma: u32,
-    pub period: u32,
+    pub ma: MAParams,
 }
 
-fn ma(rng: &mut StdRng) -> u32 {
-    rng.gen_ma()
-}
-fn period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(1..100)
+fn ma(rng: &mut StdRng) -> MAParams {
+    let period = rng.gen_range(1..100);
+    rng.gen_ma_params(period)
 }
 
 #[derive(Signal)]
@@ -40,13 +31,9 @@ pub struct SingleMA {
 unsafe impl Send for SingleMA {}
 unsafe impl Sync for SingleMA {}
 
-impl Strategy for SingleMA {
-    type Params = SingleMAParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
-        assert!(params.period > 0);
-
-        let ma = ma_from_adler32(params.ma, params.period);
+impl SingleMA {
+    pub fn new(params: &SingleMAParams, _meta: &StrategyMeta) -> Self {
+        let ma = params.ma.construct();
         Self {
             previous_ma_value: 0.0,
             advice: Advice::None,
@@ -55,7 +42,9 @@ impl Strategy for SingleMA {
             ma,
         }
     }
+}
 
+impl Strategy for SingleMA {
     fn maturity(&self) -> u32 {
         self.t1
     }

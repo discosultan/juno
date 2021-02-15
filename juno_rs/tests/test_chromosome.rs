@@ -3,7 +3,7 @@ use juno_rs::genetics::Chromosome;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Default, PartialEq)]
+#[derive(Chromosome, Clone, Copy, Debug, Default, PartialEq)]
 struct Regular {
     a: u32,
     b: u32,

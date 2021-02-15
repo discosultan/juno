@@ -1,4 +1,4 @@
-use super::{Signal, Strategy, StrategyMeta};
+use super::{Signal, SignalParams, SignalParamsContext, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
     time::{
@@ -13,10 +13,10 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::{max, min};
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-pub struct SigParams<S: Chromosome> {
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct SigParams {
     #[chromosome]
-    pub sig: S,
+    pub sig: SignalParams,
     #[serde(default)]
     pub persistence: u32,
     pub mid_trend_policy: MidTrendPolicy,
@@ -37,8 +37,8 @@ fn buffer_interval(_rng: &mut StdRng) -> Option<u64> {
 }
 
 #[derive(Signal)]
-pub struct Sig<S: Signal> {
-    sig: S,
+pub struct Sig {
+    sig: Box<dyn Signal>,
     mid_trend: MidTrend,
     persistence: Persistence,
     buffered_candle: BufferedCandle,
@@ -47,11 +47,9 @@ pub struct Sig<S: Signal> {
     t1: u32,
 }
 
-impl<S: Signal> Strategy for Sig<S> {
-    type Params = SigParams<S::Params>;
-
-    fn new(params: &Self::Params, meta: &StrategyMeta) -> Self {
-        let sig = S::new(&params.sig, meta);
+impl Sig {
+    pub fn new(params: &SigParams, meta: &StrategyMeta) -> Self {
+        let sig = params.sig.construct(meta);
         let mid_trend = MidTrend::new(params.mid_trend_policy);
         let persistence = Persistence::new(params.persistence, false);
         Self {
@@ -64,7 +62,9 @@ impl<S: Signal> Strategy for Sig<S> {
             buffered_candle: BufferedCandle::new(meta.interval, params.buffer_interval),
         }
     }
+}
 
+impl Strategy for Sig {
     fn maturity(&self) -> u32 {
         self.t1
     }

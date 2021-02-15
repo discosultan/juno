@@ -1,6 +1,6 @@
 use super::TakeProfit;
 use crate::{
-    easing::{tween, Easing, StdRngExt},
+    easing::{tween, Easing, EasingExt},
     genetics::Chromosome,
     indicators::Adx,
     math::lerp,
@@ -10,7 +10,7 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TrendingParams {
     pub up_thresholds: (f64, f64),
     pub down_thresholds: (f64, f64),
@@ -55,20 +55,7 @@ pub struct Trending {
 }
 
 impl Trending {
-    fn set_threshold_factors(&mut self) {
-        let adx_value = self.adx.value / 100.0;
-        let progress = tween(adx_value, self.easing);
-        let up_threshold = lerp(self.up_min_threshold, self.up_max_threshold, progress);
-        let down_threshold = lerp(self.down_min_threshold, self.down_max_threshold, progress);
-        self.up_threshold_factor = 1.0 + up_threshold;
-        self.down_threshold_factor = 1.0 - down_threshold;
-    }
-}
-
-impl TakeProfit for Trending {
-    type Params = TrendingParams;
-
-    fn new(params: &Self::Params) -> Self {
+    pub fn new(params: &TrendingParams) -> Self {
         Self {
             up_min_threshold: params.up_thresholds.0,
             up_max_threshold: params.up_thresholds.1,
@@ -84,6 +71,17 @@ impl TakeProfit for Trending {
         }
     }
 
+    fn set_threshold_factors(&mut self) {
+        let adx_value = self.adx.value / 100.0;
+        let progress = tween(adx_value, self.easing);
+        let up_threshold = lerp(self.up_min_threshold, self.up_max_threshold, progress);
+        let down_threshold = lerp(self.down_min_threshold, self.down_max_threshold, progress);
+        self.up_threshold_factor = 1.0 + up_threshold;
+        self.down_threshold_factor = 1.0 - down_threshold;
+    }
+}
+
+impl TakeProfit for Trending {
     fn upside_hit(&self) -> bool {
         self.close >= self.close_at_position * self.up_threshold_factor
     }

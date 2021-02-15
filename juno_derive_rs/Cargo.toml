@@ -8,5 +8,6 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
-syn = { version = "1" }
-quote = { version = "1" }
+convert_case = "0.4"
+syn = { version = "1", features = [] }
+quote = "1"

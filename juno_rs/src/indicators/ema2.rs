@@ -1,5 +1,14 @@
-use super::{sma::Sma, MA};
+use super::{
+    sma::{Sma, SmaParams},
+    MA,
+};
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct Ema2Params {
+    pub period: u32,
+}
 
 pub struct Ema2 {
     pub value: f64,
@@ -12,14 +21,17 @@ pub struct Ema2 {
 }
 
 impl Ema2 {
-    pub fn new(period: u32) -> Self {
+    pub fn new(params: &Ema2Params) -> Self {
+        // Period validated within Sma.
         Self {
             value: 0.0,
-            period,
-            a: 2.0 / f64::from(period + 1),
-            sma: Sma::new(period),
-            t1: period,
-            t2: period + 1,
+            period: params.period,
+            a: 2.0 / f64::from(params.period + 1),
+            sma: Sma::new(&SmaParams {
+                period: params.period,
+            }),
+            t1: params.period,
+            t2: params.period + 1,
             t: 0,
         }
     }

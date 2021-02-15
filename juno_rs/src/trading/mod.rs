@@ -6,6 +6,9 @@ pub use traders::*;
 
 use crate::{
     genetics::Chromosome,
+    stop_loss::{StopLossParams, StopLossParamsContext},
+    strategies::{StrategyParams, StrategyParamsContext},
+    take_profit::{TakeProfitParams, TakeProfitParamsContext},
     time::{deserialize_intervals, serialize_interval, serialize_intervals, serialize_timestamp},
 };
 use juno_derive_rs::*;
@@ -26,29 +29,29 @@ const MISSED_CANDLE_POLICY_CHOICES: [MissedCandlePolicy; 3] = [
     MissedCandlePolicy::Last,
 ];
 
-pub trait StdRngExt {
+pub trait MissedCandlePolicyExt {
     fn gen_missed_candle_policy(&mut self) -> MissedCandlePolicy;
 }
 
-impl StdRngExt for StdRng {
+impl MissedCandlePolicyExt for StdRng {
     fn gen_missed_candle_policy(&mut self) -> MissedCandlePolicy {
         *MISSED_CANDLE_POLICY_CHOICES.choose(self).unwrap()
     }
 }
 
-#[derive(Chromosome, Clone, Debug, Serialize)]
-pub struct TradingParams<T: Chromosome, U: Chromosome, V: Chromosome> {
+#[derive(Chromosome, Clone, Copy, Debug, Serialize)]
+pub struct TradingParams {
     #[chromosome]
-    pub strategy: T,
-    #[chromosome]
-    pub stop_loss: U,
-    #[chromosome]
-    pub take_profit: V,
+    pub strategy: StrategyParams,
     #[chromosome]
     pub trader: TraderParams,
+    #[chromosome]
+    pub stop_loss: StopLossParams,
+    #[chromosome]
+    pub take_profit: TakeProfitParams,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct TraderParams {
     #[serde(serialize_with = "serialize_interval")]
     pub interval: u64,

@@ -1,10 +1,7 @@
-use super::{
-    deserialize_ma, deserialize_ma_option, serialize_ma, serialize_ma_option, Signal, StdRngExt,
-    Strategy, StrategyMeta,
-};
+use super::{Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    indicators::{ma_from_adler32, MA},
+    indicators::{MAExt, MAParams, MA},
     Advice, Candle,
 };
 use juno_derive_rs::*;
@@ -12,31 +9,12 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TripleMAParams {
-    #[serde(serialize_with = "serialize_ma")]
-    #[serde(deserialize_with = "deserialize_ma")]
-    pub short_ma: u32,
-    #[serde(serialize_with = "serialize_ma")]
-    #[serde(deserialize_with = "deserialize_ma")]
-    pub medium_ma: u32,
-    #[serde(serialize_with = "serialize_ma")]
-    #[serde(deserialize_with = "deserialize_ma")]
-    pub long_ma: u32,
-    pub periods: (u32, u32, u32),
+    pub mas: (MAParams, MAParams, MAParams),
 }
 
-fn short_ma(rng: &mut StdRng) -> u32 {
-    rng.gen_ma()
-}
-fn medium_ma(rng: &mut StdRng) -> u32 {
-    rng.gen_ma()
-}
-fn long_ma(rng: &mut StdRng) -> u32 {
-    rng.gen_ma()
-}
-fn periods(rng: &mut StdRng) -> (u32, u32, u32) {
+fn mas(rng: &mut StdRng) -> (MAParams, MAParams, MAParams) {
     loop {
         let (s, m, l) = (
             rng.gen_range(1..99),
@@ -44,7 +22,11 @@ fn periods(rng: &mut StdRng) -> (u32, u32, u32) {
             rng.gen_range(3..101),
         );
         if s < m && m < l {
-            return (s, m, l);
+            return (
+                rng.gen_ma_params(s),
+                rng.gen_ma_params(m),
+                rng.gen_ma_params(l),
+            );
         }
     }
 }
@@ -60,23 +42,23 @@ pub struct TripleMA {
 unsafe impl Send for TripleMA {}
 unsafe impl Sync for TripleMA {}
 
-impl Strategy for TripleMA {
-    type Params = TripleMAParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
-        let (short_period, medium_period, long_period) = params.periods;
-        assert!(short_period > 0);
-        assert!(short_period < medium_period);
-        assert!(medium_period < long_period);
+impl TripleMA {
+    pub fn new(params: &TripleMAParams, _meta: &StrategyMeta) -> Self {
+        // Non-zero period is validated within indicator.
+        let (short_ma, medium_ma, long_ma) = &params.mas;
+        assert!(short_ma.period() < medium_ma.period());
+        assert!(medium_ma.period() < long_ma.period());
 
         Self {
-            short_ma: ma_from_adler32(params.short_ma, short_period),
-            medium_ma: ma_from_adler32(params.medium_ma, medium_period),
-            long_ma: ma_from_adler32(params.long_ma, long_period),
+            short_ma: short_ma.construct(),
+            medium_ma: medium_ma.construct(),
+            long_ma: long_ma.construct(),
             advice: Advice::None,
         }
     }
+}
 
+impl Strategy for TripleMA {
     fn maturity(&self) -> u32 {
         max(
             max(self.long_ma.maturity(), self.medium_ma.maturity()),

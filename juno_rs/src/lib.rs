@@ -1,6 +1,5 @@
 pub mod chandler;
 pub mod easing;
-pub mod ffi;
 pub mod filters;
 pub mod genetics;
 pub mod indicators;
@@ -15,7 +14,7 @@ pub mod time;
 pub mod trading;
 pub mod utils;
 
-pub use crate::{ffi::*, filters::Filters};
+pub use crate::filters::Filters;
 
 use crate::time::serialize_timestamp;
 use serde::{Deserialize, Serialize};
@@ -53,14 +52,12 @@ pub enum Advice {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[repr(C)]
 pub struct BorrowInfo {
     pub daily_interest_rate: f64,
     pub limit: f64,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq)]
-#[repr(C)]
 pub struct Candle {
     #[serde(serialize_with = "serialize_timestamp")]
     pub time: u64,
@@ -81,7 +78,6 @@ impl AddAssign<&Candle> for Candle {
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-#[repr(C)]
 pub struct Fees {
     pub maker: f64,
     pub taker: f64,

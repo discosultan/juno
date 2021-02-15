@@ -1,30 +1,31 @@
-use super::{
-    deserialize_ma, deserialize_ma_option, serialize_ma, serialize_ma_option, Signal, StdRngExt,
-    Strategy, StrategyMeta,
+use super::{Signal, Strategy, StrategyMeta};
+use crate::{
+    genetics::Chromosome,
+    indicators::{self, MAExt, MAParams},
+    itertools::IteratorExt,
+    Advice, Candle,
 };
-use crate::{genetics::Chromosome, indicators, itertools::IteratorExt, Advice, Candle};
 use bounded_vec_deque::BoundedVecDeque;
+use indicators::EmaParams;
 use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::min;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct FourWeekRuleParams {
     pub period: u32,
-    #[serde(serialize_with = "serialize_ma")]
-    #[serde(deserialize_with = "deserialize_ma")]
-    pub ma: u32,
-    pub ma_period: u32,
+    pub ma: MAParams,
 }
 
 impl Default for FourWeekRuleParams {
     fn default() -> Self {
         Self {
             period: 28,
-            ma: indicators::adler32::EMA,
-            ma_period: 14,
+            ma: MAParams::Ema(EmaParams {
+                period: 14,
+                smoothing: None,
+            }),
         }
     }
 }
@@ -32,11 +33,9 @@ impl Default for FourWeekRuleParams {
 fn period(rng: &mut StdRng) -> u32 {
     rng.gen_range(2..300)
 }
-fn ma(rng: &mut StdRng) -> u32 {
-    rng.gen_ma()
-}
-fn ma_period(rng: &mut StdRng) -> u32 {
-    rng.gen_range(2..300)
+fn ma(rng: &mut StdRng) -> MAParams {
+    let period = rng.gen_range(2..300);
+    rng.gen_ma_params(period)
 }
 
 // We can use https://github.com/dtolnay/typetag to serialize a Box<dyn trait> if needed. Otherwise,
@@ -50,19 +49,19 @@ pub struct FourWeekRule {
     t1: u32,
 }
 
-impl Strategy for FourWeekRule {
-    type Params = FourWeekRuleParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
+impl FourWeekRule {
+    pub fn new(params: &FourWeekRuleParams, _meta: &StrategyMeta) -> Self {
         Self {
             prices: BoundedVecDeque::new(params.period as usize),
-            ma: indicators::ma_from_adler32(params.ma, params.ma_period),
+            ma: params.ma.construct(),
             advice: Advice::None,
             t: 0,
             t1: params.period + 1,
         }
     }
+}
 
+impl Strategy for FourWeekRule {
     fn maturity(&self) -> u32 {
         self.t1
     }

@@ -1,5 +1,12 @@
 use super::MA;
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct EmaParams {
+    pub period: u32,
+    pub smoothing: Option<f64>, // Calculated from period if None.
+}
 
 pub struct Ema {
     pub value: f64,
@@ -9,19 +16,21 @@ pub struct Ema {
 }
 
 impl Ema {
-    pub fn new(period: u32) -> Self {
+    pub fn new(params: &EmaParams) -> Self {
+        assert!(params.period > 0);
+        let smoothing = match params.smoothing {
+            Some(smoothing) => {
+                assert!(0.0 < smoothing && smoothing <= 1.0);
+                smoothing
+            }
+            None => 2.0 / f64::from(params.period + 1),
+        };
         Self {
             value: 0.0,
-            a: 2.0 / f64::from(period + 1),
+            a: smoothing,
             t: 0,
-            t1: period,
+            t1: params.period,
         }
-    }
-
-    pub fn with_smoothing(period: u32, a: f64) -> Self {
-        let mut indicator = Self::new(period);
-        indicator.a = a;
-        indicator
     }
 }
 

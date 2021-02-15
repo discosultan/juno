@@ -1,6 +1,14 @@
 use super::MA;
 use bounded_vec_deque::BoundedVecDeque;
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct AlmaParams {
+    pub offset: f64, // 0.85
+    pub period: u32,
+    pub sigma: Option<u32>, // Calculated from period if None.
+}
 
 pub struct Alma {
     pub value: f64,
@@ -13,17 +21,21 @@ pub struct Alma {
 }
 
 impl Alma {
-    pub fn new(period: u32) -> Self {
-        let sigma = (period as f64 / 1.5).floor() as u32;
-        Self::with_sigma(period, sigma)
-    }
+    pub fn new(params: &AlmaParams) -> Self {
+        assert!(params.period > 0);
+        assert!(0.0 < params.offset && params.offset < 1.0);
 
-    pub fn with_sigma(period: u32, sigma: u32) -> Self {
-        let offset = 0.85;
+        let sigma = match params.sigma {
+            Some(sigma) => {
+                assert!(sigma > 0);
+                sigma
+            }
+            None => (params.period as f64 / 1.5).floor() as u32,
+        };
 
-        let m = (offset * (period - 1) as f64).floor();
-        let s = period as f64 * 1.0 / sigma as f64;
-        let tmp = (0..period)
+        let m = (params.offset * (params.period - 1) as f64).floor();
+        let s = params.period as f64 * 1.0 / sigma as f64;
+        let tmp = (0..params.period)
             .map(|i| (-(i as f64 - m) * (i as f64 - m) / (2.0 * s * s)).exp())
             .collect::<Vec<f64>>();
         let sw: f64 = tmp.iter().sum();
@@ -31,10 +43,10 @@ impl Alma {
             value: 0.0,
 
             weights: tmp.iter().map(|v| v / sw).collect::<Vec<f64>>(),
-            prices: BoundedVecDeque::new(period as usize),
+            prices: BoundedVecDeque::new(params.period as usize),
 
             t: 0,
-            t1: period,
+            t1: params.period,
         }
     }
 }

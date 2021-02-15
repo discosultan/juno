@@ -1,4 +1,7 @@
-use super::{ema::Ema, MA};
+use super::{
+    ema::{Ema, EmaParams},
+    MA,
+};
 use std::cmp::max;
 
 pub struct Macd {
@@ -13,24 +16,30 @@ pub struct Macd {
 
 impl Macd {
     pub fn new(short_period: u32, long_period: u32, signal_period: u32) -> Self {
+        assert!(long_period >= short_period);
         // A bit hacky but is what is usually expected.
-        let (short_ema, long_ema) = if short_period == 12 && long_period == 26 {
-            (
-                Ema::with_smoothing(short_period, 0.15),
-                Ema::with_smoothing(long_period, 0.075),
-            )
+        let (short_smoothing, long_smoothing) = if short_period == 12 && long_period == 26 {
+            (Some(0.15), Some(0.075))
         } else {
-            (Ema::new(short_period), Ema::new(long_period))
+            (None, None)
         };
-        let signal_ema = Ema::new(signal_period);
 
         Self {
             value: 0.0,
             signal: 0.0,
             histogram: 0.0,
-            short_ema,
-            long_ema,
-            signal_ema,
+            short_ema: Ema::new(&EmaParams {
+                period: short_period,
+                smoothing: short_smoothing,
+            }),
+            long_ema: Ema::new(&EmaParams {
+                period: long_period,
+                smoothing: long_smoothing,
+            }),
+            signal_ema: Ema::new(&EmaParams {
+                period: signal_period,
+                smoothing: None,
+            }),
         }
     }
 

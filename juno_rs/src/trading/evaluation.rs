@@ -3,17 +3,14 @@ use crate::{
     chandler::{candles_to_prices, fill_missing_candles, ChandlerError},
     genetics::{Evaluation, Individual},
     statistics,
-    stop_loss::StopLoss,
     storages::{get_exchange_info, list_candles, StorageError},
-    strategies::Signal,
-    take_profit::TakeProfit,
     time,
     trading::trade,
     BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, marker::PhantomData};
+use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
@@ -65,18 +62,15 @@ struct SymbolCtx {
     stats_quote_prices: Option<Vec<f64>>,
 }
 
-pub struct BasicEvaluation<T: Signal, U: StopLoss, V: TakeProfit> {
+pub struct BasicEvaluation {
     symbol_ctxs: Vec<SymbolCtx>,
     quote: f64,
     stats_interval: u64,
     evaluation_statistic: EvaluationStatistic,
     evaluation_aggregation_fn: fn(f64, f64) -> f64,
-    signal_phantom: PhantomData<T>,
-    stop_loss_phantom: PhantomData<U>,
-    take_profit_phantom: PhantomData<V>,
 }
 
-impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
+impl BasicEvaluation {
     pub fn new(
         exchange: &str,
         symbols: &[String],
@@ -142,28 +136,18 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
                 EvaluationAggregation::Log10 => sum_log10,
                 EvaluationAggregation::Log10Factored => sum_log10_factored,
             },
-            signal_phantom: PhantomData,
-            stop_loss_phantom: PhantomData,
-            take_profit_phantom: PhantomData,
         })
     }
 
-    pub fn evaluate_symbols(
-        &self,
-        chromosome: &TradingParams<T::Params, U::Params, V::Params>,
-    ) -> Vec<f64> {
+    pub fn evaluate_symbols(&self, chromosome: &TradingParams) -> Vec<f64> {
         self.symbol_ctxs
             .par_iter()
             .map(|ctx| self.evaluate_symbol(ctx, chromosome))
             .collect()
     }
 
-    fn evaluate_symbol(
-        &self,
-        ctx: &SymbolCtx,
-        chromosome: &TradingParams<T::Params, U::Params, V::Params>,
-    ) -> f64 {
-        let summary = trade::<T, U, V>(
+    fn evaluate_symbol(&self, ctx: &SymbolCtx, chromosome: &TradingParams) -> f64 {
+        let summary = trade(
             &chromosome.strategy,
             &chromosome.stop_loss,
             &chromosome.take_profit,
@@ -199,8 +183,8 @@ impl<T: Signal, U: StopLoss, V: TakeProfit> BasicEvaluation<T, U, V> {
     }
 }
 
-impl<T: Signal, U: StopLoss, V: TakeProfit> Evaluation for BasicEvaluation<T, U, V> {
-    type Chromosome = TradingParams<T::Params, U::Params, V::Params>;
+impl Evaluation for BasicEvaluation {
+    type Chromosome = TradingParams;
 
     fn evaluate(&self, population: &mut [Individual<Self::Chromosome>]) {
         // TODO: Support different strategies here. A la parallel cpu or gpu, for example.

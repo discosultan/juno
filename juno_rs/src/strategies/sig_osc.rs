@@ -1,4 +1,7 @@
-use super::{Oscillator, Signal, Strategy, StrategyMeta};
+use super::{
+    Oscillator, OscillatorParams, OscillatorParamsContext, Signal, SignalParams,
+    SignalParamsContext, Strategy, StrategyMeta,
+};
 use crate::{
     genetics::Chromosome,
     utils::{combine, MidTrend, MidTrendPolicy, MidTrendPolicyExt, Persistence},
@@ -15,12 +18,12 @@ pub enum OscFilter {
     Prevent,
 }
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-pub struct SigOscParams<S: Chromosome, O: Chromosome> {
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct SigOscParams {
     #[chromosome]
-    pub sig: S,
+    pub sig: SignalParams,
     #[chromosome]
-    pub osc: O,
+    pub osc: OscillatorParams,
     pub osc_filter: OscFilter,
     pub persistence: u32,
     pub mid_trend_policy: MidTrendPolicy,
@@ -41,9 +44,9 @@ fn osc_filter(rng: &mut StdRng) -> OscFilter {
 }
 
 #[derive(Signal)]
-pub struct SigOsc<S: Signal, O: Oscillator> {
-    sig: S,
-    osc: O,
+pub struct SigOsc {
+    sig: Box<dyn Signal>,
+    osc: Box<dyn Oscillator>,
     osc_filter: OscFilter,
     advice: Advice,
     mid_trend: MidTrend,
@@ -52,7 +55,26 @@ pub struct SigOsc<S: Signal, O: Oscillator> {
     t1: u32,
 }
 
-impl<S: Signal, O: Oscillator> SigOsc<S, O> {
+impl SigOsc {
+    pub fn new(params: &SigOscParams, meta: &StrategyMeta) -> Self {
+        let sig = params.sig.construct(meta);
+        let osc = params.osc.construct(meta);
+        let mid_trend = MidTrend::new(params.mid_trend_policy);
+        let persistence = Persistence::new(params.persistence, false);
+        Self {
+            advice: Advice::None,
+            t: 0,
+            t1: max(sig.maturity(), osc.maturity())
+                + max(mid_trend.maturity(), persistence.maturity())
+                - 1,
+            sig,
+            osc,
+            osc_filter: params.osc_filter,
+            mid_trend,
+            persistence,
+        }
+    }
+
     fn filter(&self, advice: Advice) -> Advice {
         match self.osc_filter {
             OscFilter::Enforce => self.filter_enforce(advice),
@@ -103,28 +125,7 @@ impl<S: Signal, O: Oscillator> SigOsc<S, O> {
     }
 }
 
-impl<S: Signal, O: Oscillator> Strategy for SigOsc<S, O> {
-    type Params = SigOscParams<S::Params, O::Params>;
-
-    fn new(params: &Self::Params, meta: &StrategyMeta) -> Self {
-        let sig = S::new(&params.sig, meta);
-        let osc = O::new(&params.osc, meta);
-        let mid_trend = MidTrend::new(params.mid_trend_policy);
-        let persistence = Persistence::new(params.persistence, false);
-        Self {
-            advice: Advice::None,
-            t: 0,
-            t1: max(sig.maturity(), osc.maturity())
-                + max(mid_trend.maturity(), persistence.maturity())
-                - 1,
-            sig,
-            osc,
-            osc_filter: params.osc_filter,
-            mid_trend,
-            persistence,
-        }
-    }
-
+impl Strategy for SigOsc {
     fn maturity(&self) -> u32 {
         self.t1
     }

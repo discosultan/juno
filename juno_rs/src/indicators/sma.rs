@@ -1,5 +1,11 @@
 use super::MA;
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct SmaParams {
+    pub period: u32,
+}
 
 pub struct Sma {
     pub value: f64,
@@ -11,14 +17,15 @@ pub struct Sma {
 }
 
 impl Sma {
-    pub fn new(period: u32) -> Self {
+    pub fn new(params: &SmaParams) -> Self {
+        assert!(params.period > 0);
         Self {
             value: 0.0,
-            prices: vec![0.0; period as usize],
+            prices: vec![0.0; params.period as usize],
             i: 0,
             sum: 0.0,
             t: 0,
-            t1: period,
+            t1: params.period,
         }
     }
 }

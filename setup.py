@@ -9,9 +9,7 @@ setup(
     install_requires=[
         'aiohttp',
         'aiolimiter',
-        'cffi',
         'colorlog',
-        'deap',
         'mergedeep',
         'more-itertools',
         'multidict',

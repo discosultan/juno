@@ -4,7 +4,7 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct BasicParams {
     pub up_threshold: f64,
     pub down_threshold: f64,
@@ -24,10 +24,8 @@ pub struct Basic {
     close: f64,
 }
 
-impl StopLoss for Basic {
-    type Params = BasicParams;
-
-    fn new(params: &Self::Params) -> Self {
+impl Basic {
+    pub fn new(params: &BasicParams) -> Self {
         Self {
             up_threshold_factor: 1.0 - params.up_threshold,
             down_threshold_factor: 1.0 + params.down_threshold,
@@ -35,7 +33,9 @@ impl StopLoss for Basic {
             close: 0.0,
         }
     }
+}
 
+impl StopLoss for Basic {
     fn upside_hit(&self) -> bool {
         self.close <= self.close_at_position * self.up_threshold_factor
     }

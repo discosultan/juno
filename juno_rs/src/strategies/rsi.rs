@@ -4,8 +4,7 @@ use juno_derive_rs::*;
 use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[repr(C)]
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct RsiParams {
     pub period: u32,
     pub up_threshold: f64,
@@ -28,17 +27,17 @@ pub struct Rsi {
     down_threshold: f64,
 }
 
-impl Strategy for Rsi {
-    type Params = RsiParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
+impl Rsi {
+    pub fn new(params: &RsiParams, _meta: &StrategyMeta) -> Self {
         Self {
             indicator: indicators::Rsi::new(params.period),
             up_threshold: params.up_threshold,
             down_threshold: params.down_threshold,
         }
     }
+}
 
+impl Strategy for Rsi {
     fn maturity(&self) -> u32 {
         self.indicator.maturity()
     }

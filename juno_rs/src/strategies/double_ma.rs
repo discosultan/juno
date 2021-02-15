@@ -1,10 +1,7 @@
-use super::{
-    deserialize_ma, deserialize_ma_option, serialize_ma, serialize_ma_option, Signal, StdRngExt,
-    Strategy, StrategyMeta,
-};
+use super::{Signal, Strategy, StrategyMeta};
 use crate::{
     genetics::Chromosome,
-    indicators::{ma_from_adler32, MA},
+    indicators::{MAExt, MAParams, MA},
     Advice, Candle,
 };
 use juno_derive_rs::*;
@@ -12,29 +9,16 @@ use rand::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::max;
 
-#[derive(Chromosome, Clone, Debug, Deserialize, Serialize)]
-#[repr(C)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct DoubleMAParams {
-    #[serde(serialize_with = "serialize_ma")]
-    #[serde(deserialize_with = "deserialize_ma")]
-    pub short_ma: u32,
-    #[serde(serialize_with = "serialize_ma")]
-    #[serde(deserialize_with = "deserialize_ma")]
-    pub long_ma: u32,
-    pub periods: (u32, u32),
+    pub mas: (MAParams, MAParams),
 }
 
-fn short_ma(rng: &mut StdRng) -> u32 {
-    rng.gen_ma()
-}
-fn long_ma(rng: &mut StdRng) -> u32 {
-    rng.gen_ma()
-}
-fn periods(rng: &mut StdRng) -> (u32, u32) {
+fn mas(rng: &mut StdRng) -> (MAParams, MAParams) {
     loop {
         let (s, l) = (rng.gen_range(1..200), rng.gen_range(2..201));
         if s < l {
-            return (s, l);
+            return (rng.gen_ma_params(s), rng.gen_ma_params(l));
         }
     }
 }
@@ -49,21 +33,21 @@ pub struct DoubleMA {
 unsafe impl Send for DoubleMA {}
 unsafe impl Sync for DoubleMA {}
 
-impl Strategy for DoubleMA {
-    type Params = DoubleMAParams;
-
-    fn new(params: &Self::Params, _meta: &StrategyMeta) -> Self {
-        let (short_period, long_period) = params.periods;
-        assert!(short_period > 0);
-        assert!(short_period < long_period);
+impl DoubleMA {
+    pub fn new(params: &DoubleMAParams, _meta: &StrategyMeta) -> Self {
+        // Non-zero period is validated within indicator.
+        let (short_ma, long_ma) = &params.mas;
+        assert!(short_ma.period() < long_ma.period());
 
         Self {
-            short_ma: ma_from_adler32(params.short_ma, short_period),
-            long_ma: ma_from_adler32(params.long_ma, long_period),
+            short_ma: short_ma.construct(),
+            long_ma: long_ma.construct(),
             advice: Advice::None,
         }
     }
+}
 
+impl Strategy for DoubleMA {
     fn maturity(&self) -> u32 {
         max(self.long_ma.maturity(), self.short_ma.maturity())
     }

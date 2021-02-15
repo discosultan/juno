@@ -1,5 +1,14 @@
-use super::{sma::Sma, MA};
+use super::{
+    sma::{Sma, SmaParams},
+    MA,
+};
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+pub struct SmmaParams {
+    pub period: u32,
+}
 
 pub struct Smma {
     pub value: f64,
@@ -13,14 +22,17 @@ pub struct Smma {
 }
 
 impl Smma {
-    pub fn new(period: u32) -> Self {
+    pub fn new(params: &SmmaParams) -> Self {
+        // Period validated within Sma.
         Self {
             value: 0.0,
-            sma: Sma::new(period),
-            weight: period.into(),
+            sma: Sma::new(&SmaParams {
+                period: params.period,
+            }),
+            weight: params.period.into(),
             t: 0,
-            t1: period,
-            t2: period + 1,
+            t1: params.period,
+            t2: params.period + 1,
         }
     }
 }

@@ -29,7 +29,11 @@ fn test_adx() -> Result<()> {
 
 #[test]
 fn test_alma() -> Result<()> {
-    let mut indicator = indicators::Alma::with_sigma(9, 6);
+    let mut indicator = indicators::Alma::new(&indicators::AlmaParams {
+        period: 9,
+        sigma: Some(6),
+        offset: 0.85,
+    });
     assert("alma", |inputs, i| {
         indicator.update(inputs[0][i].parse()?);
         Ok(vec![indicator.value])
@@ -38,7 +42,7 @@ fn test_alma() -> Result<()> {
 
 #[test]
 fn test_dema() -> Result<()> {
-    let mut indicator = indicators::Dema::new(5);
+    let mut indicator = indicators::Dema::new(&indicators::DemaParams { period: 5 });
     assert("dema", |inputs, i| {
         indicator.update(inputs[0][i].parse()?);
         Ok(vec![indicator.value])
@@ -78,7 +82,10 @@ fn test_dx() -> Result<()> {
 
 #[test]
 fn test_ema() -> Result<()> {
-    let mut indicator = indicators::Ema::new(5);
+    let mut indicator = indicators::Ema::new(&indicators::EmaParams {
+        period: 5,
+        smoothing: None,
+    });
     assert("ema", |inputs, i| {
         indicator.update(inputs[0][i].parse()?);
         Ok(vec![indicator.value])
@@ -87,7 +94,7 @@ fn test_ema() -> Result<()> {
 
 #[test]
 fn test_kama() -> Result<()> {
-    let mut indicator = indicators::Kama::new(4);
+    let mut indicator = indicators::Kama::new(&indicators::KamaParams { period: 4 });
     assert("kama", |inputs, i| {
         indicator.update(inputs[0][i].parse()?);
         Ok(vec![indicator.value])
@@ -114,7 +121,7 @@ fn test_rsi() -> Result<()> {
 
 #[test]
 fn test_sma() -> Result<()> {
-    let mut indicator = indicators::Sma::new(5);
+    let mut indicator = indicators::Sma::new(&indicators::SmaParams { period: 5 });
     assert("sma", |inputs, i| {
         indicator.update(inputs[0][i].parse()?);
         Ok(vec![indicator.value])

@@ -1,4 +1,7 @@
-use super::{sma::Sma, MA};
+use super::{
+    sma::{Sma, SmaParams},
+    MA,
+};
 use bounded_vec_deque::BoundedVecDeque;
 use std::cmp::min;
 
@@ -25,8 +28,12 @@ impl Stoch {
             d: 0.0,
             k_high_window: BoundedVecDeque::new(k_period as usize),
             k_low_window: BoundedVecDeque::new(k_period as usize),
-            k_sma: Sma::new(k_sma_period),
-            d_sma: Sma::new(d_sma_period),
+            k_sma: Sma::new(&SmaParams {
+                period: k_sma_period,
+            }),
+            d_sma: Sma::new(&SmaParams {
+                period: d_sma_period,
+            }),
             t: 0,
             t1,
             t2,

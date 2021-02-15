@@ -8,7 +8,7 @@ from juno import (
 )
 from juno.config import format_as_config, from_env, init_instance
 from juno.math import floor_multiple
-from juno.solvers import Python, Rust, Solver
+from juno.solvers import Python, Solver
 from juno.statistics import analyse_benchmark, analyse_portfolio
 from juno.traders import Basic, BasicConfig
 from juno.typing import TypeConstructor
@@ -65,9 +65,8 @@ async def main() -> None:
     chandler = components.Chandler(trades=trades, storage=storage, exchanges=exchange_list)
     prices = components.Prices(chandler=chandler)
     trader = Basic(chandler=chandler, informant=informant, exchanges=exchange_list)
-    rust_solver = Rust(informant=informant)
     python_solver = Python(informant=informant)
-    async with binance, informant, rust_solver:
+    async with binance, informant, python_solver:
         candles = await chandler.list_candles('binance', SYMBOL, INTERVAL, start, end)
         fiat_prices = await prices.map_asset_prices(
             exchange='binance',
@@ -98,7 +97,6 @@ async def main() -> None:
             long=LONG,
             short=SHORT,
         )
-        rust_result = rust_solver.solve(solver_config)
         python_result = python_solver.solve(solver_config)
 
         trader_state = await trader.initialize(BasicConfig(
@@ -122,12 +120,6 @@ async def main() -> None:
             asset_prices=fiat_prices,
             trading_summary=trading_summary,
         )
-
-        logging.info('=== rust solver ===')
-        # logging.info(f'alpha {rust_result.alpha}')
-        logging.info(f'sharpe ratio {rust_result.sharpe_ratio}')
-        # logging.info(f'profit {rust_result.profit}')
-        # logging.info(f'mean pos dur {rust_result.mean_position_duration}')
 
         logging.info('=== python solver ===')
         # logging.info(f'alpha {python_result.alpha}')

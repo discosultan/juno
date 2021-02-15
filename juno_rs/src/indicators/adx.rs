@@ -1,4 +1,8 @@
-use super::{dx::DX, smma::Smma, MA};
+use super::{
+    dx::DX,
+    smma::{Smma, SmmaParams},
+    MA,
+};
 use std::cmp::max;
 
 pub struct Adx {
@@ -12,7 +16,7 @@ impl Adx {
         Self {
             value: 0.0,
             dx: DX::new(period),
-            smma: Smma::new(period),
+            smma: Smma::new(&SmmaParams { period }),
         }
     }
 
