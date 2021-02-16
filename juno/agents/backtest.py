@@ -8,12 +8,12 @@ from juno.components import Chandler, Events, Prices
 from juno.config import (
     format_as_config, get_module_type_constructor, get_type_name_and_kwargs, kwargs_for
 )
-from juno.statistics import analyse_benchmark, analyse_portfolio
+from juno.statistics import CoreStatistics, ExtendedStatistics
 from juno.storages import Memory, Storage
 from juno.time import strftimestamp, time_ms
 from juno.traders import Trader
 from juno.trading import TradingMode
-from juno.utils import construct, extract_public
+from juno.utils import construct
 
 from .agent import Agent, AgentStatus
 
@@ -120,21 +120,15 @@ class Backtest(Agent):
             fiat_exchange=config.fiat_exchange,
         )
 
-        _log.info('calculating benchmark and portfolio statistics')
-        benchmark = analyse_benchmark(fiat_prices['btc'])
-        portfolio = analyse_portfolio(
-            benchmark_g_returns=benchmark.g_returns,
-            asset_prices=fiat_prices,
-            trading_summary=summary,
-        )
-
-        _log.info(f'benchmark stats: {format_as_config(benchmark.stats)}')
-        _log.info(f'portfolio stats: {format_as_config(portfolio.stats)}')
+        _log.info(f'calculating benchmark and portfolio statistics ({config.fiat_asset})')
+        stats = ExtendedStatistics.compose(summary=summary, asset_prices=fiat_prices)
+        _log.info(format_as_config(stats))
 
     async def on_finally(self, config: Config, state: State) -> None:
         assert state.result
+        stats = CoreStatistics.compose(state.result.summary)
         _log.info(
             f'{self.get_name(state)}: finished with result '
-            f'{format_as_config(extract_public(state.result.summary))}'
+            f'{format_as_config(stats)}'
         )
         await self._events.emit(state.name, 'finished', state.result.summary)

@@ -1,9 +1,11 @@
 import math
 import statistics
-from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal
+from decimal import ROUND_DOWN, ROUND_HALF_UP, Decimal, Overflow
 from typing import Iterable, TypeVar
 
 TNum = TypeVar('TNum', int, Decimal)
+
+_YEAR_MS = 31_556_952_000
 
 
 def ceil_multiple(value: TNum, multiple: TNum) -> TNum:
@@ -57,3 +59,15 @@ def rpstdev(data: Iterable[Decimal]) -> Decimal:
     """Square root of the population variance relative (%) to mean."""
     mean = statistics.mean(data)
     return statistics.pstdev(data) / mean
+
+
+# Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
+def annualized(duration: int, value: Decimal) -> Decimal:
+    assert value >= -1
+    n = Decimal(duration) / _YEAR_MS
+    if n == 0:
+        return Decimal('0.0')
+    try:
+        return (1 + value)**(1 / n) - 1
+    except Overflow:
+        return Decimal('Inf')

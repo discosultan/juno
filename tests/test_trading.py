@@ -3,6 +3,7 @@ from decimal import Decimal
 import pytest
 
 from juno import Fill
+from juno.statistics import CoreStatistics
 from juno.trading import CloseReason, Position, TradingSummary
 
 
@@ -80,18 +81,20 @@ def test_trading_summary() -> None:
     for position in positions:
         summary.append_position(position)
 
-    assert summary.cost == Decimal('100.0')
-    assert summary.gain == Decimal('102.91')
-    assert summary.profit == Decimal('2.91')
-    assert summary.max_drawdown == pytest.approx(Decimal('0.1495'), Decimal('0.001'))
+    stats = CoreStatistics.compose(summary)
+    assert stats.cost == Decimal('100.0')
+    assert stats.gain == Decimal('102.91')
+    assert stats.profit == Decimal('2.91')
+    assert stats.max_drawdown == pytest.approx(Decimal('0.1495'), Decimal('0.001'))
 
 
 def test_empty_trading_summary() -> None:
     summary = TradingSummary(start=0, quote=Decimal('100.0'), quote_asset='btc')
-    assert summary.cost == 100
-    assert summary.gain == 100
-    assert summary.profit == 0
-    assert summary.max_drawdown == 0
+    stats = CoreStatistics.compose(summary)
+    assert stats.cost == 100
+    assert stats.gain == 100
+    assert stats.profit == 0
+    assert stats.max_drawdown == 0
 
 
 def test_trading_summary_end() -> None:

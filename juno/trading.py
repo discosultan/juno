@@ -3,10 +3,9 @@ from __future__ import annotations
 import asyncio
 import itertools
 import logging
-import statistics
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from decimal import Decimal, Overflow
+from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
 from typing import Iterable, Optional, Union
@@ -16,11 +15,11 @@ from tenacity import (
     wait_exponential
 )
 
-from juno import BadOrder, Balance, Candle, Fees, Fill, Filters, Interval, Timestamp
+from juno import BadOrder, Balance, Fill, Filters, Interval, Timestamp
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
-from juno.math import ceil_multiple, round_down, round_half_up
-from juno.time import HOUR_MS, MIN_MS, YEAR_MS, strftimestamp, time_ms
+from juno.math import annualized, ceil_multiple, round_down, round_half_up
+from juno.time import HOUR_MS, MIN_MS, strftimestamp, time_ms
 from juno.utils import extract_public, unpack_assets, unpack_base_asset, unpack_quote_asset
 
 _log = logging.getLogger(__name__)
@@ -96,7 +95,7 @@ class Position(ModuleType):
 
         @property
         def annualized_roi(self) -> Decimal:
-            return _annualized_roi(self.duration, self.roi)
+            return annualized(self.duration, self.roi)
 
         @property
         def dust(self) -> Decimal:
@@ -193,7 +192,7 @@ class Position(ModuleType):
 
         @property
         def annualized_roi(self) -> Decimal:
-            return _annualized_roi(self.duration, self.roi)
+            return annualized(self.duration, self.roi)
 
         # TODO: implement
         # @property
@@ -263,26 +262,28 @@ class TradingSummary:
     quote: Decimal
     quote_asset: str
 
-    _positions: list[Position.Closed] = field(default_factory=list)
-    _drawdowns: list[Decimal] = field(default_factory=list)
-    _max_drawdown: Decimal = Decimal('0.0')
-    _mean_drawdown: Decimal = Decimal('0.0')
+    positions: list[Position.Closed] = field(default_factory=list)
 
-    end: Optional[Timestamp] = None
+    end: Timestamp = -1
 
-    _drawdowns_dirty: bool = True
+    def __post_init__(self):
+        if self.end == -1:
+            self.end = self.start
+
+    @property
+    def profit(self) -> Decimal:
+        return sum((p.profit for p in self.positions), Decimal('0.0'))
 
     def append_position(self, pos: Position.Closed) -> None:
-        self._positions.append(pos)
+        self.positions.append(pos)
         self.finish(pos.close_time)
-        self._drawdowns_dirty = True
 
     def get_positions(
         self,
         type_: Optional[type[Position.Closed]] = None,
         reason: Optional[CloseReason] = None,
     ) -> Iterable[Position.Closed]:
-        result = (p for p in self._positions)
+        result = (p for p in self.positions)
         if type_ is not None:
             result = (p for p in result if isinstance(p, type_))
         if reason is not None:
@@ -297,185 +298,7 @@ class TradingSummary:
         return list(self.get_positions(type_, reason))
 
     def finish(self, end: Timestamp) -> None:
-        if self.end is None:
-            self.end = end
-        else:
-            self.end = max(end, self.end)
-
-    @property
-    def cost(self) -> Decimal:
-        return self.quote
-
-    @property
-    def gain(self) -> Decimal:
-        return self.quote + self.profit
-
-    @property
-    def profit(self) -> Decimal:
-        return sum((p.profit for p in self.get_positions()), Decimal('0.0'))
-
-    @property
-    def roi(self) -> Decimal:
-        return self.profit / self.cost
-
-    @property
-    def annualized_roi(self) -> Decimal:
-        return _annualized_roi(self.duration, self.roi)
-
-    @property
-    def duration(self) -> Interval:
-        return 0 if self.end is None else self.end - self.start
-
-    @property
-    def num_positions(self) -> int:
-        return len(self._positions)
-
-    @property
-    def num_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self.get_positions())
-
-    @property
-    def num_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self.get_positions())
-
-    @property
-    def num_long_positions(self) -> int:
-        return len(self.list_positions(type_=Position.Long))
-
-    @property
-    def num_long_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self.get_positions(type_=Position.Long))
-
-    @property
-    def num_long_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self.get_positions(type_=Position.Long))
-
-    @property
-    def num_short_positions(self) -> int:
-        return len(self.list_positions(type_=Position.Short))
-
-    @property
-    def num_short_positions_in_profit(self) -> int:
-        return TradingSummary._num_positions_in_profit(self.get_positions(type_=Position.Short))
-
-    @property
-    def num_short_positions_in_loss(self) -> int:
-        return TradingSummary._num_positions_in_loss(self.get_positions(type_=Position.Short))
-
-    @staticmethod
-    def _num_positions_in_profit(positions: Iterable[Position.Closed]) -> int:
-        return sum(1 for p in positions if p.profit >= 0)
-
-    @staticmethod
-    def _num_positions_in_loss(positions: Iterable[Position.Closed]) -> int:
-        return sum(1 for p in positions if p.profit < 0)
-
-    @property
-    def num_stop_losses(self) -> int:
-        return sum(1 for p in self._positions if p.close_reason is CloseReason.STOP_LOSS)
-
-    @property
-    def num_take_profits(self) -> int:
-        return sum(1 for p in self._positions if p.close_reason is CloseReason.TAKE_PROFIT)
-
-    @property
-    def mean_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self.get_positions())
-
-    @property
-    def mean_long_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self.get_positions(type_=Position.Long))
-
-    @property
-    def mean_short_position_profit(self) -> Decimal:
-        return TradingSummary._mean_position_profit(self.get_positions(type_=Position.Short))
-
-    @staticmethod
-    def _mean_position_profit(positions: Iterable[Position.Closed]) -> Decimal:
-        profits = [x.profit for x in positions]
-        if len(profits) == 0:
-            return Decimal('0.0')
-        return statistics.mean(profits)
-
-    @property
-    def mean_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self.get_positions())
-
-    @property
-    def mean_long_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self.get_positions(type_=Position.Long))
-
-    @property
-    def mean_short_position_duration(self) -> Interval:
-        return TradingSummary._mean_position_duration(self.get_positions(type_=Position.Short))
-
-    @staticmethod
-    def _mean_position_duration(positions: Iterable[Position.Closed]) -> Interval:
-        durations = [x.duration for x in positions]
-        if len(durations) == 0:
-            return 0
-        return int(statistics.mean(durations))
-
-    # @property
-    # def drawdowns(self) -> list[Decimal]:
-    #     self._calc_drawdowns_if_stale()
-    #     return self._drawdowns
-
-    @property
-    def max_drawdown(self) -> Decimal:
-        self._calc_drawdowns_if_stale()
-        return self._max_drawdown
-
-    @property
-    def mean_drawdown(self) -> Decimal:
-        self._calc_drawdowns_if_stale()
-        return self._mean_drawdown
-
-    @property
-    def return_over_maximum_drawdown(self) -> Decimal:
-        return Decimal('0.0') if self.max_drawdown == 0 else self.roi / self.max_drawdown
-
-    def _calc_drawdowns_if_stale(self) -> None:
-        if not self._drawdowns_dirty:
-            return
-
-        quote = self.quote
-        max_quote = quote
-        self._max_drawdown = Decimal('0.0')
-        sum_drawdown = Decimal('0.0')
-        self._drawdowns.clear()
-        self._drawdowns.append(Decimal('0.0'))
-        for pos in self.get_positions():
-            quote += pos.profit
-            max_quote = max(max_quote, quote)
-            drawdown = Decimal('1.0') - quote / max_quote
-            self._drawdowns.append(drawdown)
-            sum_drawdown += drawdown
-            self._max_drawdown = max(self._max_drawdown, drawdown)
-        self._mean_drawdown = sum_drawdown / len(self._drawdowns)
-
-        self._drawdowns_dirty = False
-
-    def calculate_hodl_profit(
-        self, first_candle: Candle, last_candle: Candle, fees: Fees, filters: Filters
-    ) -> Decimal:
-        base_hodl = filters.size.round_down(self.quote / first_candle.close)
-        base_hodl -= round_half_up(base_hodl * fees.taker, filters.base_precision)
-        quote_hodl = filters.size.round_down(base_hodl) * last_candle.close
-        quote_hodl -= round_half_up(quote_hodl * fees.taker, filters.quote_precision)
-        return quote_hodl - self.quote
-
-
-# Ref: https://www.investopedia.com/articles/basics/10/guide-to-calculating-roi.asp
-def _annualized_roi(duration: int, roi: Decimal) -> Decimal:
-    assert roi >= -1
-    n = Decimal(duration) / YEAR_MS
-    if n == 0:
-        return Decimal('0.0')
-    try:
-        return (1 + roi)**(1 / n) - 1
-    except Overflow:
-        return Decimal('Inf')
+        self.end = max(end, self.end)
 
 
 class SimulatedPositionMixin(ABC):
@@ -572,6 +395,7 @@ class SimulatedPositionMixin(ABC):
     ) -> Position.Short:
         base_asset, _ = unpack_assets(position.symbol)
         fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
+        asset_info = self.informant.get_asset_info(exchange=position.exchange, asset=base_asset)
         borrow_info = self.informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
         )
@@ -581,6 +405,7 @@ class SimulatedPositionMixin(ABC):
             hourly_rate=borrow_info.hourly_interest_rate,
             start=position.time,
             end=time,
+            precision=asset_info.precision,
         )
         size = position.borrowed + interest
         fee = round_half_up(size * fees.taker, filters.base_precision)
@@ -779,7 +604,7 @@ class PositionMixin(ABC):
         _log.info(f'closing {position.symbol} {mode.name} short position')
 
         base_asset, quote_asset = unpack_assets(position.symbol)
-        fees, filters = self.informant.get_fees_filters(position.exchange, position.symbol)
+        asset_info = self.informant.get_asset_info(exchange=position.exchange, asset=base_asset)
         borrow_info = self.informant.get_borrow_info(
             exchange=position.exchange, asset=base_asset, account=position.symbol
         )
@@ -791,6 +616,7 @@ class PositionMixin(ABC):
                 hourly_rate=borrow_info.hourly_interest_rate,
                 start=position.time,
                 end=time_ms(),
+                precision=asset_info.precision,
             )
         else:
             interest = (await self.user.get_balance(
@@ -933,9 +759,11 @@ def _calculate_borrowed(
     return min(borrowed, limit)
 
 
-def _calculate_interest(borrowed: Decimal, hourly_rate: Decimal, start: int, end: int) -> Decimal:
+def _calculate_interest(
+    borrowed: Decimal, hourly_rate: Decimal, start: int, end: int, precision: int
+) -> Decimal:
     duration = ceil_multiple(end - start, HOUR_MS) // HOUR_MS
-    return borrowed * duration * hourly_rate
+    return round_half_up(borrowed * duration * hourly_rate, precision=precision)
 
 
 class StartMixin(ABC):

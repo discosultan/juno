@@ -3,7 +3,7 @@ from .double_ma import DoubleMA
 from .double_ma_2 import DoubleMA2
 from .double_ma_stoch import DoubleMAStoch
 from .fixed import Fixed
-from .four_week_rule import FourWeekRule
+from .four_week_rule import FourWeekRule, FourWeekRuleParams
 from .macd import Macd
 from .mmi import Mmi
 from .momersion import Momersion
@@ -23,6 +23,7 @@ __all__ = [
     'DoubleMAStoch',
     'Fixed',
     'FourWeekRule',
+    'FourWeekRuleParams',
     'Macd',
     'MidTrend',
     'MidTrendPolicy',

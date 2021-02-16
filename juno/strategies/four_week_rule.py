@@ -1,13 +1,30 @@
+from __future__ import annotations
+
 from collections import deque
+from dataclasses import dataclass
 from decimal import Decimal
 
 from juno import Advice, Candle, indicators
 from juno.constraints import Int
-from juno.indicators import MA, Sma
+from juno.indicators import MA
 from juno.math import minmax
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
+
+
+@dataclass
+class FourWeekRuleParams:
+    period: int = 28
+    ma: str = 'ema'
+    ma_period: int = 14  # Normally half the period.
+
+    def construct(self) -> FourWeekRule:
+        return FourWeekRule(
+            period=self.period,
+            ma=self.ma,
+            ma_period=self.ma_period,
+        )
 
 
 # Signals a long position when a candle close price goes above a highest four week close price.
@@ -34,7 +51,7 @@ class FourWeekRule(Signal):
     def __init__(
         self,
         period: int = 28,
-        ma: str = Sma.__name__.lower(),
+        ma: str = 'ema',
         ma_period: int = 14,  # Normally half the period.
     ) -> None:
         self._prices = deque(maxlen=period)

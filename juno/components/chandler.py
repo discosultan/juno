@@ -18,7 +18,7 @@ from juno.math import ceil_multiple, floor_multiple
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
-from juno.utils import key, unpack_assets
+from juno.utils import AbstractAsyncContextManager, key, unpack_assets
 
 from .trades import Trades
 
@@ -28,7 +28,7 @@ CANDLE_KEY = Candle.__name__.lower()
 FIRST_CANDLE_KEY = f'first_{CANDLE_KEY}'
 
 
-class Chandler:
+class Chandler(AbstractAsyncContextManager):
     def __init__(
         self,
         storage: Storage,

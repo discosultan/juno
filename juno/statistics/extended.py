@@ -1,21 +1,23 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from decimal import Decimal
-from typing import Callable, NamedTuple, Optional
+from typing import Any, Callable, NamedTuple
 
 import numpy as np
 import pandas as pd
 
+from juno import Interval
 from juno.math import floor_multiple
 from juno.time import DAY_MS
+from juno.trading import TradingSummary
 from juno.utils import unpack_assets
-
-from .trading import TradingSummary
 
 Operator = Callable[[Decimal, Decimal], Decimal]
 _SQRT_365 = np.sqrt(365)
 
 
-class Statistics(NamedTuple):
+class ExtendedStatistics(NamedTuple):
     total_return: float
     annualized_return: float
     annualized_volatility: float
@@ -27,50 +29,37 @@ class Statistics(NamedTuple):
     alpha: float = 0.0
     beta: float = 0.0
 
+    @staticmethod
+    def compose(
+        summary: TradingSummary,
+        asset_prices: dict[str, list[Decimal]],
+        interval: Interval = DAY_MS,
+        benchmark_asset: str = 'btc',
+    ) -> ExtendedStatistics:
+        assert summary.end is not None
 
-class AnalysisSummary(NamedTuple):
-    performance: pd.Series
-    a_returns: pd.Series
-    g_returns: pd.Series
-    neg_g_returns: pd.Series
+        start = floor_multiple(summary.start, interval)
+        end = floor_multiple(summary.end, interval)
 
-    stats: Statistics
+        # Validate we have enough data. It may be that trading ended prematurely and we have more
+        # price points available than needed.
+        num_ticks = (end - start) // interval
+        for asset, prices in asset_prices.items():
+            if len(prices) < num_ticks:
+                raise ValueError(
+                    f'Expected at least {num_ticks} price points for {asset} but got {len(prices)}'
+                )
 
+        trades = _get_trades_from_summary(summary, interval)
+        asset_performance = _get_asset_performance(
+            summary, start, end, asset_prices, trades, interval
+        )
+        portfolio_performance = pd.Series(
+            [float(sum(v for v in apd.values())) for apd in asset_performance]
+        )
+        benchmark_performance = pd.Series([float(p) for p in asset_prices[benchmark_asset]])
 
-def analyse_benchmark(prices: list[Decimal]) -> AnalysisSummary:
-    performance = pd.Series([float(p) for p in prices])
-    return _calculate_statistics(performance)
-
-
-def analyse_portfolio(
-    benchmark_g_returns: pd.Series,
-    asset_prices: dict[str, list[Decimal]],
-    trading_summary: TradingSummary,
-    interval: int = DAY_MS,
-) -> AnalysisSummary:
-    assert trading_summary.end is not None
-
-    start = floor_multiple(trading_summary.start, interval)
-    end = floor_multiple(trading_summary.end, interval)
-
-    # Validate we have enough data. It may be that trading ended prematurely and we have more price
-    # points available than needed.
-    num_ticks = (end - start) // interval
-    for asset, prices in asset_prices.items():
-        if len(prices) < num_ticks:
-            raise ValueError(
-                f'Expected at least {num_ticks} price points for {asset} but got {len(prices)}'
-            )
-
-    trades = _get_trades_from_summary(trading_summary, interval)
-    asset_performance = _get_asset_performance(
-        trading_summary, start, end, asset_prices, trades, interval
-    )
-    portfolio_performance = pd.Series(
-        [float(sum(v for v in apd.values())) for apd in asset_performance]
-    )
-
-    return _calculate_statistics(portfolio_performance, benchmark_g_returns)
+        return _calculate_statistics(portfolio_performance, benchmark_performance)
 
 
 def _get_trades_from_summary(
@@ -134,12 +123,17 @@ def _get_asset_performances_from_holdings(
     return asset_performance
 
 
-def _calculate_statistics(
-    performance: pd.Series, benchmark_g_returns: Optional[pd.Series] = None
-) -> AnalysisSummary:
+def _get_g_returns(performance: pd.Series) -> Any:
     a_returns = performance.pct_change().dropna()
-    g_returns = np.log(a_returns + 1)
+    return np.log(a_returns + 1)
+
+
+def _calculate_statistics(
+    performance: pd.Series, benchmark_performance: pd.Series
+) -> ExtendedStatistics:
+    g_returns = _get_g_returns(performance)
     neg_g_returns = g_returns[g_returns < 0].dropna()
+    benchmark_g_returns = _get_g_returns(benchmark_performance)
 
     # Compute statistics.
     total_return = performance.iloc[-1] / performance.iloc[0] - 1
@@ -161,30 +155,23 @@ def _calculate_statistics(
 
     # If benchmark provided, calculate alpha and beta.
     alpha, beta = 0.0, 0.0
-    if benchmark_g_returns is not None:
-        covariance_matrix = pd.concat(
-            [g_returns, benchmark_g_returns], axis=1
-        ).dropna().cov(ddof=0)
-        y = covariance_matrix.iloc[1].iloc[1]
-        if y != 0:
-            x = covariance_matrix.iloc[0].iloc[1]
-            beta = x / y
-            alpha = annualized_return - (beta * 365 * benchmark_g_returns.mean())
+    covariance_matrix = pd.concat(
+        [g_returns, benchmark_g_returns], axis=1
+    ).dropna().cov(ddof=0)
+    y = covariance_matrix.iloc[1].iloc[1]
+    if y != 0:
+        x = covariance_matrix.iloc[0].iloc[1]
+        beta = x / y
+        alpha = annualized_return - (beta * 365 * benchmark_g_returns.mean())
 
-    return AnalysisSummary(
-        performance=performance,
-        a_returns=a_returns,
-        g_returns=g_returns,
-        neg_g_returns=neg_g_returns,
-        stats=Statistics(
-            total_return=total_return,
-            annualized_return=annualized_return,
-            annualized_volatility=annualized_volatility,
-            annualized_downside_risk=annualized_downside_risk,
-            sharpe_ratio=sharpe_ratio,
-            sortino_ratio=sortino_ratio,
-            cagr=cagr,
-            alpha=alpha,
-            beta=beta
-        )
+    return ExtendedStatistics(
+        total_return=total_return,
+        annualized_return=annualized_return,
+        annualized_volatility=annualized_volatility,
+        annualized_downside_risk=annualized_downside_risk,
+        sharpe_ratio=sharpe_ratio,
+        sortino_ratio=sortino_ratio,
+        cagr=cagr,
+        alpha=alpha,
+        beta=beta
     )

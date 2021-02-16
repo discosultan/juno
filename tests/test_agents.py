@@ -14,9 +14,11 @@ from juno.components import Chandler, Informant, Orderbook, User
 from juno.di import Container
 from juno.exchanges import Exchange
 from juno.filters import Filters, Price, Size
+from juno.statistics import CoreStatistics
 from juno.storages import Memory, Storage
 from juno.time import HOUR_MS
 from juno.traders import Basic, BasicState, Trader
+from juno.trading import Position
 from juno.typing import raw_to_type
 from juno.utils import load_json_file
 
@@ -70,19 +72,24 @@ async def test_backtest(mocker) -> None:
     async with container:
         res = await agent.run(config)
 
-    summary = res.summary
-    assert summary
-    assert summary.profit == -50
-    assert summary.duration == 6
-    assert summary.roi == Decimal('-0.5')
-    assert summary.annualized_roi == -1
-    assert summary.max_drawdown == Decimal('0.75')
-    assert summary.mean_drawdown == Decimal('0.25')
-    assert summary.mean_position_profit == -25
-    assert summary.mean_position_duration == 1
-    assert summary.start == 0
-    assert summary.end == 6
-    assert summary.calculate_hodl_profit(candles[0], candles[-1], fees, filters) == 100
+    assert res.summary
+
+    stats = CoreStatistics.compose(res.summary)
+    assert stats.profit == -50
+    assert stats.duration == 6
+    assert stats.roi == Decimal('-0.5')
+    assert stats.annualized_roi == -1
+    assert stats.max_drawdown == Decimal('0.75')
+    assert stats.mean_drawdown == Decimal('0.25')
+    assert stats.mean_position_profit == -25
+    assert stats.mean_position_duration == 1
+    assert stats.start == 0
+    assert stats.end == 6
+
+    assert CoreStatistics.calculate_hodl_profit(
+        summary=res.summary, first_candle=candles[0], last_candle=candles[-1], fees=fees,
+        filters=filters
+    ) == 100
 
 
 # 1. was failing as quote was incorrectly calculated after closing a position.
@@ -200,8 +207,9 @@ async def test_paper(mocker) -> None:
 
     summary = task.result().summary
     assert summary
-    assert summary.num_long_positions == 1
-    pos = summary.list_positions()[0]
+    long_positions = summary.list_positions(type_=Position.Long)
+    assert len(long_positions) == 1
+    pos = long_positions[0]
     assert Fill.total_size(pos.open_fills) == 6
     assert Fill.total_size(pos.close_fills) == 6
     assert pos.profit == 0
@@ -263,9 +271,9 @@ async def test_live(mocker) -> None:
 
     summary = task.result().summary
     assert summary
-    assert summary.num_positions == 1
-    assert summary.num_long_positions == 1
-    pos = summary.list_positions()[0]
+    long_positions = summary.list_positions(type_=Position.Long)
+    assert len(long_positions) == 1
+    pos = long_positions[0]
     assert pos.open_time == 2
     assert pos.close_time == 4
 
