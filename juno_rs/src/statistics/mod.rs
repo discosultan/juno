@@ -99,32 +99,42 @@ impl Statistics {
 
 #[cfg(test)]
 mod test_utils {
-    use crate::trading::{CloseReason, LongPosition, Position, TradingSummary};
+    use crate::{Fill, trading::{CloseReason, LongPosition, Position, TradingSummary}};
 
     pub fn get_populated_trading_summary() -> TradingSummary {
         let mut summary = TradingSummary::new(0, 10, 1.0);
         summary.positions.push(Position::Long(LongPosition {
             open_time: 2,
-            open_quote: 1.0,
-            open_size: 2.0,
-            open_fee: 0.2,
-
+            open_fills: [Fill {
+                price: 0.5,
+                size: 2.0,
+                quote: 1.0,
+                fee: 0.2,
+            }],
             close_time: 4,
-            close_size: 1.8,
-            close_quote: 0.9,
-            close_fee: 0.09,
+            close_fills: [Fill {
+                price: 0.5,
+                size: 1.8,
+                quote: 0.9,
+                fee: 0.09,
+            }],
             close_reason: CloseReason::Strategy,
         }));
         summary.positions.push(Position::Long(LongPosition {
             open_time: 6,
-            open_quote: 0.81,
-            open_size: 1.62,
-            open_fee: 0.02,
-
+            open_fills: [Fill {
+                price: 0.5,
+                size: 1.62,
+                quote: 0.81,
+                fee: 0.02,
+            }],
             close_time: 8,
-            close_size: 1.6,
-            close_quote: 1.2,
-            close_fee: 0.1,
+            close_fills: [Fill {
+                price: 0.75,
+                size: 1.6,
+                quote: 1.2,
+                fee: 0.1,
+            }],
             close_reason: CloseReason::Strategy,
         }));
         summary

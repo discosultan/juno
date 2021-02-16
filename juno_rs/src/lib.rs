@@ -77,6 +77,11 @@ impl AddAssign<&Candle> for Candle {
     }
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct AssetInfo {
+    pub precision: u32,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct Fees {
     pub maker: f64,
@@ -85,7 +90,30 @@ pub struct Fees {
 
 #[derive(Deserialize, Serialize)]
 pub struct ExchangeInfo {
+    pub assets: HashMap<String, AssetInfo>,
     pub fees: HashMap<String, Fees>,
     pub filters: HashMap<String, Filters>,
     pub borrow_info: HashMap<String, HashMap<String, BorrowInfo>>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct Fill {
+    pub price: f64,
+    pub size: f64,
+    pub quote: f64,
+    pub fee: f64,
+}
+
+impl Fill {
+    pub fn total_size(fills: &[Fill]) -> f64 {
+        fills.iter().map(|fill| fill.size).sum()
+    }
+
+    pub fn total_quote(fills: &[Fill]) -> f64 {
+        fills.iter().map(|fill| fill.quote).sum()
+    }
+
+    pub fn total_fee(fills: &[Fill]) -> f64 {
+        fills.iter().map(|fill| fill.fee).sum()
+    }
 }

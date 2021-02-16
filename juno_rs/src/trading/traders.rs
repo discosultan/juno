@@ -8,7 +8,7 @@ use crate::{
         CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position, TradingSummary,
     },
     utils::Changed,
-    Advice, BorrowInfo, Candle, Fees, Filters,
+    Advice, BorrowInfo, Candle, Fees, Fill, Filters,
 };
 
 use super::MissedCandlePolicy;
@@ -296,9 +296,12 @@ fn try_open_long_position(
 
     state.open_position = Some(OpenPosition::Long(OpenLongPosition {
         time,
-        quote,
-        size,
-        fee,
+        fills: [Fill {
+            price,
+            size,
+            quote,
+            fee,
+        }],
     }));
     state.quote -= quote;
 
@@ -320,7 +323,16 @@ fn close_long_position(
         let quote = round_down(price * size, filters.quote_precision);
         let fee = round_half_up(quote * fees.taker, filters.quote_precision);
 
-        let pos = pos.close(time, size, quote, fee, reason);
+        let pos = pos.close(
+            time,
+            [Fill {
+                price,
+                size,
+                quote,
+                fee,
+            }],
+            reason,
+        );
         summary.positions.push(Position::Long(pos));
 
         state.open_position = None;
@@ -356,8 +368,12 @@ fn try_open_short_position(
         time,
         collateral: state.quote,
         borrowed,
-        quote,
-        fee,
+        fills: [Fill {
+            price,
+            size: borrowed,
+            quote,
+            fee,
+        }],
     }));
 
     state.quote += quote - fee;
@@ -386,7 +402,16 @@ fn close_short_position(
         size += fee;
         let quote = round_down(price * size, filters.quote_precision);
 
-        let pos = pos.close(time, quote, reason);
+        let pos = pos.close(
+            time,
+            [Fill {
+                price,
+                size,
+                fee,
+                quote,
+            }],
+            reason,
+        );
         summary.positions.push(Position::Short(pos));
 
         state.open_position = None;

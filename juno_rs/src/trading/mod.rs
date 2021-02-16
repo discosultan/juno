@@ -10,6 +10,7 @@ use crate::{
     strategies::{StrategyParams, StrategyParamsContext},
     take_profit::{TakeProfitParams, TakeProfitParamsContext},
     time::{deserialize_intervals, serialize_interval, serialize_intervals, serialize_timestamp},
+    Fill,
 };
 use juno_derive_rs::*;
 use rand::prelude::*;
@@ -120,7 +121,7 @@ impl Chromosome for TraderParams {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum CloseReason {
     Strategy,
     Cancelled,
@@ -135,41 +136,27 @@ pub enum OpenPosition {
 
 pub struct OpenLongPosition {
     pub time: u64,
-    pub quote: f64,
-    pub size: f64,
-    pub fee: f64,
+    pub fills: [Fill; 1],
 }
 
 impl OpenLongPosition {
-    pub fn close(
-        &self,
-        time: u64,
-        size: f64,
-        quote: f64,
-        fee: f64,
-        reason: CloseReason,
-    ) -> LongPosition {
+    pub fn close(self, time: u64, fills: [Fill; 1], reason: CloseReason) -> LongPosition {
         LongPosition {
             open_time: self.time,
-            open_quote: self.quote,
-            open_size: self.size,
-            open_fee: self.fee,
+            open_fills: self.fills,
 
             close_time: time,
-            close_size: size,
-            close_quote: quote,
-            close_fee: fee,
+            close_fills: fills,
             close_reason: reason,
         }
     }
 
-    #[inline]
     pub fn cost(&self) -> f64 {
-        self.quote
+        Fill::total_quote(&self.fills)
     }
 
     pub fn base_gain(&self) -> f64 {
-        self.size - self.fee
+        Fill::total_size(&self.fills) - Fill::total_fee(&self.fills)
     }
 }
 
@@ -177,71 +164,58 @@ pub struct OpenShortPosition {
     pub time: u64,
     pub collateral: f64,
     pub borrowed: f64,
-    pub quote: f64,
-    pub fee: f64,
+    pub fills: [Fill; 1],
 }
 
 impl OpenShortPosition {
-    pub fn close(&self, time: u64, quote: f64, reason: CloseReason) -> ShortPosition {
+    pub fn close(self, time: u64, fills: [Fill; 1], reason: CloseReason) -> ShortPosition {
         ShortPosition {
             open_time: self.time,
             collateral: self.collateral,
             borrowed: self.borrowed,
-            open_quote: self.quote,
-            open_fee: self.fee,
+            open_fills: self.fills,
 
             close_time: time,
-            close_quote: quote,
+            close_fills: fills,
             close_reason: reason,
         }
     }
-
-    #[inline]
-    pub fn collateral(&self) -> f64 {
-        self.quote
-    }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
 pub enum Position {
     Long(LongPosition),
     Short(ShortPosition),
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct LongPosition {
     #[serde(serialize_with = "serialize_timestamp")]
     pub open_time: u64,
-    pub open_quote: f64,
-    pub open_size: f64,
-    pub open_fee: f64,
+    pub open_fills: [Fill; 1],
 
     #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
-    pub close_size: f64,
-    pub close_quote: f64,
-    pub close_fee: f64,
+    pub close_fills: [Fill; 1],
     pub close_reason: CloseReason,
 }
 
 impl LongPosition {
-    #[inline]
     pub fn cost(&self) -> f64 {
-        self.open_quote
+        Fill::total_quote(&self.open_fills)
     }
 
     pub fn base_gain(&self) -> f64 {
-        self.open_size - self.open_fee
+        Fill::total_size(&self.open_fills) - Fill::total_fee(&self.open_fills)
     }
 
-    #[inline]
     pub fn base_cost(&self) -> f64 {
-        self.close_size
+        Fill::total_size(&self.close_fills)
     }
 
     pub fn gain(&self) -> f64 {
-        self.close_quote - self.close_fee
+        Fill::total_quote(&self.close_fills) - Fill::total_fee(&self.close_fills)
     }
 
     pub fn profit(&self) -> f64 {
@@ -253,38 +227,35 @@ impl LongPosition {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct ShortPosition {
     #[serde(serialize_with = "serialize_timestamp")]
     pub open_time: u64,
     pub collateral: f64,
     pub borrowed: f64,
-    pub open_quote: f64,
-    pub open_fee: f64,
+    pub open_fills: [Fill; 1],
     #[serde(serialize_with = "serialize_timestamp")]
     pub close_time: u64,
-    pub close_quote: f64,
+    pub close_fills: [Fill; 1],
     pub close_reason: CloseReason,
 }
 
 impl ShortPosition {
-    #[inline]
     pub fn cost(&self) -> f64 {
         self.collateral
     }
 
-    #[inline]
     pub fn base_gain(&self) -> f64 {
         self.borrowed
     }
 
-    #[inline]
     pub fn base_cost(&self) -> f64 {
         self.borrowed
     }
 
     pub fn gain(&self) -> f64 {
-        self.open_quote - self.open_fee + self.collateral - self.close_quote
+        Fill::total_quote(&self.open_fills) - Fill::total_fee(&self.open_fills) + self.collateral
+            - Fill::total_quote(&self.close_fills)
     }
 
     pub fn duration(&self) -> u64 {
@@ -296,7 +267,7 @@ impl ShortPosition {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct TradingSummary {
     pub positions: Vec<Position>,
 
