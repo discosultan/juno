@@ -31,7 +31,7 @@ pub fn derive_chromosome_enum(input: TokenStream) -> TokenStream {
     let ctx_default_ctx_name = variant_name.clone().map(|name| {
         format_ident!(
             "{}",
-            format!("Default{}Ctx", name).to_case(Case::UpperSnake)
+            format!("Default{}{}Ctx", name_params, name).to_case(Case::UpperSnake)
         )
     });
     let ctx_default_variant_ctx_name = ctx_target_name.clone();
