@@ -99,7 +99,10 @@ impl Statistics {
 
 #[cfg(test)]
 mod test_utils {
-    use crate::{Fill, trading::{CloseReason, LongPosition, Position, TradingSummary}};
+    use crate::{
+        trading::{CloseReason, LongPosition, Position, TradingSummary},
+        Fill,
+    };
 
     pub fn get_populated_trading_summary() -> TradingSummary {
         let mut summary = TradingSummary::new(0, 10, 1.0);
