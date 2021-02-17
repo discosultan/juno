@@ -124,9 +124,9 @@ impl Chromosome for TraderParams {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum CloseReason {
     Strategy,
-    Cancelled,
     StopLoss,
     TakeProfit,
+    Cancelled,
 }
 
 pub enum OpenPosition {

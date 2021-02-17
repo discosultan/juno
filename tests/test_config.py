@@ -45,7 +45,6 @@ def test_config_to_type_type_to_config() -> None:
         list_of_intervals=[HOUR_MS, 2 * HOUR_MS],
         dict_of_intervals={HOUR_MS: 2 * HOUR_MS},
         enum=SomeEnum.KEY,
-
     )
 
     output = config.config_to_type(input_, Foo)

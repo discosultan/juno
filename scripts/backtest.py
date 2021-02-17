@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 import logging
-from dataclasses import asdict
 from decimal import Decimal
 
 import juno.json as json
@@ -13,6 +12,7 @@ from juno.storages import SQLite
 from juno.time import DAY_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
+from juno.typing import type_to_raw
 from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
@@ -35,7 +35,7 @@ async def main() -> None:
 
     if args.dump:
         with open('trading_summary.json', 'w') as file:
-            json.dump(asdict(summary), file, indent=4)
+            json.dump(type_to_raw(summary), file, indent=4)
 
 
 async def backtest(trader: Basic) -> TradingSummary:

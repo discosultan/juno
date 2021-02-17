@@ -1,7 +1,7 @@
 from collections import deque
 from dataclasses import dataclass, field
 from decimal import Decimal
-from enum import IntEnum
+from enum import Enum, IntEnum
 # Tuple import required here for mypy.
 from typing import (  # type: ignore
     Any, Generic, NamedTuple, Optional, Tuple, TypeVar, Union, _GenericAlias
@@ -33,6 +33,10 @@ class BasicDataClass:
 
 class BasicEnum(IntEnum):
     VALUE = 1
+
+
+class StringEnum(Enum):
+    VALUE = 'foo'
 
 
 @dataclass
@@ -98,6 +102,7 @@ def test_isnamedtuple(input_, expected_output) -> None:
     ({'value1': 1, 'value2': 2}, BasicDataClass, BasicDataClass(value1=1, value2=2)),
     ([1.0, 2.0], deque[Decimal], deque([Decimal('1.0'), Decimal('2.0')])),
     (1, BasicEnum, BasicEnum.VALUE),
+    ('foo', StringEnum, StringEnum.VALUE),
     ({'value': 1}, GenericDataClass[int], GenericDataClass(value=1)),
     (
         {
@@ -133,6 +138,14 @@ def test_isnamedtuple(input_, expected_output) -> None:
 ])
 def test_raw_to_type(obj, type_, expected_output) -> None:
     assert typing.raw_to_type(obj, type_) == expected_output
+
+
+@pytest.mark.parametrize('obj,expected_output', [
+    (BasicEnum.VALUE, 1),
+    (StringEnum.VALUE, 'foo'),
+])
+def test_type_to_raw(obj, expected_output) -> None:
+    assert typing.type_to_raw(obj) == expected_output
 
 
 @pytest.mark.parametrize('input_,type_,expected_output', [

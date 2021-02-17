@@ -128,7 +128,6 @@ def raw_to_type(value: Any, type_: Any) -> Any:
         # Handle regular cases. I.e `tuple[int, str, float]`.
         else:
             return tuple(raw_to_type(sv, st) for sv, st in zip(value, sub_types))
-        return value
 
     if resolved_type is dict:
         _, sub_type = get_args(type_)
@@ -181,7 +180,7 @@ def type_to_raw(value: Any) -> Any:
     if isinstance(value, dict):
         return {k: type_to_raw(v) for k, v in value.items()}
 
-    if isenum(value):
+    if isinstance(value, Enum):
         return value.value
 
     # Data class and regular class. We don't want to use `dataclasses.asdict` because it is
