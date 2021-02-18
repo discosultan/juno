@@ -66,7 +66,7 @@ class CoreStatistics:
             # drawdowns.append(drawdown)
             sum_drawdown += drawdown
             max_drawdown = max(max_drawdown, drawdown)
-        mean_drawdown = sum_drawdown / len(positions)
+        mean_drawdown = Decimal('0.0') if len(positions) == 0 else sum_drawdown / len(positions)
 
         return CoreStatistics(
             start=start,

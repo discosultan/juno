@@ -39,15 +39,17 @@ async def test_backtest(mocker) -> None:
         filters={'__all__': filters},
     )
     candles = [
+        # Quote 100.
         Candle(time=0, close=Decimal('5.0')),
         Candle(time=1, close=Decimal('10.0')),
-        # Long. Size 10.
+        # Long. Price 10. Size 10.
         Candle(time=2, close=Decimal('30.0')),
         Candle(time=3, close=Decimal('20.0')),
-        # Liquidate.
+        # Liquidate. Price 20. Size 10. Quote 200.
         Candle(time=4, close=Decimal('40.0')),
-        # Long. Size 5.
-        Candle(time=5, close=Decimal('10.0'))
+        # Long. Price 40. Size 5.
+        Candle(time=5, close=Decimal('10.0')),
+        # Liquidate. Price 10. Size 5. Quote 50.
     ]
     exchange.stream_historical_candles.return_value = resolved_stream(*candles)
 
@@ -64,6 +66,7 @@ async def test_backtest(mocker) -> None:
         trader={
             'type': 'basic',
             'symbol': 'eth-btc',
+            'close_on_exit': True,
         },
     )
     container = _get_container(exchange)
@@ -80,7 +83,7 @@ async def test_backtest(mocker) -> None:
     assert stats.roi == Decimal('-0.5')
     assert stats.annualized_roi == -1
     assert stats.max_drawdown == Decimal('0.75')
-    assert stats.mean_drawdown == Decimal('0.25')
+    assert stats.mean_drawdown == Decimal('0.375')
     assert stats.mean_position_profit == -25
     assert stats.mean_position_duration == 1
     assert stats.start == 0

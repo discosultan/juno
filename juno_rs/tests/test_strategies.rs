@@ -105,8 +105,16 @@ fn test_triple_ma() {
 fn test_strategy(strategy_params: StrategyParams, name: &str) {
     let summary = trade(
         &strategy_params,
-        &StopLossParams::Noop(stop_loss::NoopParams {}),
-        &TakeProfitParams::Noop(take_profit::NoopParams {}),
+        // &StopLossParams::Noop(stop_loss::NoopParams {}),
+        // &TakeProfitParams::Noop(take_profit::NoopParams {}),
+        &StopLossParams::Basic(stop_loss::BasicParams {
+            up_threshold: 0.1,
+            down_threshold: 0.1,
+        }),
+        &TakeProfitParams::Basic(take_profit::BasicParams {
+            up_threshold: 0.1,
+            down_threshold: 0.1,
+        }),
         &CANDLES,
         &EXCHANGE_INFO.fees["eth-btc"],
         &EXCHANGE_INFO.filters["eth-btc"],
@@ -124,7 +132,7 @@ fn test_strategy(strategy_params: StrategyParams, name: &str) {
 }
 
 fn assert_approx(left: f64, right: f64) {
-    const EPSILON: f64 = 0.0000001;
+    const EPSILON: f64 = 0.000001;
     if f64::abs(left - right) >= EPSILON {
         panic!(
             r#"assertion failed: `(left == right)`

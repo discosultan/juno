@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 import juno.json as json
-from juno import MissedCandlePolicy, exchanges, strategies
+from juno import MissedCandlePolicy, exchanges, stop_loss, strategies, take_profit
 from juno.asyncio import gather_dict
 from juno.components import Chandler, Informant
 from juno.config import format_as_config, from_env, init_instance, type_to_config
@@ -14,7 +14,7 @@ from juno.storages import SQLite
 from juno.time import DAY_MS, strptimestamp
 from juno.traders import Basic, BasicConfig
 from juno.trading import TradingSummary
-from juno.typing import type_to_raw
+from juno.typing import TypeConstructor, type_to_raw
 from juno.utils import get_module_type
 
 parser = argparse.ArgumentParser()
@@ -74,6 +74,16 @@ async def backtest(trader: Basic, strategy: Any) -> CoreStatistics:
         start=strptimestamp('2018-01-01'),
         end=strptimestamp('2021-01-01'),
         strategy=strategy,
+        # stop_loss=TypeConstructor.from_type(stop_loss.Noop),
+        # take_profit=TypeConstructor.from_type(take_profit.Noop),
+        stop_loss=TypeConstructor.from_type(
+            stop_loss.Basic,
+            Decimal('0.1'),
+        ),
+        take_profit=TypeConstructor.from_type(
+            take_profit.Basic,
+            Decimal('0.1'),
+        ),
         quote=Decimal('1.0'),
         long=True,
         short=True,
