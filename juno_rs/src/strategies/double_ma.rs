@@ -11,6 +11,7 @@ use std::cmp::max;
 
 #[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct DoubleMAParams {
+    // TODO: Figure out to have these as separate fields!
     pub mas: (MAParams, MAParams),
 }
 

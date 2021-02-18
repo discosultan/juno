@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import operator
+from dataclasses import dataclass
 
 from juno import Advice, Candle, indicators
 from juno.constraints import Int, Pair
@@ -6,6 +9,22 @@ from juno.indicators import MA, Ema
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
+
+
+@dataclass
+class DoubleMAParams:
+    short_ma: str = 'ema'
+    long_ma: str = 'ema'
+    short_period: int = 5  # Common 5 or 10. Daily.
+    long_period: int = 20  # Common 20 or 50.
+
+    def construct(self) -> DoubleMA:
+        return DoubleMA(
+            short_ma=self.short_ma,
+            long_ma=self.long_ma,
+            short_period=self.short_period,
+            long_period=self.long_period,
+        )
 
 
 # Signals long when shorter average crosses above the longer.

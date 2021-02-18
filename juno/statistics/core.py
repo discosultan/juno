@@ -58,15 +58,15 @@ class CoreStatistics:
         max_quote = quote
         max_drawdown = Decimal('0.0')
         sum_drawdown = Decimal('0.0')
-        drawdowns = [Decimal('0.0')]
+        # drawdowns = []
         for pos in positions:
             quote += pos.profit
             max_quote = max(max_quote, quote)
             drawdown = Decimal('1.0') - quote / max_quote
-            drawdowns.append(drawdown)
+            # drawdowns.append(drawdown)
             sum_drawdown += drawdown
             max_drawdown = max(max_drawdown, drawdown)
-        mean_drawdown = sum_drawdown / len(drawdowns)
+        mean_drawdown = sum_drawdown / len(positions)
 
         return CoreStatistics(
             start=start,

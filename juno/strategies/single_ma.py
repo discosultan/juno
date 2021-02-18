@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
 from decimal import Decimal
 
 from juno import Advice, Candle, indicators
@@ -6,6 +9,18 @@ from juno.indicators import MA, Ema2
 from juno.utils import get_module_type
 
 from .strategy import Signal, Strategy, ma_choices
+
+
+@dataclass
+class SingleMAParams:
+    ma: str = 'ema'
+    period: int = 50
+
+    def construct(self) -> SingleMA:
+        return SingleMA(
+            period=self.period,
+            ma=self.ma,
+        )
 
 
 # Signals long when a candle close price goes above moving average and moving average is ascending.
