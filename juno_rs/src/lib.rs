@@ -90,9 +90,13 @@ pub struct Fees {
 
 #[derive(Deserialize, Serialize)]
 pub struct ExchangeInfo {
+    // Key: asset
     pub assets: HashMap<String, AssetInfo>,
+    // Key: symbol
     pub fees: HashMap<String, Fees>,
+    // Key: symbol
     pub filters: HashMap<String, Filters>,
+    // Keys: account, asset
     pub borrow_info: HashMap<String, HashMap<String, BorrowInfo>>,
 }
 

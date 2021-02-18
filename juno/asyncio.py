@@ -115,6 +115,18 @@ async def map_async(
         yield func(item)
 
 
+async def gather_dict(tasks: dict):
+    async def mark(key, coro):
+        return key, await coro
+
+    return {
+        key: result
+        for key, result in await asyncio.gather(
+            *(mark(key, coro) for key, coro in tasks.items())
+        )
+    }
+
+
 async def cancel(*tasks: Optional[asyncio.Task]) -> None:
     await asyncio.gather(*(_cancel(t) for t in tasks if t))
 

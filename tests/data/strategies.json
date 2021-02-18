@@ -1,0 +1,33 @@
+{
+    "FourWeekRuleParams": {
+        "start": 1514764800000,
+        "end": 1609459200000,
+        "duration": 94694400000,
+        "cost": 1.0,
+        "gain": 2.30604030,
+        "profit": 1.30604030,
+        "roi": 1.3060403,
+        "annualized_roi": 0.321069170149496211458089672,
+        "mean_position_profit": 0.08162751875,
+        "mean_long_position_profit": 0.08162751875,
+        "mean_short_position_profit": 0.0,
+        "mean_position_duration": 1344600000,
+        "mean_long_position_duration": 1344600000,
+        "mean_short_position_duration": 0,
+        "max_drawdown": 0.2441644806352735684267389809,
+        "mean_drawdown": 0.06878523449760544249114831206,
+        "return_over_max_drawdown": 5.349018401865455582509951957,
+        "num_positions": 16,
+        "num_positions_in_profit": 7,
+        "num_positions_in_loss": 9,
+        "num_long_positions": 16,
+        "num_long_positions_in_profit": 7,
+        "num_long_positions_in_loss": 9,
+        "num_short_positions": 0,
+        "num_short_positions_in_profit": 0,
+        "num_short_positions_in_loss": 0,
+        "num_stop_losses": 0,
+        "num_take_profits": 0,
+        "__type__": "juno.statistics.core::CoreStatistics"
+    }
+}

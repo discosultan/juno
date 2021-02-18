@@ -8,15 +8,21 @@ use crate::{
     time::{serialize_interval, serialize_timestamp},
     trading::{CloseReason, Position, TradingSummary},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // TODO: Use const fn when `365.0.sqrt()` is supported.
 pub(crate) const SQRT_365: f64 = 19.10497317454279908588432590477168560028076171875;
 
-#[derive(Debug, Serialize)]
+#[derive(Deserialize, Serialize)]
+pub enum PositionType {
+    Long,
+    Short,
+}
+
+#[derive(Deserialize, Serialize)]
 pub struct PositionStatistics {
     #[serde(rename = "type")]
-    pub type_: &'static str,
+    pub type_: PositionType,
     #[serde(serialize_with = "serialize_timestamp")]
     pub open_time: u64,
     #[serde(serialize_with = "serialize_timestamp")]
@@ -32,14 +38,14 @@ pub struct PositionStatistics {
 }
 
 impl PositionStatistics {
-    pub fn from_position(pos: &Position) -> Self {
+    pub fn compose(pos: &Position) -> Self {
         match pos {
             Position::Long(pos) => {
                 let duration = pos.duration();
                 let profit = pos.profit();
                 let roi = profit / pos.cost();
                 Self {
-                    type_: "long",
+                    type_: PositionType::Long,
                     open_time: pos.open_time,
                     close_time: pos.close_time,
                     cost: pos.cost(),
@@ -56,7 +62,7 @@ impl PositionStatistics {
                 let profit = pos.profit();
                 let roi = profit / pos.cost();
                 Self {
-                    type_: "short",
+                    type_: PositionType::Short,
                     open_time: pos.open_time,
                     close_time: pos.close_time,
                     cost: pos.cost(),
@@ -76,6 +82,7 @@ impl PositionStatistics {
 pub struct Statistics {
     pub core: CoreStatistics,
     pub extended: ExtendedStatistics,
+    pub positions: Vec<PositionStatistics>,
 }
 
 impl Statistics {
@@ -93,6 +100,11 @@ impl Statistics {
                 quote_prices,
                 stats_interval,
             ),
+            positions: summary
+                .positions
+                .iter()
+                .map(PositionStatistics::compose)
+                .collect(),
         }
     }
 }

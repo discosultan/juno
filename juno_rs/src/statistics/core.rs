@@ -1,12 +1,11 @@
-use super::PositionStatistics;
 use crate::{
     math::annualized,
     time::{serialize_interval, serialize_timestamp},
     trading::{CloseReason, Position, TradingSummary},
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub struct CoreStatistics {
     #[serde(serialize_with = "serialize_timestamp")]
     pub start: u64,
@@ -31,8 +30,6 @@ pub struct CoreStatistics {
     pub num_positions_in_loss: u32,
     pub num_stop_losses: u32,
     pub num_take_profits: u32,
-
-    pub positions: Vec<PositionStatistics>,
 }
 
 impl CoreStatistics {
@@ -123,12 +120,6 @@ impl CoreStatistics {
             num_positions_in_loss,
             num_stop_losses,
             num_take_profits,
-
-            positions: summary
-                .positions
-                .iter()
-                .map(PositionStatistics::from_position)
-                .collect(),
         }
     }
 }
