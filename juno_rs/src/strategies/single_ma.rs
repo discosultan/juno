@@ -15,7 +15,7 @@ pub struct SingleMAParams {
 }
 
 fn ma(rng: &mut StdRng) -> MAParams {
-    let period = rng.gen_range(1..100);
+    let period = rng.gen_range(1..300);
     rng.gen_ma_params(period)
 }
 

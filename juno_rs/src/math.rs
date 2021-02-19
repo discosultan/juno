@@ -66,7 +66,8 @@ pub fn annualized(duration: u64, value: f64) -> f64 {
     if n == 0.0 {
         0.0
     } else {
-        (1.0 + value).powf(1.0 / n) - 1.0
+        let res = (1.0 + value).powf(1.0 / n) - 1.0;
+        if res == f64::NAN { 0.0 } else { res }
     }
 }
 

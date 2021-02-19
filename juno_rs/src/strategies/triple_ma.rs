@@ -17,9 +17,9 @@ pub struct TripleMAParams {
 fn mas(rng: &mut StdRng) -> (MAParams, MAParams, MAParams) {
     loop {
         let (s, m, l) = (
-            rng.gen_range(1..99),
-            rng.gen_range(2..100),
-            rng.gen_range(3..101),
+            rng.gen_range(1..299),
+            rng.gen_range(2..300),
+            rng.gen_range(3..301),
         );
         if s < m && m < l {
             return (

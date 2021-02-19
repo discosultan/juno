@@ -17,7 +17,7 @@ pub struct DoubleMAParams {
 
 fn mas(rng: &mut StdRng) -> (MAParams, MAParams) {
     loop {
-        let (s, l) = (rng.gen_range(1..200), rng.gen_range(2..201));
+        let (s, l) = (rng.gen_range(1..300), rng.gen_range(2..301));
         if s < l {
             return (rng.gen_ma_params(s), rng.gen_ma_params(l));
         }

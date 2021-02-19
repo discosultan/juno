@@ -26,7 +26,7 @@ struct Params {
     #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
-    strategy_params: StrategyParams,
+    strategy: StrategyParams,
     stop_loss: StopLossParams,
     take_profit: TakeProfitParams,
     missed_candle_policy: MissedCandlePolicy,
@@ -73,7 +73,7 @@ fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
     Ok(trade(
-        &args.strategy_params,
+        &args.strategy,
         &args.stop_loss,
         &args.take_profit,
         &candles,
