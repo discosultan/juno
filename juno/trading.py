@@ -453,7 +453,7 @@ class PositionMixin(ABC):
         self, exchange: str, symbol: str, quote: Decimal, mode: TradingMode
     ) -> Position.OpenLong:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f'opening {symbol} {mode.name} long position with {quote} quote')
+        _log.info(f'opening position {symbol} {mode.name} long with {quote} quote')
 
         res = await self.broker.buy(
             exchange=exchange,
@@ -469,7 +469,7 @@ class PositionMixin(ABC):
             time=res.time,
             fills=res.fills,
         )
-        _log.info(f'{open_position.symbol} {mode.name} long position opened')
+        _log.info(f'opened position {open_position.symbol} {mode.name} long')
         _log.debug(extract_public(open_position))
         return open_position
 
@@ -477,7 +477,7 @@ class PositionMixin(ABC):
         self, position: Position.OpenLong, mode: TradingMode, reason: CloseReason
     ) -> Position.Long:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f'closing {position.symbol} {mode.name} long position')
+        _log.info(f'closing position {position.symbol} {mode.name} long')
 
         res = await self.broker.sell(
             exchange=position.exchange,
@@ -492,7 +492,7 @@ class PositionMixin(ABC):
             fills=res.fills,
             reason=reason,
         )
-        _log.info(f'{closed_position.symbol} {mode.name} long position closed')
+        _log.info(f'closed position {closed_position.symbol} {mode.name} long')
         _log.debug(extract_public(closed_position))
         return closed_position
 
@@ -500,7 +500,7 @@ class PositionMixin(ABC):
         self, exchange: str, symbol: str, collateral: Decimal, mode: TradingMode
     ) -> Position.OpenShort:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f'opening {symbol} {mode.name} short position with {collateral} collateral')
+        _log.info(f'opening position {symbol} {mode.name} short with {collateral} collateral')
 
         base_asset, quote_asset = unpack_assets(symbol)
         _, filters = self.informant.get_fees_filters(exchange, symbol)
@@ -573,7 +573,7 @@ class PositionMixin(ABC):
             time=res.time,
             fills=res.fills,
         )
-        _log.info(f'{open_position.symbol} {mode.name} short position opened')
+        _log.info(f'opened position {open_position.symbol} {mode.name} short')
         _log.debug(extract_public(open_position))
         return open_position
 
@@ -601,7 +601,7 @@ class PositionMixin(ABC):
         self, position: Position.OpenShort, mode: TradingMode, reason: CloseReason
     ) -> Position.Short:
         assert mode in [TradingMode.PAPER, TradingMode.LIVE]
-        _log.info(f'closing {position.symbol} {mode.name} short position')
+        _log.info(f'closing position {position.symbol} {mode.name} short')
 
         base_asset, quote_asset = unpack_assets(position.symbol)
         asset_info = self.informant.get_asset_info(exchange=position.exchange, asset=base_asset)
@@ -720,7 +720,7 @@ class PositionMixin(ABC):
                 ))
             await asyncio.gather(*transfer_tasks)
 
-        _log.info(f'{closed_position.symbol} {mode.name} short position closed')
+        _log.info(f'closed position {closed_position.symbol} {mode.name} short')
         _log.debug(extract_public(closed_position))
         return closed_position
 

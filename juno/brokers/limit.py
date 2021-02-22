@@ -17,6 +17,9 @@ from .broker import Broker
 
 _log = logging.getLogger(__name__)
 
+_NEW_EVENT_WAIT_TIMEOUT = 30
+_CANCELLED_EVENT_WAIT_TIMEOUT = 30
+
 
 class _Context:
     def __init__(self, available: Decimal, use_quote: bool, client_id: str) -> None:
@@ -267,7 +270,10 @@ class Limit(Broker):
                     _log.info(
                         f'waiting for {symbol} {side.name} order {ctx.client_id} to be cancelled'
                     )
-                    fills_since_last_order = await ctx.cancelled_event.wait()
+                    fills_since_last_order = await asyncio.wait_for(
+                        ctx.cancelled_event.wait(),
+                        _CANCELLED_EVENT_WAIT_TIMEOUT
+                    )
                     filled_size_since_last_order = Fill.total_size(fills_since_last_order)
                     add_back_size = ctx.active_order.size - filled_size_since_last_order
                     add_back = (
@@ -320,7 +326,7 @@ class Limit(Broker):
                     # Order would immediately match and take. Retry.
                     continue
 
-                await ctx.new_event.wait()
+                await asyncio.wait_for(ctx.new_event.wait(), _NEW_EVENT_WAIT_TIMEOUT)
                 deduct = price * size if ctx.use_quote else size
                 ctx.available -= deduct
                 ctx.active_order = _ActiveOrder(price=price, size=size)
