@@ -50,7 +50,7 @@ impl Params {
 
 #[derive(Serialize)]
 struct Generation {
-    // We need to store generation number because we are filtering out generations with not change
+    // We need to store generation number because we are filtering out generations with no change
     // in top.
     nr: usize,
     hall_of_fame: Vec<IndividualStats>,
@@ -58,7 +58,7 @@ struct Generation {
 
 #[derive(Serialize)]
 struct IndividualStats {
-    ind: Individual<TradingParams>,
+    individual: Individual<TradingParams>,
     symbol_stats: HashMap<String, Statistics>,
 }
 
@@ -128,7 +128,7 @@ fn process(args: Params) -> Result<reply::Json> {
                         })
                         .collect::<HashMap<String, Statistics>>();
 
-                    IndividualStats { ind, symbol_stats }
+                    IndividualStats { individual: ind, symbol_stats }
                 })
                 .collect();
 
