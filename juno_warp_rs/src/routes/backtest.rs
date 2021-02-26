@@ -3,12 +3,9 @@ use anyhow::Result;
 use juno_rs::{
     chandler::{candles_to_prices, fill_missing_candles},
     statistics::Statistics,
-    stop_loss::StopLossParams,
     storages,
-    strategies::*,
-    take_profit::TakeProfitParams,
-    time::{deserialize_interval, deserialize_timestamp, DAY_MS},
-    trading::{trade, MissedCandlePolicy, TradingSummary},
+    time::{deserialize_timestamp, DAY_MS},
+    trading::{trade, TradingParams, TradingSummary},
     SymbolExt,
 };
 use serde::{Deserialize, Serialize};
@@ -19,17 +16,12 @@ use warp::{reply, Filter, Rejection, Reply};
 struct Params {
     exchange: String,
     symbols: Vec<String>,
-    #[serde(deserialize_with = "deserialize_interval")]
-    interval: u64,
     #[serde(deserialize_with = "deserialize_timestamp")]
     start: u64,
     #[serde(deserialize_with = "deserialize_timestamp")]
     end: u64,
     quote: f64,
-    strategy: StrategyParams,
-    stop_loss: StopLossParams,
-    take_profit: TakeProfitParams,
-    missed_candle_policy: MissedCandlePolicy,
+    trading: TradingParams,
 }
 
 #[derive(Serialize)]
@@ -68,22 +60,23 @@ fn process(args: Params) -> Result<reply::Json> {
 }
 
 fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
-    let candles =
-        storages::list_candles(&args.exchange, symbol, args.interval, args.start, args.end)?;
+    let candles = storages::list_candles(
+        &args.exchange,
+        symbol,
+        args.trading.trader.interval,
+        args.start,
+        args.end,
+    )?;
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
     Ok(trade(
-        &args.strategy,
-        &args.stop_loss,
-        &args.take_profit,
+        &args.trading,
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
         &exchange_info.borrow_info[symbol][symbol.base_asset()],
         2,
-        args.interval,
         args.quote,
-        args.missed_candle_policy,
         true,
         true,
     ))

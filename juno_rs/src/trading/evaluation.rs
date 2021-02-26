@@ -148,17 +148,13 @@ impl BasicEvaluation {
 
     fn evaluate_symbol(&self, ctx: &SymbolCtx, chromosome: &TradingParams) -> f64 {
         let summary = trade(
-            &chromosome.strategy,
-            &chromosome.stop_loss,
-            &chromosome.take_profit,
+            &chromosome,
             &ctx.interval_candles[&chromosome.trader.interval],
             &ctx.fees,
             &ctx.filters,
             &ctx.borrow_info,
             2,
-            chromosome.trader.interval,
             self.quote,
-            chromosome.trader.missed_candle_policy,
             true,
             true,
         );

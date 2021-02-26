@@ -9,7 +9,10 @@ use crate::{
     stop_loss::{StopLossParams, StopLossParamsContext},
     strategies::{StrategyParams, StrategyParamsContext},
     take_profit::{TakeProfitParams, TakeProfitParamsContext},
-    time::{deserialize_intervals, serialize_interval, serialize_intervals, serialize_timestamp},
+    time::{
+        deserialize_interval, deserialize_intervals, serialize_interval, serialize_intervals,
+        serialize_timestamp,
+    },
     Fill,
 };
 use juno_derive_rs::*;
@@ -40,7 +43,7 @@ impl MissedCandlePolicyExt for StdRng {
     }
 }
 
-#[derive(Chromosome, Clone, Copy, Debug, Serialize)]
+#[derive(Chromosome, Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TradingParams {
     #[chromosome]
     pub strategy: StrategyParams,
@@ -52,14 +55,15 @@ pub struct TradingParams {
     pub take_profit: TakeProfitParams,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct TraderParams {
     #[serde(serialize_with = "serialize_interval")]
+    #[serde(deserialize_with = "deserialize_interval")]
     pub interval: u64,
     pub missed_candle_policy: MissedCandlePolicy,
 }
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct TraderParamsContext {
     #[serde(deserialize_with = "deserialize_intervals")]
     #[serde(serialize_with = "serialize_intervals")]

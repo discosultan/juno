@@ -190,17 +190,13 @@ fn backtest(args: &Params, symbol: &str, chromosome: &TradingParams) -> Result<T
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
     Ok(trade(
-        &chromosome.strategy,
-        &chromosome.stop_loss,
-        &chromosome.take_profit,
+        &chromosome,
         &candles,
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
         &exchange_info.borrow_info[symbol][symbol.base_asset()],
         2,
-        chromosome.trader.interval,
         args.quote,
-        chromosome.trader.missed_candle_policy,
         true,
         true,
     ))

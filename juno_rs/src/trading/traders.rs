@@ -1,8 +1,8 @@
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
-    stop_loss::{StopLoss, StopLossParams},
-    strategies::{Signal, StrategyMeta, StrategyParams},
-    take_profit::{TakeProfit, TakeProfitParams},
+    stop_loss::StopLoss,
+    strategies::{Signal, StrategyMeta},
+    take_profit::TakeProfit,
     time,
     trading::{
         CloseReason, OpenLongPosition, OpenPosition, OpenShortPosition, Position, TradingSummary,
@@ -11,7 +11,7 @@ use crate::{
     Advice, BorrowInfo, Candle, Fees, Fill, Filters,
 };
 
-use super::MissedCandlePolicy;
+use super::{MissedCandlePolicy, TradingParams};
 
 struct State {
     pub strategy: Box<dyn Signal>,
@@ -43,20 +43,19 @@ impl State {
 }
 
 pub fn trade(
-    strategy_params: &StrategyParams,
-    stop_loss_params: &StopLossParams,
-    take_profit_params: &TakeProfitParams,
+    params: &TradingParams,
     candles: &[Candle],
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
     margin_multiplier: u32,
-    interval: u64,
     quote: f64,
-    missed_candle_policy: MissedCandlePolicy,
     long: bool,
     short: bool,
 ) -> TradingSummary {
+    let interval = params.trader.interval;
+    let missed_candle_policy = params.trader.missed_candle_policy;
+
     let two_interval = interval * 2;
 
     let candles_len = candles.len();
@@ -71,9 +70,9 @@ pub fn trade(
     let mut summary = TradingSummary::new(start, end, quote);
     let mut state = State::new(
         quote,
-        strategy_params.construct(&strategy_meta),
-        stop_loss_params.construct(),
-        take_profit_params.construct(),
+        params.strategy.construct(&strategy_meta),
+        params.stop_loss.construct(),
+        params.take_profit.construct(),
     );
 
     for candle in candles {
@@ -82,7 +81,7 @@ pub fn trade(
         if let Some(last_candle) = state.last_candle {
             let diff = candle.time - last_candle.time;
             if missed_candle_policy == MissedCandlePolicy::Restart && diff >= two_interval {
-                state.strategy = strategy_params.construct(&strategy_meta);
+                state.strategy = params.strategy.construct(&strategy_meta);
             } else if missed_candle_policy == MissedCandlePolicy::Last && diff >= two_interval {
                 let num_missed = diff / interval - 1;
                 for i in 1..=num_missed {
