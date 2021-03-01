@@ -4,14 +4,14 @@ use juno_rs::{
     stop_loss,
     strategies::{FourWeekRuleParams, StrategyParams},
     take_profit, time,
-    trading::{self, MissedCandlePolicy},
+    trading::{self, MissedCandlePolicy, TraderParams, TradingParams},
     BorrowInfo, Candle, Fees,
 };
 use stop_loss::StopLossParams;
 use take_profit::TakeProfitParams;
 
 fn trade_benchmark(c: &mut Criterion) {
-    let strategy_params = StrategyParams::FourWeekRule(FourWeekRuleParams::default());
+    let strategy = StrategyParams::FourWeekRule(FourWeekRuleParams::default());
 
     let num_candles = 525600;
     let mut candles = Vec::with_capacity(num_candles);
@@ -50,17 +50,21 @@ fn trade_benchmark(c: &mut Criterion) {
     c.bench_function("trade", |b| {
         b.iter(|| {
             trading::trade(
-                &strategy_params,
-                &StopLossParams::Noop(stop_loss::NoopParams {}),
-                &TakeProfitParams::Noop(take_profit::NoopParams {}),
+                &TradingParams {
+                    strategy,
+                    stop_loss: StopLossParams::Noop(stop_loss::NoopParams {}),
+                    take_profit: TakeProfitParams::Noop(take_profit::NoopParams {}),
+                    trader: TraderParams {
+                        interval: time::MIN_MS,
+                        missed_candle_policy: MissedCandlePolicy::Ignore,
+                    },
+                },
                 &candles,
                 &fees,
                 &filters,
                 &borrow_info,
                 2,
-                time::MIN_MS,
                 1.0,
-                MissedCandlePolicy::Ignore,
                 true,
                 true,
             )

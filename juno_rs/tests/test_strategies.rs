@@ -6,7 +6,7 @@ use juno_rs::{
     strategies::{self, StrategyParams},
     take_profit::{self, TakeProfitParams},
     time::{TimestampStrExt, DAY_MS},
-    trading::{trade, MissedCandlePolicy, TradingSummary},
+    trading::{trade, MissedCandlePolicy, TraderParams, TradingParams, TradingSummary},
     Candle, ExchangeInfo,
 };
 use once_cell::sync::Lazy;
@@ -102,27 +102,31 @@ fn test_triple_ma() {
     );
 }
 
-fn test_strategy(strategy_params: StrategyParams, name: &str) {
+fn test_strategy(strategy: StrategyParams, name: &str) {
     let summary = trade(
-        &strategy_params,
-        // &StopLossParams::Noop(stop_loss::NoopParams {}),
-        // &TakeProfitParams::Noop(take_profit::NoopParams {}),
-        &StopLossParams::Basic(stop_loss::BasicParams {
-            up_threshold: 0.1,
-            down_threshold: 0.1,
-        }),
-        &TakeProfitParams::Basic(take_profit::BasicParams {
-            up_threshold: 0.1,
-            down_threshold: 0.1,
-        }),
+        &TradingParams {
+            strategy,
+            stop_loss: StopLossParams::Basic(stop_loss::BasicParams {
+                up_threshold: 0.1,
+                down_threshold: 0.1,
+            }),
+            take_profit: TakeProfitParams::Basic(take_profit::BasicParams {
+                up_threshold: 0.1,
+                down_threshold: 0.1,
+            }),
+            // stop_loss: StopLossParams::Noop(stop_loss::NoopParams {}),
+            // take_profit: TakeProfitParams::Noop(take_profit::NoopParams {}),
+            trader: TraderParams {
+                interval: DAY_MS,
+                missed_candle_policy: MissedCandlePolicy::Ignore,
+            },
+        },
         &CANDLES,
         &EXCHANGE_INFO.fees["eth-btc"],
         &EXCHANGE_INFO.filters["eth-btc"],
         &EXCHANGE_INFO.borrow_info["eth-btc"]["eth"],
         2,
-        DAY_MS,
         1.0,
-        MissedCandlePolicy::Ignore,
         true,
         true,
     );
