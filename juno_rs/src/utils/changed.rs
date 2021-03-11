@@ -1,20 +1,30 @@
 use crate::Advice;
 
 pub struct Changed {
-    previous: Advice,
     enabled: bool,
+    previous: Advice,
+    age: u32,
 }
 
 impl Changed {
     pub fn new(enabled: bool) -> Self {
         Self {
-            previous: Advice::None,
             enabled,
+            previous: Advice::None,
+            age: 0,
         }
     }
 
+    pub fn prevailing_advice(&self) -> Advice {
+        return self.previous
+    }
+
+    pub fn prevailing_advice_age(&self) -> u32 {
+        return self.age
+    }
+
     pub fn maturity(&self) -> u32 {
-        0
+        1
     }
 
     pub fn update(&mut self, value: Advice) -> Advice {
@@ -22,12 +32,13 @@ impl Changed {
             return value;
         }
 
-        let result = if value != self.previous {
-            value
-        } else {
+        if value == Advice::None || value == self.previous {
+            self.age += 1;
             Advice::None
-        };
-        self.previous = value;
-        result
+        } else {
+            self.previous = value;
+            self.age = 1;
+            value
+        }
     }
 }

@@ -157,6 +157,7 @@ fn optimize(args: &Params) -> Result<Evolution<TradingParams>> {
             args.evaluation_aggregation,
         )?,
         selection::EliteSelection { shuffle: false },
+        // selection::TournamentSelection::default(),
         // selection::GenerateRandomSelection {}, // For random search.
         crossover::UniformCrossover::new(0.5),
         mutation::UniformMutation::new(0.25),

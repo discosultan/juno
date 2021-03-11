@@ -22,7 +22,7 @@ impl Persistence {
     }
 
     pub fn maturity(&self) -> u32 {
-        self.level
+        self.level + 1
     }
 
     pub fn update(&mut self, value: Advice) -> Advice {

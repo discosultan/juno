@@ -33,9 +33,9 @@ impl MidTrend {
 
     pub fn maturity(&self) -> u32 {
         if self.policy == MidTrendPolicy::Current {
-            0
-        } else {
             1
+        } else {
+            2
         }
     }
 

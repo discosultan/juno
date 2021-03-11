@@ -58,6 +58,7 @@ class MultiConfig:
     track_required_start: Optional[Timestamp] = None
     position_count: int = 2
     exchange_candle_timeout: Optional[Interval] = None
+    allowed_age_drift: int = 0
 
 
 @dataclass
@@ -82,7 +83,6 @@ class _SymbolState:
     symbol: str
     strategy: Signal
     changed: Changed
-    override_changed: Changed
     adjusted_start: Timestamp
     start: Timestamp
     next_: Timestamp
@@ -92,34 +92,13 @@ class _SymbolState:
     allocated_quote: Decimal = Decimal('0.0')
     first_candle: Optional[Candle] = None
     last_candle: Optional[Candle] = None
-    override_reason: Optional[CloseReason] = None
+    advice: Advice = Advice.NONE
+    advice_age: int = 0
+    reason: CloseReason = CloseReason.STRATEGY
 
     @property
     def ready(self) -> bool:
         return self.first_candle is not None
-
-    @property
-    def advice(self) -> Advice:
-        return (
-            self.changed.prevailing_advice
-            if self.override_changed.prevailing_advice is Advice.NONE
-            else self.override_changed.prevailing_advice
-        )
-
-    @property
-    def advice_age(self) -> int:
-        return (
-            self.changed.prevailing_advice_age
-            if self.override_changed.prevailing_advice is Advice.NONE
-            else self.override_changed.prevailing_advice_age
-        )
-
-    @property
-    def reason(self) -> CloseReason:
-        if self.override_changed.prevailing_advice is Advice.NONE:
-            return CloseReason.STRATEGY
-        assert self.override_reason is not None
-        return self.override_reason
 
 
 class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMixin, StartMixin):
@@ -180,6 +159,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         assert config.position_count <= config.track_count
         assert len(config.track) <= config.track_count
         assert not list(set(config.track) & set(config.track_exclude))  # No common elements.
+        assert config.allowed_age_drift >= 0
 
         symbols = await self._find_top_symbols(config)
 
@@ -228,7 +208,6 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             symbol=symbol,
             strategy=strategy,
             changed=Changed(True),
-            override_changed=Changed(True),
             adjusted_start=adjusted_start,
             start=start,
             next_=adjusted_start,
@@ -420,11 +399,13 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     continue
 
                 assert ss.last_candle
-                # TODO: Be more flexible?
-                if ss.advice is Advice.LONG and ss.advice_age == 1:
+                advice_age_valid = (
+                    (ss.changed.prevailing_advice_age - 1) <= config.allowed_age_drift
+                )
+                if ss.advice is Advice.LONG and advice_age_valid:
                     to_process.append(self._open_long_position(state, ss, ss.last_candle))
                     available -= 1
-                elif ss.advice is Advice.SHORT and ss.advice_age == 1:
+                elif ss.advice is Advice.SHORT and advice_age_valid:
                     to_process.append(self._open_short_position(state, ss, ss.last_candle))
                     available -= 1
 
@@ -453,7 +434,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             current = symbol_state.next_
             if current < symbol_state.start:
                 # Do not signal position manager during warm-up (adjusted start) period.
-                advice, _, _ = self._process_candle(state, symbol_state, candle)
+                advice, _reason = self._process_candle(state, symbol_state, candle)
                 if advice is not Advice.NONE:
                     msg = (
                         f'received {symbol_state.symbol} advice {advice.name} during strategy '
@@ -474,27 +455,24 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     _log.info(f'missed {num_missed} initial {symbol_state.symbol} candles')
                     for _ in range(num_missed):
                         await self._process_advice(
-                            symbol_state, candles_updated, ready, Advice.NONE, Advice.NONE, None
+                            symbol_state, candles_updated, ready, Advice.NONE, CloseReason.STRATEGY
                         )
 
-                advice, override_advice, override_reason = self._process_candle(
+                advice, reason = self._process_candle(
                     state, symbol_state, candle
                 )
-                await self._process_advice(
-                    symbol_state, candles_updated, ready, advice, override_advice, override_reason
-                )
+                await self._process_advice(symbol_state, candles_updated, ready, advice, reason)
 
     def _process_candle(
         self, state: MultiState, symbol_state: _SymbolState, candle: Candle
-    ) -> tuple[Advice, Advice, Optional[CloseReason]]:
+    ) -> tuple[Advice, CloseReason]:
         config = state.config
 
         symbol_state.stop_loss.update(candle)
         symbol_state.take_profit.update(candle)
         symbol_state.strategy.update(candle)
         advice = symbol_state.strategy.advice
-        override_advice = Advice.NONE
-        override_reason = None
+        reason = CloseReason.STRATEGY
         if (
             isinstance(symbol_state.open_position, Position.OpenLong)
             and advice not in [Advice.SHORT, Advice.LIQUIDATE]
@@ -504,15 +482,15 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     f'{symbol_state.symbol} upside stop loss hit at {config.stop_loss} (trailing: '
                     f'{config.trail_stop_loss}); liquidating'
                 )
-                override_advice = Advice.LIQUIDATE
-                override_reason = CloseReason.STOP_LOSS
+                advice = Advice.LIQUIDATE
+                reason = CloseReason.STOP_LOSS
             elif symbol_state.take_profit.upside_hit:
                 _log.info(
                     f'{symbol_state.symbol} upside take profit hit at {config.take_profit}; '
                     'liquidating'
                 )
-                override_advice = Advice.LIQUIDATE
-                override_reason = CloseReason.TAKE_PROFIT
+                advice = Advice.LIQUIDATE
+                reason = CloseReason.TAKE_PROFIT
         elif (
             isinstance(symbol_state.open_position, Position.OpenShort)
             and advice not in [Advice.LONG, Advice.LIQUIDATE]
@@ -522,15 +500,15 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     f'{symbol_state.symbol} downside stop loss hit at {config.stop_loss} '
                     f'(trailing: {config.trail_stop_loss}); liquidating'
                 )
-                override_advice = Advice.LIQUIDATE
-                override_reason = CloseReason.STOP_LOSS
+                advice = Advice.LIQUIDATE
+                reason = CloseReason.STOP_LOSS
             elif symbol_state.take_profit.downside_hit:
                 _log.info(
                     f'{symbol_state.symbol} downside take profit hit at {config.take_profit}; '
                     'liquidating'
                 )
-                override_advice = Advice.LIQUIDATE
-                override_reason = CloseReason.TAKE_PROFIT
+                advice = Advice.LIQUIDATE
+                reason = CloseReason.TAKE_PROFIT
 
         if not symbol_state.open_position:
             if (config.long and advice is Advice.LONG or config.short and advice is Advice.SHORT):
@@ -544,23 +522,25 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         symbol_state.next_ = candle.time + config.interval
         state.next_ = max(state.next_, symbol_state.next_)
 
-        return advice, override_advice, override_reason
+        return advice, reason
 
     async def _process_advice(
         self, symbol_state: _SymbolState, candles_updated: SlotBarrier, ready: Event,
-        advice: Advice, override_advice: Advice, override_reason: Optional[CloseReason]
+        advice: Advice, reason: CloseReason
     ) -> None:
-        _log.debug(f'{symbol_state.symbol} received advice: {advice.name} {override_advice.name}')
+        _log.debug(f'{symbol_state.symbol} received advice: {advice.name} {reason.name}')
 
-        if override_advice is not Advice.NONE:
-            symbol_state.override_changed.update(override_advice)
-        elif advice is not symbol_state.changed.prevailing_advice:
-            symbol_state.override_changed.update(Advice.NONE)
+        # If the advice is overridden by stop loss or take profit, we don't want to affect the
+        # strategy related `changed` filter.
+        if reason in [CloseReason.STOP_LOSS, CloseReason.TAKE_PROFIT]:
+            symbol_state.advice = advice
         else:
-            symbol_state.override_changed.update(symbol_state.override_changed.prevailing_advice)
-        symbol_state.override_reason = override_reason
+            # We use prevailing advice here because the configuration may allow an action based
+            # on an advice given in the past.
+            symbol_state.changed.update(advice)
+            symbol_state.advice = symbol_state.changed.prevailing_advice
 
-        symbol_state.changed.update(advice)
+        symbol_state.reason = reason
 
         candles_updated.release(symbol_state.symbol)
         await ready.wait()

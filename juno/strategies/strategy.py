@@ -110,8 +110,8 @@ class Persistence:
 
 class Changed:
     """Pass an advice only if was changed on current tick."""
-    _previous: Advice = Advice.NONE
     _enabled: bool
+    _previous: Advice = Advice.NONE
     _age: int = 0
 
     def __init__(self, enabled: bool) -> None:
@@ -133,13 +133,13 @@ class Changed:
         if not self._enabled:
             return value
 
-        if value is self._previous:
+        if value is Advice.NONE or value is self._previous:
+            self._age += 1
             result = Advice.NONE
         else:
-            self._age = 0
+            self._previous = value
+            self._age = 1
             result = value
-        self._previous = value
-        self._age += 1
         return result
 
 

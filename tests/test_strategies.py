@@ -116,8 +116,8 @@ def test_changed_enabled() -> None:
     assert target.prevailing_advice_age == 2
 
     assert target.update(Advice.NONE) is Advice.NONE
-    assert target.prevailing_advice is Advice.NONE
-    assert target.prevailing_advice_age == 1
+    assert target.prevailing_advice is Advice.LONG
+    assert target.prevailing_advice_age == 3
 
     assert target.update(Advice.SHORT) is Advice.SHORT
     assert target.prevailing_advice is Advice.SHORT
