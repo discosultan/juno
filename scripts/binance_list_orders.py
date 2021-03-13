@@ -16,4 +16,5 @@ async def main() -> None:
         orders = await client.list_orders(account=args.account, symbol=args.symbol)
         logging.info(orders)
 
+
 asyncio.run(main())

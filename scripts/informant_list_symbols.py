@@ -11,13 +11,15 @@ from juno.utils import get_module_type
 parser = argparse.ArgumentParser()
 parser.add_argument('exchange', nargs='?', default='binance')
 parser.add_argument(
-    '-m', '--margin',
+    '-m',
+    '--margin',
     action='store_true',
     default=None,
     help='if set, must support cross margin trading',
 )
 parser.add_argument(
-    '-i', '--isolated',
+    '-i',
+    '--isolated',
     action='store_true',
     default=None,
     help='if set, must support isolated margin trading',

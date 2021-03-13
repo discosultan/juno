@@ -17,7 +17,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('symbols', type=lambda s: s.split(','))
 parser.add_argument('quote', type=Decimal)
 parser.add_argument(
-    '-s', '--short',
+    '-s',
+    '--short',
     action='store_true',
     default=False,
     help='if set, open short; otherwise long position',

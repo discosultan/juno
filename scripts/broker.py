@@ -18,7 +18,8 @@ parser.add_argument('-a', '--account', default='spot')
 parser.add_argument('-s', '--size', type=Decimal, default=None)
 parser.add_argument('-q', '--quote', type=Decimal, default=None)
 parser.add_argument(
-    '-t', '--test',
+    '-t',
+    '--test',
     action='store_true',
     default=False,
 )

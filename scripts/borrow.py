@@ -23,4 +23,5 @@ async def main() -> None:
         await client.borrow(args.asset, size, args.account)
         logging.info(f'borrowed {size} {args.asset} to {args.account} account')
 
+
 asyncio.run(main())

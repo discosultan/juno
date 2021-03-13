@@ -32,4 +32,5 @@ async def main() -> None:
             f'({size} total) from {args.account} account'
         )
 
+
 asyncio.run(main())

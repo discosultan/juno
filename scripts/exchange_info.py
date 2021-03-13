@@ -33,4 +33,5 @@ async def main() -> None:
             with open('exchange_info.json', 'w') as file:
                 json.dump(type_to_raw(exchange_info), file, indent=4)
 
+
 asyncio.run(main())
