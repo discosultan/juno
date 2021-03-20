@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import signal
 import sys
+from asyncio import tasks
 from typing import Any
 
 import pkg_resources
@@ -22,9 +24,16 @@ _log = logging.getLogger(__name__)
 
 
 async def main() -> None:
+    # When the program is cancelled with a keyboard interrupt, SIGINT or SIGTERM, cancel only the
+    # main task. The main task takes care of cancelling all of its' child tasks.
+    # https://stackoverflow.com/q/66640329/1466456
+    main_task: asyncio.Task = tasks.current_task()  # type: ignore
+    loop = asyncio.get_event_loop()
+    loop.add_signal_handler(signal.SIGINT, lambda: main_task.cancel())
+    loop.add_signal_handler(signal.SIGTERM, lambda: main_task.cancel())
+
     # Load config.
-    # NB: Careful with logging config. It contains sensitive data. Use
-    # `juno.utils.replace_secrets` to erase secrets from the output.
+    # NB: Careful with logging config. It contains sensitive data.
     config_path = (
         sys.argv[1] if len(sys.argv) >= 2 else full_path(__file__, 'config/default.json')
     )

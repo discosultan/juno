@@ -1,7 +1,9 @@
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Callable, Optional
+from uuid import uuid4
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
 from juno.brokers import Broker
@@ -74,6 +76,8 @@ class BasicState:
     first_candle: Optional[Candle] = None
     last_candle: Optional[Candle] = None
 
+    id: str = field(default_factory=lambda: str(uuid4()))
+
     @property
     def open_positions(self) -> list[Position.Open]:
         return [self.open_position] if self.open_position else []
@@ -105,6 +109,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time_ms = get_time_ms
+        self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
 
     @property
     def informant(self) -> Informant:
@@ -184,6 +189,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     async def run(self, state: BasicState) -> TradingSummary:
         config = state.config
 
+        self._queues[state.id] = asyncio.Queue()
         try:
             async for candle in self._chandler.stream_candles(
                 exchange=config.exchange,
@@ -218,12 +224,18 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
                 await self._tick(state, candle)
         finally:
-            if state.close_on_exit and state.open_position:
+            queue = self._queues.pop(state.id)
+            # Wait for any pending position tasks to finish.
+            await queue.join()
+
+            if state.close_on_exit and state.can_close_position:
+                assert state.open_position
                 await self.close_positions(
                     state,
                     [state.open_position.symbol],
                     CloseReason.CANCELLED,
                 )
+
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
                     state.last_candle.time + config.interval if state.last_candle
@@ -232,13 +244,18 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             else:  # Paper or live.
                 end = min(self._get_time_ms(), config.end)
             state.summary.finish(end)
+
             if state.last_candle:
                 _log.info(f'last candle: {state.last_candle}')
 
         _log.info('finished')
         return state.summary
 
-    async def _tick(self, state: BasicState, candle: Candle) -> None:
+    async def _tick(
+        self,
+        state: BasicState,
+        candle: Candle,
+    ) -> None:
         assert state.strategy
         assert state.changed
         assert state.summary
@@ -256,31 +273,34 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         if state.next_ < state.summary.start:
             assert advice is Advice.NONE
 
-        if isinstance(state.open_position, Position.OpenLong):
-            if advice in [Advice.SHORT, Advice.LIQUIDATE]:
-                await self._close_long_position(state, candle, CloseReason.STRATEGY)
-            elif state.open_position and state.stop_loss.upside_hit:
-                _log.info(f'upside stop loss hit at {config.stop_loss}; selling')
-                await self._close_long_position(state, candle, CloseReason.STOP_LOSS)
-                assert advice is not Advice.LONG
-            elif state.open_position and state.take_profit.upside_hit:
-                _log.info(f'upside take profit hit at {config.take_profit}; selling')
-                await self._close_long_position(state, candle, CloseReason.TAKE_PROFIT)
-                assert advice is not Advice.LONG
+        # Close existing position if requested.
+        if state.can_close_position:
+            if isinstance(state.open_position, Position.OpenLong):
+                if advice in [Advice.SHORT, Advice.LIQUIDATE]:
+                    await self._close_long_position(state, candle, CloseReason.STRATEGY)
+                elif state.open_position and state.stop_loss.upside_hit:
+                    _log.info(f'upside stop loss hit at {config.stop_loss}; selling')
+                    await self._close_long_position(state, candle, CloseReason.STOP_LOSS)
+                    assert advice is not Advice.LONG
+                elif state.open_position and state.take_profit.upside_hit:
+                    _log.info(f'upside take profit hit at {config.take_profit}; selling')
+                    await self._close_long_position(state, candle, CloseReason.TAKE_PROFIT)
+                    assert advice is not Advice.LONG
 
-        elif isinstance(state.open_position, Position.OpenShort):
-            if advice in [Advice.LONG, Advice.LIQUIDATE]:
-                await self._close_short_position(state, candle, CloseReason.STRATEGY)
-            elif state.stop_loss.downside_hit:
-                _log.info(f'downside stop loss hit at {config.stop_loss}; selling')
-                await self._close_short_position(state, candle, CloseReason.STOP_LOSS)
-                assert advice is not Advice.SHORT
-            elif state.take_profit.downside_hit:
-                _log.info(f'downside take profit hit at {config.take_profit}; selling')
-                await self._close_short_position(state, candle, CloseReason.TAKE_PROFIT)
-                assert advice is not Advice.SHORT
+            elif isinstance(state.open_position, Position.OpenShort):
+                if advice in [Advice.LONG, Advice.LIQUIDATE]:
+                    await self._close_short_position(state, candle, CloseReason.STRATEGY)
+                elif state.stop_loss.downside_hit:
+                    _log.info(f'downside stop loss hit at {config.stop_loss}; selling')
+                    await self._close_short_position(state, candle, CloseReason.STOP_LOSS)
+                    assert advice is not Advice.SHORT
+                elif state.take_profit.downside_hit:
+                    _log.info(f'downside take profit hit at {config.take_profit}; selling')
+                    await self._close_short_position(state, candle, CloseReason.TAKE_PROFIT)
+                    assert advice is not Advice.SHORT
 
-        if not state.open_position and state.open_new_positions:
+        # Open new position if requested.
+        if state.can_open_position:
             if config.long and advice is Advice.LONG:
                 await self._open_long_position(state, candle)
             elif config.short and advice is Advice.SHORT:
@@ -299,23 +319,30 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     ) -> list[Position.Closed]:
         if len(symbols) == 0:
             return []
-        if (
-            state.open_position
-            and len(symbols) == 1
-            and state.open_position.symbol == (symbol := symbols[0])
-            and state.last_candle
-        ):
-            if isinstance(state.open_position, Position.OpenLong):
-                _log.info(f'{symbol} long position open; closing')
-                return [await self._close_long_position(state, state.last_candle, reason)]
-            elif isinstance(state.open_position, Position.OpenShort):
-                _log.info(f'{symbol} short position open; closing')
-                return [await self._close_short_position(state, state.last_candle, reason)]
+        if state.can_close_position:
+            assert state.open_position
+            if (
+                len(symbols) == 1
+                and state.open_position.symbol == (symbol := symbols[0])
+                and state.last_candle
+            ):
+                if isinstance(state.open_position, Position.OpenLong):
+                    _log.info(f'{symbol} long position open; closing')
+                    return [await self._close_long_position(state, state.last_candle, reason)]
+                elif isinstance(state.open_position, Position.OpenShort):
+                    _log.info(f'{symbol} short position open; closing')
+                    return [await self._close_short_position(state, state.last_candle, reason)]
         raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
 
+    def 
+
     async def _open_long_position(self, state: BasicState, candle: Candle) -> None:
-        assert not state.open_position
         config = state.config
+
+        assert not state.open_position
+        assert state.open_position_available
+
+        state.open_position_available = False
 
         position = (
             self.open_simulated_long_position(
@@ -336,6 +363,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         state.quote += position.quote_delta()
         state.open_position = position
+        state.open_position_available = True
 
         await self._events.emit(
             config.channel, 'positions_opened', [state.open_position], state.summary
@@ -344,9 +372,13 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     async def _close_long_position(
         self, state: BasicState, candle: Candle, reason: CloseReason
     ) -> Position.Long:
+        config = state.config
+
         assert state.summary
         assert isinstance(state.open_position, Position.OpenLong)
-        config = state.config
+        assert state.open_position_available
+
+        state.open_position_available = False
 
         position = (
             self.close_simulated_long_position(
@@ -365,14 +397,19 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         state.quote += position.quote_delta()
         state.open_position = None
+        state.open_position_available = True
         state.summary.append_position(position)
 
         await self._events.emit(config.channel, 'positions_closed', [position], state.summary)
         return position
 
     async def _open_short_position(self, state: BasicState, candle: Candle) -> None:
-        assert not state.open_position
         config = state.config
+
+        assert not state.open_position
+        assert state.open_position_available
+
+        state.open_position_available = False
 
         position = (
             self.open_simulated_short_position(
@@ -393,6 +430,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         state.quote += position.quote_delta()
         state.open_position = position
+        state.open_position_available = True
 
         await self._events.emit(
             config.channel, 'positions_opened', [state.open_position], state.summary
@@ -401,9 +439,13 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     async def _close_short_position(
         self, state: BasicState, candle: Candle, reason: CloseReason
     ) -> Position.Short:
+        config = state.config
+
         assert state.summary
         assert isinstance(state.open_position, Position.OpenShort)
-        config = state.config
+        assert state.open_position_available
+
+        state.open_position_available = False
 
         position = (
             self.close_simulated_short_position(
@@ -422,6 +464,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         state.quote += position.quote_delta()
         state.open_position = None
+        state.open_position_available = True
         state.summary.append_position(position)
 
         await self._events.emit(config.channel, 'positions_closed', [position], state.summary)
