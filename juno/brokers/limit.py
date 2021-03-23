@@ -3,10 +3,10 @@ import logging
 import operator
 import uuid
 from decimal import Decimal
-from typing import AsyncIterable, Callable, Optional
+from typing import AsyncIterable, Callable, NamedTuple, Optional
 
 from juno import (
-    BadOrder, Fill, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate,
+    BadOrder, Fill, Filters, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate,
     OrderWouldBeTaker, Side
 )
 from juno.asyncio import Event, cancel
@@ -34,10 +34,9 @@ class _Context:
         self.active_order: Optional[_ActiveOrder] = None
 
 
-class _ActiveOrder:
-    def __init__(self, price: Decimal, size: Decimal) -> None:
-        self.price = price
-        self.size = size
+class _ActiveOrder(NamedTuple):
+    price: Decimal
+    size: Decimal
 
 
 class _FilledFromTrack(Exception):
@@ -56,12 +55,20 @@ class Limit(Broker):
         user: User,
         get_client_id: Callable[[], str] = lambda: str(uuid.uuid4()),
         cancel_order_on_error: bool = True,
+        order_placement_strategy: str = 'leading',  # leading or matching
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._user = user
         self._get_client_id = get_client_id
         self._cancel_order_on_error = cancel_order_on_error
+
+        if order_placement_strategy == 'leading':
+            self._order_placement_strategy = _leading_no_pullback
+        elif order_placement_strategy == 'matching':
+            self._order_placement_strategy = _match_highest
+        else:
+            raise ValueError(f'unknown order placement strategy {order_placement_strategy}')
 
     async def buy(
         self,
@@ -235,29 +242,14 @@ class Limit(Broker):
                 bids = orderbook.list_bids()
                 ob_side = bids if side is Side.BUY else asks
                 ob_other_side = asks if side is Side.BUY else bids
-                op_step = operator.add if side is Side.BUY else operator.sub
-                op_last_price_cmp = operator.le if side is Side.BUY else operator.ge
 
-                if len(ob_side) == 0:
-                    raise NotImplementedError(
-                        f'no existing {symbol} {"bids" if side is Side.BUY else "asks"} in '
-                        'orderbook! what is optimal price?'
-                    )
+                price = self._order_placement_strategy(
+                    side, ob_side, ob_other_side, filters, ctx.active_order
+                )
+                if price is None:
+                    continue
 
-                if len(ob_other_side) == 0:
-                    price = op_step(ob_side[0][0], filters.price.step)
-                else:
-                    spread = abs(ob_other_side[0][0] - ob_side[0][0])
-                    if spread == filters.price.step:
-                        price = ob_side[0][0]
-                    else:
-                        price = op_step(ob_side[0][0], filters.price.step)
-
-                # If we have an order in the orderbook.
                 if ctx.active_order:
-                    if op_last_price_cmp(price, ctx.active_order.price):
-                        continue
-
                     # Cancel prev order.
                     _log.info(
                         f'cancelling previous {symbol} {side.name} order {ctx.client_id} at price '
@@ -380,3 +372,72 @@ class Limit(Broker):
                 f'failed to cancel {symbol} order {client_id}; probably got filled; {exc}'
             )
             return False
+
+
+# Always tries to match the highest order. Pulls back if highest pulls back.
+def _match_highest(
+    side: Side,
+    ob_side: list[tuple[Decimal, Decimal]],
+    ob_other_side: list[tuple[Decimal, Decimal]],
+    filters: Filters,
+    active_order: Optional[_ActiveOrder],
+) -> Optional[Decimal]:
+    if len(ob_side) == 0:
+        _raise_missing_side(side)
+
+    closest_price, closest_size = ob_side[0]
+
+    if active_order is None or active_order.price != closest_price:
+        return closest_price
+    elif active_order.size == closest_size and len(ob_side) > 1:
+        next_to_closest_price = ob_side[1][0]
+        return next_to_closest_price
+
+    return None
+
+
+# Always tries to be ahead of highest order. Does not pull back in case highest order pulls back.
+def _leading_no_pullback(
+    side: Side,
+    ob_side: list[tuple[Decimal, Decimal]],
+    ob_other_side: list[tuple[Decimal, Decimal]],
+    filters: Filters,
+    active_order: Optional[_ActiveOrder],
+) -> Optional[Decimal]:
+    if len(ob_side) == 0:
+        _raise_missing_side(side)
+
+    op_step = operator.add if side is Side.BUY else operator.sub
+    op_last_price_cmp = operator.gt if side is Side.BUY else operator.lt
+
+    closest_price, closest_size = ob_side[0]
+    if len(ob_other_side) == 0:
+        # Set spread to an arbitrary value larger than step.
+        spread = filters.price.step * 2
+    else:
+        closest_other_price = ob_other_side[0][0]
+        spread = abs(closest_other_price - closest_price)
+
+    if active_order is None:
+        if spread == filters.price.step:
+            return closest_price
+        return op_step(closest_price, filters.price.step)
+
+    if closest_price == active_order.price:
+        if closest_size == active_order.size or spread == filters.price.step:
+            return None
+        return op_step(closest_price, filters.price.step)
+
+    if op_last_price_cmp(closest_price, active_order.price):
+        if spread == filters.price.step:
+            return closest_price
+        return op_step(closest_price, filters.price.step)
+
+    return None
+
+
+def _raise_missing_side(side: Side) -> None:
+    raise NotImplementedError(
+        f'no existing {"bids" if side is Side.BUY else "asks"} in orderbook! cannot find optimal '
+        'price'
+    )
