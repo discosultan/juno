@@ -303,6 +303,10 @@ async def test_partial_fill_cancel_min_notional() -> None:
                 client_id=order_client_id,
             )
         )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('100.0'), Decimal('1.0'))])
+        )
+        await yield_control()
         await exchange.orders_queue.put(
             OrderUpdate.Match(
                 client_id=order_client_id,
@@ -314,6 +318,9 @@ async def test_partial_fill_cancel_min_notional() -> None:
                     fee_asset='eth',
                 ),
             )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('100.0'), Decimal('0.1'))])
         )
         await yield_control()
         await exchange.depth_queue.put(
@@ -442,14 +449,168 @@ async def test_cancels_open_order_on_error(mocker) -> None:
     assert cancel_order_calls[0].kwargs['client_id'] == client_id
 
 
+async def test_buy_does_not_place_higher_bid_if_highest_only_self() -> None:
+    # Min step is 0.1.
+    snapshot = Depth.Snapshot(
+        asks=[(Decimal('2.0'), Decimal('1.0'))],
+        bids=[(Decimal('1.0'), Decimal('1.0'))],
+    )
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_broker(exchange, cancel_order_on_error=False) as broker:
+        task = asyncio.create_task(broker.buy(
+            exchange='exchange',
+            account='spot',
+            symbol='eth-btc',
+            quote=Decimal('1.1'),
+            test=False,
+        ))
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('1.1'), Decimal('1.0'))])
+        )
+        await yield_control()  # Shouldn't cancel previous order because only ours' is highest.
+
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+        assert len(exchange.place_order_calls) == 1
+        assert exchange.place_order_calls[0]['price'] == Decimal('1.1')
+        assert len(exchange.cancel_order_calls) == 0
+
+
+async def test_buy_matching_order_placement_strategy() -> None:
+    # Min step is 0.1.
+    # Fee is 10%.
+    snapshot = Depth.Snapshot(
+        asks=[(Decimal('2.0'), Decimal('1.0'))],
+        bids=[(Decimal('1.0'), Decimal('1.0'))],
+    )
+    exchange = fakes.Exchange(
+        depth=snapshot,
+        exchange_info=exchange_info,
+    )
+    exchange.can_stream_depth_snapshot = False
+    async with init_broker(exchange, order_placement_strategy='matching') as broker:
+        task = asyncio.create_task(broker.buy(
+            exchange='exchange',
+            account='spot',
+            symbol='eth-btc',
+            quote=Decimal('1'),
+            test=False,
+        ))
+        await yield_control()  # New order.
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('1.0'), Decimal('2.0'))])
+        )
+        await yield_control()
+        await exchange.orders_queue.put(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('1.0'),
+                    size=Decimal('0.5'),
+                    quote=Decimal('0.5'),
+                    fee=Decimal('0.05'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('1.5'), Decimal('1.0'))])
+        )
+        await yield_control()
+        await exchange.orders_queue.put(
+            OrderUpdate.Cancelled(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('1.0'), Decimal('0.0'))])
+        )
+        await yield_control()
+        await exchange.orders_queue.put(
+            OrderUpdate.New(
+                client_id=order_client_id,
+            )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('1.5'), Decimal('1.5'))])
+        )
+        await yield_control()
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('1.5'), Decimal('0.5'))])
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('0.5'), Decimal('1.0'))])
+        )
+        await yield_control()
+        await exchange.orders_queue.put(
+            OrderUpdate.Cancelled(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('1.5'), Decimal('0.0'))])
+        )
+        await yield_control()
+        await exchange.orders_queue.put(
+            OrderUpdate.Match(
+                client_id=order_client_id,
+                fill=Fill(
+                    price=Decimal('0.5'),
+                    size=Decimal('1'),
+                    quote=Decimal('0.5'),
+                    fee=Decimal('0.1'),
+                    fee_asset='eth',
+                ),
+            )
+        )
+        await exchange.depth_queue.put(
+            Depth.Update(bids=[(Decimal('0.5'), Decimal('1.0'))])
+        )
+        await yield_control()
+        await exchange.orders_queue.put(
+            OrderUpdate.Done(
+                time=0,
+                client_id=order_client_id,
+            )
+        )
+
+        result = await task
+
+        assert result.status is OrderStatus.FILLED
+        assert Fill.total_size(result.fills) == Decimal('1.5')
+        assert len(exchange.place_order_calls) == 3
+        assert len(exchange.cancel_order_calls) == 2
+
+
 @asynccontextmanager
-async def init_broker(exchange: Exchange) -> AsyncIterator[Limit]:
+async def init_broker(exchange: Exchange, **kwargs) -> AsyncIterator[Limit]:
     memory = Memory()
     informant = Informant(memory, [exchange])
     orderbook = Orderbook([exchange])
     user = User([exchange])
     async with memory, informant, orderbook, user:
-        broker = Limit(informant, orderbook, user, get_client_id=lambda: order_client_id)
+        broker = Limit(informant, orderbook, user, get_client_id=lambda: order_client_id, **kwargs)
         yield broker
 
 

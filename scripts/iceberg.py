@@ -5,7 +5,6 @@ from decimal import Decimal
 from typing import Awaitable, Callable
 
 from juno import BadOrder, Fill, Side, brokers, exchanges
-from juno.brokers import Limit
 from juno.common import OrderResult
 from juno.components import Informant, Orderbook, User
 from juno.config import from_env, init_instance
@@ -19,6 +18,7 @@ parser.add_argument('size', nargs='?', type=Decimal)
 parser.add_argument('chunk_size', nargs='?', type=Decimal)
 parser.add_argument('-e', '--exchange', default='binance')
 parser.add_argument('-a', '--account', default='spot')
+parser.add_argument('-b', '--broker', default='limit')
 args = parser.parse_args()
 
 
@@ -28,7 +28,7 @@ async def main() -> None:
     informant = Informant(storage=sqlite, exchanges=[exchange])
     user = User(exchanges=[exchange])
     orderbook = Orderbook(exchanges=[exchange])
-    broker = Limit(informant, orderbook, user)
+    broker = get_module_type(brokers, args.broker)(informant, orderbook, user)
     async with exchange, informant, orderbook, user:
         await transact_symbol(informant, orderbook, user, broker, args.symbol)
 
