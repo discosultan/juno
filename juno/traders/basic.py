@@ -356,6 +356,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         queue = self._queues[state.id]
         task = asyncio.create_task(schedule_queue_task_done(queue, coro))
         queue.put_nowait(task)
+        queue.get_nowait()
         await queue.join()
         return task.result()
 
