@@ -77,6 +77,7 @@ class BasicState:
     last_candle: Optional[Candle] = None
 
     id: str = field(default_factory=lambda: str(uuid4()))
+    running: bool = False
 
     @property
     def open_positions(self) -> list[Position.Open]:
@@ -190,6 +191,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         config = state.config
 
         self._queues[state.id] = asyncio.Queue()
+        state.running = True
         try:
             async for candle in self._chandler.stream_candles(
                 exchange=config.exchange,
@@ -224,12 +226,12 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
                 await self._tick(state, candle)
         finally:
+            state.running = False
             queue = self._queues.pop(state.id)
             # Wait for any pending position tasks to finish.
             await queue.join()
 
-            if state.close_on_exit and state.can_close_position:
-                assert state.open_position
+            if state.close_on_exit and state.open_position:
                 await self.close_positions(
                     state,
                     [state.open_position.symbol],
@@ -317,32 +319,30 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     async def close_positions(
         self, state: BasicState, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
+        if not state.running:
+            raise PositionNotOpen(
+                f'Attempted to close positions {symbols} but trader no longer running'
+            )
         if len(symbols) == 0:
             return []
-        if state.can_close_position:
-            assert state.open_position
-            if (
-                len(symbols) == 1
-                and state.open_position.symbol == (symbol := symbols[0])
-                and state.last_candle
-            ):
-                if isinstance(state.open_position, Position.OpenLong):
-                    _log.info(f'{symbol} long position open; closing')
-                    return [await self._close_long_position(state, state.last_candle, reason)]
-                elif isinstance(state.open_position, Position.OpenShort):
-                    _log.info(f'{symbol} short position open; closing')
-                    return [await self._close_short_position(state, state.last_candle, reason)]
+        if (
+            state.open_position
+            and len(symbols) == 1
+            and state.open_position.symbol == (symbol := symbols[0])
+            and state.last_candle
+        ):
+            if isinstance(state.open_position, Position.OpenLong):
+                _log.info(f'{symbol} long position open; closing')
+                return [await self._close_long_position(state, state.last_candle, reason)]
+            elif isinstance(state.open_position, Position.OpenShort):
+                _log.info(f'{symbol} short position open; closing')
+                return [await self._close_short_position(state, state.last_candle, reason)]
         raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
-
-    def 
 
     async def _open_long_position(self, state: BasicState, candle: Candle) -> None:
         config = state.config
 
         assert not state.open_position
-        assert state.open_position_available
-
-        state.open_position_available = False
 
         position = (
             self.open_simulated_long_position(
@@ -363,7 +363,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         state.quote += position.quote_delta()
         state.open_position = position
-        state.open_position_available = True
 
         await self._events.emit(
             config.channel, 'positions_opened', [state.open_position], state.summary
@@ -376,9 +375,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         assert state.summary
         assert isinstance(state.open_position, Position.OpenLong)
-        assert state.open_position_available
-
-        state.open_position_available = False
 
         position = (
             self.close_simulated_long_position(
@@ -397,7 +393,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         state.quote += position.quote_delta()
         state.open_position = None
-        state.open_position_available = True
         state.summary.append_position(position)
 
         await self._events.emit(config.channel, 'positions_closed', [position], state.summary)
@@ -407,9 +402,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         config = state.config
 
         assert not state.open_position
-        assert state.open_position_available
-
-        state.open_position_available = False
 
         position = (
             self.open_simulated_short_position(
@@ -430,7 +422,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         state.quote += position.quote_delta()
         state.open_position = position
-        state.open_position_available = True
 
         await self._events.emit(
             config.channel, 'positions_opened', [state.open_position], state.summary
@@ -443,9 +434,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         assert state.summary
         assert isinstance(state.open_position, Position.OpenShort)
-        assert state.open_position_available
-
-        state.open_position_available = False
 
         position = (
             self.close_simulated_short_position(
@@ -464,7 +452,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
 
         state.quote += position.quote_delta()
         state.open_position = None
-        state.open_position_available = True
         state.summary.append_position(position)
 
         await self._events.emit(config.channel, 'positions_closed', [position], state.summary)
