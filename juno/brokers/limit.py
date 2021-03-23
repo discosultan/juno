@@ -63,10 +63,11 @@ class Limit(Broker):
         self._get_client_id = get_client_id
         self._cancel_order_on_error = cancel_order_on_error
 
+        self._order_placement_strategy = order_placement_strategy
         if order_placement_strategy == 'leading':
-            self._order_placement_strategy = _leading_no_pullback
+            self._find_order_placement_price = _leading_no_pullback
         elif order_placement_strategy == 'matching':
-            self._order_placement_strategy = _match_highest
+            self._find_order_placement_price = _match_highest
         else:
             raise ValueError(f'unknown order placement strategy {order_placement_strategy}')
 
@@ -89,14 +90,14 @@ class Limit(Broker):
         if size is not None:
             _log.info(
                 f'buying {size} (ensure size: {ensure_size}) {base_asset} with limit orders at '
-                f'spread ({account} account)'
+                f'spread ({account} account) following {self._order_placement_strategy} strategy'
             )
             if ensure_size:
                 size = filters.with_fee(size, fees.maker)
         elif quote is not None:
             _log.info(
                 f'buying {quote} {quote_asset} worth of {base_asset} with limit orders at spread '
-                f'({account} account)'
+                f'({account} account) following {self._order_placement_strategy} strategy'
             )
         else:
             raise NotImplementedError()
@@ -135,7 +136,8 @@ class Limit(Broker):
 
         base_asset, quote_asset = unpack_assets(symbol)
         _log.info(
-            f'selling {size} {base_asset} with limit orders at spread ({account} account)'
+            f'selling {size} {base_asset} with limit orders at spread ({account} account) '
+            f'following {self._order_placement_strategy} strategy'
         )
         res = await self._fill(exchange, account, symbol, Side.SELL, False, size=size)
 
@@ -243,7 +245,7 @@ class Limit(Broker):
                 ob_side = bids if side is Side.BUY else asks
                 ob_other_side = asks if side is Side.BUY else bids
 
-                price = self._order_placement_strategy(
+                price = self._find_order_placement_price(
                     side, ob_side, ob_other_side, filters, ctx.active_order
                 )
                 if price is None:
@@ -382,8 +384,7 @@ def _match_highest(
     filters: Filters,
     active_order: Optional[_ActiveOrder],
 ) -> Optional[Decimal]:
-    if len(ob_side) == 0:
-        _raise_missing_side(side)
+    _validate_side_not_empty(side, ob_side)
 
     closest_price, closest_size = ob_side[0]
 
@@ -404,8 +405,7 @@ def _leading_no_pullback(
     filters: Filters,
     active_order: Optional[_ActiveOrder],
 ) -> Optional[Decimal]:
-    if len(ob_side) == 0:
-        _raise_missing_side(side)
+    _validate_side_not_empty(side, ob_side)
 
     op_step = operator.add if side is Side.BUY else operator.sub
     op_last_price_cmp = operator.gt if side is Side.BUY else operator.lt
@@ -436,8 +436,9 @@ def _leading_no_pullback(
     return None
 
 
-def _raise_missing_side(side: Side) -> None:
-    raise NotImplementedError(
-        f'no existing {"bids" if side is Side.BUY else "asks"} in orderbook! cannot find optimal '
-        'price'
-    )
+def _validate_side_not_empty(side: Side, ob_side: list[tuple[Decimal, Decimal]]) -> None:
+    if len(ob_side) == 0:
+        raise NotImplementedError(
+            f'no existing {"bids" if side is Side.BUY else "asks"} in orderbook! cannot find '
+            'optimal price'
+        )
