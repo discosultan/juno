@@ -6,7 +6,7 @@ from typing import Awaitable, Callable, Optional, TypeVar
 from uuid import uuid4
 
 from juno import Advice, Candle, Interval, MissedCandlePolicy, Timestamp
-from juno.asyncio import schedule_queue_task_done
+from juno.asyncio import process_task_on_queue
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
@@ -140,11 +140,12 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     async def close_positions(
         self, state: BasicState, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
+        queue = self._queues[state.id]
         if len(symbols) == 0:
             return []
         if not state.running:
             raise PositionNotOpen('Trader not running')
-        if not self._can_process_task(state):
+        if queue.qsize() > 0:
             raise PositionNotOpen('Process with position already pending')
         if (
             state.open_position
@@ -152,7 +153,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             and state.open_position.symbol == symbols[0]
             and state.last_candle
         ):
-            return [await self._process_task(state, self._close_position(state, reason))]
+            return [await process_task_on_queue(queue, self._close_position(state, reason))]
         raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
 
     async def initialize(self, config: BasicConfig) -> BasicState:
@@ -248,7 +249,6 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 await self._tick(state, candle)
         finally:
             state.running = False
-
             # Remove queue and wait for any pending position tasks to finish.
             queue = self._queues.pop(state.id)
             await queue.join()
@@ -293,10 +293,15 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         if state.next_ < state.summary.start:
             assert advice is Advice.NONE
 
-        if self._can_process_task(state):
-            coro: Optional[Awaitable] = None
+        queue = self._queues[state.id]
+        await queue.join()
 
-            # Close existing position if requested.
+        coro: Optional[Awaitable]
+
+        # Close existing position if requested.
+        if state.open_position:
+            coro = None
+
             if isinstance(state.open_position, Position.OpenLong):
                 if advice in [Advice.SHORT, Advice.LIQUIDATE]:
                     coro = self._close_long_position(state, candle, CloseReason.STRATEGY)
@@ -321,44 +326,28 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                     coro = self._close_short_position(state, candle, CloseReason.TAKE_PROFIT)
 
             if coro:
-                await self._process_task(state, coro)
+                await process_task_on_queue(queue, coro)
 
-            # Open new position if requested.
-            if not state.open_position and state.open_new_positions:
-                coro = None
+        # Open new position if requested.
+        if not state.open_position and state.open_new_positions:
+            coro = None
 
-                if config.long and advice is Advice.LONG:
-                    coro = self._open_long_position(state, candle)
-                elif config.short and advice is Advice.SHORT:
-                    coro = self._open_short_position(state, candle)
+            if config.long and advice is Advice.LONG:
+                coro = self._open_long_position(state, candle)
+            elif config.short and advice is Advice.SHORT:
+                coro = self._open_short_position(state, candle)
 
-                if coro:
-                    await self._process_task(state, coro)
+            if coro:
+                await process_task_on_queue(queue, coro)
 
-                state.stop_loss.clear(candle)
-                state.take_profit.clear(candle)
+            state.stop_loss.clear(candle)
+            state.take_profit.clear(candle)
 
         if not state.first_candle:
             _log.info(f'first candle: {candle}')
             state.first_candle = candle
         state.last_candle = candle
         state.next_ = candle.time + config.interval
-
-    def _can_process_task(self, state: BasicState) -> bool:
-        queue = self._queues[state.id]
-        return queue.qsize() == 0
-
-    async def _process_task(
-        self,
-        state: BasicState,
-        coro: Awaitable[T],
-    ) -> T:
-        queue = self._queues[state.id]
-        task = asyncio.create_task(schedule_queue_task_done(queue, coro))
-        queue.put_nowait(task)
-        queue.get_nowait()
-        await queue.join()
-        return task.result()
 
     async def _close_position(
         self,

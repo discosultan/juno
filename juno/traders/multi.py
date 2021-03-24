@@ -4,12 +4,15 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Callable, Coroutine, Optional
+from typing import Callable, Coroutine, Optional, TypeVar
+from uuid import uuid4
 
 from more_itertools import take
 
 from juno import Advice, Candle, Interval, Timestamp
-from juno.asyncio import Event, SlotBarrier, cancel, create_task_cancel_owner_on_exception
+from juno.asyncio import (
+    Event, SlotBarrier, cancel, create_task_cancel_owner_on_exception, process_task_on_queue
+)
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
@@ -29,6 +32,8 @@ from juno.typing import TypeConstructor
 from .trader import Trader
 
 _log = logging.getLogger(__name__)
+
+T = TypeVar('T')
 
 SYMBOL_PATTERN = '*-btc'
 
@@ -72,6 +77,9 @@ class MultiState:
     next_: Timestamp  # Candle time.
     real_start: Timestamp
     open_new_positions: bool = True  # Whether new positions can be opened.
+
+    id: str = field(default_factory=lambda: str(uuid4()))
+    running: bool = False
 
     @property
     def open_positions(self) -> list[Position.Open]:
@@ -127,6 +135,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         self._events = events
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
         self._get_time_ms = get_time_ms
+        self._queues: dict[str, asyncio.Queue] = {}  # Key: state id
 
     @property
     def informant(self) -> Informant:
@@ -229,13 +238,24 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         )
         _log.info(f'quote split as: {state.quotes}')
 
+        self._queues[state.id] = asyncio.Queue()
+        state.running = True
         try:
             track_tasks: dict[str, asyncio.Task] = {}
             await self._manage_positions(state, track_tasks)
         finally:
+            state.running = False
+            # Remove queue and wait for any pending position tasks to finish.
+            queue = self._queues.pop(state.id)
+            await queue.join()
+
             await cancel(*track_tasks.values())
             if state.close_on_exit:
-                await self._close_all_open_positions(state)
+                await self._close_positions(
+                    state,
+                    [ss for ss in state.symbol_states.values() if ss.open_position],
+                    CloseReason.CANCELLED,
+                )
             if config.end is not None and config.end <= state.real_start:  # Backtest.
                 end = (
                     max(
@@ -361,6 +381,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
     async def _try_close_existing_positions(self, state: MultiState) -> None:
         config = state.config
+
+        queue = self._queues[state.id]
+        await queue.join()
+
         to_process: list[Coroutine[None, None, Position.Closed]] = []
         for ss in (ss for ss in state.symbol_states.values() if ss.ready):
             assert ss.last_candle
@@ -379,13 +403,17 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     self._close_short_position(state, ss, ss.last_candle, ss.reason)
                 )
         if len(to_process) > 0:
-            positions = await asyncio.gather(*to_process)
+            positions = await process_task_on_queue(queue, asyncio.gather(*to_process))
             await self._events.emit(
                 config.channel, 'positions_closed', positions, state.summary
             )
 
     async def _try_open_new_positions(self, state: MultiState) -> None:
         config = state.config
+
+        queue = self._queues[state.id]
+        await queue.join()
+
         to_process: list[Coroutine[None, None, Position.Open]] = []
         count = sum(1 for ss in state.symbol_states.values() if ss.open_position)
         assert count <= config.position_count
@@ -410,7 +438,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                     available -= 1
 
         if len(to_process) > 0:
-            positions = await asyncio.gather(*to_process)
+            positions = await process_task_on_queue(queue, asyncio.gather(*to_process))
             await self._events.emit(
                 config.channel, 'positions_opened', positions, state.summary
             )
@@ -545,16 +573,16 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         candles_updated.release(symbol_state.symbol)
         await ready.wait()
 
-    async def _close_all_open_positions(self, state: MultiState) -> None:
-        await self._close_positions(
-            state,
-            [ss for ss in state.symbol_states.values() if ss.open_position],
-            CloseReason.CANCELLED,
-        )
-
     async def close_positions(
         self, state: MultiState, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
+        if len(symbols) == 0:
+            return []
+        if not state.running:
+            raise PositionNotOpen('Trader not running')
+        queue = self._queues[state.id]
+        if queue.qsize() > 0:
+            raise PositionNotOpen('Process with position already pending')
         symbol_states = [
             ss
             for ss in (state.symbol_states.get(s) for s in symbols)
@@ -562,7 +590,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
         ]
         if len(symbol_states) != len(symbols):
             raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
-        return await self._close_positions(state, symbol_states, reason)
+        return await process_task_on_queue(
+            queue,
+            self._close_positions(state, symbol_states, reason),
+        )
 
     async def _close_positions(
         self, state: MultiState, symbol_states: list[_SymbolState], reason: CloseReason

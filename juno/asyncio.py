@@ -197,7 +197,16 @@ async def stream_queue(
             queue.task_done()
 
 
-async def schedule_queue_task_done(queue: asyncio.Queue, coro: Awaitable[T]) -> T:
+async def process_task_on_queue(queue: asyncio.Queue, coro: Awaitable[T]) -> T:
+    # Useful for awaiting for a task but shielding it from cancellation.
+    task = asyncio.create_task(_schedule_queue_task_done(queue, coro))
+    queue.put_nowait(task)
+    queue.get_nowait()
+    await queue.join()
+    return task.result()
+
+
+async def _schedule_queue_task_done(queue: asyncio.Queue, coro: Awaitable[T]) -> T:
     try:
         return await coro
     finally:
