@@ -6,8 +6,8 @@ import signal
 import traceback
 from dataclasses import dataclass, field
 from typing import (
-    Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Generic, Iterable, Optional, TypeVar,
-    cast
+    Any, AsyncIterable, AsyncIterator, Awaitable, Callable, Coroutine, Generic, Iterable, Optional,
+    TypeVar, cast
 )
 
 _log = logging.getLogger(__name__)
@@ -195,6 +195,22 @@ async def stream_queue(
                 raise item
             yield item
             queue.task_done()
+
+
+async def process_task_on_queue(queue: asyncio.Queue, coro: Awaitable[T]) -> T:
+    # Useful for awaiting for a task but shielding it from cancellation.
+    task = asyncio.create_task(_schedule_queue_task_done(queue, coro))
+    queue.put_nowait(task)
+    queue.get_nowait()
+    await queue.join()
+    return task.result()
+
+
+async def _schedule_queue_task_done(queue: asyncio.Queue, coro: Awaitable[T]) -> T:
+    try:
+        return await coro
+    finally:
+        queue.task_done()
 
 
 class Barrier:

@@ -47,11 +47,12 @@ async def test_upside_stop_loss() -> None:
 
     summary = await trader.run(state)
 
-    assert summary.profit == -2
-
-    long_positions = summary.list_positions(type_=Position.Long)
-    assert len(long_positions) == 1
-    assert summary.list_positions()[0].close_reason is CloseReason.STOP_LOSS
+    positions = summary.list_positions()
+    assert len(positions) == 1
+    position = positions[0]
+    assert isinstance(position, Position.Long)
+    assert position.profit == -2
+    assert position.close_reason is CloseReason.STOP_LOSS
 
 
 async def test_upside_trailing_stop_loss() -> None:
@@ -85,11 +86,12 @@ async def test_upside_trailing_stop_loss() -> None:
 
     summary = await trader.run(state)
 
-    assert summary.profit == 8
-
-    long_positions = summary.list_positions(type_=Position.Long)
-    assert len(long_positions) == 1
-    assert long_positions[0].close_reason is CloseReason.STOP_LOSS
+    positions = summary.list_positions()
+    assert len(positions) == 1
+    position = positions[0]
+    assert isinstance(position, Position.Long)
+    assert position.profit == 8
+    assert position.close_reason is CloseReason.STOP_LOSS
 
 
 async def test_downside_trailing_stop_loss() -> None:
