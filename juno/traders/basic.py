@@ -294,11 +294,10 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             assert advice is Advice.NONE
 
         queue = self._queues[state.id]
-        await queue.join()
-
         coro: Optional[Awaitable]
 
         # Close existing position if requested.
+        await queue.join()
         if state.open_position:
             coro = None
 
@@ -329,6 +328,7 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
                 await process_task_on_queue(queue, coro)
 
         # Open new position if requested.
+        await queue.join()
         if not state.open_position and state.open_new_positions:
             coro = None
 
