@@ -140,11 +140,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
     async def close_positions(
         self, state: BasicState, symbols: list[str], reason: CloseReason
     ) -> list[Position.Closed]:
-        queue = self._queues[state.id]
         if len(symbols) == 0:
             return []
         if not state.running:
             raise PositionNotOpen('Trader not running')
+        queue = self._queues[state.id]
         if queue.qsize() > 0:
             raise PositionNotOpen('Process with position already pending')
         if (
