@@ -148,13 +148,13 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         if queue.qsize() > 0:
             raise PositionNotOpen('Process with position already pending')
         if (
-            state.open_position
-            and len(symbols) == 1
-            and state.open_position.symbol == symbols[0]
-            and state.last_candle
+            not state.open_position
+            or len(symbols) > 1
+            or state.open_position.symbol != symbols[0]
+            or not state.last_candle
         ):
-            return [await process_task_on_queue(queue, self._close_position(state, reason))]
-        raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
+            raise PositionNotOpen(f'Attempted to close positions {symbols} but not all open')
+        return [await process_task_on_queue(queue, self._close_position(state, reason))]
 
     async def initialize(self, config: BasicConfig) -> BasicState:
         assert config.mode is TradingMode.BACKTEST or self.broker
