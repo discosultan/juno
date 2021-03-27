@@ -129,6 +129,6 @@ pub fn ma_from_adler32(code: u32, period: u32) -> Box<dyn MA> {
         adler32::SMMA => Box::new(Smma::new(&SmmaParams { period })),
         adler32::DEMA => Box::new(Dema::new(&DemaParams { period })),
         adler32::KAMA => Box::new(Kama::new(&KamaParams { period })),
-        _ => panic!(format!("indicator {} not supported", code)),
+        _ => panic!("indicator {} not supported", code),
     }
 }
