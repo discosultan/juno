@@ -7,6 +7,7 @@ from juno import Candle, ExchangeException, Trade
 from juno.asyncio import cancel, list_async, resolved_stream
 from juno.components import Chandler
 from juno.storages import Storage
+from juno.time import WEEK_MS, strptimestamp
 from juno.utils import key
 
 from . import fakes
@@ -362,8 +363,30 @@ async def test_stream_historical_candles_bad_time_error_when_unadjustable(storag
     chandler = Chandler(storage=storage, exchanges=[exchange])
 
     with pytest.raises(RuntimeError):
-        async for candle in chandler.stream_candles('exchange', 'eth-btc', 2, 0, 4):
+        async for _candle in chandler.stream_candles('exchange', 'eth-btc', 2, 0, 4):
             pass
+
+
+async def test_stream_historical_candles_do_not_adjust_over_daily_interval(storage) -> None:
+    start = strptimestamp('2020-01-01')
+    end = strptimestamp('2020-01-08')
+    exchange = fakes.Exchange(
+        candle_intervals=[WEEK_MS],
+        historical_candles=[Candle(time=start)],
+    )
+    chandler = Chandler(storage=storage, exchanges=[exchange])
+
+    candles = await list_async(
+        chandler.stream_candles(
+            'exchange',
+            'eth-btc',
+            WEEK_MS,
+            start,
+            end,
+        )
+    )
+
+    assert candles == [Candle(time=start)]
 
 
 @pytest.mark.parametrize('earliest_exchange_start,time', [

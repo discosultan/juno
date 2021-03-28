@@ -17,7 +17,7 @@ from juno.itertools import generate_missing_spans
 from juno.math import ceil_multiple, floor_multiple
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
-from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
+from juno.time import DAY_MS, MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
 from juno.utils import AbstractAsyncContextManager, key, unpack_assets
 
 from .trades import Trades
@@ -365,16 +365,19 @@ class Chandler(AbstractAsyncContextManager):
                     )
 
             last_candle_time = -1
+            # Do not try to adjust over daily interval.
+            adjust_interval = min(interval, DAY_MS)
             async for candle in stream_with_timeout(
                 inner(stream),
-                timeout if timeout is None else timeout / 1000,
+                None if timeout is None else timeout / 1000,
             ):
-                if candle.time % interval != 0:
+                if candle.time % adjust_interval != 0:
+                    adjusted_time = floor_multiple(candle.time, adjust_interval)
                     _log.warning(
                         f'candle with bad time {candle} for interval {strfinterval(interval)}; '
-                        'trying to adjusting back in time or skip if volume zero'
+                        f'trying to adjust back in time to {strftimestamp(adjusted_time)} or skip '
+                        'if volume zero'
                     )
-                    adjusted_time = floor_multiple(candle.time, interval)
                     if last_candle_time == adjusted_time:
                         if candle.volume > 0:
                             raise RuntimeError(
