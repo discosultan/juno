@@ -148,9 +148,6 @@ fn assert_approx(left: f64, right: f64) {
 }
 
 fn assert_stats(left: &CoreStatistics, right: &CoreStatistics) {
-    // println!("left {:?}", left);
-    // println!("right {:?}", right);
-
     assert_eq!(left.start, right.start);
     assert_eq!(left.end, right.end);
     assert_eq!(left.duration, right.duration);

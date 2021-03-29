@@ -16,11 +16,11 @@ impl Changed {
     }
 
     pub fn prevailing_advice(&self) -> Advice {
-        return self.previous
+        return self.previous;
     }
 
     pub fn prevailing_advice_age(&self) -> u32 {
-        return self.age
+        return self.age;
     }
 
     pub fn maturity(&self) -> u32 {

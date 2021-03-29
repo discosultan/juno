@@ -167,9 +167,11 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
         if config.short:
             assert filters.isolated_margin
 
-        start = await self.request_start(
-            config.start, config.exchange, [config.symbol], [config.interval]
+        start = await self.request_candle_start(
+            config.start, config.exchange, [config.symbol], config.interval
         )
+        real_start = self._get_time_ms()
+
         quote = await self.request_quote(
             config.quote, config.exchange, config.quote_asset, config.mode
         )
@@ -192,10 +194,10 @@ class Basic(Trader[BasicConfig, BasicState], PositionMixin, SimulatedPositionMix
             config=config,
             close_on_exit=config.close_on_exit,
             next_=next_,
-            real_start=self._get_time_ms(),
+            real_start=real_start,
             quote=quote,
             summary=TradingSummary(
-                start=start,
+                start=start if config.mode is TradingMode.BACKTEST else real_start,
                 quote=quote,
                 quote_asset=config.quote_asset,
             ),

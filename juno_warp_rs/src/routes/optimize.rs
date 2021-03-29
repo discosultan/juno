@@ -128,7 +128,10 @@ fn process(args: Params) -> Result<reply::Json> {
                         })
                         .collect::<HashMap<String, Statistics>>();
 
-                    IndividualStats { individual: ind, symbol_stats }
+                    IndividualStats {
+                        individual: ind,
+                        symbol_stats,
+                    }
                 })
                 .collect();
 

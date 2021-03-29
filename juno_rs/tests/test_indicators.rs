@@ -158,7 +158,10 @@ where
                 let diff = f64::abs(value - expected);
                 assert!(
                     diff < 0.001,
-                    format!("expected {} but got {}; diff is {}", expected, value, diff)
+                    "expected {} but got {}; diff is {}",
+                    expected,
+                    value,
+                    diff
                 );
             }
         }

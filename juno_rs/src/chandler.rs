@@ -28,7 +28,6 @@ pub fn fill_missing_candles(
     let mut prev_candle: Option<&Candle> = None;
 
     for candle in candles {
-        debug_assert_eq!(candle.time % interval, 0);
         let diff = (candle.time - current) / interval;
         for i in 1..=diff {
             match prev_candle {

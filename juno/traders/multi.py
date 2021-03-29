@@ -172,7 +172,10 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
 
         symbols = await self._find_top_symbols(config)
 
-        start = await self.request_start(config.start, config.exchange, symbols, [config.interval])
+        start = await self.request_candle_start(
+            config.start, config.exchange, symbols, config.interval
+        )
+        real_start = self._get_time_ms()
 
         quote = await self.request_quote(config.quote, config.exchange, 'btc', config.mode)
         position_quote = quote / config.position_count
@@ -180,20 +183,19 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
             _, filters = self._informant.get_fees_filters(config.exchange, symbol)
             assert position_quote > filters.price.min
 
-        candle_start = floor_multiple(start, config.interval)
         return MultiState(
             config=config,
             close_on_exit=config.close_on_exit,
-            real_start=self._get_time_ms(),
-            start=candle_start,
-            next_=candle_start,
+            real_start=real_start,
+            start=start,
+            next_=start,
             quotes=self._split_quote(quote, config.position_count, config.exchange),
             summary=TradingSummary(
-                start=start,
+                start=start if config.mode is TradingMode.BACKTEST else real_start,
                 quote=quote,
                 quote_asset='btc',  # TODO: support others
             ),
-            symbol_states={s: self._create_symbol_state(s, candle_start, config) for s in symbols},
+            symbol_states={s: self._create_symbol_state(s, start, config) for s in symbols},
         )
 
     def _split_quote(self, quote: Decimal, parts: int, exchange: str) -> list[Decimal]:

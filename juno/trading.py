@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import itertools
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import IntEnum
 from types import ModuleType
-from typing import Iterable, Optional, Union
+from typing import Iterable, Optional, Sequence, Union
 
 from tenacity import (
     RetryError, before_sleep_log, retry, retry_if_exception_type, stop_after_attempt,
@@ -16,10 +15,11 @@ from tenacity import (
 )
 
 from juno import BadOrder, Balance, Fill, Filters, Interval, Timestamp
+from juno.asyncio import gather_dict
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
-from juno.math import annualized, ceil_multiple, round_down, round_half_up
-from juno.time import HOUR_MS, MIN_MS, strftimestamp, time_ms
+from juno.math import annualized, ceil_multiple, floor_multiple, round_down, round_half_up
+from juno.time import DAY_MS, HOUR_MS, MIN_MS, strftimestamp, time_ms
 from juno.utils import extract_public, unpack_assets, unpack_base_asset, unpack_quote_asset
 
 _log = logging.getLogger(__name__)
@@ -769,22 +769,78 @@ def _calculate_interest(
 class StartMixin(ABC):
     @property
     @abstractmethod
+    def informant(self) -> Informant:
+        pass
+
+    @property
+    @abstractmethod
     def chandler(self) -> Chandler:
         pass
 
-    async def request_start(
-        self, start: Optional[Timestamp], exchange: str, symbols: Iterable[str],
-        intervals: Iterable[int]
-    ):
-        if start is not None:
-            if start < 0:
-                raise ValueError('Start cannot be negative')
-            return start
+    async def request_candle_start(
+        self, start: Optional[Timestamp], exchange: str, symbols: Sequence[str],
+        interval: int
+    ) -> int:
+        """Figures out an appropriate candle start time based on the requested start.
+           If no specific start is requested, finds the earliest start of the interval where all
+           candle intervals are available.
+           If start is specified, floors the time to interval if interval is <= DAY_MS, otherwise
+           floors to DAY_MS.
+        """
+        if len(symbols) == 0:
+            raise ValueError('Must have at least one symbol for requesting start')
+        if start is not None and start < 0:
+            raise ValueError('Start cannot be negative')
 
-        first_candles = await asyncio.gather(
-            *(self.chandler.get_first_candle(exchange, s, i)
-              for s, i in itertools.product(symbols, intervals))
+        if start is not None and interval <= DAY_MS:
+            result = floor_multiple(start, interval)
+            if start == result:
+                _log.info(f'start specified as {strftimestamp(start)}; no adjustment needed')
+            else:
+                _log.info(
+                    f'start specified as {strftimestamp(start)}; adjusted to '
+                    f'{strftimestamp(result)}'
+                )
+            return result
+
+        symbol_first_candles = await gather_dict(
+            {s: self.chandler.get_first_candle(exchange, s, interval) for s in symbols}
         )
-        latest_first_time = max(first_candles, key=lambda c: c.time).time
-        _log.info(f'start not specified; start set to {strftimestamp(latest_first_time)}')
-        return latest_first_time
+        latest_symbol, latest_first_candle = max(
+            symbol_first_candles.items(),
+            key=lambda x: x[1].time,
+        )
+
+        if start is None:
+            result = latest_first_candle.time
+
+            # If available, take also into account the time of the first smallest candle. This is
+            # because the smallest candle may start later than the first requested interval candle.
+            #
+            # For example, first Binance eth-btc:
+            # - 1w candle starts at 2017-07-10
+            # - 1d candle starts at 2017-07-14
+            #
+            # Mapping daily prices for statistics would fail if we chose 2017-07-10 as the start.
+            all_intervals = self.informant.list_candle_intervals(exchange)
+            smallest_interval = all_intervals[0] if len(all_intervals) > 0 else interval
+
+            if interval != smallest_interval:
+                smallest_latest_first_candle = await self.chandler.get_first_candle(
+                    exchange, latest_symbol, smallest_interval
+                )
+                if smallest_latest_first_candle.time > latest_first_candle.time:
+                    result += interval
+        else:
+            offset = latest_first_candle.time if interval > DAY_MS else 0
+            result = floor_multiple(start - offset, interval) + offset
+
+        if start is None:
+            _log.info(f'start not specified; start set to {strftimestamp(result)}')
+        elif result != start:
+            _log.info(
+                f'start specified as {strftimestamp(start)}; adjusted to {strftimestamp(result)}'
+            )
+        else:
+            _log.info(f'start specified as {strftimestamp(start)}; no adjustment needed')
+        return result
