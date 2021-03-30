@@ -18,8 +18,8 @@ from juno import BadOrder, Balance, Fill, Filters, Interval, Timestamp
 from juno.asyncio import gather_dict
 from juno.brokers import Broker
 from juno.components import Chandler, Informant, User
-from juno.math import annualized, ceil_multiple, floor_multiple, round_down, round_half_up
-from juno.time import DAY_MS, HOUR_MS, MIN_MS, strftimestamp, time_ms
+from juno.math import annualized, ceil_multiple, floor_multiple_offset, round_down, round_half_up
+from juno.time import HOUR_MS, MIN_MS, strftimestamp, time_ms
 from juno.utils import extract_public, unpack_assets, unpack_base_asset, unpack_quote_asset
 
 _log = logging.getLogger(__name__)
@@ -792,26 +792,15 @@ class StartMixin(ABC):
         if start is not None and start < 0:
             raise ValueError('Start cannot be negative')
 
-        if start is not None and interval <= DAY_MS:
-            result = floor_multiple(start, interval)
-            if start == result:
-                _log.info(f'start specified as {strftimestamp(start)}; no adjustment needed')
-            else:
-                _log.info(
-                    f'start specified as {strftimestamp(start)}; adjusted to '
-                    f'{strftimestamp(result)}'
-                )
-            return result
-
-        symbol_first_candles = await gather_dict(
-            {s: self.chandler.get_first_candle(exchange, s, interval) for s in symbols}
-        )
-        latest_symbol, latest_first_candle = max(
-            symbol_first_candles.items(),
-            key=lambda x: x[1].time,
-        )
-
         if start is None:
+            symbol_first_candles = await gather_dict(
+                {s: self.chandler.get_first_candle(exchange, s, interval) for s in symbols}
+            )
+            latest_symbol, latest_first_candle = max(
+                symbol_first_candles.items(),
+                key=lambda x: x[1].time,
+            )
+
             result = latest_first_candle.time
 
             # If available, take also into account the time of the first smallest candle. This is
@@ -822,8 +811,8 @@ class StartMixin(ABC):
             # - 1d candle starts at 2017-07-14
             #
             # Mapping daily prices for statistics would fail if we chose 2017-07-10 as the start.
-            all_intervals = self.informant.list_candle_intervals(exchange)
-            smallest_interval = all_intervals[0] if len(all_intervals) > 0 else interval
+            all_intervals = self.informant.map_candle_intervals(exchange).keys()
+            smallest_interval = next(iter(all_intervals)) if len(all_intervals) > 0 else interval
 
             if interval != smallest_interval:
                 smallest_latest_first_candle = await self.chandler.get_first_candle(
@@ -832,8 +821,8 @@ class StartMixin(ABC):
                 if smallest_latest_first_candle.time > latest_first_candle.time:
                     result += interval
         else:
-            offset = latest_first_candle.time if interval > DAY_MS else 0
-            result = floor_multiple(start - offset, interval) + offset
+            interval_offset = self.informant.get_interval_offset(exchange, interval)
+            result = floor_multiple_offset(start, interval, interval_offset)
 
         if start is None:
             _log.info(f'start not specified; start set to {strftimestamp(result)}')

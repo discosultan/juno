@@ -2,9 +2,9 @@ import logging
 from typing import Any, NamedTuple, Optional
 
 from juno import Advice, Interval, strategies
-from juno.components import Chandler, Events
+from juno.components import Chandler, Events, Informant
 from juno.config import get_type_name_and_kwargs
-from juno.math import floor_multiple
+from juno.math import floor_multiple_offset
 from juno.storages import Memory, Storage
 from juno.strategies import Changed
 from juno.time import time_ms
@@ -26,10 +26,12 @@ class Signal(Agent):
     def __init__(
         self,
         chandler: Chandler,
+        informant: Informant,
         events: Events = Events(),
         storage: Storage = Memory(),
     ) -> None:
         self._chandler = chandler
+        self._informant = informant
         self._events = events
         self._storage = storage
 
@@ -40,7 +42,8 @@ class Signal(Agent):
         strategy = get_module_type(strategies, strategy_name)(**strategy_kwargs)
 
         now = time_ms()
-        start = floor_multiple(now, config.interval)
+        interval_offset = self._informant.get_interval_offset(config.exchange, config.interval)
+        start = floor_multiple_offset(now, config.interval, interval_offset)
         start -= (strategy.maturity - 1) * config.interval
 
         changed = Changed(True)

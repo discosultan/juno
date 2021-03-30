@@ -21,7 +21,7 @@ class Exchange(ABC):
     can_place_order_market_quote: bool = False  # Whether market order accepts quote param.
 
     @abstractmethod
-    def list_candle_intervals(self) -> list[int]:
+    def map_candle_intervals(self) -> dict[int, int]:  # interval: offset
         pass
 
     @abstractmethod

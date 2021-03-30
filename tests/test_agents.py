@@ -27,7 +27,7 @@ from . import fakes
 
 async def test_backtest(mocker) -> None:
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.list_candle_intervals.return_value = [1]
+    exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
     fees = Fees(Decimal('0.0'), Decimal('0.0'))
     filters = Filters(
@@ -100,7 +100,7 @@ async def test_backtest(mocker) -> None:
 @pytest.mark.parametrize('scenario_nr', [1, 2])
 async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.list_candle_intervals.return_value = [HOUR_MS]
+    exchange.map_candle_intervals.return_value = {HOUR_MS: 0}
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo(
         fees={'__all__': Fees(maker=Decimal('0.001'), taker=Decimal('0.001'))},
@@ -147,7 +147,7 @@ async def test_backtest_scenarios(mocker, scenario_nr: int) -> None:
 
 async def test_paper(mocker) -> None:
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.list_candle_intervals.return_value = [1]
+    exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()
     candles: asyncio.Queue[Candle] = asyncio.Queue()
@@ -220,7 +220,7 @@ async def test_paper(mocker) -> None:
 
 async def test_live(mocker) -> None:
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.list_candle_intervals.return_value = [1]
+    exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()
     candles: asyncio.Queue[Candle] = asyncio.Queue()
@@ -284,7 +284,7 @@ async def test_live(mocker) -> None:
 @pytest.mark.parametrize('strategy', ['fixed', 'fourweekrule'])
 async def test_live_persist_and_resume(mocker, strategy: str) -> None:
     exchange = mocker.patch('juno.exchanges.Exchange', autospec=True)
-    exchange.list_candle_intervals.return_value = [1]
+    exchange.map_candle_intervals.return_value = {1: 0}
     exchange.map_tickers.return_value = {}
     exchange.get_exchange_info.return_value = ExchangeInfo()
     candles: asyncio.Queue[Candle] = asyncio.Queue()

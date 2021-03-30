@@ -74,15 +74,15 @@ class Coinbase(Exchange):
         await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def list_candle_intervals(self) -> list[int]:
-        return [
-            60000,  # 1m
-            300000,  # 5m
-            900000,  # 15m
-            3600000,  # 1h
-            21600000,  # 6h
-            86400000,  # 1d
-        ]
+    def map_candle_intervals(self) -> dict[int, int]:
+        return {
+            60000: 0,  # 1m
+            300000: 0,  # 5m
+            900000: 0,  # 15m
+            3600000: 0,  # 1h
+            21600000: 0,  # 6h
+            86400000: 0,  # 1d
+        }
 
     async def get_exchange_info(self) -> ExchangeInfo:
         # TODO: Fetch from exchange API if possible? Also has a more complex structure.

@@ -14,14 +14,14 @@ from juno.itertools import generate_missing_spans
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
 from juno.time import strfspan, time_ms
-from juno.utils import key
+from juno.utils import AbstractAsyncContextManager, key
 
 _log = logging.getLogger(__name__)
 
 TRADE_KEY = Trade.__name__.lower()
 
 
-class Trades:
+class Trades(AbstractAsyncContextManager):
     def __init__(
         self,
         storage: Storage,

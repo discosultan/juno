@@ -6,9 +6,9 @@ from itertools import product
 import juno.json as json
 from juno import exchanges, storages
 from juno.asyncio import enumerate_async
-from juno.components import Chandler, Trades
+from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
-from juno.math import floor_multiple
+from juno.math import floor_multiple_offset
 from juno.time import MIN_MS, strftimestamp, strpinterval, strptimestamp, time_ms
 from juno.utils import get_module_type
 
@@ -34,21 +34,30 @@ now = time_ms()
 async def main() -> None:
     storage = get_module_type(storages, args.storage)()
     client = init_instance(get_module_type(exchanges, args.exchange), from_env())
-    trades = Trades(storage, [client])
+    trades = Trades(storage=storage, exchanges=[client])
+    informant = Informant(storage=storage, exchanges=[client])
     chandler = Chandler(trades=trades, storage=storage, exchanges=[client])
     async with client:
         await asyncio.gather(
-            *(stream_candles(chandler, s, i) for s, i in product(args.symbols, args.intervals))
+            *(stream_candles(chandler, informant, s, i)
+              for s, i in product(args.symbols, args.intervals))
         )
 
 
-async def stream_candles(chandler: Chandler, symbol: str, interval: int) -> None:
+async def stream_candles(
+    chandler: Chandler, informant: Informant, symbol: str, interval: int
+) -> None:
+    interval_offset = informant.get_interval_offset(args.exchange, interval)
+
     start = (
         (await chandler.get_first_candle(args.exchange, symbol, interval)).time
-        if args.start is None else args.start
+        if args.start is None else floor_multiple_offset(args.start, interval, interval_offset)
     )
-    current = floor_multiple(now, interval)
-    end = current if args.end is None else args.end
+    current = floor_multiple_offset(now, interval, interval_offset)
+    end = (
+        current if args.end is None
+        else floor_multiple_offset(args.end, interval, interval_offset)
+    )
 
     logging.info(
         f'start {strftimestamp(start)} current {strftimestamp(current)} end '

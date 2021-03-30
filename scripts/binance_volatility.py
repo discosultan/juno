@@ -4,11 +4,12 @@ import math
 
 import numpy as np
 import pandas as pd
+from more_itertools import take
 
 from juno.components import Chandler, Informant, Trades
 from juno.config import from_env, init_instance
 from juno.exchanges import Binance
-from juno.math import floor_multiple
+from juno.math import floor_multiple_offset
 from juno.storages import SQLite
 from juno.time import MONTH_MS, YEAR_MS, strfinterval, time_ms
 
@@ -36,11 +37,11 @@ async def main() -> None:
     informant = Informant(sqlite, [binance])
     async with binance, informant:
         symbols = informant.list_symbols(exchange)[:10]
-        intervals = informant.list_candle_intervals(exchange)[:3]
+        interval_offsets = take(3, informant.map_candle_intervals(exchange).items())
         now = time_ms()
         tasks = []
-        for interval in intervals:
-            end = floor_multiple(now, interval)
+        for interval, interval_offset in interval_offsets:
+            end = floor_multiple_offset(now, interval, interval_offset)
             start = end - MONTH_MS
             for symbol in symbols:
                 tasks.append(

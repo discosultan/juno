@@ -16,7 +16,7 @@ from juno.asyncio import (
 from juno.brokers import Broker
 from juno.components import Chandler, Events, Informant, User
 from juno.exchanges import Exchange
-from juno.math import floor_multiple, rpstdev, split
+from juno.math import floor_multiple_offset, rpstdev, split
 from juno.stop_loss import Noop as NoopStopLoss
 from juno.stop_loss import StopLoss
 from juno.strategies import Changed, Signal
@@ -318,7 +318,8 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 self._track_advice(state, symbol_state, candles_updated, trackers_ready[symbol])
             )
 
-        end = floor_multiple(config.end, config.interval)
+        interval_offset = self._informant.get_interval_offset(config.exchange, config.interval)
+        end = floor_multiple_offset(config.end, config.interval, interval_offset)
         while True:
             # Wait until we've received candle updates for all symbols.
             await candles_updated.wait()

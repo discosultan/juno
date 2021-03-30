@@ -12,8 +12,16 @@ def ceil_multiple(value: TNum, multiple: TNum) -> TNum:
     return int(math.ceil(value / multiple)) * multiple
 
 
+def ceil_multiple_offset(value: TNum, multiple: TNum, offset: TNum) -> TNum:
+    return ceil_multiple(value - offset, multiple) + offset
+
+
 def floor_multiple(value: TNum, multiple: TNum) -> TNum:
     return value - (value % multiple)
+
+
+def floor_multiple_offset(value: TNum, multiple: TNum, offset: TNum) -> TNum:
+    return floor_multiple(value - offset, multiple) + offset
 
 
 def round_half_up(value: Decimal, precision: int) -> Decimal:

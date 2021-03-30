@@ -22,7 +22,7 @@ class Exchange(exchanges.Exchange):
         self,
         historical_candles=[],
         future_candles=[],
-        candle_intervals=[],
+        candle_intervals={},
         exchange_info=ExchangeInfo(),
         tickers={},
         balances={'spot': {}},
@@ -71,7 +71,7 @@ class Exchange(exchanges.Exchange):
         for future_trade in future_trades:
             self.trade_queue.put_nowait(future_trade)
 
-    def list_candle_intervals(self):
+    def map_candle_intervals(self):
         return self.candle_intervals
 
     async def get_exchange_info(self):
@@ -205,7 +205,7 @@ class Informant(components.Informant):
         fees=Fees(),
         filters=Filters(),
         symbols=[],
-        candle_intervals=[],
+        candle_intervals={},
         tickers={},
         exchanges=[],
         borrow_info=BorrowInfo(),
@@ -244,8 +244,11 @@ class Informant(components.Informant):
     ):
         return self.symbols
 
-    def list_candle_intervals(self, exchange, patterns=None):
+    def map_candle_intervals(self, exchange, patterns=None):
         return self.candle_intervals
+
+    def get_interval_offset(self, exchange, interval):
+        return 0
 
     def map_tickers(
         self, exchange, symbol_patterns=None, exclude_symbol_patterns=None, spot=True,
