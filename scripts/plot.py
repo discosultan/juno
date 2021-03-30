@@ -15,7 +15,7 @@ async def main() -> None:
     binance = init_instance(Binance, from_env())
     trades = Trades(sqlite, [binance])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[binance])
-    async with binance:
+    async with binance, trades, chandler:
         candles = await chandler.list_candles(
             exchange='binance',
             symbol='eth-btc',

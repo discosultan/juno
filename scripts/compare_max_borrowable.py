@@ -23,7 +23,7 @@ async def main() -> None:
     informant = Informant(storage=storage, exchanges=[exchange])
     chandler = Chandler(storage=storage, exchanges=[exchange])
     user = User(exchanges=[exchange])
-    async with exchange, informant, user:
+    async with exchange, informant, user, chandler:
         # Note that we need to do this sequentially; because we cannot transfer duplicate amounts
         # of collateral. Also, the max amount from exchange would be incorrect.
         for symbol in args.symbols:

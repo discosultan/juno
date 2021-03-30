@@ -37,7 +37,7 @@ async def main() -> None:
     trades = Trades(storage=storage, exchanges=[client])
     informant = Informant(storage=storage, exchanges=[client])
     chandler = Chandler(trades=trades, storage=storage, exchanges=[client])
-    async with client:
+    async with client, informant, trades, chandler:
         await asyncio.gather(
             *(stream_candles(chandler, informant, s, i)
               for s, i in product(args.symbols, args.intervals))

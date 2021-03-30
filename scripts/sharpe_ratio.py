@@ -40,7 +40,7 @@ async def main() -> None:
     start = floor_multiple(strptimestamp('2019-01-01'), INTERVAL)
     end = floor_multiple(strptimestamp('2019-12-01'), INTERVAL)
     base_asset, quote_asset = unpack_assets(SYMBOL)
-    async with binance, coinbase, informant:
+    async with binance, coinbase, informant, chandler:
         trader_state = await trader.initialize(BasicConfig(
             exchange='binance',
             symbol=SYMBOL,

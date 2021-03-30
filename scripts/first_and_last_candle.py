@@ -24,7 +24,7 @@ async def main() -> None:
     client = init_instance(get_module_type(exchanges, args.exchange), from_env())
     trades = Trades(sqlite, [client])
     chandler = Chandler(trades=trades, storage=sqlite, exchanges=[client])
-    async with client:
+    async with client, trades, chandler:
         await asyncio.gather(
             *(log_first_last(chandler, s, i) for s, i in product(args.symbols, args.intervals))
         )
