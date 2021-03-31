@@ -1,10 +1,8 @@
 use super::TradingParams;
 use crate::{
-    chandler::{candles_to_prices, fill_missing_candles, ChandlerError},
+    chandler,
     genetics::{Evaluation, Individual},
-    statistics,
-    storages::{get_exchange_info, list_candles, StorageError},
-    time,
+    statistics, storages, time,
     trading::trade,
     BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
@@ -12,6 +10,8 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
+
+type Result<T> = std::result::Result<T, EvaluationError>;
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub enum EvaluationStatistic {
@@ -47,10 +47,10 @@ impl EvaluationAggregation {
 
 #[derive(Error, Debug)]
 pub enum EvaluationError {
-    #[error("storage error")]
-    Storage(#[from] StorageError),
-    #[error("chandler error")]
-    Chandler(#[from] ChandlerError),
+    #[error("{0}")]
+    Storage(#[from] storages::StorageError),
+    #[error("{0}")]
+    Chandler(#[from] chandler::ChandlerError),
 }
 
 struct SymbolCtx {
@@ -80,39 +80,45 @@ impl BasicEvaluation {
         quote: f64,
         evaluation_statistic: EvaluationStatistic,
         evaluation_aggregation: EvaluationAggregation,
-    ) -> Result<Self, EvaluationError> {
-        let exchange_info = get_exchange_info(exchange)?;
+    ) -> Result<Self> {
+        let exchange_info = storages::get_exchange_info(exchange)?;
         let stats_interval = time::DAY_MS;
-        let symbol_ctxs = symbols
+        let symbol_ctxs: Vec<SymbolCtx> = symbols
             .iter()
             .map(|symbol| {
                 let interval_candles: HashMap<u64, Vec<Candle>> = intervals
                     .iter()
                     .map(|&interval| {
-                        (
+                        Ok((
                             interval,
-                            list_candles(exchange, &symbol, interval, start, end).unwrap(),
-                        )
+                            chandler::list_candles(exchange, &symbol, interval, start, end)?,
+                        ))
                     })
-                    .collect();
-                // TODO: Do listing and filling of missing candles in one go?
+                    .collect::<Result<_>>()?;
 
                 // Stats base.
-                let stats_candles =
-                    list_candles(exchange, &symbol, stats_interval, start, end).unwrap();
-                let stats_candles =
-                    fill_missing_candles(stats_interval, start, end, &stats_candles)?;
+                let stats_candles = chandler::list_candles_fill_missing(
+                    exchange,
+                    &symbol,
+                    stats_interval,
+                    start,
+                    end,
+                )?;
 
                 // Stats quote (optional).
-                let stats_fiat_candles =
-                    list_candles("coinbase", "btc-eur", stats_interval, start, end).unwrap();
-                let stats_fiat_candles =
-                    fill_missing_candles(stats_interval, start, end, &stats_fiat_candles)?;
+                let stats_fiat_candles = chandler::list_candles_fill_missing(
+                    "coinbase",
+                    "btc-eur",
+                    stats_interval,
+                    start,
+                    end,
+                )?;
 
                 // let stats_quote_prices = None;
-                let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));
+                let stats_quote_prices =
+                    Some(chandler::candles_to_prices(&stats_fiat_candles, None));
                 let stats_base_prices =
-                    candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
+                    chandler::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
                 // Store context variables.
                 Ok(SymbolCtx {
@@ -124,7 +130,7 @@ impl BasicEvaluation {
                     stats_quote_prices,
                 })
             })
-            .collect::<Result<Vec<SymbolCtx>, ChandlerError>>()?;
+            .collect::<Result<_>>()?;
 
         Ok(Self {
             symbol_ctxs,

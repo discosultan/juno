@@ -1,7 +1,7 @@
 use super::custom_reject;
 use anyhow::Result;
 use juno_rs::{
-    chandler::{candles_to_prices, fill_missing_candles},
+    chandler,
     statistics::Statistics,
     storages,
     time::{deserialize_timestamp, DAY_MS},
@@ -51,7 +51,7 @@ fn process(args: Params) -> Result<reply::Json> {
     let symbol_stats = symbol_summaries
         .iter()
         .map(|(symbol, summary)| {
-            let stats = get_stats(&args.exchange, symbol, summary).expect("get stats");
+            let stats = get_stats(&args, symbol, summary).expect("get stats");
             (symbol.to_owned(), stats) // TODO: Return &String instead.
         })
         .collect::<HashMap<_, _>>();
@@ -60,7 +60,7 @@ fn process(args: Params) -> Result<reply::Json> {
 }
 
 fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
-    let candles = storages::list_candles(
+    let candles = chandler::list_candles(
         &args.exchange,
         symbol,
         args.trading.trader.interval,
@@ -82,23 +82,23 @@ fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
     ))
 }
 
-fn get_stats(exchange: &str, symbol: &str, summary: &TradingSummary) -> Result<Statistics> {
+fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Statistics> {
     let stats_interval = DAY_MS;
-    let start = summary.start;
-    let end = summary.end;
+    let start = args.start;
+    let end = args.end;
 
     // Stats base.
-    let stats_candles = storages::list_candles(&exchange, symbol, stats_interval, start, end)?;
-    let stats_candles = fill_missing_candles(stats_interval, start, end, &stats_candles)?;
+    let stats_candles =
+        chandler::list_candles_fill_missing(&args.exchange, symbol, stats_interval, start, end)?;
 
     // Stats quote (optional).
     let stats_fiat_candles =
-        storages::list_candles("coinbase", "btc-eur", stats_interval, start, end)?;
-    let stats_fiat_candles = fill_missing_candles(stats_interval, start, end, &stats_fiat_candles)?;
+        chandler::list_candles_fill_missing("coinbase", "btc-eur", stats_interval, start, end)?;
 
     // let stats_quote_prices = None;
-    let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));
-    let stats_base_prices = candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
+    let stats_quote_prices = Some(chandler::candles_to_prices(&stats_fiat_candles, None));
+    let stats_base_prices =
+        chandler::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
     let stats = Statistics::compose(
         &summary,

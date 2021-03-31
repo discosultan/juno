@@ -1,4 +1,6 @@
-use crate::{math::floor_multiple, time::TimestampIntExt, Candle};
+use crate::{math::floor_multiple_offset, storages, time::TimestampIntExt, Candle};
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use thiserror::Error;
 
 type Result<T> = std::result::Result<T, ChandlerError>;
@@ -11,16 +13,46 @@ pub enum ChandlerError {
         "missing candle(s) from the end of the period; cannot fill; current {current}, end {end}"
     )]
     MissingEndCandles { current: String, end: String },
+    #[error("{0}")]
+    StorageError(#[from] storages::StorageError),
 }
 
-pub fn fill_missing_candles(
+pub fn list_candles(
+    exchange: &str,
+    symbol: &str,
     interval: u64,
     start: u64,
     end: u64,
+) -> Result<Vec<Candle>> {
+    let interval_offset = get_interval_offset(interval);
+    let start = floor_multiple_offset(start, interval, interval_offset);
+    let end = floor_multiple_offset(end, interval, interval_offset);
+    storages::list_candles(exchange, symbol, interval, start, end).map_err(|err| err.into())
+}
+
+pub fn list_candles_fill_missing(
+    exchange: &str,
+    symbol: &str,
+    interval: u64,
+    start: u64,
+    end: u64,
+) -> Result<Vec<Candle>> {
+    let interval_offset = get_interval_offset(interval);
+    let start = floor_multiple_offset(start, interval, interval_offset);
+    let end = floor_multiple_offset(end, interval, interval_offset);
+    let candles = storages::list_candles(exchange, symbol, interval, start, end)?;
+    fill_missing_candles(interval, start, end, &candles)
+}
+
+pub(crate) fn fill_missing_candles(
+    interval: u64,
+    candle_start: u64,
+    candle_end: u64,
     candles: &[Candle],
 ) -> Result<Vec<Candle>> {
-    let start = floor_multiple(start, interval);
-    let end = floor_multiple(end, interval);
+    let interval_offset = get_interval_offset(interval);
+    let start = floor_multiple_offset(candle_start, interval, interval_offset);
+    let end = floor_multiple_offset(candle_end, interval, interval_offset);
     let length = ((end - start) / interval) as usize;
 
     let mut candles_filled = Vec::with_capacity(length);
@@ -79,6 +111,36 @@ pub fn candles_to_prices(candles: &[Candle], multipliers: Option<&[f64]>) -> Vec
         prices.push(candles[i].close * multipliers.map_or(1.0, |m| m[multiplier_i]));
     }
     prices
+}
+
+static BINANCE_INTERVAL_OFFSETS: Lazy<HashMap<u64, u64>> = Lazy::new(|| {
+    [
+        (60000, 0),               // 1m
+        (180000, 0),              // 3m
+        (300000, 0),              // 5m
+        (900000, 0),              // 15m
+        (1800000, 0),             // 30m
+        (3600000, 0),             // 1h
+        (7200000, 0),             // 2h
+        (14400000, 0),            // 4h
+        (21600000, 0),            // 6h
+        (28800000, 0),            // 8h
+        (43200000, 0),            // 12h
+        (86400000, 0),            // 1d
+        (259200000, 0),           // 3d
+        (604800000, 345600000),   // 1w 4d
+        (2629746000, 2541726000), // 1M 4w1d10h2m6s
+    ]
+    .iter()
+    .cloned()
+    .collect()
+});
+
+pub fn get_interval_offset(interval: u64) -> u64 {
+    BINANCE_INTERVAL_OFFSETS
+        .get(&interval)
+        .map(|interval| *interval)
+        .unwrap_or(0)
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use juno_rs::{
+    chandler,
     indicators::{self, MAParams},
     statistics::CoreStatistics,
     stop_loss::{self, StopLossParams},
@@ -23,7 +24,7 @@ static EXCHANGE_INFO: Lazy<ExchangeInfo> =
     Lazy::new(|| storages::get_exchange_info("binance").expect("unable to get exchange info"));
 
 static CANDLES: Lazy<Vec<Candle>> = Lazy::new(|| {
-    storages::list_candles(
+    chandler::list_candles(
         "binance",
         "eth-btc",
         DAY_MS,

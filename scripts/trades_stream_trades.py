@@ -16,7 +16,7 @@ async def main() -> None:
     client = init_instance(EXCHANGE_TYPE, from_env())
     name = EXCHANGE_TYPE.__name__.lower()
     trades = Trades(storage, [client])
-    async with client:
+    async with client, trades:
         start = strptimestamp('2019-03-22T08:00')
         end = strptimestamp('2019-04-02T16:00')
         logging.info(f'start {start}; end {end}')

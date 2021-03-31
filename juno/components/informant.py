@@ -157,18 +157,6 @@ class Informant:
 
         return list(result)
 
-    def list_candle_intervals(
-        self, exchange: str, patterns: Optional[list[int]] = None
-    ) -> list[int]:
-        all_intervals = self._exchanges[exchange].list_candle_intervals()
-
-        result = (i for i in all_intervals)
-
-        if patterns is not None:
-            result = (i for i in result if i in patterns)
-
-        return list(result)
-
     # TODO: bound to be out-of-date with the current syncing approach
     def map_tickers(
         self,

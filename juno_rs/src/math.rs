@@ -2,8 +2,16 @@ pub fn ceil_multiple(value: u64, multiple: u64) -> u64 {
     f64::ceil(value as f64 / multiple as f64) as u64 * multiple
 }
 
+pub fn ceil_multiple_offset(value: u64, multiple: u64, offset: u64) -> u64 {
+    ceil_multiple(value - offset, multiple) + offset
+}
+
 pub fn floor_multiple(value: u64, multiple: u64) -> u64 {
     value - (value % multiple)
+}
+
+pub fn floor_multiple_offset(value: u64, multiple: u64, offset: u64) -> u64 {
+    floor_multiple(value - offset, multiple) + offset
 }
 
 pub fn mean(data: &[f64]) -> f64 {
@@ -91,10 +99,20 @@ mod tests {
     }
 
     #[test]
+    fn test_ceil_multiple_offset() {
+        assert_eq!(ceil_multiple_offset(4, 2, 1), 5);
+    }
+
+    #[test]
     fn test_floor_multiple() {
         assert_eq!(floor_multiple(1, 5), 0);
         assert_eq!(floor_multiple(5, 5), 5);
         assert_eq!(floor_multiple(6, 5), 5);
+    }
+
+    #[test]
+    fn test_floor_multiple_offset() {
+        assert_eq!(floor_multiple_offset(4, 2, 1), 3);
     }
 
     #[test]
