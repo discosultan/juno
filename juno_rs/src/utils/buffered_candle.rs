@@ -40,6 +40,7 @@ impl BufferedCandle {
         let ret = match self.buffer_candle {
             None => {
                 self.buffer_candle = Some(Candle {
+                    // TODO: Does not take offset into account.
                     time: floor_multiple(candle.time, self.buffer_interval),
                     open: candle.open,
                     high: candle.high,

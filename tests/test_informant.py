@@ -73,20 +73,6 @@ async def test_list_symbols(storage, symbols, patterns, expected_output) -> None
     assert set(output) == set(expected_output)
 
 
-@pytest.mark.parametrize('intervals,patterns,expected_output', [
-    ([1, 2], None, [1, 2]),
-    ([1, 2, 3], [1, 2], [1, 2]),
-])
-async def test_map_candle_intervals(storage, intervals, patterns, expected_output) -> None:
-    exchange = fakes.Exchange(candle_intervals={i: 0 for i in intervals})
-
-    async with Informant(storage=storage, exchanges=[exchange]) as informant:
-        output = informant.map_candle_intervals('exchange', patterns)
-
-    assert len(output) == len(expected_output)
-    assert set(output) == set(expected_output)
-
-
 async def test_resource_caching_to_storage(storage) -> None:
     time = fakes.Time(time=0)
     exchange = fakes.Exchange()

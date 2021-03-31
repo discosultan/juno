@@ -138,7 +138,12 @@ async def _stream_queue(queue):
 
 class Chandler(components.Chandler):
     def __init__(
-        self, candles={}, future_candles={}, first_candle=Candle(), last_candle=Candle()
+        self,
+        candles={},
+        future_candles={},
+        first_candle=Candle(),
+        last_candle=Candle(),
+        candle_intervals={},
     ):
         self.candles = candles
         self.future_candle_queues = defaultdict(asyncio.Queue)
@@ -148,6 +153,7 @@ class Chandler(components.Chandler):
                 future_candle_queue.put_nowait(c)
         self.first_candle = first_candle
         self.last_candle = last_candle
+        self.candle_intervals = candle_intervals
 
     async def stream_candles(
         self, exchange, symbol, interval, start, end, closed=True, fill_missing_with_last=False,
@@ -189,6 +195,12 @@ class Chandler(components.Chandler):
     async def get_last_candle(self, exchange, symbol, interval):
         return self.last_candle
 
+    def map_candle_intervals(self, exchange, patterns=None):
+        return self.candle_intervals
+
+    def get_interval_offset(self, exchange, interval):
+        return 0
+
 
 class Trades(components.Trades):
     def __init__(self, trades=[]):
@@ -205,7 +217,6 @@ class Informant(components.Informant):
         fees=Fees(),
         filters=Filters(),
         symbols=[],
-        candle_intervals={},
         tickers={},
         exchanges=[],
         borrow_info=BorrowInfo(),
@@ -216,7 +227,6 @@ class Informant(components.Informant):
         self.fees = fees
         self.filters = filters
         self.symbols = symbols
-        self.candle_intervals = candle_intervals
         self.tickers = tickers
         self.exchanges = exchanges
         self.borrow_info = borrow_info
@@ -243,12 +253,6 @@ class Informant(components.Informant):
         self, exchange, patterns=None, spot=True, cross_margin=False, isolated_margin=False
     ):
         return self.symbols
-
-    def map_candle_intervals(self, exchange, patterns=None):
-        return self.candle_intervals
-
-    def get_interval_offset(self, exchange, interval):
-        return 0
 
     def map_tickers(
         self, exchange, symbol_patterns=None, exclude_symbol_patterns=None, spot=True,

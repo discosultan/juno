@@ -318,7 +318,7 @@ class Multi(Trader[MultiConfig, MultiState], PositionMixin, SimulatedPositionMix
                 self._track_advice(state, symbol_state, candles_updated, trackers_ready[symbol])
             )
 
-        interval_offset = self._informant.get_interval_offset(config.exchange, config.interval)
+        interval_offset = self._chandler.get_interval_offset(config.exchange, config.interval)
         end = floor_multiple_offset(config.end, config.interval, interval_offset)
         while True:
             # Wait until we've received candle updates for all symbols.

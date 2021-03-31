@@ -1,8 +1,7 @@
 use super::custom_reject;
 use anyhow::Result;
 use juno_rs::{
-    chandler::fill_missing_candles,
-    storages,
+    chandler,
     time::{deserialize_interval, deserialize_timestamp},
     Candle,
 };
@@ -34,15 +33,19 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
                 .symbols
                 .iter()
                 .map(|symbol| {
-                    let candles = storages::list_candles(
+                    let candles = chandler::list_candles(
                         &args.exchange,
                         symbol,
                         args.interval,
                         args.start,
                         args.end,
                     )?;
-                    let candles =
-                        fill_missing_candles(args.interval, args.start, args.end, &candles)?;
+                    let candles = chandler::fill_missing_candles(
+                        args.interval,
+                        args.start,
+                        args.end,
+                        &candles,
+                    )?;
                     Ok((symbol, candles))
                 })
                 .collect::<Result<HashMap<&String, Vec<Candle>>>>();

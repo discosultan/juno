@@ -630,7 +630,6 @@ async def test_repick_symbols() -> None:
 async def test_repick_symbols_does_not_repick_during_adjusted_start(mocker) -> None:
     informant = mocker.patch('juno.components.Informant', autospec=True)
     informant.get_fees_filters.return_value = (Fees(), Filters())
-    informant.get_interval_offset.return_value = 0
     informant.map_tickers.return_value = {
         'eth-btc': Ticker(
             volume=Decimal('1.0'),

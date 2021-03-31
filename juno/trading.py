@@ -769,11 +769,6 @@ def _calculate_interest(
 class StartMixin(ABC):
     @property
     @abstractmethod
-    def informant(self) -> Informant:
-        pass
-
-    @property
-    @abstractmethod
     def chandler(self) -> Chandler:
         pass
 
@@ -811,7 +806,7 @@ class StartMixin(ABC):
             # - 1d candle starts at 2017-07-14
             #
             # Mapping daily prices for statistics would fail if we chose 2017-07-10 as the start.
-            all_intervals = self.informant.map_candle_intervals(exchange).keys()
+            all_intervals = self.chandler.map_candle_intervals(exchange).keys()
             smallest_interval = next(iter(all_intervals)) if len(all_intervals) > 0 else interval
 
             if interval != smallest_interval:
@@ -821,7 +816,7 @@ class StartMixin(ABC):
                 if smallest_latest_first_candle.time > latest_first_candle.time:
                     result += interval
         else:
-            interval_offset = self.informant.get_interval_offset(exchange, interval)
+            interval_offset = self.chandler.get_interval_offset(exchange, interval)
             result = floor_multiple_offset(start, interval, interval_offset)
 
         if start is None:

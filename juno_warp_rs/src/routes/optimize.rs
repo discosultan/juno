@@ -1,7 +1,7 @@
 use super::custom_reject;
 use anyhow::Result;
 use juno_rs::{
-    chandler::{candles_to_prices, fill_missing_candles},
+    chandler,
     genetics::{
         crossover, mutation, reinsertion, selection, Chromosome, Evolution, GeneticAlgorithm,
         Individual,
@@ -98,7 +98,7 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
 fn process(args: Params) -> Result<reply::Json> {
     let evolution = optimize(&args)?;
     let mut best_fitnesses = vec![f64::NAN; args.hall_of_fame_size];
-    let gen_stats = evolution
+    let gen_stats: Vec<Generation> = evolution
         .generations
         .into_iter()
         .enumerate()
@@ -119,28 +119,29 @@ fn process(args: Params) -> Result<reply::Json> {
                 .hall_of_fame
                 .into_iter()
                 .map(|ind| {
-                    let symbol_stats = args
+                    let symbol_stats: HashMap<String, Statistics> = args
                         .iter_symbols()
                         .map(|symbol| {
-                            let summary = backtest(&args, symbol, &ind.chromosome).unwrap();
-                            let stats = get_stats(&args, symbol, &summary).unwrap();
-                            (symbol.to_owned(), stats) // TODO: Return &String instead.
+                            let summary = backtest(&args, symbol, &ind.chromosome)?;
+                            let stats = get_stats(&args, symbol, &summary)?;
+                            Ok((symbol.to_owned(), stats)) // TODO: Return &String instead.
                         })
-                        .collect::<HashMap<String, Statistics>>();
+                        .collect::<Result<_>>()?;
 
-                    IndividualStats {
+                    Ok(IndividualStats {
                         individual: ind,
                         symbol_stats,
-                    }
+                    })
                 })
-                .collect();
+                .collect::<Result<_>>()?;
 
-            Generation {
+            Ok(Generation {
                 nr: i,
                 hall_of_fame,
-            }
+            })
         })
-        .collect::<Vec<Generation>>();
+        .collect::<Result<_>>()?;
+
     Ok(reply::json(&EvolutionStats {
         generations: gen_stats,
         seed: evolution.seed,
@@ -184,7 +185,7 @@ fn on_generation<T: Chromosome>(nr: usize, gen: &juno_rs::genetics::Generation<T
 }
 
 fn backtest(args: &Params, symbol: &str, chromosome: &TradingParams) -> Result<TradingSummary> {
-    let candles = storages::list_candles(
+    let candles = chandler::list_candles(
         &args.exchange,
         symbol,
         chromosome.trader.interval,
@@ -211,18 +212,20 @@ fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<St
 
     // Stats base.
     let stats_candles =
-        storages::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;
-    let stats_candles = fill_missing_candles(stats_interval, args.start, args.end, &stats_candles)?;
+        chandler::list_candles(&args.exchange, symbol, stats_interval, args.start, args.end)?;
+    let stats_candles =
+        chandler::fill_missing_candles(stats_interval, args.start, args.end, &stats_candles)?;
 
     // Stats quote (optional).
     let stats_fiat_candles =
-        storages::list_candles("coinbase", "btc-eur", stats_interval, args.start, args.end)?;
+        chandler::list_candles("coinbase", "btc-eur", stats_interval, args.start, args.end)?;
     let stats_fiat_candles =
-        fill_missing_candles(stats_interval, args.start, args.end, &stats_fiat_candles)?;
+        chandler::fill_missing_candles(stats_interval, args.start, args.end, &stats_fiat_candles)?;
 
     // let stats_quote_prices = None;
-    let stats_quote_prices = Some(candles_to_prices(&stats_fiat_candles, None));
-    let stats_base_prices = candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
+    let stats_quote_prices = Some(chandler::candles_to_prices(&stats_fiat_candles, None));
+    let stats_base_prices =
+        chandler::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
     let stats = Statistics::compose(
         &summary,

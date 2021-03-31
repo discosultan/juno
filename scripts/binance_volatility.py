@@ -37,7 +37,7 @@ async def main() -> None:
     informant = Informant(sqlite, [binance])
     async with binance, informant, trades, chandler:
         symbols = informant.list_symbols(exchange)[:10]
-        interval_offsets = take(3, informant.map_candle_intervals(exchange).items())
+        interval_offsets = take(3, chandler.map_candle_intervals(exchange).items())
         now = time_ms()
         tasks = []
         for interval, interval_offset in interval_offsets:

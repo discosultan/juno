@@ -612,7 +612,8 @@ class Chandler(AbstractAsyncContextManager):
 
     async def get_last_candle(self, exchange: str, symbol: str, interval: int) -> Candle:
         exchange_instance = self._exchanges[exchange]
-        interval_offset = exchange_instance.map_candle_intervals().get(interval, 0)
+        interval_offset = self.get_interval_offset(exchange, interval)
+
         now = self._get_time_ms()
         end = floor_multiple_offset(now, interval, interval_offset)
         start = end - interval
@@ -630,3 +631,15 @@ class Chandler(AbstractAsyncContextManager):
               for s, i in itertools.product(symbols, intervals))
         )
         return {(s, i): c for (s, i), c in zip(itertools.product(symbols, intervals), candles)}
+
+    def map_candle_intervals(
+        self, exchange: str, patterns: Optional[list[int]] = None
+    ) -> dict[int, int]:
+        interval_offsets = self._exchanges[exchange].map_candle_intervals()
+        if patterns is None:
+            return interval_offsets
+
+        return {i: o for i, o in interval_offsets.items() if i in patterns}
+
+    def get_interval_offset(self, exchange: str, interval: int) -> int:
+        return self.map_candle_intervals(exchange).get(interval, 0)
