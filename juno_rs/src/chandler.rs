@@ -44,15 +44,15 @@ pub fn list_candles_fill_missing(
     fill_missing_candles(interval, start, end, &candles)
 }
 
-pub fn fill_missing_candles(
+pub(crate) fn fill_missing_candles(
     interval: u64,
-    start: u64,
-    end: u64,
+    candle_start: u64,
+    candle_end: u64,
     candles: &[Candle],
 ) -> Result<Vec<Candle>> {
     let interval_offset = get_interval_offset(interval);
-    let start = floor_multiple_offset(start, interval, interval_offset);
-    let end = floor_multiple_offset(end, interval, interval_offset);
+    let start = floor_multiple_offset(candle_start, interval, interval_offset);
+    let end = floor_multiple_offset(candle_end, interval, interval_offset);
     let length = ((end - start) / interval) as usize;
 
     let mut candles_filled = Vec::with_capacity(length);
