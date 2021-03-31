@@ -44,17 +44,17 @@ fn process(args: Params) -> Result<reply::Json> {
         .symbols
         .iter()
         .map(|symbol| {
-            let summary = backtest(&args, symbol).expect("backtest");
-            (symbol.to_owned(), summary) // TODO: Return &String instead.
+            let summary = backtest(&args, symbol)?;
+            Ok((symbol.to_owned(), summary)) // TODO: Return &String instead.
         })
-        .collect::<HashMap<_, _>>();
+        .collect::<Result<HashMap<_, _>>>()?;
     let symbol_stats = symbol_summaries
         .iter()
         .map(|(symbol, summary)| {
-            let stats = get_stats(&args, symbol, summary).expect("get stats");
-            (symbol.to_owned(), stats) // TODO: Return &String instead.
+            let stats = get_stats(&args, symbol, summary)?;
+            Ok((symbol.to_owned(), stats)) // TODO: Return &String instead.
         })
-        .collect::<HashMap<_, _>>();
+        .collect::<Result<_>>()?;
 
     Ok(reply::json(&BacktestResult { symbol_stats }))
 }

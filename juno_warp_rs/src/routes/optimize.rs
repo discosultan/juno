@@ -98,7 +98,7 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
 fn process(args: Params) -> Result<reply::Json> {
     let evolution = optimize(&args)?;
     let mut best_fitnesses = vec![f64::NAN; args.hall_of_fame_size];
-    let gen_stats: Vec<Generation> = evolution
+    let gen_stats = evolution
         .generations
         .into_iter()
         .enumerate()
@@ -119,7 +119,7 @@ fn process(args: Params) -> Result<reply::Json> {
                 .hall_of_fame
                 .into_iter()
                 .map(|ind| {
-                    let symbol_stats: HashMap<String, Statistics> = args
+                    let symbol_stats = args
                         .iter_symbols()
                         .map(|symbol| {
                             let summary = backtest(&args, symbol, &ind.chromosome)?;

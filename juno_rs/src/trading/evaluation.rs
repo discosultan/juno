@@ -83,10 +83,10 @@ impl BasicEvaluation {
     ) -> Result<Self> {
         let exchange_info = storages::get_exchange_info(exchange)?;
         let stats_interval = time::DAY_MS;
-        let symbol_ctxs: Vec<SymbolCtx> = symbols
+        let symbol_ctxs = symbols
             .iter()
             .map(|symbol| {
-                let interval_candles: HashMap<u64, Vec<Candle>> = intervals
+                let interval_candles = intervals
                     .iter()
                     .map(|&interval| {
                         Ok((
