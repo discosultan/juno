@@ -95,22 +95,23 @@ impl BasicEvaluation {
                         ))
                     })
                     .collect::<Result<_>>()?;
-                // TODO: Do listing and filling of missing candles in one go?
 
                 // Stats base.
-                let stats_candles =
-                    chandler::list_candles(exchange, &symbol, stats_interval, start, end)?;
-                let stats_candles =
-                    chandler::fill_missing_candles(stats_interval, start, end, &stats_candles)?;
-
-                // Stats quote (optional).
-                let stats_fiat_candles =
-                    chandler::list_candles("coinbase", "btc-eur", stats_interval, start, end)?;
-                let stats_fiat_candles = chandler::fill_missing_candles(
+                let stats_candles = chandler::list_candles_fill_missing(
+                    exchange,
+                    &symbol,
                     stats_interval,
                     start,
                     end,
-                    &stats_fiat_candles,
+                )?;
+
+                // Stats quote (optional).
+                let stats_fiat_candles = chandler::list_candles_fill_missing(
+                    "coinbase",
+                    "btc-eur",
+                    stats_interval,
+                    start,
+                    end,
                 )?;
 
                 // let stats_quote_prices = None;

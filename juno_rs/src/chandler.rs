@@ -30,6 +30,20 @@ pub fn list_candles(
     storages::list_candles(exchange, symbol, interval, start, end).map_err(|err| err.into())
 }
 
+pub fn list_candles_fill_missing(
+    exchange: &str,
+    symbol: &str,
+    interval: u64,
+    start: u64,
+    end: u64,
+) -> Result<Vec<Candle>> {
+    let interval_offset = get_interval_offset(interval);
+    let start = floor_multiple_offset(start, interval, interval_offset);
+    let end = floor_multiple_offset(end, interval, interval_offset);
+    let candles = storages::list_candles(exchange, symbol, interval, start, end)?;
+    fill_missing_candles(interval, start, end, &candles)
+}
+
 pub fn fill_missing_candles(
     interval: u64,
     start: u64,

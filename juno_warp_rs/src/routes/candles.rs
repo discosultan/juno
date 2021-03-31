@@ -33,18 +33,12 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
                 .symbols
                 .iter()
                 .map(|symbol| {
-                    let candles = chandler::list_candles(
+                    let candles = chandler::list_candles_fill_missing(
                         &args.exchange,
                         symbol,
                         args.interval,
                         args.start,
                         args.end,
-                    )?;
-                    let candles = chandler::fill_missing_candles(
-                        args.interval,
-                        args.start,
-                        args.end,
-                        &candles,
                     )?;
                     Ok((symbol, candles))
                 })

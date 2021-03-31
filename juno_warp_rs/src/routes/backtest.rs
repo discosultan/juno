@@ -88,14 +88,12 @@ fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<St
     let end = args.end;
 
     // Stats base.
-    let stats_candles = chandler::list_candles(&args.exchange, symbol, stats_interval, start, end)?;
-    let stats_candles = chandler::fill_missing_candles(stats_interval, start, end, &stats_candles)?;
+    let stats_candles =
+        chandler::list_candles_fill_missing(&args.exchange, symbol, stats_interval, start, end)?;
 
     // Stats quote (optional).
     let stats_fiat_candles =
-        chandler::list_candles("coinbase", "btc-eur", stats_interval, start, end)?;
-    let stats_fiat_candles =
-        chandler::fill_missing_candles(stats_interval, start, end, &stats_fiat_candles)?;
+        chandler::list_candles_fill_missing("coinbase", "btc-eur", stats_interval, start, end)?;
 
     // let stats_quote_prices = None;
     let stats_quote_prices = Some(chandler::candles_to_prices(&stats_fiat_candles, None));
