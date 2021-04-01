@@ -59,7 +59,11 @@ impl Sig {
             sig,
             mid_trend,
             persistence,
-            buffered_candle: BufferedCandle::new(meta.interval, params.buffer_interval),
+            buffered_candle: BufferedCandle::new(
+                meta.interval,
+                meta.interval_offsets,
+                params.buffer_interval,
+            ),
         }
     }
 }

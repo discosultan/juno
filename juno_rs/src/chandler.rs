@@ -136,6 +136,10 @@ static BINANCE_INTERVAL_OFFSETS: Lazy<HashMap<u64, u64>> = Lazy::new(|| {
     .collect()
 });
 
+pub fn map_interval_offsets() -> HashMap<u64, u64> {
+    BINANCE_INTERVAL_OFFSETS.clone()
+}
+
 pub fn get_interval_offset(interval: u64) -> u64 {
     BINANCE_INTERVAL_OFFSETS
         .get(&interval)

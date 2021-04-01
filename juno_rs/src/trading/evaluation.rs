@@ -65,6 +65,7 @@ struct SymbolCtx {
 pub struct BasicEvaluation {
     symbol_ctxs: Vec<SymbolCtx>,
     quote: f64,
+    interval_offsets: HashMap<u64, u64>,
     stats_interval: u64,
     evaluation_statistic: EvaluationStatistic,
     evaluation_aggregation_fn: fn(f64, f64) -> f64,
@@ -134,6 +135,7 @@ impl BasicEvaluation {
 
         Ok(Self {
             symbol_ctxs,
+            interval_offsets: chandler::map_interval_offsets(),
             stats_interval,
             quote,
             evaluation_statistic,
@@ -148,17 +150,18 @@ impl BasicEvaluation {
     pub fn evaluate_symbols(&self, chromosome: &TradingParams) -> Vec<f64> {
         self.symbol_ctxs
             .par_iter()
-            .map(|ctx| self.evaluate_symbol(ctx, chromosome))
+            .map(|symbol_ctx| self.evaluate_symbol(symbol_ctx, chromosome))
             .collect()
     }
 
-    fn evaluate_symbol(&self, ctx: &SymbolCtx, chromosome: &TradingParams) -> f64 {
+    fn evaluate_symbol(&self, symbol_ctx: &SymbolCtx, chromosome: &TradingParams) -> f64 {
         let summary = trade(
             &chromosome,
-            &ctx.interval_candles[&chromosome.trader.interval],
-            &ctx.fees,
-            &ctx.filters,
-            &ctx.borrow_info,
+            &symbol_ctx.interval_candles[&chromosome.trader.interval],
+            &symbol_ctx.fees,
+            &symbol_ctx.filters,
+            &symbol_ctx.borrow_info,
+            &self.interval_offsets,
             2,
             self.quote,
             true,
@@ -171,14 +174,14 @@ impl BasicEvaluation {
             }
             EvaluationStatistic::SharpeRatio => statistics::get_sharpe_ratio(
                 &summary,
-                &ctx.stats_base_prices,
-                ctx.stats_quote_prices.as_deref(),
+                &symbol_ctx.stats_base_prices,
+                symbol_ctx.stats_quote_prices.as_deref(),
                 self.stats_interval,
             ),
             EvaluationStatistic::SortinoRatio => statistics::get_sortino_ratio(
                 &summary,
-                &ctx.stats_base_prices,
-                ctx.stats_quote_prices.as_deref(),
+                &symbol_ctx.stats_base_prices,
+                symbol_ctx.stats_quote_prices.as_deref(),
                 self.stats_interval,
             ),
         }

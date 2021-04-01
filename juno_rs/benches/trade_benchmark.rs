@@ -1,14 +1,14 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use juno_rs::{
     filters::{Filters, Price, Size},
-    stop_loss,
+    stop_loss::{self, StopLossParams},
     strategies::{FourWeekRuleParams, StrategyParams},
-    take_profit, time,
+    take_profit::{self, TakeProfitParams},
+    time,
     trading::{self, MissedCandlePolicy, TraderParams, TradingParams},
     BorrowInfo, Candle, Fees,
 };
-use stop_loss::StopLossParams;
-use take_profit::TakeProfitParams;
+use std::collections::HashMap;
 
 fn trade_benchmark(c: &mut Criterion) {
     let strategy = StrategyParams::FourWeekRule(FourWeekRuleParams::default());
@@ -47,6 +47,7 @@ fn trade_benchmark(c: &mut Criterion) {
         daily_interest_rate: 0.001,
         limit: 1.0,
     };
+    let interval_offsets = HashMap::new();
     c.bench_function("trade", |b| {
         b.iter(|| {
             trading::trade(
@@ -63,6 +64,7 @@ fn trade_benchmark(c: &mut Criterion) {
                 &fees,
                 &filters,
                 &borrow_info,
+                &interval_offsets,
                 2,
                 1.0,
                 true,

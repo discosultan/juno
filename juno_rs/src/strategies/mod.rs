@@ -25,9 +25,11 @@ pub use triple_ma::{TripleMA, TripleMAParams, TripleMAParamsContext};
 use crate::{genetics::Chromosome, Advice, Candle};
 use juno_derive_rs::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-pub struct StrategyMeta {
+pub struct StrategyMeta<'a> {
     pub interval: u64,
+    pub interval_offsets: &'a HashMap<u64, u64>,
 }
 
 pub trait Strategy: Send + Sync {

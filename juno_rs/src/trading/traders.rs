@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     math::{ceil_multiple, round_down, round_half_up},
     stop_loss::StopLoss,
@@ -48,6 +50,7 @@ pub fn trade(
     fees: &Fees,
     filters: &Filters,
     borrow_info: &BorrowInfo,
+    interval_offsets: &HashMap<u64, u64>,
     margin_multiplier: u32,
     quote: f64,
     long: bool,
@@ -65,7 +68,10 @@ pub fn trade(
         (candles[0].time, candles[candles_len - 1].time + interval)
     };
 
-    let strategy_meta = StrategyMeta { interval };
+    let strategy_meta = StrategyMeta {
+        interval,
+        interval_offsets,
+    };
 
     let mut summary = TradingSummary::new(start, end, quote);
     let mut state = State::new(

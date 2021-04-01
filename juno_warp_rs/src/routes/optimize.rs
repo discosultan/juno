@@ -192,6 +192,7 @@ fn backtest(args: &Params, symbol: &str, chromosome: &TradingParams) -> Result<T
         args.start,
         args.end,
     )?;
+    let interval_offsets = chandler::map_interval_offsets();
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
     Ok(trade(
@@ -200,6 +201,7 @@ fn backtest(args: &Params, symbol: &str, chromosome: &TradingParams) -> Result<T
         &exchange_info.fees[symbol],
         &exchange_info.filters[symbol],
         &exchange_info.borrow_info[symbol][symbol.base_asset()],
+        &interval_offsets,
         2,
         args.quote,
         true,

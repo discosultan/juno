@@ -1,16 +1,21 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashMap};
 
-use crate::{math::floor_multiple, Candle};
+use crate::{math::floor_multiple_offset, Candle};
 
 pub struct BufferedCandle {
     interval: u64,
     buffer_interval: u64,
+    buffer_interval_offset: u64,
     buffer_candle: Option<Candle>,
     enabled: bool,
 }
 
 impl BufferedCandle {
-    pub fn new(interval: u64, buffer_interval: Option<u64>) -> Self {
+    pub fn new(
+        interval: u64,
+        interval_offsets: &HashMap<u64, u64>,
+        buffer_interval: Option<u64>,
+    ) -> Self {
         if interval == 0 {
             panic!("interval 0")
         }
@@ -24,9 +29,14 @@ impl BufferedCandle {
             false
         };
 
+        let buffer_interval = buffer_interval.unwrap_or(0);
         Self {
             interval,
-            buffer_interval: buffer_interval.unwrap_or(0),
+            buffer_interval,
+            buffer_interval_offset: interval_offsets
+                .get(&buffer_interval)
+                .map(|i| *i)
+                .unwrap_or(0),
             enabled,
             buffer_candle: None,
         }
@@ -40,8 +50,11 @@ impl BufferedCandle {
         let ret = match self.buffer_candle {
             None => {
                 self.buffer_candle = Some(Candle {
-                    // TODO: Does not take offset into account.
-                    time: floor_multiple(candle.time, self.buffer_interval),
+                    time: floor_multiple_offset(
+                        candle.time,
+                        self.buffer_interval,
+                        self.buffer_interval_offset,
+                    ),
                     open: candle.open,
                     high: candle.high,
                     low: candle.low,
@@ -91,7 +104,7 @@ mod tests {
             volume: 10.0,
         };
         let expected_output = Some(Cow::Borrowed(&input));
-        let mut target = BufferedCandle::new(2, None);
+        let mut target = BufferedCandle::new(2, &HashMap::new(), None);
 
         let output = target.buffer(&input);
         assert_eq!(output, expected_output);
@@ -108,7 +121,7 @@ mod tests {
             volume: 10.0,
         };
         let expected_output = Some(Cow::Borrowed(&input));
-        let mut target = BufferedCandle::new(2, Some(2));
+        let mut target = BufferedCandle::new(2, &HashMap::new(), Some(2));
 
         let output = target.buffer(&input);
         assert_eq!(output, expected_output);
@@ -141,7 +154,7 @@ mod tests {
             close: 6.0,
             volume: 30.0,
         }));
-        let mut target = BufferedCandle::new(1, Some(2));
+        let mut target = BufferedCandle::new(1, &HashMap::new(), Some(2));
 
         let output1 = target.buffer(&input1);
         assert_eq!(output1, expected_output1);
@@ -168,7 +181,7 @@ mod tests {
             close: 3.0,
             volume: 10.0,
         }));
-        let mut target = BufferedCandle::new(1, Some(2));
+        let mut target = BufferedCandle::new(1, &HashMap::new(), Some(2));
 
         let output = target.buffer(&input);
         assert_eq!(output, expected_output);
@@ -217,7 +230,7 @@ mod tests {
             close: 12.0,
             volume: 60.0,
         }));
-        let mut target = BufferedCandle::new(1, Some(2));
+        let mut target = BufferedCandle::new(1, &HashMap::new(), Some(2));
 
         let output1 = target.buffer(&input1);
         assert_eq!(output1, expected_output1);
@@ -256,7 +269,7 @@ mod tests {
             close: 3.0,
             volume: 10.0,
         }));
-        let mut target = BufferedCandle::new(1, Some(3));
+        let mut target = BufferedCandle::new(1, &HashMap::new(), Some(3));
 
         let output1 = target.buffer(&input1);
         assert_eq!(output1, expected_output1);
@@ -286,7 +299,7 @@ mod tests {
         };
         let expected_output1 = None;
 
-        let mut target = BufferedCandle::new(1, Some(2));
+        let mut target = BufferedCandle::new(1, &HashMap::new(), Some(2));
 
         let output1 = target.buffer(&input1);
         assert_eq!(output1, expected_output1);
@@ -297,12 +310,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_zero_interval_panics() {
-        BufferedCandle::new(0, None);
+        BufferedCandle::new(0, &HashMap::new(), None);
     }
 
     #[test]
     #[should_panic]
     fn test_interval_greater_than_buffer_interval_panics() {
-        BufferedCandle::new(2, Some(1));
+        BufferedCandle::new(2, &HashMap::new(), Some(1));
     }
 }
