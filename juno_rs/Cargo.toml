@@ -9,7 +9,7 @@ bounded-vec-deque = "0.1"
 chrono = "0.4"
 ezing = "0.2"
 juno_derive_rs = { version = "0.1", path = "../juno_derive_rs" }
-ndarray = "0.14"
+ndarray = "0.15"
 ndarray-stats = "0.4"
 once_cell = "1"
 rand = "0.8"
