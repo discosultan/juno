@@ -1,5 +1,5 @@
 use crate::{Candle, ExchangeInfo};
-use rusqlite::{params, Connection, NO_PARAMS};
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -66,7 +66,7 @@ pub fn get_exchange_info(exchange: &str) -> Result<ExchangeInfo> {
     ))?;
     let json = conn.query_row(
         "SELECT value FROM keyvaluepair WHERE key = 'exchange_info' LIMIT 1",
-        NO_PARAMS,
+        [],
         |row| row.get::<_, String>(0),
     )?;
     let res = serde_json::from_str::<Timestamped<ExchangeInfo>>(&json)?;
