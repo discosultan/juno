@@ -1,9 +1,8 @@
 use super::custom_reject;
-use anyhow::Result;
+use futures::future::try_join_all;
 use juno_rs::{
     chandler,
     time::{deserialize_interval, deserialize_timestamp},
-    Candle,
 };
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -29,24 +28,25 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(body::json())
         .and_then(|args: Params| async move {
-            let symbol_candles_result = args
-                .symbols
-                .iter()
-                .map(|symbol| {
+            let symbol_candle_tasks = args.symbols.iter().map(|symbol| (symbol, &args)).map(
+                |(symbol, args)| async move {
                     let candles = chandler::list_candles_fill_missing(
                         &args.exchange,
                         symbol,
                         args.interval,
                         args.start,
                         args.end,
-                    )?;
-                    Ok((symbol, candles))
-                })
-                .collect::<Result<HashMap<&String, Vec<Candle>>>>();
+                    )
+                    .await?;
+                    Ok::<_, chandler::ChandlerError>((symbol, candles))
+                },
+            );
 
-            match symbol_candles_result {
-                Ok(symbol_candles) => Ok(reply::json(&symbol_candles)),
-                Err(error) => Err(custom_reject(error)),
-            }
+            try_join_all(symbol_candle_tasks)
+                .await
+                .map(|symbol_candles| {
+                    reply::json(&symbol_candles.into_iter().collect::<HashMap<_, _>>())
+                })
+                .map_err(|error| custom_reject(error))
         })
 }

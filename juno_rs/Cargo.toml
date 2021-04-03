@@ -8,6 +8,7 @@ edition = "2018"
 bounded-vec-deque = "0.1"
 chrono = "0.4"
 ezing = "0.2"
+futures = "0.3"
 juno_derive_rs = { version = "0.1", path = "../juno_derive_rs" }
 ndarray = "0.15"
 ndarray-stats = "0.4"
@@ -23,6 +24,7 @@ thiserror = "1"
 [dev-dependencies]
 criterion = "0.3"
 serde_yaml = "0.8"
+tokio-test = "0.4"
 
 [[bench]]
 name = "trade_benchmark"
