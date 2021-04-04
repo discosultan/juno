@@ -51,7 +51,6 @@ async fn process(args: Params) -> Result<reply::Json> {
                 let summary = backtest(&args, symbol).await?;
                 Ok::<_, Error>((symbol.to_owned(), summary)) // TODO: Return &String instead.
             });
-    // .collect::<Result<HashMap<_, _>>>()?;
     let symbol_summaries = try_join_all(symbol_summary_tasks).await?;
 
     let symbol_stat_tasks = symbol_summaries
@@ -61,7 +60,6 @@ async fn process(args: Params) -> Result<reply::Json> {
             let stats = get_stats(&args, symbol, summary).await?;
             Ok::<_, Error>((symbol.to_owned(), stats)) // TODO: Return &String instead.
         });
-    // .collect::<Result<_>>()?;
     let symbol_stats = try_join_all(symbol_stat_tasks).await?.into_iter().collect();
 
     Ok(reply::json(&BacktestResult { symbol_stats }))
