@@ -3,12 +3,12 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-type Result<T> = std::result::Result<T, StorageError>;
+type Result<T> = std::result::Result<T, Error>;
 
 const VERSION: &str = "v49";
 
 #[derive(Error, Debug)]
-pub enum StorageError {
+pub enum Error {
     #[error("(de)serialization error")]
     Serde(#[from] serde_json::Error),
     #[error("sqlite error")]

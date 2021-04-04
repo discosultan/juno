@@ -38,7 +38,7 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
                         args.end,
                     )
                     .await?;
-                    Ok::<_, chandler::ChandlerError>((symbol, candles))
+                    Ok::<_, chandler::Error>((symbol, candles))
                 },
             );
 

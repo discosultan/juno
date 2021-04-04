@@ -3,10 +3,10 @@ use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use thiserror::Error;
 
-type Result<T> = std::result::Result<T, ChandlerError>;
+type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Error, Debug)]
-pub enum ChandlerError {
+pub enum Error {
     #[error("missing candle(s) from the start of the period; cannot fill; start {start}, current {current}")]
     MissingStartCandles { start: String, current: String },
     #[error(
@@ -14,7 +14,7 @@ pub enum ChandlerError {
     )]
     MissingEndCandles { current: String, end: String },
     #[error("{0}")]
-    StorageError(#[from] storages::StorageError),
+    StorageError(#[from] storages::Error),
 }
 
 pub async fn list_candles(
@@ -64,7 +64,7 @@ pub(crate) fn fill_missing_candles(
         for i in 1..=diff {
             match prev_candle {
                 None => {
-                    return Err(ChandlerError::MissingStartCandles {
+                    return Err(Error::MissingStartCandles {
                         start: start.to_timestamp_repr(),
                         current: candle.time.to_timestamp_repr(),
                     })
@@ -93,7 +93,7 @@ pub(crate) fn fill_missing_candles(
     }
 
     if current != end {
-        return Err(ChandlerError::MissingEndCandles {
+        return Err(Error::MissingEndCandles {
             current: current.to_timestamp_repr(),
             end: end.to_timestamp_repr(),
         });

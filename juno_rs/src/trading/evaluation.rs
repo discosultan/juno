@@ -49,9 +49,9 @@ impl EvaluationAggregation {
 #[derive(Error, Debug)]
 pub enum EvaluationError {
     #[error("{0}")]
-    Storage(#[from] storages::StorageError),
+    Storage(#[from] storages::Error),
     #[error("{0}")]
-    Chandler(#[from] chandler::ChandlerError),
+    Chandler(#[from] chandler::Error),
 }
 
 struct SymbolCtx {
@@ -94,12 +94,11 @@ impl BasicEvaluation {
                 let interval_candle_tasks = intervals
                     .iter()
                     .map(|&interval| async move {
-                        Ok::<_, chandler::ChandlerError>((
+                        Ok::<_, chandler::Error>((
                             interval,
                             chandler::list_candles(exchange, &symbol, interval, start, end).await?,
                         ))
                     });
-                    // .collect::<Vec<_>>();
                 let interval_candles = try_join_all(interval_candle_tasks)
                     .await?
                     .into_iter()
@@ -130,7 +129,7 @@ impl BasicEvaluation {
                     chandler::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
                 // Store context variables.
-                Ok::<_, chandler::ChandlerError>(SymbolCtx {
+                Ok::<_, chandler::Error>(SymbolCtx {
                     interval_candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
@@ -139,7 +138,6 @@ impl BasicEvaluation {
                     stats_quote_prices,
                 })
             });
-            // .collect::<Vec<_>>()?;
 
             let symbol_ctxs = try_join_all(symbol_ctx_tasks).await?;
 
