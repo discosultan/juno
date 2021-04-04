@@ -6,6 +6,7 @@ use crate::{
     trading::trade,
     BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
+use futures::future::{try_join3, try_join_all};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -48,9 +49,9 @@ impl EvaluationAggregation {
 #[derive(Error, Debug)]
 pub enum EvaluationError {
     #[error("{0}")]
-    Storage(#[from] storages::StorageError),
+    Storage(#[from] storages::Error),
     #[error("{0}")]
-    Chandler(#[from] chandler::ChandlerError),
+    Chandler(#[from] chandler::Error),
 }
 
 struct SymbolCtx {
@@ -72,7 +73,7 @@ pub struct BasicEvaluation {
 }
 
 impl BasicEvaluation {
-    pub fn new(
+    pub async fn new(
         exchange: &str,
         symbols: &[String],
         intervals: &[u64],
@@ -84,36 +85,42 @@ impl BasicEvaluation {
     ) -> Result<Self> {
         let exchange_info = storages::get_exchange_info(exchange)?;
         let stats_interval = time::DAY_MS;
-        let symbol_ctxs = symbols
-            .iter()
-            .map(|symbol| {
-                let interval_candles = intervals
-                    .iter()
-                    .map(|&interval| {
-                        Ok((
+        let symbol_ctxs = try_join_all(symbols.iter().map(|symbol| (symbol, &exchange_info)).map(
+            |(symbol, exchange_info)| async move {
+                let interval_candles_task =
+                    try_join_all(intervals.iter().map(|&interval| async move {
+                        Ok::<_, chandler::Error>((
                             interval,
-                            chandler::list_candles(exchange, &symbol, interval, start, end)?,
+                            chandler::list_candles(exchange, &symbol, interval, start, end).await?,
                         ))
-                    })
-                    .collect::<Result<_>>()?;
+                    }));
 
                 // Stats base.
-                let stats_candles = chandler::list_candles_fill_missing(
+                let stats_candles_task = chandler::list_candles_fill_missing(
                     exchange,
                     &symbol,
                     stats_interval,
                     start,
                     end,
-                )?;
+                );
 
                 // Stats quote (optional).
-                let stats_fiat_candles = chandler::list_candles_fill_missing(
+                let stats_fiat_candles_task = chandler::list_candles_fill_missing(
                     "coinbase",
                     "btc-eur",
                     stats_interval,
                     start,
                     end,
-                )?;
+                );
+
+                let (interval_candles, stats_candles, stats_fiat_candles) = try_join3(
+                    interval_candles_task,
+                    stats_candles_task,
+                    stats_fiat_candles_task,
+                )
+                .await?;
+
+                let interval_candles = interval_candles.into_iter().collect();
 
                 // let stats_quote_prices = None;
                 let stats_quote_prices =
@@ -122,7 +129,7 @@ impl BasicEvaluation {
                     chandler::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
                 // Store context variables.
-                Ok(SymbolCtx {
+                Ok::<_, chandler::Error>(SymbolCtx {
                     interval_candles,
                     fees: exchange_info.fees[symbol],
                     filters: exchange_info.filters[symbol],
@@ -130,8 +137,9 @@ impl BasicEvaluation {
                     stats_base_prices,
                     stats_quote_prices,
                 })
-            })
-            .collect::<Result<_>>()?;
+            },
+        ))
+        .await?;
 
         Ok(Self {
             symbol_ctxs,

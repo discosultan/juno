@@ -1,5 +1,6 @@
 use super::custom_reject;
-use anyhow::Result;
+use anyhow::{Error, Result};
+use futures::future::{try_join, try_join_all};
 use juno_rs::{
     chandler,
     genetics::{
@@ -49,22 +50,22 @@ impl Params {
 }
 
 #[derive(Serialize)]
-struct Generation {
+struct Generation<'a> {
     // We need to store generation number because we are filtering out generations with no change
     // in top.
     nr: usize,
-    hall_of_fame: Vec<IndividualStats>,
+    hall_of_fame: Vec<IndividualStats<'a>>,
 }
 
 #[derive(Serialize)]
-struct IndividualStats {
+struct IndividualStats<'a> {
     individual: Individual<TradingParams>,
-    symbol_stats: HashMap<String, Statistics>,
+    symbol_stats: HashMap<&'a str, Statistics>,
 }
 
 #[derive(Serialize)]
-struct EvolutionStats {
-    generations: Vec<Generation>,
+struct EvolutionStats<'a> {
+    generations: Vec<Generation<'a>>,
     seed: u64,
 }
 
@@ -91,14 +92,14 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
     warp::post()
         .and(warp::body::json())
         .and_then(|args: Params| async move {
-            process(args).map_err(|error| custom_reject(error)) // TODO: return 400
+            process(args).await.map_err(|error| custom_reject(error)) // TODO: return 400
         })
 }
 
-fn process(args: Params) -> Result<reply::Json> {
-    let evolution = optimize(&args)?;
+async fn process(args: Params) -> Result<reply::Json> {
+    let evolution = optimize(&args).await?;
     let mut best_fitnesses = vec![f64::NAN; args.hall_of_fame_size];
-    let gen_stats = evolution
+    let gen_stats_tasks = evolution
         .generations
         .into_iter()
         .enumerate()
@@ -114,33 +115,35 @@ fn process(args: Params) -> Result<reply::Json> {
             }
             pass
         })
-        .map(|(i, gen)| {
-            let hall_of_fame = gen
-                .hall_of_fame
-                .into_iter()
-                .map(|ind| {
-                    let symbol_stats = args
-                        .iter_symbols()
-                        .map(|symbol| {
-                            let summary = backtest(&args, symbol, &ind.chromosome)?;
-                            let stats = get_stats(&args, symbol, &summary)?;
-                            Ok((symbol.to_owned(), stats)) // TODO: Return &String instead.
-                        })
-                        .collect::<Result<_>>()?;
+        .map(|(i, gen)| (i, gen, &args))
+        .map(|(i, gen, args)| async move {
+            let hall_of_fame_tasks = gen.hall_of_fame.into_iter().map(|ind| async move {
+                let symbol_stats =
+                    try_join_all(args.iter_symbols().map(|symbol| (symbol, &ind)).map(
+                        |(symbol, ind)| async move {
+                            let summary = backtest(&args, symbol, &ind.chromosome).await?;
+                            let stats = get_stats(&args, symbol, &summary).await?;
+                            Ok::<_, Error>((symbol.as_ref(), stats))
+                        },
+                    ))
+                    .await?
+                    .into_iter()
+                    .collect();
 
-                    Ok(IndividualStats {
-                        individual: ind,
-                        symbol_stats,
-                    })
+                Ok::<_, Error>(IndividualStats {
+                    individual: ind,
+                    symbol_stats,
                 })
-                .collect::<Result<_>>()?;
+            });
+            let hall_of_fame = try_join_all(hall_of_fame_tasks).await?;
 
-            Ok(Generation {
+            Ok::<_, Error>(Generation {
                 nr: i,
                 hall_of_fame,
             })
-        })
-        .collect::<Result<_>>()?;
+        });
+
+    let gen_stats = try_join_all(gen_stats_tasks).await?;
 
     Ok(reply::json(&EvolutionStats {
         generations: gen_stats,
@@ -148,7 +151,7 @@ fn process(args: Params) -> Result<reply::Json> {
     }))
 }
 
-fn optimize(args: &Params) -> Result<Evolution<TradingParams>> {
+async fn optimize(args: &Params) -> Result<Evolution<TradingParams>> {
     let algo = GeneticAlgorithm::new(
         BasicEvaluation::new(
             &args.exchange,
@@ -159,7 +162,8 @@ fn optimize(args: &Params) -> Result<Evolution<TradingParams>> {
             args.quote,
             args.evaluation_statistic,
             args.evaluation_aggregation,
-        )?,
+        )
+        .await?,
         selection::EliteSelection { shuffle: false },
         // selection::TournamentSelection::default(),
         // selection::GenerateRandomSelection {}, // For random search.
@@ -184,14 +188,19 @@ fn on_generation<T: Chromosome>(nr: usize, gen: &juno_rs::genetics::Generation<T
     println!("{:?}", gen.timings);
 }
 
-fn backtest(args: &Params, symbol: &str, chromosome: &TradingParams) -> Result<TradingSummary> {
+async fn backtest(
+    args: &Params,
+    symbol: &str,
+    chromosome: &TradingParams,
+) -> Result<TradingSummary> {
     let candles = chandler::list_candles(
         &args.exchange,
         symbol,
         chromosome.trader.interval,
         args.start,
         args.end,
-    )?;
+    )
+    .await?;
     let interval_offsets = chandler::map_interval_offsets();
     let exchange_info = storages::get_exchange_info(&args.exchange)?;
 
@@ -209,26 +218,29 @@ fn backtest(args: &Params, symbol: &str, chromosome: &TradingParams) -> Result<T
     ))
 }
 
-fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Statistics> {
+async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Statistics> {
     let stats_interval = DAY_MS;
 
     // Stats base.
-    let stats_candles = chandler::list_candles_fill_missing(
+    let stats_candles_task = chandler::list_candles_fill_missing(
         &args.exchange,
         symbol,
         stats_interval,
         args.start,
         args.end,
-    )?;
+    );
 
     // Stats quote (optional).
-    let stats_fiat_candles = chandler::list_candles_fill_missing(
+    let stats_fiat_candles_task = chandler::list_candles_fill_missing(
         "coinbase",
         "btc-eur",
         stats_interval,
         args.start,
         args.end,
-    )?;
+    );
+
+    let (stats_candles, stats_fiat_candles) =
+        try_join(stats_candles_task, stats_fiat_candles_task).await?;
 
     // let stats_quote_prices = None;
     let stats_quote_prices = Some(chandler::candles_to_prices(&stats_fiat_candles, None));

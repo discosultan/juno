@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1"
+futures = "0.3"
 juno_derive_rs = { version = "0.1", path = "../juno_derive_rs" }
 juno_rs = { version = "0.1", path = "../juno_rs" }
 serde = { version = "1", features = ["derive"] }
