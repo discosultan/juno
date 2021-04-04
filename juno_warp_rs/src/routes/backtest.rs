@@ -26,8 +26,8 @@ struct Params {
 }
 
 #[derive(Serialize)]
-struct BacktestResult {
-    symbol_stats: HashMap<String, Statistics>,
+struct BacktestResult<'a> {
+    symbol_stats: HashMap<&'a str, Statistics>,
 }
 
 pub fn routes() -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
@@ -49,7 +49,7 @@ async fn process(args: Params) -> Result<reply::Json> {
             .map(|symbol| (symbol, &args))
             .map(|(symbol, args)| async move {
                 let summary = backtest(&args, symbol).await?;
-                Ok::<_, Error>((symbol.to_owned(), summary)) // TODO: Return &String instead.
+                Ok::<_, Error>((symbol, summary))
             });
     let symbol_summaries = try_join_all(symbol_summary_tasks).await?;
 
@@ -58,7 +58,7 @@ async fn process(args: Params) -> Result<reply::Json> {
         .map(|(symbol, summary)| (symbol, summary, &args))
         .map(|(symbol, summary, args)| async move {
             let stats = get_stats(&args, symbol, summary).await?;
-            Ok::<_, Error>((symbol.to_owned(), stats)) // TODO: Return &String instead.
+            Ok::<_, Error>((symbol.as_ref(), stats))
         });
     let symbol_stats = try_join_all(symbol_stat_tasks).await?.into_iter().collect();
 

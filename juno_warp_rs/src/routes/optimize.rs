@@ -50,22 +50,22 @@ impl Params {
 }
 
 #[derive(Serialize)]
-struct Generation {
+struct Generation<'a> {
     // We need to store generation number because we are filtering out generations with no change
     // in top.
     nr: usize,
-    hall_of_fame: Vec<IndividualStats>,
+    hall_of_fame: Vec<IndividualStats<'a>>,
 }
 
 #[derive(Serialize)]
-struct IndividualStats {
+struct IndividualStats<'a> {
     individual: Individual<TradingParams>,
-    symbol_stats: HashMap<String, Statistics>,
+    symbol_stats: HashMap<&'a str, Statistics>,
 }
 
 #[derive(Serialize)]
-struct EvolutionStats {
-    generations: Vec<Generation>,
+struct EvolutionStats<'a> {
+    generations: Vec<Generation<'a>>,
     seed: u64,
 }
 
@@ -127,8 +127,7 @@ async fn process(args: Params) -> Result<reply::Json> {
                         .map(|(symbol, ind)| async move {
                             let summary = backtest(&args, symbol, &ind.chromosome).await?;
                             let stats = get_stats(&args, symbol, &summary).await?;
-                            // TODO: Return &String instead.
-                            Ok::<_, Error>((symbol.to_owned(), stats))
+                            Ok::<_, Error>((symbol.as_ref(), stats))
                         });
                     let symbol_stats = try_join_all(symbol_stat_tasks)
                         .await?
