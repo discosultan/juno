@@ -6,7 +6,7 @@ use crate::{
     trading::trade,
     BorrowInfo, Candle, Fees, Filters, SymbolExt,
 };
-use futures::future::try_join_all;
+use futures::future::{try_join3, try_join_all};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -85,42 +85,42 @@ impl BasicEvaluation {
     ) -> Result<Self> {
         let exchange_info = storages::get_exchange_info(exchange)?;
         let stats_interval = time::DAY_MS;
-        let symbol_ctx_tasks = symbols
-            .iter()
-            .map(|symbol| (symbol, &exchange_info))
-            .map(|(symbol, exchange_info)| async move {
-                // TODO: list candles concurrently.
-
-                let interval_candle_tasks = intervals
-                    .iter()
-                    .map(|&interval| async move {
+        let symbol_ctxs = try_join_all(symbols.iter().map(|symbol| (symbol, &exchange_info)).map(
+            |(symbol, exchange_info)| async move {
+                let interval_candles_task =
+                    try_join_all(intervals.iter().map(|&interval| async move {
                         Ok::<_, chandler::Error>((
                             interval,
                             chandler::list_candles(exchange, &symbol, interval, start, end).await?,
                         ))
-                    });
-                let interval_candles = try_join_all(interval_candle_tasks)
-                    .await?
-                    .into_iter()
-                    .collect();
+                    }));
 
                 // Stats base.
-                let stats_candles = chandler::list_candles_fill_missing(
+                let stats_candles_task = chandler::list_candles_fill_missing(
                     exchange,
                     &symbol,
                     stats_interval,
                     start,
                     end,
-                ).await?;
+                );
 
                 // Stats quote (optional).
-                let stats_fiat_candles = chandler::list_candles_fill_missing(
+                let stats_fiat_candles_task = chandler::list_candles_fill_missing(
                     "coinbase",
                     "btc-eur",
                     stats_interval,
                     start,
                     end,
-                ).await?;
+                );
+
+                let (interval_candles, stats_candles, stats_fiat_candles) = try_join3(
+                    interval_candles_task,
+                    stats_candles_task,
+                    stats_fiat_candles_task,
+                )
+                .await?;
+
+                let interval_candles = interval_candles.into_iter().collect();
 
                 // let stats_quote_prices = None;
                 let stats_quote_prices =
@@ -137,9 +137,9 @@ impl BasicEvaluation {
                     stats_base_prices,
                     stats_quote_prices,
                 })
-            });
-
-            let symbol_ctxs = try_join_all(symbol_ctx_tasks).await?;
+            },
+        ))
+        .await?;
 
         Ok(Self {
             symbol_ctxs,

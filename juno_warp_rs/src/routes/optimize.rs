@@ -1,6 +1,6 @@
 use super::custom_reject;
 use anyhow::{Error, Result};
-use futures::{future::try_join_all};
+use futures::future::{try_join, try_join_all};
 use juno_rs::{
     chandler,
     genetics::{
@@ -117,28 +117,24 @@ async fn process(args: Params) -> Result<reply::Json> {
         })
         .map(|(i, gen)| (i, gen, &args))
         .map(|(i, gen, args)| async move {
-            let hall_of_fame_tasks = gen
-                .hall_of_fame
-                .into_iter()
-                .map(|ind| async move {
-                    let symbol_stat_tasks = args
-                        .iter_symbols()
-                        .map(|symbol| (symbol, &ind))
-                        .map(|(symbol, ind)| async move {
+            let hall_of_fame_tasks = gen.hall_of_fame.into_iter().map(|ind| async move {
+                let symbol_stats =
+                    try_join_all(args.iter_symbols().map(|symbol| (symbol, &ind)).map(
+                        |(symbol, ind)| async move {
                             let summary = backtest(&args, symbol, &ind.chromosome).await?;
                             let stats = get_stats(&args, symbol, &summary).await?;
                             Ok::<_, Error>((symbol.as_ref(), stats))
-                        });
-                    let symbol_stats = try_join_all(symbol_stat_tasks)
-                        .await?
-                        .into_iter()
-                        .collect();
+                        },
+                    ))
+                    .await?
+                    .into_iter()
+                    .collect();
 
-                    Ok::<_, Error>(IndividualStats {
-                        individual: ind,
-                        symbol_stats,
-                    })
-                });
+                Ok::<_, Error>(IndividualStats {
+                    individual: ind,
+                    symbol_stats,
+                })
+            });
             let hall_of_fame = try_join_all(hall_of_fame_tasks).await?;
 
             Ok::<_, Error>(Generation {
@@ -225,27 +221,26 @@ async fn backtest(
 async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Result<Statistics> {
     let stats_interval = DAY_MS;
 
-    // TODO: List candles concurrently.
-
     // Stats base.
-    let stats_candles = chandler::list_candles_fill_missing(
+    let stats_candles_task = chandler::list_candles_fill_missing(
         &args.exchange,
         symbol,
         stats_interval,
         args.start,
         args.end,
-    )
-    .await?;
+    );
 
     // Stats quote (optional).
-    let stats_fiat_candles = chandler::list_candles_fill_missing(
+    let stats_fiat_candles_task = chandler::list_candles_fill_missing(
         "coinbase",
         "btc-eur",
         stats_interval,
         args.start,
         args.end,
-    )
-    .await?;
+    );
+
+    let (stats_candles, stats_fiat_candles) =
+        try_join(stats_candles_task, stats_fiat_candles_task).await?;
 
     // let stats_quote_prices = None;
     let stats_quote_prices = Some(chandler::candles_to_prices(&stats_fiat_candles, None));
