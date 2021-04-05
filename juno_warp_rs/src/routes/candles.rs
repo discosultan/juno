@@ -1,7 +1,7 @@
 use super::custom_reject;
 use futures::future::try_join_all;
 use juno_rs::{
-    chandler,
+    candles,
     time::{deserialize_interval, deserialize_timestamp},
 };
 use serde::Deserialize;
@@ -30,7 +30,7 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
         .and_then(|args: Params| async move {
             let symbol_candle_tasks = args.symbols.iter().map(|symbol| (symbol, &args)).map(
                 |(symbol, args)| async move {
-                    let candles = chandler::list_candles_fill_missing(
+                    let candles = candles::list_candles_fill_missing(
                         &args.exchange,
                         symbol,
                         args.interval,
@@ -38,7 +38,7 @@ fn post() -> impl Filter<Extract = (reply::Json,), Error = Rejection> + Clone {
                         args.end,
                     )
                     .await?;
-                    Ok::<_, chandler::Error>((symbol, candles))
+                    Ok::<_, candles::Error>((symbol, candles))
                 },
             );
 

@@ -2,9 +2,9 @@ use super::custom_reject;
 use anyhow::{Error, Result};
 use futures::future::{try_join, try_join_all};
 use juno_rs::{
-    chandler,
+    candles,
     statistics::Statistics,
-    storages,
+    storage,
     time::{deserialize_timestamp, DAY_MS},
     trading::{trade, TradingParams, TradingSummary},
     SymbolExt,
@@ -66,7 +66,7 @@ async fn process(args: Params) -> Result<reply::Json> {
 }
 
 async fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
-    let candles = chandler::list_candles(
+    let candles = candles::list_candles(
         &args.exchange,
         symbol,
         args.trading.trader.interval,
@@ -74,8 +74,8 @@ async fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
         args.end,
     )
     .await?;
-    let interval_offsets = chandler::map_interval_offsets();
-    let exchange_info = storages::get_exchange_info(&args.exchange)?;
+    let interval_offsets = candles::map_interval_offsets();
+    let exchange_info = storage::get_exchange_info(&args.exchange)?;
 
     Ok(trade(
         &args.trading,
@@ -98,19 +98,19 @@ async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Res
 
     // Stats base.
     let stats_candles_task =
-        chandler::list_candles_fill_missing(&args.exchange, symbol, stats_interval, start, end);
+        candles::list_candles_fill_missing(&args.exchange, symbol, stats_interval, start, end);
 
     // Stats quote (optional).
     let stats_fiat_candles_task =
-        chandler::list_candles_fill_missing("coinbase", "btc-eur", stats_interval, start, end);
+        candles::list_candles_fill_missing("binance", "btc-usdt", stats_interval, start, end);
 
     let (stats_candles, stats_fiat_candles) =
         try_join(stats_candles_task, stats_fiat_candles_task).await?;
 
     // let stats_quote_prices = None;
-    let stats_quote_prices = Some(chandler::candles_to_prices(&stats_fiat_candles, None));
+    let stats_quote_prices = Some(candles::candles_to_prices(&stats_fiat_candles, None));
     let stats_base_prices =
-        chandler::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
+        candles::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
     let stats = Statistics::compose(
         &summary,

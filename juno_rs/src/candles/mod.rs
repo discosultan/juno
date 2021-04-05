@@ -1,9 +1,39 @@
-use crate::{math::floor_multiple_offset, storages, time::TimestampIntExt, Candle};
-use once_cell::sync::Lazy;
-use std::collections::HashMap;
+mod exchange;
+mod storage;
+
+use crate::{
+    math::floor_multiple_offset,
+    time::{deserialize_timestamp, serialize_timestamp, TimestampIntExt},
+    utils::generate_missing_spans,
+};
+use serde::{Deserialize, Serialize};
+use std::ops::AddAssign;
 use thiserror::Error;
 
 type Result<T> = std::result::Result<T, Error>;
+
+pub use exchange::{get_interval_offset, map_interval_offsets};
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq)]
+pub struct Candle {
+    #[serde(serialize_with = "serialize_timestamp")]
+    #[serde(deserialize_with = "deserialize_timestamp")]
+    pub time: u64,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
+}
+
+impl AddAssign<&Candle> for Candle {
+    fn add_assign(&mut self, other: &Self) {
+        self.high = f64::max(self.high, other.high);
+        self.low = f64::min(self.low, other.low);
+        self.close = other.close;
+        self.volume += other.volume;
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -14,7 +44,9 @@ pub enum Error {
     )]
     MissingEndCandles { current: String, end: String },
     #[error("{0}")]
-    StorageError(#[from] storages::Error),
+    Storage(#[from] storage::Error),
+    #[error("{0}")]
+    Exchange(#[from] exchange::Error),
 }
 
 pub async fn list_candles(
@@ -27,7 +59,7 @@ pub async fn list_candles(
     let interval_offset = get_interval_offset(interval);
     let start = floor_multiple_offset(start, interval, interval_offset);
     let end = floor_multiple_offset(end, interval, interval_offset);
-    storages::list_candles(exchange, symbol, interval, start, end).map_err(|err| err.into())
+    list_candles_internal(exchange, symbol, interval, start, end).await
 }
 
 pub async fn list_candles_fill_missing(
@@ -40,8 +72,40 @@ pub async fn list_candles_fill_missing(
     let interval_offset = get_interval_offset(interval);
     let start = floor_multiple_offset(start, interval, interval_offset);
     let end = floor_multiple_offset(end, interval, interval_offset);
-    let candles = list_candles(exchange, symbol, interval, start, end).await?;
+    let candles = list_candles_internal(exchange, symbol, interval, start, end).await?;
     fill_missing_candles(interval, start, end, &candles)
+}
+
+async fn list_candles_internal(
+    exchange: &str,
+    symbol: &str,
+    interval: u64,
+    start: u64,
+    end: u64,
+) -> Result<Vec<Candle>> {
+    let existing_spans = storage::list_candle_spans(exchange, symbol, interval, start, end).await?;
+    let missing_spans = generate_missing_spans(start, end, &existing_spans);
+
+    let mut spans = existing_spans
+        .iter()
+        .map(|(start, end)| (start, end, true))
+        .chain(missing_spans.iter().map(|(start, end)| (start, end, false)))
+        .collect::<Vec<_>>();
+    spans.sort_by_key(|(start, _end, _exists)| *start);
+
+    let mut result: Vec<Candle> = Vec::with_capacity(((end - start) / interval) as usize);
+    for (&span_start, &span_end, exist_locally) in spans {
+        let candles = if exist_locally {
+            storage::list_candles(exchange, symbol, interval, span_start, span_end).await?
+        } else {
+            let candles =
+                exchange::list_candles(symbol, interval, span_start, span_end).await?;
+            candles
+        };
+        result.extend(candles);
+    }
+
+    Ok(result)
 }
 
 pub(crate) fn fill_missing_candles(
@@ -111,40 +175,6 @@ pub fn candles_to_prices(candles: &[Candle], multipliers: Option<&[f64]>) -> Vec
         prices.push(candles[i].close * multipliers.map_or(1.0, |m| m[multiplier_i]));
     }
     prices
-}
-
-static BINANCE_INTERVAL_OFFSETS: Lazy<HashMap<u64, u64>> = Lazy::new(|| {
-    [
-        (60000, 0),               // 1m
-        (180000, 0),              // 3m
-        (300000, 0),              // 5m
-        (900000, 0),              // 15m
-        (1800000, 0),             // 30m
-        (3600000, 0),             // 1h
-        (7200000, 0),             // 2h
-        (14400000, 0),            // 4h
-        (21600000, 0),            // 6h
-        (28800000, 0),            // 8h
-        (43200000, 0),            // 12h
-        (86400000, 0),            // 1d
-        (259200000, 0),           // 3d
-        (604800000, 345600000),   // 1w 4d
-        (2629746000, 2541726000), // 1M 4w1d10h2m6s
-    ]
-    .iter()
-    .cloned()
-    .collect()
-});
-
-pub fn map_interval_offsets() -> HashMap<u64, u64> {
-    BINANCE_INTERVAL_OFFSETS.clone()
-}
-
-pub fn get_interval_offset(interval: u64) -> u64 {
-    BINANCE_INTERVAL_OFFSETS
-        .get(&interval)
-        .map(|interval| *interval)
-        .unwrap_or(0)
 }
 
 #[cfg(test)]

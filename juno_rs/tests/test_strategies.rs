@@ -2,10 +2,10 @@ use juno_rs::{
     indicators::{self, MAParams},
     statistics::CoreStatistics,
     stop_loss::{self, StopLossParams},
-    storages,
+    storage,
     strategies::{self, StrategyParams},
     take_profit::{self, TakeProfitParams},
-    time::{TimestampStrExt, DAY_MS},
+    time::DAY_MS,
     trading::{trade, MissedCandlePolicy, TraderParams, TradingParams, TradingSummary},
     Candle, ExchangeInfo,
 };
@@ -20,17 +20,12 @@ static EXPECTED_STATS: Lazy<HashMap<String, CoreStatistics>> = Lazy::new(|| {
 });
 
 static EXCHANGE_INFO: Lazy<ExchangeInfo> =
-    Lazy::new(|| storages::get_exchange_info("binance").expect("unable to get exchange info"));
+    Lazy::new(|| storage::get_exchange_info("binance").expect("unable to get exchange info"));
 
 static CANDLES: Lazy<Vec<Candle>> = Lazy::new(|| {
-    storages::list_candles(
-        "binance",
-        "eth-btc",
-        DAY_MS,
-        "2018-01-01".to_timestamp(),
-        "2021-01-01".to_timestamp(),
-    )
-    .expect("unable to list candles")
+    let file = File::open("./tests/data/binance_eth-btc_1d_2018-01-01_2021-01-01.json")
+        .expect("unable to open candles data file");
+    serde_json::from_reader(file).expect("unable to deserialize candles data")
 });
 
 #[test]
