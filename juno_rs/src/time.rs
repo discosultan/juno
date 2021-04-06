@@ -229,7 +229,7 @@ fn str_to_timestamp(representation: &str) -> u64 {
 fn timestamp_to_string(value: u64) -> String {
     let datetime = Utc.timestamp_millis(value as i64);
     // datetime.to_rfc3339()
-    datetime.format("%Y-%m-%dT%H:%M:%S").to_string()
+    datetime.format("%Y-%m-%dT%H:%M:%S%:z").to_string()
 }
 
 pub trait TimestampStrExt {
@@ -309,8 +309,7 @@ mod tests {
     fn test_timestamp_to_repr() {
         assert_eq!(
             1546300800000.to_timestamp_repr(),
-            // "2019-01-01T00:00:00+00:00"
-            "2019-01-01T00:00:00"
+            "2019-01-01T00:00:00+00:00"
         );
     }
 
