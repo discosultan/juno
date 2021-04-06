@@ -3,7 +3,7 @@ mod storage;
 
 use crate::{
     math::floor_multiple_offset,
-    time::{deserialize_timestamp, serialize_timestamp, TimestampIntExt},
+    time::{deserialize_timestamp, serialize_timestamp, IntervalIntExt, TimestampIntExt},
     // utils::generate_missing_spans,
 };
 use serde::{Deserialize, Serialize};
@@ -37,12 +37,32 @@ impl AddAssign<&Candle> for Candle {
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("missing candle(s) from the start of the period; cannot fill; start {start}, current {current}")]
-    MissingStartCandles { start: String, current: String },
     #[error(
-        "missing candle(s) from the end of the period; cannot fill; current {current}, end {end}"
+        "missing {exchange} {symbol} {} candle(s) from the start of the period; cannot fill; start {}, current {}",
+        .interval.to_interval_repr(),
+        .start.to_timestamp_repr(),
+        .current.to_timestamp_repr()
     )]
-    MissingEndCandles { current: String, end: String },
+    MissingStartCandles {
+        exchange: String,
+        symbol: String,
+        interval: u64,
+        start: u64,
+        current: u64,
+    },
+    #[error(
+        "missing {exchange} {symbol} {} candle(s) from the end of the period; cannot fill; current {}, end {}",
+        .interval.to_interval_repr(),
+        .current.to_timestamp_repr(),
+        .end.to_timestamp_repr()
+    )]
+    MissingEndCandles {
+        exchange: String,
+        symbol: String,
+        interval: u64,
+        current: u64,
+        end: u64,
+    },
     #[error("{0}")]
     Storage(#[from] storage::Error),
     #[error("{0}")]
@@ -73,7 +93,7 @@ pub async fn list_candles_fill_missing(
     let start = floor_multiple_offset(start, interval, interval_offset);
     let end = floor_multiple_offset(end, interval, interval_offset);
     let candles = list_candles_internal(exchange, symbol, interval, start, end).await?;
-    fill_missing_candles(exchange, interval, start, end, &candles)
+    fill_missing_candles(exchange, symbol, interval, start, end, &candles)
 }
 
 async fn list_candles_internal(
@@ -114,6 +134,7 @@ async fn list_candles_internal(
 
 pub(crate) fn fill_missing_candles(
     exchange: &str,
+    symbol: &str,
     interval: u64,
     candle_start: u64,
     candle_end: u64,
@@ -134,8 +155,11 @@ pub(crate) fn fill_missing_candles(
             match prev_candle {
                 None => {
                     return Err(Error::MissingStartCandles {
-                        start: start.to_timestamp_repr(),
-                        current: candle.time.to_timestamp_repr(),
+                        exchange: exchange.to_owned(),
+                        symbol: symbol.to_owned(),
+                        interval,
+                        start,
+                        current: candle.time,
                     })
                 }
                 Some(ref c) => candles_filled.push(Candle {
@@ -163,8 +187,11 @@ pub(crate) fn fill_missing_candles(
 
     if current != end {
         return Err(Error::MissingEndCandles {
-            current: current.to_timestamp_repr(),
-            end: end.to_timestamp_repr(),
+            exchange: exchange.to_owned(),
+            symbol: symbol.to_owned(),
+            interval,
+            current,
+            end,
         });
     }
     assert_eq!(candles_filled.len(), length);
@@ -233,7 +260,7 @@ mod tests {
             },
         ];
 
-        let output = fill_missing_candles("exchange", 1, 0, 3, &input);
+        let output = fill_missing_candles("exchange", "eth-btc", 1, 0, 3, &input);
 
         assert!(output.is_ok());
         let output = output.unwrap();

@@ -39,8 +39,8 @@ async def log_first_last(chandler: Chandler, symbol: str, interval: int) -> None
         f'got the following {symbol} {strfinterval(interval)} candles at '
         f'{strftimestamp(time_ms())}:'
     )
-    logging.info(f'    first - {strftimestamp(first_candle.time)}')
-    logging.info(f'    last  - {strftimestamp(last_candle.time)}')
+    logging.info(f'    first - {strftimestamp(first_candle.time)} ({first_candle.time})')
+    logging.info(f'    last  - {strftimestamp(last_candle.time)} ({last_candle.time})')
 
 
 asyncio.run(main())
