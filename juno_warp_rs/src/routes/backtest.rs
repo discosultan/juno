@@ -1,6 +1,9 @@
 use super::custom_reject;
 use anyhow::{Error, Result};
-use futures::future::{try_join, try_join_all};
+use futures::{
+    future::{try_join, try_join_all},
+    TryFutureExt,
+};
 use juno_rs::{
     candles,
     statistics::Statistics,
@@ -66,16 +69,18 @@ async fn process(args: Params) -> Result<reply::Json> {
 }
 
 async fn backtest(args: &Params, symbol: &str) -> Result<TradingSummary> {
-    let candles = candles::list_candles(
+    let exchange_info_task = storage::get_exchange_info(&args.exchange).map_err(Error::from);
+    let candles_task = candles::list_candles(
         &args.exchange,
         symbol,
         args.trading.trader.interval,
         args.start,
         args.end,
     )
-    .await?;
-    let interval_offsets = candles::map_interval_offsets();
-    let exchange_info = storage::get_exchange_info(&args.exchange)?;
+    .map_err(Error::from);
+
+    let (exchange_info, candles) = try_join(exchange_info_task, candles_task).await?;
+    let interval_offsets = candles::map_interval_offsets(&args.exchange);
 
     Ok(trade(
         &args.trading,

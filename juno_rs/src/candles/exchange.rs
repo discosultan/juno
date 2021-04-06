@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use super::Candle;
 use crate::{time::IntervalIntExt, utils::page};
 use once_cell::sync::Lazy;
@@ -35,11 +37,11 @@ static BINANCE_INTERVAL_OFFSETS: Lazy<HashMap<u64, u64>> = Lazy::new(|| {
     .collect()
 });
 
-pub fn map_interval_offsets() -> HashMap<u64, u64> {
+pub fn map_interval_offsets(_exchange: &str) -> HashMap<u64, u64> {
     BINANCE_INTERVAL_OFFSETS.clone()
 }
 
-pub fn get_interval_offset(interval: u64) -> u64 {
+pub fn get_interval_offset(_exchange: &str, interval: u64) -> u64 {
     BINANCE_INTERVAL_OFFSETS
         .get(&interval)
         .map(|interval| *interval)

@@ -4,7 +4,7 @@ mod storage;
 use crate::{
     math::floor_multiple_offset,
     time::{deserialize_timestamp, serialize_timestamp, TimestampIntExt},
-    utils::generate_missing_spans,
+    // utils::generate_missing_spans,
 };
 use serde::{Deserialize, Serialize};
 use std::ops::AddAssign;
@@ -56,7 +56,7 @@ pub async fn list_candles(
     start: u64,
     end: u64,
 ) -> Result<Vec<Candle>> {
-    let interval_offset = get_interval_offset(interval);
+    let interval_offset = get_interval_offset(exchange, interval);
     let start = floor_multiple_offset(start, interval, interval_offset);
     let end = floor_multiple_offset(end, interval, interval_offset);
     list_candles_internal(exchange, symbol, interval, start, end).await
@@ -69,11 +69,11 @@ pub async fn list_candles_fill_missing(
     start: u64,
     end: u64,
 ) -> Result<Vec<Candle>> {
-    let interval_offset = get_interval_offset(interval);
+    let interval_offset = get_interval_offset(exchange, interval);
     let start = floor_multiple_offset(start, interval, interval_offset);
     let end = floor_multiple_offset(end, interval, interval_offset);
     let candles = list_candles_internal(exchange, symbol, interval, start, end).await?;
-    fill_missing_candles(interval, start, end, &candles)
+    fill_missing_candles(exchange, interval, start, end, &candles)
 }
 
 async fn list_candles_internal(
@@ -83,38 +83,43 @@ async fn list_candles_internal(
     start: u64,
     end: u64,
 ) -> Result<Vec<Candle>> {
-    let existing_spans = storage::list_candle_spans(exchange, symbol, interval, start, end).await?;
-    let missing_spans = generate_missing_spans(start, end, &existing_spans);
+    let candles = storage::list_candles(exchange, symbol, interval, start, end).await?;
+    Ok(candles)
 
-    let mut spans = existing_spans
-        .iter()
-        .map(|(start, end)| (start, end, true))
-        .chain(missing_spans.iter().map(|(start, end)| (start, end, false)))
-        .collect::<Vec<_>>();
-    spans.sort_by_key(|(start, _end, _exists)| *start);
+    // let existing_spans = storage::list_candle_spans(exchange, symbol, interval, start, end).await?;
+    // let missing_spans = generate_missing_spans(start, end, &existing_spans);
 
-    let mut result: Vec<Candle> = Vec::with_capacity(((end - start) / interval) as usize);
-    for (&span_start, &span_end, exist_locally) in spans {
-        let candles = if exist_locally {
-            storage::list_candles(exchange, symbol, interval, span_start, span_end).await?
-        } else {
-            let candles =
-                exchange::list_candles(symbol, interval, span_start, span_end).await?;
-            candles
-        };
-        result.extend(candles);
-    }
+    // let mut spans = existing_spans
+    //     .iter()
+    //     .map(|(start, end)| (start, end, true))
+    //     .chain(missing_spans.iter().map(|(start, end)| (start, end, false)))
+    //     .collect::<Vec<_>>();
+    // spans.sort_by_key(|(start, _end, _exists)| *start);
 
-    Ok(result)
+    // let mut result: Vec<Candle> = Vec::with_capacity(((end - start) / interval) as usize);
+    // for (&span_start, &span_end, exist_locally) in spans {
+    //     let candles = if exist_locally {
+    //         storage::list_candles(exchange, symbol, interval, span_start, span_end).await?
+    //     } else {
+    //         let candles =
+    //             exchange::list_candles(symbol, interval, span_start, span_end).await?;
+    //         // TODO: Insert to storage.
+    //         candles
+    //     };
+    //     result.extend(candles);
+    // }
+
+    // Ok(result)
 }
 
 pub(crate) fn fill_missing_candles(
+    exchange: &str,
     interval: u64,
     candle_start: u64,
     candle_end: u64,
     candles: &[Candle],
 ) -> Result<Vec<Candle>> {
-    let interval_offset = get_interval_offset(interval);
+    let interval_offset = get_interval_offset(exchange, interval);
     let start = floor_multiple_offset(candle_start, interval, interval_offset);
     let end = floor_multiple_offset(candle_end, interval, interval_offset);
     let length = ((end - start) / interval) as usize;
@@ -228,7 +233,7 @@ mod tests {
             },
         ];
 
-        let output = fill_missing_candles(1, 0, 3, &input);
+        let output = fill_missing_candles("exchange", 1, 0, 3, &input);
 
         assert!(output.is_ok());
         let output = output.unwrap();

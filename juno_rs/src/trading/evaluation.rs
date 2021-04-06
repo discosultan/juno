@@ -83,7 +83,7 @@ impl BasicEvaluation {
         evaluation_statistic: EvaluationStatistic,
         evaluation_aggregation: EvaluationAggregation,
     ) -> Result<Self> {
-        let exchange_info = storage::get_exchange_info(exchange)?;
+        let exchange_info = storage::get_exchange_info(exchange).await?;
         let stats_interval = time::DAY_MS;
         let symbol_ctxs = try_join_all(symbols.iter().map(|symbol| (symbol, &exchange_info)).map(
             |(symbol, exchange_info)| async move {
@@ -143,7 +143,7 @@ impl BasicEvaluation {
 
         Ok(Self {
             symbol_ctxs,
-            interval_offsets: candles::map_interval_offsets(),
+            interval_offsets: candles::map_interval_offsets(exchange),
             stats_interval,
             quote,
             evaluation_statistic,
