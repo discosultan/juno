@@ -14,14 +14,11 @@ pub async fn list_candle_spans(
 ) -> Result<Vec<(u64, u64)>> {
     let shard = format!("{}_{}_{}", exchange, symbol, interval);
     task::spawn_blocking(move || list_candle_spans_blocking(shard, start, end))
-        .await.map_err(|err| Error::Unknown(format!("{:?}", err)))?
+        .await
+        .map_err(|err| Error::Unknown(format!("{:?}", err)))?
 }
 
-fn list_candle_spans_blocking(
-    shard: String,
-    start: u64,
-    end: u64,
-) -> Result<Vec<(u64, u64)>> {
+fn list_candle_spans_blocking(shard: String, start: u64, end: u64) -> Result<Vec<(u64, u64)>> {
     let conn = connect(&shard)?;
     let mut stmt = conn
         .prepare("SELECT start, end FROM candle_span WHERE start < ? AND end > ? ORDER BY start")?;
@@ -38,14 +35,11 @@ pub async fn list_candles(
 ) -> Result<Vec<Candle>> {
     let shard = format!("{}_{}_{}", exchange, symbol, interval);
     task::spawn_blocking(move || list_candles_blocking(shard, start, end))
-        .await.map_err(|err| Error::Unknown(format!("{:?}", err)))?
+        .await
+        .map_err(|err| Error::Unknown(format!("{:?}", err)))?
 }
 
-fn list_candles_blocking(
-    shard: String,
-    start: u64,
-    end: u64,
-) -> Result<Vec<Candle>> {
+fn list_candles_blocking(shard: String, start: u64, end: u64) -> Result<Vec<Candle>> {
     let conn = connect(&shard)?;
     let mut stmt = conn.prepare(
         "SELECT time, open, high, low, close, volume FROM candle WHERE time >= ? AND time < ? \
@@ -62,4 +56,46 @@ fn list_candles_blocking(
         })
     })?;
     res.map(|r| r.map_err(|e| e.into())).collect()
+}
+
+pub async fn store_candles_and_span(
+    exchange: &str,
+    symbol: &str,
+    interval: u64,
+    start: u64,
+    end: u64,
+    items: &[Candle],
+) -> Result<()> {
+    // Even if items list is empty, we still want to store a span for the period!
+    if items.len() > 0 {
+        let first_time = items[0].time;
+        let last_time = items[items.len() - 1].time;
+        if start > first_time {
+            return Err(Error::Unknown(format!(
+                "Span start {} bigger than first item time {}",
+                start, first_time
+            )));
+        }
+        if end <= last_time {
+            return Err(Error::Unknown(format!(
+                "Span end {} smaller than or equal to last item time {}",
+                end, last_time
+            )));
+        }
+    }
+
+    let shard = format!("{}_{}_{}", exchange, symbol, interval);
+
+    task::spawn_blocking(move || store_candles_and_span_blocking(shard, start, end, items))
+        .await
+        .map_err(|err| Error::Unknown(format!("{:?}", err)))?
+}
+
+fn store_candles_and_span_blocking(
+    shard: String,
+    start: u64,
+    end: u64,
+    items: &[Candle],
+) -> Result<()> {
+    
 }
