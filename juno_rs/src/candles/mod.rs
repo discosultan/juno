@@ -67,6 +67,8 @@ pub enum Error {
     Storage(#[from] storage::Error),
     #[error("{0}")]
     Exchange(#[from] exchange::Error),
+    #[error("{0}")]
+    Reqwest(#[from] reqwest::Error),
 }
 
 pub async fn list_candles(
@@ -103,7 +105,20 @@ async fn list_candles_internal(
     start: u64,
     end: u64,
 ) -> Result<Vec<Candle>> {
-    let candles = storage::list_candles(exchange, symbol, interval, start, end).await?;
+    // let candles = storage::list_candles(exchange, symbol, interval, start, end).await?;
+    let client = reqwest::Client::new();
+    let candles = client.get("http://localhost:8080/candles")
+        .query(&[
+            ("exchange", exchange),
+            ("symbol", symbol),
+            ("interval", &interval.to_string()),
+            ("start", &start.to_string()),
+            ("end", &end.to_string()),
+        ])
+        .send()
+        .await?
+        .json()
+        .await?;
     Ok(candles)
 
     // let existing_spans = storage::list_candle_spans(exchange, symbol, interval, start, end).await?;
