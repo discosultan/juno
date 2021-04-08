@@ -1,6 +1,0 @@
-[workspace]
-members = [
-    "juno_derive_rs",
-    "juno_rs",
-    "juno_warp_rs",
-]

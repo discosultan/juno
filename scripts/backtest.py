@@ -4,11 +4,12 @@ import logging
 from decimal import Decimal
 from typing import Any
 
+# import yaml
 import juno.json as json
 from juno import MissedCandlePolicy, exchanges, stop_loss, strategies, take_profit
 from juno.asyncio import gather_dict
 from juno.components import Chandler, Informant
-from juno.config import format_as_config, from_env, init_instance, type_to_config
+from juno.config import format_as_config, from_env, init_instance
 from juno.statistics import CoreStatistics
 from juno.storages import SQLite
 from juno.time import DAY_MS, strptimestamp
@@ -57,16 +58,16 @@ async def main() -> None:
     informant = Informant(storage, [client])
     trader = Basic(chandler, informant)
     async with client, storage, chandler, informant:
-        stats = await gather_dict(
+        summaries_stats = await gather_dict(
             {type(strategy).__name__: backtest(trader, strategy) for strategy in STRATEGIES}
         )
 
     if args.dump:
-        with open('tests/data/strategies.json', 'w') as file:
-            json.dump(type_to_raw(stats), file, indent=4)
+        stats = {k: v[1] for k, v in summaries_stats.items()}
+        dump('strategies.json', type_to_raw(stats))
 
 
-async def backtest(trader: Basic, strategy: Any) -> CoreStatistics:
+async def backtest(trader: Basic, strategy: Any) -> tuple[TradingSummary, CoreStatistics]:
     state = await trader.initialize(BasicConfig(
         exchange=args.exchange,
         symbol='eth-btc',
@@ -91,15 +92,19 @@ async def backtest(trader: Basic, strategy: Any) -> CoreStatistics:
         adjust_start=False,
     ))
     summary = await trader.run(state)
-    # dump_summary(summary)
     stats = CoreStatistics.compose(summary)
     logging.info(format_as_config(stats))
-    return stats
+    return summary, stats
 
 
-def dump_summary(summary: TradingSummary) -> None:
-    with open('py_dump.json', 'w') as file:
-        json.dump(type_to_config(summary, TradingSummary), file, indent=4)
+def dump(name: str, data: Any) -> None:
+    with open(name, 'w') as file:
+        if name.endswith('.json'):
+            json.dump(data, file, indent=4)
+        # elif name.endswith('.yaml'):
+        #     yaml.dump(data, file, indent=4)
+        else:
+            raise NotImplementedError()
 
 
 asyncio.run(main())

@@ -10,7 +10,7 @@ from juno.utils import full_path
 @pytest.fixture(scope='module')
 def data():
     # Load inputs / expected outputs for all indicators.
-    with open(full_path(__file__, './data/indicators.yaml')) as f:
+    with open(full_path(__file__, './data/indicators_2021-04-08.yaml')) as f:
         return yaml.load(f, Loader=yaml.BaseLoader)
 
 
