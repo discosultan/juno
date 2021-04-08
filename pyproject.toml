@@ -1,0 +1,79 @@
+[tool.poetry]
+description = "Cryptocurrency trading bot"
+name = "juno"
+version = "0.5.0"
+
+license = "MIT"
+
+authors = [
+  "Jaanus Varus <jaanusvarus@gmail.com>",
+]
+
+readme = "README.md"
+
+homepage = "https://github.com/discosultan/juno"
+repository = "https://github.com/discosultan/juno"
+
+keywords = ["cryptocurrency", "trading"]
+
+[tool.poetry.dependencies]
+aiohttp = "*"
+aiolimiter = "*"
+colorlog = "*"
+mergedeep = "*"
+more-itertools = "*"
+multidict = "*"
+numpy = "*"
+pandas = "*"
+python = "^3.9"
+python-dateutil = "*"
+pytweening = "*"
+simplejson = "*"
+tenacity = "*"
+typing-inspect = "*"
+
+"discord.py" = {version = "*", optional = true}
+plotly = {version = "*", optional = true}
+slack_sdk = {version = "*", optional = true}
+
+[tool.poetry.dev-dependencies]
+flake8 = "*"
+flake8-broken-line = "*"
+flake8-bugbear = "*"
+flake8-comprehensions = "*"
+flake8-isort = "*"
+flake8-quotes = "*"
+isort = "*"
+mypy = "*"
+pytest = "*"
+pytest-aiohttp = "*"
+pytest-lazy-fixture = "*"
+pytest-mock = "*"
+pyyaml = "*"
+rope = "*"
+yapf = "*"
+
+[tool.poetry.extras]
+discord = ["discord.py"]
+plotly = ["plotly"]
+slack = ["slack_sdk"]
+
+[tool.poetry.scripts]
+main = "juno:main"
+
+# [tool.black]
+# line-length = 99
+# target-version = ["py39"]
+
+# [tool.isort]
+# ensure_newline_before_comments = true
+# force_grid_wrap = 0
+# include_trailing_comma = true
+# line_length = 99
+# use_parentheses = true
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "info"
+markers = ["manual", "exchange", "plugin"]
+testpaths = ["tests"]

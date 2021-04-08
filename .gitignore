@@ -4,6 +4,7 @@
 .mypy_cache
 .pytest_cache
 build/
+poetry.lock
 
 # Rust
 **/*.rs.bk
