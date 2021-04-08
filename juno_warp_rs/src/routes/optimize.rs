@@ -1,14 +1,17 @@
 use super::custom_reject;
 use anyhow::{Error, Result};
-use futures::future::{try_join, try_join_all};
+use futures::{
+    future::{try_join, try_join_all},
+    TryFutureExt,
+};
 use juno_rs::{
-    chandler,
+    candles,
     genetics::{
         crossover, mutation, reinsertion, selection, Chromosome, Evolution, GeneticAlgorithm,
         Individual,
     },
     statistics::Statistics,
-    storages,
+    storage,
     time::{deserialize_timestamp, DAY_MS},
     trading::{
         trade, BasicEvaluation, EvaluationAggregation, EvaluationStatistic, TradingParams,
@@ -193,16 +196,18 @@ async fn backtest(
     symbol: &str,
     chromosome: &TradingParams,
 ) -> Result<TradingSummary> {
-    let candles = chandler::list_candles(
+    let exchange_info_task = storage::get_exchange_info(&args.exchange).map_err(Error::from);
+    let candles_task = candles::list_candles(
         &args.exchange,
         symbol,
         chromosome.trader.interval,
         args.start,
         args.end,
     )
-    .await?;
-    let interval_offsets = chandler::map_interval_offsets();
-    let exchange_info = storages::get_exchange_info(&args.exchange)?;
+    .map_err(Error::from);
+
+    let (exchange_info, candles) = try_join(exchange_info_task, candles_task).await?;
+    let interval_offsets = candles::map_interval_offsets(&args.exchange);
 
     Ok(trade(
         &chromosome,
@@ -222,7 +227,7 @@ async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Res
     let stats_interval = DAY_MS;
 
     // Stats base.
-    let stats_candles_task = chandler::list_candles_fill_missing(
+    let stats_candles_task = candles::list_candles_fill_missing(
         &args.exchange,
         symbol,
         stats_interval,
@@ -231,9 +236,9 @@ async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Res
     );
 
     // Stats quote (optional).
-    let stats_fiat_candles_task = chandler::list_candles_fill_missing(
-        "coinbase",
-        "btc-eur",
+    let stats_fiat_candles_task = candles::list_candles_fill_missing(
+        "binance",
+        "btc-usdt",
         stats_interval,
         args.start,
         args.end,
@@ -243,9 +248,9 @@ async fn get_stats(args: &Params, symbol: &str, summary: &TradingSummary) -> Res
         try_join(stats_candles_task, stats_fiat_candles_task).await?;
 
     // let stats_quote_prices = None;
-    let stats_quote_prices = Some(chandler::candles_to_prices(&stats_fiat_candles, None));
+    let stats_quote_prices = Some(candles::candles_to_prices(&stats_fiat_candles, None));
     let stats_base_prices =
-        chandler::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
+        candles::candles_to_prices(&stats_candles, stats_quote_prices.as_deref());
 
     let stats = Statistics::compose(
         &summary,

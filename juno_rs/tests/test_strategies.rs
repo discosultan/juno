@@ -2,10 +2,9 @@ use juno_rs::{
     indicators::{self, MAParams},
     statistics::CoreStatistics,
     stop_loss::{self, StopLossParams},
-    storages,
     strategies::{self, StrategyParams},
     take_profit::{self, TakeProfitParams},
-    time::{TimestampStrExt, DAY_MS},
+    time::DAY_MS,
     trading::{trade, MissedCandlePolicy, TraderParams, TradingParams, TradingSummary},
     Candle, ExchangeInfo,
 };
@@ -14,23 +13,22 @@ use std::{collections::HashMap, fs::File};
 
 static EXPECTED_STATS: Lazy<HashMap<String, CoreStatistics>> = Lazy::new(|| {
     // Relative to juno_rs dir.
-    let file =
-        File::open("../tests/data/strategies.json").expect("unable to open strategies data file");
-    serde_json::from_reader(file).expect("unable to deserialize strategy data")
+    let path = "../tests/data/strategies.json";
+    let file = File::open(path).expect("unable to open file");
+    serde_json::from_reader(file).expect("unable to deserialize json")
 });
 
 static EXCHANGE_INFO: Lazy<ExchangeInfo> =
-    Lazy::new(|| storages::get_exchange_info("binance").expect("unable to get exchange info"));
+    Lazy::new(|| {
+        let path = "./tests/data/binance_exchange_info.json";
+        let file = File::open(path).expect("unable to open file");
+        serde_json::from_reader(file).expect("unable to deserialize json")
+    });
 
 static CANDLES: Lazy<Vec<Candle>> = Lazy::new(|| {
-    storages::list_candles(
-        "binance",
-        "eth-btc",
-        DAY_MS,
-        "2018-01-01".to_timestamp(),
-        "2021-01-01".to_timestamp(),
-    )
-    .expect("unable to list candles")
+    let path = "./tests/data/binance_eth-btc_1d_2018-01-01_2021-01-01_candles.json";
+    let file = File::open(path).expect("unable to open file");
+    serde_json::from_reader(file).expect("unable to deserialize json")
 });
 
 #[test]

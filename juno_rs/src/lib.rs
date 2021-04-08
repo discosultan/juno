@@ -1,4 +1,4 @@
-pub mod chandler;
+pub mod candles;
 pub mod easing;
 pub mod filters;
 pub mod genetics;
@@ -7,18 +7,17 @@ pub mod itertools;
 pub mod math;
 pub mod statistics;
 pub mod stop_loss;
-pub mod storages;
+pub mod storage;
 pub mod strategies;
 pub mod take_profit;
 pub mod time;
 pub mod trading;
 pub mod utils;
 
-pub use crate::filters::Filters;
+pub use crate::{candles::Candle, filters::Filters};
 
-use crate::time::serialize_timestamp;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ops::AddAssign};
+use std::collections::HashMap;
 
 pub trait SymbolExt {
     fn assets(&self) -> (&str, &str);
@@ -55,26 +54,6 @@ pub enum Advice {
 pub struct BorrowInfo {
     pub daily_interest_rate: f64,
     pub limit: f64,
-}
-
-#[derive(Clone, Copy, Debug, Serialize, PartialEq)]
-pub struct Candle {
-    #[serde(serialize_with = "serialize_timestamp")]
-    pub time: u64,
-    pub open: f64,
-    pub high: f64,
-    pub low: f64,
-    pub close: f64,
-    pub volume: f64,
-}
-
-impl AddAssign<&Candle> for Candle {
-    fn add_assign(&mut self, other: &Self) {
-        self.high = f64::max(self.high, other.high);
-        self.low = f64::min(self.low, other.low);
-        self.close = other.close;
-        self.volume += other.volume;
-    }
 }
 
 #[derive(Deserialize, Serialize)]

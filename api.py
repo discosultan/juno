@@ -5,12 +5,13 @@ from typing import AsyncIterator
 from aiohttp import web
 
 import juno.json as json
-from juno.asyncio import gather_dict
+# from juno.asyncio import gather_dict
 from juno.components import Chandler
 from juno.exchanges import Binance
 from juno.logging import create_handlers
 from juno.storages import SQLite
-from juno.time import strpinterval, strptimestamp
+# from juno.time import strpinterval, strptimestamp
+from juno.typing import type_to_raw
 
 
 async def juno(app: web.Application) -> AsyncIterator[None]:
@@ -33,26 +34,43 @@ async def hello(request: web.Request) -> web.Response:
     return web.Response(text='Hello, world')
 
 
-@routes.post('/candles')
-async def candles(request: web.Request) -> web.Response:
+# @routes.post('/candles')
+# async def candles_public(request: web.Request) -> web.Response:
+#     chandler: Chandler = request.app['chandler']
+
+#     args = await request.json()
+#     interval = strpinterval(args['interval'])
+#     start = strptimestamp(args['start'])
+#     end = strptimestamp(args['end'])
+
+#     # TODO: type_to_raw
+#     result = await gather_dict(
+#         {s: chandler.list_candles(
+#             exchange=args['exchange'],
+#             symbol=s,
+#             interval=interval,
+#             start=start,
+#             end=end,
+#         ) for s in args['symbols']}
+#     )
+
+#     return web.json_response(result, dumps=json.dumps)
+
+
+@routes.get('/candles')
+async def candles_internal(request: web.Request) -> web.Response:
     chandler: Chandler = request.app['chandler']
+    query = request.query
 
-    args = await request.json()
-    interval = strpinterval(args['interval'])
-    start = strptimestamp(args['start'])
-    end = strptimestamp(args['end'])
-
-    result = await gather_dict(
-        {s: chandler.list_candles(
-            exchange=args['exchange'],
-            symbol=s,
-            interval=interval,
-            start=start,
-            end=end,
-        ) for s in args['symbols']}
+    result = await chandler.list_candles(
+        exchange=query['exchange'],
+        symbol=query['symbol'],
+        interval=int(query['interval']),
+        start=int(query['start']),
+        end=int(query['end']),
     )
 
-    return web.json_response(result, dumps=json.dumps)
+    return web.json_response(type_to_raw(result), dumps=json.dumps)
 
 
 logging.basicConfig(
