@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 
 from .errors import BadOrder
-from .math import round_half_up
+from juno.math import round_half_up
 
 
 @dataclass

@@ -11,16 +11,16 @@ from typing import AsyncIterable, Callable, Iterable, Optional
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type
 
 from juno import Candle, ExchangeException
-from juno.asyncio import first_async, list_async, stream_with_timeout
+from juno.asyncio import enumerate_async, first_async, list_async, stream_with_timeout
 from juno.exchanges import Exchange
 from juno.itertools import generate_missing_spans
 from juno.math import ceil_multiple_offset, floor_multiple_offset
 from juno.storages import Storage
 from juno.tenacity import stop_after_attempt_with_reset, wait_none_then_exponential
-from juno.time import MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
+from juno.time import DAY_MS, MAX_TIME_MS, strfinterval, strfspan, strftimestamp, time_ms
 from juno.utils import AbstractAsyncContextManager, key, unpack_assets
 
-from .trades import Trades
+# from .trades import Trades
 
 _log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class Chandler(AbstractAsyncContextManager):
         self,
         storage: Storage,
         exchanges: list[Exchange],
-        trades: Optional[Trades] = None,
+        # trades: Optional[Trades] = None,
         get_time_ms: Callable[[], int] = time_ms,
         storage_batch_size: int = 1000,
         earliest_exchange_start: int = 1293840000000,  # 2011-01-01
@@ -42,7 +42,7 @@ class Chandler(AbstractAsyncContextManager):
 
         self._storage = storage
         self._exchanges = {type(e).__name__.lower(): e for e in exchanges}
-        self._trades = trades
+        # self._trades = trades
         self._get_time_ms = get_time_ms
         self._storage_batch_size = storage_batch_size
         self._earliest_exchange_start = earliest_exchange_start
@@ -643,3 +643,101 @@ class Chandler(AbstractAsyncContextManager):
 
     def get_interval_offset(self, exchange: str, interval: int) -> int:
         return self.map_candle_intervals(exchange).get(interval, 0)
+
+    # In the returned prices, the first price is always the opening price of the first candle.
+    # When matching with end of period results, don't forget to offset price index by one.
+    async def map_asset_prices_for_candles(
+        self,
+        exchange: str,
+        symbols: Iterable[str],
+        start: int,
+        end: int,
+        interval: int = DAY_MS,
+        fiat_exchange: Optional[str] = None,
+        fiat_asset: str = 'usdt',
+    ) -> dict[str, list[Decimal]]:
+        """Maps all assets found in symbols to their fiat prices."""
+        interval_offset = self.get_interval_offset(exchange, interval)
+        start = floor_multiple_offset(start, interval, interval_offset)
+        end = floor_multiple_offset(end, interval, interval_offset)
+
+        fiat_exchange = fiat_exchange or exchange
+
+        result: dict[str, list[Decimal]] = {}
+
+        # Quote -> fiat.
+        quote_fiat_symbols = {
+            f'{q}-{fiat_asset}' if q != fiat_asset else f'{b}-{q}'
+            for b, q in map(unpack_assets, symbols)
+        }
+
+        # Validate we have enough data.
+        await asyncio.gather(
+            *(self._validate_start(fiat_exchange, s, interval, start) for s in quote_fiat_symbols),
+        )
+
+        # Gather prices.
+        async def assign(symbol: str) -> None:
+            assert fiat_exchange
+            quote_asset, _fiat_asset = unpack_assets(symbol)
+            assert quote_asset not in result
+            quote_prices: list[Decimal] = []
+            async for candle in self._chandler.stream_candles(
+                fiat_exchange, symbol, interval, start, end, fill_missing_with_last=True
+            ):
+                if len(quote_prices) == 0:
+                    quote_prices.append(candle.open)
+                quote_prices.append(candle.close)
+            result[quote_asset] = quote_prices
+        await asyncio.gather(*(assign(s) for s in quote_fiat_symbols))
+
+        # Base -> fiat.
+        base_quote_symbols = [s for s in set(symbols) if unpack_assets(s)[0] not in result]
+
+        # Validate we have enough data.
+        await asyncio.gather(
+            *(self._validate_start(exchange, s, interval, start) for s in base_quote_symbols),
+        )
+
+        # Gather prices.
+        async def assign_with_prices(symbol: str) -> None:
+            base_asset, quote_asset = unpack_assets(symbol)
+            assert base_asset not in result
+            base_prices: list[Decimal] = []
+            quote_prices = result[quote_asset]
+            async for price_i, candle in enumerate_async(self._chandler.stream_candles(
+                exchange, symbol, interval, start, end, fill_missing_with_last=True
+            ), 1):
+                if len(base_prices) == 0:
+                    base_prices.append(
+                        candle.open
+                        * (quote_prices[0] if quote_asset != fiat_asset else Decimal('1.0'))
+                    )
+                base_prices.append(
+                    candle.close
+                    * (quote_prices[price_i] if quote_asset != fiat_asset else Decimal('1.0'))
+                )
+            result[base_asset] = base_prices
+        await asyncio.gather(*(assign_with_prices(s) for s in base_quote_symbols))
+
+        # Add fiat currency itself to prices if it's specified as a quote of any symbol.
+        if fiat_asset in (q for _, q in map(unpack_assets, symbols)):
+            result[fiat_asset] = [Decimal('1.0')] * (((end - start) // interval) + 1)
+
+        # # Validate we have enough data points.
+        # num_points = (end - start) // interval
+        # for asset, prices in result.items():
+        #     if len(prices) != num_points:
+        #         raise ValueError(
+        #             f'Expected {num_points} price points for {asset} but got {len(prices)}'
+        #         )
+
+        return result
+
+    async def _validate_start(self, exchange: str, symbol: str, interval: int, start: int) -> None:
+        first = await self.get_first_candle(exchange, symbol, interval)
+        if first.time > start:
+            raise ValueError(
+                f'Unable to map prices; first candle for {symbol} at {strftimestamp(first.time)} '
+                f'but requested start at {strftimestamp(start)}'
+            )

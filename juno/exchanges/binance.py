@@ -15,19 +15,19 @@ from typing import Any, AsyncIterable, AsyncIterator, Optional
 import aiohttp
 from multidict import MultiDict
 from tenacity import (
-    before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+    Retrying, before_sleep_log, retry, retry_if_exception_type, stop_after_attempt,
+    wait_exponential,
 )
 
 from juno import (
-    AssetInfo, BadOrder, Balance, BorrowInfo, Candle, Depth, ExchangeException, ExchangeInfo, Fees,
-    Fill, Order, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, OrderWouldBeTaker,
-    Side, Ticker, TimeInForce, Trade, json
+    AssetInfo, BadOrder, Balance, BorrowInfo, Depth, ExchangeException, ExchangeInfo, Fees, Fill,
+    Order, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, OrderWouldBeTaker, Side,
+    Ticker, TimeInForce, Trade, json
 )
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
 from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
 from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
-from juno.itertools import page
-from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, strfinterval, time_ms
+from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, time_ms
 from juno.typing import ExcType, ExcValue, Traceback
 from juno.utils import AsyncLimiter, unpack_assets
 
@@ -56,13 +56,91 @@ _ERR_ISOLATED_MARGIN_ACCOUNT_EXISTS = -11004
 _log = logging.getLogger(__name__)
 
 
+class Session:
+    def __init__(self) -> None:
+        self._session = ClientSession(
+            raise_for_status=False,
+            name=type(self).__name__,
+            # Optionally, if we don't want to handle ServerDisconnectedError due to keep-alive
+            # expiring, we can set this header. We will lose some perf tho, because a new SSL
+            # handshake is performed for every request.
+            # https://github.com/aio-libs/aiohttp/issues/850
+            # headers={'Connection': 'close'},
+        )
+        # Rate limiters.
+        x = 1.5  # We use this factor to be on the safe side and not use up the entire bucket.
+        self._reqs_per_min_limiter = AsyncLimiter(1200, 60 * x)
+        self._raw_reqs_limiter = AsyncLimiter(5000, 300 * x)
+
+    async def __aenter__(self) -> Session:
+        await self._session.__aenter__()
+        return self
+
+    async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
+        await self._session.__aexit__(exc_type, exc, tb)
+
+    async def request_json(self, method: str, url: str, weight: int, **kwargs: Any) -> Any:
+        async with self.request(method, url, weight, **kwargs) as response:
+            response.raise_for_status()
+            return await response.json()
+
+    @asynccontextmanager
+    async def request(
+        self, method: str, url: str, weight: int, **kwargs: Any
+    ) -> AsyncIterator[ClientResponse]:
+        await asyncio.gather(
+            self._raw_reqs_limiter.acquire(),
+            self._reqs_per_min_limiter.acquire(weight),
+        )
+        # Note that we need to use a context manager based retrying because retry decorators do not
+        # work with async generator functions.
+        for attempt in Retrying(
+            stop=stop_after_attempt(2),
+            retry=retry_if_exception_type(aiohttp.ServerConnectionError),
+            before_sleep=before_sleep_log(_log, logging.WARNING),
+        ):
+            with attempt:
+                async with self._session.request(method=method, url=url, **kwargs) as response:
+                    # https://github.com/binance/binance-spot-api-docs/blob/master/rest-api.md#http-return-codes
+                    if response.status == 504:
+                        raise ExchangeException('Timeout')
+                    if response.status == 503:
+                        raise ExchangeException('Service unavailable')
+                    if response.status == 500:
+                        raise ExchangeException('Unhandled')
+                    if response.status == 429:
+                        if (retry_after := response.headers.get('Retry-After')):
+                            _log.info(f'server provided retry-after {retry_after}; sleeping')
+                            await asyncio.sleep(float(retry_after))
+                        raise ExchangeException('Rate-limit')
+                    if response.status == 418:
+                        raise Exception('Banned')
+                    yield response
+
+    @asynccontextmanager
+    async def connect_refreshing_stream(
+        self, url: str, interval: int, name: str, raise_on_disconnect: bool = False
+    ) -> AsyncIterator[AsyncIterable[Any]]:
+        try:
+            async with connect_refreshing_stream(
+                self._session,
+                url=_BASE_WS_URL + url,
+                interval=interval,
+                loads=json.loads,
+                take_until=lambda old, new: old['E'] < new['E'],
+                name=name,
+                raise_on_disconnect=raise_on_disconnect
+            ) as stream:
+                yield stream
+        except (aiohttp.WSServerHandshakeError, aiohttp.WebSocketError) as e:
+            _log.warning(f'{name} web socket exc: {e}')
+            raise ExchangeException(str(e))
+
+
 class Binance(Exchange):
     # Capabilities.
     can_stream_balances: bool = True
     can_stream_depth_snapshot: bool = False
-    can_stream_historical_candles: bool = True
-    can_stream_historical_earliest_candle: bool = True
-    can_stream_candles: bool = True
     can_list_all_tickers: bool = True
     can_margin_trade: bool = True
     can_place_order_market_quote: bool = True
@@ -110,25 +188,6 @@ class Binance(Exchange):
             self._clock.__aexit__(exc_type, exc, tb),
         )
         await self._session.__aexit__(exc_type, exc, tb)
-
-    def map_candle_intervals(self) -> dict[int, int]:
-        return {
-            60000: 0,  # 1m
-            180000: 0,  # 3m
-            300000: 0,  # 5m
-            900000: 0,  # 15m
-            1800000: 0,  # 30m
-            3600000: 0,  # 1h
-            7200000: 0,  # 2h
-            14400000: 0,  # 4h
-            21600000: 0,  # 6h
-            28800000: 0,  # 8h
-            43200000: 0,  # 12h
-            86400000: 0,  # 1d
-            259200000: 0,  # 3d
-            604800000: 345600000,  # 1w 4d
-            2629746000: 2541726000,  # 1M 4w1d10h2m6s
-        }
 
     async def get_exchange_info(self) -> ExchangeInfo:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
@@ -560,62 +619,6 @@ class Binance(Exchange):
         if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
         await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
-
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
-        limit = 1000  # Max possible candles per request.
-        binance_interval = strfinterval(interval)
-        binance_symbol = _to_http_symbol(symbol)
-        # Start 0 is a special value indicating that we try to find the earliest available candle.
-        pagination_interval = interval
-        if start == 0:
-            pagination_interval = end - start
-        for page_start, page_end in page(start, end, pagination_interval, limit):
-            _, content = await self._api_request(
-                'GET',
-                '/api/v3/klines',
-                data={
-                    'symbol': binance_symbol,
-                    'interval': binance_interval,
-                    'startTime': page_start,
-                    'endTime': page_end - 1,
-                    'limit': limit
-                }
-            )
-            for c in content:
-                # Binance can return bad candles where the time does not fall within the requested
-                # interval. For example, the second candle of the following query has bad time:
-                # https://api.binance.com/api/v1/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
-                yield Candle(
-                    c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
-                    Decimal(c[5]), True
-                )
-
-    @asynccontextmanager
-    async def connect_stream_candles(
-        self, symbol: str, interval: int
-    ) -> AsyncIterator[AsyncIterable[Candle]]:
-        # Binance disconnects a websocket connection every 24h. Therefore, we reconnect every 12h.
-        # Note that two streams will send events with matching evt_times.
-        # This can be used to switch from one stream to another and avoiding the edge case where
-        # we miss out on the very last update to a candle.
-
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
-            async for data in ws:
-                c = data['k']
-                yield Candle(
-                    c['t'], Decimal(c['o']), Decimal(c['h']), Decimal(c['l']), Decimal(c['c']),
-                    Decimal(c['v']), c['x']
-                )
-
-        async with self._connect_refreshing_stream(
-            url=f'/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
-            interval=12 * HOUR_SEC,
-            name='candles',
-            raise_on_disconnect=True
-        ) as ws:
-            yield inner(ws)
 
     async def stream_historical_trades(
         self, symbol: str, start: int, end: int

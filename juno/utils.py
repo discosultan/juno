@@ -5,11 +5,12 @@ import itertools
 import logging
 import random
 import traceback
+from collections import defaultdict
 from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Iterator, Optional, Sequence, TypeVar, get_type_hints
+from typing import Any, Awaitable, Callable, Iterator, Optional, Sequence, TypeVar, get_type_hints
 
 import aiolimiter
 
@@ -196,3 +197,23 @@ class AsyncLimiter(aiolimiter.AsyncLimiter):
 class AbstractAsyncContextManager(contextlib.AbstractAsyncContextManager):
     async def __aexit__(self, exc_type: ExcType, exc_value: ExcValue, tb: Traceback) -> None:
         pass
+
+
+class Events:
+    def __init__(self) -> None:
+        self._handlers: dict[tuple[str, str], list[Callable[..., Awaitable[None]]]] = (
+            defaultdict(list)
+        )
+
+    def on(self, channel: str, event: str) -> Callable[[Callable[..., Awaitable[None]]], None]:
+        def _on(func: Callable[..., Awaitable[None]]) -> None:
+            self._handlers[(channel, event)].append(func)
+
+        return _on
+
+    async def emit(self, channel: str, event: str, *args: Any) -> list[Any]:
+        handlers = self._handlers[(channel, event)]
+        results = await asyncio.gather(*(h(*args) for h in handlers), return_exceptions=True)
+        for e in (r for r in results if isinstance(r, Exception)):
+            _log.error(exc_traceback(e))
+        return results
