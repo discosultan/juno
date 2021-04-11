@@ -1,5 +1,6 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from typing import Type
 
 import aiohttp
 import pytest
@@ -11,7 +12,7 @@ from juno import (
 )
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
-from juno.exchanges import Binance, Coinbase, Exchange, Kraken
+from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken
 from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.typing import types_match
 from juno.utils import list_concretes_from_module
@@ -19,6 +20,14 @@ from juno.utils import list_concretes_from_module
 exchange_types = list_concretes_from_module(juno.exchanges, Exchange)
 exchanges = [lazy_fixture(e.__name__.lower()) for e in exchange_types]
 exchange_ids = [e.__name__ for e in exchange_types]
+
+
+def parametrize_exchanges(name: str, exchange_types: list[Type[Exchange]]):
+    return pytest.mark.parametrize(
+        name,
+        [lazy_fixture(e.__name__.lower()) for e in exchange_types],
+        ids=[e.__name__ for e in exchange_types],
+    )
 
 
 # We use a session-scoped loop for shared rate-limiting.
@@ -41,6 +50,12 @@ async def coinbase(loop, config):
 
 
 @pytest.fixture(scope='session')
+async def gateio(loop, config):
+    async with GateIO() as exchange:
+        yield exchange
+
+
+@pytest.fixture(scope='session')
 async def kraken(loop, config):
     async with try_init_exchange(Kraken, config) as exchange:
         yield exchange
@@ -48,7 +63,8 @@ async def kraken(loop, config):
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+# @pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchanges('exchange', [Binance, Coinbase, GateIO, Kraken])
 async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
