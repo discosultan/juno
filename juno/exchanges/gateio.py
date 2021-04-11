@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
 import time
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from types import TracebackType
 from typing import Any, AsyncIterable, AsyncIterator, Optional
 
+import juno.json as json
 from juno.common import (
     Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, Side, OrderResult, OrderStatus,
     OrderType, OrderUpdate, TimeInForce
 )
+from juno.errors import OrderMissing, OrderWouldBeTaker
 from juno.filters import Price, Size
 from juno.http import ClientSession
 
@@ -17,11 +21,13 @@ from .exchange import Exchange
 
 # https://www.gate.io/docs/apiv4/en/index.html#gate-api-v4
 _API_URL = 'https://api.gateio.ws/api/v4'
-_WS_URL = 'wss://api.gateio.ws/ws/v4'
+_WS_URL = 'wss://api.gateio.ws/ws/v4/'
 
 
 class GateIO(Exchange):
-    def __init__(self, high_precision: bool = True) -> None:
+    def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
+        self._api_key = api_key
+        self._secret_key_bytes = secret_key.encode('utf-8')
         self._high_precision = high_precision
         self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
 
@@ -88,7 +94,13 @@ class GateIO(Exchange):
     ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
         # https://www.gateio.pro/docs/apiv4/ws/index.html#changed-order-book-levels
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
-            async for data in ws:
+            async for msg in ws:
+                data = json.loads(msg.data)
+
+                if data['channel'] != 'spot.order_book_update' or data['event'] != 'update':
+                    continue
+
+                data = data['result']
                 yield Depth.Update(
                     bids=[(Decimal(price), Decimal(size)) for price, size in data['b']],
                     asks=[(Decimal(price), Decimal(size)) for price, size in data['a']],
@@ -119,49 +131,31 @@ class GateIO(Exchange):
         client_id: Optional[str] = None,
     ) -> OrderResult:
         assert account == 'spot'
-        raise NotImplementedError()
+        assert time_in_force is None
+        assert quote is None
+        assert size is not None
+        assert price is not None
 
-        # data: dict[str, Any] = {
-        #     'symbol': _to_symbol(symbol),
-        #     'side': _to_side(side),
-        #     'type': _to_order_type(type_),
-        # }
-        # if size is not None:
-        #     data['quantity'] = _to_decimal(size)
-        # if quote is not None:
-        #     data['quoteOrderQty'] = _to_decimal(quote)
-        # if price is not None:
-        #     data['price'] = _to_decimal(price)
-        # if time_in_force is not None:
-        #     data['timeInForce'] = _to_time_in_force(time_in_force)
-        # if client_id is not None:
-        #     data['newClientOrderId'] = client_id
-        # if account not in ['spot', 'margin']:
-        #     data['isIsolated'] = 'TRUE'
-        # url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
-        # _, content = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
+        data: dict[str, Any] = {
+            'currency_pair': _to_symbol(symbol),
+            'type': _to_order_type(type_),
+            'side': _to_side(side),
+            'time_in_force': _to_time_in_force(type_),
+            'price': _to_decimal(price),
+            'amount': _to_decimal(size),
+        }
+        if client_id is not None:
+            data['text'] = f't-{client_id}'
 
-        # # In case of LIMIT_MARKET order, the following are not present in the response:
-        # # - status
-        # # - cummulativeQuoteQty
-        # # - fills
-        # total_quote = Decimal(q) if (q := content.get('cummulativeQuoteQty')) else Decimal('0.0')
-        # return OrderResult(
-        #     time=content['transactTime'],
-        #     status=(
-        #         _from_order_status(status) if (status := content.get('status'))
-        #         else OrderStatus.NEW
-        #     ),
-        #     fills=[
-        #         Fill(
-        #             price=(p := Decimal(f['price'])),
-        #             size=(s := Decimal(f['qty'])),
-        #             quote=(p * s).quantize(total_quote),
-        #             fee=Decimal(f['commission']),
-        #             fee_asset=f['commissionAsset'].lower()
-        #         ) for f in content.get('fills', [])
-        #     ]
-        # )
+        content = await self._request_json_signed('POST', '/spot/orders', data=data)
+
+        if content['status'] == 'cancelled':
+            raise OrderWouldBeTaker()
+
+        return OrderResult(
+            time=int(content['createTime']) * 1000,
+            status=OrderStatus.NEW,
+        )
 
     async def cancel_order(
         self,
@@ -169,17 +163,19 @@ class GateIO(Exchange):
         symbol: str,
         client_id: str,
     ) -> None:
+        # NB! Custom client id will not be available anymore if the order has been up for more than
+        # 30 min.
         assert account == 'spot'
-        raise NotImplementedError()
 
-        # url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
-        # data = {
-        #     'symbol': _to_symbol(symbol),
-        #     'origClientOrderId': client_id,
-        # }
-        # if account not in ['spot', 'margin']:
-        #     data['isIsolated'] = 'TRUE'
-        # await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
+        params = {
+            'currency_pair': _to_symbol(symbol),
+        }
+
+        await self._request_json_signed(
+            'DELETE',
+            f'/spot/orders/{client_id}',
+            params=params,
+        )
 
     @asynccontextmanager
     async def connect_stream_orders(
@@ -312,6 +308,40 @@ class GateIO(Exchange):
             result = await response.json()
         return result
 
+    async def _request_json_signed(
+        self,
+        method: str,
+        url: str,
+        params: Optional[dict[str, str]] = None,
+        data: Optional[dict[str, str]] = None,
+    ) -> Any:
+        query_string = None
+        if params is not None:
+            query_string = json.dumps(params)
+
+        payload_string = None
+        if data is not None:
+            payload_string = json.dumps(data)
+
+        headers = self._gen_sign(method, _API_URL + url, query_string, payload_string)
+        return await self._request_json(method, url, headers=headers, data=data)
+
+    def _gen_sign(
+        self,
+        method: str,
+        url: str,
+        query_string: Optional[str] = None,
+        payload_string: Optional[str] = None,
+    ) -> dict[str, str]:
+        # https://www.gate.io/docs/apiv4/en/index.html#api-signature-string-generation
+        t = time.time()
+        m = hashlib.sha512()
+        m.update((payload_string or '').encode('utf-8'))
+        hashed_payload = m.hexdigest()
+        s = f'{method}\n{url}\n{query_string or ""}\n{hashed_payload}\n{t}'
+        sign = hmac.new(self._secret_key_bytes, s.encode('utf-8'), hashlib.sha512).hexdigest()
+        return {'KEY': self._api_key, 'Timestamp': str(t), 'SIGN': sign}
+
 
 def _from_symbol(symbol: str) -> str:
     return symbol.lower().replace('_', '-')
@@ -319,3 +349,34 @@ def _from_symbol(symbol: str) -> str:
 
 def _to_symbol(symbol: str) -> str:
     return symbol.upper().replace('-', '_')
+
+
+def _to_order_type(type: OrderType) -> str:
+    if type in [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]:
+        # We control the order behavior through TimeInForce instead.
+        return 'limit'
+    raise NotImplementedError()
+
+
+def _to_time_in_force(type: OrderType) -> str:
+    if type is OrderType.LIMIT:
+        return 'gtc'
+    if type is OrderType.LIMIT_MAKER:
+        return 'poc'
+    if type is OrderType.MARKET:
+        return 'ioc'
+    raise NotImplementedError()
+
+
+def _to_side(side: Side) -> str:
+    if side is Side.BUY:
+        return 'buy'
+    if side is Side.SELL:
+        return 'sell'
+    raise NotImplementedError()
+
+
+def _to_decimal(value: Decimal) -> str:
+    # Converts from scientific notation.
+    # 6.4E-7 -> 0.0000_0064
+    return f'{value:f}'

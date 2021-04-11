@@ -1,11 +1,10 @@
 import logging
-import uuid
 from decimal import Decimal
 from typing import Callable, Optional
 
 from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.components import Informant, Orderbook, User
-from juno.utils import unpack_assets
+from juno.utils import short_uuid4, unpack_assets
 
 from .broker import Broker
 
@@ -21,7 +20,9 @@ class Market2(Broker):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
+        # We use a shorter UUID string representation because not all exchanges (GateIO, ie) don't
+        # support the full length of regular UUID representation.
+        get_client_id: Callable[[], str] = short_uuid4
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook

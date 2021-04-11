@@ -5,11 +5,13 @@ import itertools
 import logging
 import random
 import traceback
+from base64 import b64encode
 from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Iterator, Optional, Sequence, TypeVar, get_type_hints
+from uuid import uuid4
 
 import aiolimiter
 
@@ -163,6 +165,13 @@ def get_module_type(module: ModuleType, name: str) -> type[Any]:
     if len(found_members) > 1:
         raise ValueError(f'Found more than one type named "{name}" in module "{module.__name__}".')
     return found_members[0][1]
+
+
+def short_uuid4() -> str:
+    uuid_bytes = uuid4().bytes
+    uuid_bytes_b64 = b64encode(uuid_bytes)
+    uuid_b64 = uuid_bytes_b64.decode('ascii')
+    return uuid_b64
 
 
 class AsyncLimiter(aiolimiter.AsyncLimiter):

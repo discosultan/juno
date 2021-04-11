@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import operator
-import uuid
 from decimal import Decimal
 from typing import AsyncIterable, Callable, NamedTuple, Optional
 
@@ -11,7 +10,7 @@ from juno import (
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook, User
-from juno.utils import unpack_assets
+from juno.utils import short_uuid4, unpack_assets
 
 from .broker import Broker
 
@@ -53,7 +52,9 @@ class Limit(Broker):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        get_client_id: Callable[[], str] = lambda: str(uuid.uuid4()),
+        # We use a shorter UUID string representation because not all exchanges (GateIO, ie) don't
+        # support the full length of regular UUID representation.
+        get_client_id: Callable[[], str] = short_uuid4,
         cancel_order_on_error: bool = True,
         order_placement_strategy: str = 'leading',  # leading or matching
     ) -> None:
