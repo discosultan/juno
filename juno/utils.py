@@ -1,11 +1,11 @@
 import asyncio
+import base64
 import contextlib
 import inspect
 import itertools
 import logging
 import random
 import traceback
-from base64 import b64encode
 from dataclasses import asdict, is_dataclass, make_dataclass
 from os import path
 from pathlib import Path
@@ -169,9 +169,9 @@ def get_module_type(module: ModuleType, name: str) -> type[Any]:
 
 def short_uuid4() -> str:
     uuid_bytes = uuid4().bytes
-    uuid_bytes_b64 = b64encode(uuid_bytes)
+    uuid_bytes_b64 = base64.urlsafe_b64encode(uuid_bytes)
     uuid_b64 = uuid_bytes_b64.decode('ascii')
-    return uuid_b64
+    return uuid_b64[:-2]  # Remove '==' suffix from the end.
 
 
 class AsyncLimiter(aiolimiter.AsyncLimiter):

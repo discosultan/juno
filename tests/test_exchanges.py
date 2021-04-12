@@ -269,7 +269,7 @@ async def test_cancel_order_order_missing(loop, request, exchange: Exchange) -> 
         await exchange.cancel_order(
             account='spot',
             symbol='eth-btc',
-            client_id='MWCF6FF1SducGg66c4aXtw==',
+            client_id='NX_aMl6YTm--TqXcFx1-GA',
         )
 
 

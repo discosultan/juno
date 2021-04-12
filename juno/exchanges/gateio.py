@@ -134,19 +134,20 @@ class GateIO(Exchange):
         assert time_in_force is None
         assert quote is None
         assert size is not None
-        assert price is not None
+        # assert price is not None  # Required by doc but what about marker order?
 
         data: dict[str, Any] = {
             'currency_pair': _to_symbol(symbol),
             'type': _to_order_type(type_),
             'side': _to_side(side),
             'time_in_force': _to_time_in_force(type_),
-            'price': _to_decimal(price),
+            # 'price': _to_decimal(price),
             'amount': _to_decimal(size),
         }
         if client_id is not None:
             data['text'] = f't-{client_id}'
-
+        if price is not None:
+            data['price'] = _to_decimal(price),
         content = await self._request_json_signed('POST', '/spot/orders', data=data)
 
         if content['status'] == 'cancelled':
@@ -315,30 +316,33 @@ class GateIO(Exchange):
         params: Optional[dict[str, str]] = None,
         data: Optional[dict[str, str]] = None,
     ) -> Any:
-        query_string = None
-        if params is not None:
-            query_string = json.dumps(params)
-
-        payload_string = None
-        if data is not None:
-            payload_string = json.dumps(data)
-
-        headers = self._gen_sign(method, _API_URL + url, query_string, payload_string)
+        headers = self._gen_sign(method, url, params=params, data=data)
         return await self._request_json(method, url, headers=headers, data=data)
 
     def _gen_sign(
         self,
         method: str,
         url: str,
-        query_string: Optional[str] = None,
-        payload_string: Optional[str] = None,
+        params: Optional[dict[str, str]] = None,
+        data: Optional[dict[str, str]] = None,
     ) -> dict[str, str]:
+        query_string = None
+        if params is not None:
+            query_string = json.dumps(params, separators=(',', ':'))
+        import logging
+        logging.critical(query_string)
+
+        payload_string = None
+        if data is not None:
+            payload_string = json.dumps(data, separators=(',', ':'))
+        logging.critical(payload_string)
+
         # https://www.gate.io/docs/apiv4/en/index.html#api-signature-string-generation
         t = time.time()
         m = hashlib.sha512()
         m.update((payload_string or '').encode('utf-8'))
         hashed_payload = m.hexdigest()
-        s = f'{method}\n{url}\n{query_string or ""}\n{hashed_payload}\n{t}'
+        s = f'{method}\n{_API_URL + url}\n{query_string or ""}\n{hashed_payload}\n{t}'
         sign = hmac.new(self._secret_key_bytes, s.encode('utf-8'), hashlib.sha512).hexdigest()
         return {'KEY': self._api_key, 'Timestamp': str(t), 'SIGN': sign}
 
