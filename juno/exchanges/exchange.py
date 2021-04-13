@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Optional
+from uuid import uuid4
 
 from juno import (
     Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side, Ticker,
@@ -19,6 +20,10 @@ class Exchange(ABC):
     can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
     can_margin_trade: bool = False
     can_place_order_market_quote: bool = False  # Whether market order accepts quote param.
+
+    @staticmethod
+    def generate_client_id() -> str:
+        return str(uuid4())
 
     @abstractmethod
     def map_candle_intervals(self) -> dict[int, int]:  # interval: offset

@@ -7,20 +7,22 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from types import TracebackType
 from typing import Any, AsyncIterable, AsyncIterator, Optional
+from urllib.parse import urlencode
 
 import juno.json as json
 from juno.common import (
-    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, Side, OrderResult, OrderStatus,
-    OrderType, OrderUpdate, TimeInForce
+    Balance, Candle, Depth, ExchangeInfo, Fees, Fill, Filters, OrderResult, OrderStatus, OrderType,
+    OrderUpdate, Side, TimeInForce
 )
 from juno.errors import OrderMissing, OrderWouldBeTaker
 from juno.filters import Price, Size
-from juno.http import ClientSession
+from juno.http import ClientResponse, ClientSession
+from juno.utils import short_uuid4
 
 from .exchange import Exchange
 
 # https://www.gate.io/docs/apiv4/en/index.html#gate-api-v4
-_API_URL = 'https://api.gateio.ws/api/v4'
+_API_URL = 'https://api.gateio.ws'
 _WS_URL = 'wss://api.gateio.ws/ws/v4/'
 
 
@@ -29,7 +31,11 @@ class GateIO(Exchange):
         self._api_key = api_key
         self._secret_key_bytes = secret_key.encode('utf-8')
         self._high_precision = high_precision
-        self._session = ClientSession(raise_for_status=True, name=type(self).__name__)
+        self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
+
+    @staticmethod
+    def generate_client_id() -> str:
+        return short_uuid4()
 
     async def __aenter__(self) -> GateIO:
         await self._session.__aenter__()
@@ -45,7 +51,7 @@ class GateIO(Exchange):
 
     async def get_exchange_info(self) -> ExchangeInfo:
         # https://www.gate.io/docs/apiv4/en/index.html#list-all-currency-pairs-supported
-        content = await self._request_json('GET', '/spot/currency_pairs')
+        content = await self._request_json('GET', '/api/v4/spot/currency_pairs')
 
         fees, filters = {}, {}
         for pair in (c for c in content if c['trade_status'] == 'tradable'):
@@ -80,7 +86,7 @@ class GateIO(Exchange):
         # https://www.gate.io/docs/apiv4/en/index.html#retrieve-order-book
         content = await self._request_json(
             'GET',
-            '/spot/order_book',
+            '/api/v4/spot/order_book',
             params={'currency_pair': _to_symbol(symbol)},
         )
         return Depth.Snapshot(
@@ -92,12 +98,14 @@ class GateIO(Exchange):
     async def connect_stream_depth(
         self, symbol: str
     ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
+        channel = 'spot.order_book_update'
+
         # https://www.gateio.pro/docs/apiv4/ws/index.html#changed-order-book-levels
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
             async for msg in ws:
                 data = json.loads(msg.data)
 
-                if data['channel'] != 'spot.order_book_update' or data['event'] != 'update':
+                if data['channel'] != channel or data['event'] != 'update':
                     continue
 
                 data = data['result']
@@ -112,7 +120,7 @@ class GateIO(Exchange):
         async with self._session.ws_connect(_WS_URL) as ws:
             await ws.send_json({
                 'time': int(time.time()),
-                'channel': 'spot.order_book_update',
+                'channel': channel,
                 'event': 'subscribe',  # 'unsubscribe' for unsubscription
                 'payload': [_to_symbol(symbol), '100ms' if self._high_precision else '1000ms'],
             })
@@ -136,7 +144,7 @@ class GateIO(Exchange):
         assert size is not None
         # assert price is not None  # Required by doc but what about marker order?
 
-        data: dict[str, Any] = {
+        body: dict[str, Any] = {
             'currency_pair': _to_symbol(symbol),
             'type': _to_order_type(type_),
             'side': _to_side(side),
@@ -145,10 +153,10 @@ class GateIO(Exchange):
             'amount': _to_decimal(size),
         }
         if client_id is not None:
-            data['text'] = f't-{client_id}'
+            body['text'] = f't-{client_id}'
         if price is not None:
-            data['price'] = _to_decimal(price),
-        content = await self._request_json_signed('POST', '/spot/orders', data=data)
+            body['price'] = _to_decimal(price),
+        content = await self._request_signed_json('POST', '/api/v4/spot/orders', body=body)
 
         if content['status'] == 'cancelled':
             raise OrderWouldBeTaker()
@@ -172,69 +180,166 @@ class GateIO(Exchange):
             'currency_pair': _to_symbol(symbol),
         }
 
-        await self._request_json_signed(
+        async with self._request_signed(
             'DELETE',
-            f'/spot/orders/{client_id}',
+            f'/api/v4/spot/orders/{client_id}',
             params=params,
-        )
+        ) as response:
+            if response.status == 400:
+                content = await response.json()
+                raise OrderMissing(content['message'])
+
+            response.raise_for_status()
 
     @asynccontextmanager
     async def connect_stream_orders(
         self, account: str, symbol: str
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         assert account == 'spot'
-        raise NotImplementedError()
+        channel = 'spot.orders'
 
-        # async def inner(stream: AsyncIterable[dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
-        #     async for data in stream:
-        #         res_symbol = _from_symbol(data['s'])
-        #         if res_symbol != symbol:
-        #             continue
-        #         status = _from_order_status(data['X'])
-        #         if status is OrderStatus.NEW:
-        #             yield OrderUpdate.New(
-        #                 client_id=data['c'],
-        #             )
-        #         elif status is OrderStatus.PARTIALLY_FILLED:
-        #             yield OrderUpdate.Match(
-        #                 client_id=data['c'],
-        #                 fill=Fill(
-        #                     price=Decimal(data['L']),
-        #                     size=Decimal(data['l']),
-        #                     quote=Decimal(data['Y']),
-        #                     fee=Decimal(data['n']),
-        #                     fee_asset=data['N'].lower(),
-        #                 ),
-        #             )
-        #         elif status is OrderStatus.FILLED:
-        #             yield OrderUpdate.Match(
-        #                 client_id=data['c'],
-        #                 fill=Fill(
-        #                     price=Decimal(data['L']),
-        #                     size=Decimal(data['l']),
-        #                     quote=Decimal(data['Y']),
-        #                     fee=Decimal(data['n']),
-        #                     fee_asset=data['N'].lower(),
-        #                 ),
-        #             )
-        #             yield OrderUpdate.Done(
-        #                 time=data['T'],  # Transaction time.
-        #                 client_id=data['c'],
-        #             )
-        #         elif status is OrderStatus.CANCELLED:
-        #             # 'c' is client order id, 'C' is original client order id. 'C' is usually empty
-        #             # except for when an order gets cancelled; in that case 'c' has a new value.
-        #             yield OrderUpdate.Cancelled(
-        #                 time=data['T'],
-        #                 client_id=data['C'],
-        #             )
-        #         else:
-        #             raise NotImplementedError(data)
+        # https://www.gateio.pro/docs/apiv4/ws/index.html#client-subscription-7
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
+            async for msg in ws:
+                data = json.loads(msg.data)
+                event = data['event']
 
-        # # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#order-update
-        # user_data_stream = await self._get_user_data_stream(account)
-        # async with user_data_stream.subscribe('executionReport') as stream:
-        #     yield inner(stream)
+                if data['channel'] != channel or event not in ['put', 'update', 'finish']:
+                    continue
+
+                data = data['result']
+                client_id = data['text'][2:]
+                if event == 'put':
+                    yield OrderUpdate.New(client_id=client_id)
+                elif event == 'update':
+                    yield OrderUpdate.Match(
+                        client_id=client_id,
+                        fill=Fill(
+                            price=Decimal(data['price']),
+                            size=Decimal(data['amount']),
+                            fee=Decimal(data['fee']),
+                            fee_asset=data['fee_currency'].lower(),
+                        ),
+                    )
+                elif event == 'finish':
+                    time = data['update_time'] * 1000
+                    if data['left'] == '0':
+                        yield OrderUpdate.Done(
+                            client_id=client_id,
+                            time=time,
+                        )
+                    else:
+                        yield OrderUpdate.Cancelled(
+                            client_id=client_id,
+                            time=time,
+                        )
+                else:
+                    raise NotImplementedError()
+
+        # TODO: unsubscribe
+        async with self._session.ws_connect(_WS_URL) as ws:
+            time_sec = int(time.time())
+            event = 'subscribe'  # 'unsubscribe' for unsubscription
+            await ws.send_json({
+                'time': time_sec,
+                'channel': channel,
+                'event': event,
+                'payload': [_to_symbol(symbol)],  # Can pass '!all' for all symbols.
+                'auth': self._gen_ws_sign(channel, event, time_sec),
+            })
+            yield inner(ws)
+
+    @asynccontextmanager
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        headers: Optional[dict[str, str]] = None,
+        **kwargs,
+    ) -> AsyncIterator[ClientResponse]:
+        if headers is None:
+            headers = {}
+        headers.update({'Accept': 'application/json', 'Content-Type': 'application/json'})
+
+        async with self._session.request(
+            method=method,
+            url=_API_URL + url,
+            headers=headers,
+            **kwargs,
+        ) as response:
+            yield response
+
+    @asynccontextmanager
+    async def _request_signed(
+        self,
+        method: str,
+        url: str,
+        params: Optional[dict[str, str]] = None,
+        body: Optional[dict[str, str]] = None,
+    ) -> AsyncIterator[ClientResponse]:
+        data = None
+        if body is not None:
+            data = json.dumps(body, separators=(',', ':'))
+
+        query_string = None
+        if params is not None:
+            query_string = urlencode(params)
+
+        headers = self._gen_sign(method, url, query_string=query_string, data=data)
+
+        if query_string is not None:
+            url += f'?{query_string}'
+
+        async with self._request(method, url, headers, data=data) as response:
+            yield response
+
+    async def _request_json(
+        self,
+        method: str,
+        url: str,
+        headers: Optional[dict[str, str]] = None,
+        **kwargs,
+    ) -> Any:
+        async with self._request(
+            method=method,
+            url=url,
+            headers=headers,
+            **kwargs,
+        ) as response:
+            response.raise_for_status()
+            return await response.json()
+
+    async def _request_signed_json(
+        self,
+        method: str,
+        url: str,
+        params: Optional[dict[str, str]] = None,
+        body: Optional[dict[str, str]] = None,
+    ) -> Any:
+        async with self._request_signed(method, url, params=params, body=body) as response:
+            response.raise_for_status()
+            return await response.json()
+
+    def _gen_sign(
+        self,
+        method: str,
+        url: str,
+        query_string: Optional[str] = None,
+        data: Optional[str] = None,
+    ) -> dict[str, str]:
+        # https://www.gate.io/docs/apiv4/en/index.html#api-signature-string-generation
+        t = time.time()
+        m = hashlib.sha512()
+        m.update((data or '').encode('utf-8'))
+        hashed_payload = m.hexdigest()
+        s = f'{method}\n{url}\n{query_string or ""}\n{hashed_payload}\n{t}'
+        sign = hmac.new(self._secret_key_bytes, s.encode('utf-8'), hashlib.sha512).hexdigest()
+        return {'KEY': self._api_key, 'Timestamp': str(t), 'SIGN': sign}
+
+    def _gen_ws_sign(self, channel: str, event: str, timestamp: int):
+        s = f'channel={channel}&event={event}&time={timestamp}'
+        sign = hmac.new(self._secret_key_bytes, s.encode('utf-8'), hashlib.sha512).hexdigest()
+        return {'method': 'api_key', 'KEY': self._api_key, 'SIGN': sign}
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         assert account == 'spot'
@@ -303,48 +408,6 @@ class GateIO(Exchange):
         #             c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
         #             Decimal(c[5]), True
         #         )
-
-    async def _request_json(self, method: str, url: str, **kwargs: Any) -> Any:
-        async with self._session.request(method=method, url=_API_URL + url, **kwargs) as response:
-            result = await response.json()
-        return result
-
-    async def _request_json_signed(
-        self,
-        method: str,
-        url: str,
-        params: Optional[dict[str, str]] = None,
-        data: Optional[dict[str, str]] = None,
-    ) -> Any:
-        headers = self._gen_sign(method, url, params=params, data=data)
-        return await self._request_json(method, url, headers=headers, data=data)
-
-    def _gen_sign(
-        self,
-        method: str,
-        url: str,
-        params: Optional[dict[str, str]] = None,
-        data: Optional[dict[str, str]] = None,
-    ) -> dict[str, str]:
-        query_string = None
-        if params is not None:
-            query_string = json.dumps(params, separators=(',', ':'))
-        import logging
-        logging.critical(query_string)
-
-        payload_string = None
-        if data is not None:
-            payload_string = json.dumps(data, separators=(',', ':'))
-        logging.critical(payload_string)
-
-        # https://www.gate.io/docs/apiv4/en/index.html#api-signature-string-generation
-        t = time.time()
-        m = hashlib.sha512()
-        m.update((payload_string or '').encode('utf-8'))
-        hashed_payload = m.hexdigest()
-        s = f'{method}\n{_API_URL + url}\n{query_string or ""}\n{hashed_payload}\n{t}'
-        sign = hmac.new(self._secret_key_bytes, s.encode('utf-8'), hashlib.sha512).hexdigest()
-        return {'KEY': self._api_key, 'Timestamp': str(t), 'SIGN': sign}
 
 
 def _from_symbol(symbol: str) -> str:
