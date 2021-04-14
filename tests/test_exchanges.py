@@ -7,19 +7,25 @@ import pytest
 from pytest_lazyfixture import lazy_fixture
 
 from juno import (
-    BadOrder, Balance, Candle, Depth, ExchangeInfo, OrderMissing, OrderType, Side, Ticker, Trade
+    BadOrder, Balance, Candle, Depth, ExchangeInfo, OrderMissing, OrderType, Side, Ticker, Trade,
+    exchanges
 )
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
 from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken
 from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.typing import types_match
+from juno.utils import list_concretes_from_module
+
+exchange_type_fixtures = {
+    e: lazy_fixture(e.__name__.lower()) for e in list_concretes_from_module(exchanges, Exchange)
+}
 
 
 def parametrize_exchange(exchange_types: list[Type[Exchange]]):
     return pytest.mark.parametrize(
         'exchange',
-        [lazy_fixture(e.__name__.lower()) for e in exchange_types],
+        [exchange_type_fixtures[e] for e in exchange_types],
         ids=[e.__name__ for e in exchange_types],
     )
 
