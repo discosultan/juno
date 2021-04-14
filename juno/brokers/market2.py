@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Callable, Optional
+from typing import Optional
 
 from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.components import Informant, Orderbook, User
@@ -20,12 +20,10 @@ class Market2(Broker):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        get_client_id: Optional[Callable[[], str]] = None,
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._user = user
-        self._get_client_id = get_client_id
 
     async def buy(
         self,
@@ -104,7 +102,7 @@ class Market2(Broker):
             size = filters.size.round_down(size)
             filters.size.validate(size)
 
-        client_id = self._generate_client_id(exchange)
+        client_id = self._user.generate_client_id(exchange)
 
         async with self._user.connect_stream_orders(
             exchange=exchange, account=account, symbol=symbol
@@ -143,8 +141,3 @@ class Market2(Broker):
                     raise NotImplementedError(order)
 
         return OrderResult(time=time, status=OrderStatus.FILLED, fills=fills)
-
-    def _generate_client_id(self, exchange: str) -> str:
-        if self._get_client_id:
-            return self._get_client_id()
-        return self._user.generate_client_id(exchange)

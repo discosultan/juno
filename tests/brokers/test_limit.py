@@ -63,7 +63,8 @@ async def test_fill() -> None:
                 time=0,
                 client_id=order_client_id,
             )
-        ]
+        ],
+        client_id=order_client_id,
     )
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
@@ -114,7 +115,8 @@ async def test_partial_fill_adjust_fill() -> None:
                     fee_asset='eth',
                 ),
             ),
-        ]
+        ],
+        client_id=order_client_id,
     )
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
@@ -182,6 +184,7 @@ async def test_multiple_cancels() -> None:
     exchange = fakes.Exchange(
         depth=snapshot,
         exchange_info=exchange_info,
+        client_id=order_client_id,
     )
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
@@ -282,11 +285,12 @@ async def test_partial_fill_cancel_min_notional() -> None:
             min_notional=MinNotional(min_notional=Decimal('10.0')),
             price=Price(step=Decimal('1.0')),
             size=Size(step=Decimal('0.01')),
-        )}
+        )},
     )
     exchange = fakes.Exchange(
         depth=snapshot,
         exchange_info=exchange_info,
+        client_id=order_client_id,
     )
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
@@ -352,6 +356,7 @@ async def test_buy_places_at_highest_bid_if_no_spread() -> None:
     exchange = fakes.Exchange(
         depth=snapshot,
         exchange_info=exchange_info,
+        client_id=order_client_id,
     )
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
@@ -417,12 +422,12 @@ async def test_cancels_open_order_on_error(mocker) -> None:
     orders.put_nowait(OrderUpdate.New(client_id=client_id))
     user = mocker.patch('juno.components.User', autospec=True)
     user.connect_stream_orders.return_value.__aenter__.return_value = stream_queue(orders)
+    user.generate_client_id.return_value = client_id
 
     broker = Limit(
         informant=informant,
         orderbook=orderbook,
         user=user,
-        get_client_id=lambda: client_id,
         cancel_order_on_error=True,
     )
 
@@ -500,6 +505,7 @@ async def test_buy_matching_order_placement_strategy() -> None:
     exchange = fakes.Exchange(
         depth=snapshot,
         exchange_info=exchange_info,
+        client_id=order_client_id,
     )
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange, order_placement_strategy='matching') as broker:
@@ -610,7 +616,7 @@ async def init_broker(exchange: Exchange, **kwargs) -> AsyncIterator[Limit]:
     orderbook = Orderbook([exchange])
     user = User([exchange])
     async with memory, informant, orderbook, user:
-        broker = Limit(informant, orderbook, user, get_client_id=lambda: order_client_id, **kwargs)
+        broker = Limit(informant, orderbook, user, **kwargs)
         yield broker
 
 

@@ -28,6 +28,7 @@ async def test_buy() -> None:
     exchange = fakes.Exchange(
         depth=snapshot,
         exchange_info=exchange_info,
+        client_id=order_client_id,
     )
     exchange.can_stream_depth_snapshot = False
     async with init_broker(exchange) as broker:
@@ -74,7 +75,7 @@ async def init_broker(exchange: Exchange) -> AsyncIterator[Market2]:
     orderbook = Orderbook([exchange])
     user = User([exchange])
     async with memory, informant, orderbook, user:
-        broker = Market2(informant, orderbook, user, get_client_id=lambda: order_client_id)
+        broker = Market2(informant, orderbook, user)
         yield broker
 
 

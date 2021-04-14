@@ -33,8 +33,7 @@ class GateIO(Exchange):
         self._high_precision = high_precision
         self._session = ClientSession(raise_for_status=False, name=type(self).__name__)
 
-    @staticmethod
-    def generate_client_id() -> str:
+    def generate_client_id(self) -> str:
         return short_uuid4()
 
     async def __aenter__(self) -> GateIO:

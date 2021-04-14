@@ -48,7 +48,7 @@ class User:
         await cancel(*self._wallet_sync_tasks.values())
 
     def generate_client_id(self, exchange: str) -> str:
-        return type(self._exchanges[exchange]).generate_client_id()
+        return self._exchanges[exchange].generate_client_id()
 
     def can_place_market_order(self, exchange: str) -> bool:
         if exchange == '__all__':

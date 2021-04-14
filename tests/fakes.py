@@ -1,6 +1,7 @@
 import asyncio
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
 from juno import (
     AssetInfo, BorrowInfo, Candle, Depth, ExchangeInfo, Fees, Filters, OrderResult, OrderStatus,
@@ -34,6 +35,7 @@ class Exchange(exchanges.Exchange):
         place_order_result=OrderResult(time=0, status=OrderStatus.NEW),
         historical_trades=[],
         future_trades=[],
+        client_id=str(uuid4()),
     ):
         super().__init__()
 
@@ -71,6 +73,11 @@ class Exchange(exchanges.Exchange):
         self.trade_queue = asyncio.Queue()
         for future_trade in future_trades:
             self.trade_queue.put_nowait(future_trade)
+
+        self.client_id = client_id
+
+    def generate_client_id(self):
+        return self.client_id
 
     def map_candle_intervals(self):
         return self.candle_intervals
