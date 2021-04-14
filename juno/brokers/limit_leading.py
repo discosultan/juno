@@ -1,7 +1,6 @@
-from typing import Callable
+from typing import Callable, Optional
 
 from juno.components import Informant, Orderbook, User
-from juno.utils import short_uuid4
 
 from .limit import Limit
 
@@ -12,7 +11,7 @@ class LimitLeading(Limit):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        get_client_id: Callable[[], str] = short_uuid4,
+        get_client_id: Optional[Callable[[], str]] = None,
         cancel_order_on_error: bool = True,
     ) -> None:
         Limit.__init__(

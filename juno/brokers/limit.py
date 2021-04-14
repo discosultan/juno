@@ -10,7 +10,7 @@ from juno import (
 )
 from juno.asyncio import Event, cancel
 from juno.components import Informant, Orderbook, User
-from juno.utils import short_uuid4, unpack_assets
+from juno.utils import unpack_assets
 
 from .broker import Broker
 
@@ -52,9 +52,7 @@ class Limit(Broker):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        # We use a shorter UUID string representation because not all exchanges (GateIO, ie) don't
-        # support the full length of regular UUID representation.
-        get_client_id: Callable[[], str] = short_uuid4,
+        get_client_id: Optional[Callable[[], str]] = None,
         cancel_order_on_error: bool = True,
         order_placement_strategy: str = 'leading',  # leading or matching
     ) -> None:
@@ -162,7 +160,7 @@ class Limit(Broker):
         self, exchange: str, account: str, symbol: str, side: Side, ensure_size: bool,
         size: Optional[Decimal] = None, quote: Optional[Decimal] = None
     ) -> OrderResult:
-        client_id = self._get_client_id()
+        client_id = self._generate_client_id(exchange)
         if size is not None:
             if size == 0:
                 raise ValueError('Size specified but 0')
@@ -280,7 +278,7 @@ class Limit(Broker):
                     )
                     ctx.available += add_back
                     # Use a new client ID for new order.
-                    ctx.client_id = self._get_client_id()
+                    ctx.client_id = self._generate_client_id(exchange)
                     ctx.active_order = None
 
                 # No need to round price as we take it from existing orders.
@@ -375,6 +373,11 @@ class Limit(Broker):
                 f'failed to cancel {symbol} order {client_id}; probably got filled; {exc}'
             )
             return False
+
+    def _generate_client_id(self, exchange: str) -> str:
+        if self._get_client_id:
+            return self._get_client_id()
+        return self._user.generate_client_id(exchange)
 
 
 # Always tries to match the highest order. Pulls back if highest pulls back.

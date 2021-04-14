@@ -19,7 +19,8 @@ class Exchange(ABC):
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False  # Accepts empty symbols filter to retrieve all tickers.
     can_margin_trade: bool = False
-    can_place_order_market_quote: bool = False  # Whether market order accepts quote param.
+    can_place_market_order: bool = False
+    can_place_market_order_quote: bool = False  # Whether market order accepts quote param.
 
     @staticmethod
     def generate_client_id() -> str:

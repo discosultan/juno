@@ -139,23 +139,24 @@ class GateIO(Exchange):
         client_id: Optional[str] = None,
     ) -> OrderResult:
         assert account == 'spot'
-        assert time_in_force is None
+        assert type_ in [OrderType.LIMIT, OrderType.LIMIT_MAKER]
         assert quote is None
         assert size is not None
-        # assert price is not None  # Required by doc but what about marker order?
+        assert price is not None
+
+        ot, tif = _to_order_type_and_time_in_force(type_, time_in_force)
 
         body: dict[str, Any] = {
             'currency_pair': _to_symbol(symbol),
-            'type': _to_order_type(type_),
+            'type': ot,
             'side': _to_side(side),
-            'time_in_force': _to_time_in_force(type_),
-            # 'price': _to_decimal(price),
+            'price': _to_decimal(price),
             'amount': _to_decimal(size),
         }
         if client_id is not None:
             body['text'] = f't-{client_id}'
-        if price is not None:
-            body['price'] = _to_decimal(price),
+        if tif is not None:
+            body['time_in_force'] = tif
         content = await self._request_signed_json('POST', '/api/v4/spot/orders', body=body)
 
         if content['status'] == 'cancelled':
@@ -418,21 +419,26 @@ def _to_symbol(symbol: str) -> str:
     return symbol.upper().replace('-', '_')
 
 
-def _to_order_type(type: OrderType) -> str:
-    if type in [OrderType.LIMIT, OrderType.LIMIT_MAKER, OrderType.MARKET]:
-        # We control the order behavior through TimeInForce instead.
-        return 'limit'
-    raise NotImplementedError()
+def _to_order_type_and_time_in_force(
+    type: OrderType, time_in_force: Optional[TimeInForce]
+) -> tuple[str, Optional[str]]:
+    ot = 'limit'
+    tif = None
 
+    if type not in [OrderType.LIMIT, OrderType.LIMIT_MAKER]:
+        raise NotImplementedError()
 
-def _to_time_in_force(type: OrderType) -> str:
-    if type is OrderType.LIMIT:
-        return 'gtc'
     if type is OrderType.LIMIT_MAKER:
-        return 'poc'
-    if type is OrderType.MARKET:
-        return 'ioc'
-    raise NotImplementedError()
+        assert time_in_force is None
+        tif = 'poc'
+    elif time_in_force is TimeInForce.IOC:
+        tif = 'ioc'
+    elif time_in_force is TimeInForce.GTC:
+        tif = 'gtc'
+    elif time_in_force is TimeInForce.FOK:
+        raise NotImplementedError()
+
+    return ot, tif
 
 
 def _to_side(side: Side) -> str:

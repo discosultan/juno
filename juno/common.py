@@ -208,10 +208,10 @@ class OrderStatus(IntEnum):
 class OrderType(IntEnum):
     MARKET = 0
     LIMIT = 1
-    STOP_LOSS = 2
-    STOP_LOSS_LIMIT = 3
-    TAKE_PROFIT = 4
-    TAKE_PROFIT_LIMIT = 5
+    # STOP_LOSS = 2
+    # STOP_LOSS_LIMIT = 3
+    # TAKE_PROFIT = 4
+    # TAKE_PROFIT_LIMIT = 5
     LIMIT_MAKER = 6
 
 
@@ -264,7 +264,7 @@ class TimeInForce(IntEnum):
     FOK = 2
     # A Good-Til-Time orders remain open on the book until cancelled or the allotted time is
     # depleted on the matching engine.
-    GTT = 3
+    # GTT = 3
 
 
 class Trade(NamedTuple):

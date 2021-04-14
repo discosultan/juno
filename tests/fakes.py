@@ -16,7 +16,8 @@ class Exchange(exchanges.Exchange):
     can_stream_candles: bool = True
     can_list_all_tickers: bool = True
     can_margin_trade: bool = True
-    can_place_order_market_quote: bool = True
+    can_place_market_order: bool = True
+    can_place_market_order_quote: bool = True
 
     def __init__(
         self,

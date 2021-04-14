@@ -150,11 +150,6 @@ class Orderbook:
         # await cancel(*self._sync_tasks.values())
         pass
 
-    def can_place_order_market_quote(self, exchange: str) -> bool:
-        if exchange == '__all__':
-            return all(e.can_place_order_market_quote for e in self._exchanges.values())
-        return self._exchanges[exchange].can_place_order_market_quote
-
     @asynccontextmanager
     async def sync(self, exchange: str, symbol: str) -> AsyncIterator[SyncContext]:
         id_ = str(uuid.uuid4())
