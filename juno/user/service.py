@@ -47,6 +47,19 @@ class User:
     async def __aexit__(self, exc_type: ExcType, exc: ExcValue, tb: Traceback) -> None:
         await cancel(*self._wallet_sync_tasks.values())
 
+    def generate_client_id(self, exchange: str) -> str:
+        return self._exchanges[exchange].generate_client_id()
+
+    def can_place_market_order(self, exchange: str) -> bool:
+        if exchange == '__all__':
+            return all(e.can_place_market_order for e in self._exchanges.values())
+        return self._exchanges[exchange].can_place_market_order
+
+    def can_place_market_order_quote(self, exchange: str) -> bool:
+        if exchange == '__all__':
+            return all(e.can_place_market_order_quote for e in self._exchanges.values())
+        return self._exchanges[exchange].can_place_market_order_quote
+
     @asynccontextmanager
     async def sync_wallet(
         self, exchange: str, account: str

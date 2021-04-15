@@ -143,7 +143,8 @@ class Binance(Exchange):
     can_stream_depth_snapshot: bool = False
     can_list_all_tickers: bool = True
     can_margin_trade: bool = True
-    can_place_order_market_quote: bool = True
+    can_place_market_order: bool = True
+    can_place_market_order_quote: bool = True
 
     def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
         if not high_precision:
@@ -1250,10 +1251,10 @@ def _to_order_type(type_: OrderType) -> str:
     return {
         OrderType.MARKET: 'MARKET',
         OrderType.LIMIT: 'LIMIT',
-        OrderType.STOP_LOSS: 'STOP_LOSS',
-        OrderType.STOP_LOSS_LIMIT: 'STOP_LOSS_LIMIT',
-        OrderType.TAKE_PROFIT: 'TAKE_PROFIT',
-        OrderType.TAKE_PROFIT_LIMIT: 'TAKE_PROFIT_LIMIT',
+        # OrderType.STOP_LOSS: 'STOP_LOSS',
+        # OrderType.STOP_LOSS_LIMIT: 'STOP_LOSS_LIMIT',
+        # OrderType.TAKE_PROFIT: 'TAKE_PROFIT',
+        # OrderType.TAKE_PROFIT_LIMIT: 'TAKE_PROFIT_LIMIT',
         OrderType.LIMIT_MAKER: 'LIMIT_MAKER',
     }[type_]
 
@@ -1263,7 +1264,7 @@ def _to_time_in_force(time_in_force: TimeInForce) -> str:
         TimeInForce.GTC: 'GTC',
         TimeInForce.IOC: 'IOC',
         TimeInForce.FOK: 'FOK',
-        TimeInForce.GTT: 'GTT',
+        # TimeInForce.GTT: 'GTT',
     }[time_in_force]
 
 

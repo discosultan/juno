@@ -1,7 +1,6 @@
 import logging
-import uuid
 from decimal import Decimal
-from typing import Callable, Optional
+from typing import Optional
 
 from juno import Fill, OrderResult, OrderStatus, OrderType, OrderUpdate, Side
 from juno.components import Informant, Orderbook, User
@@ -21,12 +20,10 @@ class Market2(Broker):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        get_client_id: Callable[[], str] = lambda: str(uuid.uuid4())
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._user = user
-        self._get_client_id = get_client_id
 
     async def buy(
         self,
@@ -40,6 +37,9 @@ class Market2(Broker):
     ) -> OrderResult:
         assert not test
         Broker.validate_funds(size, quote)
+
+        if not self._user.can_place_market_order(exchange):
+            raise NotImplementedError()
 
         base_asset, quote_asset = unpack_assets(symbol)
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
@@ -57,7 +57,7 @@ class Market2(Broker):
                 f'buying {quote} {quote_asset} worth of {base_asset} with {symbol} market order '
                 f'({account} account)'
             )
-            if not self._orderbook.can_place_order_market_quote(exchange):
+            if not self._user.can_place_market_order_quote(exchange):
                 async with self._orderbook.sync(exchange, symbol) as orderbook:
                     fills = orderbook.find_order_asks(
                         quote=quote, fee_rate=fees.taker, filters=filters
@@ -82,6 +82,9 @@ class Market2(Broker):
         assert size  # TODO: support by quote
         Broker.validate_funds(size, quote)
 
+        if not self._user.can_place_market_order(exchange):
+            raise NotImplementedError()
+
         _log.info(f'selling {size} {symbol} with market order ({account} account)')
         return await self._fill(exchange, account, symbol, Side.SELL, size=size)
 
@@ -99,7 +102,7 @@ class Market2(Broker):
             size = filters.size.round_down(size)
             filters.size.validate(size)
 
-        client_id = self._get_client_id()
+        client_id = self._user.generate_client_id(exchange)
 
         async with self._user.connect_stream_orders(
             exchange=exchange, account=account, symbol=symbol
