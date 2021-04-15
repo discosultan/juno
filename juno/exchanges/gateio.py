@@ -48,39 +48,6 @@ class GateIO(Exchange):
     ) -> None:
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def get_exchange_info(self) -> ExchangeInfo:
-        # https://www.gate.io/docs/apiv4/en/index.html#list-all-currency-pairs-supported
-        content = await self._request_json('GET', '/api/v4/spot/currency_pairs')
-
-        fees, filters = {}, {}
-        for pair in (c for c in content if c['trade_status'] == 'tradable'):
-            symbol = _from_symbol(pair['id'])
-            # TODO: Take into account different fee levels. Currently only worst level.
-            fee = Decimal(pair['fee']) / 100
-            fees[symbol] = Fees(maker=fee, taker=fee)
-            filters[symbol] = Filters(
-                base_precision=pair['precision'],
-                quote_precision=pair['amount_precision'],
-                size=Size(
-                    min=(
-                        Decimal('0.0') if (min_base_amount := pair.get('min_base_amount')) is None
-                        else Decimal(min_base_amount)
-                    ),
-                ),
-                price=Price(
-                    min=(
-                        Decimal('0.0')
-                        if (min_quote_amount := pair.get('min_quote_amount')) is None
-                        else Decimal(min_quote_amount)
-                    ),
-                )
-            )
-
-        return ExchangeInfo(
-            fees=fees,
-            filters=filters,
-        )
-
     async def get_depth(self, symbol: str) -> Depth.Snapshot:
         # https://www.gate.io/docs/apiv4/en/index.html#retrieve-order-book
         content = await self._request_json(
@@ -341,76 +308,8 @@ class GateIO(Exchange):
         sign = hmac.new(self._secret_key_bytes, s.encode('utf-8'), hashlib.sha512).hexdigest()
         return {'method': 'api_key', 'KEY': self._api_key, 'SIGN': sign}
 
-    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
-        assert account == 'spot'
-        raise NotImplementedError()
-        # result = {}
-        # _, content = await self._api_request(
-        #     'GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA
-        # )
-        # result['spot'] = {
-        #     b['asset'].lower(): Balance(
-        #         available=Decimal(b['free']),
-        #         hold=Decimal(b['locked']),
-        #     )
-        #     for b in content['balances']
-        # }
-        # return result
 
-    def map_candle_intervals(self) -> dict[int, int]:
-        raise NotImplementedError()
-        # return {
-        #     60000: 0,  # 1m
-        #     180000: 0,  # 3m
-        #     300000: 0,  # 5m
-        #     900000: 0,  # 15m
-        #     1800000: 0,  # 30m
-        #     3600000: 0,  # 1h
-        #     7200000: 0,  # 2h
-        #     14400000: 0,  # 4h
-        #     21600000: 0,  # 6h
-        #     28800000: 0,  # 8h
-        #     43200000: 0,  # 12h
-        #     86400000: 0,  # 1d
-        #     259200000: 0,  # 3d
-        #     604800000: 345600000,  # 1w 4d
-        #     2629746000: 2541726000,  # 1M 4w1d10h2m6s
-        # }
-
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
-        raise NotImplementedError()
-        # limit = 1000  # Max possible candles per request.
-        # binance_interval = strfinterval(interval)
-        # binance_symbol = _to_http_symbol(symbol)
-        # # Start 0 is a special value indicating that we try to find the earliest available candle.
-        # pagination_interval = interval
-        # if start == 0:
-        #     pagination_interval = end - start
-        # for page_start, page_end in page(start, end, pagination_interval, limit):
-        #     _, content = await self._api_request(
-        #         'GET',
-        #         '/api/v3/klines',
-        #         data={
-        #             'symbol': binance_symbol,
-        #             'interval': binance_interval,
-        #             'startTime': page_start,
-        #             'endTime': page_end - 1,
-        #             'limit': limit
-        #         }
-        #     )
-        #     for c in content:
-        #         # Binance can return bad candles where the time does not fall within the requested
-        #         # interval. For example, the second candle of the following query has bad time:
-        #         # https://api.binance.com/api/v1/klines?symbol=ETHBTC&interval=4h&limit=10&startTime=1529971200000&endTime=1530000000000
-        #         yield Candle(
-        #             c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
-        #             Decimal(c[5]), True
-        #         )
-
-
-def _from_symbol(symbol: str) -> str:
+def from_symbol(symbol: str) -> str:
     return symbol.lower().replace('_', '-')
 
 

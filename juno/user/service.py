@@ -10,16 +10,17 @@ from typing import AsyncIterable, AsyncIterator, Optional
 
 from tenacity import Retrying, before_sleep_log, retry_if_exception_type, wait_exponential
 
-from juno import Balance, ExchangeException, OrderResult, OrderType, OrderUpdate, Side, TimeInForce
+from juno import ExchangeException
 from juno.asyncio import Event, cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.tenacity import stop_after_attempt_with_reset
 from juno.typing import ExcType, ExcValue, Traceback
+from juno.user import Balance, OrderResult, OrderType, OrderUpdate, Side, TimeInForce
 
 _log = logging.getLogger(__name__)
 
 
-class User:
+class Service:
     class WalletSyncContext:
         def __init__(self, balances: Optional[dict[str, Balance]] = None) -> None:
             self.balances = {} if balances is None else balances
@@ -34,10 +35,10 @@ class User:
         # Key: (exchange, account)
         self._wallet_sync_tasks: dict[tuple[str, str], asyncio.Task] = {}
         self._wallet_sync_ctxs: dict[
-            tuple[str, str], dict[str, User.WalletSyncContext]
+            tuple[str, str], dict[str, Service.WalletSyncContext]
         ] = defaultdict(dict)
 
-    async def __aenter__(self) -> User:
+    async def __aenter__(self) -> Service:
         await asyncio.gather(
             *(self._fetch_open_accounts(e) for e in self._exchanges.keys())
         )
@@ -71,7 +72,7 @@ class User:
         ctxs = self._wallet_sync_ctxs[key]
 
         if len(ctxs) == 0:
-            ctx = User.WalletSyncContext()
+            ctx = Service.WalletSyncContext()
             ctxs[id_] = ctx
             synced = asyncio.Event()
             self._wallet_sync_tasks[key] = create_task_sigint_on_exception(
@@ -79,7 +80,7 @@ class User:
             )
             await synced.wait()
         else:
-            ctx = User.WalletSyncContext(next(iter(ctxs.values())).balances)
+            ctx = Service.WalletSyncContext(next(iter(ctxs.values())).balances)
             ctxs[id_] = ctx
             # TODO: We also need to wait for initial sync here. Add a test for it.
 

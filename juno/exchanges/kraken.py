@@ -38,10 +38,6 @@ class Kraken(Exchange):
     # Capabilities.
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = True
-    can_stream_historical_candles: bool = False
-    can_stream_historical_earliest_candle: bool = False
-    can_stream_candles: bool = False
-    can_list_all_tickers: bool = False
     can_margin_trade: bool = False  # TODO: Actually can; need impl
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = False  # TODO: Can but only for non-leveraged orders
@@ -75,66 +71,9 @@ class Kraken(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def map_candle_intervals(self) -> dict[int, int]:
-        # TODO: Setup offsets.
-        return {
-            60000: 0,  # 1m
-            300000: 0,  # 5m
-            900000: 0,  # 15m
-            1800000: 0,  # 30m
-            3600000: 0,  # 1h
-            14400000: 0,  # 4h
-            86400000: 0,  # 1d
-            604800000: 0,  # 1w
-            1296000000: 0,  # 15d
-        }
+    
 
-    async def get_exchange_info(self) -> ExchangeInfo:
-        assets_res, symbols_res = await asyncio.gather(
-            self._request_public('GET', '/0/public/Assets'),
-            self._request_public('GET', '/0/public/AssetPairs'),
-        )
-
-        assets = {
-            _from_symbol(val['altname']): AssetInfo(precision=val['decimals'])
-            for val in assets_res['result'].values()
-        }
-
-        fees, filters = {}, {}
-        for val in symbols_res['result'].values():
-            name = _from_symbol(f'{val["base"][1:].lower()}-{val["quote"][1:].lower()}')
-            # TODO: Take into account different fee levels. Currently only worst level.
-            taker_fee = val['fees'][0][1] / 100
-            maker_fees = val.get('fees_maker')
-            fees[name] = Fees(
-                maker=maker_fees[0][1] / 100 if maker_fees else taker_fee,
-                taker=taker_fee
-            )
-            filters[name] = Filters(
-                base_precision=val['lot_decimals'],
-                quote_precision=val['pair_decimals'],
-            )
-
-        return ExchangeInfo(
-            assets=assets,
-            fees=fees,
-            filters=filters,
-        )
-
-    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
-        if not symbols:
-            raise ValueError('Empty symbols list not supported')
-
-        data = {'pair': ','.join((_to_http_symbol(s) for s in symbols))}
-
-        res = await self._request_public('GET', '/0/public/Ticker', data=data)
-        return {
-            _from_symbol(pair): Ticker(
-                volume=Decimal(val['v'][1]),
-                quote_volume=Decimal('0.0'),  # Not supported.
-                price=Decimal(val['c'][0]),
-            ) for pair, val in res['result'].items()
-        }
+    
 
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
@@ -148,39 +87,6 @@ class Kraken(Exchange):
         else:
             raise NotImplementedError()
         return result
-
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
-        yield  # type: ignore
-
-    @asynccontextmanager
-    async def connect_stream_candles(
-        self, symbol: str, interval: int
-    ) -> AsyncIterator[AsyncIterable[Candle]]:
-        # https://docs.kraken.com/websockets/#message-ohlc
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Candle]:
-            async for c in ws:
-                # TODO: Kraken doesn't publish candles for intervals where there are no trades.
-                # We should fill those caps ourselves.
-                # They also send multiple candles per interval. We need to determine when a candle
-                # is closed ourselves. Trickier than with Binance.
-                yield Candle(
-                    # They provide end and not start time, hence we subtract interval.
-                    time=int(Decimal(c[1]) * 1000) - interval,
-                    open=Decimal(c[2]),
-                    high=Decimal(c[3]),
-                    low=Decimal(c[4]),
-                    close=Decimal(c[5]),
-                    volume=Decimal(c[7]),
-                    closed=True,
-                )
-
-        async with self._public_ws.subscribe({
-            'name': 'ohlc',
-            'interval': interval // MIN_MS
-        }, [_to_ws_symbol(symbol)]) as ws:
-            yield inner(ws)
 
     @asynccontextmanager
     async def connect_stream_depth(
@@ -206,7 +112,7 @@ class Kraken(Exchange):
         async with self._public_ws.subscribe({
             'name': 'book',
             'depth': 10,
-        }, [_to_ws_symbol(symbol)]) as ws:
+        }, [to_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     @asynccontextmanager
@@ -256,7 +162,7 @@ class Kraken(Exchange):
                 'GET',
                 '/0/public/Trades',
                 {
-                    'pair': _to_http_symbol(symbol),
+                    'pair': to_http_symbol(symbol),
                     'since': since
                 },
                 cost=2,
@@ -290,7 +196,7 @@ class Kraken(Exchange):
                         size=Decimal(trade[1]),
                     )
 
-        async with self._public_ws.subscribe({'name': 'trade'}, [_to_ws_symbol(symbol)]) as ws:
+        async with self._public_ws.subscribe({'name': 'trade'}, [to_ws_symbol(symbol)]) as ws:
             yield inner(ws)
 
     async def _get_websockets_token(self) -> str:
@@ -484,22 +390,22 @@ def _validate_subscription_status(data: Any) -> None:
         raise Exception(data['errorMessage'])
 
 
-def _from_time(time: Decimal) -> int:
+def from_http_timestamp(time: Decimal) -> int:
     # Convert seconds to milliseconds.
     return int(time * 1000)
 
 
-def _from_ws_time(time: str) -> int:
+def from_ws_timestamp(time: str) -> int:
     # Convert seconds to milliseconds.
     return int(Decimal(time) * 1000)
 
 
-def _to_time(time: int) -> int:
+def to_http_timestamp(time: int) -> int:
     # Convert milliseconds to nanoseconds.
     return time * 1_000_000
 
 
-def _to_ws_symbol(symbol: str) -> str:
+def to_ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '/').upper()
 
 
@@ -510,11 +416,11 @@ ASSET_ALIAS_MAP = {
 REVERSE_ASSET_ALIAS_MAP = {v: k for k, v in ASSET_ALIAS_MAP.items()}
 
 
-def _to_http_symbol(symbol: str) -> str:
+def to_http_symbol(symbol: str) -> str:
     base, quote = unpack_assets(symbol)
     return f'{ASSET_ALIAS_MAP.get(base, base)}{ASSET_ALIAS_MAP.get(quote, quote)}'
 
 
-def _from_symbol(symbol: str) -> str:
+def from_http_symbol(symbol: str) -> str:
     base, quote = unpack_assets(symbol)
     return f'{REVERSE_ASSET_ALIAS_MAP.get(base, base)}-{REVERSE_ASSET_ALIAS_MAP.get(quote, quote)}'

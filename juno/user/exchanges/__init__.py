@@ -4,10 +4,7 @@ from decimal import Decimal
 from typing import AsyncIterable, AsyncIterator, Optional
 from uuid import uuid4
 
-from juno import (
-    Balance, Candle, Depth, ExchangeInfo, OrderResult, OrderType, OrderUpdate, Side, Ticker,
-    TimeInForce, Trade
-)
+from juno import Balance, OrderResult, OrderType, OrderUpdate, Side, TimeInForce
 
 
 class Exchange(ABC):
@@ -62,15 +59,6 @@ class Exchange(ABC):
         client_id: str,
     ) -> None:
         pass
-
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
-        yield  # type: ignore
-
-    @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
-        yield  # type: ignore
 
     async def transfer(
         self, asset: str, size: Decimal, from_account: str, to_account: str

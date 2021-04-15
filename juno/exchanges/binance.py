@@ -190,132 +190,6 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def get_exchange_info(self) -> ExchangeInfo:
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
-        fees_ret, filters_ret, isolated_pairs, margin_ret, isolated_ret = await asyncio.gather(
-            self._wapi_request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
-            self._api_request('GET', '/api/v3/exchangeInfo'),
-            self._list_symbols(isolated=True),
-            self._request_json(
-                method='GET',
-                url='https://www.binance.com/gateway-api/v1/friendly/margin/vip/spec/list-all',
-            ),
-            self._request_json(
-                method='GET',
-                url='https://www.binance.com/gateway-api/v1/public/isolated-margin/pair/vip-level',
-            )
-        )
-        _, fees_content = fees_ret
-        _, filters_content = filters_ret
-        _, margin_content = margin_ret
-        _, isolated_content = isolated_ret
-
-        # Process fees.
-        fees = {
-            _from_symbol(fee['symbol']):
-            Fees(maker=Decimal(fee['maker']), taker=Decimal(fee['taker']))
-            for fee in fees_content['tradeFee']
-        }
-
-        # Process borrow info.
-        # The data below is not available through official Binance API. We can get borrow limit but
-        # there is no way to get interest rate.
-        borrow_info = {
-            'margin': {
-                a['assetName'].lower(): BorrowInfo(
-                    daily_interest_rate=Decimal(s['dailyInterestRate']),
-                    limit=Decimal(s['borrowLimit']),
-                ) for a, s in ((a, a['specs'][0]) for a in margin_content['data'])
-            },
-        }
-        for p in isolated_content['data']:
-            base = p['base']
-            base_asset = base['assetName'].lower()
-            quote = p['quote']
-            quote_asset = quote['assetName'].lower()
-
-            base_levels = base['levelDetails']
-            if len(base_levels) == 0:
-                _log.info(
-                    f'no isolated margin borrow info for {base_asset}-{quote_asset} '
-                    f'{base_asset} asset'
-                )
-                continue
-            base_details = base_levels[0]
-
-            quote_levels = quote['levelDetails']
-            if len(quote_levels) == 0:
-                _log.info(
-                    f'no isolated margin borrow info for {base_asset}-{quote_asset} '
-                    f'{quote_asset} asset'
-                )
-                continue
-            quote_details = quote_levels[0]
-
-            borrow_info[f'{base_asset}-{quote_asset}'] = {
-                base_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(base_details['interestRate']),
-                    limit=Decimal(base_details['maxBorrowable']),
-                ),
-                quote_asset: BorrowInfo(
-                    daily_interest_rate=Decimal(quote_details['interestRate']),
-                    limit=Decimal(quote_details['maxBorrowable']),
-                ),
-            }
-
-        # Process symbol info.
-        isolated_pairs_set = set(isolated_pairs)
-        filters = {}
-        for symbol_info in filters_content['symbols']:
-            for f in symbol_info['filters']:
-                t = f['filterType']
-                if t == 'PRICE_FILTER':
-                    price = f
-                elif t == 'PERCENT_PRICE':
-                    percent_price = f
-                elif t == 'LOT_SIZE':
-                    lot_size = f
-                elif t == 'MIN_NOTIONAL':
-                    min_notional = f
-            assert all((price, percent_price, lot_size, min_notional))
-
-            symbol = f"{symbol_info['baseAsset'].lower()}-{symbol_info['quoteAsset'].lower()}"
-            filters[symbol] = Filters(
-                price=Price(
-                    min=Decimal(price['minPrice']),
-                    max=Decimal(price['maxPrice']),
-                    step=Decimal(price['tickSize'])
-                ),
-                percent_price=PercentPrice(
-                    multiplier_up=Decimal(percent_price['multiplierUp']),
-                    multiplier_down=Decimal(percent_price['multiplierDown']),
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
-                ),
-                size=Size(
-                    min=Decimal(lot_size['minQty']),
-                    max=Decimal(lot_size['maxQty']),
-                    step=Decimal(lot_size['stepSize'])
-                ),
-                min_notional=MinNotional(
-                    min_notional=Decimal(min_notional['minNotional']),
-                    apply_to_market=min_notional['applyToMarket'],
-                    avg_price_period=percent_price['avgPriceMins'] * MIN_MS
-                ),
-                base_precision=symbol_info['baseAssetPrecision'],
-                quote_precision=symbol_info['quoteAssetPrecision'],
-                spot='SPOT' in symbol_info['permissions'],
-                cross_margin='MARGIN' in symbol_info['permissions'],
-                isolated_margin=(symbol in isolated_pairs_set) and (symbol in borrow_info),
-            )
-
-        return ExchangeInfo(
-            assets={'__all__': AssetInfo(precision=8)},
-            fees=fees,
-            filters=filters,
-            borrow_info=borrow_info,
-        )
-
     async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
         if len(symbols) > 1:
             raise NotImplementedError()
@@ -408,55 +282,6 @@ class Binance(Exchange):
         user_data_stream = await self._get_user_data_stream(account)
         async with user_data_stream.subscribe('outboundAccountPosition') as stream:
             yield inner(stream)
-
-    async def get_depth(self, symbol: str) -> Depth.Snapshot:
-        # TODO: We might wanna increase that and accept higher weight.
-        LIMIT = 100
-        LIMIT_TO_WEIGHT = {
-            5: 1,
-            10: 1,
-            20: 1,
-            50: 1,
-            100: 1,
-            500: 5,
-            1000: 10,
-            5000: 50,
-        }
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#market-data-endpoints
-        _, content = await self._api_request(
-            'GET',
-            '/api/v3/depth',
-            weight=LIMIT_TO_WEIGHT[LIMIT],
-            data={
-                'limit': LIMIT,
-                'symbol': _to_http_symbol(symbol)
-            }
-        )
-        return Depth.Snapshot(
-            bids=[(Decimal(x[0]), Decimal(x[1])) for x in content['bids']],
-            asks=[(Decimal(x[0]), Decimal(x[1])) for x in content['asks']],
-            last_id=content['lastUpdateId'],
-        )
-
-    @asynccontextmanager
-    async def connect_stream_depth(self, symbol: str) -> AsyncIterator[AsyncIterable[Depth.Any]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Depth.Update]:
-            async for data in ws:
-                yield Depth.Update(
-                    bids=[(Decimal(m[0]), Decimal(m[1])) for m in data['b']],
-                    asks=[(Decimal(m[0]), Decimal(m[1])) for m in data['a']],
-                    first_id=data['U'],
-                    last_id=data['u']
-                )
-
-        # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#diff-depth-stream
-        url = f'/ws/{_to_ws_symbol(symbol)}@depth'
-        if self._high_precision:  # Low precision is every 1000ms.
-            url += '@100ms'
-        async with self._connect_refreshing_stream(
-            url=url, interval=12 * HOUR_SEC, name='depth', raise_on_disconnect=True
-        ) as ws:
-            yield inner(ws)
 
     async def list_orders(self, account: str, symbol: Optional[str] = None) -> list[Order]:
         if account not in ['spot', 'margin']:
@@ -1197,7 +1022,7 @@ class UserDataStream:
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/user-data-stream.md#close-a-listenkey
         data = {'listenKey': listen_key}
         if self._account not in ['spot', 'margin']:
-            data['symbol'] = _to_http_symbol(self._account)
+            data['symbol'] = to_http_symbol(self._account)
         return await self._binance._api_request(
             'DELETE',
             self._base_url,
@@ -1206,19 +1031,19 @@ class UserDataStream:
         )
 
 
-def _to_asset(asset: str) -> str:
+def to_asset(asset: str) -> str:
     return asset.upper()
 
 
-def _to_http_symbol(symbol: str) -> str:
+def to_http_symbol(symbol: str) -> str:
     return symbol.replace('-', '').upper()
 
 
-def _to_ws_symbol(symbol: str) -> str:
+def to_ws_symbol(symbol: str) -> str:
     return symbol.replace('-', '')
 
 
-def _from_symbol(symbol: str) -> str:
+def from_http_symbol(symbol: str) -> str:
     # TODO: May be incorrect! We can't systematically know which part is base and which is quote
     # since there is no separator used. We simply map based on known quote assets.
     known_quote_assets = [

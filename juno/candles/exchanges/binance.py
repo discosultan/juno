@@ -4,7 +4,7 @@ from typing import Any, AsyncIterable, AsyncIterator
 
 from juno.candles import Candle
 from juno.candles.exchanges import Exchange
-from juno.exchanges.binance import Session
+from juno.exchanges.binance import Session, to_http_symbol, to_ws_symbol
 from juno.itertools import page
 from juno.time import HOUR_SEC, strfinterval
 
@@ -42,7 +42,7 @@ class Binance(Exchange):
     ) -> AsyncIterable[Candle]:
         limit = 1000  # Max possible candles per request.
         binance_interval = strfinterval(interval)
-        binance_symbol = _to_http_symbol(symbol)
+        binance_symbol = to_http_symbol(symbol)
         # Start 0 is a special value indicating that we try to find the earliest available candle.
         pagination_interval = interval
         if start == 0:
@@ -87,17 +87,9 @@ class Binance(Exchange):
                 )
 
         async with self._session.connect_refreshing_stream(
-            url=f'/ws/{_to_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
+            url=f'/ws/{to_ws_symbol(symbol)}@kline_{strfinterval(interval)}',
             interval=12 * HOUR_SEC,
             name='candles',
             raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
-
-
-def _to_http_symbol(symbol: str) -> str:
-    return symbol.replace('-', '').upper()
-
-
-def _to_ws_symbol(symbol: str) -> str:
-    return symbol.replace('-', '')

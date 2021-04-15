@@ -10,9 +10,7 @@ from typing import Any, Awaitable, Callable, Generic, Optional, TypeVar
 
 from tenacity import before_sleep_log, retry, retry_if_exception_type
 
-from juno import (
-    AssetInfo, BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Ticker, Timestamp
-)
+from juno import AssetInfo, BorrowInfo, ExchangeException, ExchangeInfo, Fees, Filters, Timestamp
 from juno.asyncio import cancel, create_task_sigint_on_exception
 from juno.exchanges import Exchange
 from juno.storages import Storage
@@ -32,7 +30,7 @@ class _Timestamped(Generic[T]):
     item: T
 
 
-class Informant:
+class Service:
     def __init__(
         self,
         storage: Storage,
@@ -49,9 +47,8 @@ class Informant:
             defaultdict(dict)
         )
 
-    async def __aenter__(self) -> Informant:
+    async def __aenter__(self) -> Service:
         exchange_info_synced_evt = asyncio.Event()
-        tickers_synced_evt = asyncio.Event()
 
         self._exchange_info_sync_task = create_task_sigint_on_exception(
             self._periodic_sync_for_exchanges(
@@ -62,22 +59,9 @@ class Informant:
                 list(self._exchanges.keys()),
             )
         )
-        # TODO: Do we want to always kick this sync off? Maybe extract to a different component.
-        # TODO: Exchanges which don't support listing all tickers, we can do `list_symbols` first
-        #       and then get tickers by symbols.
-        self._tickers_sync_task = create_task_sigint_on_exception(
-            self._periodic_sync_for_exchanges(
-                'tickers',
-                _Timestamped[dict[str, Ticker]],
-                tickers_synced_evt,
-                lambda e: e.map_tickers(),
-                [n for n, e in self._exchanges.items() if e.can_list_all_tickers],
-            )
-        )
 
         await asyncio.gather(
             exchange_info_synced_evt.wait(),
-            tickers_synced_evt.wait(),
         )
         _log.info('ready')
         return self
@@ -156,49 +140,6 @@ class Informant:
             )
 
         return list(result)
-
-    # TODO: bound to be out-of-date with the current syncing approach
-    def map_tickers(
-        self,
-        exchange: str,
-        symbol_patterns: Optional[list[str]] = None,
-        exclude_symbol_patterns: Optional[list[str]] = None,
-        spot: Optional[bool] = None,
-        cross_margin: Optional[bool] = None,
-        isolated_margin: Optional[bool] = None,
-    ) -> dict[str, Ticker]:
-        exchange_info = self._synced_data[exchange][_Timestamped[ExchangeInfo]].item
-        all_tickers = self._synced_data[exchange][_Timestamped[dict[str, Ticker]]].item
-
-        result = ((s, t) for s, t in all_tickers.items())
-
-        if symbol_patterns is not None:
-            result = (
-                (s, t) for s, t in result if any(fnmatch.fnmatch(s, p) for p in symbol_patterns)
-            )
-        if exclude_symbol_patterns:
-            result = (
-                (s, t) for s, t in result
-                if not any(fnmatch.fnmatch(s, p) for p in exclude_symbol_patterns)
-            )
-        if spot is not None:
-            result = (
-                (s, t) for s, t in result
-                if exchange_info.filters[s].spot == spot
-            )
-        if cross_margin is not None:
-            result = (
-                (s, t) for s, t in result
-                if exchange_info.filters[s].cross_margin == cross_margin
-            )
-        if isolated_margin is not None:
-            result = (
-                (s, t) for s, t in result
-                if exchange_info.filters[s].isolated_margin == isolated_margin
-            )
-
-        # Sorted by quote volume desc. Watch out when queried with different quote assets.
-        return dict(sorted(result, key=lambda st: st[1].quote_volume, reverse=True))
 
     def list_exchanges(self, symbol: Optional[str] = None) -> list[str]:
         result = (e for e in self._exchanges.keys())

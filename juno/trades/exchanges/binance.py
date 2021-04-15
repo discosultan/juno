@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, AsyncIterable, AsyncIterator
 
-from juno.exchanges.binance import Session
+from juno.exchanges.binance import Session, to_http_symbol, to_ws_symbol
 from juno.time import HOUR_MS, HOUR_SEC
 from juno.trades import Trade
 from juno.trades.exchanges import Exchange
@@ -19,7 +19,7 @@ class Binance(Exchange):
         # the same order will be aggregated by summing their size.
         batch_start = start
         payload: dict[str, Any] = {
-            'symbol': _to_http_symbol(symbol),
+            'symbol': to_http_symbol(symbol),
         }
         while True:
             batch_end = batch_start + HOUR_MS
@@ -55,15 +55,7 @@ class Binance(Exchange):
 
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/web-socket-streams.md#trade-streams
         async with self._session.connect_refreshing_stream(
-            url=f'/ws/{_to_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade',
+            url=f'/ws/{to_ws_symbol(symbol)}@trade', interval=12 * HOUR_SEC, name='trade',
             raise_on_disconnect=True
         ) as ws:
             yield inner(ws)
-
-
-def _to_http_symbol(symbol: str) -> str:
-    return symbol.replace('-', '').upper()
-
-
-def _to_ws_symbol(symbol: str) -> str:
-    return symbol.replace('-', '')

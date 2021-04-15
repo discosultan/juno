@@ -4,7 +4,6 @@
 from dataclasses import dataclass, field
 from decimal import ROUND_DOWN, ROUND_UP, Decimal
 
-from .errors import BadOrder
 from juno.math import round_half_up
 
 
@@ -76,11 +75,11 @@ class Size:
             and (not self.step or (size - self.min) % self.step == 0)
         )
 
-    def validate(self, size: Decimal) -> None:
-        if not self.valid(size):
-            raise BadOrder(
-                f'Size {size} must be between [{self.min}; {self.max}] with a step of {self.step}'
-            )
+    # def validate(self, size: Decimal) -> None:
+    #     if not self.valid(size):
+    #         raise BadOrder(
+    #             f'Size {size} must be between [{self.min}; {self.max}] with a step of {self.step}'
+    #         )
 
 
 @dataclass
@@ -96,16 +95,16 @@ class MinNotional:
     def min_size_for_price(self, price: Decimal) -> Decimal:
         return self.min_notional / price
 
-    def validate_limit(self, price: Decimal, size: Decimal) -> None:
-        if not self.valid(price, size):
-            raise BadOrder(
-                f'Price {price} * size {size} ({price * size}) must be between '
-                f'[{self.min_notional}; inf]'
-            )
+    # def validate_limit(self, price: Decimal, size: Decimal) -> None:
+    #     if not self.valid(price, size):
+    #         raise BadOrder(
+    #             f'Price {price} * size {size} ({price * size}) must be between '
+    #             f'[{self.min_notional}; inf]'
+    #         )
 
-    def validate_market(self, avg_price: Decimal, size: Decimal) -> None:
-        if self.apply_to_market:
-            self.validate_limit(avg_price, size)
+    # def validate_market(self, avg_price: Decimal, size: Decimal) -> None:
+    #     if self.apply_to_market:
+    #         self.validate_limit(avg_price, size)
 
 
 @dataclass

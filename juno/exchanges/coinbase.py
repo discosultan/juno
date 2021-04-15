@@ -40,10 +40,6 @@ class Coinbase(Exchange):
     # Capabilities.
     can_stream_balances: bool = False
     can_stream_depth_snapshot: bool = True
-    can_stream_historical_candles: bool = True
-    can_stream_historical_earliest_candle: bool = False
-    can_stream_candles: bool = False
-    can_list_all_tickers: bool = False
     can_margin_trade: bool = False  # TODO: Actually can; need impl
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
@@ -75,67 +71,6 @@ class Coinbase(Exchange):
         await self._ws.__aexit__(exc_type, exc, tb)
         await self._session.__aexit__(exc_type, exc, tb)
 
-    def map_candle_intervals(self) -> dict[int, int]:
-        return {
-            60000: 0,  # 1m
-            300000: 0,  # 5m
-            900000: 0,  # 15m
-            3600000: 0,  # 1h
-            21600000: 0,  # 6h
-            86400000: 0,  # 1d
-        }
-
-    async def get_exchange_info(self) -> ExchangeInfo:
-        # TODO: Fetch from exchange API if possible? Also has a more complex structure.
-        # See https://support.pro.coinbase.com/customer/en/portal/articles/2945310-fees
-        fees = {'__all__': Fees(maker=Decimal('0.005'), taker=Decimal('0.005'))}
-
-        _, content = await self._public_request('GET', '/products')
-        filters = {}
-        for product in content:
-            price_step = Decimal(product['quote_increment'])
-            size_step = Decimal(product['base_increment'])
-            filters[product['id'].lower()] = Filters(
-                base_precision=-size_step.normalize().as_tuple()[2],
-                quote_precision=-price_step.normalize().as_tuple()[2],
-                price=Price(
-                    min=Decimal(product['min_market_funds']),
-                    max=Decimal(product['max_market_funds']),
-                    step=price_step,
-                ),
-                size=Size(
-                    min=Decimal(product['base_min_size']),
-                    max=Decimal(product['base_max_size']),
-                    step=size_step,
-                ),
-            )
-
-        return ExchangeInfo(
-            assets={'__all__': AssetInfo(precision=8)},
-            fees=fees,
-            filters=filters,
-        )
-
-    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
-        # TODO: Use REST endpoint instead of WS here?
-        # https://docs.pro.coinbase.com/#get-product-ticker
-        # https://github.com/coinbase/coinbase-pro-node/issues/363#issuecomment-513876145
-        if not symbols:
-            raise ValueError('Empty symbols list not supported')
-
-        tickers = {}
-        async with self._ws.subscribe('ticker', ['ticker'], symbols) as ws:
-            async for msg in ws:
-                symbol = _from_product(msg['product_id'])
-                tickers[symbol] = Ticker(
-                    volume=Decimal(msg['volume_24h']),  # TODO: incorrect?!
-                    quote_volume=Decimal('0.0'),  # Not supported.
-                    price=Decimal(msg['price']),
-                )
-                if len(tickers) == len(symbols):
-                    break
-        return tickers
-
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == 'spot':
@@ -148,55 +83,6 @@ class Coinbase(Exchange):
         else:
             raise NotImplementedError()
         return result
-
-    async def stream_historical_candles(
-        self, symbol: str, interval: int, start: int, end: int
-    ) -> AsyncIterable[Candle]:
-        MAX_CANDLES_PER_REQUEST = 300
-        url = f'/products/{_to_product(symbol)}/candles'
-        for page_start, page_end in page(start, end, interval, MAX_CANDLES_PER_REQUEST):
-            _, content = await self._public_request(
-                'GET', url, {
-                    'start': _to_datetime(page_start),
-                    'end': _to_datetime(page_end - 1),
-                    'granularity': _to_granularity(interval)
-                }
-            )
-            for c in reversed(content):
-                # This seems to be an issue on Coinbase side. I didn't find any documentation for
-                # this behavior but occasionally they send null values inside candle rows for
-                # different price fields. Since we want to store all the data and we don't
-                # currently use Coinbase for paper or live trading, we simply throw an exception.
-                if None in c:
-                    raise Exception(f'missing data for candle {c}; please re-run the command')
-                yield Candle(
-                    c[0] * 1000, Decimal(c[3]), Decimal(c[2]), Decimal(c[1]), Decimal(c[4]),
-                    Decimal(c[5]), True
-                )
-
-    @asynccontextmanager
-    async def connect_stream_depth(
-        self, symbol: str
-    ) -> AsyncIterator[AsyncIterable[Depth.Any]]:
-        async def inner(
-            ws: AsyncIterable[Any]
-        ) -> AsyncIterable[Depth.Any]:
-            async for data in ws:
-                if data['type'] == 'snapshot':
-                    yield Depth.Snapshot(
-                        bids=[(Decimal(p), Decimal(s)) for p, s in data['bids']],
-                        asks=[(Decimal(p), Decimal(s)) for p, s in data['asks']]
-                    )
-                elif data['type'] == 'l2update':
-                    bids = ((p, s) for side, p, s in data['changes'] if side == 'buy')
-                    asks = ((p, s) for side, p, s in data['changes'] if side == 'sell')
-                    yield Depth.Update(
-                        bids=[(Decimal(p), Decimal(s)) for p, s in bids],
-                        asks=[(Decimal(p), Decimal(s)) for p, s in asks]
-                    )
-
-        async with self._ws.subscribe('level2', ['snapshot', 'l2update'], [symbol]) as ws:
-            yield inner(ws)
 
     @asynccontextmanager
     async def connect_stream_orders(
@@ -245,12 +131,12 @@ class Coinbase(Exchange):
                         )
                     if reason == 'filled':
                         yield OrderUpdate.Done(
-                            time=_from_datetime(data['time']),
+                            time=from_timestamp(data['time']),
                             client_id=client_id,
                         )
                     elif reason == 'canceled':
                         yield OrderUpdate.Cancelled(
-                            time=_from_datetime(data['time']),
+                            time=from_timestamp(data['time']),
                             client_id=client_id,
                         )
                     else:
@@ -287,7 +173,7 @@ class Coinbase(Exchange):
         data: dict[str, Any] = {
             'type': 'market' if type_ is OrderType.MARKET else 'limit',
             'side': 'buy' if side is Side.BUY else 'sell',
-            'product_id': _to_product(symbol),
+            'product_id': to_symbol(symbol),
         }
         if size is not None:
             data['size'] = _to_decimal(size)
@@ -323,49 +209,6 @@ class Coinbase(Exchange):
         })
         if response.status == 404:
             raise OrderMissing(content['message'])
-
-    async def stream_historical_trades(
-        self, symbol: str, start: int, end: int
-    ) -> AsyncIterable[Trade]:
-        trades_desc = []
-        async for _, content in self._paginated_public_request(
-            'GET', f'/products/{_to_product(symbol)}/trades'
-        ):
-            done = False
-            for val in content:
-                time = _from_datetime(val['time'])
-                if time >= end:
-                    continue
-                if time < start:
-                    done = True
-                    break
-                trades_desc.append(Trade(
-                    time=time,
-                    price=Decimal(val['price']),
-                    size=Decimal(val['size'])
-                ))
-            if done:
-                break
-        for trade in reversed(trades_desc):
-            yield trade
-
-    @asynccontextmanager
-    async def connect_stream_trades(self, symbol: str) -> AsyncIterator[AsyncIterable[Trade]]:
-        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[Trade]:
-            async for val in ws:
-                if val['type'] == 'last_match':
-                    # TODO: Useful for recovery process that downloads missed trades after a dc.
-                    continue
-                if 'price' not in val or 'size' not in val:
-                    continue
-                yield Trade(
-                    time=_from_datetime(val['time']),
-                    price=Decimal(val['price']),
-                    size=Decimal(val['size'])
-                )
-
-        async with self._ws.subscribe('matches', ['last_match', 'match'], [symbol]) as ws:
-            yield inner(ws)
 
     async def _paginated_public_request(
         self, method: str, url: str, data: dict[str, Any] = {}
@@ -519,23 +362,23 @@ def _is_subscribed(
     return True
 
 
-def _to_product(symbol: str) -> str:
+def to_symbol(symbol: str) -> str:
     return symbol.upper()
 
 
-def _from_product(product: str) -> str:
+def from_symbol(product: str) -> str:
     return product.lower()
 
 
-def _to_granularity(interval: int) -> int:
+def to_interval(interval: int) -> int:
     return interval // 1000
 
 
-def _to_datetime(timestamp: int) -> str:
+def to_timestamp(timestamp: int) -> str:
     return datetime.utcfromtimestamp(timestamp / 1000.0).isoformat()
 
 
-def _from_datetime(dt: str) -> int:
+def from_timestamp(dt: str) -> int:
     # Format can be either one:
     # - '%Y-%m-%dT%H:%M:%S.%fZ'
     # - '%Y-%m-%dT%H:%M:%SZ'
