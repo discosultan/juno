@@ -1,24 +1,33 @@
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from typing import Type
 
 import aiohttp
 import pytest
 from pytest_lazyfixture import lazy_fixture
 
-import juno
 from juno import (
-    BadOrder, Balance, Candle, Depth, ExchangeInfo, OrderMissing, OrderType, Side, Ticker, Trade
+    BadOrder, Balance, Candle, Depth, ExchangeInfo, OrderMissing, OrderType, Side, Ticker, Trade,
+    exchanges
 )
 from juno.asyncio import resolved_stream, zip_async
 from juno.config import init_instance
-from juno.exchanges import Binance, Coinbase, Exchange, Kraken
+from juno.exchanges import Binance, Coinbase, Exchange, GateIO, Kraken
 from juno.time import HOUR_MS, MIN_MS, strptimestamp, time_ms
 from juno.typing import types_match
 from juno.utils import list_concretes_from_module
 
-exchange_types = list_concretes_from_module(juno.exchanges, Exchange)
-exchanges = [lazy_fixture(e.__name__.lower()) for e in exchange_types]
-exchange_ids = [e.__name__ for e in exchange_types]
+exchange_type_fixtures = {
+    e: lazy_fixture(e.__name__.lower()) for e in list_concretes_from_module(exchanges, Exchange)
+}
+
+
+def parametrize_exchange(exchange_types: list[Type[Exchange]]):
+    return pytest.mark.parametrize(
+        'exchange',
+        [exchange_type_fixtures[e] for e in exchange_types],
+        ids=[e.__name__ for e in exchange_types],
+    )
 
 
 # We use a session-scoped loop for shared rate-limiting.
@@ -41,6 +50,12 @@ async def coinbase(loop, config):
 
 
 @pytest.fixture(scope='session')
+async def gateio(loop, config):
+    async with try_init_exchange(GateIO, config) as exchange:
+        yield exchange
+
+
+@pytest.fixture(scope='session')
 async def kraken(loop, config):
     async with try_init_exchange(Kraken, config) as exchange:
         yield exchange
@@ -48,7 +63,7 @@ async def kraken(loop, config):
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Coinbase, GateIO, Kraken])
 async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -76,10 +91,9 @@ async def test_get_exchange_info(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance])  # TODO: Add gateio?
 async def test_map_tickers(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_list_all_tickers)
 
     # Note, this is an expensive call!
     tickers = await exchange.map_tickers()
@@ -90,7 +104,7 @@ async def test_map_tickers(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Coinbase, Kraken])  # TODO: Add gateio?
 async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -102,7 +116,7 @@ async def test_map_one_ticker(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Coinbase, Kraken])  # TODO: Add gateio.
 async def test_map_spot_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -112,10 +126,9 @@ async def test_map_spot_balances(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance])  # TODO: Add coinbase, gateio, kraken
 async def test_map_cross_margin_balances(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_margin_trade)
 
     balances = await exchange.map_balances(account='margin')
     assert types_match(balances, dict[str, dict[str, Balance]])
@@ -123,10 +136,9 @@ async def test_map_cross_margin_balances(loop, request, exchange: Exchange) -> N
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance])
 async def test_map_isolated_margin_balances(loop, request, exchange: Exchange) -> None:
-    skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_margin_trade)
+    skip_not_configured(request, exchange)  # TODO: Add coinbase, gateio, kraken
 
     balances = await exchange.map_balances(account='isolated')
     assert types_match(balances, dict[str, dict[str, Balance]])
@@ -134,10 +146,9 @@ async def test_map_isolated_margin_balances(loop, request, exchange: Exchange) -
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance])
 async def test_get_max_borrowable(loop, request, exchange: Exchange) -> None:
-    skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_margin_trade)
+    skip_not_configured(request, exchange)  # TODO: Add coinbase, gateio, kraken
 
     size = await exchange.get_max_borrowable(account='margin', asset='btc')
 
@@ -146,10 +157,9 @@ async def test_get_max_borrowable(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Coinbase])  # TODO: Add gateio.
 async def test_stream_historical_candles(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_stream_historical_candles)
 
     start = strptimestamp('2018-01-01')
 
@@ -167,10 +177,9 @@ async def test_stream_historical_candles(loop, request, exchange: Exchange) -> N
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Kraken])  # TODO: Add gateio.
 async def test_connect_stream_candles(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
-    skip_no_capability(exchange.can_stream_candles)
 
     async with exchange.connect_stream_candles(symbol='eth-btc', interval=MIN_MS) as stream:
         async for candle in stream:
@@ -180,10 +189,9 @@ async def test_connect_stream_candles(loop, request, exchange: Exchange) -> None
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, GateIO, Kraken])
 async def test_get_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
-    skip_no_capability(not exchange.can_stream_depth_snapshot)
 
     depth = await exchange.get_depth('eth-btc')
 
@@ -192,7 +200,7 @@ async def test_get_depth(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Coinbase, GateIO, Kraken])
 async def test_connect_stream_depth(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -207,7 +215,7 @@ async def test_connect_stream_depth(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Coinbase, Kraken])  # TODO: Add gateio
 async def test_stream_historical_trades(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -228,7 +236,7 @@ async def test_stream_historical_trades(loop, request, exchange: Exchange) -> No
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Coinbase, Kraken])  # TODO: Add gateio
 async def test_connect_stream_trades(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
 
@@ -243,10 +251,10 @@ async def test_connect_stream_trades(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+# TODO: Add kraken and gateio (if find out how to place market order)
+@parametrize_exchange([Binance, Coinbase])
 async def test_place_order_bad_order(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
-    skip_exchange(exchange, Kraken)
 
     with pytest.raises(BadOrder):
         await exchange.place_order(
@@ -260,16 +268,15 @@ async def test_place_order_bad_order(loop, request, exchange: Exchange) -> None:
 
 @pytest.mark.exchange
 @pytest.mark.manual
-@pytest.mark.parametrize('exchange', exchanges, ids=exchange_ids)
+@parametrize_exchange([Binance, Coinbase, GateIO])  # TODO: Add kraken
 async def test_cancel_order_order_missing(loop, request, exchange: Exchange) -> None:
     skip_not_configured(request, exchange)
-    skip_exchange(exchange, Kraken)
 
     with pytest.raises(OrderMissing):
         await exchange.cancel_order(
             account='spot',
             symbol='eth-btc',
-            client_id='10f95b36-7ba0-441a-b0a8-72dc4d86cc3f',
+            client_id=exchange.generate_client_id(),
         )
 
 
@@ -279,17 +286,6 @@ def skip_not_configured(request, exchange):
         pytest.skip(f'Specify {"" or "".join(markers)} marker to run!')
     if not exchange:
         pytest.skip('Exchange params not configured')
-
-
-def skip_exchange(exchange, *skip_exchange_types):
-    type_ = type(exchange)
-    if type_ in skip_exchange_types:
-        pytest.skip(f'Not implemented for {type_.__name__.lower()}')
-
-
-def skip_no_capability(has_capability):
-    if not has_capability:
-        pytest.skip('Does not have the capability')
 
 
 @asynccontextmanager

@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import operator
-import uuid
 from decimal import Decimal
-from typing import AsyncIterable, Callable, NamedTuple, Optional
+from typing import AsyncIterable, NamedTuple, Optional
 
 from juno import (
     BadOrder, Fill, Filters, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate,
@@ -53,14 +52,12 @@ class Limit(Broker):
         informant: Informant,
         orderbook: Orderbook,
         user: User,
-        get_client_id: Callable[[], str] = lambda: str(uuid.uuid4()),
         cancel_order_on_error: bool = True,
         order_placement_strategy: str = 'leading',  # leading or matching
     ) -> None:
         self._informant = informant
         self._orderbook = orderbook
         self._user = user
-        self._get_client_id = get_client_id
         self._cancel_order_on_error = cancel_order_on_error
 
         self._order_placement_strategy = order_placement_strategy
@@ -161,7 +158,7 @@ class Limit(Broker):
         self, exchange: str, account: str, symbol: str, side: Side, ensure_size: bool,
         size: Optional[Decimal] = None, quote: Optional[Decimal] = None
     ) -> OrderResult:
-        client_id = self._get_client_id()
+        client_id = self._user.generate_client_id(exchange)
         if size is not None:
             if size == 0:
                 raise ValueError('Size specified but 0')
@@ -279,7 +276,7 @@ class Limit(Broker):
                     )
                     ctx.available += add_back
                     # Use a new client ID for new order.
-                    ctx.client_id = self._get_client_id()
+                    ctx.client_id = self._user.generate_client_id(exchange)
                     ctx.active_order = None
 
                 # No need to round price as we take it from existing orders.

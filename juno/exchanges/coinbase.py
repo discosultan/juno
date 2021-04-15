@@ -45,7 +45,8 @@ class Coinbase(Exchange):
     can_stream_candles: bool = False
     can_list_all_tickers: bool = False
     can_margin_trade: bool = False  # TODO: Actually can; need impl
-    can_place_order_market_quote: bool = True
+    can_place_market_order: bool = True
+    can_place_market_order_quote: bool = True
 
     def __init__(self, api_key: str, secret_key: str, passphrase: str) -> None:
         self._api_key = api_key
@@ -547,8 +548,8 @@ def _from_datetime(dt: str) -> int:
 def _to_time_in_force(time_in_force: TimeInForce) -> str:
     if time_in_force is TimeInForce.GTC:
         return 'GTC'
-    elif time_in_force is TimeInForce.GTT:
-        return 'GTT'
+    # elif time_in_force is TimeInForce.GTT:
+    #     return 'GTT'
     elif time_in_force is TimeInForce.FOK:
         return 'FOK'
     elif time_in_force is TimeInForce.IOC:

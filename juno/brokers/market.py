@@ -24,7 +24,7 @@ class Market(Broker):
         self._user = user
         self._get_time_ms = get_time_ms
 
-        if not orderbook.can_place_order_market_quote('__all__'):
+        if not user.can_place_market_order_quote('__all__'):
             _log.warning(
                 'not all exchanges support placing market orders by quote size; for them, '
                 'calculating size by quote from orderbook instead'
@@ -41,6 +41,9 @@ class Market(Broker):
         ensure_size: bool = False,
     ) -> OrderResult:
         Broker.validate_funds(size, quote)
+
+        if not self._user.can_place_market_order(exchange):
+            raise NotImplementedError()
 
         fees, filters = self._informant.get_fees_filters(exchange, symbol)
 
@@ -65,7 +68,7 @@ class Market(Broker):
                     status=OrderStatus.FILLED,
                     fills=await self._get_buy_fills(exchange, symbol, quote=quote),
                 )
-            elif self._orderbook.can_place_order_market_quote(exchange):
+            elif self._user.can_place_market_order_quote(exchange):
                 res = await self._fill(
                     exchange=exchange, account=account, symbol=symbol, side=Side.BUY,
                     quote=quote
@@ -91,6 +94,9 @@ class Market(Broker):
     ) -> OrderResult:
         assert size  # TODO: support by quote
         Broker.validate_funds(size, quote)
+
+        if not self._user.can_place_market_order(exchange):
+            raise NotImplementedError()
 
         _, filters = self._informant.get_fees_filters(exchange, symbol)
         size = filters.size.round_down(size)
