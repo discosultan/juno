@@ -190,24 +190,6 @@ class Binance(Exchange):
         )
         await self._session.__aexit__(exc_type, exc, tb)
 
-    async def map_tickers(self, symbols: list[str] = []) -> dict[str, Ticker]:
-        if len(symbols) > 1:
-            raise NotImplementedError()
-
-        data = {'symbol': _to_http_symbol(symbols[0])} if symbols else None
-        weight = 1 if symbols else 40
-        _, content = await self._api_request(
-            'GET', '/api/v3/ticker/24hr', data=data, weight=weight
-        )
-        response_data = [content] if symbols else content
-        return {
-            _from_symbol(t['symbol']): Ticker(
-                volume=Decimal(t['volume']),
-                quote_volume=Decimal(t['quoteVolume']),
-                price=Decimal(t['lastPrice']),
-            ) for t in response_data
-        }
-
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == 'spot':
@@ -620,31 +602,6 @@ class Binance(Exchange):
             'GET', '/sapi/v1/margin/isolated/account', security=_SEC_USER_DATA
         )
         return ['spot', 'margin'] + [_from_symbol(b['symbol']) for b in content['assets']]
-
-    async def _wapi_request(
-        self,
-        method: str,
-        url: str,
-        weight: int = 1,
-        data: Optional[Any] = None,
-        security: int = _SEC_NONE,
-    ) -> tuple[ClientResponse, Any]:
-        res, content = await self._request(
-            method=method,
-            url=url,
-            weight=weight,
-            data=data,
-            security=security,
-        )
-        if not content.get('success'):
-            # There's no error code in this response to figure out whether it's a timestamp issue.
-            # We could look it up from the message, but currently just assume that is the case
-            # always.
-            _log.warning(f'received error: {content["msg"]}; syncing clock before exc')
-            self._clock.clear()
-            raise ExchangeException(content['msg'])
-        res.raise_for_status()
-        return res, content
 
     async def _api_request(
         self,
