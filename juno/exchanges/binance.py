@@ -135,7 +135,7 @@ class Binance(Exchange):
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/wapi-api.md#trade-fee-user_data
         # https://github.com/binance-exchange/binance-official-api-docs/blob/master/rest-api.md#exchange-information
         fees_ret, filters_ret, isolated_pairs, margin_ret, isolated_ret = await asyncio.gather(
-            self._wapi_request('GET', '/wapi/v3/tradeFee.html', security=_SEC_USER_DATA),
+            self._api_request('GET', '/sapi/v1/asset/tradeFee', security=_SEC_USER_DATA),
             self._api_request('GET', '/api/v3/exchangeInfo'),
             self._list_symbols(isolated=True),
             self._request_json(
@@ -145,7 +145,7 @@ class Binance(Exchange):
             self._request_json(
                 method='GET',
                 url='https://www.binance.com/gateway-api/v1/public/isolated-margin/pair/vip-level',
-            )
+            ),
         )
         _, fees_content = fees_ret
         _, filters_content = filters_ret
@@ -155,8 +155,8 @@ class Binance(Exchange):
         # Process fees.
         fees = {
             _from_symbol(fee['symbol']):
-            Fees(maker=Decimal(fee['maker']), taker=Decimal(fee['taker']))
-            for fee in fees_content['tradeFee']
+            Fees(maker=Decimal(fee['makerCommission']), taker=Decimal(fee['takerCommission']))
+            for fee in fees_content
         }
 
         # Process borrow info.
