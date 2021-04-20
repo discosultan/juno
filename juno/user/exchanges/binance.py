@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from collections import defaultdict
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Any, AsyncIterable, AsyncIterator, Optional
@@ -11,16 +10,12 @@ from multidict import MultiDict
 from juno import (
     Balance, Fill,
     Order, OrderMissing, OrderResult, OrderStatus, OrderType, OrderUpdate, OrderWouldBeTaker, Side,
-    TimeInForce, json
+    TimeInForce
 )
-from juno.asyncio import Event, cancel, create_task_sigint_on_exception, stream_queue
-from juno.filters import Filters, MinNotional, PercentPrice, Price, Size
-from juno.http import ClientResponse, ClientSession, connect_refreshing_stream
-from juno.time import DAY_SEC, HOUR_MS, HOUR_SEC, MIN_MS, MIN_SEC, time_ms
-from juno.typing import ExcType, ExcValue, Traceback
+from juno.exchanges.binance import Session, from_http_symbol, to_asset, to_http_symbol
+from juno.time import DAY_SEC
+from juno.user.exchanges import Exchange
 from juno.utils import AsyncLimiter, unpack_assets
-
-from .exchange import Exchange
 
 _BASE_REST_URL = 'https://api.binance.com'
 _BASE_WS_URL = 'wss://stream.binance.com:9443'
@@ -52,23 +47,8 @@ class Binance(Exchange):
     can_place_market_order: bool = True
     can_place_market_order_quote: bool = True
 
-    def __init__(self, api_key: str, secret_key: str, high_precision: bool = True) -> None:
-        if not high_precision:
-            _log.warning('high precision updates disabled')
-
-        self._api_key = api_key
-        self._secret_key_bytes = secret_key.encode('utf-8')
-        self._high_precision = high_precision
-
-        self._session = ClientSession(
-            raise_for_status=False,
-            name=type(self).__name__,
-            # Optionally, if we don't want to handle ServerDisconnectedError due to keep-alive
-            # expiring, we can set this header. We will lose some perf tho, because a new SSL
-            # handshake is performed for every request.
-            # https://github.com/aio-libs/aiohttp/issues/850
-            # headers={'Connection': 'close'},
-        )
+    def __init__(session: Session) -> None:
+        self._session = session
 
         # Rate limiters.
         x = 1.5  # We use this factor to be on the safe side and not use up the entire bucket.
@@ -83,7 +63,7 @@ class Binance(Exchange):
     async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
         result = {}
         if account == 'spot':
-            _, content = await self._api_request(
+            _, content = await self._session.api_request(
                 'GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA
             )
             result['spot'] = {
@@ -94,7 +74,7 @@ class Binance(Exchange):
                 for b in content['balances']
             }
         elif account == 'margin':
-            _, content = await self._api_request(
+            _, content = await self._session.api_request(
                 'GET', '/sapi/v1/margin/account', weight=1, security=_SEC_USER_DATA
             )
             result['margin'] = {
@@ -114,7 +94,7 @@ class Binance(Exchange):
                 'GET', '/sapi/v1/margin/isolated/account', weight=1, security=_SEC_USER_DATA
             )
             for balances in content['assets']:
-                base_asset, quote_asset = unpack_assets(from_symbol(balances['symbol']))
+                base_asset, quote_asset = unpack_assets(from_http_symbol(balances['symbol']))
                 base_balance = balances['baseAsset']
                 quote_balance = balances['quoteAsset']
                 result[f'{base_asset}-{quote_asset}'] = {
@@ -175,10 +155,10 @@ class Binance(Exchange):
         weight = (1 if symbol else 40) if account == 'spot' else (10 if symbol else 40)
         data = {}
         if symbol is not None:
-            data['symbol'] = _to_http_symbol(symbol)
+            data['symbol'] = to_http_symbol(symbol)
         if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
-        _, content = await self._api_request(
+        _, content = await self._session.api_request(
             'GET',
             url,
             data=data,
@@ -188,7 +168,7 @@ class Binance(Exchange):
         return [
             Order(
                 client_id=o['clientOrderId'],
-                symbol=from_symbol(o['symbol']),
+                symbol=from_http_symbol(o['symbol']),
                 price=Decimal(o['price']),
                 size=Decimal(o['origQty']),
             ) for o in content
@@ -200,7 +180,7 @@ class Binance(Exchange):
     ) -> AsyncIterator[AsyncIterable[OrderUpdate.Any]]:
         async def inner(stream: AsyncIterable[dict[str, Any]]) -> AsyncIterable[OrderUpdate.Any]:
             async for data in stream:
-                res_symbol = _from_symbol(data['s'])
+                res_symbol = from_http_symbol(data['s'])
                 if res_symbol != symbol:
                     continue
                 status = _from_order_status(data['X'])
@@ -262,7 +242,7 @@ class Binance(Exchange):
         client_id: Optional[str] = None,
     ) -> OrderResult:
         data: dict[str, Any] = {
-            'symbol': _to_http_symbol(symbol),
+            'symbol': to_http_symbol(symbol),
             'side': _to_side(side),
             'type': _to_order_type(type_),
         }
@@ -279,7 +259,7 @@ class Binance(Exchange):
         if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
         url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
-        _, content = await self._api_request('POST', url, data=data, security=_SEC_TRADE)
+        _, content = await self._session.api_request('POST', url, data=data, security=_SEC_TRADE)
 
         # In case of LIMIT_MARKET order, the following are not present in the response:
         # - status
@@ -311,19 +291,19 @@ class Binance(Exchange):
     ) -> None:
         url = '/api/v3/order' if account == 'spot' else '/sapi/v1/margin/order'
         data = {
-            'symbol': _to_http_symbol(symbol),
+            'symbol': to_http_symbol(symbol),
             'origClientOrderId': client_id,
         }
         if account not in ['spot', 'margin']:
             data['isIsolated'] = 'TRUE'
-        await self._api_request('DELETE', url, data=data, security=_SEC_TRADE)
+        await self._session.api_request('DELETE', url, data=data, security=_SEC_TRADE)
 
     async def transfer(
         self, asset: str, size: Decimal, from_account: str, to_account: str
     ) -> None:
         if from_account in ['spot', 'margin'] and to_account in ['spot', 'margin']:
             assert from_account != to_account
-            await self._api_request(
+            await self._session.api_request(
                 'POST',
                 '/sapi/v1/margin/transfer',
                 data={
@@ -359,7 +339,7 @@ class Binance(Exchange):
         if account != 'margin':
             data['isIsolated'] = 'TRUE'
             data['symbol'] = to_http_symbol(account)
-        await self._api_request(
+        await self._session.api_request(
             'POST',
             '/sapi/v1/margin/loan',
             data=data,
@@ -375,7 +355,7 @@ class Binance(Exchange):
         if account != 'margin':
             data['isIsolated'] = 'TRUE'
             data['symbol'] = to_http_symbol(account)
-        await self._api_request(
+        await self._session.api_request(
             'POST',
             '/sapi/v1/margin/repay',
             data=data,
@@ -387,7 +367,7 @@ class Binance(Exchange):
         data = {'asset': to_asset(asset)}
         if account != 'margin':
             data['isolatedSymbol'] = to_http_symbol(account)
-        _, content = await self._api_request(
+        _, content = await self._session.api_request(
             'GET',
             '/sapi/v1/margin/maxBorrowable',
             data=data,
@@ -401,7 +381,7 @@ class Binance(Exchange):
         data = {'asset': to_asset(asset)}
         if account != 'margin':
             data['isolatedSymbol'] = to_http_symbol(account)
-        _, content = await self._api_request(
+        _, content = await self._session.api_request(
             'GET',
             '/sapi/v1/margin/maxTransferable',
             data=data,
@@ -413,7 +393,7 @@ class Binance(Exchange):
     async def create_account(self, account: str) -> None:
         assert account not in ['spot', 'margin']
         base_asset, quote_asset = unpack_assets(account)
-        await self._api_request(
+        await self._session.api_request(
             'POST',
             '/sapi/v1/margin/isolated/create',
             data={
@@ -424,7 +404,7 @@ class Binance(Exchange):
         )
 
     async def convert_dust(self, assets: list[str]) -> None:
-        await self._api_request(
+        await self._session.api_request(
             'POST',
             '/sapi/v1/asset/dust',
             data=MultiDict([('asset', to_asset(a)) for a in assets]),
@@ -432,18 +412,18 @@ class Binance(Exchange):
         )
 
     async def _list_symbols(self, isolated: bool = False) -> list[str]:
-        _, content = await self._api_request(
+        _, content = await self._session.api_request(
             'GET',
             f'/sapi/v1/margin{"/isolated" if isolated else ""}/allPairs',
             security=_SEC_USER_DATA,
         )
-        return [from_symbol(s['symbol']) for s in content]
+        return [from_http_symbol(s['symbol']) for s in content]
 
     async def list_open_accounts(self) -> list[str]:
-        _, content = await self._api_request(
+        _, content = await self._session.api_request(
             'GET', '/sapi/v1/margin/isolated/account', security=_SEC_USER_DATA
         )
-        return ['spot', 'margin'] + [from_symbol(b['symbol']) for b in content['assets']]
+        return ['spot', 'margin'] + [from_http_symbol(b['symbol']) for b in content['assets']]
 
     async def _get_user_data_stream(self, account: str) -> UserDataStream:
         if not (stream := self._user_data_streams.get(account)):
@@ -492,3 +472,9 @@ def _from_order_status(status: str) -> OrderStatus:
     if not mapped_status:
         raise NotImplementedError(f'Handling of status {status} not implemented')
     return mapped_status
+
+
+def _to_decimal(value: Decimal) -> str:
+    # Converts from scientific notation.
+    # 6.4E-7 -> 0.0000_0064
+    return f'{value:f}'

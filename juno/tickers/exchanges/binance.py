@@ -18,7 +18,7 @@ class Binance(Exchange):
 
         data = {'symbol': to_http_symbol(symbols[0])} if symbols else None
         weight = 1 if symbols else 40
-        _, content = await self._api_request(
+        _, content = await self._session.api_request(
             'GET', '/api/v3/ticker/24hr', data=data, weight=weight
         )
         response_data = [content] if symbols else content
