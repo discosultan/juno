@@ -94,13 +94,21 @@ class GateIO(Exchange):
             body['text'] = f't-{client_id}'
         if tif is not None:
             body['time_in_force'] = tif
-        content = await self._session.request_signed_json('POST', '/api/v4/spot/orders', body=body)
 
-        if content['status'] == 'cancelled':
-            raise OrderWouldBeTaker()
+        async with self._session.request_signed(
+            'POST', '/api/v4/spot/orders', body=body
+        ) as response:
+            if response.status == 400:
+                error = await response.json()
+                if error['label'] == 'POC_FILL_IMMEDIATELY':
+                    raise OrderWouldBeTaker(error['message'])
+            response.raise_for_status()
+            content = await response.json()
+
+        assert content['status'] != 'cancelled'
 
         return OrderResult(
-            time=int(content['createTime']) * 1000,
+            time=int(content['create_time']) * 1000,
             status=OrderStatus.NEW,
         )
 
@@ -145,34 +153,34 @@ class GateIO(Exchange):
                 if data['channel'] != channel or event not in ['put', 'update', 'finish']:
                     continue
 
-                data = data['result']
-                client_id = data['text'][2:]
-                if event == 'put':
-                    yield OrderUpdate.New(client_id=client_id)
-                elif event == 'update':
-                    yield OrderUpdate.Match(
-                        client_id=client_id,
-                        fill=Fill(
-                            price=Decimal(data['price']),
-                            size=Decimal(data['amount']),
-                            fee=Decimal(data['fee']),
-                            fee_asset=from_asset(data['fee_currency']),
-                        ),
-                    )
-                elif event == 'finish':
-                    time = data['update_time'] * 1000
-                    if data['left'] == '0':
-                        yield OrderUpdate.Done(
+                for data in data['result']:
+                    client_id = data['text'][2:]
+                    if event == 'put':
+                        yield OrderUpdate.New(client_id=client_id)
+                    elif event == 'update':
+                        yield OrderUpdate.Match(
                             client_id=client_id,
-                            time=time,
+                            fill=Fill(
+                                price=Decimal(data['price']),
+                                size=Decimal(data['amount']),
+                                fee=Decimal(data['fee']),
+                                fee_asset=from_asset(data['fee_currency']),
+                            ),
                         )
+                    elif event == 'finish':
+                        time = data['update_time'] * 1000
+                        if data['left'] == '0':
+                            yield OrderUpdate.Done(
+                                client_id=client_id,
+                                time=time,
+                            )
+                        else:
+                            yield OrderUpdate.Cancelled(
+                                client_id=client_id,
+                                time=time,
+                            )
                     else:
-                        yield OrderUpdate.Cancelled(
-                            client_id=client_id,
-                            time=time,
-                        )
-                else:
-                    raise NotImplementedError()
+                        raise NotImplementedError()
 
         # TODO: unsubscribe
         async with self._session.ws_connect(_WS_URL) as ws:

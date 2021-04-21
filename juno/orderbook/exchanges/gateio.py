@@ -19,11 +19,15 @@ class GateIO(Exchange):
         content = await self._session.request_json(
             'GET',
             '/api/v4/spot/order_book',
-            params={'currency_pair': to_symbol(symbol)},
+            params={
+                'currency_pair': to_symbol(symbol),
+                'with_id': 'true',
+            },
         )
         return Depth.Snapshot(
             asks=[(Decimal(price), Decimal(size)) for price, size in content['asks']],
             bids=[(Decimal(price), Decimal(size)) for price, size in content['bids']],
+            last_id=content['id'],
         )
 
     @asynccontextmanager
