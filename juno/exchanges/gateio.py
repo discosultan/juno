@@ -249,6 +249,52 @@ class GateIO(Exchange):
             })
             yield inner(ws)
 
+    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
+        assert account == 'spot'
+        result = {}
+        content = await self._request_signed_json('GET', '/api/v4/spot/accounts')
+        result['spot'] = {
+            balance['currency'].lower(): Balance(
+                available=Decimal(balance['available']),
+                hold=Decimal(balance['locked']),
+            ) for balance in content
+        }
+        return result
+
+    @asynccontextmanager
+    async def connect_stream_balances(
+        self, account: str
+    ) -> AsyncIterator[AsyncIterable[dict[str, Balance]]]:
+        assert account == 'spot'
+        channel = 'spot.balances'
+
+        # https://www.gateio.pro/docs/apiv4/ws/index.html#client-subscription-9
+        async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[dict[str, Balance]]:
+            async for msg in ws:
+                data = json.loads(msg.data)
+
+                if data['channel'] != channel or data['event'] != 'update':
+                    continue
+
+                yield {
+                    b['currency'].lower(): Balance(
+                        available=(available := Decimal(b['available'])),
+                        hold=Decimal(b['total']) - available,
+                    ) for b in data['result']
+                }
+
+        # TODO: unsubscribe
+        async with self._session.ws_connect(_WS_URL) as ws:
+            time_sec = int(time.time())
+            event = 'subscribe'  # 'unsubscribe' for unsubscription
+            await ws.send_json({
+                'time': time_sec,
+                'channel': channel,
+                'event': event,
+                'auth': self._gen_ws_sign(channel, event, time_sec),
+            })
+            yield inner(ws)
+
     @asynccontextmanager
     async def _request(
         self,
@@ -340,22 +386,6 @@ class GateIO(Exchange):
         s = f'channel={channel}&event={event}&time={timestamp}'
         sign = hmac.new(self._secret_key_bytes, s.encode('utf-8'), hashlib.sha512).hexdigest()
         return {'method': 'api_key', 'KEY': self._api_key, 'SIGN': sign}
-
-    async def map_balances(self, account: str) -> dict[str, dict[str, Balance]]:
-        assert account == 'spot'
-        raise NotImplementedError()
-        # result = {}
-        # _, content = await self._api_request(
-        #     'GET', '/api/v3/account', weight=5, security=_SEC_USER_DATA
-        # )
-        # result['spot'] = {
-        #     b['asset'].lower(): Balance(
-        #         available=Decimal(b['free']),
-        #         hold=Decimal(b['locked']),
-        #     )
-        #     for b in content['balances']
-        # }
-        # return result
 
     def map_candle_intervals(self) -> dict[int, int]:
         raise NotImplementedError()
