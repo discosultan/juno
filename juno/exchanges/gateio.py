@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import time
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from time import time
 from types import TracebackType
 from typing import Any, AsyncIterator, Optional
 from urllib.parse import urlencode
@@ -116,7 +116,7 @@ class Session(Exchange):
         data: Optional[str] = None,
     ) -> dict[str, str]:
         # https://www.gate.io/docs/apiv4/en/index.html#api-signature-string-generation
-        t = time.time()
+        t = time()
         m = hashlib.sha512()
         m.update((data or '').encode('utf-8'))
         hashed_payload = m.hexdigest()

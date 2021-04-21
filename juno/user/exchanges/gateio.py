@@ -12,7 +12,7 @@ from juno.utils import short_uuid4
 
 class GateIO(Exchange):
     def __init__(self, session: Session) -> None:
-        self._session = Session
+        self._session = session
 
     def generate_client_id(self) -> str:
         return short_uuid4()
@@ -45,7 +45,7 @@ class GateIO(Exchange):
                     continue
 
                 yield {
-                    b['currency'].lower(): Balance(
+                    from_asset(b['currency']): Balance(
                         available=(available := Decimal(b['available'])),
                         hold=Decimal(b['total']) - available,
                     ) for b in data['result']
@@ -156,7 +156,7 @@ class GateIO(Exchange):
                             price=Decimal(data['price']),
                             size=Decimal(data['amount']),
                             fee=Decimal(data['fee']),
-                            fee_asset=data['fee_currency'].lower(),
+                            fee_asset=from_asset(data['fee_currency']),
                         ),
                     )
                 elif event == 'finish':
