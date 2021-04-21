@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import time
 from contextlib import asynccontextmanager
 from decimal import Decimal
+from time import time
 from types import TracebackType
 from typing import Any, AsyncIterable, AsyncIterator, Optional
 from urllib.parse import urlencode
@@ -118,7 +118,7 @@ class GateIO(Exchange):
         # TODO: unsubscribe
         async with self._session.ws_connect(_WS_URL) as ws:
             await ws.send_json({
-                'time': int(time.time()),
+                'time': int(time()),
                 'channel': channel,
                 'event': 'subscribe',  # 'unsubscribe' for unsubscription
                 'payload': [_to_symbol(symbol), '100ms' if self._high_precision else '1000ms'],
@@ -218,7 +218,7 @@ class GateIO(Exchange):
                             price=Decimal(data['price']),
                             size=Decimal(data['amount']),
                             fee=Decimal(data['fee']),
-                            fee_asset=data['fee_currency'].lower(),
+                            fee_asset=_from_asset(data['fee_currency']),
                         ),
                     )
                 elif event == 'finish':
@@ -238,7 +238,7 @@ class GateIO(Exchange):
 
         # TODO: unsubscribe
         async with self._session.ws_connect(_WS_URL) as ws:
-            time_sec = int(time.time())
+            time_sec = int(time())
             event = 'subscribe'  # 'unsubscribe' for unsubscription
             await ws.send_json({
                 'time': time_sec,
@@ -254,7 +254,7 @@ class GateIO(Exchange):
         result = {}
         content = await self._request_signed_json('GET', '/api/v4/spot/accounts')
         result['spot'] = {
-            balance['currency'].lower(): Balance(
+            _from_asset(balance['currency']): Balance(
                 available=Decimal(balance['available']),
                 hold=Decimal(balance['locked']),
             ) for balance in content
@@ -277,7 +277,7 @@ class GateIO(Exchange):
                     continue
 
                 yield {
-                    b['currency'].lower(): Balance(
+                    _from_asset(b['currency']): Balance(
                         available=(available := Decimal(b['available'])),
                         hold=Decimal(b['total']) - available,
                     ) for b in data['result']
@@ -285,7 +285,7 @@ class GateIO(Exchange):
 
         # TODO: unsubscribe
         async with self._session.ws_connect(_WS_URL) as ws:
-            time_sec = int(time.time())
+            time_sec = int(time())
             event = 'subscribe'  # 'unsubscribe' for unsubscription
             await ws.send_json({
                 'time': time_sec,
@@ -374,7 +374,7 @@ class GateIO(Exchange):
         data: Optional[str] = None,
     ) -> dict[str, str]:
         # https://www.gate.io/docs/apiv4/en/index.html#api-signature-string-generation
-        t = time.time()
+        t = time()
         m = hashlib.sha512()
         m.update((data or '').encode('utf-8'))
         hashed_payload = m.hexdigest()
@@ -438,6 +438,10 @@ class GateIO(Exchange):
         #             c[0], Decimal(c[1]), Decimal(c[2]), Decimal(c[3]), Decimal(c[4]),
         #             Decimal(c[5]), True
         #         )
+
+
+def _from_asset(asset: str) -> str:
+    return asset.lower()
 
 
 def _from_symbol(symbol: str) -> str:
