@@ -99,3 +99,12 @@ def test_lerp() -> None:
 
 def test_rpstdev() -> None:
     assert math.rpstdev([Decimal('10.0'), Decimal('30.0')]) == Decimal('0.5')
+
+
+@pytest.mark.parametrize('precision,expected_output', [
+    (0, Decimal('1.0')),
+    (1, Decimal('0.1')),
+    (2, Decimal('0.01')),
+])
+def test_precision_to_decimal(precision: int, expected_output: Decimal) -> None:
+    assert math.precision_to_decimal(precision) == expected_output
