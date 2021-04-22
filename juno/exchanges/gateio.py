@@ -223,7 +223,7 @@ class GateIO(Exchange):
                     elif event == 'update':
                         yield OrderUpdate.Match(
                             client_id=client_id,
-                            fill=Fill(
+                            fill=Fill.with_computed_quote(
                                 price=Decimal(data['price']),
                                 size=Decimal(data['amount']),
                                 fee=Decimal(data['fee']),
