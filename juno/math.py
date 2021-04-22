@@ -79,3 +79,11 @@ def annualized(duration: int, value: Decimal) -> Decimal:
         return (1 + value)**(1 / n) - 1
     except Overflow:
         return Decimal('Inf')
+
+
+def precision_to_decimal(precision: int) -> Decimal:
+    if precision < 0:
+        raise ValueError(f'Precision must be positive but got {precision}')
+    if precision == 0:
+        return Decimal('1.0')
+    return Decimal('0.' + (precision - 1) * '0' + '1')

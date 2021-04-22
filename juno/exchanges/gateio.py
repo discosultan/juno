@@ -15,8 +15,9 @@ from juno.common import (
     OrderUpdate, Side, TimeInForce
 )
 from juno.errors import OrderMissing, OrderWouldBeTaker
-from juno.filters import Price, Size
+from juno.filters import MinNotional, Price, Size
 from juno.http import ClientResponse, ClientSession
+from juno.math import precision_to_decimal
 from juno.utils import short_uuid4
 
 from .exchange import Exchange
@@ -59,21 +60,24 @@ class GateIO(Exchange):
             fee = Decimal(pair['fee']) / 100
             fees[symbol] = Fees(maker=fee, taker=fee)
             filters[symbol] = Filters(
-                base_precision=pair['precision'],
-                quote_precision=pair['amount_precision'],
+                base_precision=(base_precision := pair['precision']),
+                quote_precision=(quote_precision := pair['amount_precision']),
                 size=Size(
                     min=(
                         Decimal('0.0') if (min_base_amount := pair.get('min_base_amount')) is None
                         else Decimal(min_base_amount)
                     ),
+                    step=precision_to_decimal(base_precision),  # type: ignore
                 ),
                 price=Price(
-                    min=(
-                        Decimal('0.0')
-                        if (min_quote_amount := pair.get('min_quote_amount')) is None
-                        else Decimal(min_quote_amount)
+                    step=precision_to_decimal(quote_precision),  # type: ignore
+                ),
+                min_notional=MinNotional(
+                    min_notional=(
+                        Decimal('0.0') if (min_quote_amount := pair.get('min_quote_amount'))
+                        is None else Decimal(min_quote_amount)
                     ),
-                )
+                ),
             )
 
         return ExchangeInfo(
