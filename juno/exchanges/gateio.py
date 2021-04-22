@@ -142,6 +142,10 @@ def to_symbol(symbol: str) -> str:
     return symbol.upper().replace('-', '_')
 
 
+def from_timestamp(timestamp: str) -> int:
+    return int(timestamp) * 1000
+
+
 def to_decimal(value: Decimal) -> str:
     # Converts from scientific notation.
     # 6.4E-7 -> 0.0000_0064

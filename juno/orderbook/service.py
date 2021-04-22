@@ -249,7 +249,7 @@ class Orderbook:
                     # missing depth update, we retry.
                     if update.first_id > last_update_id + 1:
                         _log.warning(
-                            f'{symbol} orderbook out of sync: {update.first_id=} != '
+                            f'{symbol} orderbook out of sync: {update.first_id=} > '
                             f'{last_update_id=} + 1; refetching snapshot'
                         )
                         raise _MissingDepth()

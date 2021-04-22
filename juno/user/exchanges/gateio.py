@@ -4,7 +4,7 @@ from time import time
 from typing import Any, AsyncIterable, AsyncIterator, Optional
 
 import juno.json as json
-from juno.exchanges.gateio import Session, from_asset, to_decimal, to_symbol
+from juno.exchanges.gateio import Session, from_asset, from_timestamp, to_decimal, to_symbol
 from juno.user import Balance, OrderResult, OrderStatus, OrderType, OrderUpdate
 from juno.user.exchanges import Exchange
 from juno.utils import short_uuid4
@@ -108,7 +108,7 @@ class GateIO(Exchange):
         assert content['status'] != 'cancelled'
 
         return OrderResult(
-            time=int(content['create_time']) * 1000,
+            time=from_timestamp(content['create_time']),
             status=OrderStatus.NEW,
         )
 
@@ -128,7 +128,7 @@ class GateIO(Exchange):
 
         async with self._session.request_signed(
             'DELETE',
-            f'/api/v4/spot/orders/{client_id}',
+            f'/api/v4/spot/orders/t-{client_id}',
             params=params,
         ) as response:
             if response.status == 400:
@@ -148,19 +148,19 @@ class GateIO(Exchange):
         async def inner(ws: AsyncIterable[Any]) -> AsyncIterable[OrderUpdate.Any]:
             async for msg in ws:
                 data = json.loads(msg.data)
-                event = data['event']
 
-                if data['channel'] != channel or event not in ['put', 'update', 'finish']:
+                if data['channel'] != channel or data['event'] != 'update':
                     continue
 
                 for data in data['result']:
                     client_id = data['text'][2:]
+                    event = data['event']
                     if event == 'put':
                         yield OrderUpdate.New(client_id=client_id)
                     elif event == 'update':
                         yield OrderUpdate.Match(
                             client_id=client_id,
-                            fill=Fill(
+                            fill=Fill.with_computed_quote(
                                 price=Decimal(data['price']),
                                 size=Decimal(data['amount']),
                                 fee=Decimal(data['fee']),
@@ -168,8 +168,17 @@ class GateIO(Exchange):
                             ),
                         )
                     elif event == 'finish':
-                        time = data['update_time'] * 1000
+                        time = from_timestamp(data['update_time'])
                         if data['left'] == '0':
+                            yield OrderUpdate.Match(
+                                client_id=client_id,
+                                fill=Fill.with_computed_quote(
+                                    price=Decimal(data['price']),
+                                    size=Decimal(data['amount']),
+                                    fee=Decimal(data['fee']),
+                                    fee_asset=from_asset(data['fee_currency']),
+                                ),
+                            )
                             yield OrderUpdate.Done(
                                 client_id=client_id,
                                 time=time,
