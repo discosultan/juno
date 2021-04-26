@@ -22,8 +22,8 @@ class GateIO(Exchange):
             fee = Decimal(pair['fee']) / 100
             fees[symbol] = Fees(maker=fee, taker=fee)
             filters[symbol] = Filters(
-                base_precision=pair['precision'],
-                quote_precision=pair['amount_precision'],
+                base_precision=pair['amount_precision'],
+                quote_precision=pair['precision'],
                 base_precision=(base_precision := pair['precision']),
                 quote_precision=(quote_precision := pair['amount_precision']),
                 size=Size(
